@@ -1,0 +1,33 @@
+# Local credentials and machine-specific configuration
+.env
+.env.*
+.vscode/
+config.php
+db.local.php
+
+# One-time setup, diagnostics, and deployment scripts
+my_secret_setup_xyz.php
+admin_watchdog.php
+*.ps1
+
+# Runtime and private data
+uploads/
+db_backup_before_reset.json
+db_*_result.json
+includes/phpqrcode/cache/
+includes/phpqrcode/temp/
+*.sql
+*.log
+
+# Private keys and certificates
+*.key
+*.pem
+*.p12
+*.pfx
+
+# OS and editor artifacts
+.DS_Store
+Thumbs.db
+
+# Locally downloaded build tools
+tools/*.exe

@@ -1,0 +1,34 @@
+<?php
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/public_legal_page.php';
+$pageTitle = 'Terms & Conditions';
+require_once __DIR__ . '/header.php';
+renderPublicLegalPage([
+    'eyebrow' => 'Website & Platform Terms',
+    'title' => 'Terms and Conditions',
+    'summary' => 'The rules that govern access to UniWeb websites, dashboards, APIs, test tools and any live service enabled through our banking and payment partners.',
+    'effective' => '19 July 2026',
+    'version' => '2026.07',
+    'notice' => '<strong>Important:</strong> Creating an account or using Test Mode does not guarantee Live Mode approval. Live services remain subject to KYC, risk review, commercial activation and partner availability.',
+    'sections' => [
+        ['Acceptance and scope', '<p>These Terms apply when you visit, register, access a dashboard, use an API, create a payment link or otherwise use UniWeb. If you use UniWeb for an organization, you confirm that you have authority to bind it. Merchant-specific services are also governed by the Merchant Services Agreement and any commercial schedule.</p>'],
+        ['Eligibility and account registration', '<p>You must be legally capable of entering a contract and provide complete, current information. Accounts are not transferable. We may verify email, mobile, business ownership, tax details, bank account and authorization of the person operating the account.</p>'],
+        ['Our platform and partner services', '<p>UniWeb provides software for onboarding, payment experiences, reporting, support and settlement workflows. Banking, acquiring, card-network, UPI, verification and payout functions may be delivered by third-party regulated partners. We do not claim a regulatory authorization or partner relationship unless it has actually been granted and disclosed.</p>'],
+        ['Test Mode and Live Mode', '<p>Test Mode uses simulated transactions and does not move real money. Live Mode is available only after approval and activation. Test credentials, sample results and demo settlements must not be represented as real payment confirmation.</p>'],
+        ['KYC and ongoing verification', '<p>Merchants must complete applicable KYC and business verification. We may request refreshed documents, beneficial-owner information, transaction evidence or video verification. Missing, expired, inconsistent or suspicious information may result in limits or suspension.</p>'],
+        ['Permitted use', '<p>You may use UniWeb only for lawful purposes and the approved business use case. You must comply with applicable tax, consumer, advertising, privacy and payment requirements and provide customers with accurate product, price, delivery, refund and contact information.</p>'],
+        ['Restricted conduct', '<p>You may not attempt unauthorized access, disrupt services, scrape protected data, introduce malicious code, test security without written permission, conceal transaction purpose, process for an undisclosed third party, or use the Platform for prohibited goods, fraud or money laundering.</p>'],
+        ['Payment orders and transaction status', '<p>A displayed payment state may depend on confirmation from a bank or gateway. “Pending” is not final payment proof. Merchants must rely on confirmed status and reconcile orders before delivery. Duplicate, reversed, timed-out or disputed transactions are handled under the relevant payment method and partner rules.</p>'],
+        ['Fees and taxes', '<p>Actual fees are those shown in the activated commercial schedule or Merchant Portal, not illustrative website examples. Fees may include platform, gateway, payment-method, refund, settlement and tax components. You remain responsible for taxes arising from your own business and customer sales.</p>'],
+        ['Settlements and adjustments', '<p>Settlement is made to the verified bank account after permitted deductions. Timelines may change because of holidays, bank processing, compliance review, disputes, reconciliation or outages. We may correct errors, recover negative balances and hold amounts reasonably linked to risk or legal obligations.</p>'],
+        ['Refunds, disputes and chargebacks', '<p>Merchants are responsible for customer service, fulfilment and their published refund policy. Refund and dispute outcomes may be controlled by the bank, gateway, issuer or network. Required evidence must be provided within stated timelines.</p>'],
+        ['Security responsibilities', '<p>Keep login credentials, OTPs, API keys and webhook secrets confidential. Use least-privilege staff access and promptly notify us of compromise. We may require password reset, multi-factor authentication, credential rotation or temporary restriction to protect the account.</p>'],
+        ['Availability and changes', '<p>We work to maintain reliable services but do not promise uninterrupted availability. Maintenance, partner outages, network failures, legal restrictions and events beyond reasonable control may affect service. Features may be changed or retired with reasonable notice where practicable.</p>'],
+        ['Intellectual property', '<p>UniWeb software, documentation, design and branding remain ours or our licensors’. You receive a limited right to use enabled features. Your business content remains yours, while you grant us the rights needed to host, process and display it for service delivery.</p>'],
+        ['Suspension and termination', '<p>We may suspend or terminate access for breach, security risk, false information, partner instruction, excessive disputes, unlawful activity or non-payment. You may stop using the Platform, but outstanding refunds, disputes, fees, records and settlement obligations survive.</p>'],
+        ['Disclaimers and liability', '<p>Services are provided subject to applicable law and third-party dependencies. Neither party is liable for indirect or consequential loss to the extent law permits. Nothing in these Terms limits liability that cannot legally be limited, including fraud or wilful misconduct.</p>'],
+        ['Updates and communications', '<p>We may update these Terms for product, legal, security or partner changes. The effective date and version will be shown here. Material updates may be communicated by email or Portal notice and may require renewed acceptance.</p>'],
+        ['Governing law and grievances', '<p>Indian law governs these Terms. Please first raise a grievance through our support channel so the matter can be investigated. Subject to mandatory law, disputes are handled by courts having jurisdiction over our registered office.</p>'],
+    ],
+]);
+require_once __DIR__ . '/footer.php';

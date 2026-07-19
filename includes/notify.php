@@ -1,0 +1,330 @@
+<?php
+declare(strict_types=1);
+
+function sendSMS(string $phone, string $message): bool
+{
+    $apiKey = getSetting('sms_api_key', '');
+    $sender = getSetting('sms_sender_id', 'UNIWEB');
+    if (!$apiKey) return false;
+    $phone = preg_replace('/\D/', '', $phone);
+    if (strlen($phone) === 10) $phone = '91' . $phone;
+    $templateId = getSetting('sms_template_id', '');
+    if ($templateId) {
+        $url = 'https://control.msg91.com/api/v5/flow/';
+        $payload = json_encode(['template_id' => $templateId, 'recipients' => [['mobiles' => $phone, 'var' => $message]]]);
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => ['authkey: ' . $apiKey, 'Content-Type: application/json'],
+            CURLOPT_POSTFIELDS => $payload, CURLOPT_TIMEOUT => 15,
+        ]);
+        $res = curl_exec($ch);
+        curl_close($ch);
+        $ok = (bool)$res;
+    } else {
+        $ok = sendTransactionalSms($phone, $message);
+    }
+    try { getDB()->prepare('INSERT INTO sms_logs (phone, message, status) VALUES (?,?,?)')->execute([$phone, $message, $ok ? 'sent' : 'failed']); } catch (Throwable $e) {}
+    return $ok;
+}
+
+function sendTransactionalSms(string $phone, string $message): bool
+{
+    $apiKey = getSetting('sms_api_key', '');
+    if (!$apiKey) {
+        return false;
+    }
+    $phone = preg_replace('/\D/', '', $phone);
+    if (strlen($phone) === 10) {
+        $phone = '91' . $phone;
+    }
+    $sender = rawurlencode(getSetting('sms_sender_id', 'UNIWEB'));
+    $msg = rawurlencode($message);
+    $url = "https://api.msg91.com/api/sendhttp.php?authkey={$apiKey}&mobiles={$phone}&message={$msg}&sender={$sender}&route=4&country=91";
+    $ctx = stream_context_create(['http' => ['timeout' => 15]]);
+    $res = @file_get_contents($url, false, $ctx);
+    if ($res === false || $res === '') {
+        return false;
+    }
+    return stripos((string)$res, 'error') === false;
+}
+
+function sendWhatsAppReminder(string $phone, string $message): bool
+{
+    $result = sendWhatsAppTextMessage($phone, $message);
+    return $result['ok'];
+}
+
+function whatsappMessagesApiUrl(): string
+{
+    $custom = trim(getSetting('whatsapp_api_url', ''));
+    if ($custom !== '') {
+        return $custom;
+    }
+    $phoneId = trim(getSetting('whatsapp_phone_id', ''));
+    return 'https://graph.facebook.com/v19.0/' . rawurlencode($phoneId) . '/messages';
+}
+
+function normalizeWhatsAppPhone(string $phone): string
+{
+    $phone = preg_replace('/\D/', '', $phone);
+    if (strlen($phone) === 10) {
+        $phone = '91' . $phone;
+    }
+    return $phone;
+}
+
+/** @return array{ok:bool,channel:string,http:int,message:string} */
+function sendWhatsAppApiPayload(string $phone, array $payload): array
+{
+    $token = trim(getSetting('whatsapp_api_token', ''));
+    if ($token === '' || !function_exists('curl_init')) {
+        return ['ok' => false, 'channel' => 'none', 'http' => 0, 'message' => 'WhatsApp API not configured'];
+    }
+    $phone = normalizeWhatsAppPhone($phone);
+    $payload['messaging_product'] = 'whatsapp';
+    $payload['to'] = $phone;
+    $ch = curl_init(whatsappMessagesApiUrl());
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token, 'Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => json_encode($payload),
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_TIMEOUT => 15,
+    ]);
+    $body = (string)curl_exec($ch);
+    $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err = curl_error($ch);
+    curl_close($ch);
+    if ($err) {
+        return ['ok' => false, 'channel' => 'api', 'http' => $http, 'message' => $err];
+    }
+    if ($http >= 200 && $http < 300) {
+        return ['ok' => true, 'channel' => 'api', 'http' => $http, 'message' => 'sent'];
+    }
+    $data = json_decode($body, true);
+    $msg = $data['error']['message'] ?? ('HTTP ' . $http);
+    return ['ok' => false, 'channel' => 'api', 'http' => $http, 'message' => $msg];
+}
+
+/** @return array{ok:bool,channel:string,http:int,message:string} */
+function sendWhatsAppTextMessage(string $phone, string $message): array
+{
+    return sendWhatsAppApiPayload($phone, [
+        'type' => 'text',
+        'text' => ['body' => $message],
+    ]);
+}
+
+/** @return array{ok:bool,channel:string,http:int,message:string} */
+function sendWhatsAppOtp(string $phone, string $otp): array
+{
+    if (getSetting('whatsapp_enabled', '0') !== '1') {
+        return ['ok' => false, 'channel' => 'disabled', 'http' => 0, 'message' => 'WhatsApp disabled'];
+    }
+
+    $template = trim(getSetting('whatsapp_otp_template_name', 'uniweb_otp'));
+    $lang = trim(getSetting('whatsapp_otp_template_lang', 'en')) ?: 'en';
+    $useTemplate = getSetting('whatsapp_use_otp_template', '1') === '1';
+
+    if ($useTemplate && $template !== '') {
+        $templatePayload = [
+            'type' => 'template',
+            'template' => [
+                'name' => $template,
+                'language' => ['code' => $lang],
+                'components' => [[
+                    'type' => 'body',
+                    'parameters' => [['type' => 'text', 'text' => $otp]],
+                ]],
+            ],
+        ];
+        $result = sendWhatsAppApiPayload($phone, $templatePayload);
+        if ($result['ok']) {
+            $result['channel'] = 'template';
+            return $result;
+        }
+    }
+
+    $fallback = sendWhatsAppTextMessage($phone, "Your UniWeb login OTP is {$otp}. Valid 10 minutes. Do not share.");
+    $fallback['channel'] = 'text_fallback';
+    return $fallback;
+}
+
+/** @return array{ok:bool,message:string} */
+function testWhatsAppOtpDelivery(?string $phone = null): array
+{
+    $phone = $phone ?: COMPANY_PHONE;
+    $otp = (string)random_int(100000, 999999);
+    $result = sendWhatsAppOtp($phone, $otp);
+    if ($result['ok']) {
+        return ['ok' => true, 'message' => 'Test OTP sent via ' . $result['channel'] . ' to ' . normalizeWhatsAppPhone($phone)];
+    }
+    return ['ok' => false, 'message' => $result['message'] . ' (Meta business verification or template approval may still be pending.)'];
+}
+
+/** Try to discover WhatsApp Phone Number ID from Meta Graph API. */
+function discoverWhatsappPhoneId(string $token): ?string
+{
+    if (!function_exists('curl_init') || trim($token) === '') {
+        return null;
+    }
+
+    $graphGet = function (string $url) use ($token): ?array {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token],
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 12,
+        ]);
+        $body = curl_exec($ch);
+        curl_close($ch);
+        if (!$body) {
+            return null;
+        }
+        $data = json_decode((string)$body, true);
+        return is_array($data) ? $data : null;
+    };
+
+    $businesses = $graphGet('https://graph.facebook.com/v19.0/me/businesses?fields=id')['data'] ?? [];
+    foreach ($businesses as $business) {
+        $businessId = (string)($business['id'] ?? '');
+        if ($businessId === '') {
+            continue;
+        }
+        $wabas = $graphGet("https://graph.facebook.com/v19.0/{$businessId}/owned_whatsapp_business_accounts?fields=id")['data'] ?? [];
+        foreach ($wabas as $waba) {
+            $wabaId = (string)($waba['id'] ?? '');
+            if ($wabaId === '') {
+                continue;
+            }
+            $phones = $graphGet("https://graph.facebook.com/v19.0/{$wabaId}/phone_numbers?fields=id,display_phone_number")['data'] ?? [];
+            foreach ($phones as $phone) {
+                if (!empty($phone['id'])) {
+                    return (string)$phone['id'];
+                }
+            }
+        }
+    }
+
+    return null;
+}
+
+function saveGatewaySetting(string $key, string $value): void
+{
+    getDB()->prepare('INSERT INTO gateway_settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=?')
+        ->execute([$key, $value, $value]);
+    clearSettingCache($key);
+}
+
+/** @return array{ok:bool,message:string,phone_id?:string} */
+function testWhatsAppConnection(): array
+{
+    $token = trim(getSetting('whatsapp_api_token', ''));
+    $phoneId = trim(getSetting('whatsapp_phone_id', ''));
+    if ($token === '') {
+        return ['ok' => false, 'message' => 'WhatsApp API token not set.'];
+    }
+    if ($phoneId === '') {
+        $discovered = discoverWhatsappPhoneId($token);
+        if ($discovered) {
+            saveGatewaySetting('whatsapp_phone_id', $discovered);
+            $phoneId = $discovered;
+        }
+    }
+    if ($phoneId === '') {
+        return ['ok' => false, 'message' => 'WhatsApp Phone ID missing — paste it from Meta Business Manager.'];
+    }
+    if (!function_exists('curl_init')) {
+        return ['ok' => false, 'message' => 'PHP curl extension not enabled on server.'];
+    }
+
+    $ch = curl_init('https://graph.facebook.com/v19.0/' . rawurlencode($phoneId));
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token],
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_TIMEOUT => 10,
+    ]);
+    $body = curl_exec($ch);
+    $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err = curl_error($ch);
+    curl_close($ch);
+
+    if ($err) {
+        return ['ok' => false, 'message' => 'Connection failed: ' . $err];
+    }
+    if ($http === 200) {
+        $data = json_decode((string)$body, true);
+        $label = $data['verified_name'] ?? $data['display_phone_number'] ?? 'connected';
+        return ['ok' => true, 'message' => 'WhatsApp API connected — ' . $label, 'phone_id' => $phoneId];
+    }
+
+    $data = json_decode((string)$body, true);
+    $msg = $data['error']['message'] ?? ('HTTP ' . $http);
+    return ['ok' => false, 'message' => $msg];
+}
+
+function generateOTP(string $identifier, string $type = 'login'): string
+{
+    $code = (string)random_int(100000, 999999);
+    $expires = date('Y-m-d H:i:s', time() + 600);
+    $db = getDB();
+    $db->prepare('DELETE FROM otp_verifications WHERE identifier=? AND otp_type=?')->execute([$identifier, $type]);
+    $db->prepare('INSERT INTO otp_verifications (identifier, otp_code, otp_type, expires_at) VALUES (?,?,?,?)')->execute([$identifier, $code, $type, $expires]);
+    return $code;
+}
+
+function verifyOTP(string $identifier, string $code, string $type = 'login'): bool
+{
+    $stmt = getDB()->prepare('SELECT id FROM otp_verifications WHERE identifier=? AND otp_code=? AND otp_type=? AND expires_at > NOW() AND used=0');
+    $stmt->execute([$identifier, $code, $type]);
+    $row = $stmt->fetch();
+    if ($row) {
+        getDB()->prepare('UPDATE otp_verifications SET used=1 WHERE id=?')->execute([$row['id']]);
+        return true;
+    }
+    return false;
+}
+
+function isOTPEnabled(): bool
+{
+    if (getSetting('otp_login_enabled', '0') !== '1') {
+        return false;
+    }
+    // OTP login only when WhatsApp API is configured AND Meta health is green
+    if (getSetting('whatsapp_enabled', '0') !== '1'
+        || trim(getSetting('whatsapp_api_token', '')) === ''
+        || trim(getSetting('whatsapp_phone_id', '')) === '') {
+        return false;
+    }
+    // Fail closed until health check proves Meta is green (set by platformHealthSummary)
+    return getSetting('whatsapp_otp_healthy', '0') === '1';
+}
+
+/** Send login OTP via WhatsApp API (if configured) + email backup. Returns wa.me link when API not used. */
+function sendLoginOtpViaWhatsAppAndEmail(array $merchant, string $otp): array
+{
+    $msg = "Your UniWeb login OTP is {$otp}. Valid 10 minutes.";
+    $phone = preg_replace('/\D/', '', (string)($merchant['phone'] ?? ''));
+    $waSent = false;
+    $waUrl = null;
+    if (strlen($phone) >= 10) {
+        if (getSetting('whatsapp_enabled', '0') === '1') {
+            $waResult = sendWhatsAppOtp($phone, $otp);
+            $waSent = $waResult['ok'];
+        }
+        if (!$waSent) {
+            $p = strlen($phone) === 10 ? '91' . $phone : $phone;
+            $waUrl = 'https://wa.me/' . $p . '?text=' . rawurlencode($msg);
+        }
+    }
+    $emailSent = false;
+    $email = trim((string)($merchant['email'] ?? ''));
+    if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $emailSent = sendPlatformEmail($email, 'Your UniWeb login OTP', $msg);
+    }
+    return ['whatsapp_sent' => $waSent, 'whatsapp_url' => $waUrl, 'email_sent' => $emailSent];
+}

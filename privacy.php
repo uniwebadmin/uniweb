@@ -1,0 +1,33 @@
+<?php
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/public_legal_page.php';
+$pageTitle = 'Privacy Policy';
+require_once __DIR__ . '/header.php';
+renderPublicLegalPage([
+    'eyebrow' => 'Data Protection',
+    'title' => 'Privacy Policy',
+    'summary' => 'A clear explanation of the information UniWeb receives, why it is used, when it may be shared, how long it is retained and the choices available to you.',
+    'effective' => '19 July 2026',
+    'version' => '2026.07',
+    'notice' => '<strong>Privacy commitment:</strong> UniWeb does not sell personal information. Payment credentials such as card PIN, CVV and UPI PIN must be entered only on authorized bank or payment-partner interfaces and should never be sent to UniWeb support.',
+    'sections' => [
+        ['Scope and roles', '<p>This Policy applies to UniWeb websites, merchant and staff portals, checkout experiences, APIs, support channels and onboarding. Depending on the activity, UniWeb may act as the organization deciding how data is used or as a service provider processing data for a merchant or payment partner.</p>'],
+        ['Information you provide', '<p>We may receive your name, email, mobile number, address, date of birth, business details, ownership information, tax identifiers, PAN, GSTIN, Udyam or incorporation information, bank-account proof, KYC documents, video verification, support messages and information submitted through forms.</p>'],
+        ['Customer and transaction information', '<p>When a payment experience is used, we may process order reference, amount, currency, customer contact information provided by the merchant, payment method category, transaction identifier, UTR, status, timestamps, refunds, disputes and settlement records. Sensitive payment authentication is handled by the relevant authorized provider.</p>'],
+        ['Information collected automatically', '<p>We may collect IP address, browser and device characteristics, login and session events, referring page, approximate location derived from IP, cookies, API requests, error logs and security signals. These records help operate the service, investigate failures and prevent abuse.</p>'],
+        ['Sources of information', '<p>Information may come directly from you, the merchant you pay, authorized staff, banks, payment gateways, identity or bank-verification providers, public business registries, fraud-prevention services and authorities acting under law.</p>'],
+        ['Purposes of processing', '<ul><li>Register and authenticate users and manage account permissions.</li><li>Perform KYC, business verification, sanctions screening and risk review.</li><li>Initiate, route, confirm, reconcile, refund and report transactions.</li><li>Prevent fraud, secure accounts and investigate incidents.</li><li>Provide support, service notices and requested communication.</li><li>Meet accounting, tax, contractual, partner and legal duties.</li><li>Improve product reliability using aggregated or appropriately protected analytics.</li></ul>'],
+        ['KYC and identity documents', '<p>KYC information is accessed only for approved onboarding, compliance, risk, support or legal purposes. We seek only information reasonably required for the applicable entity type and partner process. Do not upload unnecessary documents or place identification numbers in open support messages.</p>'],
+        ['Sharing and service providers', '<p>We may share the minimum required information with banks, gateways, payout and verification partners, hosting and communication vendors, professional advisers and auditors. We may also disclose information to government, regulator, court or law-enforcement authorities where lawfully required, or to protect users and the Platform.</p>'],
+        ['Business transfers', '<p>If UniWeb is involved in a merger, financing, acquisition, reorganization or asset transfer, information may be reviewed and transferred subject to confidentiality and applicable law. Users will be notified where required.</p>'],
+        ['Storage and international processing', '<p>We aim to store and process payment-related information in accordance with applicable Indian localization requirements and partner obligations. Some support or infrastructure vendors may process limited information in other locations only where legally and contractually permitted with appropriate safeguards.</p>'],
+        ['Retention and deletion', '<p>We retain information only for as long as needed for service, disputes, fraud prevention, audit, tax, accounting, partner and legal requirements. Transaction and KYC records may need to be retained after account closure. When retention is no longer required, information is deleted, anonymized or securely isolated.</p>'],
+        ['Security practices', '<p>We use layered controls such as encrypted transport, secure session settings, access restrictions, credential rotation, activity logging, backups and vulnerability remediation. No system can guarantee absolute security. Please report suspected compromise immediately and never share OTPs, passwords, API secrets or payment PINs.</p>'],
+        ['Cookies and local storage', '<p>Essential cookies and browser storage keep users signed in, remember security and display preferences and protect requests. We may use limited analytics needed to understand service performance. Browser settings can remove cookies, but essential functionality may then stop working.</p>'],
+        ['Your choices and rights', '<p>Subject to applicable law and identity verification, you may ask to access, correct or update your information, withdraw optional consent, close an account or raise a grievance. A deletion request may be limited where records must be preserved for payments, disputes, fraud prevention or law.</p>'],
+        ['Communications', '<p>Operational, security, payment and legal notices are part of the service. Optional promotional messages will include an opt-out where required. Opting out of marketing does not stop essential account or transaction communication.</p>'],
+        ['Children', '<p>UniWeb merchant services are intended for adults and legally formed businesses. We do not knowingly onboard children as merchants. If you believe a child’s information was submitted without lawful authorization, contact us for review.</p>'],
+        ['Policy changes and grievance contact', '<p>We may update this Policy as products or laws change. The effective date and version appear above. Privacy requests can be sent to <a href="mailto:privacy@uniweb.co.in">privacy@uniweb.co.in</a> or our support address. We may verify identity before acting on a request.</p>'],
+    ],
+]);
+require_once __DIR__ . '/footer.php';

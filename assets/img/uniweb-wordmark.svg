@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 48" width="220" height="48" role="img" aria-label="UniWeb">
+  <defs>
+    <linearGradient id="wm" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+  <text x="0" y="36" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="34" font-weight="800" fill="#f8fafc" letter-spacing="-1">Uni</text>
+  <text x="72" y="36" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="34" font-weight="800" fill="url(#wm)" letter-spacing="-0.5">Web</text>
+  <text x="0" y="46" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="8" font-weight="600" fill="#64748b" letter-spacing="2.5">FINTECH PAYMENTS</text>
+</svg>

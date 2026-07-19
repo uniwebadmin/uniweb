@@ -1,0 +1,92 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "UniWeb Merchant API",
+    "version": "1.0.0",
+    "description": "REST API for payment links, transactions, refunds, and balance. Authenticate with X-API-Key header."
+  },
+  "servers": [{ "url": "https://uniweb.co.in" }],
+  "paths": {
+    "/api.php": {
+      "post": {
+        "summary": "Merchant API",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["action"],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "create_payment_link",
+                      "check_status",
+                      "list_transactions",
+                      "get_balance",
+                      "create_refund",
+                      "list_refunds",
+                      "list_payment_links",
+                      "get_payment_link"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Success" },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Invalid API key" },
+          "403": { "description": "Mode mismatch" },
+          "404": { "description": "Not found" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    },
+    "schemas": {
+      "WebhookPayload": {
+        "type": "object",
+        "properties": {
+          "event": { "type": "string", "example": "payment.success" },
+          "timestamp": { "type": "integer" },
+          "data": { "type": "object" }
+        }
+      }
+    }
+  },
+  "security": [{ "ApiKeyAuth": [] }],
+  "x-webhooks": {
+    "payment.success": {
+      "post": {
+        "summary": "Outbound webhook to merchant URL",
+        "description": "HMAC-SHA256 signature in X-UniWeb-Signature header over raw JSON body.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/WebhookPayload" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

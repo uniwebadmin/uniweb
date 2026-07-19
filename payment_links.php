@@ -1,0 +1,213 @@
+<?php
+require_once __DIR__ . '/config.php';
+requireLogin();
+ensurePaymentPackSchema();
+$merchant = getMerchant();
+$db = getDB();
+$catalog = getPaymentMethodCatalog();
+$enabledMethods = getMerchantEnabledMethods($merchant);
+$methodChoices = [
+    '' => ['label' => 'All enabled methods', 'hint' => 'Customer chooses UPI / Card / etc. on checkout'],
+];
+foreach ($enabledMethods as $mk) {
+    if (!isset($catalog[$mk])) {
+        continue;
+    }
+    $methodChoices[$mk] = [
+        'label' => $catalog[$mk]['label'],
+        'hint' => 'Dedicated ' . $catalog[$mk]['label'] . ' checkout',
+    ];
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    $amount = (float)($_POST['amount'] ?? 0);
+    $isTest = isMerchantPaymentTest($merchant);
+    $amount = sanitizePaymentAmount($amount, $isTest);
+    $methodKey = trim((string)($_POST['payment_method'] ?? ''));
+    if ($methodKey !== '' && !isset($methodChoices[$methodKey])) {
+        $methodKey = '';
+    }
+    if ($amount < 1) {
+        flash('error', $isTest ? 'Test mode: amount ₹1–₹100 only.' : 'Minimum amount is ₹1.');
+    } else {
+        if (!$isTest) {
+            requireKycDocumentsUploaded();
+        }
+        $isTestFlag = $isTest ? 1 : 0;
+        $linkId = generateId('LNK');
+        $expiresAt = date('Y-m-d H:i:s', time() + (int)($_POST['expiry_hours'] ?? 24) * 3600);
+        $description = trim($_POST['description'] ?? '');
+        $customerName = trim($_POST['customer_name'] ?? '');
+        $customerPhone = trim($_POST['customer_phone'] ?? '');
+        $gateway = null;
+        $label = null;
+        $collMode = null;
+        if ($methodKey !== '' && isset($catalog[$methodKey])) {
+            $gateway = $catalog[$methodKey]['gateway'];
+            $label = $catalog[$methodKey]['label'];
+            $collMode = $catalog[$methodKey]['collection_mode'];
+            if ($description === '') {
+                $description = 'Payment — ' . $label;
+            }
+        }
+        try {
+            $db->prepare('INSERT INTO payment_links (link_id,merchant_id,amount,description,customer_name,customer_phone,expires_at,is_test,payment_method,gateway_code,link_label,link_collection_mode) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+                ->execute([
+                    $linkId, $merchant['id'], $amount, $description, $customerName, $customerPhone,
+                    $expiresAt, $isTestFlag, $methodKey !== '' ? $methodKey : null, $gateway, $label, $collMode,
+                ]);
+        } catch (Throwable $e) {
+            $db->prepare('INSERT INTO payment_links (link_id,merchant_id,amount,description,customer_name,customer_phone,expires_at,is_test) VALUES (?,?,?,?,?,?,?,?)')
+                ->execute([$linkId, $merchant['id'], $amount, $description, $customerName, $customerPhone, $expiresAt, $isTestFlag]);
+        }
+        flash('success', 'Payment link created' . ($label ? ' for ' . $label : '') . '!');
+        if ($isTest) {
+            flash('info', 'Test Mode — sandbox only, no real money.');
+        }
+        redirect('payment_links.php');
+    }
+}
+
+ensurePaymentLinkAnalytics();
+$pageTitle = 'Payment Links';
+$testMode = isDashboardTestMode($merchant);
+$modeFilter = $testMode ? 1 : 0;
+$q = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
+$linkStatus = trim($_GET['status'] ?? 'all');
+if (!in_array($linkStatus, ['all', 'paid', 'unpaid', 'active', 'inactive', 'expired'], true)) $linkStatus = 'all';
+$linkWhere = 'pl.merchant_id = ? AND pl.is_test = ?';
+$linkParams = [$merchant['id'], $modeFilter];
+if ($q !== '') {
+    $like = '%' . strtolower($q) . '%';
+    $linkWhere .= " AND (LOWER(TRIM(COALESCE(pl.link_id,''))) LIKE ? OR LOWER(TRIM(COALESCE(pl.description,''))) LIKE ? OR LOWER(TRIM(COALESCE(pl.link_label,''))) LIKE ? OR LOWER(TRIM(COALESCE(pl.status,''))) LIKE ? OR CAST(pl.amount AS CHAR) LIKE ?)";
+    array_push($linkParams, $like, $like, $like, $like, $like);
+}
+if (in_array($linkStatus, ['active', 'inactive', 'expired'], true)) {
+    $linkWhere .= ' AND pl.status = ?';
+    $linkParams[] = $linkStatus;
+}
+$paidCountSql = "(SELECT COUNT(*) FROM transactions t WHERE t.payment_link_id = pl.id AND t.status = 'success')";
+$having = $linkStatus === 'paid' ? ' HAVING paid_count > 0' : ($linkStatus === 'unpaid' ? ' HAVING paid_count = 0' : '');
+$links = $db->prepare("SELECT pl.*, $paidCountSql AS paid_count FROM payment_links pl WHERE $linkWhere$having ORDER BY pl.created_at DESC LIMIT 50");
+$links->execute($linkParams);
+$paymentLinks = $links->fetchAll();
+require_once __DIR__ . '/header.php';
+$payuReady = isGatewayConfigured('payu');
+$rzpReady = isGatewayConfigured('razorpay');
+$cfReady = isGatewayConfigured('cashfree');
+?>
+<?php if ($testMode): ?>
+<div class="bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-3 mb-6 text-sm text-amber-300">
+    <?= accountModeBadge($merchant) ?> <?= merchantCanGoLive($merchant) ? 'Showing test payment links only. Switch to Live Mode for production links.' : 'Payment links are <strong>sandbox only</strong> until KYC is approved.' ?>
+</div>
+<?php endif; ?>
+
+<div class="glass rounded-xl p-4 mb-6 border border-sky-500/20 text-xs text-gray-400 flex flex-wrap items-center justify-between gap-3">
+    <p>
+        <strong class="text-sky-300">Tip:</strong> Choose <strong class="text-white">UPI</strong> for QR.
+        <strong class="text-amber-300">Test Mode</strong> = Instant Test Pay (sandbox).
+        <strong class="text-emerald-300">Live Mode</strong> = real UPI ID + UTR (or Axis/webhooks).
+        Card / Netbanking need PayU keys<?= $payuReady ? ' <span class="text-emerald-400">(configured)</span>' : ' <span class="text-amber-400">(not configured — Test Mode uses Instant Test)</span>' ?>.
+    </p>
+    <a href="merchant_payment_pack.php" class="text-sky-400 hover:text-sky-300 whitespace-nowrap">Payment Pack (₹1 per method) →</a>
+</div>
+<form method="GET" data-live-search-form data-results-target="payment-link-results" class="glass rounded-xl p-4 mb-6 border border-gray-800 flex flex-wrap gap-3 items-end">
+    <div class="flex-1 min-w-[220px]"><label class="text-[10px] text-gray-600 uppercase">Search payment links</label><input type="text" name="q" value="<?= e($q) ?>" placeholder="Link ID / Name / Amount / Status" class="input-field mt-1 text-sm" autocomplete="off"></div>
+    <div><label class="text-[10px] text-gray-600 uppercase">Status</label><select name="status" class="input-field mt-1 text-sm"><?php foreach (['all'=>'All','paid'=>'Paid','unpaid'=>'Unpaid','active'=>'Active','expired'=>'Expired','inactive'=>'Inactive'] as $sk=>$sl): ?><option value="<?= $sk ?>" <?= $linkStatus===$sk?'selected':'' ?>><?= $sl ?></option><?php endforeach; ?></select></div>
+    <button class="btn-primary px-4 py-2.5 text-sm">Filter</button>
+</form>
+
+<div class="grid lg:grid-cols-3 gap-6">
+    <div class="glass rounded-xl p-6">
+        <h2 class="font-semibold mb-4">Create Payment Link</h2>
+        <form method="POST" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <div>
+                <label class="text-sm text-gray-400">Amount (₹) *</label>
+                <input type="number" name="amount" required min="1" max="<?= $testMode ? 100 : 500000 ?>" step="0.01" class="input-field mt-1" placeholder="<?= $testMode ? '1–100 (test)' : 'Min ₹1' ?>" value="1">
+            </div>
+            <div>
+                <label class="text-sm text-gray-400">Payment method *</label>
+                <select name="payment_method" class="input-field mt-1">
+                    <?php foreach ($methodChoices as $val => $meta): ?>
+                    <option value="<?= e($val) ?>"><?= e($meta['label']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <p class="text-[11px] text-gray-600 mt-1">Dedicated method = customer sees only that option on checkout.</p>
+            </div>
+            <div>
+                <label class="text-sm text-gray-400">Description</label>
+                <input type="text" name="description" class="input-field mt-1" placeholder="Payment for...">
+            </div>
+            <div>
+                <label class="text-sm text-gray-400">Customer Name</label>
+                <input type="text" name="customer_name" class="input-field mt-1">
+            </div>
+            <div>
+                <label class="text-sm text-gray-400">Customer Phone</label>
+                <input type="tel" name="customer_phone" maxlength="10" class="input-field mt-1">
+            </div>
+            <div>
+                <label class="text-sm text-gray-400">Valid for (expiry)</label>
+                <select name="expiry_hours" class="input-field mt-1">
+                    <option value="1">1 Hour</option>
+                    <option value="6">6 Hours</option>
+                    <option value="24" selected>24 Hours</option>
+                    <option value="72">3 Days</option>
+                    <option value="168">7 Days</option>
+                </select>
+            </div>
+            <button type="submit" class="w-full btn-primary py-3">Generate Link</button>
+        </form>
+        <?php if (!$payuReady && !$rzpReady && !$cfReady): ?>
+        <p class="text-[11px] text-amber-400/90 mt-4">Card / Cashfree / Razorpay links need platform gateway keys in Admin → Gateway Settings. Until then use <strong>UPI</strong> or Test Instant Pay.</p>
+        <?php endif; ?>
+    </div>
+    <div id="payment-link-results" class="lg:col-span-2 glass rounded-xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap justify-between items-center gap-2">
+            <h2 class="font-semibold">Your Payment Links</h2>
+            <a href="merchant_payment_pack.php" class="text-xs text-sky-400">Generate ₹1 pack (all methods) →</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
+                    <th class="px-5 py-3 text-left">Link ID</th><th class="px-5 py-3 text-left">Method</th><th class="px-5 py-3 text-left">Amount</th>
+                    <th class="px-5 py-3 text-left">Views</th><th class="px-5 py-3 text-left">Paid</th><th class="px-5 py-3 text-left">Conv.</th><th class="px-5 py-3 text-left">Status</th><th class="px-5 py-3 text-left">Expires</th><th class="px-5 py-3 text-left">Action</th>
+                </tr></thead>
+                <tbody class="divide-y divide-gray-800">
+                    <?php if (empty($paymentLinks)): ?><tr><td colspan="9" class="p-0"><?= renderMerchantEmptyState(
+                        'No payment links yet',
+                        $testMode ? 'Create a link on the left (pick UPI or Card), or open Payment Pack for ₹1 method-wise test links.' : 'Create a live payment link to collect real payments.',
+                        'merchant_payment_pack.php',
+                        'Open Payment Pack →'
+                    ) ?></td></tr>
+                    <?php else: foreach ($paymentLinks as $link):
+                        $cat = $catalog[$link['payment_method'] ?? ''] ?? null;
+                        $payUrl = buildPaymentLinkUrl($link['link_id'], $cat['pay_key'] ?? null);
+                        $methodLabel = $link['link_label'] ?? ($cat['label'] ?? 'All Methods');
+                    ?>
+                    <tr>
+                        <td class="px-5 py-3 font-mono text-xs">
+                            <a href="<?= e($payUrl) ?>" target="_blank" class="text-sky-400 hover:underline"><?= e($link['link_id']) ?></a>
+                        </td>
+                        <td class="px-5 py-3 text-xs"><?= e($methodLabel) ?></td>
+                        <td class="px-5 py-3 font-semibold"><?= formatMoney(capStatAmount((float)$link['amount'])) ?></td>
+                        <td class="px-5 py-3 text-xs text-gray-400"><?= (int)($link['view_count'] ?? 0) ?></td>
+                        <td class="px-5 py-3 text-xs text-emerald-400"><?= (int)($link['paid_count'] ?? 0) ?></td>
+                        <td class="px-5 py-3 text-xs text-gray-400"><?php $v = (int)($link['view_count'] ?? 0); $p = (int)($link['paid_count'] ?? 0); echo $v > 0 ? round($p / $v * 100) . '%' : '—'; ?></td>
+                        <td class="px-5 py-3"><?= statusBadge($link['status']) ?></td>
+                        <td class="px-5 py-3 text-xs text-gray-500"><?= formatDate($link['expires_at']) ?></td>
+                        <td class="px-5 py-3 whitespace-nowrap">
+                            <?php if ($link['status'] === 'active'): ?>
+                            <a href="<?= e($payUrl) ?>" target="_blank" class="text-xs bg-sky-600/20 text-sky-400 px-3 py-1 rounded-lg mr-1">Open</a>
+                            <button type="button" onclick="navigator.clipboard.writeText('<?= e($payUrl) ?>');this.textContent='Copied!'" class="text-xs bg-brand-600/20 text-brand-400 px-3 py-1 rounded-lg">Copy</button>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<?php require_once __DIR__ . '/footer.php'; ?>

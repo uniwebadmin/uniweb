@@ -1,0 +1,38 @@
+Options -Indexes
+DirectoryIndex index.php
+
+<FilesMatch "\.(env|log|sql)$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "^(debug_|wallet_fix_|wallet_diagnose|update_v|my_secret_setup|night_setup|morning_ops|axis_probe|diag\.php|diag_|fix_|refresh_|update_mdr|update_axis_keys|platform_wallet_fix|db_reset_|db_backup_)">
+    Require all denied
+</FilesMatch>
+
+# Block diagnostic / setup leak pages by exact name
+<Files "diag.php">
+    Require all denied
+</Files>
+<Files "wallet_diagnose.php">
+    Require all denied
+</Files>
+<Files "debug_schema.php">
+    Require all denied
+</Files>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    RewriteCond %{HTTPS} off
+    RewriteCond %{HTTP_HOST} !^localhost [NC]
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Clean URLs (no .php in browser)
+    RewriteRule ^pay/([A-Za-z0-9]+)/?$ checkout.php?link=$1 [L,QSA]
+    RewriteRule ^checkout/([A-Za-z0-9]+)/?$ checkout.php?link=$1 [L,QSA]
+    RewriteRule ^demo/?$ demo.php [L]
+    RewriteRule ^register/?$ merchant_register.php [L]
+    RewriteRule ^login/?$ login.php [L]
+    RewriteRule ^admin/?$ admin_login.php [L]
+</IfModule>

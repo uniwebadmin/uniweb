@@ -1,0 +1,35 @@
+---
+description: UniWeb live prep — continuous auto mode without waiting for "next move"
+alwaysApply: true
+---
+
+# UniWeb Auto Mode (Live Prep)
+
+Work autonomously until the user explicitly stops or changes direction.
+
+## Default behavior
+
+- Do NOT wait for the user to type "next move", "continue", or "aage badho".
+- After finishing a task, immediately start the next highest-impact item for live launch.
+- Deploy fixes to live (SFTP) without asking, unless blocked by permissions.
+- UI text must stay English-only; Hindi is OK in chat with the user.
+
+## Live prep priorities (in order)
+
+1. Fix broken admin/merchant/staff/public pages and links
+2. Keep cron auto-audit green (`ok: true`, errors 0, broken links 0)
+3. KYC queue ready — admin can Verify from admin_kyc.php
+4. Gateway keys UI ready — user pastes keys when received
+5. Smoke-test: homepage, signup, demo, checkout, admin_website.php
+
+## When to pause and ask
+
+- Destructive git ops (force push, hard reset)
+- Committing unless user asked
+- Past partner API keys the user must provide
+- Genuinely ambiguous product decisions with no safe default
+
+## End of each turn
+
+Give a short status: what was done, what's live, what's still manual for the user.
+Do NOT ask "should I continue?" — just continue on the next turn.
