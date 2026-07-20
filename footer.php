@@ -45,8 +45,10 @@
                 <ul class="space-y-2 text-sm text-gray-500">
                     <li><a href="platform_demo.php" class="hover:text-brand-400 transition">Platform Tour</a></li>
                     <li><a href="demo.php" class="hover:text-brand-400 transition">Live Demo</a></li>
-                    <li><a href="index.php#pricing" class="hover:text-brand-400 transition">Pricing</a></li>
+                    <li><a href="solutions.php" class="hover:text-brand-400 transition">Solutions</a></li>
+                    <li><a href="pricing.php" class="hover:text-brand-400 transition">Pricing</a></li>
                     <li><a href="api_docs.php" class="hover:text-brand-400 transition">API Docs</a></li>
+                    <li><a href="status.php" class="hover:text-brand-400 transition">System Status</a></li>
                 </ul>
             </div>
             <div class="site-footer-card">
@@ -65,10 +67,11 @@
                 <p class="site-footer-heading text-sm font-semibold text-gray-300 mb-3">Legal</p>
                 <ul class="space-y-2 text-sm text-gray-500">
                     <li><a href="terms.php" class="hover:text-brand-400 transition">Terms</a></li>
-                    <li><a href="compliance.php" class="hover:text-brand-400 transition">Compliance</a></li>
                     <li><a href="privacy.php" class="hover:text-brand-400 transition">Privacy</a></li>
                     <li><a href="refund_policy.php" class="hover:text-brand-400 transition">Refund Policy</a></li>
-                    <li><a href="status.php" class="hover:text-brand-400 transition">System Status</a></li>
+                    <li><a href="business_agreement.php" class="hover:text-brand-400 transition">Merchant Agreement</a></li>
+                    <li><a href="compliance.php" class="hover:text-brand-400 transition">Compliance</a></li>
+                    <li><a href="trust.php" class="hover:text-brand-400 transition">Trust &amp; Security</a></li>
                 </ul>
             </div>
         </div>
