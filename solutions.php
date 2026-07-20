@@ -99,7 +99,7 @@ $products = [
         <div class="company-grid">
             <div class="company-card"><h3>Matches today</h3><p>Test/Live modes, payment links, QR, hosted checkout, KYC gates, wallet + settlements, refunds, staff RBAC, webhooks.</p></div>
             <div class="company-card"><h3>Partner-dependent</h3><p>Live cards/UPI money movement, PhonePe native, EMI/BNPL, Instant Settlement — need partner keys and commercial approval.</p></div>
-            <div class="company-card"><h3>Still building</h3><p>Merchant team invites, Payment Pages builder, full developer hub, case studies — see the <a href="roadmap.php" class="text-brand-400">roadmap</a>.</p></div>
+            <div class="company-card"><h3>Still building</h3><p>Payment Pages builder, full developer hub, case studies — see the <a href="roadmap.php" class="text-brand-400">roadmap</a>. Merchant team invites are live under Team in the dashboard.</p></div>
         </div>
     </div></section>
 

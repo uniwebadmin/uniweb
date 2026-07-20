@@ -6,6 +6,7 @@ $db = getDB();
 $merchantId = (int)$merchant['id'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '') && ($_POST['action'] ?? '') === 'transfer') {
+    requireMerchantTeamCapability('settle');
     $amount = (float)($_POST['amount'] ?? 0);
     $result = processMerchantSettlement($merchantId, $merchant, $amount);
     flash($result['ok'] ? 'success' : 'error', $result['ok'] ? $result['message'] : $result['error']);
@@ -17,6 +18,8 @@ $wallet = ensureMerchantWalletReady($merchantId);
 $isTest = (bool)($wallet['is_test'] ?? isMerchantTest($merchant));
 $balance = $wallet['balance'];
 $available = $wallet['available'];
+$pendingOut = (float)($wallet['pending_out'] ?? 0);
+$onHold = (float)($wallet['on_hold'] ?? 0);
 $minSettlement = getEffectiveMinSettlement($merchant, $available);
 $ledger = getMerchantWalletLedger($merchantId, 50);
 $canTransfer = $available >= $minSettlement;
@@ -33,6 +36,29 @@ require_once __DIR__ . '/header.php';
     <a href="settlements.php" class="text-sm px-4 py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:text-white">Settlements →</a>
 </div>
 
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="stat-card border border-sky-500/30 rounded-xl p-5 bg-sky-500/5">
+        <p class="text-[10px] text-gray-600 uppercase">Ledger balance</p>
+        <p class="text-2xl font-bold text-sky-400 mt-1"><?= walletMoney($balance, $isTest) ?></p>
+        <p class="text-[10px] text-gray-600 mt-1">Net credits after fees</p>
+    </div>
+    <div class="stat-card border border-emerald-500/30 rounded-xl p-5 bg-emerald-500/5">
+        <p class="text-[10px] text-gray-600 uppercase">Available to settle</p>
+        <p class="text-2xl font-bold text-emerald-400 mt-1"><?= walletMoney($available, $isTest) ?></p>
+        <p class="text-[10px] text-gray-600 mt-1">Ready for bank transfer</p>
+    </div>
+    <div class="stat-card border border-amber-500/20 rounded-xl p-5">
+        <p class="text-[10px] text-gray-600 uppercase">In transit to bank</p>
+        <p class="text-2xl font-bold text-amber-300 mt-1"><?= walletMoney($pendingOut, $isTest) ?></p>
+        <p class="text-[10px] text-gray-600 mt-1">Pending / processing settlements</p>
+    </div>
+    <div class="stat-card border border-gray-800 rounded-xl p-5">
+        <p class="text-[10px] text-gray-600 uppercase">Payment holds</p>
+        <p class="text-2xl font-bold text-gray-300 mt-1"><?= walletMoney($onHold, $isTest) ?></p>
+        <p class="text-[10px] text-gray-600 mt-1">Pending transactions not yet success</p>
+    </div>
+</div>
+
 <?php if ($available < 0.01 && (int)$wallet['success_txns'] < 1): ?>
 <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
     <p class="font-semibold text-amber-300">Wallet empty — complete a test payment first</p>
@@ -45,12 +71,7 @@ require_once __DIR__ . '/header.php';
 </div>
 <?php endif; ?>
 
-<div class="grid lg:grid-cols-3 gap-6 mb-8">
-    <div class="stat-card border border-sky-500/30 rounded-xl p-6 bg-sky-500/5">
-        <p class="text-xs text-gray-500 uppercase"><?= __('wallet_balance') ?></p>
-        <p class="text-4xl font-bold text-sky-400 mt-2"><?= walletMoney($balance, $isTest) ?></p>
-        <p class="text-xs text-gray-500 mt-2"><?= __('wallet_available') ?>: <strong class="text-emerald-400"><?= walletMoney($available, $isTest) ?></strong></p>
-    </div>
+<div class="grid lg:grid-cols-2 gap-6 mb-8">
     <div class="stat-card border border-gray-800 rounded-xl p-5">
         <p class="text-xs text-gray-500"><?= __('wallet_success_payments') ?></p>
         <p class="text-2xl font-bold text-brand-400 mt-1"><?= (int)$wallet['success_txns'] ?></p>
@@ -58,6 +79,9 @@ require_once __DIR__ . '/header.php';
     </div>
     <div class="stat-card border border-gray-800 rounded-xl p-5">
         <h3 class="font-semibold text-sm mb-3"><?= __('wallet_quick_transfer') ?></h3>
+        <?php if (!merchantTeamCan('settle')): ?>
+        <p class="text-xs text-amber-400">Your team role cannot initiate settlements. Ask Admin/Finance.</p>
+        <?php else: ?>
         <?php if (!$canTransfer): ?>
         <p class="text-xs text-amber-400 mb-2"><?= __('wallet_low_balance') ?> <a href="demo.php" class="text-sky-400 underline"><?= __('wallet_demo_pay') ?></a></p>
         <?php endif; ?>
@@ -72,6 +96,7 @@ require_once __DIR__ . '/header.php';
             </button>
         </form>
         <a href="settlements.php" class="block text-center text-xs text-gray-500 mt-2 hover:text-gray-400"><?= __('wallet_full_transfer') ?> →</a>
+        <?php endif; ?>
     </div>
 </div>
 

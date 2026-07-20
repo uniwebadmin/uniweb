@@ -616,9 +616,27 @@ function ensureMerchantWalletReady(int $merchantId): array
     $successCount = (int)$sx->fetchColumn();
 
     $available = getMerchantAvailableBalance($merchantId);
+    $pendingOut = 0.0;
+    try {
+        $pst = $db->prepare("SELECT COALESCE(SUM(net_amount),0) FROM settlements WHERE merchant_id=? AND status IN ('pending','processing')");
+        $pst->execute([$merchantId]);
+        $pendingOut = walletAmount((float)$pst->fetchColumn(), $isTest);
+    } catch (Throwable $e) {
+        $pendingOut = 0.0;
+    }
+    $onHold = 0.0;
+    try {
+        $hst = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM transactions WHERE merchant_id=? AND status='pending' AND is_test=?");
+        $hst->execute([$merchantId, $isTest ? 1 : 0]);
+        $onHold = walletAmount((float)$hst->fetchColumn(), $isTest);
+    } catch (Throwable $e) {
+        $onHold = 0.0;
+    }
     return [
         'balance' => walletAmount($bal, $isTest),
         'available' => walletAmount($available, $isTest),
+        'pending_out' => $pendingOut,
+        'on_hold' => $onHold,
         'success_txns' => $successCount,
         'is_test' => $isTest,
     ];

@@ -316,3 +316,6 @@ function pgWebhookHealthResponse(string $gateway): void
     ], JSON_UNESCAPED_SLASHES);
     exit;
 }
+
+// Merchant team RBAC (loaded here so live hosts need no config.php edit — config.php is not in git).
+require_once __DIR__ . '/merchant_team.php';

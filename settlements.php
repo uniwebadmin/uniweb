@@ -14,6 +14,7 @@ $openBatch = getMerchantOpenBatch($merchantId);
 $batchHistory = getMerchantBatchHistory($merchantId, 10);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    requireMerchantTeamCapability('settle');
     $action = $_POST['action'] ?? 'transfer';
     if ($action === 'settle_now') {
         $result = requestManualSettlement($merchantId, $merchant);

@@ -70,6 +70,8 @@ function getWatchdogPageRegistry(): array
         ['agents.php', 'Agents'],
         ['kyc.php', 'KYC'],
         ['merchant_video_verification.php', 'Video KYC'],
+        ['merchant_team.php', 'Team Members'],
+        ['merchant_team_accept.php', 'Team Invite Accept'],
         ['merchant_settings.php', 'Settings'],
         ['merchant_notify_settings.php', 'Notification Preferences'],
         ['merchant_2fa.php', 'Two-Factor Authentication'],

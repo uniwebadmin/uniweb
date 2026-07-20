@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$pendingId]);
         $m = $stmt->fetch();
         if ($pendingId && $m && !empty($m['totp_enabled']) && !empty($m['totp_secret']) && totpVerify($m['totp_secret'], $_POST['totp_code'] ?? '')) {
-            unset($_SESSION['admin_id'], $_SESSION['admin_name'], $_SESSION['pending_2fa_merchant_id']);
+            unset($_SESSION['admin_id'], $_SESSION['admin_name'], $_SESSION['pending_2fa_merchant_id'], $_SESSION['merchant_team_id'], $_SESSION['merchant_team_role']);
             $_SESSION['merchant_id'] = $m['id'];
             $_SESSION['merchant_code'] = $m['merchant_code'] ?? '';
             initializePortalSession();
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pendingId = $_SESSION['pending_merchant_id'] ?? 0;
         $identifier = $_SESSION['pending_otp_identifier'] ?? '';
         if ($pendingId && verifyOTP($identifier, $_POST['otp_code'], 'login')) {
-            unset($_SESSION['admin_id'], $_SESSION['admin_name']);
+            unset($_SESSION['admin_id'], $_SESSION['admin_name'], $_SESSION['merchant_team_id'], $_SESSION['merchant_team_role']);
             $_SESSION['merchant_id'] = $pendingId;
             unset($_SESSION['pending_merchant_id'], $_SESSION['pending_otp_identifier']);
             $stmt = getDB()->prepare('SELECT * FROM merchants WHERE id = ?');
@@ -127,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     redirect(merchantProfileComplete($m) ? 'dashboard.php' : 'merchant_setup.php');
                 }
             } else {
-                unset($_SESSION['admin_id'], $_SESSION['admin_name']);
+                unset($_SESSION['admin_id'], $_SESSION['admin_name'], $_SESSION['merchant_team_id'], $_SESSION['merchant_team_role']);
                 $_SESSION['merchant_id'] = $m['id'];
                 $_SESSION['merchant_code'] = $m['merchant_code'];
                 initializePortalSession();
@@ -135,6 +135,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect(merchantProfileComplete($m) ? 'dashboard.php' : 'merchant_setup.php');
             }
         } else {
+            $team = authenticateMerchantTeamLogin($identifier, $password);
+            if ($team) {
+                $mst = getDB()->prepare("SELECT * FROM merchants WHERE id=? AND status='active'");
+                $mst->execute([(int)$team['merchant_id']]);
+                $parent = $mst->fetch();
+                if ($parent) {
+                    unset($_SESSION['admin_id'], $_SESSION['admin_name']);
+                    $_SESSION['merchant_id'] = (int)$parent['id'];
+                    $_SESSION['merchant_code'] = $parent['merchant_code'] ?? '';
+                    $_SESSION['merchant_team_id'] = (int)$team['id'];
+                    $_SESSION['merchant_team_role'] = $team['role'];
+                    initializePortalSession();
+                    flash('success', 'Welcome, ' . ($team['name'] ?? 'Team member') . ' (' . merchantTeamRoleLabel((string)$team['role']) . ')');
+                    redirect(merchantProfileComplete($parent) ? 'dashboard.php' : 'merchant_setup.php');
+                }
+            }
             $error = __('err_invalid_login');
             recordVelocityEvent('login_fail', $identifier);
         }

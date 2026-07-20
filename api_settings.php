@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireLogin();
+requireMerchantTeamCapability('api');
 $merchant = getMerchant();
 ensureMerchantWebhookEngine();
 ensureMerchantApiKeys((int)$merchant['id']);
