@@ -91,6 +91,8 @@ require_once __DIR__ . '/header.php';
 </div>
 <?php endif; ?>
 
+<?php renderMerchantCommercialCard($merchant); ?>
+
 <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
     <div class="stat-card border border-sky-500/30 rounded-xl p-5 bg-sky-500/5 lg:col-span-1">
         <p class="text-xs text-gray-500">Wallet Available</p>
