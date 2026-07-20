@@ -11,7 +11,8 @@ Work autonomously until the user explicitly stops or changes direction.
 
 - Do NOT wait for the user to type "next move", "continue", or "aage badho".
 - After finishing a task, immediately start the next highest-impact item for live launch.
-- Deploy fixes to live (SFTP) without asking, unless blocked by permissions.
+- Prefer Cloud Agents so the owner can direct work from mobile (cursor.com/agents) without keeping a laptop open.
+- Deploy fixes to live (SFTP/FTP) without asking when credentials/tools are available; otherwise ship a PR and note deploy as manual.
 - UI text must stay English-only; Hindi is OK in chat with the user.
 
 ## Live prep priorities (in order)

@@ -9,15 +9,20 @@ db.local.php
 # One-time setup, diagnostics, and deployment scripts
 my_secret_setup_xyz.php
 *.ps1
+!scripts/release_deploy.ps1
 
 # Runtime and private data
 uploads/
+!uploads/kyc/
+!uploads/kyc/.htaccess
 db_backup_before_reset.json
 db_*_result.json
 includes/phpqrcode/cache/
 includes/phpqrcode/temp/
 *.sql
+!migrations/*.sql
 *.log
+release_manifest_*.txt
 
 # Private keys and certificates
 *.key

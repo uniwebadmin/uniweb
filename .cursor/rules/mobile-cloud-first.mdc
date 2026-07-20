@@ -1,0 +1,22 @@
+---
+description: Prefer Cursor Cloud Agents so the owner can work from mobile only
+alwaysApply: true
+---
+
+# Mobile / Cloud First
+
+The owner primarily works from a phone (cursor.com/agents). Laptop is optional.
+
+## How to work
+
+- Prefer **Cloud Agents** over local laptop agents whenever the repo has a GitHub remote.
+- After finishing a task, open/continue the next highest-impact live-prep item on a cloud branch (do not wait for "continue").
+- Commit on the cloud branch and open a PR when the fix is ready.
+- Never require the user to keep a laptop open for agent compute.
+- Chat replies to the user may be Hindi; all product/UI text stays English.
+
+## Do not
+
+- Do not delete production pages or run broad remote deletes.
+- Do not invent or commit credentials (`config.php`, `.vscode/sftp.json`, API keys).
+- Do not force-push or hard-reset unless the user explicitly asks.
