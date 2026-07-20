@@ -269,6 +269,26 @@ function staffCanEditMerchant(): bool
     return in_array(adminRole(), ['super', 'ceo', 'regional_manager', 'ops', 'kyc'], true);
 }
 
+/** Roles allowed to request/approve KYC and Live activation (not field sales). */
+function staffCanMutateKyc(): bool
+{
+    return in_array(adminRole(), ['super', 'ceo', 'regional_manager', 'ops', 'kyc', 'staff_manager'], true);
+}
+
+/** Independent checker for Live / document approvals. */
+function staffCanCheckerApproveKyc(): bool
+{
+    return in_array(adminRole(), ['super', 'ceo', 'regional_manager', 'ops', 'kyc'], true);
+}
+
+function requireStaffKycMutation(): void
+{
+    if (!staffCanMutateKyc()) {
+        flash('error', 'Your role can view KYC but cannot approve or reject.');
+        redirect('admin_kyc.php');
+    }
+}
+
 function getStaffActivityLogs(?int $adminId = null, int $limit = 50): array
 {
     ensureStaffRoles();

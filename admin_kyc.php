@@ -3,6 +3,8 @@ require_once __DIR__ . '/config.php';
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'area_sales_manager', 'team_leader', 'staff_manager', 'field_staff', 'ops', 'kyc']);
 ensureKycSchema();
 $db = getDB();
+$canMutateKyc = staffCanMutateKyc();
+$canChecker = staffCanCheckerApproveKyc();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
@@ -13,6 +15,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id = (int)($_POST['id'] ?? 0);
     $reason = trim((string)($_POST['reason'] ?? 'Compliance review'));
     try {
+        if (in_array($action, ['approve_doc', 'verify_merchant', 'live_enable', 'verify_video', 'reject_doc'], true)) {
+            requireStaffKycMutation();
+        }
+        if (in_array($action, ['approve_request', 'reject_request', 'live_enable'], true) && !$canChecker) {
+            throw new RuntimeException('Only KYC/ops/admin roles can complete checker decisions.');
+        }
         if ($action === 'approve_doc') {
             $doc = $db->prepare('SELECT merchant_id,doc_type,scan_status FROM kyc_documents WHERE id=?');
             $doc->execute([$id]);
@@ -89,7 +97,11 @@ require_once __DIR__ . '/header.php';
     <a href="manage_merchant.php" class="glass px-4 py-2 rounded-xl text-sm text-gray-300">All Merchants</a>
 </div>
 
-<?php if (!empty($approvalQueue)): ?>
+<?php if (!$canMutateKyc): ?>
+<div class="glass rounded-xl p-4 mb-6 border border-amber-500/20 text-sm text-amber-300">View-only: your role can inspect KYC but cannot approve, reject, or enable Live.</div>
+<?php endif; ?>
+
+<?php if (!empty($approvalQueue) && $canChecker): ?>
 <div class="glass rounded-xl overflow-hidden mb-8 border border-amber-500/30">
     <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Independent checker queue</h2><p class="text-xs text-gray-500 mt-1">The maker who requested an action cannot approve it.</p></div>
     <?php foreach ($approvalQueue as $request): ?>
@@ -102,9 +114,11 @@ require_once __DIR__ . '/header.php';
     </div>
     <?php endforeach; ?>
 </div>
+<?php elseif (!empty($approvalQueue) && !$canChecker): ?>
+<div class="glass rounded-xl p-4 mb-6 text-sm text-gray-400"><?= count($approvalQueue) ?> approval request(s) waiting for a KYC/ops checker.</div>
 <?php endif; ?>
 
-<?php if (!empty($liveCandidates)): ?>
+<?php if (!empty($liveCandidates) && $canMutateKyc): ?>
 <div class="glass rounded-xl overflow-hidden mb-8 border border-emerald-500/20">
     <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Live activation gate</h2><p class="text-xs text-gray-500 mt-1">KYC verification alone does not enable real money. Every server-side gate must pass.</p></div>
     <?php foreach ($liveCandidates as $candidate): $gate = merchantLiveGateReport((int)$candidate['id']); ?>
@@ -112,7 +126,7 @@ require_once __DIR__ . '/header.php';
         <div><p class="text-sm font-medium"><?= e($candidate['business_name']) ?> · <?= e($candidate['merchant_code']) ?></p><p class="text-xs <?= $gate['ok'] ? 'text-emerald-400' : 'text-amber-400' ?>"><?= $gate['ok'] ? 'All gates complete' : 'Missing: ' . e(implode(', ', $gate['missing'])) ?></p></div>
         <div class="flex gap-2 flex-wrap">
             <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="verify_video"><input type="hidden" name="id" value="<?= (int)$candidate['id'] ?>"><input type="hidden" name="reason" value="Video reviewed"><button class="text-xs bg-violet-600/20 text-violet-300 px-3 py-2 rounded-lg">Mark video verified</button></form>
-            <?php if ($gate['ok']): ?><form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="live_enable"><input type="hidden" name="id" value="<?= (int)$candidate['id'] ?>"><input type="hidden" name="reason" value="All production onboarding gates verified"><button class="text-xs bg-emerald-600 text-white px-3 py-2 rounded-lg">Send Live activation for approval</button></form><?php endif; ?>
+            <?php if ($gate['ok'] && $canChecker): ?><form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="live_enable"><input type="hidden" name="id" value="<?= (int)$candidate['id'] ?>"><input type="hidden" name="reason" value="All production onboarding gates verified"><button class="text-xs bg-emerald-600 text-white px-3 py-2 rounded-lg">Send Live activation for approval</button></form><?php endif; ?>
         </div>
     </div>
     <?php endforeach; ?>
@@ -156,7 +170,7 @@ require_once __DIR__ . '/header.php';
                     <td class="px-5 py-3 text-xs text-gray-500"><?= formatDate($m['created_at']) ?></td>
                     <td class="px-5 py-3 text-xs whitespace-nowrap">
                         <a href="<?= e(adminMerchantUrl($mid)) ?>" class="text-gray-400 hover:text-white mr-2">View</a>
-                        <?php if ($canVerify): ?>
+                        <?php if ($canVerify && $canMutateKyc): ?>
                         <form method="post" class="inline"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="verify_merchant"><input type="hidden" name="id" value="<?= $mid ?>"><input type="hidden" name="reason" value="Entity documents reviewed"><button class="text-brand-400 hover:text-brand-300 mr-2">Send for KYC approval</button></form>
                         <?php endif; ?>
                     </td>
@@ -188,8 +202,10 @@ require_once __DIR__ . '/header.php';
             <div class="flex gap-2 mt-2 flex-wrap">
                 <a href="<?= e(adminMerchantUrl((int)$doc['merchant_id'])) ?>" class="text-xs bg-gray-700/50 text-gray-300 px-3 py-1 rounded-lg">View Merchant</a>
                 <a href="admin_kyc_doc.php?id=<?= $doc['id'] ?>&token=<?= csrfToken() ?>" target="_blank" class="text-xs bg-sky-600/20 text-sky-400 px-3 py-1 rounded-lg">View Doc</a>
+                <?php if ($canMutateKyc): ?>
                 <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="approve_doc"><input type="hidden" name="id" value="<?= (int)$doc['id'] ?>"><input type="hidden" name="reason" value="Document content reviewed"><button class="text-xs bg-brand-600/20 text-brand-400 px-3 py-1 rounded-lg">Send for approval</button></form>
                 <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="reject_doc"><input type="hidden" name="id" value="<?= (int)$doc['id'] ?>"><input name="reason" required maxlength="500" placeholder="Clarification reason" class="text-xs bg-gray-900 border border-gray-700 rounded-lg px-2 py-1"><button class="text-xs bg-red-600/20 text-red-400 px-3 py-1 rounded-lg">Reject</button></form>
+                <?php endif; ?>
             </div>
         </div>
         <?php endforeach; endif; ?>
@@ -211,7 +227,9 @@ require_once __DIR__ . '/header.php';
             </div>
             <div class="flex gap-2 flex-wrap">
                 <a href="<?= e(adminMerchantUrl((int)$m['id'])) ?>" class="text-xs bg-gray-700/50 text-gray-300 px-3 py-1 rounded-lg">View</a>
+                <?php if ($canMutateKyc): ?>
                 <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="verify_merchant"><input type="hidden" name="id" value="<?= (int)$m['id'] ?>"><input type="hidden" name="reason" value="KYC package reviewed"><button class="text-xs bg-brand-600 text-white px-3 py-1 rounded-lg">Send for KYC approval</button></form>
+                <?php endif; ?>
             </div>
         </div>
         <?php endforeach; endif; ?>
