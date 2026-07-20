@@ -368,10 +368,20 @@ function isGatewayConfigured(string $gateway): bool
     };
 }
 
+/** Gateways that can actually route a live checkout today (PhonePe checkout is roadmap-only). */
+function gatewaySupportsLiveCheckout(string $gateway): bool
+{
+    return in_array($gateway, ['razorpay', 'cashfree', 'payu'], true);
+}
+
 function gatewayStatusLabel(string $gateway): string
 {
     if (!isGatewayConfigured($gateway)) {
         return 'Not configured';
+    }
+    if ($gateway === 'phonepe') {
+        // Keys can be stored ahead of time, but checkout routing is not enabled yet (see roadmap).
+        return 'Keys saved · checkout on roadmap';
     }
     if ($gateway === (getSetting('active_payment_gateway', 'razorpay'))) {
         return 'Active primary';
@@ -509,7 +519,7 @@ function testPhonePeConnection(): array
     if ($mid === '' || $salt === '') {
         return ['ok' => false, 'message' => 'PhonePe Merchant ID and Salt Key are required.'];
     }
-    return ['ok' => true, 'message' => 'PhonePe keys saved (Merchant ID present). Use sandbox/production env when integrating checkout.'];
+    return ['ok' => true, 'message' => 'PhonePe keys saved. PhonePe checkout activates in a later release — live checkout currently routes through Razorpay, Cashfree, PayU or direct UPI.'];
 }
 
 /** @return array{ok:bool,message:string} */

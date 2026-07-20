@@ -68,7 +68,7 @@ $gatewayCards = [
     ['id' => 'razorpay', 'label' => 'Razorpay', 'test' => true],
     ['id' => 'cashfree', 'label' => 'Cashfree', 'test' => true],
     ['id' => 'payu', 'label' => 'PayU', 'test' => true],
-    ['id' => 'phonepe', 'label' => 'PhonePe', 'test' => true],
+    ['id' => 'phonepe', 'label' => 'PhonePe', 'test' => true, 'checkout' => false, 'note' => 'Keys stored now · checkout enabled in a later release'],
     ['id' => 'axis', 'label' => 'Axis Bank', 'test' => true],
     ['id' => 'decentro', 'label' => 'Decentro KYC', 'test' => true],
 ];
@@ -139,13 +139,23 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
         <?php foreach ($gatewayCards as $card):
             $configured = isGatewayConfigured($card['id']);
             $isActive = $card['id'] === $activePg;
+            $checkoutReady = ($card['checkout'] ?? true) !== false;
+            $cardClass = !$checkoutReady
+                ? 'border-amber-500/30 bg-amber-500/5'
+                : ($configured ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-gray-800 bg-dark-900/40');
+            $statusClass = !$checkoutReady ? 'text-amber-400' : ($configured ? 'text-emerald-400' : 'text-gray-500');
         ?>
-        <div class="rounded-xl border p-4 <?= $configured ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-gray-800 bg-dark-900/40' ?>">
+        <div class="rounded-xl border p-4 <?= $cardClass ?>">
             <div class="flex items-start justify-between gap-2">
                 <div>
-                    <p class="font-medium text-sm"><?= e($card['label']) ?></p>
-                    <p class="text-xs mt-1 <?= $configured ? 'text-emerald-400' : 'text-gray-500' ?>"><?= e(gatewayStatusLabel($card['id'])) ?></p>
-                    <?php if ($isActive && $card['id'] !== 'decentro' && $card['id'] !== 'axis'): ?>
+                    <p class="font-medium text-sm">
+                        <?= e($card['label']) ?>
+                        <?php if (!$checkoutReady): ?><span class="ml-1 align-middle text-[9px] uppercase tracking-wide text-amber-400 border border-amber-500/40 rounded px-1 py-0.5">Roadmap</span><?php endif; ?>
+                    </p>
+                    <p class="text-xs mt-1 <?= $statusClass ?>"><?= e(gatewayStatusLabel($card['id'])) ?></p>
+                    <?php if (!$checkoutReady && !empty($card['note'])): ?>
+                    <p class="text-[10px] text-gray-500 mt-1"><?= e($card['note']) ?></p>
+                    <?php elseif ($isActive && $card['id'] !== 'decentro' && $card['id'] !== 'axis'): ?>
                     <p class="text-[10px] text-brand-400 mt-1 uppercase tracking-wide">Checkout default</p>
                     <?php endif; ?>
                 </div>

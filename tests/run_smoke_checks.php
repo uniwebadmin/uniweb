@@ -104,6 +104,16 @@ $assert(in_array('partnership_deed', $partnershipDocs, true) && in_array('gst', 
 $indivTax = entityProfileTaxFields('individual');
 $assert(empty($indivTax['gst']) && empty($indivTax['cin']), 'kyc_individual_profile_hides_gst_cin');
 
+// Gateway keys UI must not present PhonePe as a live-checkout gateway (checkout is roadmap-only).
+$gwSettings = (string)file_get_contents($root . '/gateway_settings.php');
+$assert(str_contains($gwSettings, "'checkout' => false"), 'gateway_phonepe_marked_roadmap');
+// Primary Payment Gateway selector must only offer gateways checkout can actually route.
+$assert(preg_match('/settings\\[active_payment_gateway\\].*?<\\/select>/s', $gwSettings, $sel) === 1
+    && !str_contains($sel[0], 'phonepe'), 'gateway_primary_excludes_phonepe');
+$gwLib = (string)file_get_contents($root . '/includes/gateways.php');
+$assert(str_contains($gwLib, 'checkout on roadmap') || str_contains($gwLib, 'later release'), 'gateway_phonepe_status_honest');
+$assert(str_contains($gwLib, 'function gatewaySupportsLiveCheckout'), 'gateway_live_checkout_helper_present');
+
 $manifest = json_decode((string)file_get_contents($root . '/manifest.json'), true);
 $assert(is_array($manifest) && !empty($manifest['icons']), 'manifest_icons_present');
 if (is_array($manifest)) {
