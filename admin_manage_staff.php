@@ -14,8 +14,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $role = $_POST['role'] ?? 'field_staff';
         $password = $_POST['password'] ?? '';
         $reportsTo = (int)($_POST['reports_to'] ?? 0) ?: null;
-        if (!$username || !$name || strlen($password) < 6) {
-            flash('error', 'Username, name, and password (6+ chars) required.');
+        if (!$username || !$name) {
+            flash('error', 'Username and name are required.');
+        } elseif ($policyError = validateStrongPassword($password, 12)) {
+            flash('error', $policyError);
         } elseif (!in_array($role, $roles, true)) {
             flash('error', 'Invalid role.');
         } else {
@@ -69,7 +71,7 @@ require_once __DIR__ . '/header.php';
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div><label class="text-gray-400 text-xs">Password</label><input type="password" name="password" required minlength="6" class="input-field mt-1"></div>
+            <div><label class="text-gray-400 text-xs">Password (12+ with upper, lower, number, symbol)</label><input type="password" name="password" required minlength="12" class="input-field mt-1" autocomplete="new-password"></div>
             <button type="submit" class="w-full btn-primary py-3">Create Account</button>
         </form>
         <p class="text-xs text-gray-500 mt-4">Staff login: <a href="staff_login.php" class="text-sky-400">staff_login.php</a></p>

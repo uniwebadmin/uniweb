@@ -552,8 +552,8 @@ function captureVerifiedPaymentOrder(array $verification): array
         $txnRef = generateId('TXN');
         $txnInsert = $db->prepare(
             'INSERT INTO transactions
-             (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1)'
+             (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)'
         );
         $txnInsert->execute([
             $txnRef,
@@ -568,6 +568,9 @@ function captureVerifiedPaymentOrder(array $verification): array
             $split['merchant_net'],
             $order['mode'] === 'test' ? 1 : 0,
             $link['collection_mode'] ?: 'platform_pg',
+            mb_substr(trim((string)($order['customer_name'] ?? '')), 0, 160) ?: null,
+            mb_substr(trim((string)($order['customer_email'] ?? '')), 0, 190) ?: null,
+            mb_substr(trim((string)($order['customer_phone'] ?? '')), 0, 32) ?: null,
         ]);
         $transactionId = (int)$db->lastInsertId();
         $db->prepare('INSERT INTO payment_order_transactions (payment_order_id,transaction_id) VALUES (?,?)')

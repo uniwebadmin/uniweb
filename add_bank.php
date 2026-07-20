@@ -84,23 +84,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (empty($_POST['action']) || $_POST[
         $isPrimary = $db->prepare("SELECT COUNT(*) as cnt FROM bank_accounts WHERE merchant_id = ? AND status != 'inactive'");
         $isPrimary->execute([$merchant['id']]);
         $primary = $isPrimary->fetch()['cnt'] == 0 ? 1 : 0;
+        $verify = verifyBankAccount($accountNumber, $ifsc, (int)$merchant['id']);
+        $ok = (($verify['status'] ?? '') === 'verified') || !empty($verify['success']) || !empty($verify['ok']);
+        $isLiveMerchant = merchantAccountMode($merchant) === 'live';
+        $initialStatus = ($isLiveMerchant && !$ok) ? 'pending' : 'active';
 
         $stmt = $db->prepare('INSERT INTO bank_accounts (merchant_id, bank_name, account_number, ifsc_code, account_holder, account_type, is_primary, status) VALUES (?,?,?,?,?,?,?,?)');
         try {
-            $stmt->execute([$merchant['id'], $bankName, $accountNumber, $ifsc, $holder, $type, $primary, 'active']);
+            $stmt->execute([$merchant['id'], $bankName, $accountNumber, $ifsc, $holder, $type, $primary, $initialStatus]);
         } catch (Throwable $e) {
             $db->prepare('INSERT INTO bank_accounts (merchant_id, bank_name, account_number, ifsc_code, account_holder, account_type, is_primary) VALUES (?,?,?,?,?,?,?)')
                 ->execute([$merchant['id'], $bankName, $accountNumber, $ifsc, $holder, $type, $primary]);
             try {
-                $db->prepare("UPDATE bank_accounts SET status='active' WHERE merchant_id=? AND account_number=? ORDER BY id DESC LIMIT 1")
-                    ->execute([$merchant['id'], $accountNumber]);
+                $db->prepare("UPDATE bank_accounts SET status=? WHERE merchant_id=? AND account_number=? ORDER BY id DESC LIMIT 1")
+                    ->execute([$initialStatus, $merchant['id'], $accountNumber]);
             } catch (Throwable $e2) { /* column may not exist on very old schema */ }
         }
-        $verify = verifyBankAccount($accountNumber, $ifsc, (int)$merchant['id']);
-        $ok = (($verify['status'] ?? '') === 'verified') || !empty($verify['success']) || !empty($verify['ok']);
         $msg = $ok
             ? ('Bank account added. ' . ($verify['message'] ?? 'Ready for settlements.'))
-            : ('Bank account added. ' . ($verify['message'] ?? 'Verification pending.'));
+            : ($isLiveMerchant
+                ? ('Bank account saved as pending verification. Settlements unlock after verification completes.')
+                : ('Bank account added. ' . ($verify['message'] ?? 'Verification pending.')));
         flash('success', $msg);
         redirect('add_bank.php');
     }

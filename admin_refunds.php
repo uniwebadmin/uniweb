@@ -18,15 +18,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     if ($reasonExtra !== '') {
         $reason .= ' — ' . $reasonExtra;
     }
+    $txn = $db->prepare('SELECT merchant_id, txn_id FROM transactions WHERE id=?');
+    $txn->execute([$txnId]);
+    $t = $txn->fetch();
+    if (!$t) {
+        flash('error', 'Transaction not found.');
+        redirect($merchantFilter > 0 ? 'admin_refunds.php?merchant_id=' . $merchantFilter : 'admin_refunds.php');
+    }
+    requireMerchantAccess((int)$t['merchant_id']);
+    requireStepUpAuth();
     $admin = getAdmin();
     $result = processRefund($txnId, $amount, $reason, (int)($admin['id'] ?? 0));
     flash($result['ok'] ? 'success' : 'error', $result['ok'] ? 'Refund ' . $result['refund_id'] . ' processed.' : ($result['error'] ?? 'Refund failed.'));
     if ($result['ok']) {
-        $txn = $db->prepare('SELECT merchant_id, txn_id FROM transactions WHERE id=?');
-        $txn->execute([$txnId]);
-        if ($t = $txn->fetch()) {
-            logStaffActivity('refund_processed', ($result['refund_id'] ?? '') . ' — ' . formatMoney($amount ?: 0), (int)$t['merchant_id'], 'transaction', $t['txn_id']);
-        }
+        logStaffActivity('refund_processed', ($result['refund_id'] ?? '') . ' — ' . formatMoney($amount ?: 0), (int)$t['merchant_id'], 'transaction', $t['txn_id']);
     }
     redirect($merchantFilter > 0 ? 'admin_refunds.php?merchant_id=' . $merchantFilter : 'admin_refunds.php');
 }
@@ -42,7 +47,7 @@ $refundStmt = $db->prepare($refundSql);
 $refundStmt->execute($refundParams);
 $refunds = $refundStmt->fetchAll();
 
-$txnSql = "SELECT t.id, t.txn_id, t.amount, m.business_name FROM transactions t JOIN merchants m ON m.id=t.merchant_id WHERE t.status='success' AND t.id NOT IN (SELECT transaction_id FROM refunds WHERE status IN ('pending','completed'))";
+$txnSql = "SELECT t.id, t.txn_id, t.amount, t.merchant_id, m.business_name FROM transactions t JOIN merchants m ON m.id=t.merchant_id WHERE t.status='success' AND t.id NOT IN (SELECT transaction_id FROM refunds WHERE status IN ('pending','completed'))";
 $txnParams = [];
 if ($merchantFilter > 0) {
     $txnSql .= ' AND t.merchant_id = ?';
@@ -52,6 +57,10 @@ $txnSql .= ' ORDER BY t.created_at DESC LIMIT 40';
 $txnStmt = $db->prepare($txnSql);
 $txnStmt->execute($txnParams);
 $txns = $txnStmt->fetchAll();
+if (!isSuperAdmin()) {
+    $refunds = array_values(array_filter($refunds, static fn(array $row): bool => staffHasMerchantAccess((int)$row['merchant_row_id'])));
+    $txns = array_values(array_filter($txns, static fn(array $row): bool => staffHasMerchantAccess((int)$row['merchant_id'])));
+}
 $pageTitle = 'Refunds';
 $filterMerchant = null;
 if ($merchantFilter > 0) {

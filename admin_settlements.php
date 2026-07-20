@@ -3,25 +3,46 @@ require_once __DIR__ . '/config.php';
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'finance', 'ops']);
 $db = getDB();
 
-if (isset($_GET['action'], $_GET['id']) && verifyCsrf($_GET['token'] ?? '')) {
-    $id = (int)$_GET['id'];
-    if ($_GET['action'] === 'complete') {
-        $utr = 'STL' . time();
-        $db->prepare("UPDATE settlements SET status='completed', utr=?, processed_at=NOW() WHERE id=?")->execute([$utr, $id]);
-        $s = $db->prepare('SELECT merchant_id, net_amount, settlement_id FROM settlements WHERE id=?');
-        $s->execute([$id]); $settlement = $s->fetch();
-        if ($settlement) {
-            createNotification((int)$settlement['merchant_id'], 'Settlement Completed', formatMoney(capStatAmount((float)$settlement['net_amount'])) . ' transferred to bank. UTR: ' . $utr);
-            logStaffActivity('settlement_completed', $settlement['settlement_id'] . ' ' . formatMoney(capStatAmount((float)$settlement['net_amount'])), (int)$settlement['merchant_id']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    $action = (string)($_POST['action'] ?? '');
+    $id = (int)($_POST['id'] ?? 0);
+    $s = $db->prepare('SELECT merchant_id, amount, net_amount, settlement_id, status FROM settlements WHERE id=?');
+    $s->execute([$id]);
+    $settlement = $s->fetch();
+    if (!$settlement) {
+        flash('error', 'Settlement not found.');
+        redirect('admin_settlements.php');
+    }
+    requireMerchantAccess((int)$settlement['merchant_id']);
+    if ($action === 'complete') {
+        requireStepUpAuth();
+        $utr = strtoupper(trim((string)($_POST['utr'] ?? '')));
+        if (!isValidBankTransferReference($utr)) {
+            flash('error', 'Enter the bank UTR / reference from your NEFT/IMPS transfer (8–22 alphanumeric characters).');
+            redirect('admin_settlements.php');
         }
+        if (canonicalSettlementStatus($settlement['status'] ?? '')['key'] !== 'pending') {
+            flash('error', 'Only pending settlements can be completed.');
+            redirect('admin_settlements.php');
+        }
+        $dup = $db->prepare('SELECT id FROM settlements WHERE utr=? AND id<>? LIMIT 1');
+        $dup->execute([$utr, $id]);
+        if ($dup->fetch()) {
+            flash('error', 'This bank reference is already recorded on another settlement.');
+            redirect('admin_settlements.php');
+        }
+        $db->prepare("UPDATE settlements SET status='completed', utr=?, processed_at=NOW() WHERE id=?")->execute([$utr, $id]);
+        createNotification((int)$settlement['merchant_id'], 'Settlement Completed', formatMoney(capStatAmount((float)$settlement['net_amount'])) . ' transferred to bank. UTR: ' . $utr);
+        logStaffActivity('settlement_completed', $settlement['settlement_id'] . ' ' . formatMoney(capStatAmount((float)$settlement['net_amount'])) . ' UTR:' . $utr, (int)$settlement['merchant_id']);
         flash('success', 'Settlement marked complete.');
-    } elseif ($_GET['action'] === 'fail') {
-        $s = $db->prepare('SELECT merchant_id, amount, settlement_id FROM settlements WHERE id=? AND status=?');
-        $s->execute([$id, 'pending']); $settlement = $s->fetch();
-        if ($settlement) {
+    } elseif ($action === 'fail') {
+        requireStepUpAuth();
+        if (canonicalSettlementStatus($settlement['status'] ?? '')['key'] === 'pending') {
             creditMerchantWallet((int)$settlement['merchant_id'], round((float)$settlement['amount'], 2), 'refund', null, $settlement['settlement_id'], 'Settlement failed — refunded to wallet');
             $db->prepare("UPDATE settlements SET status='failed' WHERE id=?")->execute([$id]);
             flash('success', 'Settlement failed — amount refunded to merchant wallet.');
+        } else {
+            flash('error', 'Only pending settlements can be failed.');
         }
     }
     redirect('admin_settlements.php');
@@ -61,9 +82,9 @@ require_once __DIR__ . '/header.php';
 ?>
 <div class="glass rounded-xl p-4 mb-6 border border-sky-500/20 text-sm text-gray-400">
     <p class="text-sky-300 font-medium mb-1">Ops workflow</p>
-    <p class="text-xs leading-relaxed">Merchant “Settle Now” only moves wallet → <strong class="text-gray-300">pending</strong> settlement. After you send NEFT/IMPS, click <strong class="text-brand-400">Complete</strong>. Use Fail to refund the wallet if the transfer did not go through.</p>
+    <p class="text-xs leading-relaxed">Merchant “Settle Now” only moves wallet → <strong class="text-gray-300">pending</strong> settlement. After you send NEFT/IMPS, enter the <strong class="text-brand-400">bank UTR</strong> to complete. Use Fail to refund the wallet if the transfer did not go through.</p>
     <?php if ($pendingCount > 0): ?>
-    <p class="text-xs text-amber-400 mt-2"><?= $pendingCount ?> pending — process bank payout then Complete.</p>
+    <p class="text-xs text-amber-400 mt-2"><?= $pendingCount ?> pending — process bank payout then enter UTR to complete.</p>
     <?php endif; ?>
     <a href="admin_settlement_settings.php" class="inline-block text-xs text-sky-400 mt-2">Settlement settings & cron →</a>
 </div>
@@ -78,7 +99,7 @@ require_once __DIR__ . '/header.php';
     <?php if (empty($settlements)): ?>
     <div class="px-6 py-14 text-center">
         <p class="font-semibold text-white mb-1">No settlements yet</p>
-        <p class="text-sm text-gray-500 max-w-md mx-auto">When merchants transfer from wallet, pending rows appear here for finance to Complete after bank transfer.</p>
+        <p class="text-sm text-gray-500 max-w-md mx-auto">When merchants transfer from wallet, pending rows appear here for finance to complete after bank transfer.</p>
     </div>
     <?php else: ?>
     <table class="w-full text-sm">
@@ -99,12 +120,24 @@ require_once __DIR__ . '/header.php';
                 <td class="px-5 py-3 text-xs"><?= e($s['bank_name'] ?? '—') ?> ****<?= substr($s['account_number']??'', -4) ?></td>
                 <td class="px-5 py-3">
                     <div title="<?= e(settlementReasonText($s)) ?>"><?= settlementStatusBadge($s['status']) ?></div>
+                    <?php if (!empty($s['utr'])): ?><p class="text-[10px] text-gray-500 font-mono mt-1"><?= e($s['utr']) ?></p><?php endif; ?>
                 </td>
                 <td class="px-5 py-3 whitespace-nowrap"<?= uiStopClick() ?>>
                     <a href="admin_view_merchant.php?id=<?= (int)$s['merchant_id'] ?>" class="text-xs text-emerald-400 mr-2">View</a>
                     <?php if (canonicalSettlementStatus($s['status'])['key'] === 'pending'): ?>
-                    <a href="?action=complete&id=<?= $s['id'] ?>&token=<?= csrfToken() ?>" class="text-xs text-brand-400 mr-2" onclick="return confirm('Confirm bank transfer done — mark completed?')">Complete</a>
-                    <a href="?action=fail&id=<?= $s['id'] ?>&token=<?= csrfToken() ?>" class="text-xs text-red-400" onclick="return confirm('Fail and refund wallet?')">Fail</a>
+                    <form method="POST" class="inline-flex flex-wrap items-center gap-1 mt-1" onsubmit="return confirm('Confirm bank transfer with this UTR?')">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                        <input type="hidden" name="action" value="complete">
+                        <input type="hidden" name="id" value="<?= (int)$s['id'] ?>">
+                        <input type="text" name="utr" required minlength="8" maxlength="22" pattern="[A-Za-z0-9]{8,22}" class="input-field text-xs w-28 py-1 px-2" placeholder="Bank UTR" title="8–22 alphanumeric bank reference">
+                        <button type="submit" class="text-xs text-brand-400">Complete</button>
+                    </form>
+                    <form method="POST" class="inline mt-1" onsubmit="return confirm('Fail and refund wallet?')">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                        <input type="hidden" name="action" value="fail">
+                        <input type="hidden" name="id" value="<?= (int)$s['id'] ?>">
+                        <button type="submit" class="text-xs text-red-400 ml-1">Fail</button>
+                    </form>
                     <?php endif; ?>
                 </td>
             </tr>

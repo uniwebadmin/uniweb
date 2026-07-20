@@ -178,11 +178,7 @@ require_once __DIR__ . '/header.php';
                     <td class="px-4 py-2 font-mono text-xs"><?= e($p['settlement_id']) ?></td>
                     <td class="px-4 py-2 font-semibold text-emerald-400"><?= walletMoney((float)$p['amount'], true) ?></td>
                     <td class="px-4 py-2"><?= statusBadge($p['status']) ?></td>
-                    <td class="px-4 py-2">
-                        <?php if ($p['status'] === 'pending'): ?>
-                        <a href="?action=complete_payout&id=<?= $p['id'] ?>&token=<?= csrfToken() ?>" class="text-xs text-brand-400" onclick="return confirm('Bank transfer done?')">Complete</a>
-                        <?php else: ?>—<?php endif; ?>
-                    </td>
+                    <td class="px-4 py-2 text-xs text-gray-500"><?= $p['status'] === 'pending' ? 'Awaiting verified bank transfer' : '—' ?></td>
                 </tr>
                 <?php endforeach; endif; ?>
             </tbody>

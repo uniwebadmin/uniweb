@@ -44,6 +44,9 @@ if ($link['expires_at'] && strtotime($link['expires_at']) < time()) {
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     incrementPaymentLinkView((int)$link['id']);
 }
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    persistCheckoutCustomerDetails($link, $_POST);
+}
 
 $handler = resolveCheckoutHandlerForLink($link);
 $split = calculateSplitBreakdown($payAmount, $link);
