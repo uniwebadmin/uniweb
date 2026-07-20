@@ -199,6 +199,8 @@ function applyApprovedControlAction(array $request): void
             }
             $db->prepare("UPDATE merchants SET account_mode='live',live_enabled_at=NOW(),live_enabled_by=? WHERE id=?")
                 ->execute([currentControlActor()['id'], $merchantId]);
+            require_once __DIR__ . '/agreement_pdf.php';
+            notifyMerchantLiveActivated($merchantId);
             break;
         case 'bank_reconciliation_confirm':
             if (!function_exists('confirmBankReconciliationMatch')) {
