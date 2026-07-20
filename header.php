@@ -25,6 +25,9 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="UniWeb">
     <link rel="manifest" href="<?= APP_URL ?>/manifest.json">
+    <link rel="icon" href="<?= APP_URL ?>/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="<?= APP_URL ?>/favicon.ico" sizes="32x32">
+    <link rel="apple-touch-icon" href="<?= APP_URL ?>/assets/icons/apple-touch-icon.png">
     <title><?= e($pageTitle) ?> — <?= APP_NAME ?></title>
     <meta name="description" content="UniWeb — India's trusted B2B Fintech Payment Platform. UPI, Cards, Payment Links, instant settlements for merchants.">
     <meta name="theme-color" content="#059669">

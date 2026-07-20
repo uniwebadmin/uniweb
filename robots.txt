@@ -1,0 +1,37 @@
+User-agent: *
+Allow: /
+Allow: /index.php
+Allow: /about.php
+Allow: /contact.php
+Allow: /faq.php
+Allow: /blog.php
+Allow: /api_docs.php
+Allow: /demo.php
+Allow: /platform_demo.php
+Allow: /merchant_register.php
+Allow: /signup.php
+Allow: /login.php
+Allow: /status.php
+Allow: /terms.php
+Allow: /privacy.php
+Allow: /compliance.php
+Allow: /refund_policy.php
+Allow: /pricing.php
+Allow: /mobile.php
+Allow: /assets/
+
+Disallow: /admin_
+Disallow: /admin.php
+Disallow: /gateway_settings.php
+Disallow: /manage_merchant.php
+Disallow: /cron_
+Disallow: /platform_watchdog.php
+Disallow: /morning_ops.php
+Disallow: /migrate_release.php
+Disallow: /config.php
+Disallow: /includes/
+Disallow: /uploads/
+Disallow: /tests/
+Disallow: /migrations/
+
+Sitemap: https://uniweb.co.in/sitemap.xml

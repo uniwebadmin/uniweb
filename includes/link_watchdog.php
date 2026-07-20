@@ -46,6 +46,7 @@ function getWatchdogPageRegistry(): array
         ['business_agreement.php', 'Merchant Agreement', 'public'],
         ['status.php', 'System Status', 'public'],
         ['mobile.php', 'Mobile', 'public'],
+        ['pricing.php', 'Pricing (redirect)', 'public'],
         ['checkout.php', 'Checkout', 'public'],
         ['payment_status.php', 'Payment Status', 'public'],
     ] as [$f, $l, $p]) {
@@ -77,6 +78,7 @@ function getWatchdogPageRegistry(): array
         ['api_settings.php', 'API Settings'],
         ['disputes.php', 'Disputes'],
         ['refunds.php', 'Refunds'],
+        ['chargebacks.php', 'Chargebacks'],
         ['notifications.php', 'Notifications'],
         ['support.php', 'Support'],
         ['support_ticket.php', 'Support Ticket'],
@@ -89,6 +91,7 @@ function getWatchdogPageRegistry(): array
         ['add_agent.php', 'Add Agent'],
         ['invoice_view.php', 'Invoice View'],
         ['invoice_pdf.php', 'Invoice PDF'],
+        ['merchant_recurring.php', 'Recurring Payments'],
     ] as $row) {
         $add($row[0], $row[1], 'merchant', 'merchant');
     }
@@ -115,6 +118,9 @@ function getWatchdogPageRegistry(): array
         ['admin_kyc.php', 'KYC Review'],
         ['admin_kyc_doc.php', 'KYC Document'],
         ['admin_aml.php', 'AML'],
+        ['admin_chargebacks.php', 'Chargebacks'],
+        ['admin_financial_reports.php', 'Financial Reports'],
+        ['admin_merchant_banks.php', 'Merchant Banks'],
         ['admin_support.php', 'Support'],
         ['admin_partner_requests.php', 'Partner Requests'],
         ['admin_partners.php', 'Partners'],
@@ -125,6 +131,7 @@ function getWatchdogPageRegistry(): array
         ['admin_watchdog.php', 'Link Watchdog'],
         ['admin_error_log.php', 'Error Log'],
         ['admin_axis.php', 'Axis UAT'],
+        ['admin_stepup.php', 'Step-up Auth'],
         ['gateway_settings.php', 'Gateway Settings'],
         ['admin_security.php', 'Security'],
         ['admin_decentro_demo.php', 'Decentro Demo'],
@@ -316,7 +323,10 @@ function watchdogTargetExists(string $target): bool
     if (str_starts_with($target, 'includes/') && is_file($root . '/' . $target)) {
         return true;
     }
-    if (in_array($target, ['openapi.json', 'manifest.json', 'robots.txt', 'favicon.ico'], true) && is_file($root . '/' . $target)) {
+    if (in_array($target, ['openapi.json', 'manifest.json', 'robots.txt', 'favicon.ico', 'favicon.svg', 'favicon.png', 'sitemap.xml'], true) && is_file($root . '/' . $target)) {
+        return true;
+    }
+    if (preg_match('#^assets/icons/(icon-192|icon-512|icon-32|apple-touch-icon)\\.png$#', $target) && is_file($root . '/' . $target)) {
         return true;
     }
     $routes = watchdogCleanUrlRoutes();

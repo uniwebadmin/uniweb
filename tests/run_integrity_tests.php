@@ -67,6 +67,11 @@ foreach ([
     assertTrue(is_file($root . '/migrations/' . $file), 'migration_' . $file);
 }
 
+// Launch public assets
+foreach (['robots.txt', 'sitemap.xml', 'favicon.ico', 'favicon.svg', 'manifest.json', 'assets/icons/icon-192.png'] as $asset) {
+    assertTrue(is_file($root . '/' . $asset), 'asset_' . str_replace(['/', '.'], '_', $asset));
+}
+
 // KYC private storage constants
 assertTrue(defined('KYC_PRIVATE_DIR') && KYC_PRIVATE_DIR !== '', 'kyc_private_dir');
 

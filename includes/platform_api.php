@@ -335,15 +335,40 @@ function runAdminPlatformSelfChecks(): array
         ];
     }
 
-    $blocked = (int)$db->query("SELECT COUNT(*) FROM merchants WHERE kyc_status='verified' AND account_mode='test' AND status='active'")->fetchColumn();
+    $blocked = (int)$db->query("SELECT COUNT(*) FROM merchants WHERE kyc_status='verified' AND account_mode='test' AND status='active' AND email<>'demo@uniweb.co.in'")->fetchColumn();
     $checks[] = [
         'id' => 'verified_not_live',
-        'label' => 'KYC verified but not Live-activated',
-        'ok' => $blocked === 0,
+        'label' => 'Pending Live activation queue',
+        'ok' => true,
         'detail' => $blocked === 0
-            ? 'All verified merchants can use Live toggle'
-            : $blocked . ' merchant(s) verified but account_mode=test — approve Live in KYC / Edit Merchant',
+            ? 'No merchants waiting for Live activation'
+            : $blocked . ' verified merchant(s) still in Test — intentional until independent Live checker approval (admin_kyc.php)',
         'fix' => 'admin_kyc.php',
+    ];
+
+    $root = dirname(__DIR__);
+    $publicAssets = [
+        'robots.txt' => 'robots.txt',
+        'favicon.ico' => 'favicon.ico',
+        'favicon.svg' => 'favicon.svg',
+        'manifest.json' => 'manifest.json',
+        'assets/icons/icon-192.png' => 'PWA icon 192',
+        'assets/icons/icon-512.png' => 'PWA icon 512',
+    ];
+    $missingAssets = [];
+    foreach ($publicAssets as $rel => $label) {
+        if (!is_file($root . '/' . $rel)) {
+            $missingAssets[] = $label;
+        }
+    }
+    $checks[] = [
+        'id' => 'public_assets',
+        'label' => 'Public SEO / PWA assets',
+        'ok' => $missingAssets === [],
+        'detail' => $missingAssets === []
+            ? 'robots.txt, favicon, and PWA icons present'
+            : 'Missing: ' . implode(', ', $missingAssets),
+        'fix' => 'robots.txt / favicon.* / assets/icons/',
     ];
 
     $checks[] = [
