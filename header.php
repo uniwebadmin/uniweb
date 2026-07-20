@@ -106,11 +106,11 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
             <div class="hidden md:flex items-center gap-8 text-sm text-gray-300">
                 <a href="platform_demo.php" class="hover:text-brand-400 transition">Tour</a>
                 <a href="demo.php" class="hover:text-brand-400 transition">Demo</a>
-                <a href="index.php#features" class="hover:text-brand-400 transition"><?= __('features') ?></a>
-                <a href="index.php#pricing" class="hover:text-brand-400 transition"><?= __('pricing') ?></a>
+                <a href="solutions.php" class="hover:text-brand-400 transition">Solutions</a>
+                <a href="pricing.php" class="hover:text-brand-400 transition"><?= __('pricing') ?></a>
+                <a href="trust.php" class="hover:text-brand-400 transition">Trust</a>
                 <a href="about.php" class="hover:text-brand-400 transition"><?= __('about') ?></a>
                 <a href="faq.php" class="hover:text-brand-400 transition"><?= __('faq') ?></a>
-                <a href="blog.php" class="hover:text-brand-400 transition"><?= __('blog') ?></a>
                 <a href="api_docs.php" class="hover:text-brand-400 transition"><?= __('api_docs') ?></a>
                 <a href="contact.php" class="hover:text-brand-400 transition"><?= __('contact') ?></a>
             </div>
@@ -127,13 +127,14 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     <div id="public-mobile-menu" class="hidden md:hidden border-t border-gray-800 bg-dark-900/95 px-4 py-4 space-y-2 text-sm">
         <a href="platform_demo.php" class="block py-2 text-violet-400 font-medium">▶ Platform Tour</a>
         <a href="demo.php" class="block py-2 text-sky-400 font-medium">⚡ Demo Payment</a>
-        <a href="index.php#features" class="block py-2 text-gray-300 hover:text-brand-400"><?= __('features') ?></a>
-        <a href="index.php#pricing" class="block py-2 text-gray-300 hover:text-brand-400"><?= __('pricing') ?></a>
+        <a href="solutions.php" class="block py-2 text-gray-300 hover:text-brand-400">Solutions</a>
+        <a href="pricing.php" class="block py-2 text-gray-300 hover:text-brand-400"><?= __('pricing') ?></a>
+        <a href="trust.php" class="block py-2 text-gray-300 hover:text-brand-400">Trust &amp; Security</a>
         <a href="about.php" class="block py-2 text-gray-300 hover:text-brand-400"><?= __('about') ?></a>
         <a href="faq.php" class="block py-2 text-gray-300 hover:text-brand-400"><?= __('faq') ?></a>
-        <a href="blog.php" class="block py-2 text-gray-300 hover:text-brand-400"><?= __('blog') ?></a>
         <a href="api_docs.php" class="block py-2 text-gray-300 hover:text-brand-400"><?= __('api_docs') ?></a>
         <a href="contact.php" class="block py-2 text-gray-300 hover:text-brand-400"><?= __('contact') ?></a>
+        <a href="business_agreement.php" class="block py-2 text-gray-300 hover:text-brand-400">Merchant Agreement</a>
         <a href="login.php" class="block py-2 text-brand-400"><?= __('login') ?></a>
     </div>
 </nav>

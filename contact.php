@@ -52,6 +52,14 @@ require_once __DIR__ . '/header.php';
                 <div class="company-fact"><span>Office location</span><strong><a href="<?= e(COMPANY_MAP_URL) ?>" target="_blank" rel="noopener" class="text-brand-400">Open verified map location →</a></strong></div>
             </div>
             <div class="company-card mt-5"><h3>Response and escalation</h3><p>We aim to acknowledge normal support requests within one business day. Payment and banking resolution time can depend on external partners. If a case is unresolved, reply on the same ticket with the existing reference rather than opening duplicates.</p></div>
+            <div class="company-card mt-5 border border-sky-500/20">
+                <div class="company-kicker">Grievance Officer</div>
+                <h3><?= e(COMPANY_CEO) ?></h3>
+                <p class="text-sm text-gray-400 mt-2">Designation: Managing Director / Grievance Officer · <?= e(COMPANY_LEGAL_NAME) ?></p>
+                <p class="text-sm text-gray-400 mt-1">Email: <a href="mailto:<?= e(COMPANY_SUPPORT_EMAIL) ?>" class="text-sky-400"><?= e(COMPANY_SUPPORT_EMAIL) ?></a> · Phone: <?= e(COMPANY_PHONE) ?></p>
+                <p class="text-xs text-gray-500 mt-3">Write “Grievance” in the subject. Include merchant code and payment/settlement ID. Acknowledgement target: 48 business hours. Escalation if unresolved after 7 days: reply on the same thread.</p>
+                <p class="text-xs mt-2"><a href="trust.php" class="text-brand-400">Trust &amp; Security centre →</a></p>
+            </div>
         </div>
         <div class="contact-form-card">
             <div class="company-kicker">Send a message</div>
