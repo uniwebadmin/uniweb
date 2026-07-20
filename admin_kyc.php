@@ -86,6 +86,13 @@ $liveCandidates = $db->query(
      WHERE status='active' AND kyc_status='verified' AND account_mode='test'
        AND email<>'demo@uniweb.co.in' ORDER BY id ASC LIMIT 50"
 )->fetchAll();
+if (!isSuperAdmin()) {
+    $pendingDocs = array_values(array_filter($pendingDocs, static fn(array $row): bool => staffHasMerchantAccess((int)$row['merchant_id'])));
+    $pendingMerchants = array_values(array_filter($pendingMerchants, static fn(array $row): bool => staffHasMerchantAccess((int)$row['id'])));
+    $recentSignups = array_values(array_filter($recentSignups, static fn(array $row): bool => staffHasMerchantAccess((int)$row['id'])));
+    $approvalQueue = array_values(array_filter($approvalQueue, static fn(array $row): bool => empty($row['merchant_id']) || staffHasMerchantAccess((int)$row['merchant_id'])));
+    $liveCandidates = array_values(array_filter($liveCandidates, static fn(array $row): bool => staffHasMerchantAccess((int)$row['id'])));
+}
 $pageTitle = 'KYC Review';
 require_once __DIR__ . '/header.php';
 ?>

@@ -82,6 +82,33 @@ function recordSplitPayment(int $transactionId, int $merchantId, array $split, s
         ->execute([$split['platform_fee'], $split['merchant_net'], $transactionId]);
 }
 
+function persistCheckoutCustomerDetails(array &$link, array $post = []): void
+{
+    $name = mb_substr(trim((string)($post['customer_name'] ?? '')), 0, 120);
+    $phone = mb_substr(preg_replace('/\D/', '', (string)($post['customer_phone'] ?? '')), 0, 15);
+    $emailRaw = mb_substr(trim((string)($post['customer_email'] ?? '')), 0, 190);
+    $email = $emailRaw !== '' && filter_var($emailRaw, FILTER_VALIDATE_EMAIL) ? $emailRaw : '';
+    $updates = [];
+    $params = [];
+    if ($name !== '') {
+        $updates[] = 'customer_name=?';
+        $params[] = $name;
+        $link['customer_name'] = $name;
+    }
+    if ($phone !== '') {
+        $updates[] = 'customer_phone=?';
+        $params[] = $phone;
+        $link['customer_phone'] = $phone;
+    }
+    if ($email !== '') {
+        $link['customer_email'] = $email;
+    }
+    if ($updates !== [] && !empty($link['id'])) {
+        $params[] = (int)$link['id'];
+        getDB()->prepare('UPDATE payment_links SET ' . implode(', ', $updates) . ' WHERE id=?')->execute($params);
+    }
+}
+
 function createTransactionFromPayment(array $link, string $method, string $status, string $ref, bool $isTest = false): int
 {
     $db = getDB();
@@ -98,13 +125,17 @@ function createTransactionFromPayment(array $link, string $method, string $statu
     $split = calculateSplitBreakdown($amount, $link);
     $methodStored = preg_replace('/[^a-z0-9_]/i', '', $method) ?: 'upi';
     if (strlen($methodStored) > 32) $methodStored = substr($methodStored, 0, 32);
+    $customerName = mb_substr(trim((string)($link['customer_name'] ?? '')), 0, 160) ?: null;
+    $customerEmail = mb_substr(trim((string)($link['customer_email'] ?? '')), 0, 190) ?: null;
+    $customerPhone = mb_substr(trim((string)($link['customer_phone'] ?? '')), 0, 32) ?: null;
     try {
-        $db->prepare('INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, utr, payment_link_id, platform_fee, split_amount, is_test, collection_mode) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+        $db->prepare('INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, utr, payment_link_id, platform_fee, split_amount, is_test, collection_mode, customer_name, customer_email, customer_phone) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
             ->execute([
                 $txnId, $link['merchant_id'], $amount, $status, $methodStored,
                 $link['description'] ?? '', $ref, $link['id'],
                 $split['platform_fee'], $split['merchant_net'], $isTest ? 1 : 0,
                 getMerchantCollectionMode($link),
+                $customerName, $customerEmail, $customerPhone,
             ]);
     } catch (Throwable $e) {
         $db->prepare('INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, utr, payment_link_id) VALUES (?,?,?,?,?,?,?,?)')

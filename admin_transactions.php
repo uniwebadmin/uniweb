@@ -5,20 +5,22 @@ $db = getDB();
 
 if (isset($_GET['action'], $_GET['id']) && verifyCsrf($_GET['token'] ?? '')) {
     $id = (int)$_GET['id'];
+    $txn = $db->prepare('SELECT merchant_id, amount, txn_id, status FROM transactions WHERE id=?');
+    $txn->execute([$id]);
+    $t = $txn->fetch();
+    if (!$t) {
+        flash('error', 'Transaction not found.');
+        redirect('admin_transactions.php');
+    }
+    requireMerchantAccess((int)$t['merchant_id']);
     if ($_GET['action'] === 'approve') {
-        if (approvePendingTransaction($id)) {
-            $txn = $db->prepare('SELECT merchant_id, amount, txn_id FROM transactions WHERE id=?');
-            $txn->execute([$id]); $t = $txn->fetch();
-            if ($t) {
-                createNotification((int)$t['merchant_id'], 'Payment Approved', formatMoney((float)$t['amount']) . ' credited to wallet — ' . $t['txn_id']);
-                logStaffActivity('txn_approved', $t['txn_id'] . ' ' . formatMoney((float)$t['amount']), (int)$t['merchant_id'], 'transaction', $t['txn_id']);
-            }
+        if ($t['status'] === 'pending' && approvePendingTransaction($id)) {
+            createNotification((int)$t['merchant_id'], 'Payment Approved', formatMoney((float)$t['amount']) . ' credited to wallet — ' . $t['txn_id']);
+            logStaffActivity('txn_approved', $t['txn_id'] . ' ' . formatMoney((float)$t['amount']), (int)$t['merchant_id'], 'transaction', $t['txn_id']);
         }
     } elseif ($_GET['action'] === 'reject') {
-        $txn = $db->prepare('SELECT merchant_id, txn_id FROM transactions WHERE id=?');
-        $txn->execute([$id]); $t = $txn->fetch();
-        $db->prepare("UPDATE transactions SET status='failed' WHERE id=?")->execute([$id]);
-        if ($t) {
+        if ($t['status'] === 'pending') {
+            $db->prepare("UPDATE transactions SET status='failed' WHERE id=?")->execute([$id]);
             logStaffActivity('txn_rejected', $t['txn_id'], (int)$t['merchant_id'], 'transaction', $t['txn_id']);
         }
     }

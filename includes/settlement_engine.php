@@ -11,6 +11,18 @@ function ensureSettlementEngine(): void
     // Schema changes are versioned under migrations/. Request-time DDL is forbidden.
 }
 
+function isValidBankTransferReference(string $utr): bool
+{
+    $utr = strtoupper(trim($utr));
+    if (strlen($utr) < 8 || strlen($utr) > 22) {
+        return false;
+    }
+    if (str_starts_with($utr, 'STL')) {
+        return false;
+    }
+    return (bool)preg_match('/^[A-Z0-9]+$/', $utr);
+}
+
 function getSettlementBatchIntervals(): array
 {
     return [
