@@ -2,19 +2,33 @@
 require_once __DIR__ . '/config.php';
 
 require_once __DIR__ . '/includes/checkout_mode_banner.php';
-$linkId = $_GET['link'] ?? $_POST['udf1'] ?? '';
-if (!$linkId) {
-    http_response_code(404);
-    $pageTitle = 'Payment Link Not Found';
+
+/**
+ * Render a branded, navigable checkout error page instead of a bare white die() screen.
+ * Used for every dead-end (missing / invalid / expired / inactive) payment link so a
+ * customer always lands on a page with clear next steps.
+ */
+function renderCheckoutUnavailable(string $heading, string $detail, int $status = 404): void
+{
+    http_response_code($status);
+    $pageTitle = $heading;
     require_once __DIR__ . '/header.php';
     echo '<section class="pt-28 pb-20 px-4"><div class="max-w-lg mx-auto glass rounded-2xl p-8 text-center">'
-        . '<h1 class="text-xl font-semibold mb-2">Payment link not found</h1>'
-        . '<p class="text-sm text-gray-400 mb-6">This checkout URL is missing a valid payment link. Open a link from your merchant dashboard, or try the demo.</p>'
+        . '<h1 class="text-xl font-semibold mb-2">' . e($heading) . '</h1>'
+        . '<p class="text-sm text-gray-400 mb-6">' . e($detail) . '</p>'
         . '<a href="demo.php" class="inline-block btn-primary px-5 py-2.5 text-sm">Try Demo Payment</a>'
         . ' <a href="index.php" class="inline-block ml-2 text-sm text-gray-400 hover:text-white">Home</a>'
         . '</div></section>';
     require_once __DIR__ . '/footer.php';
     exit;
+}
+
+$linkId = $_GET['link'] ?? $_POST['udf1'] ?? '';
+if (!$linkId) {
+    renderCheckoutUnavailable(
+        'Payment link not found',
+        'This checkout URL is missing a valid payment link. Open a link from your merchant dashboard, or try the demo.'
+    );
 }
 header('Cache-Control: no-store, no-cache, must-revalidate');
 
@@ -26,7 +40,12 @@ $stmt = $db->prepare("SELECT pl.id, pl.link_id, pl.amount AS payment_amount, pl.
     FROM payment_links pl JOIN merchants m ON pl.merchant_id = m.id WHERE pl.link_id = ?");
 $stmt->execute([$linkId]);
 $link = $stmt->fetch();
-if (!$link) { http_response_code(404); die('Payment link expired or not found.'); }
+if (!$link) {
+    renderCheckoutUnavailable(
+        'Payment link not found',
+        'This payment link has expired or does not exist. Ask the merchant for a fresh link, or try the demo.'
+    );
+}
 $amtOnly = $db->prepare('SELECT amount, status FROM payment_links WHERE link_id = ?');
 $amtOnly->execute([$linkId]);
 $plRow = $amtOnly->fetch();
@@ -37,10 +56,20 @@ $link['amount'] = $payAmount;
 $link['status'] = $plRow['status'] ?? 'active';
 // Instant Test Pay: Test Mode links, OR demo store (approval walkthrough)
 $allowInstantPay = $isTestCheckout || ($isDemoMerchant && $payAmount <= 100);
-if ($link['status'] !== 'active') { die('This payment link is no longer active.'); }
+if ($link['status'] !== 'active') {
+    renderCheckoutUnavailable(
+        'Payment link no longer active',
+        'This payment link is no longer active. Please ask the merchant for a new link, or try the demo.',
+        410
+    );
+}
 if ($link['expires_at'] && strtotime($link['expires_at']) < time()) {
     $db->prepare("UPDATE payment_links SET status = 'expired' WHERE id = ?")->execute([$link['id']]);
-    die('This payment link has expired.');
+    renderCheckoutUnavailable(
+        'Payment link expired',
+        'This payment link has expired. Please ask the merchant for a fresh link, or try the demo.',
+        410
+    );
 }
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     incrementPaymentLinkView((int)$link['id']);

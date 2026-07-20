@@ -139,6 +139,15 @@ $assert(str_contains($collectionLib, "'upi://pay?'"), 'collection_upi_intent_sch
 $qrCodePage = (string)file_get_contents($root . '/qr_code.php');
 $assert(str_contains($qrCodePage, 'qr_upi_print.php'), 'qr_code_links_instant_upi_qr');
 
+// Checkout dead-ends (missing / invalid / expired / inactive link) must show a branded,
+// navigable page — never a bare white die() screen — on the customer money path.
+$checkout = (string)file_get_contents($root . '/checkout.php');
+$assert(str_contains($checkout, 'function renderCheckoutUnavailable'), 'checkout_branded_error_helper_present');
+$assert(!str_contains($checkout, "die('Payment link expired or not found.')")
+    && !str_contains($checkout, "die('This payment link is no longer active.')")
+    && !str_contains($checkout, "die('This payment link has expired.')"), 'checkout_no_bare_die_deadends');
+$assert(substr_count($checkout, 'renderCheckoutUnavailable(') >= 4, 'checkout_error_states_use_branded_page');
+
 $manifest = json_decode((string)file_get_contents($root . '/manifest.json'), true);
 $assert(is_array($manifest) && !empty($manifest['icons']), 'manifest_icons_present');
 if (is_array($manifest)) {
