@@ -122,8 +122,8 @@ require_once __DIR__ . '/header.php';
 <?php if (!empty($recentSignups)): ?>
 <div class="glass rounded-xl overflow-hidden mb-8 border border-sky-500/20">
     <div class="px-6 py-4 border-b border-gray-800">
-        <h2 class="font-semibold">Recent signups — verify new merchants (Individual / Freelancer first)</h2>
-        <p class="text-xs text-gray-500 mt-1">Click Verify after documents OK — enables Live mode + Test/Live toggle</p>
+        <h2 class="font-semibold">Recent signups — KYC review (Individual / Freelancer first)</h2>
+        <p class="text-xs text-gray-500 mt-1">Maker sends KYC for approval after documents are OK. An independent checker must approve. Live money still requires the Live activation gate below.</p>
     </div>
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -172,7 +172,7 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-800">
             <h2 class="font-semibold">Pending documents</h2>
-            <p class="text-xs text-gray-500 mt-1">Approve docs before verifying the merchant</p>
+            <p class="text-xs text-gray-500 mt-1">Approve docs (maker) before the independent checker verifies the merchant</p>
         </div>
         <?php if (empty($pendingDocs)): ?>
         <p class="text-gray-500 text-sm text-center py-8">No pending documents</p>
@@ -197,8 +197,8 @@ require_once __DIR__ . '/header.php';
 
     <div class="glass rounded-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-800">
-            <h2 class="font-semibold">Pending KYC — verify to enable Live mode</h2>
-            <p class="text-xs text-gray-500 mt-1">Individual / Freelancer first · Click Verify after documents OK</p>
+            <h2 class="font-semibold">Pending KYC — send for checker approval</h2>
+            <p class="text-xs text-gray-500 mt-1">Individual / Freelancer first · Maker cannot approve their own request · Live activation is a separate step</p>
         </div>
         <?php if (empty($pendingMerchants)): ?>
         <p class="text-gray-500 text-sm text-center py-8">All caught up!</p>
