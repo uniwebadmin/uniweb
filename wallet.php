@@ -13,7 +13,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     redirect('wallet.php');
 }
 
-autoWalletRepairIfNeeded();
 $wallet = ensureMerchantWalletReady($merchantId);
 $isTest = (bool)($wallet['is_test'] ?? isMerchantTest($merchant));
 $balance = $wallet['balance'];

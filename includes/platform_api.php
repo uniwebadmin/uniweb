@@ -3,6 +3,175 @@ declare(strict_types=1);
 
 /** Admin: platform vs merchant API key overview */
 
+function defaultApiScopes(string $mode): array
+{
+    $scopes = ['links:read', 'links:write', 'transactions:read', 'balance:read', 'refunds:read'];
+    if ($mode === 'live') {
+        $scopes[] = 'refunds:write';
+    }
+    return $scopes;
+}
+
+function createMerchantApiCredential(int $merchantId, string $mode, ?array $scopes = null, array $allowedOrigins = []): array
+{
+    requireFinancialTables();
+    if (!in_array($mode, ['test', 'live'], true)) {
+        throw new InvalidArgumentException('Invalid API credential mode.');
+    }
+    $db = getDB();
+    $merchantSt = $db->prepare('SELECT * FROM merchants WHERE id=? AND status=?');
+    $merchantSt->execute([$merchantId, 'active']);
+    $merchant = $merchantSt->fetch();
+    if (!$merchant) {
+        throw new RuntimeException('Active merchant not found.');
+    }
+    if ($mode === 'live' && !isMerchantLive($merchant)) {
+        throw new RuntimeException('Live API credentials require Live Mode approval.');
+    }
+    $scopes = array_values(array_unique($scopes ?: defaultApiScopes($mode)));
+    $validScopes = ['links:read', 'links:write', 'transactions:read', 'balance:read', 'refunds:read', 'refunds:write'];
+    foreach ($scopes as $scope) {
+        if (!in_array($scope, $validScopes, true)) {
+            throw new InvalidArgumentException('Invalid API scope.');
+        }
+    }
+    $normalizedOrigins = [];
+    foreach ($allowedOrigins as $origin) {
+        $normalized = normalizeApiOrigin((string)$origin);
+        if ($normalized !== null) {
+            $normalizedOrigins[] = $normalized;
+        }
+    }
+    $key = 'uw_' . $mode . '_' . bin2hex(random_bytes(24));
+    $secret = 'uws_' . bin2hex(random_bytes(32));
+    $prefix = substr($key, 0, 18);
+    $insert = $db->prepare(
+        'INSERT INTO api_credentials (merchant_id,credential_name,mode,key_prefix,key_hash,secret_hash,scopes,allowed_origins)
+         VALUES (?,?,?,?,?,?,?,?)'
+    );
+    $insert->execute([
+        $merchantId,
+        ucfirst($mode) . ' API',
+        $mode,
+        $prefix,
+        hash('sha256', $key),
+        password_hash($secret, PASSWORD_DEFAULT),
+        json_encode($scopes),
+        $normalizedOrigins ? json_encode(array_values(array_unique($normalizedOrigins))) : null,
+    ]);
+    return ['id' => (int)$db->lastInsertId(), 'key' => $key, 'secret' => $secret, 'mode' => $mode, 'scopes' => $scopes];
+}
+
+function normalizeApiOrigin(string $origin): ?string
+{
+    $origin = rtrim(trim($origin), '/');
+    $parts = parse_url($origin);
+    if (!$parts || !in_array(strtolower((string)($parts['scheme'] ?? '')), ['https', 'http'], true) || empty($parts['host'])) {
+        return null;
+    }
+    if (isset($parts['path']) && $parts['path'] !== '') {
+        return null;
+    }
+    $normalized = strtolower($parts['scheme']) . '://' . strtolower($parts['host']);
+    if (!empty($parts['port'])) {
+        $normalized .= ':' . (int)$parts['port'];
+    }
+    return $normalized;
+}
+
+function apiOriginAllowed(array $credential, string $origin): bool
+{
+    if ($origin === '') {
+        return true;
+    }
+    $normalized = normalizeApiOrigin($origin);
+    $allowed = json_decode((string)($credential['allowed_origins'] ?? ''), true);
+    return $normalized !== null && is_array($allowed) && in_array($normalized, $allowed, true);
+}
+
+function authenticateMerchantApiCredential(string $key, string $secret, string $requiredScope): ?array
+{
+    requireFinancialTables();
+    if ($key === '' || $secret === '') {
+        return null;
+    }
+    $st = getDB()->prepare(
+        "SELECT c.*, m.*,
+                c.id AS credential_id, c.mode AS credential_mode, c.scopes AS credential_scopes,
+                c.allowed_origins AS credential_allowed_origins
+         FROM api_credentials c JOIN merchants m ON m.id=c.merchant_id
+         WHERE c.key_hash=? AND c.status='active' AND m.status='active'
+           AND (c.expires_at IS NULL OR c.expires_at>NOW()) LIMIT 1"
+    );
+    $st->execute([hash('sha256', $key)]);
+    $row = $st->fetch();
+    if (!$row || !password_verify($secret, (string)$row['secret_hash'])) {
+        return null;
+    }
+    $scopes = json_decode((string)$row['credential_scopes'], true);
+    if (!is_array($scopes) || !in_array($requiredScope, $scopes, true)) {
+        return null;
+    }
+    if ($row['credential_mode'] === 'live' && !isMerchantLive($row)) {
+        return null;
+    }
+    if (!consumeApiRateLimit((int)$row['credential_id'])) {
+        throw new RuntimeException('API rate limit exceeded.');
+    }
+    getDB()->prepare('UPDATE api_credentials SET last_used_at=NOW() WHERE id=?')->execute([(int)$row['credential_id']]);
+    $row['api_mode'] = $row['credential_mode'];
+    $row['api_allowed_origins'] = $row['credential_allowed_origins'];
+    return $row;
+}
+
+function consumeApiRateLimit(int $credentialId, int $limit = 120): bool
+{
+    $db = getDB();
+    $db->beginTransaction();
+    try {
+        $st = $db->prepare('SELECT window_started_at,request_count FROM api_rate_limits WHERE credential_id=? FOR UPDATE');
+        $st->execute([$credentialId]);
+        $row = $st->fetch();
+        if (!$row) {
+            $db->prepare('INSERT INTO api_rate_limits (credential_id,window_started_at,request_count) VALUES (?,NOW(),1)')->execute([$credentialId]);
+            $db->commit();
+            return true;
+        }
+        $windowStart = strtotime((string)$row['window_started_at']);
+        if ($windowStart === false || $windowStart <= time() - 60) {
+            $db->prepare('UPDATE api_rate_limits SET window_started_at=NOW(),request_count=1 WHERE credential_id=?')->execute([$credentialId]);
+            $db->commit();
+            return true;
+        }
+        if ((int)$row['request_count'] >= $limit) {
+            $db->commit();
+            return false;
+        }
+        $db->prepare('UPDATE api_rate_limits SET request_count=request_count+1 WHERE credential_id=?')->execute([$credentialId]);
+        $db->commit();
+        return true;
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $e;
+    }
+}
+
+function apiScopeForAction(string $action): ?string
+{
+    return [
+        'create_payment_link' => 'links:write',
+        'check_status' => 'transactions:read',
+        'list_transactions' => 'transactions:read',
+        'get_balance' => 'balance:read',
+        'create_refund' => 'refunds:write',
+        'list_refunds' => 'refunds:read',
+        'list_payment_links' => 'links:read',
+        'get_payment_link' => 'links:read',
+    ][$action] ?? null;
+}
+
 function maskApiKey(?string $key, int $show = 8): string
 {
     $key = trim((string)$key);
@@ -18,36 +187,7 @@ function maskApiKey(?string $key, int $show = 8): string
 /** Ensure live + test API keys exist (approval / merchant portal) */
 function ensureMerchantApiKeys(int $merchantId): void
 {
-    $db = getDB();
-    $st = $db->prepare('SELECT id, api_key, api_secret, test_api_key, test_api_secret FROM merchants WHERE id = ?');
-    $st->execute([$merchantId]);
-    $m = $st->fetch();
-    if (!$m) {
-        return;
-    }
-    $liveKey = trim((string)($m['api_key'] ?? ''));
-    $liveSec = trim((string)($m['api_secret'] ?? ''));
-    $testKey = trim((string)($m['test_api_key'] ?? ''));
-    $testSec = trim((string)($m['test_api_secret'] ?? ''));
-    if ($liveKey === '') {
-        $liveKey = 'uk_' . bin2hex(random_bytes(16));
-    }
-    if ($liveSec === '') {
-        $liveSec = 'us_' . bin2hex(random_bytes(24));
-    }
-    if ($testKey === '') {
-        $testKey = 'test_' . bin2hex(random_bytes(16));
-    }
-    if ($testSec === '') {
-        $testSec = 'testsec_' . bin2hex(random_bytes(24));
-    }
-    try {
-        $db->prepare('UPDATE merchants SET api_key=?, api_secret=?, test_api_key=?, test_api_secret=? WHERE id=?')
-            ->execute([$liveKey, $liveSec, $testKey, $testSec, $merchantId]);
-    } catch (Throwable $e) {
-        $db->prepare('UPDATE merchants SET api_key=?, api_secret=? WHERE id=?')
-            ->execute([$liveKey, $liveSec, $merchantId]);
-    }
+    // Credentials are created explicitly so the raw secret can be shown exactly once.
 }
 
 /** Regenerate a merchant's API credentials (test or live) and notify them by email + in-app. */
@@ -61,17 +201,17 @@ function regenerateMerchantApiKey(int $merchantId, string $mode = 'live', ?int $
         return ['ok' => false, 'error' => 'Merchant not found.'];
     }
 
-    if ($mode === 'test') {
-        $newKey = 'test_' . bin2hex(random_bytes(16));
-        $newSecret = 'testsec_' . bin2hex(random_bytes(24));
-        $db->prepare('UPDATE merchants SET test_api_key=?, test_api_secret=? WHERE id=?')->execute([$newKey, $newSecret, $merchantId]);
-        $label = 'Test';
-    } else {
-        $newKey = 'uk_' . bin2hex(random_bytes(16));
-        $newSecret = 'us_' . bin2hex(random_bytes(24));
-        $db->prepare('UPDATE merchants SET api_key=?, api_secret=? WHERE id=?')->execute([$newKey, $newSecret, $merchantId]);
-        $label = 'Live';
+    $mode = $mode === 'test' ? 'test' : 'live';
+    $db->prepare("UPDATE api_credentials SET status='revoked',revoked_at=NOW() WHERE merchant_id=? AND mode=? AND status='active'")
+        ->execute([$merchantId, $mode]);
+    try {
+        $credential = createMerchantApiCredential($merchantId, $mode);
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => $e->getMessage()];
     }
+    $newKey = $credential['key'];
+    $newSecret = $credential['secret'];
+    $label = ucfirst($mode);
 
     $who = $byAdminId ? 'by admin' : 'by you';
     createNotification($merchantId, "{$label} API Key Regenerated", "A new {$label} API key was generated {$who}. Your old key stopped working immediately — update it in your integration.");
@@ -80,9 +220,9 @@ function regenerateMerchantApiKey(int $merchantId, string $mode = 'live', ?int $
     if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $subject = "[{$label} API Key Regenerated] " . ($m['business_name'] ?? 'Your UniWeb Account');
         $body = "Hi " . ($m['business_name'] ?? 'Merchant') . ",\n\n"
-            . "A new {$label} API key was just generated for your UniWeb account (Merchant ID: " . ($m['merchant_code'] ?? '') . ").\n\n"
-            . "New {$label} API Key: {$newKey}\n\n"
-            . "Your previous key has been deactivated immediately. Please update it in your website/app integration.\n\n"
+            . "A new {$label} API credential was generated for your UniWeb account (Merchant ID: " . ($m['merchant_code'] ?? '') . ").\n\n"
+            . "For security, the key and secret are shown only in the authenticated portal and are not sent by email.\n\n"
+            . "Your previous credential has been deactivated immediately. Please update your integration.\n\n"
             . "If you did not request this change, contact support immediately at " . COMPANY_SUPPORT_EMAIL . ".\n\n"
             . "— " . COMPANY_LEGAL_NAME . "\n" . APP_URL;
         sendPlatformEmail($email, $subject, $body);
@@ -92,7 +232,7 @@ function regenerateMerchantApiKey(int $merchantId, string $mode = 'live', ?int $
         logStaffActivity('api_key_regenerated', "{$label} key regenerated for merchant #{$merchantId}", $merchantId);
     }
 
-    return ['ok' => true, 'mode' => $mode, 'key' => $newKey];
+    return ['ok' => true, 'mode' => $mode, 'key' => $newKey, 'secret' => $newSecret, 'scopes' => $credential['scopes']];
 }
 
 function getPlatformGatewayKeyStatus(): array
@@ -183,14 +323,14 @@ function runAdminPlatformSelfChecks(): array
     $demo->execute();
     $demoRow = $demo->fetch();
     if ($demoRow) {
-        $demoLive = isMerchantLive($demoRow);
+        $demoSandboxed = !isMerchantLive($demoRow) && ($demoRow['account_mode'] ?? '') === 'test';
         $checks[] = [
             'id' => 'demo_mode_toggle',
-            'label' => 'Demo merchant Test/Live toggle',
-            'ok' => $demoLive,
-            'detail' => $demoLive
-                ? 'demo@uniweb.co.in can switch Test ↔ Live'
-                : 'Demo account_mode=' . ($demoRow['account_mode'] ?? '?') . ' — toggle stays on Test only',
+            'label' => 'Demo merchant sandbox isolation',
+            'ok' => $demoSandboxed,
+            'detail' => $demoSandboxed
+                ? 'demo@uniweb.co.in is permanently isolated in Test Mode'
+                : 'Demo account is not safely isolated from Live Mode',
             'fix' => 'includes/demo.php + login as demo@uniweb.co.in',
         ];
     }

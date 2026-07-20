@@ -18,7 +18,7 @@ function ensureDemoMerchant(): array
             ->execute([
                 $code, 'Demo Merchant', $email, COMPANY_PHONE, $pass,
                 'UniWeb Demo Store', 'retail', 'sole_proprietorship',
-                'demomerchant@paytm', 'verified', 'live', 'direct_upi', 0.10, 'active',
+                'demomerchant@paytm', 'submitted', 'test', 'direct_upi', 0.10, 'active',
             ]);
         $merchantId = (int)$db->lastInsertId();
         try {
@@ -31,13 +31,13 @@ function ensureDemoMerchant(): array
 
     $merchantId = (int)$merchant['id'];
 
-    // Live-approved so Test↔Live toggle works for bank demos; demo LINKS stay is_test=1 for Instant Pay
+    // Public demo is permanently sandbox-only and must never obtain Live Mode.
     try {
-        $db->prepare("UPDATE merchants SET account_mode='live', kyc_status='verified', status='active', collection_mode='direct_upi', upi_id=COALESCE(NULLIF(upi_id,''), 'demomerchant@paytm'), business_entity_type=COALESCE(NULLIF(business_entity_type,''), 'sole_proprietorship') WHERE id=?")
+        $db->prepare("UPDATE merchants SET account_mode='test', kyc_status='submitted', status='active', collection_mode='direct_upi', upi_id=COALESCE(NULLIF(upi_id,''), 'demomerchant@paytm'), business_entity_type=COALESCE(NULLIF(business_entity_type,''), 'sole_proprietorship') WHERE id=?")
             ->execute([$merchantId]);
     } catch (Throwable $e) {
         try {
-            $db->prepare("UPDATE merchants SET account_mode='live', kyc_status='verified', status='active' WHERE id=?")->execute([$merchantId]);
+            $db->prepare("UPDATE merchants SET account_mode='test', kyc_status='submitted', status='active' WHERE id=?")->execute([$merchantId]);
         } catch (Throwable $e2) { /* ok */ }
     }
 
@@ -53,7 +53,7 @@ function ensureDemoMerchant(): array
     $stmt->execute([$email]);
     $merchant = $stmt->fetch() ?: $merchant;
 
-    // Public demo + packs must accept Instant Test Pay (sandbox), even when merchant is Live-approved
+    // Public demo + packs accept Instant Test Pay in sandbox only.
     try {
         $db->prepare("UPDATE payment_links SET is_test=1 WHERE merchant_id=? AND status='active'")->execute([$merchantId]);
     } catch (Throwable $e) { /* ok */ }

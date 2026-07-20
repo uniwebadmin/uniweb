@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "UniWeb Merchant API",
-    "version": "1.0.0",
-    "description": "REST API for payment links, transactions, refunds, and balance. Authenticate with X-API-Key header."
+    "version": "2.0.0",
+    "description": "Mode-scoped Merchant API. Authenticate with X-API-Key and X-API-Secret. Write requests also require Idempotency-Key."
   },
   "servers": [{ "url": "https://uniweb.co.in" }],
   "paths": {
@@ -16,6 +16,19 @@
             "in": "header",
             "required": true,
             "schema": { "type": "string" }
+          },
+          {
+            "name": "X-API-Secret",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string", "format": "password" }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Required for create_payment_link and create_refund. Reuse only for an identical request.",
+            "schema": { "type": "string", "maxLength": 100 }
           }
         ],
         "requestBody": {
@@ -49,7 +62,9 @@
           "400": { "description": "Bad request" },
           "401": { "description": "Invalid API key" },
           "403": { "description": "Mode mismatch" },
-          "404": { "description": "Not found" }
+          "404": { "description": "Not found" },
+          "409": { "description": "Idempotency conflict" },
+          "429": { "description": "Rate limit exceeded" }
         }
       }
     }
@@ -60,6 +75,11 @@
         "type": "apiKey",
         "in": "header",
         "name": "X-API-Key"
+      },
+      "ApiSecretAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Secret"
       }
     },
     "schemas": {
@@ -73,12 +93,12 @@
       }
     }
   },
-  "security": [{ "ApiKeyAuth": [] }],
+  "security": [{ "ApiKeyAuth": [], "ApiSecretAuth": [] }],
   "x-webhooks": {
     "payment.success": {
       "post": {
         "summary": "Outbound webhook to merchant URL",
-        "description": "HMAC-SHA256 signature in X-UniWeb-Signature header over raw JSON body.",
+        "description": "Queued delivery with retries. HMAC-SHA256 signature in X-UniWeb-Signature over raw JSON; X-UniWeb-Event-Id is stable across retries.",
         "requestBody": {
           "content": {
             "application/json": {

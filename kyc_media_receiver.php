@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/kyc_upload.php';
 requireLogin();
 ensureKycSchema();
 
@@ -28,8 +29,8 @@ if (!preg_match('/^[a-z0-9]{20,64}$/', $uploadId) || !in_array($extension, $allo
     exit;
 }
 
-$tempDir = rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR . '.kyc_chunks' . DIRECTORY_SEPARATOR . $merchantId;
-if (!is_dir($tempDir) && !mkdir($tempDir, 0755, true) && !is_dir($tempDir)) {
+$tempDir = rtrim(PRIVATE_STORAGE_DIR, '/\\') . DIRECTORY_SEPARATOR . '.kyc_chunks' . DIRECTORY_SEPARATOR . $merchantId;
+if (!is_dir($tempDir) && !mkdir($tempDir, 0700, true) && !is_dir($tempDir)) {
     http_response_code(500);
     echo json_encode(['ok' => false, 'error' => 'Server upload folder is unavailable.']);
     exit;
@@ -64,8 +65,8 @@ if ($action !== 'finalize') {
     exit;
 }
 
-$finalDir = rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR . 'kyc' . DIRECTORY_SEPARATOR . $merchantId . DIRECTORY_SEPARATOR;
-if (!is_dir($finalDir) && !mkdir($finalDir, 0755, true) && !is_dir($finalDir)) {
+$finalDir = rtrim(KYC_PRIVATE_DIR, '/\\') . DIRECTORY_SEPARATOR . $merchantId . DIRECTORY_SEPARATOR;
+if (!is_dir($finalDir) && !mkdir($finalDir, 0700, true) && !is_dir($finalDir)) {
     http_response_code(500);
     echo json_encode(['ok' => false, 'error' => 'Secure KYC folder is unavailable.']);
     exit;
@@ -106,15 +107,24 @@ try {
             finfo_close($finfo);
         }
     }
-    $videoMimes = ['video/mp4', 'video/webm', 'video/quicktime', 'application/octet-stream'];
+    $videoMimes = ['video/mp4', 'application/mp4', 'video/webm', 'video/quicktime'];
     if ($mime !== '' && !in_array($mime, $videoMimes, true)) {
         throw new InvalidArgumentException('Selected file is not a supported video.');
     }
 
-    getDB()->prepare('INSERT INTO kyc_documents (merchant_id, doc_type, file_name, file_path) VALUES (?,?,?,?)')
-        ->execute([$merchantId, 'video_kyc', $fileName, $target]);
+    @chmod($target, 0600);
+    $sha256 = hash_file('sha256', $target);
+    $scanStatus = scanKycFileForMalware($target, $sha256);
+    if ($scanStatus === 'infected') {
+        throw new InvalidArgumentException('The video failed security scanning and was rejected.');
+    }
+    getDB()->prepare(
+        'INSERT INTO kyc_documents
+         (merchant_id,doc_type,file_name,file_path,storage_key,sha256,mime_type,file_size,scan_status,retention_until)
+         VALUES (?,?,?,?,?,?,?,?,?,DATE_ADD(CURDATE(),INTERVAL 8 YEAR))'
+    )->execute([$merchantId, 'video_kyc', $fileName, $target, $merchantId . '/' . $fileName, $sha256, $mime, $size, $scanStatus]);
     try {
-        getDB()->prepare("UPDATE merchants SET video_kyc_status='submitted' WHERE id=?")->execute([$merchantId]);
+        getDB()->prepare("UPDATE merchants SET video_kyc_status='submitted',kyc_status='submitted',onboarding_state='submitted',onboarding_submitted_at=COALESCE(onboarding_submitted_at,NOW()),account_mode='test' WHERE id=?")->execute([$merchantId]);
     } catch (Throwable $e) {
         logPlatformError('warning', 'Video KYC status update failed: ' . $e->getMessage(), ['merchant_id' => $merchantId]);
     }

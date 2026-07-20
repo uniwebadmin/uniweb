@@ -8,30 +8,46 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $paymentId = $_POST['razorpay_payment_id'] ?? '';
 $orderId = $_POST['razorpay_order_id'] ?? '';
 $signature = $_POST['razorpay_signature'] ?? '';
-$linkId = $_POST['link_id'] ?? '';
 
 if (!$paymentId || !$orderId || !$signature || !verifyRazorpayPayment($orderId, $paymentId, $signature)) {
     flash('error', 'Payment verification failed.');
-    redirect('checkout.php?link=' . urlencode($linkId));
+    redirect('index.php');
 }
 
-$db = getDB();
-$stmt = $db->prepare("SELECT pl.*, m.id AS merchant_id, m.commission_rate, m.collection_mode, m.business_name, m.account_mode
-    FROM payment_links pl JOIN merchants m ON pl.merchant_id = m.id WHERE pl.link_id = ?");
-$stmt->execute([$linkId]);
+$providerPayment = fetchRazorpayPayment($paymentId);
+if (!$providerPayment
+    || (string)($providerPayment['order_id'] ?? '') !== $orderId
+    || strtolower((string)($providerPayment['status'] ?? '')) !== 'captured'
+    || empty($providerPayment['captured'])
+) {
+    flash('error', 'Razorpay has not confirmed a captured payment.');
+    redirect('index.php');
+}
+
+$event = registerGatewayEvent('razorpay', 'return:' . $paymentId, 'checkout.return', json_encode($providerPayment), true);
+try {
+    $result = captureVerifiedPaymentOrder([
+        'provider' => 'razorpay',
+        'provider_order_id' => $orderId,
+        'provider_payment_id' => $paymentId,
+        'amount' => ((float)($providerPayment['amount'] ?? 0)) / 100,
+        'currency' => (string)($providerPayment['currency'] ?? ''),
+        'captured' => true,
+        'signature_verified' => true,
+        'provider_verified' => true,
+        'reference' => $paymentId,
+    ]);
+    setGatewayEventStatus((int)$event['id'], !empty($result['duplicate']) ? 'duplicate' : 'processed');
+} catch (Throwable $e) {
+    setGatewayEventStatus((int)$event['id'], 'failed', null, $e->getMessage());
+    logPlatformError('error', 'Razorpay return verification failed.', ['order_id' => $orderId, 'error' => $e->getMessage()]);
+    flash('error', 'Payment could not be verified against the original order. Support has been notified.');
+    redirect('index.php');
+}
+
+$stmt = getDB()->prepare('SELECT o.expected_amount AS amount, pl.link_id, pl.description, m.business_name, m.collection_mode FROM payment_orders o JOIN payment_links pl ON pl.id=o.payment_link_id JOIN merchants m ON m.id=o.merchant_id WHERE o.provider=? AND o.provider_order_id=?');
+$stmt->execute(['razorpay', $orderId]);
 $link = $stmt->fetch();
-
-if (!$link) {
-    die('Invalid payment link.');
-}
-
-$dup = $db->prepare('SELECT id FROM transactions WHERE utr = ? LIMIT 1');
-$dup->execute([$paymentId]);
-if (!$dup->fetch()) {
-    $method = getMerchantCollectionMode($link) === 'razorpay_route' ? 'razorpay_route' : 'razorpay';
-    createTransactionFromPayment($link, $method, 'success', $paymentId, merchantAccountMode($link) === 'test');
-    finalizePaymentLink((int)$link['id'], (int)$link['merchant_id'], (float)$link['amount'], formatMoney((float)$link['amount']) . ' received via Razorpay. Ref: ' . $paymentId);
-}
 
 $pageTitle = 'Payment Successful — ' . APP_NAME;
 $hideNav = true;
@@ -48,9 +64,6 @@ require_once __DIR__ . '/header.php';
         <h2 class="text-xl font-bold mb-2">Payment Successful!</h2>
         <p class="text-3xl font-bold text-brand-400 my-3"><?= formatMoney((float)$link['amount']) ?></p>
         <p class="text-gray-400 text-sm">Payment ID: <?= e($paymentId) ?></p>
-        <?php if (getMerchantCollectionMode($link) === 'razorpay_route'): ?>
-        <p class="text-xs text-gray-500 mt-4">Route split — merchant share transferred automatically.</p>
-        <?php endif; ?>
         <p class="text-gray-500 text-xs mt-4">Thank you for paying via <?= APP_NAME ?></p>
     </div>
 </div>

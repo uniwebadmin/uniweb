@@ -72,7 +72,7 @@ function getPartnerRegistry(): array
             'dashboard' => $banking['decentro']['dashboard'] ?? '',
             'email' => $banking['decentro']['email_business'] ?? '',
             'admin_page' => 'admin_partner.php?p=decentro',
-            'webhook' => APP_URL . '/webhook.php',
+            'webhook' => '',
             'env_key' => 'decentro_environment',
             'config_keys' => [
                 'decentro_environment' => ['label' => 'Environment', 'type' => 'select', 'options' => ['sandbox' => 'Sandbox', 'production' => 'Production']],
@@ -99,7 +99,7 @@ function getPartnerRegistry(): array
             'dashboard' => $banking['payu']['dashboard'] ?? '',
             'email' => $banking['payu']['email'] ?? '',
             'admin_page' => 'admin_partner.php?p=payu',
-            'webhook' => APP_URL . '/payment_payu_return.php',
+            'webhook' => APP_URL . '/payu_webhook.php',
             'env_key' => 'payu_environment',
             'config_keys' => [
                 'payu_environment' => ['label' => 'Environment', 'type' => 'select', 'options' => ['test' => 'Test', 'production' => 'Production']],
@@ -125,7 +125,7 @@ function getPartnerRegistry(): array
             'dashboard' => $banking['razorpay']['dashboard'] ?? '',
             'email' => $banking['razorpay']['email'] ?? '',
             'admin_page' => 'admin_partner.php?p=razorpay',
-            'webhook' => APP_URL . '/webhook.php',
+            'webhook' => APP_URL . '/razorpay_webhook.php',
             'env_key' => 'razorpay_environment',
             'config_keys' => [
                 'razorpay_environment' => ['label' => 'Environment', 'type' => 'select', 'options' => ['test' => 'Test', 'live' => 'Live']],
@@ -149,7 +149,7 @@ function getPartnerRegistry(): array
             'dashboard' => $banking['cashfree']['dashboard'] ?? '',
             'email' => $banking['cashfree']['email'] ?? '',
             'admin_page' => 'admin_partner.php?p=cashfree',
-            'webhook' => APP_URL . '/payment_cashfree_return.php',
+            'webhook' => APP_URL . '/cashfree_webhook.php',
             'env_key' => 'cashfree_environment',
             'config_keys' => [
                 'cashfree_environment' => ['label' => 'Environment', 'type' => 'select', 'options' => ['sandbox' => 'Sandbox', 'production' => 'Production']],
@@ -173,7 +173,7 @@ function getPartnerRegistry(): array
             'dashboard' => $banking['phonepe']['signup'] ?? '',
             'email' => $banking['phonepe']['email'] ?? '',
             'admin_page' => 'admin_partner.php?p=phonepe',
-            'webhook' => APP_URL . '/webhook.php',
+            'webhook' => '',
             'env_key' => 'phonepe_environment',
             'config_keys' => [
                 'phonepe_environment' => ['label' => 'Environment', 'type' => 'select', 'options' => ['sandbox' => 'Sandbox', 'production' => 'Production']],
@@ -198,7 +198,7 @@ function getPartnerRegistry(): array
             'dashboard' => $banking['razorpayx']['dashboard'] ?? '',
             'email' => $banking['razorpayx']['email'] ?? '',
             'admin_page' => 'admin_partner.php?p=razorpayx',
-            'webhook' => APP_URL . '/webhook.php',
+            'webhook' => '',
             'env_key' => 'razorpayx_environment',
             'config_keys' => [
                 'razorpayx_environment' => ['label' => 'Environment', 'type' => 'select', 'options' => ['test' => 'Test', 'live' => 'Live']],
@@ -223,7 +223,7 @@ function getPartnerRegistry(): array
             'dashboard' => $banking['open']['signup'] ?? '',
             'email' => $banking['open']['email'] ?? '',
             'admin_page' => 'admin_partner.php?p=open',
-            'webhook' => APP_URL . '/webhook.php',
+            'webhook' => '',
             'env_key' => 'open_environment',
             'config_keys' => [
                 'open_environment' => ['label' => 'Environment', 'type' => 'select', 'options' => ['sandbox' => 'Sandbox', 'production' => 'Production']],
@@ -248,7 +248,7 @@ function getPartnerRegistry(): array
             'dashboard' => $banking['easebuzz']['signup'] ?? '',
             'email' => $banking['easebuzz']['email'] ?? '',
             'admin_page' => 'admin_partner.php?p=easebuzz',
-            'webhook' => APP_URL . '/webhook.php',
+            'webhook' => '',
             'env_key' => 'easebuzz_environment',
             'config_keys' => [
                 'easebuzz_environment' => ['label' => 'Environment', 'type' => 'select', 'options' => ['test' => 'Test', 'production' => 'Production']],

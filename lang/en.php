@@ -28,7 +28,7 @@ return [
     'track_payment' => 'Track Payment',
     'hero_title' => 'Grow Your Business With',
     'hero_highlight' => 'Digital Payments',
-    'hero_sub' => 'Accept UPI, Cards & Netbanking. Instant QR codes, payment links, and T+1 settlements. Zero setup fee.',
+    'hero_sub' => 'Explore payment links, QR journeys, transaction reporting and settlement workflows in Test Mode. Live services follow KYC and partner activation.',
     'export_csv' => 'Export CSV',
     'download_pdf' => 'Download PDF',
     'save' => 'Save',

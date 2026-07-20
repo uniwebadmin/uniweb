@@ -31,18 +31,32 @@ function confirmUpiPaymentForLink(array $link, string $utr, bool $isTestCheckout
         return ['ok' => true, 'duplicate' => true, 'message' => 'Payment already confirmed.'];
     }
 
-    $handler = resolveCheckoutHandlerForLink($link);
-    $status = 'success';
-    if (!$isTestCheckout && $handler === 'direct_upi' && !isGatewayConfigured('axis')) {
-        $status = 'success';
+    if (!$isTestCheckout) {
+        return [
+            'ok' => false,
+            'error' => 'Manual UPI reference confirmation is disabled in Live Mode. Payment will update only after verified bank or gateway confirmation.',
+        ];
     }
 
-    createTransactionFromPayment($link, 'upi_p2m', $status, $utr, $isTestCheckout);
-    finalizePaymentLink((int)$link['id'], (int)$link['merchant_id'], $payAmount, formatMoney($payAmount) . ' UPI payment confirmed. Ref: ' . $utr);
-
-    $st = $db->prepare('SELECT txn_id FROM transactions WHERE payment_link_id = ? ORDER BY id DESC LIMIT 1');
-    $st->execute([(int)$link['id']]);
-    $txnId = $st->fetchColumn();
+    $order = createBoundPaymentOrder($link, 'sandbox', 'test-upi:' . $utr);
+    bindProviderOrder((int)$order['id'], 'sandbox', (string)$order['order_ref']);
+    $result = captureVerifiedPaymentOrder([
+        'provider' => 'sandbox',
+        'provider_order_id' => (string)$order['order_ref'],
+        'provider_payment_id' => 'sandbox_' . $utr,
+        'amount' => $payAmount,
+        'currency' => 'INR',
+        'captured' => true,
+        'signature_verified' => true,
+        'provider_verified' => true,
+        'reference' => $utr,
+    ]);
+    $txnId = null;
+    if (!empty($result['transaction_id'])) {
+        $st = $db->prepare('SELECT txn_id FROM transactions WHERE id=?');
+        $st->execute([(int)$result['transaction_id']]);
+        $txnId = $st->fetchColumn() ?: null;
+    }
 
     return ['ok' => true, 'txn_id' => $txnId ?: null];
 }

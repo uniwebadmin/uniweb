@@ -5,7 +5,6 @@ $txn = null;
 $txnList = null;
 $error = '';
 $otpStep = false;
-$otpWaUrl = null;
 $prefillTxn = trim($_GET['txn_id'] ?? $_POST['txn_id'] ?? '');
 
 if (isset($_GET['cancel_otp'])) {
@@ -55,11 +54,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['otp_code'])) {
                 $waResult = sendWhatsAppOtp($digits, $otp);
             }
             if (empty($waResult['ok'])) {
-                $msg = "Your UniWeb payment lookup code is {$otp}. Valid 10 minutes.";
-                $otpWaUrl = 'https://wa.me/91' . $digits . '?text=' . rawurlencode($msg);
+                unset($_SESSION['pending_customer_phone']);
+                $error = 'Phone verification is temporarily unavailable. Use your Transaction ID or try again later.';
+            } else {
+                $_SESSION['pending_customer_phone'] = $digits;
+                $otpStep = true;
             }
-            $_SESSION['pending_customer_phone'] = $digits;
-            $otpStep = true;
         }
     }
 }
@@ -78,12 +78,7 @@ require_once __DIR__ . '/header.php';
 
     <?php if ($otpStep): ?>
     <div class="glass rounded-2xl p-8 mb-8">
-        <?php if ($otpWaUrl): ?>
-        <script>window.open(<?= json_encode($otpWaUrl) ?>, '_blank');</script>
-        <p class="text-xs text-emerald-400 text-center mb-4">Verification code sent via WhatsApp — check your chat.</p>
-        <?php else: ?>
         <p class="text-xs text-gray-500 text-center mb-4">Verification code sent to your WhatsApp.</p>
-        <?php endif; ?>
         <form method="POST" class="space-y-4">
             <p class="text-sm text-gray-400 text-center">We need to confirm this is your number before showing payment history.</p>
             <div><label class="text-sm text-gray-400">Verification Code</label><input type="text" name="otp_code" required maxlength="6" pattern="[0-9]{6}" class="input-field mt-1 text-center text-2xl tracking-widest" placeholder="000000" autofocus></div>

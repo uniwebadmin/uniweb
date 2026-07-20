@@ -5,17 +5,17 @@ $health = getPlatformHealth();
 $pageTitle = 'System Status';
 require_once __DIR__ . '/header.php';
 
-$overall = $health['operational'] && ($health['any_gateway'] || $health['success_24h'] > 0);
+$overall = $health['operational'] && !$health['maintenance'];
 ?>
 
 <section class="pt-28 pb-16 px-4 max-w-3xl mx-auto">
     <div class="text-center mb-10">
         <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold mb-4 <?= $overall ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30' ?>">
             <span class="w-2 h-2 rounded-full <?= $overall ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400' ?>"></span>
-            <?= $health['maintenance'] ? 'Maintenance Mode' : ($overall ? 'All Systems Operational' : 'Partial Service') ?>
+            <?= $health['maintenance'] ? 'Maintenance Mode' : ($overall ? 'Core Platform Available' : 'Partial Service') ?>
         </div>
         <h1 class="text-3xl font-bold mb-2"><?= e(APP_NAME) ?> Platform Status</h1>
-        <p class="text-gray-500 text-sm">Live health for payments, gateways, and core services.</p>
+        <p class="text-gray-500 text-sm">Configuration and availability status. Partner configuration does not prove transaction or settlement health.</p>
     </div>
 
     <div class="grid sm:grid-cols-2 gap-4 mb-8">
@@ -38,7 +38,7 @@ $overall = $health['operational'] && ($health['any_gateway'] || $health['success
                     <td class="px-6 py-4"><?= e($label) ?></td>
                     <td class="px-6 py-4 text-right">
                         <?php if ($health['gateways'][$key]): ?>
-                        <span class="text-emerald-400 font-medium">Configured</span>
+                        <span class="text-sky-400 font-medium">Credentials configured</span>
                         <?php else: ?>
                         <span class="text-gray-500">Not configured</span>
                         <?php endif; ?>
@@ -50,9 +50,9 @@ $overall = $health['operational'] && ($health['any_gateway'] || $health['success
     </div>
 
     <div class="glass rounded-xl p-6 text-sm text-gray-400 space-y-2">
-        <p><strong class="text-gray-300">Checkout:</strong> Operational</p>
-        <p><strong class="text-gray-300">Merchant Dashboard:</strong> Operational</p>
-        <p><strong class="text-gray-300">Settlements (wallet rail):</strong> Operational</p>
+        <p><strong class="text-gray-300">Checkout application:</strong> Available</p>
+        <p><strong class="text-gray-300">Merchant Dashboard:</strong> Available</p>
+        <p><strong class="text-gray-300">Settlement ledger:</strong> Internal tracking; bank payout depends on activated rail</p>
         <p><strong class="text-gray-300">Platform version:</strong> v<?= e($health['version']) ?></p>
         <p class="text-xs text-gray-600 pt-2">For payment issues contact <?= e(COMPANY_SUPPORT_EMAIL) ?> · <?= e(COMPANY_PHONE) ?></p>
     </div>

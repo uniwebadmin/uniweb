@@ -80,20 +80,18 @@ function createCardOrderWithSmartRouting(float $amount, array $link, string $ret
     $preferred = isGatewayHealthy('razorpay') ? 'razorpay' : 'cashfree';
     $order = ['razorpay' => null, 'cashfree' => null, 'routed_to' => null, 'diverted' => false];
 
-    $tryOrder = function (string $gw) use ($amount, $link, $returnUrl) {
+    $tryOrder = function (string $gw) use ($link, $returnUrl) {
         if (!isGatewayConfigured($gw)) {
             return null;
         }
-        if ($gw === 'razorpay') {
-            $res = createRazorpayOrder($amount, 'PL_' . $link['link_id'], ['link_id' => $link['link_id']]);
-            $ok = is_array($res) && !empty($res['id']) && empty($res['error']);
-            recordGatewayOutcome('razorpay', $ok, $ok ? null : json_encode($res['error'] ?? 'no_response'));
-            return $ok ? $res : null;
+        try {
+            $res = createBoundGatewayCheckoutOrder($link, $gw, $returnUrl);
+        } catch (Throwable $e) {
+            recordGatewayOutcome($gw, false, $e->getMessage());
+            return null;
         }
-        $orderId = 'CF_' . $link['link_id'] . '_' . time();
-        $res = createCashfreeOrder($orderId, $amount, $link['customer_phone'] ?? '', $link['customer_email'] ?? COMPANY_SUPPORT_EMAIL, $returnUrl, $link['link_id']);
-        $ok = is_array($res) && !empty($res['payment_session_id']);
-        recordGatewayOutcome('cashfree', $ok, $ok ? null : json_encode($res['message'] ?? 'no_response'));
+        $ok = is_array($res) && ($gw === 'razorpay' ? !empty($res['id']) : !empty($res['payment_session_id']));
+        recordGatewayOutcome($gw, $ok, $ok ? null : 'no_response');
         return $ok ? $res : null;
     };
 

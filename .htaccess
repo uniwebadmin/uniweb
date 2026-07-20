@@ -1,11 +1,11 @@
 Options -Indexes
 DirectoryIndex index.php
 
-<FilesMatch "\.(env|log|sql)$">
+<FilesMatch "\.(env|log|sql)$|^(config\.private\.php|db_backup.*\.json|db_.*_result\.json)$">
     Require all denied
 </FilesMatch>
 
-<FilesMatch "^(debug_|wallet_fix_|wallet_diagnose|update_v|my_secret_setup|night_setup|morning_ops|axis_probe|diag\.php|diag_|fix_|refresh_|update_mdr|update_axis_keys|platform_wallet_fix|db_reset_|db_backup_)">
+<FilesMatch "^(debug_|wallet_fix_|wallet_diagnose|update_v|my_secret_setup|night_setup|morning_ops|axis_probe|diag\.php|diag_|test_|refresh_|update_mdr|update_axis_keys|platform_wallet_fix|db_reset_|db_backup_)">
     Require all denied
 </FilesMatch>
 

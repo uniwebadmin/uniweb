@@ -66,8 +66,21 @@ foreach ($paymentMethods as $m) { if ($m['key'] === $selectedPay) { $currentMeth
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'test_pay' && $allowInstantPay) {
     $method = preg_replace('/[^a-z0-9_]/i', '', $selectedPay) ?: 'test';
-    $txnDbId = createTransactionFromPayment($link, $method, 'success', 'TEST' . time(), true);
-    finalizePaymentLink((int)$link['id'], (int)$link['merchant_id'], $payAmount, formatMoney($payAmount) . ' test payment — ' . ($currentMethod['label'] ?? $method) . '.');
+    $testReference = 'TEST' . strtoupper(bin2hex(random_bytes(6)));
+    $order = createBoundPaymentOrder($link, 'sandbox', 'instant:' . $testReference);
+    bindProviderOrder((int)$order['id'], 'sandbox', (string)$order['order_ref']);
+    $captured = captureVerifiedPaymentOrder([
+        'provider' => 'sandbox',
+        'provider_order_id' => (string)$order['order_ref'],
+        'provider_payment_id' => 'sandbox_' . $testReference,
+        'amount' => $payAmount,
+        'currency' => 'INR',
+        'captured' => true,
+        'signature_verified' => true,
+        'provider_verified' => true,
+        'reference' => $testReference,
+    ]);
+    $txnDbId = (int)($captured['transaction_id'] ?? 0);
     $txnRow = getDB()->prepare('SELECT txn_id FROM transactions WHERE id = ?');
     $txnRow->execute([$txnDbId]);
     $successTxnId = $txnRow->fetchColumn() ?: null;
@@ -101,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $bothTabsAvailable = in_array('razorpay', $validKeys, true) && in_array('cashfree', $validKeys, true);
     if (($selectedPay === 'razorpay' || $selectedPay === 'cashfree') && $handler !== 'razorpay_route' && $handler !== 'cashfree_route' && $bothTabsAvailable) {
         // Smart routing: try the healthier gateway first, auto-divert to the other tab on failure — only when both tabs exist for this merchant.
-        $returnUrl = APP_URL . '/payment_cashfree_return.php?link_id=' . urlencode($linkId);
+        $returnUrl = APP_URL . '/payment_cashfree_return.php?order_id={order_id}';
         $smartRouted = createCardOrderWithSmartRouting($payAmount, $link, $returnUrl);
         if ($smartRouted['routed_to'] === 'razorpay') {
             $razorpayOrder = $smartRouted['razorpay'];
@@ -115,16 +128,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
     } elseif ($selectedPay === 'razorpay' || ($handler === 'razorpay_route' && !isGatewayConfigured('payu'))) {
         if (isGatewayConfigured('razorpay')) {
-            $razorpayOrder = $handler === 'razorpay_route'
-                ? createRazorpayOrderWithRoute($payAmount, 'PL_' . $link['link_id'], $link, ['link_id' => $link['link_id']])
-                : createRazorpayOrder($payAmount, 'PL_' . $link['link_id'], ['link_id' => $link['link_id']]);
+            try {
+                $razorpayOrder = createBoundGatewayCheckoutOrder($link, 'razorpay');
+            } catch (Throwable $e) {
+                $error = 'Razorpay checkout is temporarily unavailable.';
+                logPlatformError('error', 'Bound Razorpay order creation failed.', ['error' => $e->getMessage(), 'link_id' => $linkId]);
+            }
         }
     } elseif ($selectedPay === 'cashfree' && isGatewayConfigured('cashfree')) {
-        $orderId = 'CF_' . $link['link_id'] . '_' . time();
-        $returnUrl = APP_URL . '/payment_cashfree_return.php?link_id=' . urlencode($linkId);
-        $cf = $handler === 'cashfree_route'
-            ? createCashfreeOrderWithSplit($orderId, $payAmount, $link, $link['customer_phone'] ?? '', $link['customer_email'] ?? COMPANY_SUPPORT_EMAIL, $returnUrl)
-            : createCashfreeOrder($orderId, $payAmount, $link['customer_phone'] ?? '', $link['customer_email'] ?? COMPANY_SUPPORT_EMAIL, $returnUrl, $linkId);
+        $returnUrl = APP_URL . '/payment_cashfree_return.php?order_id={order_id}';
+        try {
+            $cf = createBoundGatewayCheckoutOrder($link, 'cashfree', $returnUrl);
+        } catch (Throwable $e) {
+            $cf = null;
+            $error = 'Cashfree checkout is temporarily unavailable.';
+            logPlatformError('error', 'Bound Cashfree order creation failed.', ['error' => $e->getMessage(), 'link_id' => $linkId]);
+        }
         $cashfreeSession = $cf['payment_session_id'] ?? null;
     }
 }
@@ -271,20 +290,22 @@ require_once __DIR__ . '/header.php';
                         <p class="text-[10px] text-gray-400 mt-1">Secured by UniWeb</p>
                     </div>
                     <?php endif; ?>
-                    <p class="text-xs text-center text-gray-500 mb-3" id="upi-poll-status"><?= $allowInstantPay ? 'Sandbox — Instant Test Pay above marks this link paid.' : 'Waiting for payment… enter UTR after you pay, or wait for webhook.' ?></p>
+                    <p class="text-xs text-center text-gray-500 mb-3" id="upi-poll-status"><?= $allowInstantPay ? 'Sandbox — Instant Test Pay above marks this link paid.' : 'Waiting for verified bank or gateway confirmation. Do not close this page.' ?></p>
                     <?php if ($upiPa !== ''): ?>
-                    <a href="<?= e($whatsappLink) ?>" target="_blank" class="block text-center bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 py-2 rounded-xl text-sm mb-4">WhatsApp Pay Link</a>
+                    <a href="<?= e($whatsappLink) ?>" target="_blank" rel="noopener" class="block text-center bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 py-2 rounded-xl text-sm mb-4">WhatsApp Pay Link</a>
                     <?php endif; ?>
                     <?php if ($error): ?><div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg mb-4"><?= e($error) ?></div><?php endif; ?>
+                    <?php if ($allowInstantPay): ?>
                     <form method="POST" class="space-y-3">
                         <input type="text" name="customer_name" placeholder="Your Name" class="input-field" value="<?= e($link['customer_name'] ?? '') ?>">
                         <input type="tel" name="customer_phone" placeholder="Phone" class="input-field" value="<?= e($link['customer_phone'] ?? '') ?>">
-                        <input type="text" name="utr" placeholder="UPI UTR / Reference (required after live pay)" class="input-field" <?= $allowInstantPay ? '' : 'required' ?>>
-                        <button type="submit" class="w-full <?= $allowInstantPay ? 'border border-gray-700 text-gray-300' : 'bg-sky-600 hover:bg-sky-500 text-white' ?> py-3 rounded-xl font-semibold">Confirm UPI Payment</button>
-                        <p class="text-[11px] text-gray-600 text-center"><?= $allowInstantPay
-                            ? 'Sandbox: prefer Instant Test Pay. UTR confirm also works with any valid test reference (10–22 chars).'
-                            : 'Live: pay to the UPI ID / QR above, then enter the bank UTR here. Auto-confirm needs Axis VA / gateway webhooks.' ?></p>
+                        <input type="text" name="utr" placeholder="Test UPI reference" class="input-field">
+                        <button type="submit" class="w-full border border-gray-700 text-gray-300 py-3 rounded-xl font-semibold">Confirm Test UPI Payment</button>
+                        <p class="text-[11px] text-gray-600 text-center">Sandbox only: use any unique 10–22 character test reference.</p>
                     </form>
+                    <?php else: ?>
+                    <div class="bg-sky-500/10 border border-sky-500/30 text-sky-200 text-xs px-4 py-3 rounded-xl">For your safety, manually entered UTRs cannot confirm a Live payment. UniWeb will update this page only after a signed bank or payment-partner event.</div>
+                    <?php endif; ?>
                     <?php if ($allowInstantPay): ?></details><?php endif; ?>
 
                     <?php elseif (($currentMethod['type'] ?? '') === 'payu' && !empty($payuForms[$selectedPay])): ?>

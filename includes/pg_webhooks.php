@@ -60,31 +60,11 @@ function paymentReferenceExists(string $reference): bool
 
 function fulfillGatewayPayment(string $gateway, string $linkId, string $reference, string $method, float $amount): array
 {
-    ensureWalletEngine();
-    $link = loadPaymentLinkRow($linkId);
-    if (!$link) {
-        return ['ok' => false, 'error' => 'link_not_found'];
-    }
-    if (paymentReferenceExists($reference)) {
-        return ['ok' => true, 'duplicate' => true];
-    }
-    if (($link['status'] ?? '') === 'paid') {
-        return ['ok' => true, 'duplicate' => true, 'link_paid' => true];
-    }
-
-    $isTest = merchantAccountMode($link) === 'test';
-    $payAmount = sanitizePaymentAmount($amount > 0 ? $amount : (float)$link['amount'], $isTest);
-    $link['amount'] = $payAmount;
-
-    createTransactionFromPayment($link, $method, 'success', $reference, $isTest);
-    finalizePaymentLink(
-        (int)$link['id'],
-        (int)$link['merchant_id'],
-        $payAmount,
-        formatMoney($payAmount) . ' received via ' . ucfirst($gateway) . '. Ref: ' . $reference
-    );
-
-    return ['ok' => true, 'duplicate' => false];
+    return [
+        'ok' => false,
+        'error' => 'legacy_fulfillment_disabled',
+        'message' => 'A bound order plus signed and server-verified provider event is required.',
+    ];
 }
 
 function verifyRazorpayWebhookSignature(string $rawBody, string $signature): bool
@@ -101,6 +81,16 @@ function verifyCashfreeWebhookSignature(string $rawBody, string $signature, stri
 {
     $secret = getSetting('cashfree_secret_key', '');
     if (!$secret || $signature === '' || $timestamp === '') {
+        return false;
+    }
+    if (!ctype_digit($timestamp)) {
+        return false;
+    }
+    $timestampSeconds = (int)$timestamp;
+    if ($timestampSeconds > 20000000000) {
+        $timestampSeconds = (int)floor($timestampSeconds / 1000);
+    }
+    if (abs(time() - $timestampSeconds) > 300) {
         return false;
     }
     $expected = base64_encode(hash_hmac('sha256', $timestamp . $rawBody, $secret, true));

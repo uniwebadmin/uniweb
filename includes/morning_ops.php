@@ -12,12 +12,16 @@ function runMorningPlatformOps(): array
         $demoRow = getDB()->prepare('SELECT * FROM merchants WHERE email = ?');
         $demoRow->execute(['demo@uniweb.co.in']);
         $demoM = $demoRow->fetch();
+        $sandboxOnly = $demoM
+            && ($demoM['account_mode'] ?? '') === 'test'
+            && ($demoM['kyc_status'] ?? '') === 'submitted'
+            && !isMerchantLive($demoM);
         $results[] = [
             'id' => 'demo_merchant',
-            'ok' => $demoM && isMerchantLive($demoM),
+            'ok' => (bool)$sandboxOnly,
             'label' => 'Demo merchant ready',
             'detail' => $demoM
-                ? ($demoM['merchant_code'] ?? '') . ' · Test/Live toggle enabled'
+                ? (($demoM['merchant_code'] ?? '') . ' · permanently Test Mode (sandbox-only)')
                 : 'demo@uniweb.co.in missing',
         ];
     } catch (Throwable $e) {
@@ -104,19 +108,10 @@ function runMorningPlatformOps(): array
     return ['results' => $results, 'failed' => $failed, 'ok' => $failed === 0, 'ran_at' => date('Y-m-d H:i:s')];
 }
 
-/** Merchants approved KYC but still account_mode=test — enables Test/Live toggle */
+/** Live activation is maker-checker controlled; cron must never enable real-money mode. */
 function fixVerifiedMerchantsNotLive(): int
 {
-    $db = getDB();
-    $rows = $db->query("SELECT id FROM merchants WHERE kyc_status='verified' AND account_mode='test' AND status='active'")->fetchAll();
-    $n = 0;
-    foreach ($rows as $row) {
-        $id = (int)$row['id'];
-        $db->prepare("UPDATE merchants SET account_mode='live' WHERE id=?")->execute([$id]);
-        createNotification($id, 'Account Live!', 'Your account is now in Live mode. You can switch Test/Live from the dashboard header.');
-        $n++;
-    }
-    return $n;
+    return 0;
 }
 
 function getRecentSignupQueue(int $limit = 15): array

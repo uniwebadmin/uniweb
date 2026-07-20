@@ -11,35 +11,15 @@ function refreshMerchantWalletBalance(int $merchantId): float
     $mst->execute([$merchantId]);
     $merchant = $mst->fetch() ?: null;
     $isTest = isMerchantTest($merchant);
-    $threshold = walletCorruptThreshold($isTest);
-
-    try {
-        $row = $db->prepare('SELECT wallet_balance FROM merchants WHERE id = ?');
-        $row->execute([$merchantId]);
-        $bal = (float)($row->fetchColumn() ?: 0);
-    } catch (Throwable $e) {
-        $bal = rebuildMerchantWalletBalance($merchantId);
-    }
-
-    if ($bal > $threshold || $bal < 0) {
-        if ($isTest) {
-            $db->prepare('DELETE FROM wallet_transactions WHERE merchant_id=? AND ABS(amount)>1000')->execute([$merchantId]);
-            $db->prepare("UPDATE settlements SET status='failed', processed_at=NOW() WHERE merchant_id=? AND status IN ('pending','processing') AND amount>100")->execute([$merchantId]);
-            $bal = rebuildMerchantWalletBalance($merchantId);
-            if ($bal > $threshold) {
-                resetMerchantWalletFromTransactions($merchantId);
-                $bal = rebuildMerchantWalletBalance($merchantId);
-            }
-            if ($bal > $threshold) {
-                $db->prepare('UPDATE merchants SET wallet_balance=0 WHERE id=?')->execute([$merchantId]);
-                $bal = 0;
-            }
-        } else {
-            reconcileMerchantWallet($merchantId);
-            $bal = rebuildMerchantWalletBalance($merchantId);
-        }
-    }
-
+    $mode = $isTest ? 'test' : 'live';
+    $bal = financialTablesReady()
+        ? merchantLedgerBalance($merchantId, $mode)
+        : (function () use ($db, $merchantId): float {
+            $sum = $db->prepare('SELECT COALESCE(SUM(amount),0) FROM wallet_transactions WHERE merchant_id=?');
+            $sum->execute([$merchantId]);
+            return round((float)$sum->fetchColumn(), 2);
+        })();
+    $db->prepare('UPDATE merchants SET wallet_balance=? WHERE id=?')->execute([$bal, $merchantId]);
     return walletAmount($bal, $isTest);
 }
 
@@ -56,106 +36,12 @@ function ensurePlatformWalletTables(): void
 
 function ensureWalletEngine(): void
 {
-    static $done = false;
-    if ($done) return;
-    $done = true;
-    $db = getDB();
-    try {
-        $migrations = [
-            "ALTER TABLE merchants ADD COLUMN wallet_balance DECIMAL(12,2) NOT NULL DEFAULT 0",
-            "ALTER TABLE merchants ADD COLUMN account_mode ENUM('test','live') NOT NULL DEFAULT 'test'",
-            "ALTER TABLE transactions ADD COLUMN is_test TINYINT(1) NOT NULL DEFAULT 0",
-            "ALTER TABLE transactions ADD COLUMN platform_fee DECIMAL(10,2) DEFAULT 0",
-            "ALTER TABLE transactions ADD COLUMN split_amount DECIMAL(10,2) DEFAULT NULL",
-            "ALTER TABLE transactions ADD COLUMN collection_mode VARCHAR(32) DEFAULT NULL",
-            "ALTER TABLE transactions ADD COLUMN wallet_credited TINYINT(1) NOT NULL DEFAULT 0",
-            "ALTER TABLE transactions MODIFY COLUMN payment_method VARCHAR(32) NOT NULL DEFAULT 'upi'",
-            "ALTER TABLE payment_links ADD COLUMN is_test TINYINT(1) NOT NULL DEFAULT 0",
-            "ALTER TABLE settlements ADD COLUMN utr VARCHAR(50) DEFAULT NULL",
-            "ALTER TABLE settlements ADD COLUMN processed_at TIMESTAMP NULL",
-        ];
-        foreach ($migrations as $sql) {
-            try { $db->exec($sql); } catch (Throwable $e) { /* ok */ }
-        }
-
-        $db->exec("CREATE TABLE IF NOT EXISTS wallet_transactions (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            merchant_id INT NOT NULL,
-            type ENUM('credit','debit','commission','subscription','settlement','refund') NOT NULL,
-            amount DECIMAL(12,2) NOT NULL,
-            balance_after DECIMAL(12,2) NOT NULL,
-            reference VARCHAR(100) DEFAULT NULL,
-            description VARCHAR(255) DEFAULT NULL,
-            transaction_id INT DEFAULT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            INDEX (merchant_id),
-            INDEX (transaction_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        try { $db->exec("ALTER TABLE wallet_transactions ADD COLUMN transaction_id INT DEFAULT NULL"); } catch (Throwable $e) { /* ok */ }
-
-        $db->exec("CREATE TABLE IF NOT EXISTS platform_wallet_transactions (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            type ENUM('credit','debit','commission','settlement','refund') NOT NULL,
-            amount DECIMAL(12,2) NOT NULL,
-            balance_after DECIMAL(12,2) NOT NULL,
-            transaction_id INT DEFAULT NULL,
-            merchant_id INT DEFAULT NULL,
-            reference VARCHAR(100) DEFAULT NULL,
-            description VARCHAR(255) DEFAULT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-        $db->exec("CREATE TABLE IF NOT EXISTS platform_settlements (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            settlement_id VARCHAR(30) NOT NULL UNIQUE,
-            amount DECIMAL(12,2) NOT NULL,
-            status ENUM('pending','processing','completed','failed') DEFAULT 'pending',
-            bank_name VARCHAR(100) DEFAULT NULL,
-            account_number VARCHAR(30) DEFAULT NULL,
-            ifsc_code VARCHAR(16) DEFAULT NULL,
-            account_holder VARCHAR(100) DEFAULT NULL,
-            utr VARCHAR(50) DEFAULT NULL,
-            processed_at TIMESTAMP NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-        $db->exec("CREATE TABLE IF NOT EXISTS settlements (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            settlement_id VARCHAR(30) NOT NULL UNIQUE,
-            merchant_id INT NOT NULL,
-            amount DECIMAL(12,2) NOT NULL,
-            fee DECIMAL(12,2) DEFAULT 0,
-            net_amount DECIMAL(12,2) NOT NULL,
-            status ENUM('pending','processing','completed','failed') DEFAULT 'pending',
-            bank_account_id INT DEFAULT NULL,
-            utr VARCHAR(50) DEFAULT NULL,
-            processed_at TIMESTAMP NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-        $defaults = [
-            ['platform_wallet_balance', '0'],
-            ['min_platform_settlement', '1'],
-            ['min_settlement_amount', '100'],
-        ];
-        $ins = $db->prepare('INSERT INTO gateway_settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=setting_value');
-        foreach ($defaults as [$k, $v]) {
-            try { $ins->execute([$k, $v]); } catch (Throwable $e) { /* ok */ }
-        }
-    } catch (Throwable $e) {
-        error_log('ensureWalletEngine: ' . $e->getMessage());
-    }
+    // Schema changes are versioned under migrations/. Request-time DDL is forbidden.
 }
 
 function rebuildMerchantWalletBalance(int $merchantId): float
 {
-    ensureWalletEngine();
-    $db = getDB();
-    $stmt = $db->prepare('SELECT COALESCE(SUM(amount), 0) FROM wallet_transactions WHERE merchant_id = ?');
-    $stmt->execute([$merchantId]);
-    $bal = round((float)$stmt->fetchColumn(), 2);
-    $db->prepare('UPDATE merchants SET wallet_balance = ? WHERE id = ?')->execute([$bal, $merchantId]);
-    return $bal;
+    return refreshMerchantWalletBalance($merchantId);
 }
 
 function rebuildPlatformWalletBalance(): float
@@ -304,37 +190,24 @@ function reconcileMerchantWallet(int $merchantId): float
     $mst->execute([$merchantId]);
     $merchant = $mst->fetch() ?: null;
     $isTest = isMerchantTest($merchant);
-    $threshold = walletCorruptThreshold($isTest);
-    $absMax = $isTest ? 1000.0 : 500000.0;
-
-    dedupeWalletTransactionCredits();
-    $db->prepare('DELETE FROM wallet_transactions WHERE merchant_id=? AND ABS(amount)>?')->execute([$merchantId, $absMax]);
-
-    $sumSt = $db->prepare('SELECT COALESCE(SUM(amount),0) FROM wallet_transactions WHERE merchant_id=?');
-    $sumSt->execute([$merchantId]);
-    $ledger = round((float)$sumSt->fetchColumn(), 2);
+    $ledger = financialTablesReady()
+        ? merchantLedgerBalance($merchantId, $isTest ? 'test' : 'live')
+        : (function () use ($db, $merchantId): float {
+            $sumSt = $db->prepare('SELECT COALESCE(SUM(amount),0) FROM wallet_transactions WHERE merchant_id=?');
+            $sumSt->execute([$merchantId]);
+            return round((float)$sumSt->fetchColumn(), 2);
+        })();
 
     $balSt = $db->prepare('SELECT wallet_balance FROM merchants WHERE id=?');
     $balSt->execute([$merchantId]);
     $stored = round((float)($balSt->fetchColumn() ?: 0), 2);
 
-    $successSt = $db->prepare("SELECT COUNT(*) FROM transactions WHERE merchant_id=? AND status='success'");
-    $successSt->execute([$merchantId]);
-    $successCount = (int)$successSt->fetchColumn();
-
-    $creditSt = $db->prepare("SELECT COUNT(*) FROM wallet_transactions WHERE merchant_id=? AND amount > 0 AND type='credit'");
-    $creditSt->execute([$merchantId]);
-    $creditEntries = (int)$creditSt->fetchColumn();
-
-    $needsRebuild = $ledger > $threshold
-        || $stored > $threshold
-        || abs($ledger - $stored) > 0.02
-        || ($successCount > 0 && $creditEntries === 0)
-        || ($isTest && $successCount > 0 && $creditEntries > $successCount * 2);
-
-    if ($needsRebuild) {
-        resetMerchantWalletFromTransactions($merchantId);
-        return refreshMerchantWalletBalance($merchantId);
+    if (abs($ledger - $stored) > 0.02) {
+        logPlatformError('warning', 'Merchant wallet cache differed from ledger and was refreshed.', [
+            'merchant_id' => $merchantId,
+            'stored_balance' => $stored,
+            'ledger_balance' => $ledger,
+        ]);
     }
 
     $db->prepare('UPDATE merchants SET wallet_balance=? WHERE id=?')->execute([$ledger, $merchantId]);
@@ -433,46 +306,16 @@ function nukeCorruptWalletState(): array
 function walletFullRepair(): array
 {
     ensureWalletEngine();
-    fixCorruptGatewaySettings();
-    fixCorruptPaymentLinks();
-    fixCorruptInvoices();
-    fixCorruptTransactionAmounts();
-    dedupeWalletTransactionCredits();
-
-    $db = getDB();
-    $db->exec('DELETE FROM wallet_transactions WHERE ABS(amount) > 1000');
-    $db->exec('DELETE FROM platform_wallet_transactions WHERE ABS(amount) > 1000');
-    $db->exec("UPDATE settlements SET status='failed', processed_at=NOW() WHERE status IN ('pending','processing') AND amount > 100");
-    $db->exec("DELETE FROM settlements WHERE amount > 1000 OR amount < 0");
-    $db->exec("UPDATE platform_settlements SET status='failed', processed_at=NOW() WHERE status IN ('pending','processing')");
-    $db->exec('DELETE FROM platform_settlements WHERE amount > 1000 OR amount < 0');
-    $db->exec("UPDATE merchants SET wallet_balance=0 WHERE wallet_balance > 1000 OR wallet_balance < 0");
-    $db->prepare("UPDATE gateway_settings SET setting_value='0' WHERE setting_key='platform_wallet_balance'")->execute();
-    $db->prepare("UPDATE gateway_settings SET setting_value='1' WHERE setting_key='min_platform_settlement'")->execute();
-    $db->prepare("UPDATE gateway_settings SET setting_value='100' WHERE setting_key='min_settlement_amount'")->execute();
-    clearSettingCache();
-
-    $merchantReport = [];
-    foreach ($db->query('SELECT id, email FROM merchants')->fetchAll() as $m) {
-        $mid = (int)$m['id'];
-        $sx = $db->prepare("SELECT COUNT(*) FROM transactions WHERE merchant_id=? AND status='success'");
-        $sx->execute([$mid]);
-        if ((int)$sx->fetchColumn() > 0) {
-            resetMerchantWalletFromTransactions($mid);
-        } else {
-            $db->prepare('DELETE FROM wallet_transactions WHERE merchant_id=?')->execute([$mid]);
-            $db->prepare('UPDATE merchants SET wallet_balance=0 WHERE id=?')->execute([$mid]);
-        }
-        $w = ensureMerchantWalletReady($mid);
-        $merchantReport[] = $m['email'] . ': bal=' . $w['balance'] . ' avail=' . $w['available'];
-    }
-
-    repairPlatformWallet();
-    $platform = ensurePlatformWalletReady();
-
+    $hits = scanCorruptAmounts();
+    logPlatformError('warning', 'Legacy wallet repair was requested but blocked; no data was changed.', [
+        'issue_groups' => array_keys($hits),
+    ]);
     return [
-        'merchants' => $merchantReport,
-        'platform' => $platform,
+        'blocked' => true,
+        'message' => 'Destructive repair is disabled. Review reconciliation exceptions and post audited compensating entries.',
+        'issues' => $hits,
+        'merchants' => [],
+        'platform' => ensurePlatformWalletReady(),
     ];
 }
 
@@ -504,15 +347,7 @@ function scanCorruptAmounts(): array
 
 function autoWalletRepairIfNeeded(): void
 {
-    fixCorruptGatewaySettings();
-    if (!hasCorruptWalletData()) {
-        return;
-    }
-    if (!empty($_SESSION['wallet_repair_v26'])) {
-        return;
-    }
-    $_SESSION['wallet_repair_v26'] = true;
-    walletFullRepair();
+    // Automatic financial-data mutation is intentionally disabled.
 }
 
 function normalizedSettingAmount(string $key, string $default, float $cap = 100.0): float
@@ -748,15 +583,7 @@ function getEffectivePlatformMinWithdraw(float $available): float
 function syncMerchantWallet(int $merchantId): float
 {
     ensureWalletEngine();
-    fixCorruptGatewaySettings();
-    reconcileMerchantWallet($merchantId);
-    $db = getDB();
-    $rows = $db->prepare("SELECT id FROM transactions WHERE merchant_id=? AND status='success' AND (wallet_credited IS NULL OR wallet_credited=0)");
-    $rows->execute([$merchantId]);
-    foreach ($rows->fetchAll() as $r) {
-        creditWalletsFromTransaction((int)$r['id']);
-    }
-    return refreshMerchantWalletBalance($merchantId);
+    return reconcileMerchantWallet($merchantId);
 }
 
 function ensureMerchantWalletReady(int $merchantId): array
@@ -779,27 +606,14 @@ function ensureMerchantWalletReady(int $merchantId): array
 
     reconcileMerchantWallet($merchantId);
 
-    $st = $db->prepare('SELECT COALESCE(SUM(amount),0) FROM wallet_transactions WHERE merchant_id=?');
-    $st->execute([$merchantId]);
-    $bal = round((float)$st->fetchColumn(), 2);
+    $bal = financialTablesReady()
+        ? merchantLedgerBalance($merchantId, $isTest ? 'test' : 'live')
+        : refreshMerchantWalletBalance($merchantId);
     $db->prepare('UPDATE merchants SET wallet_balance=? WHERE id=?')->execute([$bal, $merchantId]);
 
     $sx = $db->prepare("SELECT COUNT(*) FROM transactions WHERE merchant_id=? AND status='success'");
     $sx->execute([$merchantId]);
     $successCount = (int)$sx->fetchColumn();
-
-    $uc = $db->prepare("SELECT COUNT(*) FROM transactions WHERE merchant_id=? AND status='success' AND (wallet_credited IS NULL OR wallet_credited=0)");
-    $uc->execute([$merchantId]);
-    if ((int)$uc->fetchColumn() > 0) {
-        $rows = $db->prepare("SELECT id FROM transactions WHERE merchant_id=? AND status='success' AND (wallet_credited IS NULL OR wallet_credited=0)");
-        $rows->execute([$merchantId]);
-        foreach ($rows->fetchAll() as $r) {
-            creditWalletsFromTransaction((int)$r['id']);
-        }
-        $st->execute([$merchantId]);
-        $bal = round((float)$st->fetchColumn(), 2);
-        $db->prepare('UPDATE merchants SET wallet_balance=? WHERE id=?')->execute([$bal, $merchantId]);
-    }
 
     $available = getMerchantAvailableBalance($merchantId);
     return [
@@ -885,7 +699,11 @@ function processMerchantSettlement(int $merchantId, array $merchant, float $amou
         return ['ok' => false, 'error' => 'Transfer failed: ' . $e->getMessage()];
     }
 
-    createNotification($merchantId, 'Bank Transfer', formatMoney($amount) . ' transferred — ' . $settlementId);
+    createNotification(
+        $merchantId,
+        $isTest ? 'Test Bank Transfer Complete' : 'Bank Transfer Submitted',
+        formatMoney($amount) . ($isTest ? ' transferred in sandbox — ' : ' reserved pending bank confirmation — ') . $settlementId
+    );
 
     return [
         'ok' => true,
@@ -920,44 +738,17 @@ function setPlatformWalletBalance(float $balance): void
 function creditMerchantWallet(int $merchantId, float $amount, string $type, ?int $transactionId, string $reference, string $description, ?bool $isTest = null): bool
 {
     if ($amount <= 0) return true;
-    $db = getDB();
-    ensureWalletEngine();
-
-    if ($isTest === null) {
-        $m = $db->prepare('SELECT account_mode, kyc_status FROM merchants WHERE id=?');
-        $m->execute([$merchantId]);
-        $isTest = isMerchantTest($m->fetch() ?: null);
-    }
-    $cap = walletCreditCap($isTest);
-    if ($amount > $cap) {
-        $amount = $isTest ? 1.0 : $cap;
-    }
-
-    if ($transactionId) {
-        $chk = $db->prepare('SELECT id FROM wallet_transactions WHERE merchant_id=? AND transaction_id=? LIMIT 1');
-        $chk->execute([$merchantId, $transactionId]);
-        if ($chk->fetch()) {
-            return true;
-        }
-    }
-
-    $db->beginTransaction();
     try {
-        $sumSt = $db->prepare('SELECT COALESCE(SUM(amount),0) FROM wallet_transactions WHERE merchant_id=?');
-        $sumSt->execute([$merchantId]);
-        $balance = round((float)$sumSt->fetchColumn() + $amount, 2);
-        try {
-            $db->prepare('INSERT INTO wallet_transactions (merchant_id, type, amount, balance_after, reference, description, transaction_id) VALUES (?,?,?,?,?,?,?)')
-                ->execute([$merchantId, $type, $amount, $balance, $reference, $description, $transactionId]);
-        } catch (Throwable $e) {
-            $db->prepare('INSERT INTO wallet_transactions (merchant_id, type, amount, balance_after, reference, description) VALUES (?,?,?,?,?,?)')
-                ->execute([$merchantId, $type, $amount, $balance, $reference, $description]);
-        }
-        $db->prepare('UPDATE merchants SET wallet_balance = ? WHERE id = ?')->execute([$balance, $merchantId]);
-        $db->commit();
+        postMerchantWalletMovement(
+            $merchantId,
+            round($amount, 2),
+            'wallet_credit',
+            'merchant:' . $merchantId . ':' . $reference,
+            $description,
+            $transactionId
+        );
         return true;
     } catch (Throwable $e) {
-        $db->rollBack();
         error_log('creditMerchantWallet: ' . $e->getMessage());
         return false;
     }
@@ -966,25 +757,17 @@ function creditMerchantWallet(int $merchantId, float $amount, string $type, ?int
 function debitMerchantWallet(int $merchantId, float $amount, string $type, ?int $transactionId, string $reference, string $description): bool
 {
     if ($amount <= 0) return true;
-    ensureWalletEngine();
-    $balance = refreshMerchantWalletBalance($merchantId);
-    if ($balance < $amount) return false;
-    $db = getDB();
-    $db->beginTransaction();
     try {
-        $newBalance = round($balance - $amount, 2);
-        try {
-            $db->prepare('INSERT INTO wallet_transactions (merchant_id, type, amount, balance_after, reference, description, transaction_id) VALUES (?,?,?,?,?,?,?)')
-                ->execute([$merchantId, $type, -$amount, $newBalance, $reference, $description, $transactionId]);
-        } catch (Throwable $e) {
-            $db->prepare('INSERT INTO wallet_transactions (merchant_id, type, amount, balance_after, reference, description) VALUES (?,?,?,?,?,?)')
-                ->execute([$merchantId, $type, -$amount, $newBalance, $reference, $description]);
-        }
-        $db->prepare('UPDATE merchants SET wallet_balance = ? WHERE id = ?')->execute([$newBalance, $merchantId]);
-        $db->commit();
+        postMerchantWalletMovement(
+            $merchantId,
+            -round($amount, 2),
+            $type === 'settlement' ? 'settlement' : 'wallet_debit',
+            'merchant:' . $merchantId . ':' . $reference,
+            $description,
+            $transactionId
+        );
         return true;
     } catch (Throwable $e) {
-        $db->rollBack();
         error_log('debitMerchantWallet: ' . $e->getMessage());
         return false;
     }
@@ -1219,16 +1002,7 @@ function getMerchantAvailableBalance(int $merchantId): float
     $mst = $db->prepare('SELECT account_mode, kyc_status FROM merchants WHERE id=?');
     $mst->execute([$merchantId]);
     $isTest = isMerchantTest($mst->fetch() ?: null);
-    $wallet = refreshMerchantWalletBalance($merchantId);
-    $pending = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM settlements WHERE merchant_id = ? AND status IN ('pending','processing')");
-    $pending->execute([$merchantId]);
-    $pendingAmt = (float)$pending->fetchColumn();
-    $pendingCap = walletCorruptThreshold($isTest);
-    if ($pendingAmt > $pendingCap) {
-        $db->prepare("UPDATE settlements SET status='failed', processed_at=NOW() WHERE merchant_id=? AND status IN ('pending','processing') AND amount>?")->execute([$merchantId, $isTest ? 100 : 500000]);
-        $pendingAmt = 0;
-    }
-    return walletAmount(max(0, $wallet - $pendingAmt), $isTest);
+    return walletAmount(max(0, refreshMerchantWalletBalance($merchantId)), $isTest);
 }
 
 function getMerchantWalletLedger(int $merchantId, int $limit = 40): array

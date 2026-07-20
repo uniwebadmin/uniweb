@@ -15,12 +15,6 @@ $batchHistory = getMerchantBatchHistory($merchantId, 10);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     $action = $_POST['action'] ?? 'transfer';
-    if ($action === 'sync_wallet') {
-        walletFullRepair();
-        ensureMerchantWalletReady($merchantId);
-        flash('success', __('settlements_sync_done'));
-        redirect('settlements.php');
-    }
     if ($action === 'settle_now') {
         $result = requestManualSettlement($merchantId, $merchant);
         flash($result['ok'] ? 'success' : 'error', $result['ok'] ? ($result['message'] ?? 'Settled') : ($result['error'] ?? 'Failed'));
@@ -84,11 +78,7 @@ $canTransfer = $availableBalance >= $minSettlement;
         </a>
         <a href="add_bank.php" class="glass px-4 py-2 rounded-xl text-sm text-gray-400 hover:text-white"><?= __('bank_account') ?></a>
     </div>
-    <form method="POST">
-        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-        <input type="hidden" name="action" value="sync_wallet">
-        <button type="submit" class="text-sm text-sky-400 hover:text-sky-300">🔄 <?= __('wallet_sync_btn') ?></button>
-    </form>
+    <span class="text-xs text-gray-500">Balances are reconciled from immutable payment records.</span>
 </div>
 
 <!-- Settlement mode banner -->

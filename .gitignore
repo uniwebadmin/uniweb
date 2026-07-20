@@ -3,6 +3,7 @@
 .env.*
 .vscode/
 config.php
+config.private.php
 db.local.php
 
 # One-time setup, diagnostics, and deployment scripts

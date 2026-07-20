@@ -30,9 +30,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($saved['ok'])) {
             flash('error', $saved['error'] ?? 'Upload failed. Please retry.');
         } else {
-            $db->prepare("UPDATE merchants SET kyc_status = 'submitted' WHERE id = ?")->execute([$merchant['id']]);
+            $db->prepare("UPDATE merchants SET kyc_status='submitted',onboarding_state='submitted',onboarding_submitted_at=COALESCE(onboarding_submitted_at,NOW()),account_mode='test' WHERE id=?")
+                ->execute([$merchant['id']]);
             notifyAdminKycDocumentUploaded((int)$merchant['id'], $docType);
-            flash('success', 'Document uploaded successfully. Review usually completes within 24 hours.');
+            flash('success', ($saved['scan_status'] ?? 'pending') === 'clean'
+                ? 'Document uploaded and security-scanned successfully.'
+                : 'Document uploaded. Security scan and compliance review are pending.');
         }
     }
     redirect('kyc.php');

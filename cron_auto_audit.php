@@ -6,6 +6,7 @@
  * Does: demo fix, verified→live, link scan, error check, watchdog, saves history.
  */
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/kyc_upload.php';
 
 $auth = validateCronRequest();
 if (empty($auth['ok'])) {
@@ -16,6 +17,8 @@ $http = ($_GET['http'] ?? '0') === '1';
 $verbose = ($_GET['verbose'] ?? '0') === '1';
 $report = runBackgroundAutoAudit($http, 'cron');
 $health = getCronHealthStatus();
+$webhookQueue = processMerchantWebhookQueue(25);
+$kycScans = processPendingKycScans(10);
 
 $settleStep = $report['steps']['settlement'] ?? null;
 $payload = [
@@ -32,6 +35,8 @@ $payload = [
     'next_run_in_sec' => autoAuditIntervalSeconds(),
     'cron_24_7' => !empty($health['live']),
     'cron_runs_24h' => (int)($health['runs_24h'] ?? 0),
+    'merchant_webhooks' => $webhookQueue,
+    'kyc_scans' => $kycScans,
     'help_en' => !empty($report['ok'])
         ? 'All clear — cron runs audit every 10 min. Pending KYC: verify in admin_kyc.php.'
         : 'Cron ran but some checks failed — open Admin → Link Watchdog.',

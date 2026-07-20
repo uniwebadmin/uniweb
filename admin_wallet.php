@@ -47,31 +47,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         }
         redirect('admin_wallet.php');
     }
-    if ($action === 'sync_commissions') {
-        $result = walletFullRepair();
-        $wallet = $result['platform'];
-        flash('success', 'Platform wallet synced. Balance: ' . walletMoney((float)$wallet['balance'], true) . ' · Available: ' . walletMoney((float)$wallet['available'], true));
-        redirect('admin_wallet.php');
-    }
-    if ($action === 'clear_pending') {
-        $db->exec("UPDATE platform_settlements SET status='failed', processed_at=NOW() WHERE status IN ('pending','processing')");
-        ensurePlatformWalletReady();
-        flash('success', 'Pending payouts cleared. Available balance updated.');
-        redirect('admin_wallet.php');
-    }
 }
 
 if (isset($_GET['action'], $_GET['id']) && verifyCsrf($_GET['token'] ?? '')) {
-    $id = (int)$_GET['id'];
-    if ($_GET['action'] === 'complete_payout') {
-        $utr = 'PWL' . time();
-        $db->prepare("UPDATE platform_settlements SET status='completed', utr=?, processed_at=NOW() WHERE id=?")->execute([$utr, $id]);
-        flash('success', 'Platform payout marked complete. UTR: ' . $utr);
-    }
+    flash('error', 'Manual payout completion is disabled. A verified bank reference is required.');
     redirect('admin_wallet.php');
 }
 
-autoWalletRepairIfNeeded();
 $wallet = ensurePlatformWalletReady();
 $balance = (float)$wallet['balance'];
 $available = (float)$wallet['available'];
@@ -92,20 +74,7 @@ require_once __DIR__ . '/header.php';
         <p class="text-sky-200 font-medium">Platform Wallet Sync</p>
         <p class="text-xs text-gray-500 mt-1">Wrong balance showing? Click <strong>Sync Wallets</strong><?= $uncredited > 0 ? " · $uncredited payment(s) pending credit" : '' ?>.</p>
     </div>
-    <div class="flex flex-wrap gap-2">
-        <form method="POST">
-            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-            <input type="hidden" name="action" value="sync_commissions">
-            <button type="submit" class="btn-primary text-sm px-5 py-2.5 font-bold">Sync Wallets</button>
-        </form>
-        <?php if ($pendingPayout > 0): ?>
-        <form method="POST" onsubmit="return confirm('Clear pending payouts?')">
-            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-            <input type="hidden" name="action" value="clear_pending">
-            <button type="submit" class="text-sm px-4 py-2.5 rounded-xl border border-amber-500/40 text-amber-300 hover:bg-amber-500/10">Clear Pending</button>
-        </form>
-        <?php endif; ?>
-    </div>
+    <p class="text-xs text-gray-500">Wallet corrections require an audited compensating entry.</p>
 </div>
 
 <div class="grid lg:grid-cols-4 gap-4 mb-8">

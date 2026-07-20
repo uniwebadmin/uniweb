@@ -33,6 +33,172 @@ function verifyRazorpayPayment(string $orderId, string $paymentId, string $signa
     return hash_equals($expected, $signature);
 }
 
+function fetchRazorpayPayment(string $paymentId): ?array
+{
+    $keyId = getSetting('razorpay_key_id', '');
+    $keySecret = getSetting('razorpay_key_secret', '');
+    if (!$keyId || !$keySecret || $paymentId === '') {
+        return null;
+    }
+    $ch = curl_init('https://api.razorpay.com/v1/payments/' . rawurlencode($paymentId));
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_USERPWD => $keyId . ':' . $keySecret,
+        CURLOPT_TIMEOUT => 20,
+    ]);
+    $response = (string)curl_exec($ch);
+    $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($http !== 200 || $response === '') {
+        return null;
+    }
+    $data = json_decode($response, true);
+    return is_array($data) ? $data : null;
+}
+
+function createRazorpayRefund(string $paymentId, float $amount, string $receipt): ?array
+{
+    $keyId = getSetting('razorpay_key_id', '');
+    $keySecret = getSetting('razorpay_key_secret', '');
+    if (!$keyId || !$keySecret || $paymentId === '' || $amount <= 0) {
+        return null;
+    }
+    $ch = curl_init('https://api.razorpay.com/v1/payments/' . rawurlencode($paymentId) . '/refund');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_USERPWD => $keyId . ':' . $keySecret,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => json_encode([
+            'amount' => (int)round($amount * 100),
+            'speed' => 'normal',
+            'receipt' => $receipt,
+            'notes' => ['uniweb_refund_id' => $receipt],
+        ]),
+        CURLOPT_TIMEOUT => 30,
+    ]);
+    $response = (string)curl_exec($ch);
+    $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($http < 200 || $http >= 300 || $response === '') {
+        return null;
+    }
+    $data = json_decode($response, true);
+    return is_array($data) ? $data : null;
+}
+
+function fetchRazorpayRefund(string $paymentId, string $refundId): ?array
+{
+    $keyId = getSetting('razorpay_key_id', '');
+    $keySecret = getSetting('razorpay_key_secret', '');
+    if (!$keyId || !$keySecret || $paymentId === '' || $refundId === '') {
+        return null;
+    }
+    $url = 'https://api.razorpay.com/v1/payments/' . rawurlencode($paymentId) . '/refunds/' . rawurlencode($refundId);
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_USERPWD => $keyId . ':' . $keySecret,
+        CURLOPT_TIMEOUT => 20,
+    ]);
+    $response = (string)curl_exec($ch);
+    $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($http !== 200 || $response === '') {
+        return null;
+    }
+    $data = json_decode($response, true);
+    return is_array($data) ? $data : null;
+}
+
+function razorpayXRequest(string $method, string $path, ?array $body = null, array $headers = []): ?array
+{
+    $keyId = getSetting('razorpayx_key_id', '') ?: getSetting('razorpay_key_id', '');
+    $keySecret = getSetting('razorpayx_key_secret', '') ?: getSetting('razorpay_key_secret', '');
+    if (!$keyId || !$keySecret) {
+        return null;
+    }
+    $ch = curl_init('https://api.razorpay.com/v1' . $path);
+    $httpHeaders = array_merge(['Content-Type: application/json'], $headers);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CUSTOMREQUEST => strtoupper($method),
+        CURLOPT_USERPWD => $keyId . ':' . $keySecret,
+        CURLOPT_HTTPHEADER => $httpHeaders,
+        CURLOPT_TIMEOUT => 30,
+    ]);
+    if ($body !== null) {
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+    }
+    $response = (string)curl_exec($ch);
+    $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($http < 200 || $http >= 300 || $response === '') {
+        return null;
+    }
+    $data = json_decode($response, true);
+    return is_array($data) ? $data : null;
+}
+
+function createRazorpayXPayout(array $merchant, array $bank, float $amount, string $reference): ?array
+{
+    $platformAccount = getSetting('razorpayx_account_number', '');
+    if ($platformAccount === '' || $amount <= 0) {
+        return null;
+    }
+    $db = getDB();
+    $contactId = trim((string)($bank['razorpay_contact_id'] ?? ''));
+    if ($contactId === '') {
+        $contact = razorpayXRequest('POST', '/contacts', [
+            'name' => (string)($bank['account_holder'] ?? $merchant['business_name'] ?? 'Merchant'),
+            'email' => (string)($merchant['email'] ?? COMPANY_SUPPORT_EMAIL),
+            'contact' => (string)($merchant['phone'] ?? ''),
+            'type' => 'vendor',
+            'reference_id' => (string)($merchant['merchant_code'] ?? ('merchant_' . $merchant['id'])),
+            'notes' => ['merchant_id' => (string)$merchant['id']],
+        ]);
+        $contactId = (string)($contact['id'] ?? '');
+        if ($contactId === '') {
+            return null;
+        }
+        $db->prepare('UPDATE bank_accounts SET razorpay_contact_id=? WHERE id=?')->execute([$contactId, (int)$bank['id']]);
+    }
+    $fundAccountId = trim((string)($bank['razorpay_fund_account_id'] ?? ''));
+    if ($fundAccountId === '') {
+        $fund = razorpayXRequest('POST', '/fund_accounts', [
+            'contact_id' => $contactId,
+            'account_type' => 'bank_account',
+            'bank_account' => [
+                'name' => (string)$bank['account_holder'],
+                'ifsc' => strtoupper((string)$bank['ifsc_code']),
+                'account_number' => (string)$bank['account_number'],
+            ],
+        ]);
+        $fundAccountId = (string)($fund['id'] ?? '');
+        if ($fundAccountId === '') {
+            return null;
+        }
+        $db->prepare('UPDATE bank_accounts SET razorpay_fund_account_id=? WHERE id=?')->execute([$fundAccountId, (int)$bank['id']]);
+    }
+    return razorpayXRequest('POST', '/payouts', [
+        'account_number' => $platformAccount,
+        'fund_account_id' => $fundAccountId,
+        'amount' => (int)round($amount * 100),
+        'currency' => 'INR',
+        'mode' => $amount <= 500000 ? 'IMPS' : 'NEFT',
+        'purpose' => 'payout',
+        'queue_if_low_balance' => true,
+        'reference_id' => $reference,
+        'narration' => 'UniWeb Settlement',
+        'notes' => ['settlement_batch' => $reference, 'merchant_id' => (string)$merchant['id']],
+    ], ['X-Payout-Idempotency: ' . hash('sha256', $reference)]);
+}
+
+function fetchRazorpayXPayout(string $payoutId): ?array
+{
+    return $payoutId !== '' ? razorpayXRequest('GET', '/payouts/' . rawurlencode($payoutId)) : null;
+}
+
 function cashfreeApiBase(): string
 {
     return getSetting('cashfree_environment', 'production') === 'sandbox'
@@ -102,6 +268,33 @@ function fetchCashfreeOrder(string $orderId): ?array
     $response = curl_exec($ch);
     curl_close($ch);
     return $response ? json_decode($response, true) : null;
+}
+
+function fetchCashfreeOrderPayments(string $orderId): array
+{
+    $appId = getSetting('cashfree_app_id', '');
+    $secret = getSetting('cashfree_secret_key', '');
+    if (!$appId || !$secret || $orderId === '') {
+        return [];
+    }
+    $ch = curl_init(cashfreeApiBase() . '/orders/' . rawurlencode($orderId) . '/payments');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => [
+            'x-api-version: 2023-08-01',
+            'x-client-id: ' . $appId,
+            'x-client-secret: ' . $secret,
+        ],
+        CURLOPT_TIMEOUT => 20,
+    ]);
+    $response = (string)curl_exec($ch);
+    $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($http !== 200 || $response === '') {
+        return [];
+    }
+    $data = json_decode($response, true);
+    return is_array($data) ? array_values($data) : [];
 }
 
 function ensureGatewaySubmissionsTable(): void

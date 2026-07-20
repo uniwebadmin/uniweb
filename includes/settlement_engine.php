@@ -8,86 +8,7 @@ declare(strict_types=1);
 
 function ensureSettlementEngine(): void
 {
-    static $done = false;
-    if ($done) {
-        return;
-    }
-    $done = true;
-    ensureWalletEngine();
-    $db = getDB();
-
-    $migrations = [
-        "ALTER TABLE merchants ADD COLUMN settlement_mode VARCHAR(16) NOT NULL DEFAULT 'manual'",
-        "ALTER TABLE merchants ADD COLUMN settlement_rail VARCHAR(24) NOT NULL DEFAULT 'wallet'",
-        "ALTER TABLE merchants ADD COLUMN batch_interval_minutes INT NOT NULL DEFAULT 120",
-        "ALTER TABLE merchants ADD COLUMN settlement_use_platform_default TINYINT(1) NOT NULL DEFAULT 1",
-        "ALTER TABLE merchants ADD COLUMN next_batch_at DATETIME NULL",
-        "ALTER TABLE merchants ADD COLUMN last_batch_at DATETIME NULL",
-        "ALTER TABLE transactions ADD COLUMN settlement_batch_id INT NULL",
-    ];
-    foreach ($migrations as $sql) {
-        try {
-            $db->exec($sql);
-        } catch (Throwable $e) {
-            /* ok */
-        }
-    }
-
-    try {
-        $db->exec("CREATE TABLE IF NOT EXISTS settlement_batches (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            batch_code VARCHAR(32) NOT NULL UNIQUE,
-            merchant_id INT NOT NULL,
-            settlement_rail ENUM('platform_pg','axis_va','wallet') NOT NULL DEFAULT 'wallet',
-            batch_type ENUM('scheduled','manual') NOT NULL DEFAULT 'scheduled',
-            txn_count INT NOT NULL DEFAULT 0,
-            gross_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
-            fee_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
-            net_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
-            status ENUM('open','processing','settled','failed') NOT NULL DEFAULT 'open',
-            settlement_id INT NULL,
-            period_start DATETIME NULL,
-            period_end DATETIME NULL,
-            scheduled_at DATETIME NULL,
-            processed_at DATETIME NULL,
-            utr VARCHAR(64) NULL,
-            api_provider VARCHAR(32) NULL,
-            api_status VARCHAR(32) NOT NULL DEFAULT 'pending',
-            api_message VARCHAR(255) NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            INDEX (merchant_id),
-            INDEX (status),
-            INDEX (scheduled_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-        $db->exec("CREATE TABLE IF NOT EXISTS settlement_batch_items (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            batch_id INT NOT NULL,
-            transaction_id INT NOT NULL,
-            amount DECIMAL(12,2) NOT NULL DEFAULT 0,
-            payment_method VARCHAR(32) NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY uq_txn (transaction_id),
-            INDEX (batch_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    } catch (Throwable $e) { /* ok */ }
-
-    $defaults = [
-        ['default_settlement_mode', 'manual'],
-        ['default_settlement_rail', 'platform_pg'],
-        ['default_batch_interval_minutes', '120'],
-        ['settlement_batch_enabled', '1'],
-        ['axis_batch_enabled', '1'],
-        ['platform_pg_batch_enabled', '1'],
-    ];
-    $ins = $db->prepare('INSERT INTO gateway_settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=setting_value');
-    foreach ($defaults as [$k, $v]) {
-        try {
-            $ins->execute([$k, $v]);
-        } catch (Throwable $e) {
-            /* ok */
-        }
-    }
+    // Schema changes are versioned under migrations/. Request-time DDL is forbidden.
 }
 
 function getSettlementBatchIntervals(): array
@@ -409,12 +330,17 @@ function closeBatchAndSettle(int $merchantId, string $batchType = 'scheduled'): 
         return $apiResult;
     }
 
-    $db->prepare("UPDATE settlement_batches SET status='settled', processed_at=NOW(), utr=?, api_status=?, api_message=?, settlement_id=? WHERE id=?")
+    $isFinal = !empty($apiResult['final']);
+    $db->prepare("UPDATE settlement_batches SET status=?, processed_at=?, utr=?, api_status=?, api_message=?, settlement_id=?,provider_payout_id=?,provider_status=? WHERE id=?")
         ->execute([
+            $isFinal ? 'settled' : 'processing',
+            $isFinal ? date('Y-m-d H:i:s') : null,
             $apiResult['utr'] ?? null,
-            $apiResult['api_status'] ?? 'simulated',
-            $apiResult['message'] ?? 'Batch settled',
+            $apiResult['api_status'] ?? 'submitted',
+            $apiResult['message'] ?? 'Payout submitted',
             $apiResult['settlement_id'] ?? null,
+            $apiResult['provider_payout_id'] ?? null,
+            $apiResult['provider_status'] ?? null,
             $batchId,
         ]);
 
@@ -425,7 +351,7 @@ function closeBatchAndSettle(int $merchantId, string $batchType = 'scheduled'): 
 
     createNotification(
         $merchantId,
-        'Settlement Batch Complete',
+        $isFinal ? 'Settlement Batch Complete' : 'Settlement Batch Submitted',
         formatMoney($net) . ' — ' . (int)$batch['txn_count'] . ' transaction(s) in batch ' . $batch['batch_code']
     );
 
@@ -434,7 +360,10 @@ function closeBatchAndSettle(int $merchantId, string $batchType = 'scheduled'): 
         'batch_id' => $batch['batch_code'],
         'amount' => $net,
         'txn_count' => (int)$batch['txn_count'],
-        'message' => 'Batch ' . $batch['batch_code'] . ' settled: ' . formatMoney($net) . ' (' . (int)$batch['txn_count'] . ' txns)',
+        'status' => $isFinal ? 'settled' : 'processing',
+        'message' => $isFinal
+            ? 'Batch ' . $batch['batch_code'] . ' settled: ' . formatMoney($net)
+            : 'Batch ' . $batch['batch_code'] . ' submitted; awaiting provider confirmation.',
     ];
 }
 
@@ -455,12 +384,14 @@ function dispatchSettlementRailPayout(array $merchant, array $batch, float $amou
     if (!$result['ok']) {
         return $result;
     }
+    $sandbox = function_exists('isSettlementSandbox') ? isSettlementSandbox($merchant) : isMerchantTest($merchant);
     return [
         'ok' => true,
-        'utr' => 'SIM' . time(),
-        'api_status' => (function_exists('isSettlementSandbox') ? isSettlementSandbox($merchant) : isMerchantTest($merchant)) ? 'simulated' : 'internal',
+        'utr' => $sandbox ? 'SIM' . time() : null,
+        'api_status' => $sandbox ? 'simulated' : 'awaiting_manual_transfer',
         'message' => $result['message'] ?? 'Wallet settlement created',
-        'settlement_id' => null,
+        'settlement_id' => $result['settlement_id'] ?? null,
+        'final' => $sandbox,
     ];
 }
 
@@ -474,21 +405,40 @@ function dispatchPlatformPgPayout(array $merchant, array $batch, float $amount):
             'utr' => 'PG-TEST-' . time(),
             'api_status' => 'simulated',
             'message' => 'Platform PG batch (test mode)',
+            'final' => true,
         ];
     }
-    if (!isGatewayConfigured('payu') && !isGatewayConfigured('razorpay') && !isGatewayConfigured('cashfree')) {
-        return ['ok' => false, 'error' => 'Platform PG keys not configured. Add gateway keys in Admin → Gateway Settings.'];
+    if (!getSetting('razorpayx_account_number', '') || !getSetting('razorpayx_key_id', getSetting('razorpay_key_id', ''))) {
+        return ['ok' => false, 'error' => 'RazorpayX payout rail is not activated.'];
     }
     $result = processMerchantSettlement((int)$merchant['id'], $merchant, $amount);
     if (!$result['ok']) {
         return $result;
     }
+    $bankSt = getDB()->prepare("SELECT * FROM bank_accounts WHERE merchant_id=? AND is_primary=1 AND status='active' LIMIT 1");
+    $bankSt->execute([(int)$merchant['id']]);
+    $bank = $bankSt->fetch();
+    $payout = $bank ? createRazorpayXPayout($merchant, $bank, $amount, (string)$batch['batch_code']) : null;
+    if (!$payout || empty($payout['id'])) {
+        creditMerchantWallet((int)$merchant['id'], $amount, 'refund', null, 'REV-' . $result['settlement_id'], 'Payout submission failed — funds released');
+        getDB()->prepare("UPDATE settlements SET status='failed',processed_at=NOW() WHERE settlement_id=?")->execute([$result['settlement_id']]);
+        return ['ok' => false, 'error' => 'RazorpayX did not accept the payout request. Funds were released.'];
+    }
+    $providerStatus = strtolower((string)($payout['status'] ?? 'queued'));
+    $utr = trim((string)($payout['utr'] ?? ''));
+    $final = $providerStatus === 'processed' && $utr !== '';
+    if ($final) {
+        getDB()->prepare("UPDATE settlements SET status='completed',utr=?,processed_at=NOW() WHERE settlement_id=?")->execute([$utr, $result['settlement_id']]);
+    }
     return [
         'ok' => true,
-        'utr' => null,
-        'api_status' => 'wallet_only',
-        'message' => 'Wallet debited. Live bank payout API not wired yet — manual NEFT/IMPS required.',
+        'utr' => $final ? $utr : null,
+        'api_status' => $final ? 'confirmed' : 'submitted',
+        'provider_status' => $providerStatus,
+        'provider_payout_id' => (string)$payout['id'],
+        'message' => $final ? 'RazorpayX payout confirmed.' : 'RazorpayX payout accepted; awaiting final confirmation.',
         'settlement_id' => $result['settlement_id'] ?? null,
+        'final' => $final,
     ];
 }
 
@@ -502,6 +452,7 @@ function dispatchAxisVaSweep(array $merchant, array $batch, float $amount): arra
             'utr' => 'AXIS-TEST-' . time(),
             'api_status' => 'simulated',
             'message' => 'Axis VA sweep (test mode)',
+            'final' => true,
         ];
     }
     $va = $merchant['axis_va_number'] ?? '';
@@ -522,8 +473,9 @@ function dispatchAxisVaSweep(array $merchant, array $batch, float $amount): arra
         'ok' => true,
         'utr' => null,
         'api_status' => 'wallet_only',
-        'message' => 'Wallet debited. Axis VA sweep API pending — manual transfer required.' . ($va ? ' (VA ' . $va . ')' : ''),
+        'message' => 'Awaiting verified manual bank transfer.' . ($va ? ' (VA ' . $va . ')' : ''),
         'settlement_id' => $result['settlement_id'] ?? null,
+        'final' => false,
     ];
 }
 

@@ -382,6 +382,7 @@ function watchdogExpectedHttpStatuses(string $relFile, string $auth): array
         'blog_post.php' => [404],
         'qr_pay.php' => [404],
         'global_search.php' => [401],
+        'webhook.php' => [410],
         'wallet_repair_once.php' => [403],
         'checkout_upi_status.php' => [400],
         'qr_image.php' => [400],

@@ -4,24 +4,38 @@ require_once __DIR__ . '/config.php';
 $secret = getSetting('axis_webhook_secret', '');
 $raw = file_get_contents('php://input');
 $headers = function_exists('getallheaders') ? getallheaders() : [];
+$headerMap = [];
+foreach ($headers as $name => $value) {
+    $headerMap[strtolower((string)$name)] = trim((string)$value);
+}
+$signature = $headerMap['x-axis-signature'] ?? $headerMap['x-webhook-signature'] ?? '';
 
-axisLogApi('/axis_webhook.php', $_SERVER['REQUEST_METHOD'] ?? 'POST', $raw, json_encode($headers), 200, null, 'webhook_in');
+header('Content-Type: application/json');
+header('Cache-Control: no-store');
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+    jsonResponse(['error' => 'Method not allowed'], 405);
+}
+if ($secret === '' || $signature === '') {
+    axisLogApi('/axis_webhook.php', 'POST', '', 'missing webhook authentication', 401, null, 'webhook_rejected');
+    jsonResponse(['error' => 'Webhook authentication required'], 401);
+}
+$expected = hash_hmac('sha256', $raw, $secret);
+if (!hash_equals($expected, strtolower($signature))) {
+    axisLogApi('/axis_webhook.php', 'POST', '', 'invalid webhook signature', 401, null, 'webhook_rejected');
+    jsonResponse(['error' => 'Invalid webhook signature'], 401);
+}
 
 $data = json_decode($raw, true);
 if (!is_array($data)) {
-    $data = $_POST;
+    jsonResponse(['error' => 'Invalid JSON payload'], 400);
 }
 
 $vaNumber = $data['virtualAccountNumber'] ?? $data['vaNumber'] ?? $data['vanNumber'] ?? ($data['Data']['virtualAccountNumber'] ?? '');
 $amount = (float)($data['amount'] ?? $data['txnAmount'] ?? ($data['Data']['amount'] ?? 0));
-$utr = $data['utr'] ?? $data['bankRefNo'] ?? $data['txnRefNo'] ?? ($data['Data']['utr'] ?? '');
+$utr = trim((string)($data['utr'] ?? $data['bankRefNo'] ?? $data['txnRefNo'] ?? ($data['Data']['utr'] ?? '')));
 
-http_response_code(200);
-header('Content-Type: application/json');
-echo json_encode(['status' => 'received', 'app' => APP_NAME]);
-
-if (!$vaNumber || $amount <= 0) {
-    exit;
+if (!$vaNumber || $amount <= 0 || $utr === '') {
+    jsonResponse(['error' => 'Missing virtual account, amount, or bank reference'], 400);
 }
 
 $db = getDB();
@@ -29,13 +43,15 @@ $m = $db->prepare('SELECT * FROM merchants WHERE axis_va_number = ? LIMIT 1');
 $m->execute([$vaNumber]);
 $merch = $m->fetch();
 if (!$merch) {
-    axisLogApi('webhook', 'POST', $raw, 'merchant not found for VA ' . $vaNumber, 404, null, 'webhook_skip');
-    exit;
+    axisLogApi('webhook', 'POST', '', 'merchant not found for VA', 404, null, 'webhook_skip');
+    jsonResponse(['error' => 'Virtual account not found'], 404);
 }
 
 $dup = $db->prepare('SELECT id FROM transactions WHERE utr = ? LIMIT 1');
-$dup->execute([$utr ?: ('AXIS_' . $vaNumber . '_' . $amount)]);
-if ($dup->fetch()) exit;
+$dup->execute([$utr]);
+if ($dup->fetch()) {
+    jsonResponse(['status' => 'duplicate', 'app' => APP_NAME]);
+}
 
 $link = [
     'merchant_id' => (int)$merch['id'],
@@ -47,7 +63,8 @@ $link = [
     'kyc_status' => $merch['kyc_status'] ?? '',
     'id' => 0,
 ];
-$txnId = createTransactionFromPayment($link, 'axis_va', 'success', $utr ?: ('AXIS' . time()), merchantAccountMode($merch) === 'test');
+$txnId = createTransactionFromPayment($link, 'axis_va', 'success', $utr, merchantAccountMode($merch) === 'test');
 createNotification((int)$merch['id'], 'Axis VA Payment', formatMoney($amount) . ' received in Virtual Account.');
 
-axisLogApi('webhook', 'POST', $raw, 'credited txn ' . $txnId, 200, (int)$merch['id'], 'webhook_ok');
+axisLogApi('webhook', 'POST', '', 'credited txn ' . $txnId, 200, (int)$merch['id'], 'webhook_ok');
+jsonResponse(['status' => 'processed', 'transaction_id' => $txnId, 'app' => APP_NAME]);

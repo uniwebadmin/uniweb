@@ -12,7 +12,11 @@ function merchantAccountMode(?array $merchant): string
     if (!$merchant) {
         return 'test';
     }
-    $kycOk = ($merchant['kyc_status'] ?? '') === 'verified';
+    $merchantId = (int)($merchant['id'] ?? 0);
+    $kycOk = ($merchant['kyc_status'] ?? '') === 'verified'
+        && $merchantId > 0
+        && function_exists('merchantLiveGateSatisfied')
+        && merchantLiveGateSatisfied($merchantId);
     $modeLive = ($merchant['account_mode'] ?? '') === 'live';
     if ($modeLive && $kycOk) {
         return 'live';
@@ -190,7 +194,11 @@ function renderMerchantTestStripe(?array $merchant): string
 
 function activateMerchantLive(int $merchantId): void
 {
-    getDB()->prepare("UPDATE merchants SET account_mode='live', kyc_status='verified' WHERE id=?")->execute([$merchantId]);
+    $gate = function_exists('merchantLiveGateReport') ? merchantLiveGateReport($merchantId) : ['ok' => false, 'missing' => ['live_gate']];
+    if (empty($gate['ok'])) {
+        throw new RuntimeException('Live activation blocked: ' . implode(', ', $gate['missing'] ?? ['unknown']));
+    }
+    getDB()->prepare("UPDATE merchants SET account_mode='live',live_enabled_at=NOW() WHERE id=?")->execute([$merchantId]);
     $m = getDB()->prepare('SELECT collection_mode FROM merchants WHERE id=?');
     $m->execute([$merchantId]);
     $row = $m->fetch();

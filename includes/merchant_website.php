@@ -131,7 +131,8 @@ function adminSetMerchantWebsiteStatus(int $merchantId, string $status): void
     if (!in_array($status, ['pending', 'verified', 'rejected', 'not_set'], true)) {
         return;
     }
-    getDB()->prepare('UPDATE merchants SET website_status=? WHERE id=?')->execute([$status, $merchantId]);
+    getDB()->prepare("UPDATE merchants SET website_status=?,website_review_status=?,account_mode=IF(?='verified',account_mode,'test') WHERE id=?")
+        ->execute([$status, $status, $status, $merchantId]);
     if ($status === 'verified') {
         createNotification($merchantId, 'Website Verified', 'Your business website has been verified. You can use it in payment gateway applications.');
     } elseif ($status === 'rejected') {

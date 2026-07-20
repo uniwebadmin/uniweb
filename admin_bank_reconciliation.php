@@ -27,8 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'uploa
     }
     $adminId = $_SESSION['admin_id'] ?? null;
     $result = reconcileBankStatementRows($rows, $adminId, $origName);
-    logStaffActivity('bank_reconciliation_upload', "Uploaded {$origName}: {$result['confirmed']} confirmed, {$result['auto_settled']} auto-settled, " . count($result['unmatched']) . ' unmatched');
-    flash('success', "Processed {$result['total']} rows — {$result['confirmed']} confirmed, {$result['auto_settled']} auto-settled, " . count($result['unmatched']) . ' unmatched.');
+    logStaffActivity('bank_reconciliation_upload', "Uploaded {$origName}: {$result['confirmed']} confirmed, {$result['suggested']} suggested, " . count($result['unmatched']) . ' unmatched');
+    flash('success', "Processed {$result['total']} rows — {$result['confirmed']} confirmed, {$result['suggested']} review suggestion(s), " . count($result['unmatched']) . ' unmatched.');
 }
 
 $history = getBankReconciliationHistory(20);
@@ -38,8 +38,8 @@ require_once __DIR__ . '/header.php';
 <div class="space-y-6">
     <div class="flex flex-wrap gap-3 items-center justify-between">
         <div>
-            <h2 class="text-xl font-bold">⭐ Bank Auto-Reconciliation</h2>
-            <p class="text-sm text-gray-400 mt-1">Upload the bank's settlement/payout statement (CSV). Matching batches are confirmed or auto-settled instantly — no manual entry.</p>
+            <h2 class="text-xl font-bold">Bank Reconciliation Review</h2>
+            <p class="text-sm text-gray-400 mt-1">Upload a bank statement. Exact confirmed UTR matches are recorded; proposed matches require review and never auto-settle a batch.</p>
         </div>
         <a href="admin_reconciliation.php" class="text-xs text-sky-400 hover:underline">PG Webhook Reconciliation →</a>
     </div>
@@ -60,7 +60,7 @@ require_once __DIR__ . '/header.php';
     <?php if ($result): ?>
     <div class="grid sm:grid-cols-3 gap-4">
         <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Confirmed (existing UTR matched)</p><p class="text-2xl font-bold text-emerald-400 mt-1"><?= (int)$result['confirmed'] ?></p></div>
-        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Auto-Settled (stuck batches fixed)</p><p class="text-2xl font-bold text-brand-400 mt-1"><?= (int)$result['auto_settled'] ?></p></div>
+        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Review Suggestions</p><p class="text-2xl font-bold text-brand-400 mt-1"><?= (int)$result['suggested'] ?></p></div>
         <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Unmatched — needs manual review</p><p class="text-2xl font-bold text-amber-400 mt-1"><?= count($result['unmatched']) ?></p></div>
     </div>
     <?php if (!empty($result['unmatched'])): ?>
@@ -82,7 +82,7 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-800"><h3 class="font-semibold">Upload History</h3></div>
         <table class="w-full text-sm">
-            <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr><th class="px-5 py-3 text-left">File</th><th class="px-5 py-3 text-left">Rows</th><th class="px-5 py-3 text-left">Confirmed</th><th class="px-5 py-3 text-left">Auto-Settled</th><th class="px-5 py-3 text-left">Unmatched</th><th class="px-5 py-3 text-left">When</th></tr></thead>
+            <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr><th class="px-5 py-3 text-left">File</th><th class="px-5 py-3 text-left">Rows</th><th class="px-5 py-3 text-left">Confirmed</th><th class="px-5 py-3 text-left">Suggested</th><th class="px-5 py-3 text-left">Unmatched</th><th class="px-5 py-3 text-left">When</th></tr></thead>
             <tbody class="divide-y divide-gray-800">
                 <?php if (empty($history)): ?>
                 <tr><td colspan="6" class="px-5 py-8 text-center text-gray-500">No uploads yet.</td></tr>
@@ -91,7 +91,7 @@ require_once __DIR__ . '/header.php';
                     <td class="px-5 py-3"><?= e($h['filename']) ?></td>
                     <td class="px-5 py-3"><?= (int)$h['rows_total'] ?></td>
                     <td class="px-5 py-3 text-emerald-400"><?= (int)$h['rows_confirmed'] ?></td>
-                    <td class="px-5 py-3 text-brand-400"><?= (int)$h['rows_auto_settled'] ?></td>
+                    <td class="px-5 py-3 text-brand-400"><?= (int)($h['rows_suggested'] ?? 0) ?></td>
                     <td class="px-5 py-3 text-amber-400"><?= (int)$h['rows_unmatched'] ?></td>
                     <td class="px-5 py-3 text-gray-500"><?= formatDate($h['created_at']) ?></td>
                 </tr>

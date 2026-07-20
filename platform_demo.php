@@ -28,7 +28,7 @@ require_once __DIR__ . '/header.php';
     <div class="text-center mb-6">
         <p class="text-sky-400 text-xs font-bold uppercase tracking-widest mb-2">Guided Video Tour · English voice narration</p>
         <h1 class="text-2xl sm:text-4xl font-extrabold">UniWeb Platform Demo</h1>
-        <p class="text-gray-500 text-sm mt-2">Play — auto slideshow + voice narration. Slide 1 has <strong class="text-sky-400">live ₹1 checkout</strong>.</p>
+        <p class="text-gray-500 text-sm mt-2">Play the slideshow and voice narration. Slide 1 contains a <strong class="text-sky-400">₹1 Test Mode checkout</strong>.</p>
     </div>
 
     <div class="tour-stage mb-4 shadow-2xl" id="tour-stage">
@@ -38,11 +38,15 @@ require_once __DIR__ . '/header.php';
         <div class="tour-slide <?= $i === $startSlide ? 'active' : '' ?>" data-index="<?= $i ?>" data-id="<?= e($s['id']) ?>">
             <?php if (!empty($s['embed']) && $i === 0): ?>
             <div class="tour-embed" id="live-embed-wrap">
-                <iframe id="live-checkout-frame" src="about:blank" data-src="<?= e($s['embed']) ?>" title="Live checkout" loading="lazy"></iframe>
+                <iframe id="live-checkout-frame" src="about:blank" data-src="<?= e($s['embed']) ?>" title="Test Mode checkout" loading="lazy"></iframe>
             </div>
             <?php else: ?>
             <div class="tour-img-wrap">
+                <?php if (!empty($s['img']) && is_file(__DIR__ . '/' . $s['img'])): ?>
                 <img src="<?= e($s['img']) ?>" alt="<?= e($s['title']) ?>">
+                <?php else: ?>
+                <div class="text-center px-8"><p class="text-sky-400 text-xs uppercase tracking-widest mb-3"><?= e($s['subtitle']) ?></p><p class="text-2xl font-bold text-white"><?= e($s['title']) ?></p><p class="text-sm text-gray-500 mt-3"><?= e($s['desc']) ?></p></div>
+                <?php endif; ?>
             </div>
             <?php endif; ?>
             <div class="p-5 sm:p-6 border-t border-gray-800">
@@ -74,13 +78,13 @@ require_once __DIR__ . '/header.php';
     <div class="flex gap-2 overflow-x-auto pb-2 justify-center">
         <?php foreach ($slides as $i => $s): ?>
         <button type="button" class="tour-thumb rounded-lg overflow-hidden w-20 sm:w-24 shrink-0 <?= $i === $startSlide ? 'active' : '' ?>" data-goto="<?= $i ?>">
-            <img src="<?= e($s['img']) ?>" alt="" class="w-full aspect-video object-cover">
+            <span class="w-full aspect-video flex items-center justify-center bg-dark-900 text-[10px] text-gray-400 px-2"><?= e($s['title']) ?></span>
         </button>
         <?php endforeach; ?>
     </div>
 
     <div class="text-center mt-8">
-        <a href="<?= e($demo['pay_url']) ?>" target="_blank" class="inline-block bg-brand-600 hover:bg-brand-500 text-white px-8 py-3 rounded-xl font-semibold">Open Live ₹1 Checkout →</a>
+        <a href="<?= e($demo['pay_url']) ?>" target="_blank" rel="noopener" class="inline-block bg-brand-600 hover:bg-brand-500 text-white px-8 py-3 rounded-xl font-semibold">Open ₹1 Test Checkout →</a>
     </div>
 </section>
 

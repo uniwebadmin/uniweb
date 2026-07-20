@@ -4,24 +4,6 @@ requireLogin();
 $merchant = getMerchant();
 $merchantId = (int)$merchant['id'];
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
-    $action = $_POST['action'] ?? '';
-    if ($action === 'sync_wallet') {
-        walletFullRepair();
-        flash('success', __('wallet_sync_done'));
-        redirect('merchant_settings.php');
-    }
-    if ($action === 'reset_wallet') {
-        $db = getDB();
-        $db->prepare('DELETE FROM wallet_transactions WHERE merchant_id=?')->execute([$merchantId]);
-        $db->prepare('UPDATE merchants SET wallet_balance=0 WHERE id=?')->execute([$merchantId]);
-        $db->prepare("UPDATE transactions SET wallet_credited=0 WHERE merchant_id=? AND status='success'")->execute([$merchantId]);
-        syncMerchantWallet($merchantId);
-        flash('success', __('wallet_reset_done'));
-        redirect('merchant_settings.php');
-    }
-}
-
 $wallet = ensureMerchantWalletReady($merchantId);
 $pageTitle = __('settings_title');
 require_once __DIR__ . '/header.php';
@@ -68,11 +50,6 @@ $productCards = [
     <div class="flex flex-wrap gap-2">
         <a href="settlements.php" class="text-xs px-3 py-2 rounded-lg border border-gray-700 text-gray-300 hover:text-white">Settlements</a>
         <a href="wallet.php" class="text-xs px-3 py-2 rounded-lg border border-gray-700 text-gray-300 hover:text-white">Wallet</a>
-        <form method="POST" class="inline">
-            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-            <input type="hidden" name="action" value="sync_wallet">
-            <button type="submit" class="text-xs px-3 py-2 rounded-lg border border-sky-500/40 text-sky-400">Sync wallet</button>
-        </form>
     </div>
 </div>
 
@@ -102,16 +79,6 @@ $productCards = [
         <span class="inline-block mt-3 text-xs text-sky-400 font-medium"><?= e($cta) ?> →</span>
     </a>
     <?php endforeach; ?>
-</div>
-
-<div class="glass rounded-xl p-5 border border-amber-500/20 max-w-2xl">
-    <h2 class="font-semibold text-amber-300 text-sm mb-1"><?= __('settings_wallet_tools') ?></h2>
-    <p class="text-xs text-gray-500 mb-4"><?= __('settings_wallet_desc') ?></p>
-    <form method="POST" onsubmit="return confirm('<?= e(__('wallet_reset_confirm')) ?>')" class="inline">
-        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-        <input type="hidden" name="action" value="reset_wallet">
-        <button type="submit" class="text-xs px-4 py-2 rounded-lg border border-amber-500/40 text-amber-300 hover:bg-amber-500/10"><?= __('wallet_reset_btn') ?></button>
-    </form>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

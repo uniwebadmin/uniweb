@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 function merchantAgreementVersion(): string
 {
-    return '2026.07.19';
+    return defined('ACTIVE_MERCHANT_AGREEMENT_VERSION') ? ACTIVE_MERCHANT_AGREEMENT_VERSION : '2026.07.19';
 }
 
 function merchantAgreementSections(): array

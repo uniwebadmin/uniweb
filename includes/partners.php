@@ -148,7 +148,7 @@ We need Decentro as our PRIMARY banking infrastructure partner (not KYC-only). P
    - UPI Payment Links (dynamic amount)
    - UPI QR codes
    - UPI sub-merchant onboarding (each merchant gets own VPA)
-   - Collection webhooks to: {$site}/webhook.php
+   - Collection callbacks: provider-specific signed endpoint to be confirmed during UAT
 
 3. VIRTUAL ACCOUNTS
    - Create VA per merchant (IMPS/NEFT/RTGS/UPI collect)

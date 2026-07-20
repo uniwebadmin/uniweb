@@ -6,17 +6,13 @@ $trustPartners = array_values(array_filter([
     isGatewayConfigured('cashfree') ? 'Cashfree' : null,
     isGatewayConfigured('payu') ? 'PayU' : null,
     isGatewayConfigured('axis') ? 'Axis Bank' : null,
-    'UPI',
 ]));
-if (count($trustPartners) < 2) {
-    $trustPartners = ['Razorpay', 'Cashfree', 'PayU', 'Axis Bank', 'UPI'];
-}
-$badges = ['256-bit SSL', 'PCI DSS Ready', 'RBI UPI 0% MDR', 'GST Registered', 'T+1 Settlement', 'Signed Webhooks'];
+$badges = ['HTTPS Transport', 'Secure Sessions', 'GST Registered', 'Signed Provider Webhooks', 'Test / Live Separation'];
 if ((int)getSetting('whatsapp_enabled', '0') === 1) {
     $badges[] = 'WhatsApp OTP';
 }
 if (isGatewayConfigured($activePg)) {
-    $badges[] = ucfirst($activePg) . ' Live';
+    $badges[] = ucfirst($activePg) . ' Configured';
 }
 ?>
 <div class="trust-strip">
@@ -28,9 +24,9 @@ if (isGatewayConfigured($activePg)) {
         </span>
         <?php endforeach; ?>
     </div>
-    <div class="flex flex-wrap justify-center items-center gap-4 sm:gap-6 opacity-80">
+    <?php if ($trustPartners): ?><div class="flex flex-wrap justify-center items-center gap-4 sm:gap-6 opacity-80">
         <?php foreach ($trustPartners as $p): ?>
-        <span class="text-xs sm:text-sm font-bold tracking-wide text-gray-400 uppercase"><?= e($p) ?></span>
+        <span class="text-xs sm:text-sm font-bold tracking-wide text-gray-400 uppercase"><?= e($p) ?> configured</span>
         <?php endforeach; ?>
-    </div>
+    </div><?php endif; ?>
 </div>

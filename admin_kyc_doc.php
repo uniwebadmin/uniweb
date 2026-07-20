@@ -9,7 +9,7 @@ if (!$id || !verifyCsrf($_GET['token'] ?? '')) {
 }
 
 $db = getDB();
-$st = $db->prepare('SELECT file_path, file_name, merchant_id FROM kyc_documents WHERE id = ?');
+$st = $db->prepare('SELECT file_path,file_name,merchant_id,mime_type,scan_status FROM kyc_documents WHERE id=?');
 $st->execute([$id]);
 $doc = $st->fetch();
 if (!$doc) {
@@ -17,14 +17,21 @@ if (!$doc) {
     die('Document not found');
 }
 requireMerchantAccess((int)$doc['merchant_id']);
+if (($doc['scan_status'] ?? 'pending') !== 'clean') {
+    http_response_code(423);
+    die('Document is quarantined until malware scanning completes.');
+}
 if (!is_file($doc['file_path'])) {
     http_response_code(404);
     die('Document not found');
 }
 
 $path = realpath($doc['file_path']);
-$uploadRoot = realpath(UPLOAD_DIR);
-if (!$path || !$uploadRoot || strpos($path, $uploadRoot) !== 0) {
+$privateRoot = realpath(KYC_PRIVATE_DIR);
+$legacyRoot = realpath(rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR . 'kyc');
+$insidePrivate = $path && $privateRoot && str_starts_with($path, $privateRoot . DIRECTORY_SEPARATOR);
+$insideLegacy = $path && $legacyRoot && str_starts_with($path, $legacyRoot . DIRECTORY_SEPARATOR);
+if (!$path || (!$insidePrivate && !$insideLegacy)) {
     http_response_code(403);
     die('Invalid path');
 }
@@ -39,7 +46,7 @@ $types = [
     'webm' => 'video/webm',
     'mov' => 'video/quicktime',
 ];
-$mime = $types[$ext] ?? 'application/octet-stream';
+$mime = (string)($doc['mime_type'] ?: ($types[$ext] ?? 'application/octet-stream'));
 $isVideo = str_starts_with($mime, 'video/');
 
 // Video KYC: HTML player so admins can review in-browser
@@ -55,6 +62,9 @@ if ($isVideo && empty($_GET['raw'])) {
     exit;
 }
 
+header('Cache-Control: private, no-store, max-age=0');
+header('X-Content-Type-Options: nosniff');
+header("Content-Security-Policy: default-src 'none'; media-src 'self'; style-src 'unsafe-inline'");
 header('Content-Type: ' . $mime);
 header('Content-Disposition: inline; filename="' . basename($doc['file_name']) . '"');
 header('Content-Length: ' . filesize($path));

@@ -94,7 +94,36 @@ function decentroVerify(string $type, string $number, string $clientId, string $
     curl_close($ch);
     if ($httpCode >= 200 && $httpCode < 300 && $response) {
         $data = json_decode($response, true);
-        return ['success' => true, 'status' => 'verified', 'data' => $data];
+        if (!is_array($data)) {
+            return ['success' => false, 'status' => 'failed', 'message' => 'Provider returned invalid JSON'];
+        }
+        $flatStatus = strtoupper(trim((string)(
+            $data['data']['status']
+            ?? $data['data']['account_status']
+            ?? $data['response_status']
+            ?? $data['status']
+            ?? ''
+        )));
+        if ($type === 'aadhaar') {
+            return [
+                'success' => true,
+                'status' => in_array($flatStatus, ['VERIFIED', 'VALID'], true) ? 'verified' : 'otp_sent',
+                'message' => 'Aadhaar OTP initiation is not identity verification.',
+                'data' => $data,
+            ];
+        }
+        $authoritative = match ($type) {
+            'bank' => in_array($flatStatus, ['VERIFIED', 'VALID', 'ACTIVE'], true)
+                && trim((string)($data['data']['beneficiary_name'] ?? $data['data']['name'] ?? '')) !== '',
+            'pan', 'gst', 'cin' => in_array($flatStatus, ['VERIFIED', 'VALID', 'ACTIVE'], true),
+            default => false,
+        };
+        return [
+            'success' => true,
+            'status' => $authoritative ? 'verified' : 'submitted',
+            'message' => $authoritative ? 'Provider verification confirmed' : 'Provider response received; manual review required',
+            'data' => $data,
+        ];
     }
     return null;
 }
@@ -114,6 +143,10 @@ function saveVerification(int $merchantId, string $type, string $number, string 
     $db = getDB();
     $db->prepare('INSERT INTO kyc_verifications (merchant_id, doc_type, doc_number, status, api_response) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE status=VALUES(status), api_response=VALUES(api_response), updated_at=NOW()')
         ->execute([$merchantId, $type, $number, $status, $response]);
+    if ($type === 'bank') {
+        $db->prepare('UPDATE merchants SET bank_verification_status=? WHERE id=?')
+            ->execute([$status === 'verified' ? 'verified' : 'submitted', $merchantId]);
+    }
 }
 
 function getVerifications(int $merchantId): array

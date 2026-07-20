@@ -3,33 +3,7 @@ declare(strict_types=1);
 
 function ensureMerchantWebhookEngine(): void
 {
-    static $done = false;
-    if ($done) {
-        return;
-    }
-    $done = true;
-    $db = getDB();
-    foreach ([
-        'ALTER TABLE merchants ADD COLUMN webhook_url VARCHAR(500) NULL',
-        'ALTER TABLE merchants ADD COLUMN webhook_signing_secret VARCHAR(64) NULL',
-    ] as $sql) {
-        try {
-            $db->exec($sql);
-        } catch (Throwable $e) { /* ok */ }
-    }
-    try {
-        $db->exec("CREATE TABLE IF NOT EXISTS merchant_webhook_logs (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            merchant_id INT NOT NULL,
-            event_type VARCHAR(64) NOT NULL,
-            payload MEDIUMTEXT,
-            response_code INT NULL,
-            response_body TEXT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            INDEX (merchant_id),
-            INDEX (created_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    } catch (Throwable $e) { /* ok */ }
+    // Schema changes are versioned under migrations/. Request-time DDL is forbidden.
 }
 
 function merchantWebhookSecret(array $merchant): string
@@ -38,7 +12,7 @@ function merchantWebhookSecret(array $merchant): string
     if ($secret !== '') {
         return $secret;
     }
-    return (string)($merchant['api_secret'] ?? $merchant['test_api_secret'] ?? '');
+    return '';
 }
 
 function signMerchantWebhookPayload(string $payload, string $secret): string
@@ -60,9 +34,48 @@ function merchantWebhookDeliveryOk(?int $code): bool
     return $code !== null && $code >= 200 && $code < 300;
 }
 
-/** @return array{ok:bool,code:int,body:string,error?:string} */
-function postMerchantWebhook(string $url, string $event, string $payload, string $signature): array
+function publicWebhookDestination(string $url): array
 {
+    $parts = parse_url($url);
+    if (!$parts
+        || strtolower((string)($parts['scheme'] ?? '')) !== 'https'
+        || empty($parts['host'])
+        || isset($parts['user'])
+        || isset($parts['pass'])
+        || (!empty($parts['port']) && (int)$parts['port'] !== 443)
+    ) {
+        return ['ok' => false, 'error' => 'Webhook URL must be a public HTTPS URL on port 443.'];
+    }
+    $host = strtolower((string)$parts['host']);
+    if ($host === 'localhost' || str_ends_with($host, '.local')) {
+        return ['ok' => false, 'error' => 'Private webhook hosts are not allowed.'];
+    }
+    $records = @dns_get_record($host, DNS_A | DNS_AAAA) ?: [];
+    $ips = [];
+    foreach ($records as $record) {
+        $ip = $record['ip'] ?? $record['ipv6'] ?? null;
+        if ($ip !== null) {
+            $ips[] = $ip;
+        }
+    }
+    if (!$ips) {
+        return ['ok' => false, 'error' => 'Webhook host does not resolve.'];
+    }
+    foreach ($ips as $ip) {
+        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            return ['ok' => false, 'error' => 'Webhook host resolves to a private or reserved address.'];
+        }
+    }
+    return ['ok' => true, 'host' => $host, 'ip' => $ips[0], 'port' => 443];
+}
+
+/** @return array{ok:bool,code:int,body:string,error?:string} */
+function postMerchantWebhook(string $url, string $event, string $eventId, string $payload, string $signature): array
+{
+    $destination = publicWebhookDestination($url);
+    if (empty($destination['ok'])) {
+        return ['ok' => false, 'code' => 0, 'body' => '', 'error' => $destination['error']];
+    }
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
@@ -70,12 +83,17 @@ function postMerchantWebhook(string $url, string $event, string $payload, string
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
             'X-UniWeb-Event: ' . $event,
+            'X-UniWeb-Event-Id: ' . $eventId,
             'X-UniWeb-Signature: ' . $signature,
             'User-Agent: UniWeb-Webhook/1.0',
         ],
         CURLOPT_POSTFIELDS => $payload,
         CURLOPT_TIMEOUT => 10,
+        CURLOPT_CONNECTTIMEOUT => 5,
         CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+        CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
+        CURLOPT_RESOLVE => [$destination['host'] . ':' . $destination['port'] . ':' . $destination['ip']],
     ]);
     $body = (string)curl_exec($ch);
     $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -108,28 +126,107 @@ function dispatchMerchantWebhook(int $merchantId, string $event, array $data): a
         return ['ok' => false, 'code' => 0, 'message' => 'Merchant not found'];
     }
     $url = trim((string)($merchant['webhook_url'] ?? ''));
-    if ($url === '' || !filter_var($url, FILTER_VALIDATE_URL)) {
+    $destination = $url !== '' ? publicWebhookDestination($url) : ['ok' => false];
+    if ($url === '' || empty($destination['ok'])) {
         return ['ok' => false, 'code' => 0, 'message' => 'Webhook URL not configured'];
     }
 
+    $eventId = generateId('EVT');
     $payload = json_encode([
+        'id' => $eventId,
         'event' => $event,
-        'timestamp' => time(),
+        'created_at' => gmdate('c'),
         'data' => $data,
-    ], JSON_UNESCAPED_UNICODE);
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     if ($payload === false) {
         return ['ok' => false, 'code' => 0, 'message' => 'Failed to encode payload'];
     }
 
     $secret = merchantWebhookSecret($merchant);
-    $signature = signMerchantWebhookPayload($payload, $secret);
-    $result = postMerchantWebhook($url, $event, $payload, $signature);
-    logMerchantWebhookDelivery($merchantId, $event, $payload, $result['code'], $result['body']);
+    if ($secret === '') {
+        return ['ok' => false, 'code' => 0, 'message' => 'Webhook signing secret is not configured'];
+    }
+    try {
+        $db->prepare(
+            'INSERT INTO merchant_webhook_deliveries
+             (event_id,merchant_id,event_type,destination_url,payload,payload_hash,status,next_attempt_at)
+             VALUES (?,?,?,?,?,?,"queued",NOW())'
+        )->execute([$eventId, $merchantId, $event, $url, $payload, hash('sha256', $payload)]);
+    } catch (Throwable $e) {
+        return ['ok' => false, 'code' => 0, 'message' => 'Could not queue webhook'];
+    }
+    return ['ok' => true, 'code' => 202, 'message' => 'Queued', 'event_id' => $eventId];
+}
 
-    $msg = $result['ok']
-        ? 'Delivered HTTP ' . $result['code']
-        : ($result['error'] ?? 'Delivery failed HTTP ' . ($result['code'] ?: '0'));
-    return ['ok' => $result['ok'], 'code' => $result['code'], 'message' => $msg];
+function processMerchantWebhookQueue(int $limit = 25): array
+{
+    if (!financialTablesReady()) {
+        return ['processed' => 0, 'delivered' => 0, 'failed' => 0];
+    }
+    $db = getDB();
+    $limit = max(1, min(100, $limit));
+    $processed = 0;
+    $delivered = 0;
+    $failed = 0;
+    for ($i = 0; $i < $limit; $i++) {
+        $db->beginTransaction();
+        try {
+            $st = $db->query(
+                "SELECT d.*,m.webhook_signing_secret
+                 FROM merchant_webhook_deliveries d JOIN merchants m ON m.id=d.merchant_id
+                 WHERE d.status IN ('queued','retry')
+                   AND d.next_attempt_at<=NOW()
+                   AND (d.locked_at IS NULL OR d.locked_at<DATE_SUB(NOW(),INTERVAL 5 MINUTE))
+                 ORDER BY d.id ASC LIMIT 1 FOR UPDATE"
+            );
+            $delivery = $st->fetch();
+            if (!$delivery) {
+                $db->commit();
+                break;
+            }
+            $db->prepare("UPDATE merchant_webhook_deliveries SET status='delivering',locked_at=NOW(),attempt_count=attempt_count+1 WHERE id=?")
+                ->execute([(int)$delivery['id']]);
+            $db->commit();
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            break;
+        }
+
+        $secret = trim((string)($delivery['webhook_signing_secret'] ?? ''));
+        $signature = $secret !== '' ? signMerchantWebhookPayload((string)$delivery['payload'], $secret) : '';
+        $result = $secret !== ''
+            ? postMerchantWebhook((string)$delivery['destination_url'], (string)$delivery['event_type'], (string)$delivery['event_id'], (string)$delivery['payload'], $signature)
+            : ['ok' => false, 'code' => 0, 'body' => '', 'error' => 'Signing secret unavailable'];
+        $processed++;
+        $attempt = (int)$delivery['attempt_count'] + 1;
+        if (!empty($result['ok'])) {
+            $db->prepare(
+                "UPDATE merchant_webhook_deliveries
+                 SET status='delivered',response_code=?,response_body=?,last_error=NULL,delivered_at=NOW(),locked_at=NULL
+                 WHERE id=?"
+            )->execute([(int)$result['code'], mb_substr((string)$result['body'], 0, 2000), (int)$delivery['id']]);
+            $delivered++;
+        } else {
+            $delays = [60, 300, 1800, 7200, 21600, 43200, 86400];
+            $dead = $attempt >= 8;
+            $delay = $delays[min($attempt - 1, count($delays) - 1)];
+            $db->prepare(
+                "UPDATE merchant_webhook_deliveries
+                 SET status=?,response_code=?,response_body=?,last_error=?,next_attempt_at=DATE_ADD(NOW(),INTERVAL {$delay} SECOND),locked_at=NULL
+                 WHERE id=?"
+            )->execute([
+                $dead ? 'dead' : 'retry',
+                (int)($result['code'] ?? 0) ?: null,
+                mb_substr((string)($result['body'] ?? ''), 0, 2000) ?: null,
+                mb_substr((string)($result['error'] ?? 'HTTP delivery failed'), 0, 500),
+                (int)$delivery['id'],
+            ]);
+            $failed++;
+        }
+    }
+    return ['processed' => $processed, 'delivered' => $delivered, 'failed' => $failed];
 }
 
 function notifyMerchantPaymentSuccess(int $merchantId, array $txn, ?string $linkId = null): void
@@ -165,9 +262,9 @@ function getMerchantWebhookSummary(int $merchantId): array
     $url = trim((string)($st->fetchColumn() ?: ''));
 
     $row = $db->prepare("SELECT COUNT(*) AS total,
-        SUM(CASE WHEN response_code IS NULL OR response_code < 200 OR response_code >= 300 THEN 1 ELSE 0 END) AS failed,
+        SUM(CASE WHEN status IN ('retry','failed','dead') THEN 1 ELSE 0 END) AS failed,
         MAX(created_at) AS last_at
-        FROM merchant_webhook_logs WHERE merchant_id = ?");
+        FROM merchant_webhook_deliveries WHERE merchant_id = ?");
     $row->execute([$merchantId]);
     $stats = $row->fetch() ?: [];
 
@@ -185,7 +282,7 @@ function getMerchantWebhookLogs(int $merchantId, int $limit = 30): array
 {
     ensureMerchantWebhookEngine();
     $limit = max(1, min(100, $limit));
-    $st = getDB()->prepare("SELECT id, event_type, response_code, response_body, created_at FROM merchant_webhook_logs WHERE merchant_id = ? ORDER BY id DESC LIMIT {$limit}");
+    $st = getDB()->prepare("SELECT id, event_type, response_code, response_body, status,attempt_count,last_error,created_at FROM merchant_webhook_deliveries WHERE merchant_id = ? ORDER BY id DESC LIMIT {$limit}");
     $st->execute([$merchantId]);
     return $st->fetchAll() ?: [];
 }
@@ -194,37 +291,16 @@ function getMerchantWebhookLogs(int $merchantId, int $limit = 30): array
 function retryMerchantWebhookLog(int $logId, int $merchantId): array
 {
     ensureMerchantWebhookEngine();
-    $st = getDB()->prepare('SELECT l.*, m.webhook_url, m.webhook_signing_secret, m.api_secret, m.test_api_secret
-        FROM merchant_webhook_logs l
-        JOIN merchants m ON m.id = l.merchant_id
-        WHERE l.id = ? AND l.merchant_id = ?');
+    $st = getDB()->prepare('SELECT * FROM merchant_webhook_deliveries WHERE id=? AND merchant_id=?');
     $st->execute([$logId, $merchantId]);
     $row = $st->fetch();
     if (!$row) {
         return ['ok' => false, 'message' => 'Webhook log not found'];
     }
 
-    $url = trim((string)($row['webhook_url'] ?? ''));
-    if ($url === '' || !filter_var($url, FILTER_VALIDATE_URL)) {
-        return ['ok' => false, 'message' => 'Webhook URL not configured'];
-    }
-
-    $payload = (string)($row['payload'] ?? '');
-    if ($payload === '') {
-        return ['ok' => false, 'message' => 'Empty payload in log'];
-    }
-
-    $event = (string)($row['event_type'] ?? 'retry');
-    $secret = merchantWebhookSecret($row);
-    $signature = signMerchantWebhookPayload($payload, $secret);
-    $result = postMerchantWebhook($url, $event, $payload, $signature);
-    logMerchantWebhookDelivery($merchantId, $event . '.retry', $payload, $result['code'], $result['body']);
-
-    return [
-        'ok' => $result['ok'],
-        'code' => $result['code'],
-        'message' => $result['ok'] ? 'Retry delivered HTTP ' . $result['code'] : ($result['error'] ?? 'Retry failed HTTP ' . ($result['code'] ?: '0')),
-    ];
+    getDB()->prepare("UPDATE merchant_webhook_deliveries SET status='queued',next_attempt_at=NOW(),locked_at=NULL WHERE id=?")
+        ->execute([$logId]);
+    return ['ok' => true, 'code' => 202, 'message' => 'Webhook queued for retry'];
 }
 
 /** @return array{ok:bool,message:string,code?:int} */

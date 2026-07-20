@@ -6,47 +6,21 @@ ensureMerchantWebhookEngine();
 ensureMerchantApiKeys((int)$merchant['id']);
 $merchant = getMerchant();
 
-if (isset($_GET['test_api']) && verifyCsrf($_GET['csrf'] ?? '')) {
-    $useTest = isDashboardTestMode($merchant) || ($_GET['mode'] ?? '') === 'test';
-    if (($_GET['mode'] ?? '') === 'live') {
-        $useTest = false;
-    }
-    $apiKey = $useTest ? ($merchant['test_api_key'] ?? '') : $merchant['api_key'];
-    if (!$apiKey) {
-        flash('error', 'No API key available for this mode.');
-    } else {
-        $ch = curl_init(APP_URL . '/api.php');
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'X-API-Key: ' . $apiKey],
-            CURLOPT_POSTFIELDS => json_encode(['action' => 'get_balance']),
-            CURLOPT_TIMEOUT => 15,
-        ]);
-        $response = (string)curl_exec($ch);
-        $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        $data = json_decode($response, true);
-        if ($http === 200 && !empty($data['success'])) {
-            $bal = $data['balance'] ?? $data;
-            $msg = 'API OK (' . ($useTest ? 'test' : 'live') . ' key). Available: ' . formatMoney((float)($bal['available'] ?? 0));
-            flash('success', $msg);
-        } else {
-            $err = is_array($data) ? ($data['error'] ?? 'HTTP ' . $http) : 'HTTP ' . $http;
-            flash('error', 'API test failed: ' . $err);
-        }
-    }
-    redirect('api_settings.php');
-}
-
 if (isset($_GET['regenerate']) && verifyCsrf($_GET['csrf'] ?? '')) {
     $mode = ($_GET['regenerate'] === 'test') ? 'test' : 'live';
     if ($mode === 'live' && !merchantCanGoLive($merchant)) {
         flash('error', 'Live API key is locked until KYC is approved.');
     } else {
         $result = regenerateMerchantApiKey((int)$merchant['id'], $mode);
+        if (!empty($result['ok'])) {
+            $_SESSION['new_api_credential'] = [
+                'key' => $result['key'],
+                'secret' => $result['secret'],
+                'mode' => $result['mode'],
+            ];
+        }
         flash($result['ok'] ? 'success' : 'error', $result['ok']
-            ? ucfirst($mode) . ' API key regenerated. Old key deactivated — update your integration. A confirmation email was sent.'
+            ? ucfirst($mode) . ' API credential regenerated. Copy the key and secret from the one-time panel.'
             : ($result['error'] ?? 'Failed to regenerate key.'));
     }
     redirect('api_settings.php');
@@ -67,15 +41,27 @@ if (isset($_GET['retry_webhook']) && verifyCsrf($_GET['csrf'] ?? '')) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     $url = trim($_POST['webhook_url'] ?? '');
-    if ($url !== '' && !filter_var($url, FILTER_VALIDATE_URL)) {
-        flash('error', 'Invalid webhook URL.');
+    $destination = $url !== '' ? publicWebhookDestination($url) : ['ok' => true];
+    if (empty($destination['ok'])) {
+        flash('error', $destination['error'] ?? 'Invalid webhook URL.');
     } else {
         $secret = trim($_POST['webhook_signing_secret'] ?? '');
-        if ($secret === '') {
-            $secret = bin2hex(random_bytes(16));
+        $currentSecret = trim((string)($merchant['webhook_signing_secret'] ?? ''));
+        if ($secret !== '' && strlen($secret) < 32) {
+            flash('error', 'Webhook signing secret must be at least 32 characters.');
+            redirect('api_settings.php');
         }
-        getDB()->prepare('UPDATE merchants SET webhook_url = ?, webhook_signing_secret = ? WHERE id = ?')
-            ->execute([$url ?: null, $secret, $merchant['id']]);
+        if ($secret === '' && $currentSecret === '') {
+            $secret = bin2hex(random_bytes(32));
+            $_SESSION['new_webhook_secret'] = $secret;
+        }
+        if ($secret !== '' && !hash_equals($currentSecret, $secret)) {
+            getDB()->prepare('UPDATE merchants SET webhook_url=?,webhook_signing_secret_previous=?,webhook_signing_secret=?,webhook_secret_rotated_at=NOW() WHERE id=?')
+                ->execute([$url ?: null, $currentSecret ?: null, $secret, $merchant['id']]);
+            $_SESSION['new_webhook_secret'] = $secret;
+        } else {
+            getDB()->prepare('UPDATE merchants SET webhook_url=? WHERE id=?')->execute([$url ?: null, $merchant['id']]);
+        }
         flash('success', 'Webhook settings saved.');
         redirect('api_settings.php');
     }
@@ -90,6 +76,20 @@ if ($webhookSecret === '') {
     $webhookSecret = merchantWebhookSecret($merchant);
 }
 $webhookLogs = getMerchantWebhookLogs((int)$merchant['id'], 25);
+$credentialRows = [];
+if (financialTablesReady()) {
+    $credentialSt = getDB()->prepare("SELECT mode,key_prefix,scopes,last_used_at,created_at FROM api_credentials WHERE merchant_id=? AND status='active' ORDER BY mode,created_at DESC");
+    $credentialSt->execute([(int)$merchant['id']]);
+    $credentialRows = $credentialSt->fetchAll();
+}
+$credentialByMode = [];
+foreach ($credentialRows as $row) {
+    $credentialByMode[$row['mode']] ??= $row;
+}
+$newCredential = $_SESSION['new_api_credential'] ?? null;
+unset($_SESSION['new_api_credential']);
+$newWebhookSecret = $_SESSION['new_webhook_secret'] ?? null;
+unset($_SESSION['new_webhook_secret']);
 require_once __DIR__ . '/header.php';
 ?>
 <div class="max-w-3xl space-y-6">
@@ -100,21 +100,25 @@ require_once __DIR__ . '/header.php';
             <span class="text-xs text-gray-600">· Use <?= renderMerchantModeToggle($merchant, 'header') ?> to switch keys</span>
             <?php endif; ?>
         </div>
-        <div class="flex items-center gap-3">
-            <a href="api_settings.php?test_api=1&mode=<?= $viewTest ? 'test' : 'live' ?>&csrf=<?= e(csrfToken()) ?>" class="px-3 py-1.5 rounded-lg text-xs bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30">Test <?= $viewTest ? 'Test' : 'Live' ?> API</a>
-            <a href="api_docs.php" class="text-sm text-brand-400 hover:underline">Full API Docs →</a>
-        </div>
+        <a href="api_docs.php" class="text-sm text-brand-400 hover:underline">Full API Docs →</a>
     </div>
+    <?php if ($newCredential): ?>
+    <div class="glass rounded-xl p-6 border border-emerald-500/50">
+        <h2 class="font-semibold text-emerald-400 mb-2">Copy your <?= e(ucfirst($newCredential['mode'])) ?> credential now</h2>
+        <p class="text-xs text-gray-500 mb-4">The secret is stored only as a one-way hash and cannot be shown again.</p>
+        <label class="text-xs text-gray-500">API Key</label>
+        <input readonly class="input-field font-mono text-xs mt-1 mb-3" value="<?= e($newCredential['key']) ?>">
+        <label class="text-xs text-gray-500">API Secret</label>
+        <input readonly class="input-field font-mono text-xs mt-1" value="<?= e($newCredential['secret']) ?>">
+    </div>
+    <?php endif; ?>
     <div class="glass rounded-xl p-6 border <?= $viewTest ? 'border-amber-500/40 ring-1 ring-amber-500/20' : 'border-gray-800 opacity-70' ?>">
         <h2 class="font-semibold mb-4 text-amber-400">Test API Keys (Sandbox) <?= $viewTest ? '· Active' : '' ?></h2>
         <p class="text-xs text-gray-500 mb-4">Use in Test Mode — like Razorpay test keys. No real money.</p>
         <div class="space-y-4 text-sm">
-            <div><label class="text-gray-500 text-xs">Test API Key</label>
-                <div class="flex gap-2 mt-1"><input type="text" readonly value="<?= e($merchant['test_api_key'] ?? '') ?>" class="input-field font-mono text-xs flex-1" id="testApiKey">
-                <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('testApiKey').value);this.textContent='Copied'" class="px-3 py-2 bg-amber-600/20 text-amber-400 rounded-lg text-xs">Copy</button></div>
-            </div>
-            <div><label class="text-gray-500 text-xs">Test API Secret</label>
-                <input type="password" readonly value="<?= e($merchant['test_api_secret'] ?? '') ?>" class="input-field font-mono text-xs mt-1" id="testApiSecret">
+            <div><label class="text-gray-500 text-xs">Active credential</label>
+                <p class="font-mono text-sm text-amber-300 mt-1"><?= e(($credentialByMode['test']['key_prefix'] ?? 'Not created') . (isset($credentialByMode['test']) ? '…' : '')) ?></p>
+                <p class="text-[11px] text-gray-600 mt-1">Secret is never stored in recoverable form.</p>
             </div>
             <a href="api_settings.php?regenerate=test&csrf=<?= e(csrfToken()) ?>" class="inline-block text-xs text-amber-400 hover:text-amber-300 border border-amber-500/30 px-3 py-1.5 rounded-lg" onclick="return confirm('Regenerate Test API key? The old test key will stop working immediately.')">↻ Regenerate Test Key</a>
         </div>
@@ -122,13 +126,9 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl p-6 border <?= !$viewTest && $canLive ? 'border-emerald-500/40 ring-1 ring-emerald-500/20' : 'border-gray-800' ?>">
         <h2 class="font-semibold mb-4"><?= $canLive ? 'Live API Credentials' : 'Live API Credentials (locked until KYC approved)' ?> <?= (!$viewTest && $canLive) ? '· Active' : '' ?></h2>
         <div class="space-y-4 text-sm">
-            <div><label class="text-gray-500 text-xs">API Key</label>
-                <div class="flex gap-2 mt-1"><input type="text" readonly value="<?= e($merchant['api_key']) ?>" class="input-field font-mono text-xs flex-1" id="apiKey" <?= !$canLive ? 'disabled' : '' ?>>
-                <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('apiKey').value);this.textContent='Copied'" class="px-3 py-2 bg-brand-600/20 text-brand-400 rounded-lg text-xs">Copy</button></div>
-            </div>
-            <div><label class="text-gray-500 text-xs">API Secret</label>
-                <div class="flex gap-2 mt-1"><input type="password" readonly value="<?= e($merchant['api_secret']) ?>" class="input-field font-mono text-xs flex-1" id="apiSecret" <?= !$canLive ? 'disabled' : '' ?>>
-                <button type="button" onclick="document.getElementById('apiSecret').type=document.getElementById('apiSecret').type==='password'?'text':'password'" class="px-3 py-2 bg-dark-800 text-gray-400 rounded-lg text-xs">Show</button></div>
+            <div><label class="text-gray-500 text-xs">Active credential</label>
+                <p class="font-mono text-sm text-brand-400 mt-1"><?= e(($credentialByMode['live']['key_prefix'] ?? 'Not created') . (isset($credentialByMode['live']) ? '…' : '')) ?></p>
+                <p class="text-[11px] text-gray-600 mt-1">Secret is never stored in recoverable form.</p>
             </div>
             <div><label class="text-gray-500 text-xs">Merchant ID</label><p class="font-mono text-brand-400 mt-1"><?= e($merchant['merchant_code']) ?></p></div>
             <?php if ($canLive): ?>
@@ -144,7 +144,8 @@ require_once __DIR__ . '/header.php';
                 <input type="url" name="webhook_url" value="<?= e($merchant['webhook_url'] ?? '') ?>" placeholder="https://yoursite.com/webhooks/uniweb" class="input-field mt-1 text-sm">
             </div>
             <div><label class="text-gray-500 text-xs">Signing Secret</label>
-                <input type="text" name="webhook_signing_secret" value="<?= e($merchant['webhook_signing_secret'] ?? '') ?>" class="input-field font-mono text-xs mt-1" placeholder="Auto-generated if empty">
+                <input type="password" name="webhook_signing_secret" value="" class="input-field font-mono text-xs mt-1" placeholder="<?= $webhookSecret !== '' ? 'Configured — enter a new value to rotate' : 'Auto-generated if empty' ?>">
+                <?php if ($newWebhookSecret): ?><p class="text-xs text-emerald-400 mt-2">Copy this signing secret now: <code><?= e($newWebhookSecret) ?></code></p><?php endif; ?>
             </div>
             <button type="submit" class="btn-primary text-sm">Save Webhook Settings</button>
         </form>
@@ -198,10 +199,9 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl p-6">
         <h2 class="font-semibold mb-4">API Endpoint</h2>
         <code class="block bg-dark-900 rounded-lg p-4 text-sm text-brand-400 font-mono">POST <?= APP_URL ?>/api.php</code>
-        <p class="text-xs text-gray-500 mt-2">Header: <code class="text-gray-400">X-API-Key: your_api_key</code></p>
+        <p class="text-xs text-gray-500 mt-2">Required headers: <code class="text-gray-400">X-API-Key</code>, <code class="text-gray-400">X-API-Secret</code>, and <code class="text-gray-400">Idempotency-Key</code> for writes.</p>
         <?php
-        $sampleKey = $viewTest ? ($merchant['test_api_key'] ?? 'uk_test_...') : $merchant['api_key'];
-        $curlSample = "curl -X POST '" . APP_URL . "/api.php' \\\n  -H 'Content-Type: application/json' \\\n  -H 'X-API-Key: " . $sampleKey . "' \\\n  -d '{\"action\":\"get_balance\"}'";
+        $curlSample = "curl -X POST '" . APP_URL . "/api.php' \\\n  -H 'Content-Type: application/json' \\\n  -H 'X-API-Key: uw_test_...' \\\n  -H 'X-API-Secret: uws_...' \\\n  -d '{\"action\":\"get_balance\"}'";
         ?>
         <pre class="mt-4 bg-dark-900 rounded-lg p-4 text-xs text-gray-400 overflow-x-auto"><?= e($curlSample) ?></pre>
         <a href="<?= APP_URL ?>/openapi.json" class="inline-block mt-3 text-xs text-sky-400 hover:underline" target="_blank">OpenAPI 3.0 spec (openapi.json) →</a>

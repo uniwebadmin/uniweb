@@ -17,7 +17,7 @@ require_once __DIR__ . '/header.php';
     <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <div class="inline-flex items-center gap-2 bg-brand-500/10 border border-brand-500/20 rounded-full px-4 py-1.5 text-sm text-brand-400 mb-8 animate-in">
             <span class="w-2 h-2 bg-brand-400 rounded-full animate-pulse"></span>
-            RBI Compliant | UPI at 0% MDR
+            Test Mode Available · Live Activation After Approval
         </div>
         <h1 class="text-4xl sm:text-5xl lg:text-7xl font-extrabold leading-tight mb-6 animate-in">
             <?= __('hero_title') ?><br><span class="gradient-text"><?= __('hero_highlight') ?></span>
@@ -30,10 +30,10 @@ require_once __DIR__ . '/header.php';
             <a href="demo.php" class="w-full sm:w-auto glass text-gray-200 hover:text-white px-8 py-4 rounded-xl font-semibold text-lg transition border border-gray-700">Try ₹1 Demo Payment</a>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-3xl mx-auto">
-            <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= formatPublicVolume($publicStats['volume']) ?></div><div class="text-xs text-gray-500 mt-1">Processed Volume</div></div>
-            <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= number_format($publicStats['merchants']) ?>+</div><div class="text-xs text-gray-500 mt-1">Merchants Onboarded</div></div>
+            <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= formatPublicVolume($publicStats['volume']) ?></div><div class="text-xs text-gray-500 mt-1">Verified Live Volume</div></div>
+            <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= number_format($publicStats['merchants']) ?></div><div class="text-xs text-gray-500 mt-1">Live Merchants</div></div>
             <div><div class="text-2xl sm:text-3xl font-bold text-brand-400">8</div><div class="text-xs text-gray-500 mt-1">API Endpoints</div></div>
-            <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= number_format($publicStats['transactions']) ?>+</div><div class="text-xs text-gray-500 mt-1">Successful Payments</div></div>
+            <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= number_format($publicStats['transactions']) ?></div><div class="text-xs text-gray-500 mt-1">Verified Live Payments</div></div>
         </div>
         <p class="text-center text-xs text-gray-600 mt-6"><a href="api_docs.php" class="text-sky-400 hover:underline">OpenAPI docs</a> · HMAC webhook signing · Self-hosted QR · Compiled CSS</p>
     </div>
@@ -51,11 +51,11 @@ require_once __DIR__ . '/header.php';
             <div class="relative bg-dark-900">
                 <?php
                 $homeSlides = [
-                    ['checkout', 'Multi-Method Checkout', 'UPI, Cards, Netbanking & Wallets on one PCI-ready page', ['UPI', 'Cards', 'NB']],
+                    ['checkout', 'Multi-Method Checkout', 'A hosted checkout for payment methods enabled by approved partners', ['UPI', 'Cards', 'NB']],
                     ['dashboard', 'Merchant Dashboard', 'Real-time volume, wallet balance, and transaction feed', ['Today', 'Month', 'Wallet']],
                     ['pack', 'Payment Pack', 'Six ready-made ₹1 test links — Razorpay, Cashfree, PayU', ['UPI', 'RZP', 'CF']],
                     ['kyc', 'KYC & Compliance', 'PAN, GST, bank verification with admin review workflow', ['PAN', 'GST', 'Bank']],
-                    ['wallet', 'Wallet & Settlement', 'T+1 bank payout with batch engine and platform wallet', ['Wallet', 'Bank', 'Batch']],
+                    ['wallet', 'Wallet & Settlement', 'Batch tracking and reconciliation; bank payout requires rail activation', ['Wallet', 'Bank', 'Batch']],
                 ];
                 foreach ($homeSlides as $i => [$type, $t, $s, $tags]): ?>
                 <div class="home-slide <?= $i === 0 ? '' : 'hidden' ?>" data-i="<?= $i ?>">
@@ -99,7 +99,7 @@ require_once __DIR__ . '/header.php';
             <a href="platform_demo.php?autoplay=1" class="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-6 py-3 rounded-xl font-semibold text-sm sm:text-base">
                 <span>▶</span> Play Full Tour (Voice)
             </a>
-            <a href="demo.php" class="inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white px-6 py-3 rounded-xl font-semibold text-sm sm:text-base">Live ₹1 Payment</a>
+            <a href="demo.php" class="inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white px-6 py-3 rounded-xl font-semibold text-sm sm:text-base">₹1 Test Payment</a>
         </div>
     </div>
 </section>
@@ -129,11 +129,11 @@ require_once __DIR__ . '/header.php';
         <div class="grid md:grid-cols-3 gap-8">
             <?php
             $features = [
-                ['UPI QR at 0% MDR', 'Accept UPI payments at zero merchant discount rate as per RBI guidelines. Custom QR generated instantly.', 'M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h4'],
-                ['International Payments', 'Accept payments from global customers via Razorpay, Cashfree, PayU & cards. Multi-currency support ready.', 'M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z'],
-                ['Auto KYC Verification', 'PAN, Aadhaar, GST, CIN, Udyam, IEC & bank verification via Decentro API. Video KYC supported.', 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944'],
-                ['T+1 Settlements', 'Free next-day settlements to your bank account. Same-day settlement available on Business plan.', 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'],
-                ['Bank-Grade Security', '256-bit SSL encryption, PCI DSS compliant infrastructure, and secure KYC data handling.', 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622'],
+                ['Flexible QR Journeys', 'Create test QR and payment-link journeys; live collection is enabled only after merchant and partner approval.', 'M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h4'],
+                ['Partner-Based Payments', 'Domestic payment methods are made available according to each merchant’s approved partner configuration.', 'M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z'],
+                ['Structured KYC Review', 'Entity-specific document collection, video submission and admin review with partner verification where activated.', 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944'],
+                ['Settlement Tracking', 'Track batches, adjustments and bank references. Actual timing follows the activated commercial schedule.', 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'],
+                ['Layered Security Controls', 'Secure sessions, signed provider webhooks, role-based access and auditable operational workflows.', 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622'],
                 ['Payment Links', 'Create shareable payment links via WhatsApp, SMS, or email. No website needed.', 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101'],
                 ['Real-time Dashboard', 'Track transactions, settlements, disputes, and analytics in real-time.', 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'],
                 ['REST API & Webhooks', 'Integrate payments into your app with our developer-friendly API and real-time webhooks.', 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4'],
@@ -155,15 +155,11 @@ require_once __DIR__ . '/header.php';
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-16">
             <h2 class="text-3xl font-bold mb-4">Transparent <span class="gradient-text">Pricing</span></h2>
-            <p class="text-gray-400 max-w-xl mx-auto">
-                <?php if ($isIntl): ?>
-                International pricing — global payment rules apply.
-                <?php else: ?>
-                India MDR: Cards/Netbanking base <?= formatMdr(PRICING_BASE_CARD, false, true) ?> + <?= formatMdr($marginNote) ?> UniWeb fee = <strong class="text-brand-400"><?= formatMdr($cardMdr, false, true) ?></strong>
-                <?php endif; ?>
-            </p>
+            <p class="text-gray-400 max-w-xl mx-auto">Final rates, taxes, reserves and settlement schedules are provided in the approved merchant commercial schedule.</p>
         </div>
 
+        <?php $publicPricingApproved = getSetting('public_pricing_approved', '0') === '1'; ?>
+        <?php if ($publicPricingApproved): ?>
         <div class="glass rounded-2xl overflow-hidden mb-12 max-w-4xl mx-auto">
             <div class="px-6 py-4 border-b border-gray-800"><h3 class="font-semibold">All Payment Modes & MDR</h3></div>
             <div class="overflow-x-auto">
@@ -249,7 +245,14 @@ require_once __DIR__ . '/header.php';
                 <a href="contact.php" class="block text-center border border-gray-600 text-gray-300 hover:bg-white/5 py-3 rounded-xl transition">Contact Sales</a>
             </div>
         </div>
-        <p class="text-center text-xs text-gray-600 mt-8">* GST applicable on card/netbanking MDR as per Indian regulations. UPI 0% MDR per RBI. Min settlement: ₹<?= MIN_SETTLEMENT ?>.</p>
+        <p class="text-center text-xs text-gray-600 mt-8">Published rates are available only after commercial approval and may vary by payment method, risk category and partner.</p>
+        <?php else: ?>
+        <div class="glass rounded-2xl p-8 max-w-3xl mx-auto text-center border border-brand-500/20">
+            <h3 class="text-xl font-semibold mb-3">Commercial pricing is approval-based</h3>
+            <p class="text-sm text-gray-400 leading-relaxed mb-6">Create a Test Mode account to evaluate the platform. Live rates and settlement schedules are shared after business review, KYC and payment-partner activation.</p>
+            <a href="contact.php" class="btn-primary inline-block px-7 py-3">Request a commercial proposal</a>
+        </div>
+        <?php endif; ?>
     </div>
 </section>
 
@@ -265,7 +268,7 @@ require_once __DIR__ . '/header.php';
     <div class="max-w-6xl mx-auto px-4 sm:px-6">
         <?php require __DIR__ . '/includes/trust_strip.php'; ?>
         <p class="text-center text-[11px] text-gray-600 mt-5 max-w-3xl mx-auto">
-            <?= e(COMPANY_LEGAL_NAME) ?> · GST <?= COMPANY_GST ?> · CIN <?= COMPANY_CIN ?> · Payments powered by licensed payment aggregators.
+            <?= e(COMPANY_LEGAL_NAME) ?> · GST <?= COMPANY_GST ?> · CIN <?= COMPANY_CIN ?> · Live payment services are subject to merchant and partner activation.
         </p>
     </div>
 </section>
