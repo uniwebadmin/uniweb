@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/whatsapp_webhooks.php';
+require_once __DIR__ . '/includes/checkout_mode_banner.php';
 requireSuperAdmin();
 $db = getDB();
 
@@ -48,23 +49,8 @@ if (isset($_GET['rotate_cron_key']) && verifyCsrf($_GET['csrf'] ?? '')) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
-    foreach ($_POST['settings'] ?? [] as $key => $value) {
-        $val = trim((string)$value);
-        if ($key === 'min_settlement_amount') {
-            $n = (float)$val;
-            $val = (string)(($n > 0 && $n <= 100) ? $n : 100);
-        }
-        if ($key === 'min_platform_settlement') {
-            $n = (float)$val;
-            $val = (string)(($n > 0 && $n <= 1) ? $n : 1);
-        }
-        if ($key === 'auto_audit_interval_minutes') {
-            $n = (int)$val;
-            $val = (string)(($n >= 5 && $n <= 120) ? $n : 10);
-        }
-        $db->prepare('INSERT INTO gateway_settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=?')
-            ->execute([$key, $val, $val]);
-    }
+    require_once __DIR__ . '/includes/checkout_mode_banner.php';
+    saveGatewaySettingsPreservingSecrets($_POST['settings'] ?? [], $db);
     flash('success', 'Settings saved.');
     redirect('gateway_settings.php');
 }
@@ -192,9 +178,10 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['auto_audit_interval_minutes', 'Auto-audit interval (minutes, 5–120)', 'number'],
         ];
         foreach ($fields as [$key, $label, $type]):
+            $attrs = gatewaySettingFieldAttrs($key, $settingsMap, $type);
         ?>
         <div><label class="text-sm text-gray-400"><?= $label ?></label>
-            <input type="<?= $type ?>" name="settings[<?= $key ?>]" value="<?= e($settingsMap[$key] ?? '') ?>" class="input-field mt-1" <?= $type==='number' ? 'step="0.01"' : '' ?>>
+            <input type="<?= e($attrs['type']) ?>" name="settings[<?= $key ?>]" value="<?= e($attrs['value']) ?>" placeholder="<?= e($attrs['placeholder']) ?>" class="input-field mt-1" <?= $attrs['autocomplete'] ? 'autocomplete="' . e($attrs['autocomplete']) . '"' : '' ?> <?= $type==='number' ? 'step="0.01"' : '' ?>>
         </div>
         <?php endforeach; ?>
         <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">SMTP Email Settings</h3>
@@ -203,11 +190,7 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['smtp_host','SMTP Host','text'],['smtp_port','SMTP Port','number'],
             ['smtp_user','SMTP Username','text'],['smtp_pass','SMTP Password','password'],
             ['smtp_from_email','From Email','email'],['smtp_from_name','From Name','text'],
-        ] as [$key,$label,$type]): ?>
-        <div><label class="text-sm text-gray-400"><?= $label ?></label>
-            <input type="<?= $type ?>" name="settings[<?= $key ?>]" value="<?= e($settingsMap[$key] ?? '') ?>" class="input-field mt-1" <?= $type==='password'?'autocomplete="new-password"':'' ?>>
-        </div>
-        <?php endforeach; ?>
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">B2B Collection Engine</h3>
         <div><label class="text-sm text-gray-400">Default Collection Mode (new merchants)</label>
             <select name="settings[default_collection_mode]" class="input-field mt-1">
@@ -240,11 +223,7 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['phonepe_merchant_id','PhonePe Merchant ID','text'],['phonepe_salt_key','PhonePe Salt Key','password'],
             ['phonepe_salt_index','PhonePe Salt Index','text'],
             ['phonepe_environment','PhonePe Env (sandbox/production)','text'],
-        ] as [$key,$label,$type]): ?>
-        <div><label class="text-sm text-gray-400"><?= $label ?></label>
-            <input type="<?= $type ?>" name="settings[<?= $key ?>]" value="<?= e($settingsMap[$key] ?? '') ?>" class="input-field mt-1" <?= $type==='password'?'autocomplete="new-password"':'' ?>>
-        </div>
-        <?php endforeach; ?>
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <div class="rounded-xl border border-gray-800 bg-dark-900/50 p-4 text-xs text-gray-500 space-y-2">
             <p class="text-gray-400 font-medium text-sm mb-2">Webhook URLs (configure in PG dashboard)</p>
             <?php foreach (['razorpay' => pgWebhookUrl('razorpay'), 'cashfree' => pgWebhookUrl('cashfree'), 'payu' => pgWebhookUrl('payu')] as $gw => $url): ?>
@@ -269,22 +248,14 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['axis_master_account','Axis Master Collection Account','text'],
             ['axis_va_ifsc','Axis VA IFSC','text'],
             ['axis_allow_mock','Allow Mock VA (0=real API only)','number'],
-        ] as [$key,$label,$type]): ?>
-        <div><label class="text-sm text-gray-400"><?= $label ?></label>
-            <input type="<?= $type ?>" name="settings[<?= $key ?>]" value="<?= e($settingsMap[$key] ?? '') ?>" class="input-field mt-1" <?= $type==='password'?'autocomplete="new-password"':'' ?>>
-        </div>
-        <?php endforeach; ?>
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">KYC Verification (Decentro)</h3>
         <p class="text-xs text-gray-500">Auto-verify PAN, Aadhaar, GST, CIN, Udyam, IEC, Bank via Decentro API (staging/production).</p>
         <?php foreach ([
             ['decentro_client_id','Decentro Client ID','text'],['decentro_client_secret','Decentro Client Secret','password'],
             ['decentro_consumer_urn','Decentro Master Consumer URN','text'],
             ['decentro_base_url','Decentro Base URL','text'],
-        ] as [$key,$label,$type]): ?>
-        <div><label class="text-sm text-gray-400"><?= $label ?></label>
-            <input type="<?= $type ?>" name="settings[<?= $key ?>]" value="<?= e($settingsMap[$key] ?? '') ?>" class="input-field mt-1" <?= $type==='password'?'autocomplete="new-password"':'' ?>>
-        </div>
-        <?php endforeach; ?>
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">WhatsApp & OTP</h3>
         <p class="text-xs text-gray-500 mb-2">SMS disabled — use WhatsApp for OTP login and merchant alerts.</p>
         <div class="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 mb-4 text-xs text-amber-200/90">
@@ -301,11 +272,7 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['whatsapp_webhook_verify_token','WhatsApp Webhook Verify Token','text'],
             ['whatsapp_api_url','WhatsApp API URL (optional override)','text'],
             ['otp_login_enabled','OTP Login Enabled (0/1)','number'],
-        ] as [$key,$label,$type]): ?>
-        <div><label class="text-sm text-gray-400"><?= $label ?></label>
-            <input type="<?= $type ?>" name="settings[<?= $key ?>]" value="<?= e($settingsMap[$key] ?? '') ?>" class="input-field mt-1" <?= $type==='password'?'autocomplete="new-password"':'' ?>>
-        </div>
-        <?php endforeach; ?>
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <div class="rounded-xl border border-gray-800 bg-dark-900/50 p-4">
             <p class="text-gray-400 font-medium text-sm mb-2">Meta Webhook (Step 2)</p>
             <p class="text-xs text-gray-500 mb-2">Paste these in Meta Developer → WhatsApp → Configuration → Webhooks.</p>

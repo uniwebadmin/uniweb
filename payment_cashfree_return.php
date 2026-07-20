@@ -30,6 +30,9 @@ $providerPaid = strtoupper((string)($cfOrder['order_status'] ?? '')) === 'PAID';
 $pageTitle = $isConfirmed ? 'Payment Success' : 'Payment Verification';
 $hideNav = true;
 require_once __DIR__ . '/header.php';
+require_once __DIR__ . '/includes/checkout_mode_banner.php';
+$cfLink = ['is_test' => !empty($link['mode']) && (string)$link['mode'] === 'test'];
+renderCheckoutModeBanner($cfLink);
 ?>
 <div class="min-h-screen flex items-center justify-center px-4 py-12">
     <div class="glass rounded-2xl p-8 text-center max-w-md w-full">

@@ -55,7 +55,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $kycStatus = $_POST['kyc_status'] ?? 'pending';
     if (!in_array($accountMode, ['test', 'live'], true)) $accountMode = 'test';
     if ($accountMode === 'live' && $kycStatus !== 'verified') {
-        $kycStatus = 'verified';
+        flash('error', 'Live mode requires verified KYC. Complete KYC review first — status was not changed.');
+        redirect('admin_edit_merchant.php?id=' . $id);
+    }
+    if ($accountMode === 'live' && !merchantLiveGateSatisfied($id)) {
+        $gate = merchantLiveGateReport($id);
+        flash('error', 'Live gates incomplete: ' . implode(', ', $gate['missing'] ?? []));
+        redirect('admin_edit_merchant.php?id=' . $id);
     }
 
     $enabled = array_values(array_intersect(

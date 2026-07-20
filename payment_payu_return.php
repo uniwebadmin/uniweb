@@ -37,6 +37,8 @@ if ($success) {
 
 $hideNav = true;
 require_once __DIR__ . '/header.php';
+require_once __DIR__ . '/includes/checkout_mode_banner.php';
+renderCheckoutModeBanner($link);
 ?>
 <div class="min-h-screen flex items-center justify-center px-4 py-12 bg-dark-950">
     <div class="glass rounded-2xl p-8 text-center max-w-md w-full border <?= $success ? 'border-emerald-500/30' : 'border-red-500/30' ?>">

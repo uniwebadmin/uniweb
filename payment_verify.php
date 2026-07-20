@@ -52,6 +52,14 @@ $link = $stmt->fetch();
 $pageTitle = 'Payment Successful — ' . APP_NAME;
 $hideNav = true;
 require_once __DIR__ . '/header.php';
+require_once __DIR__ . '/includes/checkout_mode_banner.php';
+$rzLink = is_array($link) ? $link : [];
+if ($link && !isset($rzLink['is_test']) && !empty($link['link_id'])) {
+    $pl = getDB()->prepare('SELECT is_test FROM payment_links WHERE link_id=?');
+    $pl->execute([$link['link_id']]);
+    $rzLink['is_test'] = (int)$pl->fetchColumn();
+}
+renderCheckoutModeBanner($rzLink ?: null);
 ?>
 <div class="min-h-screen flex items-center justify-center px-4 py-12 bg-dark-950">
     <div class="glass rounded-2xl p-8 text-center max-w-md w-full border border-brand-500/20">
