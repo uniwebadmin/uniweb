@@ -62,15 +62,47 @@ if (in_array('incorporation_certificate', $requiredDocs, true) || in_array('llp_
     $verifyFields['cin'] = 'CIN / LLPIN';
 }
 
+$need = count($requiredDocs);
+$have = count(array_intersect($requiredDocs, $uploadedTypes));
+$approvedCount = count(array_intersect($requiredDocs, $approvedTypes));
+
 $pageTitle = 'KYC Verification';
 require_once __DIR__ . '/header.php';
+
+$step1Done = !empty($verifyFields) ? count(array_filter($verifyFields, static fn($k) => !empty($prefills[$k] ?? ''))) >= min(1, count($verifyFields)) : true;
+$step2Done = $need > 0 && $have >= $need;
+$step3Ready = ($merchant['kyc_status'] ?? '') === 'verified' || $approvedCount >= $need;
+$currentStep = 1;
+if ($step1Done && !$step2Done) {
+    $currentStep = 2;
+} elseif ($step2Done) {
+    $currentStep = 3;
+}
+$kycSteps = [
+    1 => ['title' => 'Verify identity numbers', 'hint' => 'PAN, GSTIN, Aadhaar or CIN'],
+    2 => ['title' => 'Upload documents', 'hint' => 'Entity-specific KYC files'],
+    3 => ['title' => 'Video KYC & agreement', 'hint' => 'Selfie video + contract'],
+];
 ?>
 
 <div class="max-w-3xl">
+    <div class="glass rounded-2xl p-5 mb-6 border border-sky-500/20">
+        <p class="text-xs text-sky-400 uppercase tracking-wider mb-3">Paperless KYC — 3 steps</p>
+        <div class="grid sm:grid-cols-3 gap-3">
+            <?php foreach ($kycSteps as $num => $step):
+                $done = $num === 1 ? $step1Done : ($num === 2 ? $step2Done : $step3Ready);
+                $active = $currentStep === $num;
+            ?>
+            <div class="rounded-xl border p-3 <?= $done ? 'border-emerald-500/40 bg-emerald-500/5' : ($active ? 'border-sky-500/50 bg-sky-500/5' : 'border-gray-800') ?>">
+                <p class="text-[10px] uppercase text-gray-500 mb-1">Step <?= $num ?></p>
+                <p class="text-sm font-semibold <?= $done ? 'text-emerald-300' : ($active ? 'text-sky-300' : 'text-gray-300') ?>"><?= e($step['title']) ?></p>
+                <p class="text-xs text-gray-500 mt-1"><?= e($step['hint']) ?></p>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <p class="text-xs text-gray-500 mt-3">Complete all steps for faster Live Mode activation. Real-time registry checks run when verification API keys are configured.</p>
+    </div>
     <?php
-    $need = count($requiredDocs);
-    $have = count(array_intersect($requiredDocs, $uploadedTypes));
-    $approvedCount = count(array_intersect($requiredDocs, $approvedTypes));
     $pct = $need > 0 ? (int)round($have / $need * 100) : 0;
     $ringCirc = 2 * 3.14159 * 26;
     $ringOffset = $ringCirc - ($ringCirc * $pct / 100);

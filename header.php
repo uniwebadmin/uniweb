@@ -1,6 +1,10 @@
 <?php
 if (!defined('APP_NAME')) require_once __DIR__ . '/config.php';
 $pageTitle = $pageTitle ?? APP_NAME;
+$pageDescription = $pageDescription ?? "UniWeb — India's trusted B2B Fintech Payment Platform. UPI, Cards, Payment Links, QR codes, settlements and API for Indian merchants.";
+$pageKeywords = $pageKeywords ?? 'payment gateway India, UPI payment, payment aggregator, payment links, QR code payments, fintech India, merchant onboarding';
+$canonicalUrl = $canonicalUrl ?? (APP_URL . '/' . basename((string)($_SERVER['PHP_SELF'] ?? 'index.php')));
+$ogImage = $ogImage ?? (APP_URL . '/assets/icons/apple-touch-icon.png');
 $bodyClass = $bodyClass ?? '';
 $hideNav = $hideNav ?? false;
 $hideFooter = $hideFooter ?? false;
@@ -29,7 +33,17 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     <link rel="icon" href="<?= APP_URL ?>/favicon.ico" sizes="32x32">
     <link rel="apple-touch-icon" href="<?= APP_URL ?>/assets/icons/apple-touch-icon.png">
     <title><?= e($pageTitle) ?> — <?= APP_NAME ?></title>
-    <meta name="description" content="UniWeb — India's trusted B2B Fintech Payment Platform. UPI, Cards, Payment Links, instant settlements for merchants.">
+    <meta name="description" content="<?= e($pageDescription) ?>">
+    <meta name="keywords" content="<?= e($pageKeywords) ?>">
+    <link rel="canonical" href="<?= e($canonicalUrl) ?>">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="<?= e($pageTitle) ?> — <?= APP_NAME ?>">
+    <meta property="og:description" content="<?= e($pageDescription) ?>">
+    <meta property="og:url" content="<?= e($canonicalUrl) ?>">
+    <meta property="og:image" content="<?= e($ogImage) ?>">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="<?= e($pageTitle) ?> — <?= APP_NAME ?>">
+    <meta name="twitter:description" content="<?= e($pageDescription) ?>">
     <meta name="theme-color" content="#059669">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/uniweb.min.css?v=20260713a">

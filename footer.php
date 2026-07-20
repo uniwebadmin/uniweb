@@ -53,6 +53,8 @@
                 <p class="site-footer-heading text-sm font-semibold text-gray-300 mb-3">Company</p>
                 <ul class="space-y-2 text-sm text-gray-500">
                     <li><a href="about.php" class="hover:text-brand-400 transition">About</a></li>
+                    <li><a href="solutions.php" class="hover:text-brand-400 transition">Solutions</a></li>
+                    <li><a href="roadmap.php" class="hover:text-brand-400 transition">Roadmap</a></li>
                     <li><a href="blog.php" class="hover:text-brand-400 transition">Blog</a></li>
                     <li><a href="contact.php" class="hover:text-brand-400 transition">Contact</a></li>
                     <li><a href="faq.php" class="hover:text-brand-400 transition">FAQ</a></li>

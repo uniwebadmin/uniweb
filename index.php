@@ -8,6 +8,9 @@ $nbMdr = getMdrWithMargin('netbanking');
 $walletMdr = getMdrWithMargin('wallet');
 $publicStats = getPublicStats();
 $pageTitle = 'Digital Fintech Payment Solutions';
+$pageDescription = 'UniWeb — best payment gateway for Indian merchants. UPI, QR code payments, payment links, cards, net banking, API, KYC and settlements. Start free in Test Mode.';
+$pageKeywords = 'payment gateway India, best payment gateway, UPI payment gateway, payment aggregator, QR payment India, fintech platform, merchant onboarding India';
+$canonicalUrl = APP_URL . '/';
 require_once __DIR__ . '/header.php';
 ?>
 
