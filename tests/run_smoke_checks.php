@@ -83,6 +83,10 @@ $kyc = (string)file_get_contents($root . '/admin_kyc.php');
 $assert(str_contains($kyc, 'independent checker') || str_contains($kyc, 'Independent checker'), 'kyc_maker_checker_copy');
 $assert(!str_contains($kyc, 'Click Verify after documents OK — enables Live mode'), 'kyc_no_misleading_verify_live_copy');
 
+$adminDash = (string)file_get_contents($root . '/admin_dashboard.php');
+$assert(!str_contains($adminDash, 'Verify to enable Live mode'), 'dashboard_no_misleading_verify_live_copy');
+$assert(str_contains($adminDash, 'Live mode is a separate activation gate'), 'dashboard_live_gate_copy');
+
 $manifest = json_decode((string)file_get_contents($root . '/manifest.json'), true);
 $assert(is_array($manifest) && !empty($manifest['icons']), 'manifest_icons_present');
 if (is_array($manifest)) {

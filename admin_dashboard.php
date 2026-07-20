@@ -107,8 +107,8 @@ require_once __DIR__ . '/header.php';
 <div class="glass rounded-xl p-5 mb-8 border border-amber-500/40 bg-amber-500/5">
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-            <p class="font-semibold text-amber-300"><?= (int)$pendingKyc ?> merchant(s) waiting for KYC verification</p>
-            <p class="text-xs text-gray-500 mt-1">Verify to enable Live mode and Test/Live toggle<?php if (!empty($kycQueue)): ?> — <?= e(implode(', ', array_map(static fn($m) => (string)($m['business_name'] ?? $m['merchant_code'] ?? ''), $kycQueue))) ?><?php endif; ?></p>
+            <p class="font-semibold text-amber-300"><?= (int)$pendingKyc ?> merchant(s) waiting for KYC review</p>
+            <p class="text-xs text-gray-500 mt-1">Review documents and send for independent checker approval. Live mode is a separate activation gate.<?php if (!empty($kycQueue)): ?> — <?= e(implode(', ', array_map(static fn($m) => (string)($m['business_name'] ?? $m['merchant_code'] ?? ''), $kycQueue))) ?><?php endif; ?></p>
         </div>
         <a href="admin_kyc.php" class="btn-primary text-xs px-4 py-2 whitespace-nowrap">Review KYC →</a>
     </div>
