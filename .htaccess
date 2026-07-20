@@ -1,6 +1,17 @@
 Options -Indexes
 DirectoryIndex index.php
 
+# Branded UniWeb 404 (not the host default page)
+ErrorDocument 404 /error_404.php
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(self)"
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+</IfModule>
+
 <FilesMatch "\.(env|log|sql)$|^(config\.private\.php|db_backup.*\.json|db_.*_result\.json)$">
     Require all denied
 </FilesMatch>

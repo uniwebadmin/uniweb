@@ -45,6 +45,7 @@ $requiredFiles = [
     'admin_website.php',
     'admin_kyc.php',
     'gateway_settings.php',
+    'error_404.php',
     'robots.txt',
     'sitemap.xml',
     'favicon.ico',
@@ -147,6 +148,13 @@ $assert(!str_contains($checkout, "die('Payment link expired or not found.')")
     && !str_contains($checkout, "die('This payment link is no longer active.')")
     && !str_contains($checkout, "die('This payment link has expired.')"), 'checkout_no_bare_die_deadends');
 $assert(substr_count($checkout, 'renderCheckoutUnavailable(') >= 4, 'checkout_error_states_use_branded_page');
+
+$htaccess = (string)file_get_contents($root . '/.htaccess');
+$assert(str_contains($htaccess, 'ErrorDocument 404'), 'htaccess_error_document_404');
+$assert(str_contains($htaccess, 'error_404.php'), 'htaccess_points_to_branded_404');
+$assert(str_contains($htaccess, 'X-Content-Type-Options'), 'htaccess_security_headers');
+$error404 = (string)file_get_contents($root . '/error_404.php');
+$assert(str_contains($error404, 'Page not found') && str_contains($error404, 'demo.php'), 'branded_404_has_nav_links');
 
 $manifest = json_decode((string)file_get_contents($root . '/manifest.json'), true);
 $assert(is_array($manifest) && !empty($manifest['icons']), 'manifest_icons_present');

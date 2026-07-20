@@ -52,6 +52,7 @@ function getWatchdogPageRegistry(): array
         ['roadmap.php', 'Roadmap', 'public'],
         ['checkout.php', 'Checkout', 'public'],
         ['payment_status.php', 'Payment Status', 'public'],
+        ['error_404.php', 'Branded 404', 'public'],
     ] as [$f, $l, $p]) {
         $add($f, $l, $p);
     }
