@@ -1,8 +1,10 @@
 Options -Indexes
 DirectoryIndex index.php
 
-# Branded UniWeb 404 (not the host default page)
-ErrorDocument 404 /error_404.php
+# Branded UniWeb errors (not the host default page)
+ErrorDocument 403 /error.php
+ErrorDocument 404 /error.php
+ErrorDocument 500 /error.php
 
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"

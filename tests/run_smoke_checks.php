@@ -46,6 +46,7 @@ $requiredFiles = [
     'admin_kyc.php',
     'gateway_settings.php',
     'error_404.php',
+    'error.php',
     'robots.txt',
     'sitemap.xml',
     'favicon.ico',
@@ -155,10 +156,14 @@ $assert(substr_count($checkout, 'renderCheckoutUnavailable(') >= 4, 'checkout_er
 
 $htaccess = (string)file_get_contents($root . '/.htaccess');
 $assert(str_contains($htaccess, 'ErrorDocument 404'), 'htaccess_error_document_404');
-$assert(str_contains($htaccess, 'error_404.php'), 'htaccess_points_to_branded_404');
+$assert(str_contains($htaccess, 'ErrorDocument 403 /error.php'), 'htaccess_error_document_403');
+$assert(str_contains($htaccess, 'ErrorDocument 500 /error.php'), 'htaccess_error_document_500');
+$assert(str_contains($htaccess, 'ErrorDocument 404 /error.php'), 'htaccess_points_to_branded_404');
 $assert(str_contains($htaccess, 'X-Content-Type-Options'), 'htaccess_security_headers');
+$errorPage = (string)file_get_contents($root . '/error.php');
+$assert(str_contains($errorPage, 'Page not found') && str_contains($errorPage, 'demo.php'), 'branded_error_has_nav_links');
 $error404 = (string)file_get_contents($root . '/error_404.php');
-$assert(str_contains($error404, 'Page not found') && str_contains($error404, 'demo.php'), 'branded_404_has_nav_links');
+$assert(str_contains($error404, 'error.php'), 'error_404_aliases_to_error_php');
 
 $manifest = json_decode((string)file_get_contents($root . '/manifest.json'), true);
 $assert(is_array($manifest) && !empty($manifest['icons']), 'manifest_icons_present');

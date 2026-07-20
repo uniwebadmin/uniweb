@@ -52,7 +52,8 @@ function getWatchdogPageRegistry(): array
         ['roadmap.php', 'Roadmap', 'public'],
         ['checkout.php', 'Checkout', 'public'],
         ['payment_status.php', 'Payment Status', 'public'],
-        ['error_404.php', 'Branded 404', 'public'],
+        ['error_404.php', 'Branded 404 (alias)', 'public'],
+        ['error.php', 'Branded ErrorDocument', 'public'],
     ] as [$f, $l, $p]) {
         $add($f, $l, $p);
     }
@@ -403,6 +404,9 @@ function watchdogExpectedHttpStatuses(string $relFile, string $auth): array
         'wallet_repair_once.php' => [403],
         'checkout_upi_status.php' => [400],
         'qr_image.php' => [400],
+        // Direct GET has no Apache error context → defaults to 404 (healthy for ErrorDocument targets).
+        'error.php' => [400, 403, 404, 500],
+        'error_404.php' => [400, 403, 404, 500],
     ];
     $expected = $routeSpecific[$relFile] ?? [];
     if ($auth === 'api') {
