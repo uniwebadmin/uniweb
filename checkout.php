@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 
+require_once __DIR__ . '/includes/checkout_mode_banner.php';
 $linkId = $_GET['link'] ?? $_POST['udf1'] ?? '';
 if (!$linkId) {
     http_response_code(404);
@@ -269,6 +270,7 @@ require_once __DIR__ . '/header.php';
                     <form method="POST" class="mb-4">
                         <input type="hidden" name="action" value="test_pay">
                         <input type="hidden" name="pay" value="upi">
+                        <?php renderCheckoutCustomerFields($link); ?>
                         <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-dark-900 py-4 rounded-xl font-semibold text-lg">⚡ Instant Test Pay <?= formatMoney($payAmount) ?> — UPI</button>
                         <p class="text-xs text-amber-400/80 text-center mt-2">Recommended for demos / bank approval — completes instantly (no real UPI transfer).</p>
                     </form>
@@ -317,6 +319,7 @@ require_once __DIR__ . '/header.php';
                     <form method="POST" class="space-y-3 mb-4">
                         <input type="hidden" name="action" value="test_pay">
                         <input type="hidden" name="pay" value="<?= e($selectedPay) ?>">
+                        <?php renderCheckoutCustomerFields($link); ?>
                         <p class="text-xs text-amber-400 text-center">Test Mode — complete payment here (no redirect). Use Instant Test for demo / approval.</p>
                         <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-dark-900 py-4 rounded-xl font-semibold text-lg">
                             Instant Test Pay <?= formatMoney($payAmount) ?> — <?= e($currentMethod['label'] ?? 'Card') ?>
@@ -351,6 +354,7 @@ require_once __DIR__ . '/header.php';
                     <form method="POST" class="space-y-3 mb-4">
                         <input type="hidden" name="action" value="test_pay">
                         <input type="hidden" name="pay" value="razorpay">
+                        <?php renderCheckoutCustomerFields($link); ?>
                         <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-dark-900 py-4 rounded-xl font-semibold text-lg">
                             Instant Test Pay <?= formatMoney($payAmount) ?>
                         </button>
@@ -381,6 +385,7 @@ require_once __DIR__ . '/header.php';
                     <form method="POST" class="space-y-3 mb-4">
                         <input type="hidden" name="action" value="test_pay">
                         <input type="hidden" name="pay" value="cashfree">
+                        <?php renderCheckoutCustomerFields($link); ?>
                         <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-dark-900 py-4 rounded-xl font-semibold text-lg">
                             Instant Test Pay <?= formatMoney($payAmount) ?>
                         </button>
@@ -400,6 +405,7 @@ require_once __DIR__ . '/header.php';
                     <form method="POST" class="space-y-3">
                         <input type="hidden" name="action" value="test_pay">
                         <input type="hidden" name="pay" value="<?= e($selectedPay) ?>">
+                        <?php renderCheckoutCustomerFields($link); ?>
                         <p class="text-xs text-amber-400 text-center">Test Mode — instant demo payment (no gateway redirect)</p>
                         <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-dark-900 py-4 rounded-xl font-semibold text-lg">
                             Instant Test Pay <?= formatMoney($payAmount) ?> — <?= e($currentMethod['label'] ?? 'Demo') ?>

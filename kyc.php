@@ -170,15 +170,23 @@ $kycSteps = [
         <div class="grid sm:grid-cols-2 gap-4" id="verify-forms">
             <?php foreach ($verifyFields as $type => $label):
                 $val = $prefills[$type] ?? '';
+                $isAadhaar = $type === 'aadhaar';
             ?>
             <div class="bg-dark-900/50 rounded-lg p-4">
                 <label class="text-xs text-gray-400"><?= e($label) ?></label>
                 <div class="flex gap-2 mt-1">
                     <input type="text" id="verify-<?= e($type) ?>" value="<?= e($val) ?>"
-                        class="input-field text-sm flex-1 uppercase" style="text-transform:uppercase"
-                        oninput="this.value=this.value.toUpperCase()" placeholder="<?= e($label) ?>">
-                    <button type="button" onclick="verifyDoc('<?= e($type) ?>')" class="btn-primary px-3 py-2 text-xs whitespace-nowrap">Verify</button>
+                        class="input-field text-sm flex-1 <?= $isAadhaar ? '' : 'uppercase' ?>" <?= $isAadhaar ? '' : 'style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"' ?>
+                        placeholder="<?= e($label) ?>">
+                    <button type="button" onclick="verifyDoc('<?= e($type) ?>')" class="btn-primary px-3 py-2 text-xs whitespace-nowrap"><?= $isAadhaar ? 'Send OTP' : 'Verify' ?></button>
                 </div>
+                <?php if ($isAadhaar): ?>
+                <div class="flex gap-2 mt-2" id="aadhaar-otp-row">
+                    <input type="text" id="aadhaar-otp" maxlength="6" inputmode="numeric" class="input-field text-sm flex-1" placeholder="6-digit OTP">
+                    <button type="button" onclick="confirmAadhaarOtp()" class="btn-primary px-3 py-2 text-xs whitespace-nowrap">Confirm OTP</button>
+                </div>
+                <input type="hidden" id="aadhaar-reference-id" value="">
+                <?php endif; ?>
                 <p id="result-<?= e($type) ?>" class="text-xs mt-2 text-gray-500"><?= $val !== '' ? 'Synced from profile' : '' ?></p>
             </div>
             <?php endforeach; ?>
@@ -279,8 +287,27 @@ async function verifyDoc(type){
     const num=document.getElementById('verify-'+type)?.value;
     const res=document.getElementById('result-'+type);
     if(!num){res.textContent='Enter number';res.className='text-xs mt-2 text-red-400';return;}
-    res.textContent='Verifying...';res.className='text-xs mt-2 text-cyan-400';
+    res.textContent=type==='aadhaar'?'Sending OTP...':'Verifying...';res.className='text-xs mt-2 text-cyan-400';
     const fd=new FormData();fd.append('type',type);fd.append('number',num);fd.append('csrf_token','<?= csrfToken() ?>');
+    const r=await fetch('verify_api.php',{method:'POST',body:fd});
+    const d=await r.json();
+    res.textContent=d.message||d.status||'Done';
+    res.className='text-xs mt-2 '+(d.success?'text-brand-400':'text-red-400');
+    if(type==='aadhaar'&&d.reference_id){
+        const ref=document.getElementById('aadhaar-reference-id');
+        if(ref) ref.value=d.reference_id;
+    }
+}
+async function confirmAadhaarOtp(){
+    const num=document.getElementById('verify-aadhaar')?.value;
+    const otp=document.getElementById('aadhaar-otp')?.value;
+    const ref=document.getElementById('aadhaar-reference-id')?.value||'';
+    const res=document.getElementById('result-aadhaar');
+    if(!num||!otp){res.textContent='Enter Aadhaar and OTP';res.className='text-xs mt-2 text-red-400';return;}
+    res.textContent='Confirming OTP...';res.className='text-xs mt-2 text-cyan-400';
+    const fd=new FormData();
+    fd.append('action','aadhaar_otp');fd.append('type','aadhaar');fd.append('number',num);
+    fd.append('otp',otp);fd.append('reference_id',ref);fd.append('csrf_token','<?= csrfToken() ?>');
     const r=await fetch('verify_api.php',{method:'POST',body:fd});
     const d=await r.json();
     res.textContent=d.message||d.status||'Done';

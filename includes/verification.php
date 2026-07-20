@@ -105,10 +105,21 @@ function decentroVerify(string $type, string $number, string $clientId, string $
             ?? ''
         )));
         if ($type === 'aadhaar') {
+            $referenceId = trim((string)(
+                $data['data']['decentroTxnId']
+                ?? $data['decentroTxnId']
+                ?? $data['data']['reference_id']
+                ?? $payload['reference_id']
+                ?? ''
+            ));
+            $status = in_array($flatStatus, ['VERIFIED', 'VALID'], true) ? 'verified' : 'otp_sent';
             return [
                 'success' => true,
-                'status' => in_array($flatStatus, ['VERIFIED', 'VALID'], true) ? 'verified' : 'otp_sent',
-                'message' => 'Aadhaar OTP initiation is not identity verification.',
+                'status' => $status,
+                'reference_id' => $referenceId,
+                'message' => $status === 'otp_sent'
+                    ? 'OTP sent to Aadhaar-linked mobile. Enter the 6-digit OTP below.'
+                    : 'Aadhaar verified successfully.',
                 'data' => $data,
             ];
         }
@@ -154,4 +165,76 @@ function getVerifications(int $merchantId): array
     $stmt = getDB()->prepare('SELECT * FROM kyc_verifications WHERE merchant_id = ? ORDER BY updated_at DESC');
     $stmt->execute([$merchantId]);
     return $stmt->fetchAll();
+}
+
+function confirmAadhaarOtp(int $merchantId, string $aadhaar, string $otp, string $referenceId): array
+{
+    $aadhaar = preg_replace('/\D/', '', $aadhaar);
+    $otp = preg_replace('/\D/', '', $otp);
+    $referenceId = trim($referenceId);
+    if (strlen($aadhaar) !== 12 || strlen($otp) < 4) {
+        return ['success' => false, 'status' => 'failed', 'message' => 'Enter valid Aadhaar number and OTP.'];
+    }
+    if ($referenceId === '') {
+        $st = getDB()->prepare("SELECT api_response FROM kyc_verifications WHERE merchant_id=? AND doc_type='aadhaar' AND doc_number=? ORDER BY updated_at DESC LIMIT 1");
+        $st->execute([$merchantId, $aadhaar]);
+        $row = json_decode((string)$st->fetchColumn(), true);
+        $referenceId = trim((string)($row['reference_id'] ?? ''));
+    }
+    if ($referenceId === '') {
+        return ['success' => false, 'status' => 'failed', 'message' => 'Send OTP first using Verify, then enter OTP here.'];
+    }
+
+    $clientId = getSetting('decentro_client_id', '');
+    $clientSecret = getSetting('decentro_client_secret', '');
+    if (!$clientId || !$clientSecret) {
+        saveVerification($merchantId, 'aadhaar', $aadhaar, 'submitted', json_encode(['otp' => 'received', 'reference_id' => $referenceId]));
+        return ['success' => true, 'status' => 'submitted', 'message' => 'OTP recorded — pending registry API keys for automatic verification.'];
+    }
+
+    $payload = [
+        'reference_id' => $referenceId,
+        'otp' => $otp,
+        'consent' => true,
+        'purpose' => 'KYC verification for UNIWEB merchant onboarding',
+    ];
+    $headers = [
+        'client_id: ' . $clientId,
+        'client_secret: ' . $clientSecret,
+        'Content-Type: application/json',
+    ];
+    $urn = getSetting('decentro_consumer_urn', '');
+    if ($urn) {
+        $headers[] = 'consumer_urn: ' . $urn;
+    }
+    $ch = curl_init(decentroBaseUrl() . '/kyc/aadhaar/otp/validate');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_POSTFIELDS => json_encode($payload),
+        CURLOPT_TIMEOUT => 30,
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($httpCode >= 200 && $httpCode < 300 && $response) {
+        $data = json_decode($response, true);
+        $flatStatus = strtoupper(trim((string)(
+            $data['data']['status'] ?? $data['response_status'] ?? $data['status'] ?? ''
+        )));
+        $verified = in_array($flatStatus, ['VERIFIED', 'VALID', 'SUCCESS'], true);
+        $status = $verified ? 'verified' : 'failed';
+        saveVerification($merchantId, 'aadhaar', $aadhaar, $status, json_encode(['reference_id' => $referenceId, 'confirm' => $data]));
+        if ($verified) {
+            getDB()->prepare('UPDATE merchants SET aadhaar_number=? WHERE id=?')->execute([$aadhaar, $merchantId]);
+        }
+        return [
+            'success' => $verified,
+            'status' => $status,
+            'message' => $verified ? 'Aadhaar verified successfully.' : 'OTP verification failed. Request a new OTP and try again.',
+            'data' => $data,
+        ];
+    }
+    return ['success' => false, 'status' => 'failed', 'message' => 'OTP verification service unavailable. Try again shortly.'];
 }
