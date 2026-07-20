@@ -79,8 +79,8 @@ if ($step1Done && !$step2Done) {
     $currentStep = 3;
 }
 $kycSteps = [
-    1 => ['title' => 'Verify identity numbers', 'hint' => 'PAN, GSTIN, Aadhaar or CIN'],
-    2 => ['title' => 'Upload documents', 'hint' => 'Entity-specific KYC files'],
+    1 => ['title' => 'Verify identity numbers', 'hint' => kycStepOneHint($verifyFields)],
+    2 => ['title' => 'Upload documents', 'hint' => 'Only files required for ' . entityTypeLabel($entityType)],
     3 => ['title' => 'Video KYC & agreement', 'hint' => 'Selfie video + contract'],
 ];
 ?>

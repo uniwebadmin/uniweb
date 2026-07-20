@@ -59,7 +59,20 @@ require_once __DIR__ . '/header.php';
 
 <div class="bg-sky-500/10 border border-sky-500/30 rounded-xl p-5 mb-8 text-sm">
     <h2 class="font-semibold text-sky-300 mb-2">Sandbox vs Production</h2>
-    <p class="text-gray-400">Use <strong class="text-white">Sandbox/UAT</strong> keys for testing now. Production keys, channel_id, encryption keys, and IP whitelist are issued after partner approval. Axis can be deferred — finalize banking partners last.</p>
+    <p class="text-gray-400 mb-3">Use <strong class="text-white">Sandbox / Test</strong> keys for testing now. Production keys, channel IDs, encryption keys, and IP whitelist are issued after partner approval. Axis and Digio can wait until those KAMs are ready.</p>
+    <p class="text-amber-200/90 text-xs mb-3">UniWeb cannot invent partner API keys. Open each partner Sign Up / Dashboard link below, create a merchant or partner account with your company email, then paste sandbox keys into <a href="gateway_settings.php" class="text-sky-400 underline">Gateway Settings</a>. After Test Connection works, show partners your sandbox traffic and request Live keys.</p>
+    <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+            <thead class="text-gray-500"><tr><th class="text-left py-2 pr-3">Product</th><th class="text-left py-2 pr-3">Ask partners for</th><th class="text-left py-2">Typical source</th></tr></thead>
+            <tbody class="divide-y divide-gray-800 text-gray-400">
+                <tr><td class="py-2 pr-3 text-white">UPI / P2M collect</td><td class="py-2 pr-3">Key ID + Secret (test), webhook secret</td><td class="py-2">Razorpay / Cashfree / PayU / Decentro sandbox</td></tr>
+                <tr><td class="py-2 pr-3 text-white">Cards (CC/DC) + EMI + Netbanking + Wallet</td><td class="py-2 pr-3">Same PG test keys with those methods enabled</td><td class="py-2">PayU / Razorpay / Cashfree merchant dashboard → Test mode</td></tr>
+                <tr><td class="py-2 pr-3 text-white">White-label / Route / Easy Split</td><td class="py-2 pr-3">Platform / partner MID, route or child keys</td><td class="py-2">Partner programme signup (not standard merchant keys)</td></tr>
+                <tr><td class="py-2 pr-3 text-white">Payouts</td><td class="py-2 pr-3">Payout client ID/secret or payoutMerchantId</td><td class="py-2">RazorpayX / Cashfree Payouts / PayU Payouts / Decentro</td></tr>
+                <tr><td class="py-2 pr-3 text-white">Virtual Account</td><td class="py-2 pr-3">VA / collection account credentials</td><td class="py-2">Decentro / Axis API portal (UAT)</td></tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <div class="grid lg:grid-cols-2 gap-6">

@@ -8,8 +8,9 @@ ensureMerchantWebsiteEngine();
 $db = getDB();
 
 $categories = getBusinessCategories();
-
 $entities = getBusinessEntityTypes();
+$entityType = (string)($merchant['business_entity_type'] ?? 'sole_proprietorship');
+$taxFields = entityProfileTaxFields($entityType);
 
 
 
@@ -143,9 +144,19 @@ require_once __DIR__ . '/header.php';
 
                 <div><label class="text-sm text-gray-400">PAN</label><input type="text" name="pan_number" maxlength="10" class="input-field mt-1 uppercase" value="<?= e($merchant['pan_number']??'') ?>"></div>
 
+                <?php if (!empty($taxFields['gst'])): ?>
                 <div><label class="text-sm text-gray-400">GSTIN</label><input type="text" name="gstin" class="input-field mt-1" value="<?= e($merchant['gstin']??'') ?>"></div>
+                <?php else: ?>
+                <input type="hidden" name="gstin" value="<?= e($merchant['gstin']??'') ?>">
+                <?php endif; ?>
 
+                <?php if (!empty($taxFields['cin'])): ?>
                 <div class="col-span-2"><label class="text-sm text-gray-400">CIN / LLPIN</label><input type="text" name="cin_llpin" class="input-field mt-1" value="<?= e($merchant['cin_llpin']??'') ?>" placeholder="For Pvt Ltd / LLP / OPC"></div>
+                <?php else: ?>
+                <input type="hidden" name="cin_llpin" value="<?= e($merchant['cin_llpin']??'') ?>">
+                <?php endif; ?>
+
+                <p class="col-span-2 text-xs text-gray-500">KYC documents on the next step match this entity. Individual sees PAN / Aadhaar / bank / photo only — no GST or CIN.</p>
 
             </div>
 

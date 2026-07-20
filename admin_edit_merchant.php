@@ -16,6 +16,8 @@ if (!$merchant) {
 $categories = getBusinessCategories();
 $entities = getBusinessEntityTypes();
 $plans = getSubscriptionPlans();
+$editEntityType = (string)($merchant['business_entity_type'] ?? 'sole_proprietorship');
+$editTaxFields = entityProfileTaxFields($editEntityType);
 
 if (isset($_GET['action']) && in_array($_GET['action'], ['verify_website', 'reject_website'], true) && verifyCsrf($_GET['token'] ?? '')) {
     ensureMerchantWebsiteEngine();
@@ -156,8 +158,17 @@ $methodCatalog = getPaymentMethodCatalog();
                     </select>
                 </div>
                 <div><label class="text-sm text-gray-400">PAN</label><input type="text" name="pan_number" maxlength="10" class="input-field mt-1 uppercase" value="<?= e($merchant['pan_number'] ?? '') ?>"></div>
+                <?php if (!empty($editTaxFields['gst'])): ?>
                 <div><label class="text-sm text-gray-400">GSTIN</label><input type="text" name="gstin" class="input-field mt-1" value="<?= e($merchant['gstin'] ?? '') ?>"></div>
+                <?php else: ?>
+                <input type="hidden" name="gstin" value="<?= e($merchant['gstin'] ?? '') ?>">
+                <?php endif; ?>
+                <?php if (!empty($editTaxFields['cin'])): ?>
                 <div><label class="text-sm text-gray-400">CIN / LLPIN</label><input type="text" name="cin_llpin" class="input-field mt-1" value="<?= e($merchant['cin_llpin'] ?? '') ?>"></div>
+                <?php else: ?>
+                <input type="hidden" name="cin_llpin" value="<?= e($merchant['cin_llpin'] ?? '') ?>">
+                <?php endif; ?>
+                <p class="sm:col-span-2 text-xs text-gray-500">GSTIN / CIN fields follow the selected entity type (Individual hides GST and CIN).</p>
             </div>
             <p class="text-xs text-brand-400 font-medium uppercase tracking-wide pt-2">Website & App</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

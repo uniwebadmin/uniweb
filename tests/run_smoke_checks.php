@@ -87,6 +87,17 @@ $adminDash = (string)file_get_contents($root . '/admin_dashboard.php');
 $assert(!str_contains($adminDash, 'Verify to enable Live mode'), 'dashboard_no_misleading_verify_live_copy');
 $assert(str_contains($adminDash, 'Live mode is a separate activation gate'), 'dashboard_live_gate_copy');
 
+require_once $root . '/includes/kyc_entity.php';
+$individualDocs = getKycRequirements('individual');
+$assert($individualDocs === ['pan', 'aadhaar', 'bank_proof', 'photo'], 'kyc_individual_docs_only_identity_bank_photo');
+$assert(!in_array('gst', $individualDocs, true) && !in_array('incorporation_certificate', $individualDocs, true), 'kyc_individual_no_gst_or_cin_docs');
+$propDocs = getKycRequirements('sole_proprietorship');
+$assert(in_array('gst', $propDocs, true) && in_array('aadhaar', $propDocs, true), 'kyc_proprietorship_includes_gst');
+$partnershipDocs = getKycRequirements('partnership');
+$assert(in_array('partnership_deed', $partnershipDocs, true) && in_array('gst', $partnershipDocs, true), 'kyc_partnership_includes_deed_gst');
+$indivTax = entityProfileTaxFields('individual');
+$assert(empty($indivTax['gst']) && empty($indivTax['cin']), 'kyc_individual_profile_hides_gst_cin');
+
 $manifest = json_decode((string)file_get_contents($root . '/manifest.json'), true);
 $assert(is_array($manifest) && !empty($manifest['icons']), 'manifest_icons_present');
 if (is_array($manifest)) {

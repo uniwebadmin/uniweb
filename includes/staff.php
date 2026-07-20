@@ -317,5 +317,6 @@ function pgWebhookHealthResponse(string $gateway): void
     exit;
 }
 
-// Merchant team RBAC (loaded here so live hosts need no config.php edit — config.php is not in git).
+// Entity KYC map + merchant team RBAC (git-tracked; live hosts need no config.php function edits).
+require_once __DIR__ . '/kyc_entity.php';
 require_once __DIR__ . '/merchant_team.php';
