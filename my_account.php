@@ -14,6 +14,7 @@ $entities = getBusinessEntityTypes();
 
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    requireMerchantTeamCapability('settings');
 
     $pan = strtoupper(trim($_POST['pan_number'] ?? ''));
 

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireLogin();
+requireMerchantTeamCapability('settings');
 
 if (!verifyCsrf($_GET['csrf'] ?? $_POST['csrf_token'] ?? '')) {
     flash('error', 'Invalid request.');

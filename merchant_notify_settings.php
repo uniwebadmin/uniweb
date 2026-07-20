@@ -16,6 +16,7 @@ $channels = [
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    requireMerchantTeamCapability('settings');
     $incoming = $_POST['prefs'] ?? [];
     $prefs = defaultMerchantNotifyPrefs();
     foreach ($prefs as $event => $chs) {

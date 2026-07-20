@@ -5,6 +5,7 @@ $merchant = getMerchant();
 $merchantId = (int)$merchant['id'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    requireMerchantTeamCapability('settle');
     saveMerchantSettlementPrefs($merchantId, [
         'use_platform_default' => !empty($_POST['use_platform_default']),
         'mode' => $_POST['settlement_mode'] ?? 'manual',

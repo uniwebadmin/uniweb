@@ -20,6 +20,7 @@ foreach ($enabledMethods as $mk) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    requireMerchantTeamCapability('create_links');
     $amount = (float)($_POST['amount'] ?? 0);
     $isTest = isMerchantPaymentTest($merchant);
     $amount = sanitizePaymentAmount($amount, $isTest);

@@ -6,6 +6,7 @@ ensurePaymentPackSchema();
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    requireMerchantTeamCapability('settings');
     $mode = $_POST['collection_mode'] ?? 'direct_upi';
     $modes = array_keys(getCollectionModes());
     if (!in_array($mode, $modes, true)) $mode = 'direct_upi';

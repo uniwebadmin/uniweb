@@ -11,6 +11,7 @@ $isTest = isMerchantPaymentTest($merchant);
 $upiId = trim((string)($merchant['upi_id'] ?? ''));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireMerchantTeamCapability('create_links');
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
         flash('error', 'Security token expired. Refresh and try again.');
         redirect('qr_code.php');

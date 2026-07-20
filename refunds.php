@@ -8,6 +8,7 @@ ensureRefundsEngine();
 $reasonOptions = getRefundReasonOptions();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    requireMerchantTeamCapability('refund');
     $txnId = (int)($_POST['transaction_id'] ?? 0);
     $amount = (float)($_POST['amount'] ?? 0);
     $reasonPick = trim($_POST['reason_code'] ?? '');
@@ -44,6 +45,9 @@ require_once __DIR__ . '/header.php';
 <div class="grid lg:grid-cols-3 gap-6">
     <div class="glass rounded-xl p-6 border border-gray-800">
         <h2 class="font-semibold mb-4">Request Refund</h2>
+        <?php if (!merchantTeamCan('refund')): ?>
+        <p class="text-sm text-amber-300/90">Your team role can view refund history but cannot process refunds. Ask an Admin or Finance member.</p>
+        <?php else: ?>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div><label class="text-sm text-gray-400">Transaction</label>
@@ -64,6 +68,7 @@ require_once __DIR__ . '/header.php';
             <button type="submit" class="w-full btn-primary py-3" <?= empty($txnList) ? 'disabled' : '' ?>>Process Refund</button>
         </form>
         <p class="text-xs text-gray-500 mt-4">Refunds debit your wallet balance. Keep sufficient funds before processing.</p>
+        <?php endif; ?>
     </div>
     <div class="lg:col-span-2">
         <?php if (empty($refunds)): ?>

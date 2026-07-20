@@ -4,6 +4,9 @@ requireLogin();
 $merchant = getMerchant();
 $db = getDB();
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    requireMerchantTeamCapability('settings');
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'set_primary' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     $accId = (int)($_POST['account_id'] ?? 0);
     $own = $db->prepare("SELECT id FROM bank_accounts WHERE id = ? AND merchant_id = ? AND status != 'inactive'");

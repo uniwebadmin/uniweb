@@ -5,6 +5,7 @@ $merchant = getMerchant();
 ensureMerchantWebsiteEngine();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    requireMerchantTeamCapability('settings');
     $result = saveMerchantWebsite(
         (int)$merchant['id'],
         (string)($_POST['website_url'] ?? ''),

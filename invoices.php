@@ -5,6 +5,7 @@ $merchant = getMerchant();
 $db = getDB();
 fixCorruptInvoices();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    requireMerchantTeamCapability('create_links');
     $customer = trim($_POST['customer_name'] ?? '');
     $email = trim($_POST['customer_email'] ?? '');
     $phone = trim($_POST['customer_phone'] ?? '');
