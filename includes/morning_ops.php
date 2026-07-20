@@ -132,7 +132,7 @@ function getPendingKycQueue(int $limit = 15): array
         kyc_status, account_mode, status, created_at
         FROM merchants
         WHERE status != 'deleted' AND kyc_status IN ('pending','submitted')
-        ORDER BY FIELD(COALESCE(business_entity_type,''), 'individual','freelancer','sole_proprietor','partnership','private_limited','public_limited','llp','other'),
+        ORDER BY FIELD(COALESCE(business_entity_type,''), 'individual','freelancer','sole_proprietorship','sole_proprietor','proprietor','partnership','private_limited','public_limited','llp','opc','trust','society','huf','other'),
         created_at ASC
         LIMIT ?");
     $stmt->execute([max(1, min(50, $limit))]);

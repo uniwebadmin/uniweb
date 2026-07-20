@@ -345,14 +345,22 @@ function getMerchantKycProgress(?array $merchant): array
     $stmt->execute([$merchant['id']]);
     $uploaded = array_column($stmt->fetchAll(), 'doc_type');
     $labels = getKycDocLabels();
+    $canonicalUploaded = [];
+    foreach ($uploaded as $doc) {
+        $canonicalUploaded[canonicalizeKycDocType((string)$doc)] = true;
+    }
     $missing = [];
+    $have = 0;
     foreach ($required as $doc) {
-        if (!in_array($doc, $uploaded, true)) {
+        $key = canonicalizeKycDocType((string)$doc);
+        if (!empty($canonicalUploaded[$key])) {
+            $have++;
+        } else {
             $missing[] = $labels[$doc] ?? $doc;
         }
     }
     return [
-        'uploaded' => count(array_intersect($required, $uploaded)),
+        'uploaded' => $have,
         'required' => count($required),
         'complete' => empty($missing),
         'missing' => $missing,

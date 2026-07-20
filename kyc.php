@@ -156,7 +156,7 @@ $kycSteps = [
         <div class="flex items-center gap-4">
             <span class="w-12 h-12 rounded-xl bg-violet-500/15 text-violet-400 flex items-center justify-center shrink-0 text-xl">📹</span>
             <div class="flex-1">
-                <p class="font-semibold text-violet-300 group-hover:text-violet-200">Video KYC &amp; Face Mapping</p>
+                <p class="font-semibold text-violet-300 group-hover:text-violet-200">Video KYC</p>
                 <p class="text-xs text-gray-500 mt-0.5">Upload a short selfie video holding your Aadhaar/PAN</p>
             </div>
             <span class="text-violet-400">→</span>

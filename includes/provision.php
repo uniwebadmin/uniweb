@@ -119,7 +119,11 @@ function getPaymentMethodCatalog(): array
 
 function getMerchantProvisionProfile(array $merchant): array
 {
-    $entity = $merchant['business_entity_type'] ?? 'proprietor';
+    $entity = normalizeKycEntityType($merchant['business_entity_type'] ?? 'sole_proprietorship');
+    // Provision profiles still use short keys for proprietor / freelancer.
+    if ($entity === 'sole_proprietorship') {
+        $entity = 'proprietor';
+    }
     $plan = $merchant['subscription_plan'] ?? 'starter';
 
     $allMethods = array_keys(getPaymentMethodCatalog());

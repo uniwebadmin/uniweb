@@ -43,14 +43,15 @@ function merchantLiveGateReport(int $merchantId): array
         );
         $agreement->execute([$merchantId, ACTIVE_MERCHANT_AGREEMENT_VERSION]);
 
+        $videoStatus = strtolower((string)($merchant['video_kyc_status'] ?? 'pending'));
         $checks = [
             'not_demo' => strtolower((string)$merchant['email']) !== 'demo@uniweb.co.in',
             'kyc_verified' => ($merchant['onboarding_state'] ?? '') === 'verified' && ($merchant['kyc_status'] ?? '') === 'verified',
-            'entity_documents' => count(array_diff($required, $readyDocs)) === 0,
+            'entity_documents' => kycDocsSatisfyRequirements($required, $readyDocs),
             'bank_verified' => (int)$bank->fetchColumn() > 0 && ($merchant['bank_verification_status'] ?? 'pending') === 'verified',
             'website_verified' => ($merchant['website_status'] ?? '') === 'verified'
                 && ($merchant['website_review_status'] ?? 'pending') === 'verified',
-            'video_verified' => ($merchant['video_kyc_status'] ?? 'pending') === 'verified',
+            'video_verified' => in_array($videoStatus, ['verified', 'approved'], true),
             'agreement_accepted' => (int)$agreement->fetchColumn() > 0,
             'merchant_active' => ($merchant['status'] ?? '') === 'active',
         ];
@@ -183,10 +184,12 @@ function applyApprovedControlAction(array $request): void
                 ->execute([$resourceId, $merchantId]);
             break;
         case 'kyc_merchant_verify':
-            $required = getKycRequirements((string)getDB()->query("SELECT business_entity_type FROM merchants WHERE id={$merchantId}")->fetchColumn());
+            $ent = getDB()->prepare('SELECT business_entity_type FROM merchants WHERE id=?');
+            $ent->execute([$merchantId]);
+            $required = getKycRequirements((string)$ent->fetchColumn());
             $st = $db->prepare("SELECT DISTINCT doc_type FROM kyc_documents WHERE merchant_id=? AND status='approved' AND scan_status='clean'");
             $st->execute([$merchantId]);
-            if (array_diff($required, $st->fetchAll(PDO::FETCH_COLUMN))) {
+            if (!kycDocsSatisfyRequirements($required, $st->fetchAll(PDO::FETCH_COLUMN))) {
                 throw new RuntimeException('All entity documents must be clean and approved first.');
             }
             $db->prepare("UPDATE merchants SET kyc_status='verified',onboarding_state='verified',account_mode='test' WHERE id=?")

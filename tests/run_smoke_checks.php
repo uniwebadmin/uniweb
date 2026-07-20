@@ -88,6 +88,13 @@ $assert(str_contains($kyc, 'verify_video'), 'kyc_verify_video_action');
 $videoKycPage = (string)file_get_contents($root . '/video_kyc.php');
 $assert(str_contains($videoKycPage, "'verified', 'approved'"), 'video_kyc_accepts_verified_status');
 $assert(!str_contains($videoKycPage, 'Face Mapping'), 'video_kyc_no_face_mapping_copy');
+$kycPage = (string)file_get_contents($root . '/kyc.php');
+$assert(!str_contains($kycPage, 'Face Mapping'), 'kyc_page_no_face_mapping_copy');
+$assert(normalizeKycEntityType('proprietor') === 'sole_proprietorship', 'kyc_normalize_proprietor');
+$assert(normalizeKycEntityType('freelancer') === 'individual', 'kyc_normalize_freelancer');
+$assert(canonicalizeKycDocType('pan_card') === 'pan', 'kyc_canonicalize_pan_card');
+$onboardSec = (string)file_get_contents($root . '/includes/onboarding_security.php');
+$assert(str_contains($onboardSec, "'verified', 'approved'"), 'live_gate_accepts_video_approved');
 
 $adminDash = (string)file_get_contents($root . '/admin_dashboard.php');
 $assert(!str_contains($adminDash, 'Verify to enable Live mode'), 'dashboard_no_misleading_verify_live_copy');

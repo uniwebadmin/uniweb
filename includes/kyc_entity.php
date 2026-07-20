@@ -45,8 +45,48 @@ function getKycDocLabels(): array
         'iec' => 'IEC (Import Export Code)',
         'udyam' => 'Udyam Registration Certificate',
         'video_kyc' => 'Video KYC Recording',
-        'face_mapping' => 'Aadhaar Face Mapping Selfie',
     ];
+}
+
+/** Map legacy / alternate entity keys to the canonical KYC entity list. */
+function normalizeKycEntityType(?string $entityType): string
+{
+    $raw = strtolower(trim((string)$entityType));
+    $aliases = [
+        'freelancer' => 'individual',
+        'sole_proprietor' => 'sole_proprietorship',
+        'proprietor' => 'sole_proprietorship',
+        'proprietorship' => 'sole_proprietorship',
+        'pvt_ltd' => 'private_limited',
+        'pvt ltd' => 'private_limited',
+        'private limited' => 'private_limited',
+        'public limited' => 'public_limited',
+        'one_person_company' => 'opc',
+    ];
+    $canonical = $aliases[$raw] ?? $raw;
+    $types = getBusinessEntityTypes();
+    return isset($types[$canonical]) ? $canonical : 'sole_proprietorship';
+}
+
+/** Legacy uploaded doc_type values → canonical requirement keys. */
+function canonicalizeKycDocType(string $docType): string
+{
+    $aliases = [
+        'pan_card' => 'pan',
+        'aadhaar_card' => 'aadhaar',
+        'aadhar' => 'aadhaar',
+        'gst_certificate' => 'gst',
+        'gstin' => 'gst',
+        'bank' => 'bank_proof',
+        'cancelled_cheque' => 'bank_proof',
+        'selfie' => 'photo',
+        'merchant_photo' => 'photo',
+        'coi' => 'incorporation_certificate',
+        'moa' => 'moa_aoa',
+        'aoa' => 'moa_aoa',
+    ];
+    $key = strtolower(trim($docType));
+    return $aliases[$key] ?? $key;
 }
 
 /**
@@ -55,6 +95,7 @@ function getKycDocLabels(): array
  */
 function getKycRequirements(string $entityType): array
 {
+    $entityType = normalizeKycEntityType($entityType);
     $map = [
         // Individual: identity + bank + photo only (no GST / CIN / deed)
         'individual' => ['pan', 'aadhaar', 'bank_proof', 'photo'],
@@ -71,6 +112,21 @@ function getKycRequirements(string $entityType): array
         'huf' => ['pan', 'aadhaar', 'bank_proof', 'photo', 'huf_deed'],
     ];
     return $map[$entityType] ?? $map['sole_proprietorship'];
+}
+
+/** True when every required doc type is covered by uploaded/approved types (alias-aware). */
+function kycDocsSatisfyRequirements(array $required, array $presentDocs): bool
+{
+    $canonicalPresent = [];
+    foreach ($presentDocs as $doc) {
+        $canonicalPresent[canonicalizeKycDocType((string)$doc)] = true;
+    }
+    foreach ($required as $need) {
+        if (empty($canonicalPresent[canonicalizeKycDocType((string)$need)])) {
+            return false;
+        }
+    }
+    return true;
 }
 
 function entityRequiresKycDoc(string $entityType, string $docType): bool
@@ -105,7 +161,8 @@ function getMerchantKycPrefills(array $merchant): array
 function entityTypeLabel(?string $type): string
 {
     $types = getBusinessEntityTypes();
-    return $types[$type ?? ''] ?? ucfirst(str_replace('_', ' ', $type ?? '—'));
+    $canonical = normalizeKycEntityType($type);
+    return $types[$canonical] ?? ucfirst(str_replace('_', ' ', $type ?? '—'));
 }
 
 function kycStepOneHint(array $verifyFields): string
