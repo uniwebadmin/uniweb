@@ -109,6 +109,14 @@ require_once __DIR__ . '/header.php';
     </div>
 </div>
 
+<div class="glass rounded-xl p-5 mb-6 flex flex-wrap items-center justify-between gap-4 border border-emerald-500/20">
+    <div class="min-w-0">
+        <h2 class="font-semibold flex items-center gap-2">Instant UPI QR <span class="text-[10px] bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full uppercase tracking-wide">Direct P2M</span></h2>
+        <p class="text-xs text-gray-500 mt-1 max-w-xl">Printable <span class="font-mono">upi://pay</span> QR that opens in GPay / PhonePe / Paytm and settles straight to your bank UPI. Ideal for counters and bank demos.</p>
+    </div>
+    <a href="qr_upi_print.php" class="whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-semibold text-sm">Open &amp; Print →</a>
+</div>
+
 <div class="grid lg:grid-cols-3 gap-6 mb-8">
     <div class="glass rounded-xl p-6 lg:col-span-1">
         <h2 class="font-semibold mb-1">Create New QR</h2>

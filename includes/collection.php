@@ -172,16 +172,44 @@ function finalizePaymentLink(int $linkDbId, int $merchantId, float $amount, stri
     createNotification($merchantId, 'Payment Received', $message);
 }
 
+/**
+ * Build a NPCI-standard `upi://pay` intent that any UPI app (GPay, PhonePe,
+ * Paytm, BHIM) can open directly. Amount and note are optional; when the
+ * amount is omitted the payer types it in their UPI app (open-amount QR).
+ */
+function buildUpiPayIntent(string $payeeVpa, string $payeeName, ?float $amount = null, string $note = ''): string
+{
+    $params = [
+        'pa' => trim($payeeVpa),
+        'pn' => trim($payeeName) !== '' ? trim($payeeName) : 'Merchant',
+        'cu' => 'INR',
+    ];
+    if ($amount !== null && $amount > 0) {
+        $params['am'] = number_format($amount, 2, '.', '');
+    }
+    if (trim($note) !== '') {
+        $params['tn'] = $note;
+    }
+    // rawurlencode keeps spaces as %20 (UPI apps reject the "+" that urlencode emits).
+    $pairs = [];
+    foreach ($params as $key => $value) {
+        $pairs[] = $key . '=' . rawurlencode((string)$value);
+    }
+    return 'upi://pay?' . implode('&', $pairs);
+}
+
 function buildMerchantUpiIntent(array $link): string
 {
     $pa = $link['upi_id'] ?? '';
     if (($link['collection_mode'] ?? '') === 'axis_va' && !empty($link['axis_va_upi'])) {
         $pa = $link['axis_va_upi'];
     }
-    return 'upi://pay?pa=' . urlencode($pa)
-        . '&pn=' . urlencode($link['business_name'] ?? 'Merchant')
-        . '&am=' . urlencode((string)$link['amount'])
-        . '&cu=INR&tn=' . urlencode($link['description'] ?: 'Payment via ' . APP_NAME);
+    return buildUpiPayIntent(
+        (string)$pa,
+        (string)($link['business_name'] ?? 'Merchant'),
+        isset($link['amount']) ? (float)$link['amount'] : null,
+        (string)(($link['description'] ?? '') !== '' ? $link['description'] : 'Payment via ' . APP_NAME)
+    );
 }
 
 function buildWhatsAppPaymentLink(array $link): string

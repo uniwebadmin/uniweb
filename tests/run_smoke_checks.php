@@ -114,6 +114,18 @@ $gwLib = (string)file_get_contents($root . '/includes/gateways.php');
 $assert(str_contains($gwLib, 'checkout on roadmap') || str_contains($gwLib, 'later release'), 'gateway_phonepe_status_honest');
 $assert(str_contains($gwLib, 'function gatewaySupportsLiveCheckout'), 'gateway_live_checkout_helper_present');
 
+// Instant printable UPI QR (direct P2M) — page + helper must exist and be honest about routing.
+$assert(is_file($root . '/qr_upi_print.php'), 'file_qr_upi_print_php', 'qr_upi_print.php');
+$upiQrPage = (string)file_get_contents($root . '/qr_upi_print.php');
+$assert(str_contains($upiQrPage, 'buildUpiPayIntent'), 'upi_qr_uses_intent_helper');
+$assert(str_contains($upiQrPage, 'window.print()'), 'upi_qr_printable');
+$assert(str_contains($upiQrPage, 'not routed through UniWeb') || str_contains($upiQrPage, 'not routed through UniWeb checkout'), 'upi_qr_honest_routing_copy');
+$collectionLib = (string)file_get_contents($root . '/includes/collection.php');
+$assert(str_contains($collectionLib, 'function buildUpiPayIntent'), 'collection_upi_intent_helper_present');
+$assert(str_contains($collectionLib, "'upi://pay?'"), 'collection_upi_intent_scheme');
+$qrCodePage = (string)file_get_contents($root . '/qr_code.php');
+$assert(str_contains($qrCodePage, 'qr_upi_print.php'), 'qr_code_links_instant_upi_qr');
+
 $manifest = json_decode((string)file_get_contents($root . '/manifest.json'), true);
 $assert(is_array($manifest) && !empty($manifest['icons']), 'manifest_icons_present');
 if (is_array($manifest)) {

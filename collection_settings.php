@@ -102,6 +102,7 @@ require_once __DIR__ . '/header.php';
         <h3 class="font-semibold mb-3">Direct UPI (P2M)</h3>
         <p class="text-sm text-gray-400">Your UPI ID: <span class="font-mono text-sky-400"><?= e($merchant['upi_id']) ?></span></p>
         <p class="text-xs text-gray-500 mt-2">Customers pay directly to your VPA — money does not pass through UniWeb.</p>
+        <a href="qr_upi_print.php" class="inline-block mt-4 text-sm bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-semibold">Print Instant UPI QR →</a>
     </div>
 
     <?php if (!empty($merchant['axis_va_number']) || $axisVa): ?>
