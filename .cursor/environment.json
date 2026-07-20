@@ -1,0 +1,5 @@
+{
+  "install": "sudo apt-get update -y && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y php-cli php-mysql php-xml php-mbstring php-curl php-zip curl git || true; php -v; git --version",
+  "start": "php -v",
+  "terminals": []
+}
