@@ -125,7 +125,7 @@ $cfReady = isGatewayConfigured('cashfree');
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div>
                 <label class="text-sm text-gray-400">Amount (₹) *</label>
-                <input type="number" name="amount" required min="1" max="<?= $testMode ? 100 : 500000 ?>" step="0.01" class="input-field mt-1" placeholder="<?= $testMode ? '1–100 (test)' : 'Min ₹1' ?>" value="1">
+                <input type="number" name="amount" required min="1" max="<?= $testMode ? 100 : (int)livePaymentAmountCap() ?>" step="0.01" class="input-field mt-1" placeholder="<?= $testMode ? '1–100 (test)' : 'Min ₹1' ?>" value="1">
             </div>
             <div>
                 <label class="text-sm text-gray-400">Payment method *</label>

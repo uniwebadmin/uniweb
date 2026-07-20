@@ -61,16 +61,17 @@ function fixCorruptTransactionAmounts(): int
         WHERE status='success' AND is_test=1 AND amount <= 100 AND (COALESCE(platform_fee,0) > 1 OR COALESCE(split_amount,0) > 100)");
     $db->exec("UPDATE transactions SET amount=LEAST(amount,100), platform_fee=0, split_amount=LEAST(amount,100), wallet_credited=0
         WHERE status='success' AND is_test=1 AND amount > 1000 AND amount < 500000");
-    $db->exec("UPDATE transactions SET amount=LEAST(amount,500000), platform_fee=LEAST(COALESCE(platform_fee,0),50000), split_amount=LEAST(COALESCE(split_amount,amount),500000), wallet_credited=0
-        WHERE status='success' AND is_test=0 AND (amount > 500000 OR COALESCE(platform_fee,0) > 500000 OR COALESCE(split_amount,0) > 500000)");
+    $liveCap = (float)livePaymentAmountCap();
+    $db->exec("UPDATE transactions SET amount=LEAST(amount,{$liveCap}), platform_fee=LEAST(COALESCE(platform_fee,0),{$liveCap}), split_amount=LEAST(COALESCE(split_amount,amount),{$liveCap}), wallet_credited=0
+        WHERE status='success' AND is_test=0 AND (amount > {$liveCap} OR COALESCE(platform_fee,0) > {$liveCap} OR COALESCE(split_amount,0) > {$liveCap})");
     $rows = $db->query("SELECT t.id, t.merchant_id, t.amount, t.is_test, t.payment_link_id, pl.amount AS link_amount
         FROM transactions t
         LEFT JOIN payment_links pl ON t.payment_link_id = pl.id
         WHERE (t.is_test=1 AND (t.amount > 100 OR t.amount < 0))
-            OR t.amount > 500000 OR t.amount < 0
-            OR (t.amount > 1000 AND t.amount < 500000)
-            OR COALESCE(t.platform_fee,0) > 1000
-            OR COALESCE(t.split_amount,0) > 1000")->fetchAll();
+            OR t.amount > {$liveCap} OR t.amount < 0
+            OR (t.amount > 1000 AND t.amount < {$liveCap})
+            OR COALESCE(t.platform_fee,0) > {$liveCap}
+            OR COALESCE(t.split_amount,0) > {$liveCap}")->fetchAll();
     $fixed = 0;
     foreach ($rows as $row) {
         $isTest = !empty($row['is_test']);
@@ -109,7 +110,7 @@ function fixCorruptPaymentLinks(): int
     }
     $db->exec("UPDATE settlements SET amount=LEAST(amount,100), net_amount=LEAST(net_amount,100) WHERE amount > 1000 AND merchant_id IN (SELECT id FROM merchants WHERE account_mode='test')");
     $db->exec("DELETE FROM platform_settlements WHERE amount > 1000");
-    $db->exec("DELETE FROM settlements WHERE amount > 500000");
+    $db->exec("DELETE FROM settlements WHERE amount > " . (float)livePaymentAmountCap());
     return $fixed;
 }
 
@@ -119,7 +120,7 @@ function fixCorruptGatewaySettings(): void
     $caps = [
         'min_settlement_amount' => ['default' => '100', 'max' => 100],
         'min_platform_settlement' => ['default' => '1', 'max' => 1],
-        'aml_high_value_threshold' => ['default' => '200000', 'max' => 500000],
+        'aml_high_value_threshold' => ['default' => '200000', 'max' => livePaymentAmountCap()],
     ];
     foreach ($caps as $key => $rule) {
         $val = (float)getSetting($key, $rule['default']);
@@ -239,7 +240,7 @@ function hasCorruptWalletData(): bool
         if ((int)$db->query("SELECT COUNT(*) FROM settlements WHERE status IN ('pending','processing') AND amount > 1000")->fetchColumn() > 0) {
             return true;
         }
-        if ((int)$db->query("SELECT COUNT(*) FROM transactions WHERE status='success' AND ((is_test=1 AND amount > 100) OR amount > 500000)")->fetchColumn() > 0) {
+        if ((int)$db->query("SELECT COUNT(*) FROM transactions WHERE status='success' AND ((is_test=1 AND amount > 100) OR amount > " . (float)livePaymentAmountCap() . ")")->fetchColumn() > 0) {
             return true;
         }
         if ((int)$db->query("SELECT COUNT(*) FROM payment_links WHERE amount > 100 AND (is_test=1 OR link_id LIKE 'DEMO%' OR link_id LIKE 'LNK%')")->fetchColumn() > 0) {
@@ -328,7 +329,7 @@ function scanCorruptAmounts(): array
         'gateway_settings' => "SELECT setting_key AS label, setting_value AS val FROM gateway_settings WHERE setting_key IN ('platform_wallet_balance','min_platform_settlement','min_settlement_amount') AND CAST(setting_value AS DECIMAL(20,2)) > 1000",
         'wallet_transactions' => "SELECT id, merchant_id, amount AS val FROM wallet_transactions WHERE ABS(amount) > 1000 LIMIT 20",
         'platform_wallet_transactions' => "SELECT id, amount AS val FROM platform_wallet_transactions WHERE ABS(amount) > 1000 LIMIT 20",
-        'transactions.amount' => "SELECT id, merchant_id, amount AS val FROM transactions WHERE amount > 1000 AND amount < 500000 LIMIT 20",
+        'transactions.amount' => "SELECT id, merchant_id, amount AS val FROM transactions WHERE amount > 1000 AND amount <= " . (float)livePaymentAmountCap() . " LIMIT 20",
         'transactions.platform_fee' => "SELECT id, merchant_id, platform_fee AS val FROM transactions WHERE COALESCE(platform_fee,0) > 1000 LIMIT 20",
         'settlements' => "SELECT id, merchant_id, amount AS val FROM settlements WHERE amount > 1000 LIMIT 20",
         'platform_settlements' => "SELECT id, amount AS val FROM platform_settlements WHERE amount > 1000 LIMIT 20",
@@ -523,7 +524,7 @@ function repairPlatformWallet(): float
 
     $txns = $db->query("SELECT id, platform_fee, amount, txn_id, merchant_id, is_test FROM transactions
         WHERE status='success' AND COALESCE(platform_fee,0) > 0
-        AND ((is_test=1 AND amount <= 100 AND COALESCE(platform_fee,0) <= 100) OR (is_test=0 AND amount <= 500000))
+        AND ((is_test=1 AND amount <= 100 AND COALESCE(platform_fee,0) <= 100) OR (is_test=0 AND amount <= " . (float)livePaymentAmountCap() . "))
         ORDER BY id ASC")->fetchAll();
     foreach ($txns as $t) {
         $fee = min((float)$t['platform_fee'], walletCreditCap(!empty($t['is_test'])));
@@ -851,7 +852,7 @@ function creditWalletsFromTransaction(int $transactionId): void
         $gross = 1.0;
         $db->prepare('UPDATE transactions SET amount=1.00, platform_fee=0, split_amount=1.00 WHERE id=?')->execute([$transactionId]);
         $txn['amount'] = 1.0;
-    } elseif (!$isTest && ($gross <= 0 || $gross > 500000)) {
+    } elseif (!$isTest && ($gross <= 0 || $gross > livePaymentAmountCap())) {
         return;
     }
 

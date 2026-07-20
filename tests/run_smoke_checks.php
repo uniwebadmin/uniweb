@@ -94,8 +94,14 @@ $assert(!str_contains($adminDash, 'Verify to enable Live mode'), 'dashboard_no_m
 $assert(str_contains($adminDash, 'Live mode is a separate activation gate'), 'dashboard_live_gate_copy');
 
 require_once $root . '/includes/kyc_entity.php';
+require_once $root . '/includes/baas.php';
 $individualDocs = getKycRequirements('individual');
 $assert($individualDocs === ['pan', 'aadhaar', 'bank_proof', 'photo'], 'kyc_individual_docs_only_identity_bank_photo');
+$assert(livePaymentAmountCap() >= 200000000.0, 'live_payment_cap_20_crore');
+$assert(liveQrDailyTxnSoftCapacity() >= 1000000, 'qr_daily_soft_capacity_10_lakh');
+$qrPay = (string)file_get_contents($root . '/qr_pay.php');
+$assert(!str_contains($qrPay, 'checkVelocityBlock'), 'qr_pay_no_scan_velocity_block');
+$assert(str_contains((string)file_get_contents($root . '/qr_code.php'), '10 lakh'), 'qr_code_mentions_high_throughput');
 $assert(!in_array('gst', $individualDocs, true) && !in_array('incorporation_certificate', $individualDocs, true), 'kyc_individual_no_gst_or_cin_docs');
 $propDocs = getKycRequirements('sole_proprietorship');
 $assert(in_array('gst', $propDocs, true) && in_array('aadhaar', $propDocs, true), 'kyc_proprietorship_includes_gst');

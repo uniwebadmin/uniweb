@@ -76,7 +76,7 @@ switch ($action) {
         $customerPhone = trim($input['customer_phone'] ?? '');
         $customerName = trim($input['customer_name'] ?? '');
 
-        if ($amount < 1 || $amount > 5000000) { jsonResponse(['error' => 'Amount must be between 1 and 5,000,000'], 400); }
+        if ($amount < 1 || $amount > livePaymentAmountCap()) { jsonResponse(['error' => 'Amount must be between 1 and 200000000'], 400); }
         if (mb_strlen($description) > 255) { jsonResponse(['error' => 'Description is too long'], 400); }
         if (!$liveAllowed && !$usingTestKey) {
             jsonResponse(['error' => 'Account in Test Mode. Use test API key or complete KYC for live payments.'], 403);

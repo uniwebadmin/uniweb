@@ -11,7 +11,7 @@ $db->exec("INSERT IGNORE INTO aml_flags (merchant_id, transaction_id, flag_type,
     SELECT t.merchant_id, t.id, 'high_value', 'high', CONCAT('Transaction above ₹', " . (int)$threshold . ")
     FROM transactions t
     LEFT JOIN aml_flags af ON af.transaction_id = t.id AND af.flag_type = 'high_value'
-    WHERE t.amount >= " . (int)$threshold . " AND t.amount <= 500000 AND t.status = 'success' AND af.id IS NULL");
+    WHERE t.amount >= " . (int)$threshold . " AND t.amount <= " . (int)livePaymentAmountCap() . " AND t.status = 'success' AND af.id IS NULL");
 
 $db->exec("INSERT IGNORE INTO aml_flags (merchant_id, flag_type, severity, description)
     SELECT m.id, 'kyc_pending', 'medium', 'Merchant operating with incomplete KYC'

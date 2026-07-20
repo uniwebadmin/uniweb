@@ -99,7 +99,7 @@ require_once __DIR__ . '/header.php';
 <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
     <div>
         <h1 class="text-2xl font-bold">QR Code Generator</h1>
-        <p class="text-sm text-gray-500 mt-1">Create a separate tracked QR for every counter, product or fixed amount.</p>
+        <p class="text-sm text-gray-500 mt-1">High-throughput QR — designed for up to 10 lakh payments/day and amounts up to ₹20 crore (bank/UPI per-txn limits may still apply).</p>
     </div>
     <div class="text-right text-xs">
         <p class="font-mono text-gray-400">MID <?= e($merchant['merchant_code'] ?? '') ?></p>
@@ -120,7 +120,7 @@ require_once __DIR__ . '/header.php';
 <div class="grid lg:grid-cols-3 gap-6 mb-8">
     <div class="glass rounded-xl p-6 lg:col-span-1">
         <h2 class="font-semibold mb-1">Create New QR</h2>
-        <p class="text-xs text-gray-500 mb-5"><?= $isTest ? 'Sandbox QR — Instant Test Pay, no real money.' : 'Live QR — customer pays real money.' ?></p>
+        <p class="text-xs text-gray-500 mb-5"><?= $isTest ? 'Sandbox QR — Instant Test Pay, no real money.' : 'Live QR — up to 10 lakh payments/day · amounts up to ₹20 crore (UPI/bank rails may cap each txn lower).' ?></p>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="create">
@@ -139,7 +139,7 @@ require_once __DIR__ . '/header.php';
             </div>
             <div id="qr-amount-wrap" class="hidden">
                 <label class="text-sm text-gray-400">Fixed Amount (₹) *</label>
-                <input type="number" id="qr-amount" name="amount" min="1" max="<?= $isTest ? 100 : 500000 ?>" step="0.01" value="1" class="input-field mt-1">
+                <input type="number" id="qr-amount" name="amount" min="1" max="<?= $isTest ? 100 : (int)livePaymentAmountCap() ?>" step="0.01" value="1" class="input-field mt-1">
             </div>
             <div>
                 <label class="text-sm text-gray-400">Description</label>

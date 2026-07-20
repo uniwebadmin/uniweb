@@ -26,11 +26,13 @@ if (!$qr || $qr['status'] !== 'active' || $qr['merchant_status'] !== 'active') {
 $qrType = (string)($qr['qr_type'] ?? 'fixed');
 $isTest = !empty($qr['is_test']);
 $createCheckout = static function (float $amount, bool $upiOnly) use ($db, $qr, $isTest): ?string {
-    $velocity = checkVelocityBlock('qr_link', velocityClientIp() . ':qr' . (int)$qr['id']);
-    if ($velocity['blocked']) {
+    // No per-scan velocity block — one QR must sustain up to ~10 lakh payments/day
+    // (shared store NAT used to trip the old 20/10min limit). Abuse is handled by
+    // payment_fail velocity + gateway/bank rails.
+    $amount = sanitizePaymentAmount($amount, $isTest);
+    if ($amount < 1) {
         return null;
     }
-    recordVelocityEvent('qr_link', (string)$qr['qr_code']);
     $linkId = generateId('LNK');
     $description = trim((string)($qr['description'] ?? ''));
     $db->prepare('INSERT INTO payment_links
@@ -57,8 +59,8 @@ if ($qrType === 'fixed') {
         ->execute([(int)$qr['id']]);
     $linkId = $createCheckout((float)$qr['amount'], false);
     if ($linkId === null) {
-        http_response_code(429);
-        exit('Too many payment attempts from this QR. Please try again in a few minutes.');
+        http_response_code(400);
+        exit('Invalid QR amount.');
     }
     header('Cache-Control: no-store');
     redirect('checkout.php?link=' . rawurlencode($linkId));
@@ -69,18 +71,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
         $error = 'Security token expired. Refresh and try again.';
     } else {
+        $liveCap = livePaymentAmountCap();
         $amount = sanitizePaymentAmount((float)($_POST['amount'] ?? 0), $isTest);
         if ($amount < 1) {
             $error = 'Enter an amount of at least ₹1.';
         } elseif ($isTest && $amount > 100) {
             $error = 'Test Mode amount must be ₹1–₹100.';
-        } elseif (!$isTest && $amount > 500000) {
-            $error = 'Maximum amount is ₹5,00,000.';
+        } elseif (!$isTest && $amount > $liveCap) {
+            $error = 'Maximum amount is ₹20,00,00,000 (₹20 crore).';
         } else {
             $upiOnly = $qrType === 'upi_dynamic';
             $linkId = $createCheckout($amount, $upiOnly);
             if ($linkId === null) {
-                $error = velocityBlockMessage('qr_link') . ' (retry in ~' . checkVelocityBlock('qr_link', velocityClientIp() . ':qr' . (int)$qr['id'])['retry_after_minutes'] . ' min)';
+                $error = 'Could not create payment. Check the amount and try again.';
             } else {
                 header('Cache-Control: no-store');
                 redirect('checkout.php?link=' . rawurlencode($linkId) . ($upiOnly ? '&pay=upi' : ''));
@@ -113,7 +116,7 @@ require_once __DIR__ . '/header.php';
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <div>
                     <label class="text-sm text-gray-400">Enter Amount (₹)</label>
-                    <input type="number" name="amount" min="1" max="<?= $isTest ? 100 : 500000 ?>" step="0.01" required autofocus class="input-field mt-1 text-2xl font-bold" placeholder="0.00">
+                    <input type="number" name="amount" min="1" max="<?= $isTest ? 100 : (int)livePaymentAmountCap() ?>" step="0.01" required autofocus class="input-field mt-1 text-2xl font-bold" placeholder="0.00">
                 </div>
                 <button type="submit" class="w-full bg-brand-600 hover:bg-brand-500 text-white py-4 rounded-xl font-semibold text-lg">
                     <?= $qrType === 'all_methods' ? 'Continue to Payment Methods' : 'Continue to UPI' ?> →

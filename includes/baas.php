@@ -425,24 +425,36 @@ function getMerchantWalletBalance(?array $merchant): float
     return $bal > 1000 ? 0.0 : $bal;
 }
 
-/** Cap payment / wallet amounts — test max ₹100, live max ₹5L */
+/** Platform soft caps — test ₹100; live up to ₹20 crore (bank/UPI rails may still apply lower per-txn limits). */
+function livePaymentAmountCap(): float
+{
+    return 200000000.0;
+}
+
+function liveQrDailyTxnSoftCapacity(): int
+{
+    return 1000000; // 10 lakh scans/payments per QR per day (soft capacity; not a hard block)
+}
+
+/** Cap payment / wallet amounts — test max ₹100, live max ₹20 crore */
 function sanitizePaymentAmount(float $amount, bool $isTest = true): float
 {
     if (!is_finite($amount) || $amount < 0) {
         return 0.0;
     }
-    $max = $isTest ? 100.0 : 500000.0;
+    $max = $isTest ? 100.0 : livePaymentAmountCap();
     return round(min($amount, $max), 2);
 }
 
 function walletCreditCap(bool $isTest): float
 {
-    return $isTest ? 100.0 : 500000.0;
+    return $isTest ? 100.0 : livePaymentAmountCap();
 }
 
 function walletCorruptThreshold(bool $isTest): float
 {
-    return $isTest ? 1000.0 : 500000.0;
+    // Slightly above live payment cap so a full-day wallet accrual is not wiped as "corrupt".
+    return $isTest ? 1000.0 : (livePaymentAmountCap() * 50);
 }
 
 function safeDisplayBalance(float $amount, bool $isTest = true): float

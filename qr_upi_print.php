@@ -21,8 +21,8 @@ if (isset($_GET['amount']) && $_GET['amount'] !== '') {
     $amount = (float)$_GET['amount'];
     if ($amount < 1) {
         $amount = null;
-    } elseif ($amount > 500000) {
-        $amount = 500000.0;
+    } elseif ($amount > livePaymentAmountCap()) {
+        $amount = livePaymentAmountCap();
     }
 }
 
@@ -83,7 +83,7 @@ require_once __DIR__ . '/header.php';
             <form method="GET" class="space-y-4">
                 <div>
                     <label class="text-sm text-gray-400">Fixed Amount (&#8377;)</label>
-                    <input type="number" name="amount" min="1" max="500000" step="0.01" value="<?= $amount !== null ? e((string)$amount) : '' ?>" class="input-field mt-1" placeholder="Open amount">
+                    <input type="number" name="amount" min="1" max="<?= (int)livePaymentAmountCap() ?>" step="0.01" value="<?= $amount !== null ? e((string)$amount) : '' ?>" class="input-field mt-1" placeholder="Open amount">
                 </div>
                 <div>
                     <label class="text-sm text-gray-400">Payment Note</label>
