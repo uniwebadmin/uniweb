@@ -33,7 +33,7 @@ if (!$linkId) {
 header('Cache-Control: no-store, no-cache, must-revalidate');
 
 $db = getDB();
-$stmt = $db->prepare("SELECT pl.id, pl.link_id, pl.amount AS payment_amount, pl.description, pl.customer_name, pl.customer_phone, pl.status AS link_status, pl.expires_at, pl.is_test, pl.merchant_id AS link_merchant_id, pl.payment_method, pl.gateway_code, pl.link_label, pl.link_collection_mode, pl.pack_id,
+$stmt = $db->prepare("SELECT pl.id, pl.link_id, pl.amount AS payment_amount, pl.description, pl.customer_name, pl.customer_phone, pl.status AS link_status, pl.expires_at, pl.is_test, pl.merchant_id AS link_merchant_id, pl.payment_method, pl.gateway_code, pl.link_label, pl.link_collection_mode, pl.pack_id, pl.qr_code_id,
     m.id AS merchant_id, m.business_name, m.upi_id, m.merchant_code, m.account_mode, m.kyc_status,
     m.collection_mode, m.commission_rate, m.axis_va_number, m.axis_va_ifsc, m.axis_va_upi, m.payu_child_key,
     m.razorpay_linked_account_id, m.cashfree_vendor_id, m.email AS merchant_email, m.phone AS merchant_phone
@@ -181,10 +181,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $selectedPay === 'upi' && in_array($handler, ['direct_upi', 'axis_va'], true)) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $selectedPay === 'upi' && in_array($handler, ['direct_upi', 'axis_va'], true) && !$success) {
     $utr = trim($_POST['utr'] ?? '');
-    $velocity = checkVelocityBlock('payment_fail');
-    if ($velocity['blocked']) {
+    // High-throughput QR: never block busy counters for "high frequency" (₹100 × 10 lakh, etc.).
+    // payment_fail velocity stays for non-QR checkout only (bot UTR spray).
+    $fromQr = !empty($link['qr_code_id']);
+    $velocity = $fromQr ? ['blocked' => false, 'retry_after_minutes' => 0] : checkVelocityBlock('payment_fail');
+    if (!empty($velocity['blocked'])) {
         $error = velocityBlockMessage('payment_fail') . ' (retry in ~' . $velocity['retry_after_minutes'] . ' min)';
     } elseif ($allowInstantPay && ($_POST['action'] ?? '') === 'test_pay') {
         // handled above
@@ -196,7 +199,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $selectedPay === 'upi' && in_array(
         $result = confirmUpiPaymentForLink($link, $utr, $allowInstantPay);
         if (!$result['ok']) {
             $error = $result['error'] ?? 'Payment confirmation failed.';
-            recordVelocityEvent('payment_fail', $link['link_id'] ?? null);
+            if (!$fromQr) {
+                recordVelocityEvent('payment_fail', $link['link_id'] ?? null);
+            }
         } else {
             $successTxnId = $result['txn_id'] ?? null;
             $success = true;

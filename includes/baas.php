@@ -441,7 +441,13 @@ function livePaymentAmountCap(): float
 
 function liveQrDailyTxnSoftCapacity(): int
 {
-    return 1000000; // 10 lakh scans/payments per QR per day (soft capacity; not a hard block)
+    return 1000000; // 10 lakh payments per QR per day — soft capacity; UniWeb does not auto-block for volume
+}
+
+/** True when this checkout link was created from a merchant QR (high-throughput path). */
+function isQrOriginPaymentLink(array $link): bool
+{
+    return (int)($link['qr_code_id'] ?? 0) > 0;
 }
 
 /** Cap payment / wallet amounts — test max ₹100, live max ₹20 crore */

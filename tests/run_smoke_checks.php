@@ -110,6 +110,10 @@ $assert(liveQrDailyTxnSoftCapacity() >= 1000000, 'qr_daily_soft_capacity_10_lakh
 $qrPay = (string)file_get_contents($root . '/qr_pay.php');
 $assert(!str_contains($qrPay, 'checkVelocityBlock'), 'qr_pay_no_scan_velocity_block');
 $assert(str_contains((string)file_get_contents($root . '/qr_code.php'), '10 lakh'), 'qr_code_mentions_high_throughput');
+$assert(str_contains((string)file_get_contents($root . '/qr_code.php'), 'high-frequency'), 'qr_code_no_high_frequency_lock_copy');
+$checkoutSrc = (string)file_get_contents($root . '/checkout.php');
+$assert(str_contains($checkoutSrc, 'qr_code_id'), 'checkout_loads_qr_code_id');
+$assert(str_contains($checkoutSrc, '$fromQr'), 'checkout_skips_velocity_for_qr');
 $assert(!in_array('gst', $individualDocs, true) && !in_array('incorporation_certificate', $individualDocs, true), 'kyc_individual_no_gst_or_cin_docs');
 $propDocs = getKycRequirements('sole_proprietorship');
 $assert(in_array('gst', $propDocs, true) && in_array('aadhaar', $propDocs, true), 'kyc_proprietorship_includes_gst');

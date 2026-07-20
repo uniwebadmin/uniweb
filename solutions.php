@@ -27,7 +27,7 @@ $products = [
         'id' => 'qr',
         'eyebrow' => 'In-store',
         'title' => 'QR code payments',
-        'body' => 'Fixed-amount, dynamic UPI and all-method QR journeys for shops, counters and field teams. Each scan can open checkout with rate limits to stop abuse.',
+        'body' => 'Fixed-amount, dynamic UPI and all-method QR journeys for shops, counters and field teams. Designed for high volume — up to 10 lakh small payments per day without UniWeb high-frequency account locks.',
         'points' => ['Reusable counter QR', 'Amount-entry dynamic QR', 'Scan analytics on the QR record'],
         'cta' => ['platform_demo.php', 'See platform tour'],
     ],

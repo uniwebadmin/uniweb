@@ -46,9 +46,9 @@ function velocityPolicy(string $type): array
         'payment_fail' => ['window_minutes' => 5, 'max_attempts' => 10, 'cooldown_minutes' => 15],
         'login_fail' => ['window_minutes' => 5, 'max_attempts' => 8, 'cooldown_minutes' => 15],
         'otp_fail' => ['window_minutes' => 10, 'max_attempts' => 6, 'cooldown_minutes' => 20],
-        'qr_link' => ['window_minutes' => 1, 'max_attempts' => 5000, 'cooldown_minutes' => 1],
-        // High-throughput retail QR: ~5k scans/min per IP is enough for shared-NAT stores
-        // targeting up to 10 lakh payments/day without blocking legitimate customers.
+        'qr_link' => ['window_minutes' => 1, 'max_attempts' => 1000000, 'cooldown_minutes' => 0],
+        // QR path no longer uses this policy for blocks (see qr_pay.php / checkout.php).
+        // Kept extremely high so any legacy caller cannot throttle ₹100 × 10 lakh traffic.
     ];
     return $policies[$type] ?? ['window_minutes' => 5, 'max_attempts' => 10, 'cooldown_minutes' => 15];
 }
