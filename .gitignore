@@ -8,7 +8,6 @@ db.local.php
 
 # One-time setup, diagnostics, and deployment scripts
 my_secret_setup_xyz.php
-admin_watchdog.php
 *.ps1
 
 # Runtime and private data
