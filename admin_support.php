@@ -10,22 +10,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $status = $_POST['status'] ?? 'in_progress';
     if (!in_array($status, ['open', 'in_progress', 'resolved', 'closed'], true)) $status = 'in_progress';
     if ($ticketId && $reply) {
+        $t = $db->prepare('SELECT merchant_id, ticket_id FROM support_tickets WHERE id = ?');
+        $t->execute([$ticketId]);
+        $row = $t->fetch();
+        if (!$row) {
+            flash('error', 'Ticket not found.');
+            redirect('admin_support.php');
+        }
+        requireMerchantAccess((int)$row['merchant_id']);
         $db->prepare('UPDATE support_tickets SET admin_reply = ?, status = ? WHERE id = ?')
             ->execute([$reply, $status, $ticketId]);
         $db->prepare("INSERT INTO support_ticket_messages (ticket_id, sender_type, sender_id, message) VALUES (?, 'admin', ?, ?)")
             ->execute([$ticketId, (int)($_SESSION['admin_id'] ?? 0), $reply]);
-        $t = $db->prepare('SELECT merchant_id, ticket_id FROM support_tickets WHERE id = ?');
-        $t->execute([$ticketId]);
-        if ($row = $t->fetch()) {
-            createNotification((int)$row['merchant_id'], 'Support Reply: ' . $row['ticket_id'], $reply);
-            logStaffActivity('support_reply', $row['ticket_id'] . ' — ' . mb_substr($reply, 0, 120), (int)$row['merchant_id'], 'support_ticket', $row['ticket_id']);
-        }
+        createNotification((int)$row['merchant_id'], 'Support Reply: ' . $row['ticket_id'], $reply);
+        logStaffActivity('support_reply', $row['ticket_id'] . ' — ' . mb_substr($reply, 0, 120), (int)$row['merchant_id'], 'support_ticket', $row['ticket_id']);
         flash('success', 'Reply sent to merchant.');
     }
     redirect('admin_support.php');
 }
 
 $tickets = $db->query('SELECT t.*, m.business_name, m.email FROM support_tickets t JOIN merchants m ON t.merchant_id=m.id ORDER BY FIELD(t.status,"open","in_progress","resolved","closed"), t.created_at DESC LIMIT 50')->fetchAll();
+if (!isSuperAdmin()) {
+    $tickets = array_values(array_filter($tickets, static fn(array $row): bool => staffHasMerchantAccess((int)$row['merchant_id'])));
+}
 $pageTitle = 'Support Tickets';
 require_once __DIR__ . '/header.php';
 ?>

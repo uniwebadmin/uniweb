@@ -25,7 +25,12 @@ if (!$qr || $qr['status'] !== 'active' || $qr['merchant_status'] !== 'active') {
 
 $qrType = (string)($qr['qr_type'] ?? 'fixed');
 $isTest = !empty($qr['is_test']);
-$createCheckout = static function (float $amount, bool $upiOnly) use ($db, $qr, $isTest): string {
+$createCheckout = static function (float $amount, bool $upiOnly) use ($db, $qr, $isTest): ?string {
+    $velocity = checkVelocityBlock('qr_link', velocityClientIp() . ':qr' . (int)$qr['id']);
+    if ($velocity['blocked']) {
+        return null;
+    }
+    recordVelocityEvent('qr_link', (string)$qr['qr_code']);
     $linkId = generateId('LNK');
     $description = trim((string)($qr['description'] ?? ''));
     $db->prepare('INSERT INTO payment_links
@@ -51,6 +56,10 @@ if ($qrType === 'fixed') {
     $db->prepare('UPDATE merchant_qr_codes SET scan_count=scan_count+1 WHERE id=?')
         ->execute([(int)$qr['id']]);
     $linkId = $createCheckout((float)$qr['amount'], false);
+    if ($linkId === null) {
+        http_response_code(429);
+        exit('Too many payment attempts from this QR. Please try again in a few minutes.');
+    }
     header('Cache-Control: no-store');
     redirect('checkout.php?link=' . rawurlencode($linkId));
 }
@@ -70,8 +79,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $upiOnly = $qrType === 'upi_dynamic';
             $linkId = $createCheckout($amount, $upiOnly);
-            header('Cache-Control: no-store');
-            redirect('checkout.php?link=' . rawurlencode($linkId) . ($upiOnly ? '&pay=upi' : ''));
+            if ($linkId === null) {
+                $error = velocityBlockMessage('qr_link') . ' (retry in ~' . checkVelocityBlock('qr_link', velocityClientIp() . ':qr' . (int)$qr['id'])['retry_after_minutes'] . ' min)';
+            } else {
+                header('Cache-Control: no-store');
+                redirect('checkout.php?link=' . rawurlencode($linkId) . ($upiOnly ? '&pay=upi' : ''));
+            }
         }
     }
 } else {

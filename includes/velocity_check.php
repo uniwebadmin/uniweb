@@ -46,6 +46,7 @@ function velocityPolicy(string $type): array
         'payment_fail' => ['window_minutes' => 5, 'max_attempts' => 10, 'cooldown_minutes' => 15],
         'login_fail' => ['window_minutes' => 5, 'max_attempts' => 8, 'cooldown_minutes' => 15],
         'otp_fail' => ['window_minutes' => 10, 'max_attempts' => 6, 'cooldown_minutes' => 20],
+        'qr_link' => ['window_minutes' => 10, 'max_attempts' => 20, 'cooldown_minutes' => 15],
     ];
     return $policies[$type] ?? ['window_minutes' => 5, 'max_attempts' => 10, 'cooldown_minutes' => 15];
 }
@@ -96,6 +97,7 @@ function velocityBlockMessage(string $type): string
         'payment_fail' => 'Too many failed payment attempts from this network. For security, please try again in a few minutes.',
         'login_fail' => 'Too many failed login attempts. For security, please try again in a few minutes.',
         'otp_fail' => 'Too many incorrect OTP attempts. Please try again in a few minutes.',
+        'qr_link' => 'Too many payment links from this QR scan. Please wait a few minutes and try again.',
     ];
     return $labels[$type] ?? 'Too many attempts. Please try again later.';
 }
