@@ -14,6 +14,15 @@ function getMerchantOnboardingSteps(array $merchant): array
     $banks->execute([$merchantId, 'active']);
     $hasBank = (int)$banks->fetchColumn() > 0;
 
+    $agreementDone = false;
+    try {
+        $agreement = getDB()->prepare('SELECT COUNT(*) FROM merchant_agreement_acceptances WHERE merchant_id=?');
+        $agreement->execute([$merchantId]);
+        $agreementDone = (int)$agreement->fetchColumn() > 0;
+    } catch (Throwable $e) {
+        $agreementDone = !empty($merchant['agreement_accepted_at']) || !empty($merchant['agreement_signed_at']);
+    }
+
     return [
         [
             'id' => 'profile',
@@ -62,6 +71,24 @@ function getMerchantOnboardingSteps(array $merchant): array
             'done' => $kyc['complete'],
             'url' => 'kyc.php',
             'hint' => $kyc['uploaded'] . '/' . $kyc['required'] . ' docs',
+        ],
+        [
+            'id' => 'video_kyc',
+            'label' => 'Upload Video KYC',
+            'done' => in_array((string)($merchant['video_kyc_status'] ?? ''), ['verified', 'approved', 'submitted'], true),
+            'url' => 'merchant_video_verification.php',
+            'hint' => match ((string)($merchant['video_kyc_status'] ?? 'pending')) {
+                'verified', 'approved' => 'Verified',
+                'submitted' => 'Under review',
+                default => 'Required for Live',
+            },
+        ],
+        [
+            'id' => 'agreement',
+            'label' => 'Sign merchant agreement',
+            'done' => $agreementDone,
+            'url' => 'merchant_agreement.php',
+            'hint' => $agreementDone ? 'Signed' : 'Required for Live',
         ],
         [
             'id' => 'methods',

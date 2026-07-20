@@ -86,12 +86,33 @@ $liveCandidates = $db->query(
      WHERE status='active' AND kyc_status='verified' AND account_mode='test'
        AND email<>'demo@uniweb.co.in' ORDER BY id ASC LIMIT 50"
 )->fetchAll();
+$videoQueue = [];
+try {
+    $videoQueue = $db->query(
+        "SELECT m.id, m.business_name, m.merchant_code, m.video_kyc_status, m.kyc_status,
+                k.id AS doc_id, k.created_at AS video_uploaded_at
+         FROM merchants m
+         INNER JOIN kyc_documents k ON k.id = (
+             SELECT k2.id FROM kyc_documents k2
+             WHERE k2.merchant_id = m.id AND k2.doc_type = 'video_kyc'
+             ORDER BY k2.created_at DESC LIMIT 1
+         )
+         WHERE m.status = 'active'
+           AND m.email <> 'demo@uniweb.co.in'
+           AND COALESCE(m.video_kyc_status, 'pending') IN ('submitted', 'pending')
+         ORDER BY k.created_at ASC
+         LIMIT 50"
+    )->fetchAll();
+} catch (Throwable $e) {
+    $videoQueue = [];
+}
 if (!isSuperAdmin()) {
     $pendingDocs = array_values(array_filter($pendingDocs, static fn(array $row): bool => staffHasMerchantAccess((int)$row['merchant_id'])));
     $pendingMerchants = array_values(array_filter($pendingMerchants, static fn(array $row): bool => staffHasMerchantAccess((int)$row['id'])));
     $recentSignups = array_values(array_filter($recentSignups, static fn(array $row): bool => staffHasMerchantAccess((int)$row['id'])));
     $approvalQueue = array_values(array_filter($approvalQueue, static fn(array $row): bool => empty($row['merchant_id']) || staffHasMerchantAccess((int)$row['merchant_id'])));
     $liveCandidates = array_values(array_filter($liveCandidates, static fn(array $row): bool => staffHasMerchantAccess((int)$row['id'])));
+    $videoQueue = array_values(array_filter($videoQueue, static fn(array $row): bool => staffHasMerchantAccess((int)$row['id'])));
 }
 $pageTitle = 'KYC Review';
 require_once __DIR__ . '/header.php';
@@ -123,6 +144,31 @@ require_once __DIR__ . '/header.php';
 </div>
 <?php elseif (!empty($approvalQueue) && !$canChecker): ?>
 <div class="glass rounded-xl p-4 mb-6 text-sm text-gray-400"><?= count($approvalQueue) ?> approval request(s) waiting for a KYC/ops checker.</div>
+<?php endif; ?>
+
+<?php if (!empty($videoQueue) && $canMutateKyc): ?>
+<div class="glass rounded-xl overflow-hidden mb-8 border border-violet-500/30">
+    <div class="px-6 py-4 border-b border-gray-800">
+        <h2 class="font-semibold">Video KYC queue</h2>
+        <p class="text-xs text-gray-500 mt-1">Review selfie videos before Live activation. Status must be <span class="text-violet-300">verified</span> for the Live gate.</p>
+    </div>
+    <?php foreach ($videoQueue as $videoRow): ?>
+    <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <p class="text-sm font-medium"><?= e($videoRow['business_name']) ?> · <?= e($videoRow['merchant_code']) ?></p>
+            <p class="text-xs text-gray-500">Video status: <?= e((string)($videoRow['video_kyc_status'] ?? 'pending')) ?> · KYC: <?= e((string)($videoRow['kyc_status'] ?? '')) ?><?php if (!empty($videoRow['video_uploaded_at'])): ?> · Uploaded <?= e(formatDate($videoRow['video_uploaded_at'])) ?><?php endif; ?></p>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+            <?php if (!empty($videoRow['doc_id'])): ?>
+            <a href="admin_kyc_doc.php?id=<?= (int)$videoRow['doc_id'] ?>&token=<?= csrfToken() ?>" target="_blank" rel="noopener" class="text-xs bg-sky-600/20 text-sky-400 px-3 py-2 rounded-lg">Play / view video</a>
+            <?php endif; ?>
+            <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="verify_video"><input type="hidden" name="id" value="<?= (int)$videoRow['id'] ?>"><input type="hidden" name="reason" value="Video KYC reviewed"><button class="text-xs bg-violet-600 text-white px-3 py-2 rounded-lg">Mark video verified</button></form>
+        </div>
+    </div>
+    <?php endforeach; ?>
+</div>
+<?php elseif (empty($videoQueue) && $canMutateKyc): ?>
+<div class="glass rounded-xl p-4 mb-6 text-sm text-gray-500 border border-gray-800">Video KYC queue is clear — no submitted videos waiting for review.</div>
 <?php endif; ?>
 
 <?php if (!empty($liveCandidates) && $canMutateKyc): ?>

@@ -82,6 +82,12 @@ $assert(str_contains($header, 'favicon.svg') && str_contains($header, 'favicon.i
 $kyc = (string)file_get_contents($root . '/admin_kyc.php');
 $assert(str_contains($kyc, 'independent checker') || str_contains($kyc, 'Independent checker'), 'kyc_maker_checker_copy');
 $assert(!str_contains($kyc, 'Click Verify after documents OK — enables Live mode'), 'kyc_no_misleading_verify_live_copy');
+$assert(str_contains($kyc, 'Video KYC queue'), 'kyc_video_queue_section');
+$assert(str_contains($kyc, 'verify_video'), 'kyc_verify_video_action');
+
+$videoKycPage = (string)file_get_contents($root . '/video_kyc.php');
+$assert(str_contains($videoKycPage, "'verified', 'approved'"), 'video_kyc_accepts_verified_status');
+$assert(!str_contains($videoKycPage, 'Face Mapping'), 'video_kyc_no_face_mapping_copy');
 
 $adminDash = (string)file_get_contents($root . '/admin_dashboard.php');
 $assert(!str_contains($adminDash, 'Verify to enable Live mode'), 'dashboard_no_misleading_verify_live_copy');

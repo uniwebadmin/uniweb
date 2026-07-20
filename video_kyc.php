@@ -41,16 +41,20 @@ require_once __DIR__ . '/header.php';
         <div class="flex items-center gap-4">
             <span class="w-14 h-14 rounded-xl bg-violet-500/15 text-violet-400 flex items-center justify-center shrink-0 text-2xl">📹</span>
             <div class="flex-1">
-                <h1 class="text-lg font-bold">Video KYC &amp; Face Mapping</h1>
-                <p class="text-xs text-gray-500 mt-0.5">Short selfie video holding your Aadhaar/PAN for faster approval</p>
+                <h1 class="text-lg font-bold">Video KYC</h1>
+                <p class="text-xs text-gray-500 mt-0.5">Short selfie video holding your Aadhaar or PAN for faster approval</p>
             </div>
             <?= statusBadge($vkStatus) ?>
         </div>
     </div>
 
-    <?php if ($vkStatus === 'approved'): ?>
-    <div class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm px-4 py-3 rounded-xl mb-6">✓ Your Video KYC is approved. No further action needed.</div>
-    <?php else: ?>
+    <?php if (in_array($vkStatus, ['verified', 'approved'], true)): ?>
+    <div class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm px-4 py-3 rounded-xl mb-6">✓ Your Video KYC is verified. No further action needed.</div>
+    <?php elseif ($vkStatus === 'submitted'): ?>
+    <div class="bg-sky-500/10 border border-sky-500/30 text-sky-300 text-sm px-4 py-3 rounded-xl mb-6">Your video is with our compliance team. You can upload a replacement below if needed.</div>
+    <?php endif; ?>
+
+    <?php if (!in_array($vkStatus, ['verified', 'approved'], true)): ?>
 
     <div class="glass rounded-xl p-6 mb-6">
         <h2 class="font-semibold mb-4">Before you record — say &amp; show these on camera:</h2>
