@@ -69,6 +69,7 @@ $bankInfo = $bank->fetch();
 $pageTitle = __('settlements_title');
 require_once __DIR__ . '/header.php';
 $canTransfer = $availableBalance >= $minSettlement;
+renderMerchantCommercialCard($merchant);
 ?>
 
 <div class="flex flex-wrap gap-3 mb-6 justify-between items-center">

@@ -268,6 +268,73 @@ function formatMdr(?float $pct, bool $custom = false, bool $withGst = false): st
     return $withGst ? $s . ' + GST' : $s;
 }
 
+/** Merchant-facing fee + settlement schedule (Razorpay-style transparency card). */
+function merchantCommercialSchedule(array $merchant): array
+{
+    $commission = (float)($merchant['commission_rate'] ?? getSetting('default_commission', '1.50'));
+    $cycle = getSetting('settlement_cycle', 'T+1');
+    $minSettle = (float)getSetting('min_settlement_amount', '100');
+    $prefs = function_exists('getMerchantSettlementPrefs') ? getMerchantSettlementPrefs($merchant) : [];
+    $mode = (string)($prefs['mode'] ?? 'manual');
+    $methods = [];
+    foreach (['upi', 'card_debit', 'card_credit', 'netbanking', 'wallet'] as $key) {
+        $meta = getPaymentModes()[$key] ?? null;
+        if (!$meta) {
+            continue;
+        }
+        $methods[] = [
+            'key' => $key,
+            'label' => $meta['label'],
+            'mdr' => getMdrWithMargin($key, $merchant),
+            'gst' => !empty($meta['gst']),
+            'custom' => !empty($meta['custom']),
+        ];
+    }
+    return [
+        'platform_commission' => $commission,
+        'settlement_cycle' => $cycle,
+        'min_settlement' => $minSettle,
+        'settlement_mode' => $mode === 'scheduled' ? 'Scheduled batch' : 'Manual settle',
+        'account_mode' => merchantAccountMode($merchant),
+        'methods' => $methods,
+    ];
+}
+
+function renderMerchantCommercialCard(array $merchant): void
+{
+    $s = merchantCommercialSchedule($merchant);
+    ?>
+    <div class="glass rounded-xl p-5 mb-6 border border-violet-500/20">
+        <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+                <p class="text-xs text-violet-400 uppercase tracking-wider">Your commercial schedule</p>
+                <h2 class="font-semibold text-white mt-1">Fees &amp; settlement</h2>
+                <p class="text-xs text-gray-500 mt-1">Same clarity merchants expect from Indian payment gateways. Portal values are authoritative.</p>
+            </div>
+            <div class="text-right text-xs text-gray-500 space-y-1">
+                <p>Mode: <span class="text-gray-300"><?= e(ucfirst($s['account_mode'])) ?></span></p>
+                <p>Settlement: <span class="text-gray-300"><?= e($s['settlement_cycle']) ?> · <?= e($s['settlement_mode']) ?></span></p>
+                <p>Min transfer: <span class="text-gray-300"><?= formatMoney($s['min_settlement']) ?></span></p>
+            </div>
+        </div>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm mb-4">
+            <div class="rounded-lg border border-gray-800 px-3 py-2">
+                <p class="text-[10px] text-gray-600 uppercase">Platform commission</p>
+                <p class="font-semibold text-sky-300 mt-0.5"><?= e(rtrim(rtrim(number_format($s['platform_commission'], 2), '0'), '.')) ?>%</p>
+                <p class="text-[10px] text-gray-600">On successful collections (merchant schedule)</p>
+            </div>
+            <?php foreach ($s['methods'] as $m): ?>
+            <div class="rounded-lg border border-gray-800 px-3 py-2">
+                <p class="text-[10px] text-gray-600 uppercase"><?= e($m['label']) ?></p>
+                <p class="font-semibold text-gray-200 mt-0.5"><?= e(formatMdr($m['mdr'], $m['custom'], $m['gst'])) ?></p>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <p class="text-[11px] text-gray-600">Gateway MDR may include partner charges + published platform margin. Refunds, chargebacks and holds can reduce settleable balance. <a href="pricing.php" class="text-sky-400">Public pricing</a> · <a href="merchant_settlement_settings.php" class="text-sky-400">Settlement settings</a></p>
+    </div>
+    <?php
+}
+
 function getMerchantKycProgress(?array $merchant): array
 {
     if (!$merchant) return ['uploaded' => 0, 'required' => 0, 'complete' => false, 'missing' => []];
