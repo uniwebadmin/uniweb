@@ -9,10 +9,12 @@ $events = [
     'payment_failed' => 'Payment failed',
     'settlement' => 'Settlement completed',
     'refund' => 'Refund processed',
+    'account' => 'Account / KYC / security',
 ];
 $channels = [
     'email' => 'Email',
     'webhook' => 'Webhook',
+    'whatsapp' => 'WhatsApp',
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
@@ -63,7 +65,7 @@ require_once __DIR__ . '/header.php';
     </div>
     <?php endforeach; ?>
     <div class="px-5 py-4 flex flex-wrap gap-3 items-center justify-between">
-        <p class="text-[11px] text-gray-600">Webhook URL is configured in <a href="api_settings.php" class="text-sky-400">API Settings</a>. Email goes to your registered address.</p>
+        <p class="text-[11px] text-gray-600">Webhook URL is in <a href="api_settings.php" class="text-sky-400">API Settings</a>. WhatsApp alerts require platform Meta keys (Gateway Settings) and fire when an in-app notification is created for that event.</p>
         <button type="submit" class="btn-primary text-sm px-5 py-2">Save preferences</button>
     </div>
 </form>
@@ -71,7 +73,7 @@ require_once __DIR__ . '/header.php';
 <div class="mt-6 max-w-3xl">
     <?= renderMerchantEmptyState(
         'Inbox notifications',
-        'In-app alerts still appear under Notifications. This page controls email and webhook delivery for ops / approval demos.',
+        'In-app alerts still appear under Notifications. This page controls email, webhook and WhatsApp delivery.',
         'notifications.php',
         'Open notification inbox →'
     ) ?>

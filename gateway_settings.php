@@ -266,6 +266,11 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['decentro_consumer_urn','Decentro Master Consumer URN','text'],
             ['decentro_base_url','Decentro Base URL','text'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
+        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">SEO — Google Search Console</h3>
+        <p class="text-xs text-gray-500 mb-2">Paste the HTML-tag verification token from Google Search Console (the <code class="text-gray-400">content</code> value only). It is rendered as <code class="text-gray-400">&lt;meta name="google-site-verification"&gt;</code> on every page via <code class="text-gray-400">header.php</code>. Setting key: <code class="text-gray-400">google_site_verification</code>.</p>
+        <?php foreach ([
+            ['google_site_verification','Google Search Console verification token','text'],
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">WhatsApp & OTP</h3>
         <p class="text-xs text-gray-500 mb-2">SMS disabled — use WhatsApp for OTP login and merchant alerts.</p>
         <div class="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 mb-4 text-xs text-amber-200/90">

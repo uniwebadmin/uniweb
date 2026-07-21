@@ -417,6 +417,13 @@ function createNotification(int $merchantId, string $title, string $body): void
     } catch (Throwable $e) {
         // notifications table may not be ready yet; non-fatal
     }
+    if (function_exists('onMerchantNotificationCreated')) {
+        try {
+            onMerchantNotificationCreated($merchantId, $title, $body);
+        } catch (Throwable $e) {
+            // WhatsApp / channel fan-out must never break the request
+        }
+    }
 }
 
 function notificationActionUrl(array $row): string

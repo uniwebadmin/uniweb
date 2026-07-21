@@ -218,6 +218,20 @@ $assert(str_contains($mp, 'payoutLiveMoneyAllowed') && str_contains($mp, 'keys p
 $assert(str_contains($header, 'admin_payout.php') && str_contains($header, 'merchant_payout.php'), 'nav_has_payout_pages');
 $assert(in_array('merchant_payout.php', $registryFiles, true) && in_array('admin_payout.php', $registryFiles, true), 'watchdog_registry_covers_payout');
 $assert(is_file($root . '/migrations/015_payout_scaffold.sql'), 'payout_migration_present');
+
+// Search Console meta + WhatsApp alert fan-out from notifications.
+$headerSeo = (string)file_get_contents($root . '/header.php');
+$assert(str_contains($headerSeo, 'google-site-verification') && str_contains($headerSeo, "getSetting('google_site_verification'"), 'search_console_meta_from_setting');
+$gwSeo = (string)file_get_contents($root . '/gateway_settings.php');
+$assert(str_contains($gwSeo, 'google_site_verification') && str_contains($gwSeo, 'Search Console'), 'gateway_settings_search_console_field');
+$notifyLib = (string)file_get_contents($root . '/includes/notify.php');
+$assert(str_contains($notifyLib, 'function onMerchantNotificationCreated') && str_contains($notifyLib, 'function maybeSendWhatsAppMerchantAlert'), 'whatsapp_alert_hook_helpers');
+$cfgDev = (string)file_get_contents($root . '/config.dev.php');
+$assert(str_contains($cfgDev, 'onMerchantNotificationCreated'), 'config_dev_notification_hooks_whatsapp');
+$prefsUi = (string)file_get_contents($root . '/merchant_notify_settings.php');
+$assert(str_contains($prefsUi, 'whatsapp') && str_contains($prefsUi, 'WhatsApp'), 'merchant_notify_prefs_whatsapp_channel');
+$mui = (string)file_get_contents($root . '/includes/merchant_ui.php');
+$assert(str_contains($mui, "'whatsapp' => true") || str_contains($mui, "'whatsapp' => false"), 'merchant_notify_defaults_include_whatsapp');
 $assert(!in_array('gst', $individualDocs, true) && !in_array('incorporation_certificate', $individualDocs, true), 'kyc_individual_no_gst_or_cin_docs');
 $propDocs = getKycRequirements('sole_proprietorship');
 $assert(in_array('gst', $propDocs, true) && in_array('aadhaar', $propDocs, true), 'kyc_proprietorship_includes_gst');
