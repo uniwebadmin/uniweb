@@ -84,7 +84,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Item | Status |
 |---|---|
 | 4 portals responsive | ✅ (public/merchant/admin/staff); Customer portal ❌ |
-| Full Hindi website | ❌ (only English; `__()` + lang switcher scaffold exist) |
+| Full Hindi website | ⛔ DROPPED (owner decision) — UI stays English-only |
 | Google location autocomplete + autofill | 🔧 custom picker exists (not Google Places) |
 | Pincode → address autofill | 🔧 verify |
 | Razorpay-style QR + UniWeb logo + per-QR history | 🔧 enhancement (`qr_code.php`) |
@@ -123,6 +123,6 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 3. **QR logo + per-QR history** — quick, visible win.
 4. **First real gateway API adapter** — when a partner signs.
 5. **Payout module** — via licensed partner API, phased, with maker-checker; not in-house money movement.
-6. **Hindi + Google/pincode address** — incremental.
+6. **Pincode address autofill** — incremental. _(Full Hindi UI: dropped by owner — English-only.)_
 
 _Customer portal + auto-approve self-update + in-house biometrics: reconsider before building (fraud/regulatory)._
