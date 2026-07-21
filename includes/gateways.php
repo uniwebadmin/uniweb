@@ -340,7 +340,180 @@ function submitMerchantToGateway(int $merchantId, string $gateway, int $adminId,
         ->execute([$merchantId, $gateway, 'submitted', $payload, $adminId, $notes]);
 
     createNotification($merchantId, 'Gateway Submission', "Your KYC documents submitted to " . strtoupper($gateway) . " for onboarding.");
+    logComplianceAudit($merchantId, $adminId, 'gateway_forward', 'Forwarded to ' . strtoupper($gateway));
     return true;
+}
+
+/** Gateways a merchant can be forwarded to (matches gateway_submissions ENUM). */
+function gatewaySubmissionAllowedGateways(): array
+{
+    return ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe'];
+}
+
+/** One-click forward to several gateways at once. Returns count forwarded. */
+function submitMerchantToGateways(int $merchantId, array $gateways, int $adminId, string $notes = ''): int
+{
+    $allowed = gatewaySubmissionAllowedGateways();
+    $done = 0;
+    foreach (array_unique($gateways) as $g) {
+        $g = (string)$g;
+        if (in_array($g, $allowed, true) && submitMerchantToGateway($merchantId, $g, $adminId, $notes)) {
+            $done++;
+        }
+    }
+    return $done;
+}
+
+/** Latest submission per gateway for a merchant (status matrix). */
+function getGatewaySubmissionMatrix(int $merchantId): array
+{
+    ensureGatewaySubmissionsTable();
+    try {
+        $stmt = getDB()->prepare(
+            'SELECT gs.* FROM gateway_submissions gs
+             INNER JOIN (
+                 SELECT gateway, MAX(id) AS max_id
+                 FROM gateway_submissions WHERE merchant_id = ? GROUP BY gateway
+             ) latest ON gs.id = latest.max_id
+             ORDER BY gs.gateway'
+        );
+        $stmt->execute([$merchantId]);
+        $out = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $out[(string)$row['gateway']] = $row;
+        }
+        return $out;
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/** Admin updates a submission status; auto-notifies merchant on approve/reject. */
+function updateGatewaySubmissionStatus(int $submissionId, string $status, int $adminId, string $response = ''): bool
+{
+    ensureGatewaySubmissionsTable();
+    $allowed = ['draft', 'submitted', 'approved', 'rejected', 'pending_review'];
+    if (!in_array($status, $allowed, true)) {
+        return false;
+    }
+    $db = getDB();
+    $row = $db->prepare('SELECT * FROM gateway_submissions WHERE id = ?');
+    $row->execute([$submissionId]);
+    $sub = $row->fetch();
+    if (!$sub) {
+        return false;
+    }
+    $db->prepare('UPDATE gateway_submissions SET status = ?, gateway_response = ? WHERE id = ?')
+        ->execute([$status, $response, $submissionId]);
+    $gwLabel = strtoupper((string)$sub['gateway']);
+    logComplianceAudit((int)$sub['merchant_id'], $adminId, 'gateway_status', $gwLabel . ' -> ' . $status . ($response !== '' ? (' (' . $response . ')') : ''));
+    if (in_array($status, ['approved', 'rejected'], true)) {
+        $msg = $status === 'approved'
+            ? "Good news — your onboarding with {$gwLabel} is approved."
+            : "Your {$gwLabel} onboarding needs attention. Our team will guide the next steps.";
+        createNotification((int)$sub['merchant_id'], 'Gateway ' . ucfirst($status), $msg);
+    }
+    return true;
+}
+
+/**
+ * Pre-filled onboarding email to a gateway for one merchant. Intentionally
+ * carries only business identity (no Aadhaar/PAN/bank numbers) — sensitive KYC
+ * is shared via the gateway's secure portal/API, never email.
+ */
+function gatewayOnboardingMailto(string $gateway, array $m): string
+{
+    $partners = function_exists('getBankingPartners') ? getBankingPartners() : [];
+    $to = (string)($partners[$gateway]['email'] ?? '');
+    if ($to === '') {
+        return '#';
+    }
+    $company = defined('COMPANY_LEGAL_NAME') ? COMPANY_LEGAL_NAME : 'UniWeb';
+    $site = defined('APP_URL') ? APP_URL : '';
+    $biz = (string)(($m['business_name'] ?? '') !== '' ? $m['business_name'] : ($m['name'] ?? 'Merchant'));
+    $code = (string)($m['merchant_code'] ?? '');
+    $entity = (string)($m['business_entity_type'] ?? '');
+    $subject = rawurlencode("Sub-merchant onboarding request — {$biz} via {$company}");
+    $bodyLines = [
+        'Dear ' . strtoupper($gateway) . ' Onboarding Team,',
+        '',
+        "{$company} ({$site}) requests sub-merchant onboarding for the following merchant on our platform:",
+        '',
+        "Business Name: {$biz}",
+        "Merchant Code: {$code}",
+        "Entity Type: {$entity}",
+        '',
+        'KYC documents are verified on our platform and will be shared ONLY via your secure onboarding portal or API. Please advise the preferred secure channel. We do not send sensitive documents over email.',
+        '',
+        'Regards,',
+        $company,
+        $site,
+    ];
+    $body = rawurlencode(implode("\n", $bodyLines));
+    return "mailto:{$to}?subject={$subject}&body={$body}";
+}
+
+/* ------------------------------------------------------------------ *
+ *  Compliance audit trail + KYC document versioning
+ * ------------------------------------------------------------------ */
+
+function ensureComplianceAuditTable(): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    try {
+        getDB()->exec("CREATE TABLE IF NOT EXISTS compliance_audit_log (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            merchant_id INT NOT NULL,
+            admin_id INT DEFAULT NULL,
+            action VARCHAR(48) NOT NULL,
+            detail VARCHAR(255) DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_merchant (merchant_id, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) { /* ok */ }
+}
+
+function logComplianceAudit(int $merchantId, ?int $adminId, string $action, string $detail = ''): void
+{
+    ensureComplianceAuditTable();
+    try {
+        getDB()->prepare('INSERT INTO compliance_audit_log (merchant_id, admin_id, action, detail) VALUES (?,?,?,?)')
+            ->execute([$merchantId, $adminId, substr($action, 0, 48), substr($detail, 0, 255)]);
+    } catch (Throwable $e) { /* ok */ }
+}
+
+function getComplianceAudit(int $merchantId, int $limit = 40): array
+{
+    ensureComplianceAuditTable();
+    try {
+        $stmt = getDB()->prepare('SELECT * FROM compliance_audit_log WHERE merchant_id = ? ORDER BY id DESC LIMIT ?');
+        $stmt->bindValue(1, $merchantId, PDO::PARAM_INT);
+        $stmt->bindValue(2, $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/** All KYC uploads grouped by doc_type, newest first = current version. */
+function getMerchantKycDocumentVersions(int $merchantId): array
+{
+    try {
+        $stmt = getDB()->prepare('SELECT id, doc_type, file_name, status, scan_status, file_size, created_at FROM kyc_documents WHERE merchant_id = ? ORDER BY doc_type ASC, id DESC');
+        $stmt->execute([$merchantId]);
+        $grouped = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $grouped[(string)$row['doc_type']][] = $row;
+        }
+        return $grouped;
+    } catch (Throwable $e) {
+        return [];
+    }
 }
 
 function getActivePaymentGateway(): string

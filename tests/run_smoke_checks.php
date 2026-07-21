@@ -143,6 +143,21 @@ $gwLib = (string)file_get_contents($root . '/includes/gateways.php');
 $assert(str_contains($gwLib, 'checkout on roadmap') || str_contains($gwLib, 'later release'), 'gateway_phonepe_status_honest');
 $assert(str_contains($gwLib, 'function gatewaySupportsLiveCheckout'), 'gateway_live_checkout_helper_present');
 
+// Multi-gateway forward (safe subset): one-click forward + status matrix + audit + doc versioning.
+$assert(str_contains($gwLib, 'function submitMerchantToGateways'), 'gateway_multi_forward_helper_present');
+$assert(str_contains($gwLib, 'function getGatewaySubmissionMatrix'), 'gateway_status_matrix_helper_present');
+$assert(str_contains($gwLib, 'function updateGatewaySubmissionStatus'), 'gateway_status_update_helper_present');
+$assert(str_contains($gwLib, 'function gatewayOnboardingMailto'), 'gateway_onboarding_email_helper_present');
+$assert(str_contains($gwLib, 'function logComplianceAudit') && str_contains($gwLib, 'function getComplianceAudit'), 'compliance_audit_helpers_present');
+$assert(str_contains($gwLib, 'function getMerchantKycDocumentVersions'), 'kyc_doc_versioning_helper_present');
+// Onboarding email must never carry raw KYC document contents.
+$assert(str_contains($gwLib, 'never email') || str_contains($gwLib, 'do not send sensitive documents over email'), 'gateway_onboarding_email_no_raw_docs');
+$gwSubmit = (string)file_get_contents($root . '/admin_gateway_submit.php');
+$assert(str_contains($gwSubmit, 'forward_all'), 'gateway_submit_has_forward_all_button');
+$assert(str_contains($gwSubmit, 'submitMerchantToGateways'), 'gateway_submit_uses_multi_forward');
+$assert(str_contains($gwSubmit, 'Gateway status') && str_contains($gwSubmit, 'version history'), 'gateway_submit_shows_matrix_and_versions');
+$assert(str_contains($gwSubmit, 'audit trail'), 'gateway_submit_shows_audit_trail');
+
 // Instant printable UPI QR (direct P2M) — page + helper must exist and be honest about routing.
 $assert(is_file($root . '/qr_upi_print.php'), 'file_qr_upi_print_php', 'qr_upi_print.php');
 $upiQrPage = (string)file_get_contents($root . '/qr_upi_print.php');
