@@ -10,7 +10,7 @@ if (isset($_GET['test_gateway']) && verifyCsrf($_GET['csrf'] ?? '')) {
     if ($gw === 'axis') {
         $axis = axisTestConnection();
         flash(!empty($axis['token_ok']) ? 'success' : 'error', (string)($axis['message'] ?? 'Axis test finished.'));
-    } elseif (in_array($gw, ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe'], true)) {
+    } elseif (in_array($gw, ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe', 'pinelabs'], true)) {
         $result = testGatewayConnection($gw);
         flash($result['ok'] ? 'success' : 'error', $result['message']);
     } else {
@@ -69,6 +69,7 @@ $gatewayCards = [
     ['id' => 'cashfree', 'label' => 'Cashfree', 'test' => true],
     ['id' => 'payu', 'label' => 'PayU', 'test' => true],
     ['id' => 'phonepe', 'label' => 'PhonePe', 'test' => true, 'checkout' => false, 'note' => 'Keys stored now · checkout enabled in a later release'],
+    ['id' => 'pinelabs', 'label' => 'Pine Labs Plural', 'test' => true, 'checkout' => false, 'note' => 'Sandbox stub ready · keys pending · checkout on roadmap'],
     ['id' => 'axis', 'label' => 'Axis Bank', 'test' => true],
     ['id' => 'decentro', 'label' => 'Decentro KYC', 'test' => true],
 ];
@@ -233,6 +234,10 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['phonepe_merchant_id','PhonePe Merchant ID','text'],['phonepe_salt_key','PhonePe Salt Key','password'],
             ['phonepe_salt_index','PhonePe Salt Index','text'],
             ['phonepe_environment','PhonePe Env (sandbox/production)','text'],
+            ['pinelabs_merchant_id','Pine Labs Merchant ID','text'],
+            ['pinelabs_access_code','Pine Labs Access Code','text'],
+            ['pinelabs_secure_key','Pine Labs Secure Key','password'],
+            ['pinelabs_environment','Pine Labs Env (sandbox/production)','text'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <div class="rounded-xl border border-gray-800 bg-dark-900/50 p-4 text-xs text-gray-500 space-y-2">
             <p class="text-gray-400 font-medium text-sm mb-2">Webhook URLs (configure in PG dashboard)</p>

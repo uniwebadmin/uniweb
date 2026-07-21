@@ -107,48 +107,60 @@ $setupUrl = ($mfaSetup && $setupSecret !== '')
 
 $pageTitle = 'Admin Login';
 $hideNav = true;
+$hideFooter = true;
+$authPortalUi = true;
+$bodyClass = trim(($bodyClass ?? '') . ' auth-portal-shell auth-portal--admin');
 require_once __DIR__ . '/header.php';
 ?>
-<div class="min-h-screen flex items-center justify-center px-4 py-12">
-    <div class="w-full max-w-md">
-        <div class="text-center mb-8">
-            <div class="w-14 h-14 bg-gradient-to-br from-red-500 to-orange-500 rounded-2xl flex items-center justify-center font-bold text-dark-900 text-xl mx-auto mb-4">UW</div>
-            <h1 class="text-2xl font-bold"><?= APP_NAME ?></h1>
-            <p class="text-sm text-gray-500 mt-1"><?= $mfaSetup ? 'Enroll authenticator (mandatory)' : ($mfaPending ? 'Authenticator challenge' : 'Master Admin Portal') ?></p>
-            <p class="text-[11px] text-gray-600 mt-2">Policy: MFA is mandatory for admin &amp; staff. First login shows a setup prompt — you are not locked out.</p>
+<div class="ap-wrap">
+    <aside class="ap-visual" aria-hidden="true">
+        <div>
+            <div class="w-14 h-14 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center font-bold text-xl">UW</div>
+            <h2 class="ap-display text-3xl font-bold mt-10 leading-tight">Master control.<br>Mandatory MFA.</h2>
+            <p class="mt-4 text-white/80 text-sm max-w-sm leading-relaxed">Super Admin / CEO portal for merchants, gateways, settlements, and compliance.</p>
         </div>
-        <div class="glass rounded-2xl p-8 border border-red-500/10">
-            <?php if ($error): ?><div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg mb-6"><?= e($error) ?></div><?php endif; ?>
+        <div class="relative z-10 space-y-3 text-sm text-white/85">
+            <p>✓ First login enrolls authenticator — no lockout</p>
+            <p>✓ Staff must use Operations Portal</p>
+            <p>✓ Session timeout &amp; activity audit</p>
+        </div>
+    </aside>
+    <div class="ap-panel">
+        <div class="ap-card">
+            <p class="ap-eyebrow">Master admin</p>
+            <h1 class="ap-display"><?= $mfaSetup ? 'Enroll authenticator' : ($mfaPending ? 'Authenticator challenge' : 'Admin sign in') ?></h1>
+            <p class="ap-sub">Policy: MFA is mandatory for admin &amp; staff. First login shows a setup prompt — you are not locked out.</p>
+            <?php if ($error): ?><div class="ap-alert ap-alert-error mt-5"><?= e($error) ?></div><?php endif; ?>
             <?php if ($mfaSetup && $setupSecret !== ''): ?>
-            <p class="text-sm text-gray-400 mb-4">Scan this secret in Google Authenticator / Authy, then enter the 6-digit code.</p>
-            <p class="font-mono text-xs break-all bg-dark-900 border border-gray-800 rounded-lg p-3 mb-4"><?= e($setupSecret) ?></p>
-            <p class="text-[11px] text-gray-600 mb-4 break-all"><?= e($setupUrl) ?></p>
+            <p class="ap-sub mt-4 mb-3">Scan this secret in Google Authenticator / Authy, then enter the 6-digit code.</p>
+            <p class="ap-mono mb-3"><?= e($setupSecret) ?></p>
+            <p class="text-[11px] text-slate-500 mb-4 break-all"><?= e($setupUrl) ?></p>
             <form method="POST" class="space-y-5">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="mfa_setup">
-                <div><label class="text-sm text-gray-400">Authenticator Code</label><input type="text" name="totp_code" required maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" class="input-field mt-1 text-center text-2xl tracking-widest" autofocus></div>
-                <button type="submit" class="w-full bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-semibold">Enable MFA &amp; Continue</button>
+                <div class="ap-field"><label>Authenticator Code</label><input type="text" name="totp_code" required maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" class="ap-input ap-otp" autofocus></div>
+                <button type="submit" class="ap-btn">Enable MFA &amp; Continue</button>
             </form>
             <?php elseif ($mfaPending): ?>
-            <form method="POST" class="space-y-5">
+            <form method="POST" class="space-y-5 mt-6">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="mfa_verify">
-                <div><label class="text-sm text-gray-400">Authenticator Code</label><input type="text" name="totp_code" required maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" class="input-field mt-1 text-center text-2xl tracking-widest" autofocus></div>
-                <button type="submit" class="w-full bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-semibold">Verify &amp; Login</button>
+                <div class="ap-field"><label>Authenticator Code</label><input type="text" name="totp_code" required maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" class="ap-input ap-otp" autofocus></div>
+                <button type="submit" class="ap-btn">Verify &amp; Login</button>
             </form>
             <?php else: ?>
-            <form method="POST" class="space-y-5">
+            <form method="POST" class="space-y-5 mt-6">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="password">
-                <div><label class="text-sm text-gray-400">Admin ID</label><input type="text" name="username" required autocomplete="username" class="input-field mt-1" placeholder="admin"></div>
-                <div><label class="text-sm text-gray-400">Master Password</label><input type="password" name="password" required autocomplete="current-password" class="input-field mt-1"></div>
-                <div class="flex justify-end"><a href="admin_forgot_password.php" class="text-xs text-red-300 hover:text-red-200">Forgot password?</a></div>
-                <button type="submit" class="w-full bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-semibold transition">Continue</button>
+                <div class="ap-field"><label>Admin ID</label><input type="text" name="username" required autocomplete="username" class="ap-input" placeholder="admin"></div>
+                <div class="ap-field"><label>Master Password</label><input type="password" name="password" required autocomplete="current-password" class="ap-input"></div>
+                <div class="flex justify-end"><a href="admin_forgot_password.php" class="text-xs ap-link">Forgot password?</a></div>
+                <button type="submit" class="ap-btn">Continue</button>
             </form>
             <?php endif; ?>
-            <p class="text-center text-xs text-gray-600 mt-6">
-                <a href="staff_login.php" class="hover:text-gray-400">Employee / Operations login →</a> ·
-                <a href="index.php" class="hover:text-gray-400">Website</a>
+            <p class="ap-foot">
+                <a href="staff_login.php" class="ap-link">Employee / Operations login →</a> ·
+                <a href="index.php" class="text-slate-500 hover:text-slate-800">Website</a>
             </p>
         </div>
     </div>

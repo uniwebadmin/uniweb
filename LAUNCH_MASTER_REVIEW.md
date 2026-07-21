@@ -70,8 +70,8 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 ### PART 3 — Gateways, API & transactions
 | Item | Status |
 |---|---|
-| Razorpay / Cashfree / Decentro / PayU | ⚙️ keys pending |
-| Pine Labs Plural | ❌ new integration |
+| Razorpay / Cashfree / Decentro / PayU | ⚙️ keys pending — adapters + test connections live; UI shows "Keys pending" via `isGatewayConfigured()` |
+| Pine Labs Plural | ⚙️ scaffold — sandbox stub `pineLabsSandboxCreateOrder()` + Gateway Settings fields; checkout gated (roadmap) |
 | Test/Live toggle | ✅ |
 | API keys security/refresh/connect/notify | ✅ (notify email + in-app done) |
 | MDR settings (partner-wise) | ✅ (`update_mdr.php`) |
@@ -104,12 +104,12 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 |---|---|
 | Payout enable request | ✅ scaffold — merchant request → admin approve (`merchant_payout.php`, `admin_payout.php`); live money still gated |
 | IMPS/NEFT/RTGS/UPI payout | ⚙️ needs licensed payout partner keys (`payoutLiveMoneyAllowed()` hard gate) |
-| Beneficiary mgmt + penny drop | ✅ UI + list (`payout_beneficiaries`); penny-drop stays pending until bank keys |
+| Beneficiary mgmt + penny drop | ✅ add/edit/list/deactivate + IFSC autofill; penny-drop button gated (`requestPayoutBeneficiaryPennyDrop`) |
 | Bulk payout (CSV) | ✅ scaffold — CSV template + upload on `merchant_payout.php` (`processPayoutBulkCsv`); live money still gated |
 | Separate collection vs payout wallet | ✅ display-only split on payout page (`getMerchantWalletSplitView`) |
-| Failed payout reason + auto-reversal | ✅ failed drafts show `failure_reason`; auto-reversal ⛔ OWNER-CONFIRMED: no auto-credit |
-| Maker-checker high-value payout | ✅ placeholder (≥ ₹50k → `pending_checker`); no live dispatch without keys |
-| Payout API keys | ⚙️ keys pending — paste in gateway settings when partner signs |
+| Failed payout reason + auto-reversal | ✅ failed drafts show `failure_reason`; reversal queue (`requestPayoutReversal` → admin reconcile) ⛔ NEVER auto-credits |
+| Maker-checker high-value payout | ✅ ≥ ₹50k → `pending_checker`; `approvePayoutChecker` (maker ≠ checker); no live dispatch without keys |
+| Payout API keys | ✅ generate/rotate/revoke UI (`merchant_payout_keys.php`) — live use gated; paste partner keys in Gateway Settings when signed |
 
 ### PART 6 — Legal, security & marketing
 | Item | Status |
@@ -117,9 +117,11 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Privacy / Terms / Business Agreement | ✅ |
 | Admin login security + IST | ✅ |
 | Universal MFA/OTP (admin/staff mandatory, merchant optional) | ✅ LIVE — admin/staff login forces MFA enrollment or challenge (setup prompt, no lockout); merchant 2FA optional with dashboard/settings prompts + clear policy UI (`mfaPolicy()`, `merchant_2fa.php`, `admin_login.php`, `staff_login.php`) |
-| Forget password all portals | ✅ (existing portals) |
+| Login pages (merchant / admin / staff / customer) | ✅ PREMIUM redesigned (2026-07-21 overnight) — shared `auth-portal.css` brand panel + focused form; POST/CSRF/fields unchanged. Owner freeze lifted. |
+| Forget password all portals | ✅ merchant + admin; customer is OTP-only (no password). Staff uses admin recovery for privileged accounts |
 | API-generated email notification | ✅ — key regenerate (merchant `api_settings.php` + admin `admin_edit_merchant.php`) sends email + in-app notification + staff-activity log via `regenerateMerchantApiKey()`; secret never emailed |
 | Blog + Search Console + WhatsApp | ✅ LIVE — blog exists; Search Console token via Gateway Settings → `google_site_verification` (meta in `header.php`); WhatsApp alerts fan out from `createNotification` → `onMerchantNotificationCreated` when merchant prefs enable WhatsApp + Meta keys are set |
+| Cloud auto-deploy (laptop-free) | ✅ `.github/workflows/deploy.yml` — push to `main` → SFTP mirror via repo secrets (`UNIWEB_FTP_*`). `config.php` never overwritten (git-ignored). New includes registered in `includes/cloud_modules.php`. |
 | e-Rupee / Shopify / WordPress | 🔜 (WooCommerce ✅) |
 
 ---

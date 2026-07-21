@@ -15,16 +15,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             logStaffActivity('payout_enable_' . $action, 'Request #' . $id . ($note !== '' ? ' — ' . $note : ''), null, 'payout_enable', (string)$id);
         }
         flash($res['ok'] ? 'success' : 'error', $res['ok'] ? $res['message'] : $res['error']);
+    } elseif (in_array($action, ['reversal_approved', 'reversal_rejected', 'reversal_reconciled'], true)) {
+        $decision = str_replace('reversal_', '', $action);
+        $res = decidePayoutReversal((int)($_POST['reversal_id'] ?? 0), $decision, (string)$actor, $note);
+        if ($res['ok']) {
+            logStaffActivity('payout_reversal_' . $decision, 'Reversal #' . (int)($_POST['reversal_id'] ?? 0), null, 'payout_reversal', (string)($_POST['reversal_id'] ?? ''));
+        }
+        flash($res['ok'] ? 'success' : 'error', $res['ok'] ? $res['message'] : $res['error']);
     }
     redirect('admin_payout.php' . (($_GET['status'] ?? '') ? '?status=' . urlencode((string)$_GET['status']) : ''));
 }
 
 $statusFilter = $_GET['status'] ?? 'pending';
-if (!in_array($statusFilter, ['pending', 'approved', 'rejected', 'all'], true)) {
+if (!in_array($statusFilter, ['pending', 'approved', 'rejected', 'all', 'reversals'], true)) {
     $statusFilter = 'pending';
 }
-$requests = getPayoutEnableRequests($statusFilter === 'all' ? 'all' : $statusFilter);
+$requests = $statusFilter === 'reversals' ? [] : getPayoutEnableRequests($statusFilter === 'all' ? 'all' : $statusFilter);
 $pendingCount = getPendingPayoutEnableCount();
+$reversals = getPayoutReversalRequests('pending', 50);
 
 $pageTitle = 'Payout Enable Requests';
 require_once __DIR__ . '/header.php';
@@ -35,10 +43,10 @@ require_once __DIR__ . '/header.php';
         <h1 class="text-xl font-bold">Payout Enable Requests</h1>
         <p class="text-sm text-gray-500 mt-1">Approve merchant access to the payout scaffold. Live money movement stays gated until licensed partner keys are added.</p>
     </div>
-    <div class="flex gap-2 text-xs">
-        <?php foreach (['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'all' => 'All'] as $sk => $sl): ?>
+    <div class="flex gap-2 text-xs flex-wrap">
+        <?php foreach (['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'all' => 'All', 'reversals' => 'Reversal queue'] as $sk => $sl): ?>
         <a href="?status=<?= $sk ?>" class="px-3 py-1.5 rounded-lg <?= $statusFilter === $sk ? 'bg-brand-600 text-white' : 'glass text-gray-400 hover:text-white' ?>">
-            <?= $sl ?><?= $sk === 'pending' && $pendingCount > 0 ? ' (' . $pendingCount . ')' : '' ?>
+            <?= $sl ?><?= $sk === 'pending' && $pendingCount > 0 ? ' (' . $pendingCount . ')' : '' ?><?= $sk === 'reversals' && count($reversals) > 0 ? ' (' . count($reversals) . ')' : '' ?>
         </a>
         <?php endforeach; ?>
     </div>
@@ -47,9 +55,46 @@ require_once __DIR__ . '/header.php';
 <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 mb-6 text-sm text-amber-200">
     <p class="font-semibold">Partner rail</p>
     <p class="text-xs mt-1"><?= e(payoutActivationMessage()) ?></p>
-    <p class="text-[11px] text-gray-500 mt-2">Failed payouts must show a reason. Auto-reversal without reconciliation is not allowed.</p>
+    <p class="text-[11px] text-gray-500 mt-2">Failed payouts must show a reason. Auto-reversal without reconciliation is not allowed — reversal queue never auto-credits wallets.</p>
 </div>
 
+<?php if ($statusFilter === 'reversals'): ?>
+<div class="glass rounded-xl overflow-hidden mb-6">
+    <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Reversal / reconciliation queue</h2></div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[720px]">
+            <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
+                <th class="px-5 py-3 text-left">Merchant</th>
+                <th class="px-5 py-3 text-left">Payout</th>
+                <th class="px-5 py-3 text-left">Amount</th>
+                <th class="px-5 py-3 text-left">Failure reason</th>
+                <th class="px-5 py-3 text-left">Action</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-800">
+                <?php if (empty($reversals)): ?>
+                <tr><td colspan="5" class="px-5 py-10 text-center text-gray-500">No pending reversal requests.</td></tr>
+                <?php else: foreach ($reversals as $rv): ?>
+                <tr class="align-top">
+                    <td class="px-5 py-3"><p class="font-medium"><?= e($rv['business_name']) ?></p><p class="text-xs font-mono text-gray-500"><?= e($rv['merchant_code']) ?></p></td>
+                    <td class="px-5 py-3 font-mono text-xs text-sky-400"><?= e($rv['payout_id']) ?></td>
+                    <td class="px-5 py-3"><?= formatMoney((float)$rv['amount']) ?></td>
+                    <td class="px-5 py-3 text-xs text-red-300 max-w-xs"><?= e($rv['failure_reason'] ?: ($rv['merchant_note'] ?: '—')) ?></td>
+                    <td class="px-5 py-3">
+                        <form method="POST" class="flex flex-wrap gap-2 items-center">
+                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                            <input type="hidden" name="reversal_id" value="<?= (int)$rv['id'] ?>">
+                            <input name="admin_note" maxlength="500" placeholder="Note" class="text-xs bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5">
+                            <button name="action" value="reversal_reconciled" class="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg">Mark reconciled (no auto-credit)</button>
+                            <button name="action" value="reversal_rejected" class="text-xs bg-red-600/20 text-red-400 px-3 py-1.5 rounded-lg">Reject</button>
+                        </form>
+                    </td>
+                </tr>
+                <?php endforeach; endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+<?php else: ?>
 <div class="glass rounded-xl overflow-hidden">
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -96,5 +141,6 @@ require_once __DIR__ . '/header.php';
         </table>
     </div>
 </div>
+<?php endif; ?>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

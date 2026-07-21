@@ -77,6 +77,7 @@ function getWatchdogPageRegistry(): array
         ['settlement_detail.php', 'Settlement Detail'],
         ['merchant_settlement_settings.php', 'Settlement Settings'],
         ['merchant_payout.php', 'Payouts'],
+        ['merchant_payout_keys.php', 'Payout API Keys'],
         ['invoices.php', 'Invoices'],
         ['agents.php', 'Agents'],
         ['kyc.php', 'KYC'],

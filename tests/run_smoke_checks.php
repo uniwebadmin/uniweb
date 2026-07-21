@@ -105,8 +105,9 @@ $assert(str_contains($custLib, "'merchant'") && str_contains($custLib, "'staff'"
 $assert(str_contains($custLib, 'password_hash(') && str_contains($custLib, 'password_verify('), 'customer_portal_otp_hashed');
 $custLogin = (string)file_get_contents($root . '/customer_login.php');
 $assert(str_contains($custLogin, 'requestCustomerOtp') && str_contains($custLogin, 'verifyCustomerOtp'), 'customer_login_uses_otp');
-$assert(str_contains($custLogin, 'customer-portal-shell') || str_contains($custLogin, 'customerPortalUi'), 'customer_login_premium_shell');
+$assert(str_contains($custLogin, 'auth-portal-shell') || str_contains($custLogin, 'authPortalUi'), 'customer_login_premium_shell');
 $assert(is_file($root . '/assets/css/customer-portal.css'), 'customer_portal_css_present');
+$assert(is_file($root . '/assets/css/auth-portal.css'), 'auth_portal_css_for_customer_login');
 $assert(in_array('customer_login.php', $registryFiles, true), 'watchdog_registry_covers_customer_login');
 $assert(in_array('customer_portal.php', $registryFiles, true) && in_array('customer_ticket.php', $registryFiles, true), 'watchdog_registry_covers_customer_pages');
 $assert(in_array('merchant_customer_tickets.php', $registryFiles, true), 'watchdog_registry_covers_merchant_customer_tickets');
@@ -235,15 +236,42 @@ $assert(str_contains($payoutLib, 'function createPayoutDraft') && str_contains($
 $assert(str_contains($payoutLib, 'function payoutLiveMoneyAllowed') && str_contains($payoutLib, 'function getMerchantWalletSplitView'), 'payout_gate_and_wallet_split');
 $assert(str_contains($payoutLib, 'failure_reason') && str_contains($payoutLib, 'auto-reversal'), 'payout_no_auto_reversal_policy');
 $assert(str_contains($payoutLib, 'function payoutStrLimit'), 'payout_safe_str_limit_helper');
+$assert(str_contains($payoutLib, 'function updatePayoutBeneficiary') && str_contains($payoutLib, 'function requestPayoutBeneficiaryPennyDrop'), 'payout_beneficiary_edit_pennydrop');
+$assert(str_contains($payoutLib, 'function approvePayoutChecker') && str_contains($payoutLib, 'function requestPayoutReversal'), 'payout_checker_and_reversal');
+$assert(str_contains($payoutLib, 'function generatePayoutApiCredential') && str_contains($payoutLib, 'function revokePayoutApiCredential'), 'payout_api_key_helpers');
+$assert(str_contains($payoutLib, 'NEVER auto-credits') || str_contains($payoutLib, 'NOT auto-credited') || str_contains($payoutLib, 'no auto-credit'), 'payout_reversal_no_auto_credit');
 $assert(is_file($root . '/merchant_payout.php') && is_file($root . '/admin_payout.php'), 'payout_pages_present');
+$assert(is_file($root . '/merchant_payout_keys.php'), 'payout_api_keys_page_present');
 $mp = (string)file_get_contents($root . '/merchant_payout.php');
 $assert(str_contains($mp, 'payoutLiveMoneyAllowed') && str_contains($mp, 'keys pending'), 'merchant_payout_gated_copy');
 $assert(str_contains($mp, 'bulk_csv') && str_contains($payoutLib, 'function processPayoutBulkCsv'), 'payout_bulk_csv_scaffold');
+$assert(str_contains($mp, 'request_reversal') && str_contains($mp, 'approve_checker'), 'merchant_payout_reversal_checker_ui');
 $assert(str_contains($payoutLib, 'function parsePayoutBulkCsv') && str_contains($payoutLib, 'function payoutBulkCsvHeader'), 'payout_bulk_csv_helpers');
 $assert(str_contains($header, 'admin_payout.php') && str_contains($header, 'merchant_payout.php'), 'nav_has_payout_pages');
+$assert(str_contains($header, 'merchant_payout_keys.php'), 'nav_has_payout_api_keys');
 $assert(in_array('merchant_payout.php', $registryFiles, true) && in_array('admin_payout.php', $registryFiles, true), 'watchdog_registry_covers_payout');
+$assert(in_array('merchant_payout_keys.php', $registryFiles, true), 'watchdog_registry_covers_payout_keys');
 $assert(is_file($root . '/migrations/015_payout_scaffold.sql'), 'payout_migration_present');
+$assert(is_file($root . '/migrations/017_payout_expansion.sql'), 'payout_expansion_migration_present');
+$cloudMods = (string)file_get_contents($root . '/includes/cloud_modules.php');
+$assert(str_contains($cloudMods, "'payout.php'") && str_contains($cloudMods, "'customer_portal.php'"), 'cloud_modules_registers_payout_customer');
+$assert(is_file($root . '/.github/workflows/deploy.yml'), 'github_actions_deploy_workflow_present');
+$deployYml = (string)file_get_contents($root . '/.github/workflows/deploy.yml');
+$assert(str_contains($deployYml, 'UNIWEB_FTP_HOST') && str_contains($deployYml, 'lftp') && str_contains($deployYml, 'branches: [main]'), 'deploy_workflow_sftp_secrets');
 $assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');
+
+// Auth portal redesign (all four logins — presentation only).
+$assert(is_file($root . '/assets/css/auth-portal.css'), 'auth_portal_css_present');
+foreach (['login.php', 'admin_login.php', 'staff_login.php', 'customer_login.php'] as $loginFile) {
+    $src = (string)file_get_contents($root . '/' . $loginFile);
+    $assert(str_contains($src, 'authPortalUi') || str_contains($src, 'auth-portal-shell'), 'auth_shell_' . str_replace('.php', '', $loginFile));
+    $assert(str_contains($src, 'csrf_token'), 'auth_csrf_' . str_replace('.php', '', $loginFile));
+}
+
+// Pine Labs Plural scaffold (gated).
+$gwLibPine = (string)file_get_contents($root . '/includes/gateways.php');
+$assert(str_contains($gwLibPine, 'function pineLabsSandboxCreateOrder') && str_contains($gwLibPine, 'pinelabs'), 'pinelabs_plural_scaffold');
+$assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'pinelabs_merchant_id'), 'gateway_settings_pinelabs_fields');
 
 // Search Console meta + WhatsApp alert fan-out from notifications.
 $headerSeo = (string)file_get_contents($root . '/header.php');

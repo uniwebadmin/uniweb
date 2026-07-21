@@ -537,11 +537,12 @@ function isGatewayConfigured(string $gateway): bool
         'axis' => (bool)(getSetting('axis_client_id', '') && getSetting('axis_client_secret', ''))
             || (bool)(getSetting('axis_api_key', '') && getSetting('axis_api_secret', '')),
         'decentro' => (bool)getSetting('decentro_client_id', '') && (bool)getSetting('decentro_client_secret', ''),
+        'pinelabs' => (bool)getSetting('pinelabs_merchant_id', '') && (bool)getSetting('pinelabs_access_code', '') && (bool)getSetting('pinelabs_secure_key', ''),
         default => false,
     };
 }
 
-/** Gateways that can actually route a live checkout today (PhonePe checkout is roadmap-only). */
+/** Gateways that can actually route a live checkout today (PhonePe / Pine Labs checkout is roadmap-only). */
 function gatewaySupportsLiveCheckout(string $gateway): bool
 {
     return in_array($gateway, ['razorpay', 'cashfree', 'payu'], true);
@@ -550,10 +551,9 @@ function gatewaySupportsLiveCheckout(string $gateway): bool
 function gatewayStatusLabel(string $gateway): string
 {
     if (!isGatewayConfigured($gateway)) {
-        return 'Not configured';
+        return 'Keys pending';
     }
-    if ($gateway === 'phonepe') {
-        // Keys can be stored ahead of time, but checkout routing is not enabled yet (see roadmap).
+    if ($gateway === 'phonepe' || $gateway === 'pinelabs') {
         return 'Keys saved · checkout on roadmap';
     }
     if ($gateway === (getSetting('active_payment_gateway', 'razorpay'))) {
@@ -704,6 +704,7 @@ function testGatewayConnection(string $gateway): array
         'payu' => testPayuConnection(),
         'phonepe' => testPhonePeConnection(),
         'decentro' => testDecentroConnection(),
+        'pinelabs' => testPineLabsConnection(),
         default => ['ok' => false, 'message' => 'Unknown gateway: ' . $gateway],
     };
 }
@@ -920,6 +921,63 @@ function createCashfreeOrderWithSplit(string $orderId, float $amount, array $mer
     $response = curl_exec($ch);
     curl_close($ch);
     return $response ? json_decode($response, true) : null;
+}
+
+/**
+ * Pine Labs Plural — gated scaffold / sandbox stub.
+ * Live checkout is NOT enabled (keys pending + roadmap). Sandbox createOrder
+ * returns a simulated payload when keys are absent or env=sandbox.
+ */
+function pineLabsApiBase(): string
+{
+    return getSetting('pinelabs_environment', 'sandbox') === 'production'
+        ? 'https://pluralpayments.com/api'
+        : 'https://pluraluat.pinelabs.com/api';
+}
+
+/** @return array{ok:bool,message:string,sandbox?:bool,order?:array} */
+function testPineLabsConnection(): array
+{
+    if (!isGatewayConfigured('pinelabs')) {
+        return ['ok' => false, 'message' => 'Pine Labs keys pending — paste merchant id, access code, and secure key when received.'];
+    }
+    $env = getSetting('pinelabs_environment', 'sandbox');
+    return [
+        'ok' => true,
+        'message' => 'Pine Labs credentials saved (' . $env . '). Checkout routing stays on roadmap until Plural adapter is activated.',
+        'sandbox' => $env !== 'production',
+    ];
+}
+
+/**
+ * Sandbox stub for Plural order create. Never charges live money without keys
+ * and never invents production credentials.
+ * @return array{ok:bool,sandbox:bool,message:string,order_id?:string,redirect_url?:string}
+ */
+function pineLabsSandboxCreateOrder(array $link, array $merchant, float $amount): array
+{
+    if ($amount <= 0) {
+        return ['ok' => false, 'sandbox' => true, 'message' => 'Invalid amount.'];
+    }
+    if (!isGatewayConfigured('pinelabs')) {
+        $simId = 'PL_SIM_' . strtoupper(bin2hex(random_bytes(4)));
+        return [
+            'ok' => true,
+            'sandbox' => true,
+            'message' => 'Pine Labs sandbox stub (keys pending). Simulated order recorded — no live charge.',
+            'order_id' => $simId,
+            'redirect_url' => null,
+        ];
+    }
+    // Keys present but live Plural HTTP adapter is still scaffolded — stay sandbox-safe.
+    $orderId = 'PL_' . preg_replace('/[^A-Za-z0-9]/', '', (string)($link['link_id'] ?? 'ORD')) . substr((string)time(), -6);
+    return [
+        'ok' => true,
+        'sandbox' => getSetting('pinelabs_environment', 'sandbox') !== 'production',
+        'message' => 'Pine Labs Plural scaffold order prepared. Live redirect activates when checkout routing is enabled.',
+        'order_id' => $orderId,
+        'redirect_url' => null,
+    ];
 }
 
 // Axis VA — see includes/axis.php

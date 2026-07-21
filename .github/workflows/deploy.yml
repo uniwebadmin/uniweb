@@ -1,0 +1,63 @@
+# UniWeb — Hostinger SFTP auto-deploy (laptop-free)
+#
+# Triggers on every push to `main` (and manual workflow_dispatch).
+# Secrets (repo Settings → Secrets → Actions) — never hardcoded:
+#   UNIWEB_FTP_HOST, UNIWEB_FTP_USER, UNIWEB_FTP_PASS,
+#   UNIWEB_FTP_PORT (SFTP, typically 65002),
+#   UNIWEB_FTP_REMOTE (= /home/.../domains/uniweb.co.in/public_html)
+#
+# Important: CI only has TRACKED files. Git-ignored secrets such as
+# config.php and .vscode/sftp.json are NEVER uploaded or overwritten.
+# New PHP helpers must be registered in includes/cloud_modules.php so
+# live config.php (which auto-loads that file) picks them up.
+
+name: Deploy to UniWeb Hostinger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: uniweb-live-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: SFTP mirror to Hostinger
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install lftp
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp
+
+      - name: Mirror tracked tree via SFTP
+        env:
+          HOST: ${{ secrets.UNIWEB_FTP_HOST }}
+          USER: ${{ secrets.UNIWEB_FTP_USER }}
+          PASS: ${{ secrets.UNIWEB_FTP_PASS }}
+          PORT: ${{ secrets.UNIWEB_FTP_PORT }}
+          REMOTE: ${{ secrets.UNIWEB_FTP_REMOTE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HOST:-}" ] || [ -z "${USER:-}" ] || [ -z "${PASS:-}" ] || [ -z "${REMOTE:-}" ]; then
+            echo "Missing required UNIWEB_FTP_* secrets."
+            exit 1
+          fi
+          PORT="${PORT:-65002}"
+          # Mirror local tracked checkout → remote public_html.
+          # Excludes keep secrets, tooling, and docs off the live tree.
+          # Idempotent: re-running only uploads diffs; never deletes remote-only
+          # files (no --delete) so live config.php / uploads stay intact.
+          lftp -e "set sftp:auto-confirm yes; set net:max-retries 3; set net:timeout 30; mirror -R --parallel=4 --exclude .git/ --exclude .github/ --exclude .vscode/ --exclude node_modules/ --exclude _inbox/ --exclude tests/ --exclude '*.md' ./ ${REMOTE}; bye" -u "${USER},${PASS}" -p "${PORT}" "sftp://${HOST}"
+
+      - name: Optional live smoke (non-blocking)
+        continue-on-error: true
+        run: |
+          curl -fsS -o /dev/null -w "homepage %{http_code}\n" "https://uniweb.co.in/" || true
+          curl -fsS -o /dev/null -w "login %{http_code}\n" "https://uniweb.co.in/login.php" || true

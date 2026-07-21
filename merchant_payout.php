@@ -32,6 +32,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     } elseif ($action === 'deactivate_beneficiary') {
         $res = deactivatePayoutBeneficiary($merchantId, (int)($_POST['beneficiary_id'] ?? 0));
         flash($res['ok'] ? 'success' : 'error', $res['ok'] ? $res['message'] : ($res['error'] ?? 'Failed'));
+    } elseif ($action === 'update_beneficiary') {
+        if (!merchantPayoutEnabled($merchant)) {
+            flash('error', 'Payout access is not enabled yet.');
+        } else {
+            $res = updatePayoutBeneficiary($merchantId, (int)($_POST['beneficiary_id'] ?? 0), $_POST);
+            flash($res['ok'] ? 'success' : 'error', $res['ok'] ? $res['message'] : ($res['error'] ?? 'Failed'));
+        }
+    } elseif ($action === 'penny_drop') {
+        $res = requestPayoutBeneficiaryPennyDrop($merchantId, (int)($_POST['beneficiary_id'] ?? 0));
+        flash($res['ok'] ? 'success' : 'error', $res['ok'] ? $res['message'] : ($res['error'] ?? 'Failed'));
+    } elseif ($action === 'approve_checker') {
+        $checker = (string)($merchant['name'] ?? $merchant['email'] ?? 'merchant');
+        $res = approvePayoutChecker($merchantId, (int)($_POST['order_id'] ?? 0), $checker);
+        flash($res['ok'] ? 'success' : 'error', $res['ok'] ? $res['message'] : ($res['error'] ?? 'Failed'));
+    } elseif ($action === 'request_reversal') {
+        $res = requestPayoutReversal($merchantId, (int)($_POST['order_id'] ?? 0), (string)($_POST['note'] ?? ''));
+        flash($res['ok'] ? 'success' : 'error', $res['ok'] ? $res['message'] : ($res['error'] ?? 'Failed'));
     } elseif ($action === 'create_payout') {
         if (!merchantPayoutEnabled($merchant)) {
             flash('error', 'Payout access is not enabled yet.');
@@ -90,7 +107,7 @@ require_once __DIR__ . '/header.php';
 
 <div class="mb-6">
     <h1 class="text-xl font-bold">Payouts</h1>
-    <p class="text-sm text-gray-500 mt-1">Vendor payouts via a licensed partner. Scaffold only — no live money movement until partner keys are added.</p>
+    <p class="text-sm text-gray-500 mt-1">Vendor payouts via a licensed partner. Scaffold only — no live money movement until partner keys are added. <a href="merchant_payout_keys.php" class="text-sky-400 hover:underline">Payout API keys →</a></p>
 </div>
 
 <div class="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 mb-6 text-sm">
@@ -158,9 +175,32 @@ require_once __DIR__ . '/header.php';
                 </div>
             </div>
             <div><label class="text-sm text-gray-400">UPI VPA (optional)</label><input type="text" name="upi_vpa" class="input-field mt-1" placeholder="name@upi"></div>
-            <p class="text-[11px] text-gray-500">Penny-drop name fetch runs when bank verification keys are configured.</p>
+            <p class="text-[11px] text-gray-500">IFSC auto-fills bank name via free directory. Penny-drop activates when partner keys are added.</p>
             <button type="submit" class="btn-primary px-5 py-2.5">Save beneficiary</button>
         </form>
+        <script>
+        (function(){
+            function debounce(fn, ms){ let t; return function(){ clearTimeout(t); t=setTimeout(()=>fn.apply(this,arguments), ms); }; }
+            async function lookup(input){
+                const raw=(input.value||'').trim().toUpperCase();
+                if(!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(raw)) return;
+                try{
+                    const res=await fetch('ifsc_lookup.php?ifsc='+encodeURIComponent(raw),{headers:{'Accept':'application/json'}});
+                    const data=await res.json();
+                    if(data&&data.ok){
+                        const form=input.closest('form');
+                        const bank=form&&form.querySelector('input[name="bank_name"]');
+                        if(bank&&(!bank.value.trim()||bank.dataset.ifscAuto==='1')){ bank.value=data.bank; bank.dataset.ifscAuto='1'; }
+                    }
+                }catch(e){}
+            }
+            const run=debounce(function(){ lookup(this); }, 450);
+            document.querySelectorAll('form input[name="ifsc_code"]').forEach(function(input){
+                input.addEventListener('input', run);
+                input.addEventListener('blur', function(){ lookup(this); });
+            });
+        })();
+        </script>
     </div>
 
     <div class="glass rounded-xl p-6">
@@ -242,12 +282,20 @@ require_once __DIR__ . '/header.php';
                     <td class="px-4 py-3"><?= statusBadge($b['status']) ?></td>
                     <td class="px-4 py-3">
                         <?php if (($b['status'] ?? '') === 'active'): ?>
+                        <div class="flex flex-col gap-1 items-start">
+                        <form method="POST">
+                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                            <input type="hidden" name="action" value="penny_drop">
+                            <input type="hidden" name="beneficiary_id" value="<?= (int)$b['id'] ?>">
+                            <button class="text-xs text-sky-400 hover:underline" type="submit">Verify penny-drop</button>
+                        </form>
                         <form method="POST" onsubmit="return confirm('Deactivate this beneficiary?')">
                             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                             <input type="hidden" name="action" value="deactivate_beneficiary">
                             <input type="hidden" name="beneficiary_id" value="<?= (int)$b['id'] ?>">
                             <button class="text-xs text-red-400 hover:underline">Deactivate</button>
                         </form>
+                        </div>
                         <?php endif; ?>
                     </td>
                 </tr>
@@ -283,6 +331,23 @@ require_once __DIR__ . '/header.php';
                     </td>
                     <td class="px-4 py-3 text-xs <?= ($o['status'] ?? '') === 'failed' ? 'text-red-300' : 'text-gray-500' ?>">
                         <?= e(trim((string)($o['failure_reason'] ?? '')) ?: '—') ?>
+                        <?php if (($o['status'] ?? '') === 'pending_checker'): ?>
+                        <form method="POST" class="mt-2" onsubmit="return confirm('Approve as checker? Maker cannot approve their own draft.')">
+                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                            <input type="hidden" name="action" value="approve_checker">
+                            <input type="hidden" name="order_id" value="<?= (int)$o['id'] ?>">
+                            <button class="text-xs text-emerald-400 hover:underline">Checker approve</button>
+                        </form>
+                        <?php endif; ?>
+                        <?php if (($o['status'] ?? '') === 'failed'): ?>
+                        <form method="POST" class="mt-2 space-y-1">
+                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                            <input type="hidden" name="action" value="request_reversal">
+                            <input type="hidden" name="order_id" value="<?= (int)$o['id'] ?>">
+                            <input type="text" name="note" maxlength="500" placeholder="Reversal note (optional)" class="input-field !py-1 !text-xs">
+                            <button class="text-xs text-amber-400 hover:underline">Request reversal (no auto-credit)</button>
+                        </form>
+                        <?php endif; ?>
                     </td>
                     <td class="px-4 py-3 text-xs text-gray-500"><?= formatDate($o['created_at']) ?></td>
                 </tr>
