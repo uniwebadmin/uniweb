@@ -50,12 +50,17 @@ require_once __DIR__ . '/header.php';
 ?>
 
 <div class="max-w-lg space-y-6">
+    <?php $mfaPol = mfaPolicy(in_array(adminRole($admin), ['super', 'ceo'], true) ? 'admin' : 'staff'); ?>
+    <div class="glass rounded-xl p-4 border border-amber-500/25 text-sm">
+        <p class="font-semibold text-amber-300">MFA policy — <?= e($mfaPol['label']) ?></p>
+        <p class="text-xs text-gray-500 mt-1"><?= e($mfaPol['summary']) ?></p>
+    </div>
     <div class="glass rounded-xl p-6">
         <h2 class="font-semibold mb-4">Admin Profile</h2>
         <div class="text-sm text-gray-400 mb-4">
             <p>Username: <span class="text-white font-mono"><?= e($admin['username']) ?></span></p>
             <p class="mt-1">Logged in as: <span class="text-white"><?= e($admin['name']) ?></span></p>
-            <p class="mt-1">MFA: <span class="<?= adminHasMfaEnabled($admin) ? 'text-emerald-400' : 'text-amber-400' ?>"><?= adminHasMfaEnabled($admin) ? 'Enabled (mandatory)' : 'Required at next login' ?></span></p>
+            <p class="mt-1">MFA: <span class="<?= adminHasMfaEnabled($admin) ? 'text-emerald-400' : 'text-amber-400' ?>"><?= adminHasMfaEnabled($admin) ? 'Enabled (mandatory)' : 'Required at next login — setup prompt on sign-in' ?></span></p>
         </div>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">

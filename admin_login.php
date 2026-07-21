@@ -115,6 +115,7 @@ require_once __DIR__ . '/header.php';
             <div class="w-14 h-14 bg-gradient-to-br from-red-500 to-orange-500 rounded-2xl flex items-center justify-center font-bold text-dark-900 text-xl mx-auto mb-4">UW</div>
             <h1 class="text-2xl font-bold"><?= APP_NAME ?></h1>
             <p class="text-sm text-gray-500 mt-1"><?= $mfaSetup ? 'Enroll authenticator (mandatory)' : ($mfaPending ? 'Authenticator challenge' : 'Master Admin Portal') ?></p>
+            <p class="text-[11px] text-gray-600 mt-2">Policy: MFA is mandatory for admin &amp; staff. First login shows a setup prompt — you are not locked out.</p>
         </div>
         <div class="glass rounded-2xl p-8 border border-red-500/10">
             <?php if ($error): ?><div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg mb-6"><?= e($error) ?></div><?php endif; ?>

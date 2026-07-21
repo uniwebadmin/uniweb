@@ -207,8 +207,9 @@ require_once __DIR__ . '/header.php';
             </form>
             <?php endif; ?>
             <p class="text-center text-sm text-gray-500 mt-6"><?= __('no_account') ?> <a href="merchant_register.php" class="text-brand-400"><?= __('create_account') ?></a></p>
+            <p class="text-center text-[11px] text-gray-600 mt-3">Merchant 2FA is optional — enable anytime from Settings. Admin/staff MFA is mandatory.</p>
             <?php if (!isOTPEnabled()): ?>
-            <p class="text-center text-[11px] text-gray-600 mt-3">Password login active · WhatsApp OTP when Meta template is approved</p>
+            <p class="text-center text-[11px] text-gray-600 mt-1">Password login active · WhatsApp OTP when Meta template is approved</p>
             <?php endif; ?>
         </div>
     </div>

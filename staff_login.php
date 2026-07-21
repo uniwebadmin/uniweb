@@ -101,6 +101,7 @@ require_once __DIR__ . '/header.php';
             <div class="w-14 h-14 bg-gradient-to-br from-sky-500 to-cyan-500 rounded-2xl flex items-center justify-center font-bold text-dark-900 text-xl mx-auto mb-4">UW</div>
             <h1 class="text-2xl font-bold">Operations Portal</h1>
             <p class="text-gray-500 text-sm mt-1"><?= $mfaSetup ? 'Mandatory MFA enrollment' : ($mfaPending ? 'Authenticator challenge' : 'Employees — KYC, refunds, support, settlements') ?></p>
+            <p class="text-[11px] text-gray-600 mt-2">Policy: Staff MFA is mandatory. First login enrolls authenticator — no lockout without a setup prompt.</p>
         </div>
         <div class="glass rounded-2xl p-8 border border-sky-500/20">
             <?php if ($error): ?><div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg mb-6"><?= e($error) ?></div><?php endif; ?>

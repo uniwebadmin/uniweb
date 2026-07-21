@@ -191,6 +191,19 @@ $assert(str_contains((string)file_get_contents($root . '/qr_code.php'), 'high-fr
 $checkoutSrc = (string)file_get_contents($root . '/checkout.php');
 $assert(str_contains($checkoutSrc, 'qr_code_id'), 'checkout_loads_qr_code_id');
 $assert(str_contains($checkoutSrc, '$fromQr'), 'checkout_skips_velocity_for_qr');
+
+// Universal MFA policy: admin/staff mandatory, merchant optional (setup prompts, no lockout).
+$totpLib = (string)file_get_contents($root . '/includes/totp.php');
+$assert(str_contains($totpLib, 'function mfaPolicy') && str_contains($totpLib, 'function renderMerchantMfaSetupPrompt'), 'mfa_policy_helpers');
+$assert(str_contains($totpLib, "'required' => true") && str_contains($totpLib, "'required' => false"), 'mfa_policy_admin_vs_merchant');
+$adminLogin = (string)file_get_contents($root . '/admin_login.php');
+$assert(str_contains($adminLogin, 'mfa_setup') && str_contains($adminLogin, 'mandatory'), 'admin_login_mandatory_mfa_setup');
+$staffLogin = (string)file_get_contents($root . '/staff_login.php');
+$assert(str_contains($staffLogin, 'Mandatory MFA') || str_contains($staffLogin, 'mandatory'), 'staff_login_mandatory_mfa');
+$m2fa = (string)file_get_contents($root . '/merchant_2fa.php');
+$assert(str_contains($m2fa, 'mfaPolicy(') && str_contains($m2fa, 'Optional'), 'merchant_2fa_optional_policy_ui');
+$dashSrc = (string)file_get_contents($root . '/dashboard.php');
+$assert(str_contains($dashSrc, 'renderMerchantMfaSetupPrompt'), 'dashboard_mfa_setup_prompt');
 $assert(!in_array('gst', $individualDocs, true) && !in_array('incorporation_certificate', $individualDocs, true), 'kyc_individual_no_gst_or_cin_docs');
 $propDocs = getKycRequirements('sole_proprietorship');
 $assert(in_array('gst', $propDocs, true) && in_array('aadhaar', $propDocs, true), 'kyc_proprietorship_includes_gst');

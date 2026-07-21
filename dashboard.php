@@ -32,6 +32,13 @@ $recentTxns->execute([$merchant['id'], $viewTest ? 1 : 0]);
 $transactions = $recentTxns->fetchAll();
 $pageTitle = __('dashboard');
 require_once __DIR__ . '/header.php';
+
+if (isset($_GET['dismiss_mfa_prompt'])) {
+    $_SESSION['mfa_prompt_dismissed_at'] = time();
+    redirect('dashboard.php');
+}
+ensureMerchant2FA();
+echo renderMerchantMfaSetupPrompt($merchant, 'dashboard');
 ?>
 
 <?php if (isDashboardTestMode($merchant) && $onboardingDone < count($onboarding)):

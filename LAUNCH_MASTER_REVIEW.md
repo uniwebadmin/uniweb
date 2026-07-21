@@ -116,7 +116,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 |---|---|
 | Privacy / Terms / Business Agreement | ✅ |
 | Admin login security + IST | ✅ |
-| Universal MFA/OTP (admin/staff mandatory, merchant optional) | ✅/🔧 (2FA + step-up exist; enforce policy) |
+| Universal MFA/OTP (admin/staff mandatory, merchant optional) | ✅ LIVE — admin/staff login forces MFA enrollment or challenge (setup prompt, no lockout); merchant 2FA optional with dashboard/settings prompts + clear policy UI (`mfaPolicy()`, `merchant_2fa.php`, `admin_login.php`, `staff_login.php`) |
 | Forget password all portals | ✅ (existing portals) |
 | API-generated email notification | ✅ — key regenerate (merchant `api_settings.php` + admin `admin_edit_merchant.php`) sends email + in-app notification + staff-activity log via `regenerateMerchantApiKey()`; secret never emailed |
 | Blog + Search Console + WhatsApp | 🔧 (blog ✅; WhatsApp webhook exists; Search Console = config) |

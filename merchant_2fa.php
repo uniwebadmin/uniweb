@@ -5,6 +5,7 @@ ensureMerchant2FA();
 $merchant = getMerchant();
 $db = getDB();
 $error = '';
+$policy = mfaPolicy('merchant');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     if (($_POST['action'] ?? '') === 'enable') {
@@ -37,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 $stmt = $db->prepare('SELECT totp_enabled, totp_secret, email FROM merchants WHERE id = ?');
 $stmt->execute([$merchant['id']]);
 $row = $stmt->fetch();
-$enabled = !empty($row['totp_enabled']) && !empty($row['totp_secret']);
+$enabled = merchantHasMfaEnabled($row ?: null);
 
 $pendingSecret = null;
 $qrUrl = null;
@@ -55,18 +56,22 @@ if (!$enabled) {
 $pageTitle = 'Two-Factor Authentication';
 require_once __DIR__ . '/header.php';
 ?>
-<div class="max-w-2xl mx-auto">
-    <div class="glass rounded-2xl p-8">
-        <div class="flex items-center gap-3 mb-2">
-            <span class="text-2xl">🔐</span>
-            <h1 class="text-xl font-bold">Two-Factor Authentication (2FA)</h1>
-        </div>
-        <p class="text-sm text-gray-500 mb-6">Optional — add an authenticator app code on top of your password for extra login security.</p>
+<div class="max-w-2xl mx-auto space-y-6">
+    <div class="glass rounded-2xl p-6 border border-sky-500/20">
+        <p class="text-xs text-sky-400 uppercase tracking-wider mb-1">Security policy</p>
+        <h1 class="text-xl font-bold mb-2">Two-Factor Authentication (2FA)</h1>
+        <p class="text-sm text-gray-400"><?= e($policy['summary']) ?></p>
+        <p class="text-xs text-gray-500 mt-3 inline-flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-300 border border-sky-500/30">Optional for merchants</span>
+            <span class="text-gray-600">Admin &amp; staff MFA is mandatory at login.</span>
+        </p>
+    </div>
 
+    <div class="glass rounded-2xl p-8">
         <?php if ($error): ?><div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg mb-6"><?= e($error) ?></div><?php endif; ?>
 
         <?php if ($enabled): ?>
-        <div class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm px-4 py-3 rounded-lg mb-6">✓ 2FA is currently <strong>ON</strong> for your account.</div>
+        <div class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm px-4 py-3 rounded-lg mb-6">2FA is currently <strong>ON</strong> for your account. You will be asked for an authenticator code at every login.</div>
         <form method="POST" class="space-y-4 max-w-sm">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="disable">
@@ -77,6 +82,7 @@ require_once __DIR__ . '/header.php';
             <button type="submit" class="bg-red-600/20 border border-red-500/30 text-red-400 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-red-600/30">Disable 2FA</button>
         </form>
         <?php else: ?>
+        <p class="text-sm text-gray-400 mb-6"><?= e($policy['setup_hint']) ?> You can skip this and continue using the dashboard — setup is never forced.</p>
         <div class="grid sm:grid-cols-2 gap-6 items-start">
             <div class="text-center">
                 <img src="<?= e($qrUrl) ?>" alt="2FA QR Code" class="mx-auto rounded-xl border border-gray-800 bg-white p-2" width="220" height="220">
