@@ -74,7 +74,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Test/Live toggle | ✅ |
 | API keys security/refresh/connect/notify | ✅ / 🔧 (notify email 🔧) |
 | MDR settings (partner-wise) | ✅ (`update_mdr.php`) |
-| Hide platform fee from customer | 🔧 verify (`checkout.php`) |
+| Hide platform fee from customer | ✅ payer sees only "Amount Payable" (`checkout.php`); split breakdown removed |
 | Txn/settlement status + exact reason | 🔧 improve copy |
 | Delayed split settlement (1–2 hr batch) | ✅/⚙️ (`includes/settlement_engine.php`, batches) |
 | Unmatched webhook section | ✅ `admin_reconciliation.php` ("Unmatched Webhooks" + "Gateway Txns Without Webhook Log"), linked in admin nav as "PG Reconciliation" |
