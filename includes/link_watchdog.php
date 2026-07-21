@@ -33,6 +33,7 @@ function getWatchdogPageRegistry(): array
         ['merchant_register.php', 'Merchant Signup', 'public'],
         ['signup.php', 'Signup', 'public'],
         ['login.php', 'Merchant Login', 'public'],
+        ['customer_login.php', 'Customer Login', 'public'],
         ['admin_login.php', 'Admin Login', 'public'],
         ['admin_forgot_password.php', 'Admin Forgot Password', 'public'],
         ['admin_reset_password.php', 'Admin Reset Password', 'public'],

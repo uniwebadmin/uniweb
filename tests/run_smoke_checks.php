@@ -93,6 +93,18 @@ foreach (['qr_pay.php', 'video_kyc.php', 'admin.php', 'blog_post.php', 'global_s
     $assert(in_array($mustCover, $registryFiles, true), 'watchdog_registry_covers_' . str_replace('.php', '', $mustCover));
 }
 
+// Customer (payer) portal: passwordless OTP login + read-only history + grievance tickets.
+$custLib = (string)file_get_contents($root . '/includes/customer_portal.php');
+$assert(str_contains($custLib, 'function requestCustomerOtp') && str_contains($custLib, 'function verifyCustomerOtp'), 'customer_portal_otp_helpers');
+$assert(str_contains($custLib, 'function getCustomerTransactions'), 'customer_portal_history_helper');
+$assert(str_contains($custLib, 'function createCustomerTicket') && str_contains($custLib, 'function addCustomerTicketMessage'), 'customer_portal_ticket_helpers');
+$assert(str_contains($custLib, 'password_hash(') && str_contains($custLib, 'password_verify('), 'customer_portal_otp_hashed');
+$custLogin = (string)file_get_contents($root . '/customer_login.php');
+$assert(str_contains($custLogin, 'requestCustomerOtp') && str_contains($custLogin, 'verifyCustomerOtp'), 'customer_login_uses_otp');
+$assert(in_array('customer_login.php', $registryFiles, true), 'watchdog_registry_covers_customer_login');
+$assert(str_contains($header, 'admin_customer_tickets.php'), 'admin_nav_has_customer_complaints');
+$assert(is_file($root . '/migrations/010_customer_portal.sql'), 'customer_portal_migration_present');
+
 $kyc = (string)file_get_contents($root . '/admin_kyc.php');
 $assert(str_contains($kyc, 'independent checker') || str_contains($kyc, 'Independent checker'), 'kyc_maker_checker_copy');
 $assert(!str_contains($kyc, 'Click Verify after documents OK — enables Live mode'), 'kyc_no_misleading_verify_live_copy');
