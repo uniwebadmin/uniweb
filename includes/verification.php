@@ -139,6 +139,65 @@ function decentroVerify(string $type, string $number, string $clientId, string $
     return null;
 }
 
+/**
+ * Look up bank/branch details for an IFSC using the free public Razorpay IFSC
+ * directory (no API key, no cost). Results are cached in-process. Returns null
+ * on invalid format or lookup failure so callers can degrade gracefully.
+ * @return array{ifsc:string,bank:string,branch:string,city:string,district:string,state:string}|null
+ */
+function lookupIfsc(string $ifsc): ?array
+{
+    static $cache = [];
+    $ifsc = strtoupper(trim($ifsc));
+    if (!preg_match('/^[A-Z]{4}0[A-Z0-9]{6}$/', $ifsc)) {
+        return null;
+    }
+    if (isset($cache[$ifsc])) {
+        return $cache[$ifsc];
+    }
+    $response = null;
+    if (function_exists('curl_init')) {
+        $ch = curl_init('https://ifsc.razorpay.com/' . rawurlencode($ifsc));
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 6,
+            CURLOPT_CONNECTTIMEOUT => 4,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_USERAGENT => 'UniWeb/1.0',
+        ]);
+        $out = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($code >= 200 && $code < 300 && $out) {
+            $response = $out;
+        }
+    }
+    if ($response === null) {
+        $ctx = stream_context_create(['http' => ['timeout' => 6, 'ignore_errors' => true]]);
+        $out = @file_get_contents('https://ifsc.razorpay.com/' . rawurlencode($ifsc), false, $ctx);
+        if ($out !== false && $out !== '') {
+            $response = $out;
+        }
+    }
+    if ($response === null) {
+        return null;
+    }
+    $data = json_decode($response, true);
+    if (!is_array($data) || empty($data['BANK'])) {
+        return null;
+    }
+    $result = [
+        'ifsc' => $ifsc,
+        'bank' => (string)($data['BANK'] ?? ''),
+        'branch' => (string)($data['BRANCH'] ?? ''),
+        'city' => (string)($data['CITY'] ?? ''),
+        'district' => (string)($data['DISTRICT'] ?? ''),
+        'state' => (string)($data['STATE'] ?? ''),
+    ];
+    $cache[$ifsc] = $result;
+    return $result;
+}
+
 function verifyBankAccount(string $accountNumber, string $ifsc, int $merchantId): array
 {
     $result = verifyDocument('bank', $accountNumber . '|' . $ifsc, $merchantId);

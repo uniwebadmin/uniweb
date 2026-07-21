@@ -215,4 +215,53 @@ require_once __DIR__ . '/header.php';
     </div>
 </div>
 
+<script>
+(function () {
+    function debounce(fn, ms) { let t; return function () { clearTimeout(t); t = setTimeout(() => fn.apply(this, arguments), ms); }; }
+    function hintEl(input) {
+        let h = input.parentElement.querySelector('.ifsc-hint');
+        if (!h) {
+            h = document.createElement('p');
+            h.className = 'ifsc-hint text-xs mt-1';
+            input.parentElement.appendChild(h);
+        }
+        return h;
+    }
+    async function lookup(input) {
+        const raw = (input.value || '').trim().toUpperCase();
+        const h = hintEl(input);
+        if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(raw)) { h.textContent = ''; return; }
+        h.className = 'ifsc-hint text-xs mt-1 text-gray-500';
+        h.textContent = 'Looking up branch…';
+        try {
+            const res = await fetch('ifsc_lookup.php?ifsc=' + encodeURIComponent(raw), { headers: { 'Accept': 'application/json' } });
+            const data = await res.json();
+            if (data && data.ok) {
+                const form = input.closest('form');
+                const bank = form ? form.querySelector('input[name="bank_name"]') : null;
+                if (bank && (!bank.value.trim() || bank.dataset.ifscAuto === '1')) {
+                    bank.value = data.bank;
+                    bank.dataset.ifscAuto = '1';
+                }
+                const parts = [data.branch, data.city || data.district, data.state].filter(Boolean);
+                h.className = 'ifsc-hint text-xs mt-1 text-emerald-400';
+                h.textContent = '✓ ' + data.bank + (parts.length ? ' — ' + parts.join(', ') : '');
+            } else {
+                h.className = 'ifsc-hint text-xs mt-1 text-amber-400';
+                h.textContent = (data && data.error) ? data.error : 'IFSC not found — check the code.';
+            }
+        } catch (e) {
+            h.className = 'ifsc-hint text-xs mt-1 text-gray-500';
+            h.textContent = '';
+        }
+    }
+    const run = debounce(function () { lookup(this); }, 450);
+    document.querySelectorAll('input[name="ifsc_code"]').forEach(function (input) {
+        input.addEventListener('input', run);
+        input.addEventListener('blur', function () { lookup(this); });
+        if (input.value.trim()) { /* pre-filled edit form: don't overwrite, just verify */ }
+    });
+})();
+</script>
+
 <?php require_once __DIR__ . '/footer.php'; ?>

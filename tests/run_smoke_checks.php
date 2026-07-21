@@ -123,6 +123,15 @@ $assert(is_file($root . '/admin_method_requests.php'), 'admin_method_requests_pa
 $assert(str_contains($header, 'admin_method_requests.php'), 'admin_nav_has_method_requests');
 $assert(in_array('admin_method_requests.php', $registryFiles, true), 'watchdog_registry_covers_method_requests');
 
+// IFSC -> bank/branch auto-fetch (free public Razorpay IFSC directory, no key).
+$verLib = (string)file_get_contents($root . '/includes/verification.php');
+$assert(str_contains($verLib, 'function lookupIfsc') && str_contains($verLib, 'ifsc.razorpay.com'), 'ifsc_lookup_helper');
+$assert(is_file($root . '/ifsc_lookup.php'), 'ifsc_lookup_endpoint_present');
+$ifscEp = (string)file_get_contents($root . '/ifsc_lookup.php');
+$assert(str_contains($ifscEp, 'lookupIfsc(') && str_contains($ifscEp, 'application/json'), 'ifsc_endpoint_uses_helper');
+$bankPage = (string)file_get_contents($root . '/add_bank.php');
+$assert(str_contains($bankPage, 'ifsc_lookup.php?ifsc=') && str_contains($bankPage, 'input[name="ifsc_code"]'), 'add_bank_ifsc_autofill');
+
 $kyc = (string)file_get_contents($root . '/admin_kyc.php');
 $assert(str_contains($kyc, 'independent checker') || str_contains($kyc, 'Independent checker'), 'kyc_maker_checker_copy');
 $assert(!str_contains($kyc, 'Click Verify after documents OK — enables Live mode'), 'kyc_no_misleading_verify_live_copy');
