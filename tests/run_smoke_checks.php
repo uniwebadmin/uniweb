@@ -139,6 +139,20 @@ $assert(str_contains($webLib, 'publicWebhookDestination('), 'website_compliance_
 $webPage = (string)file_get_contents($root . '/merchant_website.php');
 $assert(str_contains($webPage, 'run_compliance') && str_contains($webPage, 'checkWebsiteCompliance('), 'website_compliance_wired');
 
+// Invoice PDF field completeness: GSTIN, business name, address, mobile, email, unique invoice no.
+$invPdf = (string)file_get_contents($root . '/lib/SimpleInvoicePdf.php');
+$assert(str_contains($invPdf, 'Invoice No:') && str_contains($invPdf, 'GSTIN:'), 'invoice_pdf_shows_number_and_gstin');
+$assert(str_contains($invPdf, 'Bill From:') && str_contains($invPdf, 'Bill To:'), 'invoice_pdf_bill_from_to');
+$assert(str_contains($invPdf, 'Mobile:') && str_contains($invPdf, 'Email:') && str_contains($invPdf, 'Address:'), 'invoice_pdf_contact_fields');
+$assert(str_contains($invPdf, 'function merchantFullAddress'), 'invoice_pdf_merchant_full_address_helper');
+$invForm = (string)file_get_contents($root . '/invoices.php');
+$assert(str_contains($invForm, 'customer_address') && str_contains($invForm, 'ensureInvoiceSchema'), 'invoice_form_collects_address');
+$invView = (string)file_get_contents($root . '/invoice_view.php');
+$assert(str_contains($invView, 'Bill From') && str_contains($invView, 'GSTIN:'), 'invoice_view_shows_merchant_gst');
+$assert(is_file($root . '/migrations/013_invoice_customer_address.sql'), 'invoice_address_migration_present');
+$schemaEns = (string)file_get_contents($root . '/includes/schema_ensure.php');
+$assert(str_contains($schemaEns, 'function ensureInvoiceSchema'), 'invoice_schema_ensure_present');
+
 $kyc = (string)file_get_contents($root . '/admin_kyc.php');
 $assert(str_contains($kyc, 'independent checker') || str_contains($kyc, 'Independent checker'), 'kyc_maker_checker_copy');
 $assert(!str_contains($kyc, 'Click Verify after documents OK — enables Live mode'), 'kyc_no_misleading_verify_live_copy');

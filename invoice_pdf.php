@@ -2,6 +2,7 @@
 require_once __DIR__ . '/config.php';
 requireLogin();
 $merchant = getMerchant();
+ensureInvoiceSchema();
 $id = $_GET['id'] ?? '';
 $stmt = getDB()->prepare('SELECT * FROM invoices WHERE invoice_id = ? AND merchant_id = ?');
 $stmt->execute([$id, $merchant['id']]);

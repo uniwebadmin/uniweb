@@ -90,7 +90,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Pincode → address autofill | ✅ free India PIN lookup (`api.postalpincode.in`) — type 6-digit PIN → State/District/City autofill (`address-picker.js`) |
 | Razorpay-style QR + UniWeb logo + per-QR history | ✅ LIVE — centre UniWeb logo baked (GD, ECC-H), per-QR Collected/Payments summary + Print poster + "View payments" (`qr_code.php`, `qr_image.php`) |
 | Customer profile self-update (auto-approve) | ❌ ⛔ fraud risk — OTP-verify, no auto-approve |
-| Invoice PDF (GST/name/addr/mobile/email/no.) | ✅ verify fields (`invoice_pdf.php`) |
+| Invoice PDF (GST/name/addr/mobile/email/no.) | ✅ LIVE — PDF always prints Invoice No, Bill From (business name, GSTIN, full address, mobile, email) + Bill To (name, email, mobile, address); create form collects customer address (`invoice_pdf.php`, `SimpleInvoicePdf`, migration `013`) |
 
 > **Customer Portal — ✅ BUILT + LIVE (2026-07-21):** lightweight **payer-facing** portal, NOT a full account.
 > - **Login:** mobile + **WhatsApp/SMS OTP** (passwordless, hashed OTP, 10-min expiry, rate-limited). Demo-mode shows OTP on screen when no channel configured. (`customer_login.php`)
