@@ -99,6 +99,7 @@ function getWatchdogPageRegistry(): array
         ['add_agent.php', 'Add Agent'],
         ['invoice_view.php', 'Invoice View'],
         ['invoice_pdf.php', 'Invoice PDF'],
+        ['merchant_agreement_pdf.php', 'Merchant Agreement PDF'],
         ['merchant_recurring.php', 'Recurring Payments'],
     ] as $row) {
         $add($row[0], $row[1], 'merchant', 'merchant');
