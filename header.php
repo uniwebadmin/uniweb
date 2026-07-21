@@ -55,6 +55,9 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/uniweb.min.css?v=20260721a">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/theme-light.css?v=8">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/public-pages.css?v=20260719">
+    <?php if (!empty($customerPortalUi)): ?>
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/customer-portal.css?v=1">
+    <?php endif; ?>
     <script>
     (function(){
         try {
@@ -182,6 +185,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                 ['disputes.php',__('nav_disputes'),'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'],
                 ['chargebacks.php','Chargebacks','M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'],
                 ['refunds.php','Refunds','M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6'],
+                ['merchant_customer_tickets.php','Customer Complaints','M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z'],
                 ['notifications.php',__('nav_notifications'),'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'],
                 ['support.php',__('support'),'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M5.636 5.636l3.536 3.536m0 5.656l-3.536 3.536M12 2.944l7.07 7.07a10 10 0 010 14.142L12 22.93l-7.07-7.07a10 10 0 010-14.142L12 2.944z'],
             ];

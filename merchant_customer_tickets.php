@@ -1,42 +1,45 @@
 <?php
 require_once __DIR__ . '/config.php';
-requireStaffAccess(['super', 'ceo', 'regional_manager', 'team_leader', 'support', 'ops']);
 require_once __DIR__ . '/includes/customer_portal.php';
+requireLogin();
+requireMerchantTeamCapability('support');
 ensureCustomerPortalSchema();
+
+$merchant = getMerchant();
+$merchantId = (int)$merchant['id'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     $id = (int)($_POST['ticket_db_id'] ?? 0);
-    $reply = trim((string)($_POST['admin_reply'] ?? ''));
+    $reply = trim((string)($_POST['merchant_reply'] ?? ''));
     $status = (string)($_POST['status'] ?? 'in_progress');
-    $t = getCustomerTicketById($id);
+    $t = getMerchantCustomerTicket($merchantId, $id);
     if (!$t) {
-        flash('error', 'Complaint not found.');
-        redirect('admin_customer_tickets.php');
+        flash('error', 'Complaint not found for your account.');
+        redirect('merchant_customer_tickets.php');
     }
-    $admin = function_exists('getAdmin') ? getAdmin() : null;
-    $isStaff = function_exists('isStaffUser') && isStaffUser() && !(function_exists('isSuperAdmin') && isSuperAdmin());
-    $senderType = $isStaff ? 'staff' : 'admin';
-    $actor = (string)($admin['name'] ?? ($_SESSION['admin_username'] ?? 'Support'));
-    $res = replyToCustomerTicket($id, $senderType, $reply, $status, $actor);
-    if ($res['ok'] && function_exists('logStaffActivity')) {
-        $snip = function_exists('mb_substr') ? mb_substr($reply, 0, 120) : substr($reply, 0, 120);
-        logStaffActivity('customer_ticket_reply', $t['ticket_id'] . ' — ' . $snip, $t['merchant_id'] !== null ? (int)$t['merchant_id'] : null, 'customer_ticket', (string)$t['ticket_id']);
-    }
+    $actor = (string)($merchant['business_name'] ?? $merchant['name'] ?? 'Merchant');
+    $res = replyToCustomerTicket($id, 'merchant', $reply, $status, $actor);
     flash($res['ok'] ? 'success' : 'error', $res['message']);
-    redirect('admin_customer_tickets.php?id=' . (int)$id);
+    redirect('merchant_customer_tickets.php?id=' . (int)$id);
 }
 
 $viewId = (int)($_GET['id'] ?? 0);
-$view = $viewId ? getCustomerTicketById($viewId) : null;
+$view = $viewId ? getMerchantCustomerTicket($merchantId, $viewId) : null;
 $statusFilter = (string)($_GET['status'] ?? '');
-$tickets = getAllCustomerTickets($statusFilter ?: null);
+$tickets = getMerchantCustomerTickets($merchantId, $statusFilter ?: null);
+$openCount = getPendingMerchantCustomerTicketCount($merchantId);
 
 $pageTitle = 'Customer Complaints';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <p class="text-sm text-gray-400">Grievances raised by payers from the Customer Portal. Visible to admin &amp; ops/support staff. Merchant sees only their own tickets.</p>
+        <div>
+            <p class="text-sm text-gray-400">Complaints from payers on <strong class="text-white">your</strong> transactions only. Replies notify the customer in-app and via WhatsApp/SMS when configured.</p>
+            <?php if ($openCount > 0): ?>
+            <p class="text-xs text-amber-400 mt-1"><?= (int)$openCount ?> open / in progress</p>
+            <?php endif; ?>
+        </div>
         <div class="flex gap-2 text-xs flex-wrap">
             <?php foreach (['' => 'All', 'open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'closed' => 'Closed'] as $k => $lbl): ?>
             <a href="?status=<?= e($k) ?>" class="px-3 py-1.5 rounded-lg <?= $statusFilter === $k ? 'bg-brand-600/20 text-brand-400' : 'text-gray-400 hover:text-white border border-gray-800' ?>"><?= e($lbl) ?></a>
@@ -50,7 +53,7 @@ require_once __DIR__ . '/header.php';
             <div>
                 <p class="font-mono text-sm text-sky-400"><?= e($view['ticket_id']) ?></p>
                 <h2 class="text-lg font-semibold mt-1"><?= e($view['subject']) ?></h2>
-                <p class="text-xs text-gray-500 mt-1">+91 <?= e($view['customer_phone']) ?><?= $view['business_name'] ? ' · ' . e($view['business_name']) : '' ?><?= !empty($view['txn_reference']) ? ' · Txn ' . e($view['txn_reference']) : '' ?></p>
+                <p class="text-xs text-gray-500 mt-1">+91 <?= e($view['customer_phone']) ?><?= !empty($view['txn_reference']) ? ' · Txn ' . e($view['txn_reference']) : '' ?></p>
             </div>
             <?= statusBadge((string)$view['status']) ?>
         </div>
@@ -72,7 +75,7 @@ require_once __DIR__ . '/header.php';
         <form method="POST" class="space-y-3 mt-6 border-t border-gray-800 pt-5">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="ticket_db_id" value="<?= (int)$view['id'] ?>">
-            <textarea name="admin_reply" rows="3" maxlength="5000" class="input-field" placeholder="Reply to the customer…"></textarea>
+            <textarea name="merchant_reply" rows="3" maxlength="5000" class="input-field" placeholder="Reply to the customer…"></textarea>
             <div class="flex flex-wrap items-center gap-3">
                 <select name="status" class="input-field w-auto">
                     <?php foreach (['open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'closed' => 'Closed'] as $k => $lbl): ?>
@@ -88,24 +91,24 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Complaints</h2></div>
         <div class="overflow-x-auto">
-            <table class="w-full text-sm min-w-[720px]">
+            <table class="w-full text-sm min-w-[640px]">
                 <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
                     <th class="px-5 py-3 text-left">Ticket</th>
                     <th class="px-5 py-3 text-left">Customer</th>
                     <th class="px-5 py-3 text-left">Subject</th>
-                    <th class="px-5 py-3 text-left">Merchant</th>
+                    <th class="px-5 py-3 text-left">Txn</th>
                     <th class="px-5 py-3 text-left">Status</th>
                     <th class="px-5 py-3 text-left">Updated</th>
                 </tr></thead>
                 <tbody class="divide-y divide-gray-800">
                     <?php if (empty($tickets)): ?>
-                    <tr><td colspan="6" class="px-5 py-12 text-center text-gray-500">No customer complaints<?= $statusFilter ? ' in this status' : '' ?>.</td></tr>
+                    <tr><td colspan="6" class="px-5 py-12 text-center text-gray-500">No customer complaints for your merchants yet<?= $statusFilter ? ' in this status' : '' ?>.</td></tr>
                     <?php else: foreach ($tickets as $tk): ?>
                     <tr class="hover:bg-white/5 cursor-pointer" onclick="location.href='?id=<?= (int)$tk['id'] ?><?= $statusFilter !== '' ? '&status=' . urlencode($statusFilter) : '' ?>'">
                         <td class="px-5 py-3 font-mono text-xs text-sky-400"><?= e($tk['ticket_id']) ?></td>
                         <td class="px-5 py-3 text-xs">+91 <?= e($tk['customer_phone']) ?></td>
                         <td class="px-5 py-3 max-w-[240px] truncate"><?= e($tk['subject']) ?></td>
-                        <td class="px-5 py-3 text-xs text-gray-400"><?= e($tk['business_name'] ?: '—') ?></td>
+                        <td class="px-5 py-3 font-mono text-xs text-gray-400"><?= e($tk['txn_reference'] ?: '—') ?></td>
                         <td class="px-5 py-3"><?= statusBadge((string)$tk['status']) ?></td>
                         <td class="px-5 py-3 text-xs text-gray-500 whitespace-nowrap"><?= formatDate($tk['updated_at']) ?></td>
                     </tr>

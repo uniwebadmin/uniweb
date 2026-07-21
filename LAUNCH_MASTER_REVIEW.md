@@ -84,7 +84,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 ### PART 4 — Portals, UI/UX, QR & customer features
 | Item | Status |
 |---|---|
-| 4 portals responsive | ✅ (public/merchant/admin/staff); Customer portal ✅ LIVE (`customer_login.php`/`customer_portal.php`) |
+| 4 portals responsive | ✅ (public/merchant/admin/staff); Customer portal ✅ LIVE + premium redesign (`customer_login.php` / `customer_portal.php` / `customer_ticket.php`) |
 | Full Hindi website | ⛔ DROPPED (owner decision) — UI stays English-only |
 | Google location autocomplete + autofill | ✅ free OpenStreetMap Nominatim (search + device location); paid Google Places intentionally NOT used |
 | Pincode → address autofill | ✅ free India PIN lookup (`api.postalpincode.in`) — type 6-digit PIN → State/District/City autofill (`address-picker.js`) |
@@ -92,12 +92,12 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Customer profile self-update (auto-approve) | ❌ ⛔ fraud risk — OTP-verify, no auto-approve |
 | Invoice PDF (GST/name/addr/mobile/email/no.) | ✅ LIVE — PDF always prints Invoice No, Bill From (business name, GSTIN, full address, mobile, email) + Bill To (name, email, mobile, address); create form collects customer address (`invoice_pdf.php`, `SimpleInvoicePdf`, migration `013`) |
 
-> **Customer Portal — ✅ BUILT + LIVE (2026-07-21):** lightweight **payer-facing** portal, NOT a full account.
-> - **Login:** mobile + **WhatsApp/SMS OTP** (passwordless, hashed OTP, 10-min expiry, rate-limited). Demo-mode shows OTP on screen when no channel configured. (`customer_login.php`)
-> - **View:** payer's own **transaction history** matched by mobile, read-only, with plain-language status reason. (`customer_portal.php`)
-> - **Support:** raise + track a **grievance/ticket** from any transaction; admin replies via **admin_customer_tickets.php** ("Customer Complaints" in admin nav). (`customer_ticket.php`)
-> - **Guardrails honoured:** no auto-approve contact self-update; transactions read-only; isolated session + tables (migration `010_customer_portal.sql`).
-| Payment method request (merchant→admin) | ✅ live — merchant self-toggles only entitled methods; locked methods show "Request to Enable" → admin approve/reject queue (`admin_method_requests.php`), approval unlocks instantly (`includes/method_requests.php`, `collection_settings.php`) |
+> **Customer Portal — ✅ PREMIUM + CROSS-ROLE (2026-07-21 overnight):** lightweight **payer-facing** portal.
+> - **Login:** mobile + **WhatsApp/SMS OTP** (passwordless). Premium Manrope/Fraunces shell on `customer_login.php` (owner-approved redesign). Demo OTP when channels lack keys.
+> - **History:** all txns for that mobile across merchants (matches `transactions.customer_phone` + `payment_links.customer_phone`), read-only, status + reason.
+> - **Tickets:** raise grievance from any txn; thread replies.
+> - **Cross-role:** Admin + Staff (`admin_customer_tickets.php` in staff nav for support/ops) see all; Merchant (`merchant_customer_tickets.php`) sees **own merchant_id only** and can reply; replies fan out WhatsApp/SMS when configured (`replyToCustomerTicket` / migration `016`).
+> - **Guardrails:** no auto-approve contact self-update; no password on customer portal (OTP only).| Payment method request (merchant→admin) | ✅ live — merchant self-toggles only entitled methods; locked methods show "Request to Enable" → admin approve/reject queue (`admin_method_requests.php`), approval unlocks instantly (`includes/method_requests.php`, `collection_settings.php`) |
 
 ### PART 5 — Payout system (new module)
 | Item | Status |

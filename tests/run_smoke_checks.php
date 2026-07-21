@@ -97,13 +97,31 @@ foreach (['qr_pay.php', 'video_kyc.php', 'admin.php', 'blog_post.php', 'global_s
 $custLib = (string)file_get_contents($root . '/includes/customer_portal.php');
 $assert(str_contains($custLib, 'function requestCustomerOtp') && str_contains($custLib, 'function verifyCustomerOtp'), 'customer_portal_otp_helpers');
 $assert(str_contains($custLib, 'function getCustomerTransactions'), 'customer_portal_history_helper');
+$assert(str_contains($custLib, 'payment_links pl') || str_contains($custLib, 'payment_link_id'), 'customer_history_matches_link_phone');
 $assert(str_contains($custLib, 'function createCustomerTicket') && str_contains($custLib, 'function addCustomerTicketMessage'), 'customer_portal_ticket_helpers');
+$assert(str_contains($custLib, 'function replyToCustomerTicket') && str_contains($custLib, 'function notifyCustomerTicketReply'), 'customer_ticket_reply_fanout');
+$assert(str_contains($custLib, 'function getMerchantCustomerTickets'), 'customer_merchant_ticket_scope');
+$assert(str_contains($custLib, "'merchant'") && str_contains($custLib, "'staff'"), 'customer_ticket_sender_roles');
 $assert(str_contains($custLib, 'password_hash(') && str_contains($custLib, 'password_verify('), 'customer_portal_otp_hashed');
 $custLogin = (string)file_get_contents($root . '/customer_login.php');
 $assert(str_contains($custLogin, 'requestCustomerOtp') && str_contains($custLogin, 'verifyCustomerOtp'), 'customer_login_uses_otp');
+$assert(str_contains($custLogin, 'customer-portal-shell') || str_contains($custLogin, 'customerPortalUi'), 'customer_login_premium_shell');
+$assert(is_file($root . '/assets/css/customer-portal.css'), 'customer_portal_css_present');
 $assert(in_array('customer_login.php', $registryFiles, true), 'watchdog_registry_covers_customer_login');
+$assert(in_array('customer_portal.php', $registryFiles, true) && in_array('customer_ticket.php', $registryFiles, true), 'watchdog_registry_covers_customer_pages');
+$assert(in_array('merchant_customer_tickets.php', $registryFiles, true), 'watchdog_registry_covers_merchant_customer_tickets');
+$assert(in_array('admin_customer_tickets.php', $registryFiles, true), 'watchdog_registry_covers_admin_customer_tickets');
 $assert(str_contains($header, 'admin_customer_tickets.php'), 'admin_nav_has_customer_complaints');
+$assert(str_contains($header, 'merchant_customer_tickets.php'), 'merchant_nav_has_customer_complaints');
+$staffNavSrc = (string)file_get_contents($root . '/includes/staff.php');
+$assert(str_contains($staffNavSrc, "'admin_customer_tickets.php'") && str_contains($staffNavSrc, 'Customer Complaints'), 'staff_nav_has_customer_complaints');
+$assert(is_file($root . '/merchant_customer_tickets.php'), 'merchant_customer_tickets_page_present');
+$mCust = (string)file_get_contents($root . '/merchant_customer_tickets.php');
+$assert(str_contains($mCust, 'getMerchantCustomerTicket') && str_contains($mCust, 'replyToCustomerTicket'), 'merchant_customer_tickets_scoped_reply');
 $assert(is_file($root . '/migrations/010_customer_portal.sql'), 'customer_portal_migration_present');
+$assert(is_file($root . '/migrations/016_customer_ticket_roles.sql'), 'customer_ticket_roles_migration_present');
+$teamSrc = (string)file_get_contents($root . '/includes/merchant_team.php');
+$assert(str_contains($teamSrc, "'support'") && str_contains($teamSrc, 'customer complaints'), 'merchant_team_support_capability');
 
 // Transaction / settlement "exact reason" copy for fail / pending / success states.
 $txnLib = (string)file_get_contents($root . '/includes/transaction_detail.php');
