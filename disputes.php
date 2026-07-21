@@ -74,7 +74,7 @@ require_once __DIR__ . '/header.php';
         <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Dispute History</h2></div>
         <?php if (empty($disputeList)): ?><div class="px-6 py-8"><?= renderMerchantEmptyState('No disputes yet', 'Raise a dispute only for problem payments. Start with a test transaction if you have none.', 'transactions.php', 'View Transactions') ?></div>
         <?php else: ?>
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
                 <th class="px-5 py-3 text-left">ID</th><th class="px-5 py-3 text-left">Txn</th>
                 <th class="px-5 py-3 text-left">Amount</th><th class="px-5 py-3 text-left">Reason</th>
@@ -92,7 +92,7 @@ require_once __DIR__ . '/header.php';
                 </tr>
                 <?php endforeach; ?>
             </tbody>
-        </table>
+        </table></div>
         <?php endif; ?>
     </div>
 </div>

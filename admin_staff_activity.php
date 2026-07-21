@@ -21,7 +21,7 @@ require_once __DIR__ . '/header.php';
     </form>
 </div>
 <div class="glass rounded-xl overflow-hidden">
-    <table class="w-full text-sm">
+    <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
             <th class="px-5 py-3 text-left">Time</th><th class="px-5 py-3 text-left">Staff</th><th class="px-5 py-3 text-left">Action</th>
             <th class="px-5 py-3 text-left">Merchant</th><th class="px-5 py-3 text-left">Details</th>
@@ -38,6 +38,6 @@ require_once __DIR__ . '/header.php';
             </tr>
             <?php endforeach; endif; ?>
         </tbody>
-    </table>
+    </table></div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

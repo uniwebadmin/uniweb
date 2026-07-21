@@ -81,7 +81,8 @@ require_once __DIR__ . '/header.php';
         <?php else: ?>
         <div class="glass rounded-xl overflow-hidden border border-gray-800">
             <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Refund History</h2></div>
-            <table class="w-full text-sm">
+            <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[520px]">
                 <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
                     <th class="px-5 py-3 text-left">ID</th><th class="px-5 py-3 text-left">Txn</th><th class="px-5 py-3 text-left">Amount</th><th class="px-5 py-3 text-left">Status</th><th class="px-5 py-3 text-left">Date</th>
                 </tr></thead>
@@ -97,6 +98,7 @@ require_once __DIR__ . '/header.php';
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         </div>
         <?php endif; ?>
     </div>

@@ -56,7 +56,7 @@ require_once __DIR__ . '/header.php';
 </div>
 <div class="glass rounded-xl overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Settlement breakup by method</h2><p class="text-xs text-gray-500 mt-1">Live success volume only. Reserves/adjustments appear when partner settlement files include them.</p></div>
-    <table class="w-full text-sm">
+    <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr><th class="px-5 py-3 text-left">Method</th><th class="px-5 py-3 text-left">Count</th><th class="px-5 py-3 text-left">Amount</th></tr></thead>
         <tbody class="divide-y divide-gray-800">
         <?php if (!$methods): ?><tr><td colspan="3" class="px-5 py-8 text-center text-gray-500">No live volume in range.</td></tr><?php endif; ?>
@@ -64,6 +64,6 @@ require_once __DIR__ . '/header.php';
         <tr><td class="px-5 py-3"><?= e($m['method']) ?></td><td class="px-5 py-3"><?= (int)$m['c'] ?></td><td class="px-5 py-3"><?= formatMoney((float)$m['amt']) ?></td></tr>
         <?php endforeach; ?>
         </tbody>
-    </table>
+    </table></div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

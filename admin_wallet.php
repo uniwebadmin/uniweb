@@ -188,7 +188,7 @@ require_once __DIR__ . '/header.php';
     </div>
     <div class="glass rounded-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Bank Payouts</h2></div>
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
                 <th class="px-4 py-2 text-left">ID</th><th class="px-4 py-2 text-left">Amount</th>
                 <th class="px-4 py-2 text-left">Status</th><th class="px-4 py-2 text-left">Action</th>
@@ -217,7 +217,7 @@ require_once __DIR__ . '/header.php';
                 </tr>
                 <?php endforeach; endif; ?>
             </tbody>
-        </table>
+        </table></div>
     </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

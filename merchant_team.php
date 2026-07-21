@@ -72,7 +72,7 @@ $roles = merchantTeamRoles();
 
     <div class="glass rounded-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Team</h2></div>
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
                 <th class="px-5 py-3 text-left">Member</th>
                 <th class="px-5 py-3 text-left">Role</th>
@@ -106,7 +106,7 @@ $roles = merchantTeamRoles();
                 </tr>
                 <?php endforeach; endif; ?>
             </tbody>
-        </table>
+        </table></div>
     </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>
