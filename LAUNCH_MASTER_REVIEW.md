@@ -97,7 +97,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 > - **View:** payer's own **transaction history** matched by mobile, read-only, with plain-language status reason. (`customer_portal.php`)
 > - **Support:** raise + track a **grievance/ticket** from any transaction; admin replies via **admin_customer_tickets.php** ("Customer Complaints" in admin nav). (`customer_ticket.php`)
 > - **Guardrails honoured:** no auto-approve contact self-update; transactions read-only; isolated session + tables (migration `010_customer_portal.sql`).
-| Payment method request (merchant→admin) | 🔜 |
+| Payment method request (merchant→admin) | ✅ live — merchant self-toggles only entitled methods; locked methods show "Request to Enable" → admin approve/reject queue (`admin_method_requests.php`), approval unlocks instantly (`includes/method_requests.php`, `collection_settings.php`) |
 
 ### PART 5 — Payout system (new module)
 | Item | Status |
