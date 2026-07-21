@@ -17,8 +17,9 @@ Payout module (new), Customer portal (new), full Hindi UI, Google-style address 
 ### 3. What we should NOT take / must reconsider ⛔
 - **Auto-deleting production merchants/payments** ("keep only AK Digital Media") — destructive; must be a backup + reversible archive, owner-confirmed. Not run automatically.
 - **Customer login portal with auto-approve mobile/email self-update** — payers rarely need accounts on a PA, and auto-approving contact changes is an account-takeover/fraud vector. Reconsider scope.
-- **In-house Aadhaar face-mapping / biometrics** — use a certified partner (Digio); do not store raw biometrics (legal exposure).
-- **Failed-payout auto-reversal without a reconciliation gate** — money-movement risk.
+- **In-house Aadhaar face-mapping / biometrics** — ✅ OWNER-CONFIRMED (2026-07-21): do NOT store face/Aadhaar biometric data on our server. Do it via a certified partner API (e.g. Digio). No raw biometrics in our DB.
+- **Failed-payout auto-reversal without a reconciliation gate** — ✅ OWNER-CONFIRMED (2026-07-21): a failed payout must NOT auto-credit back to the wallet. Reversal only after reconciliation confirms the bank did not debit (manual/maker-checker gate). Money-movement risk.
+- **Paid Google Maps / Places for address** — ✅ OWNER-CONFIRMED (2026-07-21): do NOT use paid Google Places. Use free PIN lookup (`api.postalpincode.in`) + OpenStreetMap Nominatim (already implemented in `assets/js/address-picker.js`).
 - **Full 4-gateway payout/forward orchestrator before a live partner is signed** — premature.
 - **Google Places API** as the default — it is paid + needs billing; a free India-Post pincode lookup may suffice.
 
@@ -85,8 +86,8 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 |---|---|
 | 4 portals responsive | ✅ (public/merchant/admin/staff); Customer portal ❌ |
 | Full Hindi website | ⛔ DROPPED (owner decision) — UI stays English-only |
-| Google location autocomplete + autofill | 🔧 custom picker exists (not Google Places) |
-| Pincode → address autofill | 🔧 verify |
+| Google location autocomplete + autofill | ✅ free OpenStreetMap Nominatim (search + device location); paid Google Places intentionally NOT used |
+| Pincode → address autofill | ✅ free India PIN lookup (`api.postalpincode.in`) — type 6-digit PIN → State/District/City autofill (`address-picker.js`) |
 | Razorpay-style QR + UniWeb logo + per-QR history | 🔧 enhancement (`qr_code.php`) |
 | Customer profile self-update (auto-approve) | ❌ ⛔ fraud risk — OTP-verify, no auto-approve |
 | Invoice PDF (GST/name/addr/mobile/email/no.) | ✅ verify fields (`invoice_pdf.php`) |
@@ -107,7 +108,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Beneficiary mgmt + penny drop | ❌ new |
 | Bulk payout (CSV) | ❌ new |
 | Separate collection vs payout wallet | ❌ new (wallet exists; split needed) |
-| Failed payout reason + auto-reversal | ❌ ⚠️ auto-reversal risky |
+| Failed payout reason + auto-reversal | ❌ show reason ✅ plan; auto-reversal ⛔ OWNER-CONFIRMED: no auto-credit — reversal only after reconciliation gate |
 | Maker-checker high-value payout | ❌ new (RBAC exists to build on) |
 | Payout API keys | ❌ new |
 

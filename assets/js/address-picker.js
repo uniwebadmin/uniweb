@@ -1,5 +1,8 @@
 /**
  * UNIWEB — Country / State / District / City auto-fill (international)
+ * Uses only free, no-key services: countriesnow.space (lists), OpenStreetMap
+ * Nominatim (search + device location), api.postalpincode.in (India PIN lookup).
+ * No paid Google Places / Maps dependency.
  */
 function initAddressPicker(rootId) {
     const root = document.getElementById(rootId);
@@ -159,6 +162,37 @@ function initAddressPicker(rootId) {
         }
     }
 
+    // Free India PIN lookup (api.postalpincode.in — no API key / no cost) instead of paid Google Places.
+    async function lookupIndianPincode(pin) {
+        setStatus('Looking up pincode...');
+        try {
+            const res = await fetchWithTimeout(`https://api.postalpincode.in/pincode/${pin}`, { headers: { Accept: 'application/json' } }, 6000);
+            const data = await res.json();
+            const rec = Array.isArray(data) ? data[0] : null;
+            const offices = rec && Array.isArray(rec.PostOffice) ? rec.PostOffice : [];
+            if (!rec || rec.Status !== 'Success' || !offices.length) {
+                setStatus('Pincode not found — please fill manually.', true);
+                return;
+            }
+            const po = offices[0];
+            const stateName = po.State || '';
+            const districtName = po.District || '';
+            const cityName = (po.Block && po.Block !== 'NA') ? po.Block : (po.District || '');
+            ensureValue(country, 'India');
+            if (country.value !== 'India') country.value = 'India';
+            await loadStates('India', false);
+            if (stateName) ensureValue(state, stateName);
+            if (districtName && district) {
+                await loadDistricts('India', stateName, false);
+                ensureValue(district, districtName);
+            }
+            if (city && !city.value) city.value = cityName;
+            setStatus('Address filled from pincode ✓');
+        } catch (e) {
+            setStatus('Pincode lookup failed — please fill manually.', true);
+        }
+    }
+
     country.addEventListener('change', () => {
         const c = country.value;
         if (phoneCode && c === 'India') phoneCode.value = '+91';
@@ -175,6 +209,17 @@ function initAddressPicker(rootId) {
     if (district && city) {
         district.addEventListener('change', () => {
             if (district.value && !city.value) city.value = district.value;
+        });
+    }
+
+    if (postal) {
+        let pinTimer = null;
+        postal.addEventListener('input', () => {
+            const pin = postal.value.trim();
+            clearTimeout(pinTimer);
+            if (/^\d{6}$/.test(pin) && (!country.value || country.value === 'India')) {
+                pinTimer = setTimeout(() => lookupIndianPincode(pin), 400);
+            }
         });
     }
 
