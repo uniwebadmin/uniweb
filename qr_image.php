@@ -40,30 +40,47 @@ header('Content-Type: image/svg+xml');
 header('Cache-Control: public, max-age=86400');
 echo qrSvg($decoded, $size);
 
-/** Bake a rounded white badge + emerald "UW" mark into the QR center (Razorpay-style). */
+/**
+ * Bake the UniWeb brand mark into the QR center (Razorpay-style): a rounded white
+ * pad behind the real logo asset, sized ~20% of the QR so ECC-H keeps it scannable.
+ * Falls back to an emerald "UW" mark if the brand image is missing.
+ */
 function imageQrWithBrandLogo($img, int $displaySize): string
 {
     $w = imagesx($img);
     $h = imagesy($img);
-    $badge = (int)round(min($w, $h) * 0.24);
     $cx = (int)round($w / 2);
     $cy = (int)round($h / 2);
-    $r = (int)round($badge / 2);
+
+    $logoBox = (int)round(min($w, $h) * 0.20);
+    $pad = (int)round($logoBox * 1.34);
 
     $white = imagecolorallocate($img, 255, 255, 255);
-    $emerald = imagecolorallocate($img, 5, 150, 105);
-    $emeraldDark = imagecolorallocate($img, 4, 120, 87);
+    imagefilledellipse($img, $cx, $cy, $pad, $pad, $white);
 
-    imagefilledellipse($img, $cx, $cy, $badge + 8, $badge + 8, $white);
-    $innerR = (int)round($badge * 0.42);
-    imagefilledrectangle($img, $cx - $innerR, $cy - $innerR, $cx + $innerR, $cy + $innerR, $emerald);
-    imagerectangle($img, $cx - $innerR, $cy - $innerR, $cx + $innerR, $cy + $innerR, $emeraldDark);
-
-    $fontSize = max(1, (int)round($innerR / 6));
-    $text = 'UW';
-    $tw = imagefontwidth(5) * strlen($text);
-    $th = imagefontheight(5);
-    imagestring($img, 5, $cx - (int)round($tw / 2), $cy - (int)round($th / 2), $text, $white);
+    $logoPath = __DIR__ . '/assets/icons/icon-192.png';
+    $logo = is_file($logoPath) ? @imagecreatefrompng($logoPath) : false;
+    if ($logo) {
+        imagealphablending($img, true);
+        imagecopyresampled(
+            $img, $logo,
+            $cx - (int)round($logoBox / 2), $cy - (int)round($logoBox / 2),
+            0, 0,
+            $logoBox, $logoBox,
+            imagesx($logo), imagesy($logo)
+        );
+        imagedestroy($logo);
+    } else {
+        $emerald = imagecolorallocate($img, 5, 150, 105);
+        $emeraldDark = imagecolorallocate($img, 4, 120, 87);
+        $innerR = (int)round($logoBox * 0.5);
+        imagefilledrectangle($img, $cx - $innerR, $cy - $innerR, $cx + $innerR, $cy + $innerR, $emerald);
+        imagerectangle($img, $cx - $innerR, $cy - $innerR, $cx + $innerR, $cy + $innerR, $emeraldDark);
+        $text = 'UW';
+        $tw = imagefontwidth(5) * strlen($text);
+        $th = imagefontheight(5);
+        imagestring($img, 5, $cx - (int)round($tw / 2), $cy - (int)round($th / 2), $text, $white);
+    }
 
     ob_start();
     imagepng($img);

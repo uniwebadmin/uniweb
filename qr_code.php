@@ -92,6 +92,22 @@ $stmt = $db->prepare('SELECT q.*, pl.link_id, pl.status AS link_status
 $stmt->execute([$merchantId, $isTest ? 1 : 0]);
 $qrCodes = $stmt->fetchAll();
 
+// Per-QR collection summary (successful payments) — one grouped query reused
+// across every card. Maps transactions -> payment_links.qr_code_id, the same
+// join transactions.php uses for its ?qr_id= filter.
+$qrPaidSummary = [];
+if (!empty($qrCodes)) {
+    $sumStmt = $db->prepare("SELECT pl.qr_code_id AS qid, COUNT(*) AS paid_count, COALESCE(SUM(t.amount),0) AS paid_total
+        FROM transactions t
+        JOIN payment_links pl ON pl.id = t.payment_link_id
+        WHERE t.merchant_id = ? AND t.is_test = ? AND t.status = 'success' AND pl.qr_code_id IS NOT NULL
+        GROUP BY pl.qr_code_id");
+    $sumStmt->execute([$merchantId, $isTest ? 1 : 0]);
+    foreach ($sumStmt->fetchAll() as $row) {
+        $qrPaidSummary[(int)$row['qid']] = $row;
+    }
+}
+
 $pageTitle = 'QR Code Generator';
 require_once __DIR__ . '/header.php';
 ?>
@@ -163,26 +179,42 @@ require_once __DIR__ . '/header.php';
         <div class="grid sm:grid-cols-2 gap-4">
             <?php foreach ($qrCodes as $qr):
                 $scanUrl = APP_URL . '/qr_pay.php?code=' . rawurlencode($qr['qr_code']);
-                $qrImage = qrImageUrl($scanUrl, 220);
+                $qrImage = qrImageUrl($scanUrl, 300);
+                $isFixed = ($qr['qr_type'] ?? 'fixed') === 'fixed';
+                $amountLabel = $isFixed ? formatMoney((float)$qr['amount']) : 'Open Amount';
+                $summary = $qrPaidSummary[(int)$qr['id']] ?? null;
+                $paidCount = $summary ? (int)$summary['paid_count'] : 0;
+                $paidTotal = $summary ? (float)$summary['paid_total'] : 0.0;
+                $businessName = trim((string)($merchant['business_name'] ?? '')) ?: (APP_NAME . ' Merchant');
             ?>
             <div class="glass rounded-xl p-5 <?= $qr['status'] === 'active' ? '' : 'opacity-60' ?>">
                 <div class="flex justify-between gap-3 mb-3">
                     <div class="min-w-0">
                         <h3 class="font-semibold truncate"><?= e($qr['label']) ?></h3>
-                        <p class="text-2xl font-bold text-brand-400 mt-1">
-                            <?= ($qr['qr_type'] ?? 'fixed') === 'fixed' ? formatMoney((float)$qr['amount']) : 'Open Amount' ?>
-                        </p>
+                        <p class="text-2xl font-bold text-brand-400 mt-1"><?= $amountLabel ?></p>
                     </div>
                     <?= statusBadge($qr['status']) ?>
                 </div>
-                <div class="bg-white rounded-2xl p-4 text-center mb-3 border-2 border-emerald-100 shadow-md shadow-emerald-900/10">
-                    <img src="<?= e($qrImage) ?>" alt="<?= e($qr['label']) ?> QR" width="180" height="180" class="mx-auto rounded-lg">
-                    <p class="text-[10px] text-gray-400 mt-2 tracking-widest uppercase">Scan &amp; Pay · UniWeb</p>
+                <div class="bg-white rounded-2xl px-4 pt-5 pb-4 text-center mb-3 border border-gray-200 shadow-lg shadow-emerald-900/10">
+                    <p class="text-[11px] font-semibold text-gray-800 truncate px-2"><?= e($businessName) ?></p>
+                    <?php if ($isFixed): ?><p class="text-lg font-extrabold text-emerald-600 leading-tight"><?= formatMoney((float)$qr['amount']) ?></p><?php endif; ?>
+                    <img src="<?= e($qrImage) ?>" alt="<?= e($qr['label']) ?> QR" width="200" height="200" class="mx-auto rounded-lg mt-2">
+                    <p class="text-[10px] text-gray-400 mt-2 tracking-widest uppercase">Scan &amp; Pay · Powered by <?= e(APP_NAME) ?></p>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <div class="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+                        <p class="text-[10px] text-emerald-300/80 uppercase tracking-wide">Collected</p>
+                        <p class="text-sm font-bold text-emerald-300"><?= formatMoney($paidTotal) ?></p>
+                    </div>
+                    <div class="rounded-lg bg-white/5 border border-gray-700 px-3 py-2">
+                        <p class="text-[10px] text-gray-500 uppercase tracking-wide">Payments</p>
+                        <p class="text-sm font-bold text-gray-200"><?= $paidCount ?> paid · <?= (int)$qr['scan_count'] ?> scans</p>
+                    </div>
                 </div>
                 <div class="text-xs text-gray-500 space-y-1 mb-4">
                     <p class="font-mono truncate"><?= e($qr['qr_code']) ?></p>
                     <p>
-                        <?= (int)$qr['scan_count'] ?> scans · <?= !empty($qr['is_test']) ? 'Test' : 'Live' ?> ·
+                        <?= !empty($qr['is_test']) ? 'Test' : 'Live' ?> ·
                         <?= match($qr['qr_type'] ?? 'fixed') {
                             'all_methods' => 'All Methods',
                             'upi_dynamic' => 'Dynamic UPI',
@@ -191,12 +223,19 @@ require_once __DIR__ . '/header.php';
                     </p>
                     <?php if (!empty($qr['description'])): ?><p class="truncate"><?= e($qr['description']) ?></p><?php endif; ?>
                 </div>
-                <div class="grid grid-cols-2 gap-2 text-xs mb-2">
+                <div class="grid grid-cols-3 gap-2 text-xs mb-2">
                     <a href="<?= e($scanUrl) ?>" target="_blank" class="text-center border border-gray-700 py-2 rounded-lg text-sky-400">Open</a>
-                    <a href="<?= e($qrImage) ?>&s=500" download="uniweb-<?= e($qr['qr_code']) ?>.png" class="text-center border border-gray-700 py-2 rounded-lg text-emerald-400">Download</a>
+                    <a href="<?= e($qrImage) ?>&s=600" download="uniweb-<?= e($qr['qr_code']) ?>.png" class="text-center border border-gray-700 py-2 rounded-lg text-emerald-400">Download</a>
+                    <button type="button"
+                        onclick="printQr(this)"
+                        data-img="<?= e($qrImage) ?>&s=600"
+                        data-label="<?= e($qr['label']) ?>"
+                        data-business="<?= e($businessName) ?>"
+                        data-amount="<?= $isFixed ? e(formatMoney((float)$qr['amount'])) : 'Open Amount' ?>"
+                        class="text-center border border-gray-700 py-2 rounded-lg text-amber-300">Print</button>
                 </div>
                 <div class="grid grid-cols-2 gap-2 text-xs">
-                    <a href="transactions.php?qr_id=<?= (int)$qr['id'] ?>" class="text-center border border-violet-500/30 py-2 rounded-lg text-violet-300"><?= (int)$qr['scan_count'] ?> scans · History</a>
+                    <a href="transactions.php?qr_id=<?= (int)$qr['id'] ?>" class="text-center border border-violet-500/30 py-2 rounded-lg text-violet-300">View payments</a>
                     <form method="POST">
                         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <input type="hidden" name="action" value="toggle">
@@ -234,6 +273,42 @@ function toggleQrAmount() {
             : 'Amount is locked by merchant; customer scans and pays that exact amount.');
 }
 toggleQrAmount();
+
+function printQr(btn) {
+    const img = btn.getAttribute('data-img');
+    const label = btn.getAttribute('data-label') || '';
+    const business = btn.getAttribute('data-business') || '';
+    const amount = btn.getAttribute('data-amount') || '';
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const w = window.open('', '_blank', 'width=420,height=640');
+    if (!w) return;
+    w.document.write(
+        '<!doctype html><html><head><meta charset="utf-8"><title>' + esc(label) + ' QR</title>' +
+        '<style>*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}' +
+        'body{margin:0;padding:24px;display:flex;justify-content:center;background:#fff;color:#111827}' +
+        '.poster{width:340px;text-align:center;border:1px solid #d1d5db;border-radius:16px;padding:28px 24px}' +
+        '.hint{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9ca3af}' +
+        '.biz{font-size:20px;font-weight:800;margin:6px 0 0}' +
+        '.amt{font-size:26px;font-weight:800;color:#059669;margin:6px 0 0}' +
+        '.lbl{font-size:13px;color:#6b7280;margin:2px 0 0}' +
+        '.qrbox{border:2px solid #d1fae5;border-radius:16px;padding:14px;margin:16px auto 0;display:inline-block}' +
+        '.qrbox img{display:block;width:240px;height:240px}' +
+        '.foot{font-size:10px;color:#9ca3af;margin-top:14px}</style></head><body>' +
+        '<div class="poster">' +
+        '<p class="hint">Scan &amp; Pay</p>' +
+        '<p class="biz">' + esc(business) + '</p>' +
+        (amount && amount !== 'Open Amount' ? '<p class="amt">' + esc(amount) + '</p>' : '<p class="lbl">Enter amount after scan</p>') +
+        '<p class="lbl">' + esc(label) + '</p>' +
+        '<div class="qrbox"><img src="' + esc(img) + '" alt="QR"></div>' +
+        '<p class="foot">Powered by <?= e(APP_NAME) ?></p>' +
+        '</div></body></html>'
+    );
+    w.document.close();
+    const doPrint = () => { w.focus(); w.print(); };
+    const im = w.document.querySelector('img');
+    if (im && !im.complete) { im.onload = doPrint; setTimeout(doPrint, 1200); }
+    else { setTimeout(doPrint, 300); }
+}
 </script>
 
 <?php require_once __DIR__ . '/footer.php'; ?>
