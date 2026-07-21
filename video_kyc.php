@@ -32,32 +32,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('merchant_video_verification.php');
 }
 
-$vkStatus = $merchant['video_kyc_status'] ?? 'pending';
+$vkStatus = (string)($merchant['video_kyc_status'] ?? 'pending');
+$rejectionReason = '';
+try {
+    $st = $db->prepare("SELECT status, rejection_reason, created_at FROM kyc_documents WHERE merchant_id=? AND doc_type='video_kyc' ORDER BY created_at DESC LIMIT 1");
+    $st->execute([(int)$merchant['id']]);
+    $latestVideo = $st->fetch() ?: null;
+    if ($latestVideo && ($latestVideo['status'] ?? '') === 'rejected') {
+        $rejectionReason = trim((string)($latestVideo['rejection_reason'] ?? ''));
+        if ($vkStatus !== 'rejected') {
+            $vkStatus = 'rejected';
+        }
+    }
+} catch (Throwable $e) {
+    $latestVideo = null;
+}
+
 $pageTitle = 'Video KYC';
 require_once __DIR__ . '/header.php';
+$verified = in_array($vkStatus, ['verified', 'approved'], true);
+$rejected = $vkStatus === 'rejected';
 ?>
 <div class="max-w-2xl">
-    <div class="glass rounded-2xl p-6 mb-6 border border-gray-800">
+    <div class="glass rounded-2xl p-6 mb-6 border <?= $verified ? 'border-emerald-500/30' : ($rejected ? 'border-red-500/40' : 'border-violet-500/20') ?>">
         <div class="flex items-center gap-4">
-            <span class="w-14 h-14 rounded-xl bg-violet-500/15 text-violet-400 flex items-center justify-center shrink-0 text-2xl">📹</span>
-            <div class="flex-1">
+            <span class="w-14 h-14 rounded-xl bg-violet-500/15 text-violet-400 flex items-center justify-center shrink-0">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            </span>
+            <div class="flex-1 min-w-0">
+                <p class="text-xs text-violet-400 uppercase tracking-wider mb-1">Identity check</p>
                 <h1 class="text-lg font-bold">Video KYC</h1>
-                <p class="text-xs text-gray-500 mt-0.5">Short selfie video holding your Aadhaar or PAN for faster approval</p>
+                <p class="text-xs text-gray-500 mt-0.5">15–30 second selfie video with your Aadhaar or PAN visible</p>
             </div>
             <?= statusBadge($vkStatus) ?>
         </div>
     </div>
 
-    <?php if (in_array($vkStatus, ['verified', 'approved'], true)): ?>
-    <div class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm px-4 py-3 rounded-xl mb-6">✓ Your Video KYC is verified. No further action needed.</div>
+    <?php if ($verified): ?>
+    <div class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm px-4 py-3 rounded-xl mb-6">Your Video KYC is verified. No further action needed.</div>
     <?php elseif ($vkStatus === 'submitted'): ?>
     <div class="bg-sky-500/10 border border-sky-500/30 text-sky-300 text-sm px-4 py-3 rounded-xl mb-6">Your video is with our compliance team. You can upload a replacement below if needed.</div>
+    <?php elseif ($rejected): ?>
+    <div class="bg-red-500/10 border border-red-500/40 rounded-xl px-4 py-3 mb-6">
+        <p class="text-sm font-semibold text-red-300">Video rejected — please re-record</p>
+        <p class="text-sm text-red-200/90 mt-1">Reason: <?= e($rejectionReason !== '' ? $rejectionReason : 'Please record again with a clearer face and document.') ?></p>
+    </div>
     <?php endif; ?>
 
-    <?php if (!in_array($vkStatus, ['verified', 'approved'], true)): ?>
+    <?php if (!$verified): ?>
 
     <div class="glass rounded-xl p-6 mb-6">
-        <h2 class="font-semibold mb-4">Before you record — say &amp; show these on camera:</h2>
+        <h2 class="font-semibold mb-1">Recording checklist</h2>
+        <p class="text-xs text-gray-500 mb-4">Say and show each item on camera. Automated face-match is handled via a certified partner when enabled — we do not store biometric templates on UniWeb servers.</p>
         <div class="space-y-3">
             <?php foreach ([
                 'Hold your Aadhaar or PAN card clearly next to your face',
@@ -75,7 +101,7 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <div class="glass rounded-xl p-6 mb-6">
-        <h2 class="font-semibold mb-2">Upload Your Video</h2>
+        <h2 class="font-semibold mb-2"><?= $rejected ? 'Re-upload your Video KYC' : 'Upload your video' ?></h2>
         <p class="text-sm text-gray-400 mb-4">Max 50MB · MP4, WebM, or MOV · 15–30 seconds is enough.</p>
         <form id="video-kyc-upload-form" method="POST" enctype="multipart/form-data" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -92,7 +118,7 @@ require_once __DIR__ . '/header.php';
                 <p id="video-upload-status" class="text-xs text-gray-500 text-center mt-2">Preparing secure upload…</p>
             </div>
             <p id="video-upload-error" class="hidden text-sm text-red-500 text-center"></p>
-            <button id="video-upload-button" type="submit" class="w-full btn-primary py-3">Upload Video KYC</button>
+            <button id="video-upload-button" type="submit" class="w-full btn-primary py-3"><?= $rejected ? 'Re-upload Video KYC' : 'Upload Video KYC' ?></button>
         </form>
     </div>
     <?php endif; ?>

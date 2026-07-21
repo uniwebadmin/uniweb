@@ -65,7 +65,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Merchant bank add/update/change | ✅ (`add_bank.php`, `admin_merchant_banks.php`) |
 | Merchant docs → Razorpay/Cashfree page | ✅ (multi-gateway forward, shipped) |
 | Website compliance check (Contact/Policy page) | ✅ live — "Run compliance check" on `merchant_website.php` scans homepage (SSRF-guarded, read-only) for HTTPS + Contact/Privacy/Terms/Refund/About pages, shows pass/fail scorecard (`checkWebsiteCompliance()`) |
-| Premium KYC / Video-KYC design | 🔧 polish |
+| Premium KYC / Video-KYC design | ✅ LIVE — merchant KYC shows per-doc status + rejection reason banner; Video KYC shows reject reason + re-upload; admin stores `rejection_reason` + notifies merchant (`kyc.php`, `video_kyc.php`, `admin_kyc.php`, migration `014`) |
 
 ### PART 3 — Gateways, API & transactions
 | Item | Status |

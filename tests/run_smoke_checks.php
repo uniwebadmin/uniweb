@@ -158,12 +158,18 @@ $assert(str_contains($kyc, 'independent checker') || str_contains($kyc, 'Indepen
 $assert(!str_contains($kyc, 'Click Verify after documents OK — enables Live mode'), 'kyc_no_misleading_verify_live_copy');
 $assert(str_contains($kyc, 'Video KYC queue'), 'kyc_video_queue_section');
 $assert(str_contains($kyc, 'verify_video'), 'kyc_verify_video_action');
+$assert(str_contains($kyc, 'reject_video') && str_contains($kyc, 'rejection_reason'), 'kyc_reject_stores_reason');
+$assert(str_contains($kyc, 'createNotification'), 'kyc_reject_notifies_merchant');
 
 $videoKycPage = (string)file_get_contents($root . '/video_kyc.php');
 $assert(str_contains($videoKycPage, "'verified', 'approved'"), 'video_kyc_accepts_verified_status');
 $assert(!str_contains($videoKycPage, 'Face Mapping'), 'video_kyc_no_face_mapping_copy');
+$assert(str_contains($videoKycPage, 'rejection_reason') || str_contains($videoKycPage, 'Reason:'), 'video_kyc_shows_rejection_reason');
 $kycPage = (string)file_get_contents($root . '/kyc.php');
 $assert(!str_contains($kycPage, 'Face Mapping'), 'kyc_page_no_face_mapping_copy');
+$assert(str_contains($kycPage, 'rejection_reason') && str_contains($kycPage, 'latestByType'), 'kyc_page_per_doc_status_reason');
+$assert(str_contains($kycPage, 'Action needed') || str_contains($kycPage, 're-upload'), 'kyc_page_rejection_banner');
+$assert(is_file($root . '/migrations/014_kyc_rejection_reason.sql'), 'kyc_rejection_migration_present');
 $assert(normalizeKycEntityType('proprietor') === 'sole_proprietorship', 'kyc_normalize_proprietor');
 $assert(normalizeKycEntityType('freelancer') === 'individual', 'kyc_normalize_freelancer');
 $assert(canonicalizeKycDocType('pan_card') === 'pan', 'kyc_canonicalize_pan_card');

@@ -26,6 +26,8 @@ function ensureKycSchema(): void
     schemaExecQuiet("ALTER TABLE merchants ADD COLUMN aadhaar_number VARCHAR(20) DEFAULT NULL");
     schemaExecQuiet("ALTER TABLE merchants ADD COLUMN bank_verified TINYINT(1) DEFAULT 0");
     schemaExecQuiet("ALTER TABLE merchants ADD COLUMN deleted_at DATETIME DEFAULT NULL");
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN rejection_reason VARCHAR(500) DEFAULT NULL");
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN reviewed_at DATETIME DEFAULT NULL");
 }
 
 function ensurePasswordResetsTable(): void
