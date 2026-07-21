@@ -5,9 +5,27 @@ function initAddressPicker(rootId) {
     const root = document.getElementById(rootId);
     if (!root) return;
 
+    const LOCAL_COUNTRIES = ['India', 'United States', 'United Kingdom', 'United Arab Emirates', 'Canada', 'Australia', 'Singapore', 'Germany', 'France', 'Nepal', 'Bangladesh', 'Sri Lanka'];
+
+    const INDIA_STATES = [
+        'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 'Haryana',
+        'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur',
+        'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana',
+        'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+        'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu', 'Delhi',
+        'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
+    ];
+
+    const fetchWithTimeout = (url, options, timeoutMs) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs || 6000);
+        return fetch(url, { ...(options || {}), signal: controller.signal })
+            .finally(() => clearTimeout(timer));
+    };
+
     const country = root.querySelector('[data-addr="country"]');
-    const state = root.querySelector('[data-addr="state"]');
-    const district = root.querySelector('[data-addr="district"]');
+    let state = root.querySelector('[data-addr="state"]');
+    let district = root.querySelector('[data-addr="district"]');
     const city = root.querySelector('[data-addr="city"]');
     const postal = root.querySelector('[data-addr="postal"]');
     const phoneCode = root.querySelector('[data-addr="phone_code"]');
@@ -42,52 +60,102 @@ function initAddressPicker(rootId) {
         sel.disabled = false;
     }
 
+    function convertToTextInput(el, placeholder, value) {
+        if (!el || el.tagName !== 'SELECT') {
+            if (el) el.disabled = false;
+            return el;
+        }
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.name = el.name;
+        input.className = el.className;
+        if (el.required) input.required = true;
+        const addr = el.getAttribute('data-addr');
+        if (addr) input.setAttribute('data-addr', addr);
+        if (el.dataset.value) input.setAttribute('data-value', el.dataset.value);
+        input.placeholder = placeholder || '';
+        input.value = value || el.dataset.value || '';
+        el.replaceWith(input);
+        return input;
+    }
+
+    function ensureValue(el, value) {
+        if (!el || !value) return;
+        if (el.tagName === 'SELECT') {
+            if (![...el.options].some((o) => o.value === value)) {
+                const opt = document.createElement('option');
+                opt.value = value;
+                opt.textContent = value;
+                el.appendChild(opt);
+            }
+            el.value = value;
+        } else {
+            el.value = value;
+        }
+    }
+
     async function postJson(url, body) {
-        const res = await fetch(url, {
+        const res = await fetchWithTimeout(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
-        });
+        }, 6000);
         return res.json();
     }
 
     async function loadCountries() {
         setLoading(country, 'Loading countries...');
         try {
-            const data = await fetch('https://countriesnow.space/api/v0.1/countries').then((r) => r.json());
+            const data = await fetchWithTimeout('https://countriesnow.space/api/v0.1/countries', {}, 6000).then((r) => r.json());
             const list = (data.data || []).map((c) => c.country).sort();
-            fillSelect(country, list, 'Select Country', saved.country);
-            if (saved.country) await loadStates(saved.country, true);
+            if (!list.length) throw new Error('empty');
+            fillSelect(country, list, 'Select Country', saved.country || 'India');
         } catch (e) {
-            fillSelect(country, ['India', 'United States', 'United Kingdom', 'United Arab Emirates', 'Canada', 'Australia', 'Singapore', 'Germany', 'France', 'Nepal', 'Bangladesh', 'Sri Lanka'], 'Select Country', saved.country || 'India');
+            fillSelect(country, LOCAL_COUNTRIES, 'Select Country', saved.country || 'India');
         }
+        if (country.value) await loadStates(country.value, true);
     }
 
     async function loadStates(countryName, restore) {
+        if (state.tagName !== 'SELECT') {
+            if (restore) ensureValue(state, saved.state);
+            return;
+        }
         setLoading(state, 'Loading states...');
-        if (district) setLoading(district, 'Select state first');
+        if (district && district.tagName === 'SELECT') setLoading(district, 'Select state first');
         try {
             const data = await postJson('https://countriesnow.space/api/v0.1/countries/states', { country: countryName });
             const list = (data.data?.states || []).map((s) => s.name).sort();
+            if (!list.length) throw new Error('empty');
             fillSelect(state, list, 'Select State / Province', restore ? saved.state : '');
             if (restore && saved.state) await loadDistricts(countryName, saved.state, true);
         } catch (e) {
-            fillSelect(state, [], 'Enter manually below', '');
-            state.disabled = false;
+            if (countryName === 'India') {
+                fillSelect(state, INDIA_STATES, 'Select State / Province', restore ? saved.state : '');
+                if (restore && saved.state) await loadDistricts(countryName, saved.state, true);
+            } else {
+                state = convertToTextInput(state, 'Type your state / province', restore ? saved.state : '');
+                district = convertToTextInput(district, 'Type your district / area', restore ? saved.district : '');
+            }
         }
     }
 
     async function loadDistricts(countryName, stateName, restore) {
         if (!district) return;
+        if (district.tagName !== 'SELECT') {
+            if (restore) ensureValue(district, saved.district);
+            return;
+        }
         setLoading(district, 'Loading districts...');
         try {
             const data = await postJson('https://countriesnow.space/api/v0.1/countries/state/cities', { country: countryName, state: stateName });
             const list = (data.data || []).sort();
+            if (!list.length) throw new Error('empty');
             fillSelect(district, list.slice(0, 500), 'Select District / Area', restore ? saved.district : '');
             if (restore && saved.city && city) city.value = saved.city;
         } catch (e) {
-            district.innerHTML = '<option value="">Type in city field</option>';
-            district.disabled = false;
+            district = convertToTextInput(district, 'Type your district / area', restore ? saved.district : '');
+            if (restore && saved.city && city) city.value = saved.city;
         }
     }
 
@@ -127,34 +195,16 @@ function initAddressPicker(rootId) {
         const postcode = addr.postcode || '';
 
         if (countryName) {
-            if (![...country.options].some((o) => o.value === countryName)) {
-                const opt = document.createElement('option');
-                opt.value = countryName;
-                opt.textContent = countryName;
-                country.appendChild(opt);
-            }
-            country.value = countryName;
+            ensureValue(country, countryName);
             country.dispatchEvent(new Event('change'));
         }
         if (stateName) {
             await loadStates(countryName, false);
-            if (![...state.options].some((o) => o.value === stateName)) {
-                const opt = document.createElement('option');
-                opt.value = stateName;
-                opt.textContent = stateName;
-                state.appendChild(opt);
-            }
-            state.value = stateName;
+            ensureValue(state, stateName);
         }
         if (districtName && district) {
             await loadDistricts(countryName, stateName, false);
-            if (![...district.options].some((o) => o.value === districtName)) {
-                const opt = document.createElement('option');
-                opt.value = districtName;
-                opt.textContent = districtName;
-                district.appendChild(opt);
-            }
-            district.value = districtName;
+            ensureValue(district, districtName);
         }
         if (cityName && city) city.value = cityName;
         if (postcode && postal) postal.value = postcode;
