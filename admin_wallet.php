@@ -31,26 +31,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             flash('error', 'Add platform bank account below first, then Save.');
         } else {
             $settlementId = generateId('PWL');
-            if (debitPlatformWallet($amount, 'settlement', null, $settlementId, 'Platform wallet → bank transfer')) {
-                $db->prepare('INSERT INTO platform_settlements (settlement_id, amount, status, bank_name, account_number, ifsc_code, account_holder) VALUES (?,?,?,?,?,?,?)')
-                    ->execute([
-                        $settlementId, $amount, 'pending',
-                        getSetting('platform_bank_name', ''),
-                        getSetting('platform_account_number', ''),
-                        getSetting('platform_ifsc', ''),
-                        getSetting('platform_account_holder', COMPANY_LEGAL_NAME),
-                    ]);
-                flash('success', 'Withdrawal ' . $settlementId . ' submitted (' . walletMoney($amount, true) . '). Click Complete after bank transfer.');
-            } else {
-                flash('error', 'Withdrawal failed. Click Sync Wallets to repair balance, then try again.');
-            }
+            // Reservation model: reserve the amount as a pending payout instead of
+            // debiting now. available = balance − pending, so the wallet is debited
+            // once (at completion with a UTR), never double-counted.
+            $db->prepare('INSERT INTO platform_settlements (settlement_id, amount, status, bank_name, account_number, ifsc_code, account_holder) VALUES (?,?,?,?,?,?,?)')
+                ->execute([
+                    $settlementId, $amount, 'pending',
+                    getSetting('platform_bank_name', ''),
+                    getSetting('platform_account_number', ''),
+                    getSetting('platform_ifsc', ''),
+                    getSetting('platform_account_holder', COMPANY_LEGAL_NAME),
+                ]);
+            flash('success', 'Withdrawal ' . $settlementId . ' reserved (' . walletMoney($amount, true) . '). Enter the bank UTR under Bank Payouts to complete it after the transfer.');
+        }
+        redirect('admin_wallet.php');
+    }
+    if ($action === 'complete_payout') {
+        $sid = trim($_POST['settlement_id'] ?? '');
+        $utr = trim($_POST['utr'] ?? '');
+        if ($sid === '' || $utr === '') {
+            flash('error', 'Bank UTR / reference is required to complete a payout.');
+            redirect('admin_wallet.php');
+        }
+        $row = $db->prepare("SELECT * FROM platform_settlements WHERE settlement_id=? AND status IN ('pending','processing')");
+        $row->execute([$sid]);
+        $ps = $row->fetch();
+        if (!$ps) {
+            flash('error', 'Payout not found or already settled.');
+            redirect('admin_wallet.php');
+        }
+        $amt = (float)$ps['amount'];
+        if (debitPlatformWallet($amt, 'settlement', null, $sid, 'Platform wallet -> bank transfer (UTR ' . $utr . ')')) {
+            $db->prepare("UPDATE platform_settlements SET status='completed', utr=?, processed_at=NOW() WHERE settlement_id=?")
+                ->execute([$utr, $sid]);
+            flash('success', 'Payout ' . $sid . ' completed and wallet debited (UTR ' . $utr . ').');
+        } else {
+            flash('error', 'Debit failed — balance may be out of sync. Click Sync Wallets, then retry.');
         }
         redirect('admin_wallet.php');
     }
 }
 
 if (isset($_GET['action'], $_GET['id']) && verifyCsrf($_GET['token'] ?? '')) {
-    flash('error', 'Manual payout completion is disabled. A verified bank reference is required.');
+    flash('error', 'Manual payout completion is disabled. Enter the bank UTR under Bank Payouts to complete a payout.');
     redirect('admin_wallet.php');
 }
 
@@ -178,7 +201,19 @@ require_once __DIR__ . '/header.php';
                     <td class="px-4 py-2 font-mono text-xs"><?= e($p['settlement_id']) ?></td>
                     <td class="px-4 py-2 font-semibold text-emerald-400"><?= walletMoney((float)$p['amount'], true) ?></td>
                     <td class="px-4 py-2"><?= statusBadge($p['status']) ?></td>
-                    <td class="px-4 py-2 text-xs text-gray-500"><?= $p['status'] === 'pending' ? 'Awaiting verified bank transfer' : '—' ?></td>
+                    <td class="px-4 py-2 text-xs text-gray-500">
+                        <?php if (in_array($p['status'], ['pending', 'processing'], true)): ?>
+                        <form method="POST" class="flex items-center gap-2">
+                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                            <input type="hidden" name="action" value="complete_payout">
+                            <input type="hidden" name="settlement_id" value="<?= e($p['settlement_id']) ?>">
+                            <input type="text" name="utr" placeholder="Bank UTR" required class="input-field !py-1 !text-xs w-28">
+                            <button type="submit" class="border border-gray-700 rounded-lg hover:bg-white/5 px-3 py-1 text-xs">Complete</button>
+                        </form>
+                        <?php else: ?>
+                        <?= !empty($p['utr']) ? ('UTR ' . e($p['utr'])) : '—' ?>
+                        <?php endif; ?>
+                    </td>
                 </tr>
                 <?php endforeach; endif; ?>
             </tbody>
