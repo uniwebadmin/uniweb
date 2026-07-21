@@ -77,7 +77,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | MDR settings (partner-wise) | ✅ (`update_mdr.php`) |
 | Hide platform fee from customer | ✅ payer sees only "Amount Payable" (`checkout.php`); split breakdown removed |
 | Txn/settlement status + exact reason | ✅ live — transaction detail shows a tone-coded plain-language reason banner (`transactionStatusExplainer()`); settlements show reason via `settlementReasonText()` on list + `settlement_detail.php` |
-| Delayed split settlement (1–2 hr batch) | ✅/⚙️ (`includes/settlement_engine.php`, batches) |
+| Delayed split settlement (1–2 hr batch) | ✅ engine live (`includes/settlement_engine.php`, batches); ⚙️ bank rail confirms when partner keys are live |
 | Unmatched webhook section | ✅ `admin_reconciliation.php` ("Unmatched Webhooks" + "Gateway Txns Without Webhook Log"), linked in admin nav as "PG Reconciliation" |
 | Shopify/WordPress/e-Rupee | 🔜 (WooCommerce plugin exists) |
 
