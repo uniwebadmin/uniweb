@@ -77,7 +77,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Hide platform fee from customer | 🔧 verify (`checkout.php`) |
 | Txn/settlement status + exact reason | 🔧 improve copy |
 | Delayed split settlement (1–2 hr batch) | ✅/⚙️ (`includes/settlement_engine.php`, batches) |
-| Unmatched webhook section | 🔧 |
+| Unmatched webhook section | ✅ `admin_reconciliation.php` ("Unmatched Webhooks" + "Gateway Txns Without Webhook Log"), linked in admin nav as "PG Reconciliation" |
 | Shopify/WordPress/e-Rupee | 🔜 (WooCommerce plugin exists) |
 
 ### PART 4 — Portals, UI/UX, QR & customer features
