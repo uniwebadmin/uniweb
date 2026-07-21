@@ -102,14 +102,14 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 ### PART 5 — Payout system (new module)
 | Item | Status |
 |---|---|
-| Payout enable request | ❌ new |
-| IMPS/NEFT/RTGS/UPI payout | ❌ ⚙️ needs licensed payout partner |
-| Beneficiary mgmt + penny drop | ❌ new |
-| Bulk payout (CSV) | ❌ new |
-| Separate collection vs payout wallet | ❌ new (wallet exists; split needed) |
-| Failed payout reason + auto-reversal | ❌ show reason ✅ plan; auto-reversal ⛔ OWNER-CONFIRMED: no auto-credit — reversal only after reconciliation gate |
-| Maker-checker high-value payout | ❌ new (RBAC exists to build on) |
-| Payout API keys | ❌ new |
+| Payout enable request | ✅ scaffold — merchant request → admin approve (`merchant_payout.php`, `admin_payout.php`); live money still gated |
+| IMPS/NEFT/RTGS/UPI payout | ⚙️ needs licensed payout partner keys (`payoutLiveMoneyAllowed()` hard gate) |
+| Beneficiary mgmt + penny drop | ✅ UI + list (`payout_beneficiaries`); penny-drop stays pending until bank keys |
+| Bulk payout (CSV) | 🔜 later |
+| Separate collection vs payout wallet | ✅ display-only split on payout page (`getMerchantWalletSplitView`) |
+| Failed payout reason + auto-reversal | ✅ failed drafts show `failure_reason`; auto-reversal ⛔ OWNER-CONFIRMED: no auto-credit |
+| Maker-checker high-value payout | ✅ placeholder (≥ ₹50k → `pending_checker`); no live dispatch without keys |
+| Payout API keys | ⚙️ keys pending — paste in gateway settings when partner signs |
 
 ### PART 6 — Legal, security & marketing
 | Item | Status |
