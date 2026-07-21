@@ -12,7 +12,7 @@ _Evaluation of the full owner checklist against the actual codebase + live statu
 Core of all existing portals is live: Public site, Merchant portal, Admin panel, Staff/Ops. Plus recently shipped: **one-click multi-gateway forward + status matrix + compliance audit trail + KYC document versioning**, MDR settings (`update_mdr.php`), 2FA/step-up, security headers, IST timezone, invoice PDF, branded errors, high-throughput QR, custom address auto-fill with "use my location", bank-verify scaffold, settlement batches/engine.
 
 ### 2. What's left (real work)
-Payout module (new), Customer portal (new, clarified spec below), QR-with-logo + per-QR history, real gateway API keys/adapters, Aadhaar face-match (via partner), payment-method request, API/email notifications, staff-log migration, owner-confirmed DB cleanup. _(All PART-1 bugs are now fixed + live. Full Hindi UI dropped by owner.)_
+Payout module (new), QR-with-logo + per-QR history, real gateway API keys/adapters, Aadhaar face-match (via partner), payment-method request, API/email notifications, staff-log migration, owner-confirmed DB cleanup. _(All PART-1 bugs are now fixed + live. Full Hindi UI dropped by owner.)_
 
 ### 3. What we should NOT take / must reconsider ⛔
 - **Auto-deleting production merchants/payments** ("keep only AK Digital Media") — destructive; must be a backup + reversible archive, owner-confirmed. Not run automatically.
@@ -84,7 +84,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 ### PART 4 — Portals, UI/UX, QR & customer features
 | Item | Status |
 |---|---|
-| 4 portals responsive | ✅ (public/merchant/admin/staff); Customer portal ❌ |
+| 4 portals responsive | ✅ (public/merchant/admin/staff); Customer portal ✅ LIVE (`customer_login.php`/`customer_portal.php`) |
 | Full Hindi website | ⛔ DROPPED (owner decision) — UI stays English-only |
 | Google location autocomplete + autofill | ✅ free OpenStreetMap Nominatim (search + device location); paid Google Places intentionally NOT used |
 | Pincode → address autofill | ✅ free India PIN lookup (`api.postalpincode.in`) — type 6-digit PIN → State/District/City autofill (`address-picker.js`) |
@@ -92,12 +92,11 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Customer profile self-update (auto-approve) | ❌ ⛔ fraud risk — OTP-verify, no auto-approve |
 | Invoice PDF (GST/name/addr/mobile/email/no.) | ✅ verify fields (`invoice_pdf.php`) |
 
-> **Customer Portal — clarified owner spec (build later, step by step):** a lightweight **payer-facing** portal, NOT a full account.
-> - **Login:** mobile number + **WhatsApp OTP** (passwordless). No email/password signup.
-> - **View:** the payer's own **transaction history** (payments made across UniWeb merchants for that mobile number).
-> - **Support:** from any transaction, **raise a grievance / support ticket** (dispute/complaint) and track its status.
-> - **Guardrails:** do NOT auto-approve mobile/email changes (account-takeover risk) — OTP-verify any contact change; transactions are read-only, only ticket creation writes.
-> - Priority: after PART-1 bugs + gateway + payout groundwork. Keep in roadmap.
+> **Customer Portal — ✅ BUILT + LIVE (2026-07-21):** lightweight **payer-facing** portal, NOT a full account.
+> - **Login:** mobile + **WhatsApp/SMS OTP** (passwordless, hashed OTP, 10-min expiry, rate-limited). Demo-mode shows OTP on screen when no channel configured. (`customer_login.php`)
+> - **View:** payer's own **transaction history** matched by mobile, read-only, with plain-language status reason. (`customer_portal.php`)
+> - **Support:** raise + track a **grievance/ticket** from any transaction; admin replies via **admin_customer_tickets.php** ("Customer Complaints" in admin nav). (`customer_ticket.php`)
+> - **Guardrails honoured:** no auto-approve contact self-update; transactions read-only; isolated session + tables (migration `010_customer_portal.sql`).
 | Payment method request (merchant→admin) | 🔜 |
 
 ### PART 5 — Payout system (new module)
