@@ -61,7 +61,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Video KYC | ✅ (page); ⚙️ automated match needs Digio |
 | Aadhaar face mapping (live selfie) | 🔜 ⚙️ via partner (do not build in-house) |
 | Bank verification (penny drop + name fetch) | ⚙️ scaffold (`includes/verification.php`, `add_bank.php`) — needs live bank/Decentro keys |
-| IFSC → branch auto-fetch | 🔧 verify/complete |
+| IFSC → branch auto-fetch | ✅ live — type valid IFSC on Add Bank → Bank Name auto-fills + branch/city/state shown (free `ifsc.razorpay.com` directory, no key; `lookupIfsc()` + auth-gated `ifsc_lookup.php` proxy) |
 | Merchant bank add/update/change | ✅ (`add_bank.php`, `admin_merchant_banks.php`) |
 | Merchant docs → Razorpay/Cashfree page | ✅ (multi-gateway forward, shipped) |
 | Website compliance check (Contact/Policy page) | 🔧 partial (`includes/merchant_website.php`) |
