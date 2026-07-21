@@ -12,9 +12,9 @@
     $isPanel = !empty($isMerchant) || !empty($isAdmin);
     $footerMargin = $isPanel ? 'lg:ml-64' : '';
 ?>
-<footer class="<?= $footerMargin ?> border-t border-gray-800/70 bg-dark-950 mt-auto">
+<footer class="<?= $footerMargin ?> w-full max-w-full border-t border-gray-800/70 bg-dark-950 mt-auto">
     <?php if ($isPanel): ?>
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
+    <div class="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
         <span>&copy; <?= date('Y') ?> <?= COMPANY_LEGAL_NAME ?></span>
         <nav class="flex flex-wrap justify-center gap-x-4 gap-y-1">
             <?php if (!empty($isAdmin)): ?>
@@ -34,7 +34,7 @@
         <span class="font-mono"><?= !empty($isAdmin) ? '30' : '60' ?> min idle · IST · v<?= APP_VERSION ?></span>
     </div>
     <?php else: ?>
-    <div class="site-footer-wrap max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="site-footer-wrap w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div class="site-footer-grid">
             <div class="site-footer-card">
                 <?php $logoHref = 'index.php'; $logoSize = 'sm'; require __DIR__ . '/includes/brand_logo.php'; ?>

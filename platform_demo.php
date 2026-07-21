@@ -20,11 +20,13 @@ require_once __DIR__ . '/header.php';
 .tour-progress-bar{height:100%;background:linear-gradient(90deg,#0ea5e9,#10b981);transition:width .3s}
 .tour-thumb{opacity:.55;transition:.2s;cursor:pointer;border:2px solid transparent}
 .tour-thumb.active,.tour-thumb:hover{opacity:1;border-color:#38bdf8}
+.tour-thumbs{display:flex;gap:.5rem;width:100%;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;padding-bottom:.5rem}
+.tour-thumbs::-webkit-scrollbar{height:4px}
 @keyframes pulse-ring{0%,100%{box-shadow:0 0 0 0 rgba(14,165,233,.4)}50%{box-shadow:0 0 0 8px rgba(14,165,233,0)}}
 .tour-playing .play-btn{animation:pulse-ring 1.5s infinite}
 </style>
 
-<section class="pt-24 pb-16 px-4 max-w-5xl mx-auto" id="tour-app">
+<section class="pt-24 pb-16 px-4 w-full max-w-5xl mx-auto min-w-0" id="tour-app">
     <div class="text-center mb-6">
         <p class="text-sky-400 text-xs font-bold uppercase tracking-widest mb-2">Guided Video Tour · English voice narration</p>
         <h1 class="text-2xl sm:text-4xl font-extrabold">UniWeb Platform Demo</h1>
@@ -75,7 +77,7 @@ require_once __DIR__ . '/header.php';
         <button type="button" id="btn-mute" class="glass px-3 py-2.5 rounded-xl text-xs text-gray-400" title="Mute voice">🔊</button>
     </div>
 
-    <div class="flex gap-2 overflow-x-auto pb-2 justify-center">
+    <div class="tour-thumbs">
         <?php foreach ($slides as $i => $s): ?>
         <button type="button" class="tour-thumb rounded-lg overflow-hidden w-20 sm:w-24 shrink-0 <?= $i === $startSlide ? 'active' : '' ?>" data-goto="<?= $i ?>">
             <span class="w-full aspect-video flex items-center justify-center bg-dark-900 text-[10px] text-gray-400 px-2"><?= e($s['title']) ?></span>

@@ -47,7 +47,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     <meta name="theme-color" content="#059669">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/uniweb.min.css?v=20260713a">
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/theme-light.css?v=5">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/theme-light.css?v=6">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/public-pages.css?v=20260719">
     <script>
     (function(){
@@ -83,13 +83,15 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     /* Responsive fix: any rounded card that clips overflow but contains a wide table should
        scroll horizontally on small screens instead of squishing/cutting off columns. */
     .overflow-hidden:has(table){overflow-x:auto}
+    .portal-shell{min-width:0;width:100%;max-width:100%}
+    .portal-main{overflow-x:clip}
     @media (max-width:640px){
         table{font-size:.8125rem}
         .stat-card{padding:1rem!important}
     }
     </style>
 </head>
-<body class="bg-dark-950 text-gray-100 min-h-screen flex flex-col <?= e($bodyClass) ?> <?= $isPublic ? 'public-site' : '' ?>">
+<body class="bg-dark-950 text-gray-100 min-h-screen flex flex-col w-full max-w-full <?= e($bodyClass) ?> <?= $isPublic ? 'public-site' : '' ?>">
 
 <?php if ($flash): ?>
 <div id="flash-msg" class="fixed top-4 right-4 z-50 max-w-sm animate-in">
@@ -143,7 +145,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
 
 <?php if ($isMerchant): $merchant = getMerchant(); ?>
 <div id="sidebar-overlay" class="overlay fixed inset-0 bg-black/60 z-40 lg:hidden"></div>
-<div class="flex flex-1 min-h-screen">
+<div class="portal-shell flex flex-1 min-h-screen">
     <aside id="sidebar-panel" class="sidebar-shell w-64 bg-dark-900 border-r border-gray-800 fixed inset-y-0 left-0 z-50 lg:z-30 mobile-drawer lg:translate-x-0 lg:!transform-none">
         <div class="p-5 border-b border-gray-800 shrink-0">
             <?php $logoHref = 'dashboard.php'; $logoSize = 'sm'; $merchantPanel = true; $merchantInitial = strtoupper(substr($merchant['business_name'] ?? $merchant['name'] ?? 'M', 0, 1)); require __DIR__ . '/includes/brand_logo.php'; ?>
@@ -235,7 +237,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
 
 <?php if ($isSuperAdminPanel): ?>
 <div id="admin-overlay" class="overlay fixed inset-0 bg-black/60 z-40 lg:hidden"></div>
-<div class="flex flex-1 min-h-screen">
+<div class="portal-shell flex flex-1 min-h-screen">
     <aside id="admin-sidebar" class="sidebar-shell w-64 bg-dark-900 border-r border-gray-800 fixed inset-y-0 left-0 z-50 lg:z-30 mobile-drawer lg:translate-x-0 lg:!transform-none">
         <div class="p-5 border-b border-gray-800 shrink-0">
             <span class="font-bold text-red-400 text-lg">Admin Panel</span>
@@ -290,7 +292,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
 
 <?php if ($isStaffPortal): $staffAdmin = getAdmin(); ?>
 <div id="admin-overlay" class="overlay fixed inset-0 bg-black/60 z-40 lg:hidden"></div>
-<div class="flex flex-1 min-h-screen">
+<div class="portal-shell flex flex-1 min-h-screen">
     <aside id="admin-sidebar" class="sidebar-shell w-64 bg-dark-900 border-r border-gray-800 fixed inset-y-0 left-0 z-50 lg:z-30 mobile-drawer lg:translate-x-0 lg:!transform-none">
         <div class="p-5 border-b border-gray-800 shrink-0">
             <span class="font-bold text-sky-400 text-lg">Operations Portal</span>

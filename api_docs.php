@@ -3,7 +3,7 @@ require_once __DIR__ . '/config.php';
 $pageTitle = 'API Documentation';
 require_once __DIR__ . '/header.php';
 ?>
-<div class="pt-24 pb-16 max-w-4xl mx-auto px-4">
+<div class="pt-24 pb-16 w-full max-w-4xl mx-auto px-4 min-w-0">
     <h1 class="text-3xl font-bold mb-2">API Documentation</h1>
     <p class="text-gray-400 mb-4">UniWeb REST API for developers — payment links, transactions, refunds, webhooks.</p>
     <a href="<?= APP_URL ?>/openapi.json" class="inline-flex items-center gap-2 text-sm text-sky-400 hover:underline mb-4" target="_blank">OpenAPI 3.0 Specification (openapi.json) →</a>

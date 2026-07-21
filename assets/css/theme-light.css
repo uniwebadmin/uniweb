@@ -407,8 +407,42 @@ html[data-theme="light"] .checkout-footer-legal a {
   color: #334155;
 }
 
+/*
+ * Mobile layout guard: body is flex-col, and flex items default to
+ * min-width:auto. Wide tables / code / tour thumbs then expand the page
+ * wider than the viewport — zoom-out makes the footer look stuck on one side.
+ */
+html {
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+body {
+  overflow-x: hidden;
+  overflow-x: clip;
+  width: 100%;
+  max-width: 100%;
+}
+body.flex > *:not(script):not(style) {
+  min-width: 0;
+  max-width: 100%;
+}
+footer {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+pre, table {
+  max-width: 100%;
+}
+pre {
+  overflow-x: auto;
+}
+
 /* Consistent public spacing: compact without changing portal cards/forms. */
 .site-footer-wrap {
+  width: 100%;
+  max-width: 80rem;
+  box-sizing: border-box;
   padding-top: 1.5rem !important;
   padding-bottom: 1.5rem !important;
 }
