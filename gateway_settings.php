@@ -273,6 +273,14 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['decentro_consumer_urn','Decentro Master Consumer URN','text'],
             ['decentro_base_url','Decentro Base URL','text'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
+        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">Video KYC face-match partner (Digio)</h3>
+        <p class="text-xs text-gray-500 mb-2">Owner-confirmed: UniWeb does <strong>not</strong> store Aadhaar/face biometrics. Paste Digio (or equivalent certified partner) keys when contracted. Until then Video KYC is manual review only.</p>
+        <?php foreach ([
+            ['digio_client_id','Digio Client ID','text'],
+            ['digio_client_secret','Digio Client Secret','password'],
+            ['digio_environment','Digio Env (sandbox/production)','text'],
+            ['digio_face_match_enabled','Enable Digio face-match (0/1)','number'],
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">SEO — Google Search Console</h3>
         <p class="text-xs text-gray-500 mb-2">Paste the HTML-tag verification token from Google Search Console (the <code class="text-gray-400">content</code> value only). It is rendered as <code class="text-gray-400">&lt;meta name="google-site-verification"&gt;</code> on every page via <code class="text-gray-400">header.php</code>. Setting key: <code class="text-gray-400">google_site_verification</code>.</p>
         <?php foreach ([

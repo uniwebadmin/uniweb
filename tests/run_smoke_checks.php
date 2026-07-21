@@ -215,6 +215,8 @@ $assert(str_contains($payoutLib, 'failure_reason') && str_contains($payoutLib, '
 $assert(is_file($root . '/merchant_payout.php') && is_file($root . '/admin_payout.php'), 'payout_pages_present');
 $mp = (string)file_get_contents($root . '/merchant_payout.php');
 $assert(str_contains($mp, 'payoutLiveMoneyAllowed') && str_contains($mp, 'keys pending'), 'merchant_payout_gated_copy');
+$assert(str_contains($mp, 'bulk_csv') && str_contains($payoutLib, 'function processPayoutBulkCsv'), 'payout_bulk_csv_scaffold');
+$assert(str_contains($payoutLib, 'function parsePayoutBulkCsv') && str_contains($payoutLib, 'function payoutBulkCsvHeader'), 'payout_bulk_csv_helpers');
 $assert(str_contains($header, 'admin_payout.php') && str_contains($header, 'merchant_payout.php'), 'nav_has_payout_pages');
 $assert(in_array('merchant_payout.php', $registryFiles, true) && in_array('admin_payout.php', $registryFiles, true), 'watchdog_registry_covers_payout');
 $assert(is_file($root . '/migrations/015_payout_scaffold.sql'), 'payout_migration_present');
@@ -224,6 +226,7 @@ $headerSeo = (string)file_get_contents($root . '/header.php');
 $assert(str_contains($headerSeo, 'google-site-verification') && str_contains($headerSeo, "getSetting('google_site_verification'"), 'search_console_meta_from_setting');
 $gwSeo = (string)file_get_contents($root . '/gateway_settings.php');
 $assert(str_contains($gwSeo, 'google_site_verification') && str_contains($gwSeo, 'Search Console'), 'gateway_settings_search_console_field');
+$assert(str_contains($gwSeo, 'digio_client_id') && str_contains($gwSeo, 'does <strong>not</strong> store'), 'gateway_settings_digio_partner_fields');
 $notifyLib = (string)file_get_contents($root . '/includes/notify.php');
 $assert(str_contains($notifyLib, 'function onMerchantNotificationCreated') && str_contains($notifyLib, 'function maybeSendWhatsAppMerchantAlert'), 'whatsapp_alert_hook_helpers');
 $cfgDev = (string)file_get_contents($root . '/config.dev.php');

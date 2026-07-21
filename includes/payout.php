@@ -423,3 +423,149 @@ function payoutStatusLabel(string $status): string
         default => ucfirst($status),
     };
 }
+
+/** CSV template header for bulk payout uploads. */
+function payoutBulkCsvHeader(): string
+{
+    return "label,account_holder,account_number,ifsc_code,amount,purpose,bank_name,account_type\n";
+}
+
+/**
+ * Parse a bulk payout CSV. Returns rows + row-level errors. Does not move money.
+ * Expected columns: label, account_holder, account_number, ifsc_code, amount [, purpose, bank_name, account_type]
+ */
+function parsePayoutBulkCsv(string $csvText): array
+{
+    $csvText = trim(str_replace("\r\n", "\n", $csvText));
+    if ($csvText === '') {
+        return ['ok' => false, 'error' => 'CSV is empty.', 'rows' => [], 'errors' => []];
+    }
+    $lines = preg_split('/\n+/', $csvText) ?: [];
+    if (count($lines) < 2) {
+        return ['ok' => false, 'error' => 'CSV needs a header row and at least one data row.', 'rows' => [], 'errors' => []];
+    }
+    $header = str_getcsv(array_shift($lines));
+    $header = array_map(static fn($h) => strtolower(trim((string)$h)), $header);
+    $required = ['label', 'account_holder', 'account_number', 'ifsc_code', 'amount'];
+    foreach ($required as $col) {
+        if (!in_array($col, $header, true)) {
+            return ['ok' => false, 'error' => 'Missing column: ' . $col, 'rows' => [], 'errors' => []];
+        }
+    }
+    $rows = [];
+    $errors = [];
+    $lineNo = 1;
+    foreach ($lines as $line) {
+        $lineNo++;
+        if (trim($line) === '') {
+            continue;
+        }
+        $cols = str_getcsv($line);
+        $assoc = [];
+        foreach ($header as $i => $key) {
+            $assoc[$key] = trim((string)($cols[$i] ?? ''));
+        }
+        $amount = (float)preg_replace('/[^\d.]/', '', $assoc['amount'] ?? '0');
+        $ifsc = strtoupper($assoc['ifsc_code'] ?? '');
+        $account = preg_replace('/\D/', '', $assoc['account_number'] ?? '');
+        $rowErr = [];
+        if (($assoc['label'] ?? '') === '' || ($assoc['account_holder'] ?? '') === '') {
+            $rowErr[] = 'label and account_holder required';
+        }
+        if (strlen($account) < 6) {
+            $rowErr[] = 'invalid account_number';
+        }
+        if (!preg_match('/^[A-Z]{4}0[A-Z0-9]{6}$/', $ifsc)) {
+            $rowErr[] = 'invalid IFSC';
+        }
+        if ($amount < 1 || $amount > 1000000) {
+            $rowErr[] = 'amount must be 1–1000000';
+        }
+        $row = [
+            'label' => $assoc['label'] ?? '',
+            'account_holder' => $assoc['account_holder'] ?? '',
+            'account_number' => $account,
+            'ifsc_code' => $ifsc,
+            'amount' => $amount,
+            'purpose' => $assoc['purpose'] ?? 'Bulk payout',
+            'bank_name' => $assoc['bank_name'] ?? '',
+            'account_type' => strtolower($assoc['account_type'] ?? 'savings') ?: 'savings',
+            'line' => $lineNo,
+        ];
+        if ($rowErr) {
+            $errors[] = ['line' => $lineNo, 'error' => implode('; ', $rowErr)];
+        } else {
+            $rows[] = $row;
+        }
+        if (count($rows) + count($errors) >= 200) {
+            break; // hard cap per upload
+        }
+    }
+    if (empty($rows) && empty($errors)) {
+        return ['ok' => false, 'error' => 'No data rows found.', 'rows' => [], 'errors' => []];
+    }
+    return ['ok' => true, 'rows' => $rows, 'errors' => $errors, 'error' => null];
+}
+
+/**
+ * Process bulk CSV: ensure beneficiaries exist, create gated payout drafts.
+ * Never moves money when partner keys are absent.
+ */
+function processPayoutBulkCsv(int $merchantId, string $csvText, string $makerBy): array
+{
+    $parsed = parsePayoutBulkCsv($csvText);
+    if (empty($parsed['ok'])) {
+        return ['ok' => false, 'error' => $parsed['error'] ?? 'Invalid CSV.', 'created' => 0, 'failed' => 0, 'row_errors' => $parsed['errors'] ?? []];
+    }
+    $created = 0;
+    $failed = 0;
+    $rowErrors = $parsed['errors'];
+    $active = listPayoutBeneficiaries($merchantId, true);
+
+    foreach ($parsed['rows'] as $row) {
+        // Find or create beneficiary by account+ifsc
+        $benId = null;
+        foreach ($active as $b) {
+            if ((string)$b['account_number'] === $row['account_number'] && strtoupper((string)$b['ifsc_code']) === $row['ifsc_code']) {
+                $benId = (int)$b['id'];
+                break;
+            }
+        }
+        if ($benId === null) {
+            $add = addPayoutBeneficiary($merchantId, $row);
+            if (empty($add['ok'])) {
+                $failed++;
+                $rowErrors[] = ['line' => $row['line'], 'error' => $add['error'] ?? 'Could not save beneficiary'];
+                continue;
+            }
+            $active = listPayoutBeneficiaries($merchantId, true);
+            foreach ($active as $b) {
+                if ((string)$b['account_number'] === $row['account_number'] && strtoupper((string)$b['ifsc_code']) === $row['ifsc_code']) {
+                    $benId = (int)$b['id'];
+                    break;
+                }
+            }
+        }
+        if (!$benId) {
+            $failed++;
+            $rowErrors[] = ['line' => $row['line'], 'error' => 'Beneficiary missing after save'];
+            continue;
+        }
+        $res = createPayoutDraft($merchantId, $benId, (float)$row['amount'], (string)$row['purpose'], $makerBy);
+        if (!empty($res['ok'])) {
+            $created++;
+        } else {
+            $failed++;
+            $rowErrors[] = ['line' => $row['line'], 'error' => $res['error'] ?? 'Draft failed'];
+        }
+    }
+
+    $msg = "Bulk upload processed: {$created} draft(s) recorded";
+    if ($failed > 0) {
+        $msg .= ", {$failed} row(s) failed validation";
+    }
+    if (!payoutLiveMoneyAllowed()) {
+        $msg .= '. Live money movement is gated — drafts show failure reason, no funds moved.';
+    }
+    return ['ok' => true, 'message' => $msg, 'created' => $created, 'failed' => $failed, 'row_errors' => $rowErrors];
+}

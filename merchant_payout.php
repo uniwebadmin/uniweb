@@ -46,8 +46,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             );
             flash($res['ok'] ? (empty($res['blocked']) ? 'success' : 'error') : 'error', $res['ok'] ? $res['message'] : $res['error']);
         }
+    } elseif ($action === 'bulk_csv') {
+        if (!merchantPayoutEnabled($merchant)) {
+            flash('error', 'Payout access is not enabled yet.');
+        } else {
+            $csv = '';
+            if (!empty($_FILES['bulk_csv']['tmp_name']) && is_uploaded_file($_FILES['bulk_csv']['tmp_name'])) {
+                $csv = (string)file_get_contents($_FILES['bulk_csv']['tmp_name']);
+            } else {
+                $csv = (string)($_POST['bulk_csv_text'] ?? '');
+            }
+            $maker = (string)($merchant['name'] ?? $merchant['email'] ?? 'merchant');
+            $res = processPayoutBulkCsv($merchantId, $csv, $maker);
+            flash($res['ok'] ? 'success' : 'error', $res['ok'] ? $res['message'] : ($res['error'] ?? 'Bulk upload failed'));
+            if (!empty($res['row_errors'])) {
+                $_SESSION['payout_bulk_errors'] = array_slice($res['row_errors'], 0, 20);
+            }
+        }
     }
     redirect('merchant_payout.php');
+}
+
+if (isset($_GET['download_csv_template'])) {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="uniweb-payout-bulk-template.csv"');
+    echo payoutBulkCsvHeader();
+    echo "Vendor A,Acme Pvt Ltd,123456789012,HDFC0001234,1500.00,Invoice 42,HDFC Bank,current\n";
+    echo "Salary,Ravi Kumar,987654321098,SBIN0000456,25000.00,March salary,SBI,savings\n";
+    exit;
 }
 
 $enableReq = getMerchantPayoutEnableRequest($merchantId);
@@ -163,6 +189,36 @@ require_once __DIR__ . '/header.php';
         </form>
         <?php endif; ?>
     </div>
+</div>
+
+<div class="glass rounded-xl p-6 mb-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <div>
+            <h2 class="font-semibold">Bulk payout (CSV)</h2>
+            <p class="text-xs text-gray-500 mt-1">Upload up to 200 rows. Drafts are recorded for audit; live dispatch stays gated until partner keys are added.</p>
+        </div>
+        <a href="merchant_payout.php?download_csv_template=1" class="text-xs text-sky-400 hover:underline">Download CSV template →</a>
+    </div>
+    <form method="POST" enctype="multipart/form-data" class="space-y-3 max-w-xl">
+        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+        <input type="hidden" name="action" value="bulk_csv">
+        <div>
+            <label class="text-sm text-gray-400">CSV file</label>
+            <input type="file" name="bulk_csv" accept=".csv,text/csv" class="input-field mt-1 text-sm">
+        </div>
+        <div>
+            <label class="text-sm text-gray-400">Or paste CSV</label>
+            <textarea name="bulk_csv_text" rows="4" class="input-field mt-1 font-mono text-xs" placeholder="label,account_holder,account_number,ifsc_code,amount,purpose"></textarea>
+        </div>
+        <button type="submit" class="btn-primary px-5 py-2.5">Upload bulk drafts</button>
+    </form>
+    <?php if (!empty($_SESSION['payout_bulk_errors'])): $bulkErrs = $_SESSION['payout_bulk_errors']; unset($_SESSION['payout_bulk_errors']); ?>
+    <div class="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-200 space-y-1">
+        <?php foreach ($bulkErrs as $be): ?>
+        <p>Line <?= (int)($be['line'] ?? 0) ?>: <?= e((string)($be['error'] ?? '')) ?></p>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
 </div>
 
 <div class="glass rounded-xl overflow-hidden mb-6">

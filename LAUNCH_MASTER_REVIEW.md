@@ -58,8 +58,8 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Item | Status |
 |---|---|
 | KYC docs (Aadhaar/PAN/GST/MCA/Udyam) entity-based | ✅ |
-| Video KYC | ✅ (page); ⚙️ automated match needs Digio |
-| Aadhaar face mapping (live selfie) | 🔜 ⚙️ via partner (do not build in-house) |
+| Video KYC | ✅ (page); ⚙️ automated face-match via Digio keys in Gateway Settings (no in-house biometrics) |
+| Aadhaar face mapping (live selfie) | 🔜 ⚙️ Digio partner key fields ready (`digio_*` in `gateway_settings.php`) — do not build in-house |
 | Bank verification (penny drop + name fetch) | ⚙️ scaffold (`includes/verification.php`, `add_bank.php`) — needs live bank/Decentro keys |
 | IFSC → branch auto-fetch | ✅ live — type valid IFSC on Add Bank → Bank Name auto-fills + branch/city/state shown (free `ifsc.razorpay.com` directory, no key; `lookupIfsc()` + auth-gated `ifsc_lookup.php` proxy) |
 | Merchant bank add/update/change | ✅ (`add_bank.php`, `admin_merchant_banks.php`) |
@@ -105,7 +105,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Payout enable request | ✅ scaffold — merchant request → admin approve (`merchant_payout.php`, `admin_payout.php`); live money still gated |
 | IMPS/NEFT/RTGS/UPI payout | ⚙️ needs licensed payout partner keys (`payoutLiveMoneyAllowed()` hard gate) |
 | Beneficiary mgmt + penny drop | ✅ UI + list (`payout_beneficiaries`); penny-drop stays pending until bank keys |
-| Bulk payout (CSV) | 🔜 later |
+| Bulk payout (CSV) | ✅ scaffold — CSV template + upload on `merchant_payout.php` (`processPayoutBulkCsv`); live money still gated |
 | Separate collection vs payout wallet | ✅ display-only split on payout page (`getMerchantWalletSplitView`) |
 | Failed payout reason + auto-reversal | ✅ failed drafts show `failure_reason`; auto-reversal ⛔ OWNER-CONFIRMED: no auto-credit |
 | Maker-checker high-value payout | ✅ placeholder (≥ ₹50k → `pending_checker`); no live dispatch without keys |

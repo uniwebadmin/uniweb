@@ -83,7 +83,7 @@ $rejected = $vkStatus === 'rejected';
 
     <div class="glass rounded-xl p-6 mb-6">
         <h2 class="font-semibold mb-1">Recording checklist</h2>
-        <p class="text-xs text-gray-500 mb-4">Say and show each item on camera. Automated face-match is handled via a certified partner when enabled — we do not store biometric templates on UniWeb servers.</p>
+        <p class="text-xs text-gray-500 mb-4">Say and show each item on camera. Automated face-match runs only via a certified partner (Digio) when keys are configured in Gateway Settings — UniWeb never stores biometric templates.</p>
         <div class="space-y-3">
             <?php foreach ([
                 'Hold your Aadhaar or PAN card clearly next to your face',
