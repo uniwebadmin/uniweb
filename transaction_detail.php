@@ -63,6 +63,20 @@ require_once __DIR__ . '/header.php';
             </div>
             <p class="text-4xl font-bold text-brand-400 mb-6"><?= formatMoney((float)$txn['amount']) ?></p>
 
+            <?php
+            $reason = transactionStatusExplainer($txn);
+            $reasonTone = [
+                'success' => 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
+                'warning' => 'bg-amber-500/10 border-amber-500/30 text-amber-200',
+                'danger' => 'bg-red-500/10 border-red-500/30 text-red-300',
+                'muted' => 'bg-white/5 border-gray-700 text-gray-300',
+            ][$reason['tone']] ?? 'bg-white/5 border-gray-700 text-gray-300';
+            ?>
+            <div class="rounded-xl border p-4 mb-6 <?= $reasonTone ?>">
+                <p class="text-sm font-semibold"><?= e($reason['title']) ?></p>
+                <?php if (!empty($reason['text'])): ?><p class="text-xs mt-1 leading-relaxed opacity-90"><?= e($reason['text']) ?></p><?php endif; ?>
+            </div>
+
             <div class="grid sm:grid-cols-2 gap-4 text-sm">
                 <div><p class="text-gray-500 text-xs">Payment Method</p><p class="font-medium mt-1"><?= e(paymentMethodLabel($txn['payment_method'])) ?></p></div>
                 <div><p class="text-gray-500 text-xs">UTR / Gateway Ref</p><p class="font-mono text-xs mt-1"><?= e($txn['utr'] ?: '—') ?></p></div>

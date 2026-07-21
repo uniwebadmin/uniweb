@@ -105,6 +105,13 @@ $assert(in_array('customer_login.php', $registryFiles, true), 'watchdog_registry
 $assert(str_contains($header, 'admin_customer_tickets.php'), 'admin_nav_has_customer_complaints');
 $assert(is_file($root . '/migrations/010_customer_portal.sql'), 'customer_portal_migration_present');
 
+// Transaction / settlement "exact reason" copy for fail / pending / success states.
+$txnLib = (string)file_get_contents($root . '/includes/transaction_detail.php');
+$assert(str_contains($txnLib, 'function transactionStatusExplainer'), 'txn_status_explainer_helper');
+$assert(str_contains($txnLib, 'auto-reversed'), 'txn_failed_reason_copy');
+$txnPage = (string)file_get_contents($root . '/transaction_detail.php');
+$assert(str_contains($txnPage, 'transactionStatusExplainer('), 'txn_detail_shows_reason_banner');
+
 $kyc = (string)file_get_contents($root . '/admin_kyc.php');
 $assert(str_contains($kyc, 'independent checker') || str_contains($kyc, 'Independent checker'), 'kyc_maker_checker_copy');
 $assert(!str_contains($kyc, 'Click Verify after documents OK — enables Live mode'), 'kyc_no_misleading_verify_live_copy');

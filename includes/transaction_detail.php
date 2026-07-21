@@ -39,6 +39,45 @@ function transactionDetailUrl(string $txnId): string
     return 'transaction_detail.php?txn=' . rawurlencode($txnId);
 }
 
+/**
+ * Human-readable "why this status" for a transaction. Prefers any gateway/DB
+ * reason stored on the row, otherwise a plain-language explanation by status.
+ * @return array{tone:string,title:string,text:string}
+ */
+function transactionStatusExplainer(array $txn): array
+{
+    $status = strtolower(trim((string)($txn['status'] ?? '')));
+    $stored = '';
+    foreach (['failure_reason', 'failure_message', 'status_reason', 'gateway_response', 'remarks', 'error_description'] as $col) {
+        if (!empty($txn[$col])) {
+            $stored = (string)$txn[$col];
+            break;
+        }
+    }
+    switch ($status) {
+        case 'success':
+        case 'paid':
+        case 'captured':
+            return ['tone' => 'success', 'title' => 'Payment successful', 'text' => $stored ?: 'The payment was received and confirmed.'];
+        case 'pending':
+        case 'processing':
+        case 'initiated':
+            return ['tone' => 'warning', 'title' => 'Payment pending', 'text' => $stored ?: 'Awaiting confirmation from the bank / payment gateway. This can take a few minutes for UPI. No action is needed unless it stays pending beyond 30 minutes.'];
+        case 'failed':
+        case 'error':
+            return ['tone' => 'danger', 'title' => 'Payment failed', 'text' => $stored ?: 'The payment did not complete. Common reasons: customer cancelled, insufficient balance, bank/UPI timeout, or an expired session. Any amount debited is auto-reversed by the bank in 3-5 working days.'];
+        case 'expired':
+            return ['tone' => 'muted', 'title' => 'Link expired', 'text' => $stored ?: 'The payment link/session expired before the customer paid. Share a fresh link.'];
+        case 'refunded':
+            return ['tone' => 'muted', 'title' => 'Refunded', 'text' => $stored ?: 'This payment was refunded to the customer.'];
+        case 'cancelled':
+        case 'canceled':
+            return ['tone' => 'muted', 'title' => 'Cancelled', 'text' => $stored ?: 'The payment was cancelled before completion.'];
+        default:
+            return ['tone' => 'muted', 'title' => ucfirst(str_replace('_', ' ', $status ?: 'unknown')), 'text' => $stored];
+    }
+}
+
 function paymentMethodLabel(?string $method): string
 {
     $map = [
