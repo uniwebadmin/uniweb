@@ -112,6 +112,17 @@ $assert(str_contains($txnLib, 'auto-reversed'), 'txn_failed_reason_copy');
 $txnPage = (string)file_get_contents($root . '/transaction_detail.php');
 $assert(str_contains($txnPage, 'transactionStatusExplainer('), 'txn_detail_shows_reason_banner');
 
+// Payment method request (merchant -> admin "Request to Enable").
+$mReq = (string)file_get_contents($root . '/includes/method_requests.php');
+$assert(str_contains($mReq, 'function requestMethodEnable') && str_contains($mReq, 'function decideMethodRequest'), 'method_request_helpers');
+$assert(str_contains($mReq, 'function merchantEntitledMethods') && str_contains($mReq, 'function merchantLockedMethods'), 'method_request_entitlement_helpers');
+$colPage = (string)file_get_contents($root . '/collection_settings.php');
+$assert(str_contains($colPage, 'request_method') && str_contains($colPage, 'Request to Enable'), 'collection_settings_request_button');
+$assert(str_contains($colPage, 'merchantEntitledMethods('), 'collection_settings_gated_by_entitlement');
+$assert(is_file($root . '/admin_method_requests.php'), 'admin_method_requests_page_present');
+$assert(str_contains($header, 'admin_method_requests.php'), 'admin_nav_has_method_requests');
+$assert(in_array('admin_method_requests.php', $registryFiles, true), 'watchdog_registry_covers_method_requests');
+
 $kyc = (string)file_get_contents($root . '/admin_kyc.php');
 $assert(str_contains($kyc, 'independent checker') || str_contains($kyc, 'Independent checker'), 'kyc_maker_checker_copy');
 $assert(!str_contains($kyc, 'Click Verify after documents OK — enables Live mode'), 'kyc_no_misleading_verify_live_copy');

@@ -126,6 +126,7 @@ function getWatchdogPageRegistry(): array
         ['admin_settlement_batches.php', 'Settlement Batches'],
         ['admin_wallet.php', 'Platform Wallet'],
         ['admin_kyc.php', 'KYC Review'],
+        ['admin_method_requests.php', 'Method Requests'],
         ['admin_kyc_doc.php', 'KYC Document'],
         ['admin_aml.php', 'AML'],
         ['admin_chargebacks.php', 'Chargebacks'],
