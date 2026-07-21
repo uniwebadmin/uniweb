@@ -607,11 +607,12 @@ function settlementRailBadge(string $rail): string
 
 function settlementBatchStatusBadge(string $status): string
 {
-    return match ($status) {
+    return match (strtolower(trim($status))) {
         'open' => '<span class="text-amber-400">● Open</span>',
         'processing' => '<span class="text-cyan-400">⟳ Processing</span>',
-        'settled' => '<span class="text-emerald-400">✓ Settled</span>',
-        'failed' => '<span class="text-red-400">✗ Failed</span>',
-        default => '<span class="text-gray-400">' . e($status) . '</span>',
+        'settled', 'completed', 'complete', 'success' => '<span class="text-emerald-400">✓ Settled</span>',
+        'failed', 'fail', 'rejected', 'cancelled', 'canceled', 'error' => '<span class="text-red-400">✗ Failed</span>',
+        'pending', '' => '<span class="text-amber-400">● Pending</span>',
+        default => '<span class="text-gray-400" title="' . e($status) . '">Unknown</span>',
     };
 }

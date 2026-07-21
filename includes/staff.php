@@ -299,9 +299,13 @@ function getStaffActivityLogs(?int $adminId = null, int $limit = 50): array
         $params[] = $adminId;
     }
     $sql .= ' ORDER BY l.created_at DESC LIMIT ' . max(1, min(200, $limit));
-    $st = getDB()->prepare($sql);
-    $st->execute($params);
-    return $st->fetchAll();
+    try {
+        $st = getDB()->prepare($sql);
+        $st->execute($params);
+        return $st->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
 }
 
 function pgWebhookHealthResponse(string $gateway): void

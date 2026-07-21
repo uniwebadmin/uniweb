@@ -62,8 +62,8 @@ require_once __DIR__ . '/header.php';
         </tr></thead>
         <tbody class="divide-y divide-gray-800">
             <?php foreach ($all as $b): ?>
-            <tr class="hover:bg-white/[0.02]">
-                <td class="px-4 py-3 font-mono text-xs"><?= e($b['batch_code']) ?></td>
+            <tr<?= uiRowClick('?batch=' . (int)$b['id']) ?>>
+                <td class="px-4 py-3 font-mono text-xs"><a href="?batch=<?= (int)$b['id'] ?>" class="text-sky-400 hover:underline"<?= uiStopClick() ?>><?= e($b['batch_code']) ?></a></td>
                 <td class="px-4 py-3"><?= e($b['business_name']) ?></td>
                 <td class="px-4 py-3 text-xs capitalize"><?= e($b['batch_type']) ?></td>
                 <td class="px-4 py-3 text-right text-emerald-400"><?= walletMoney((float)$b['net_amount']) ?></td>

@@ -46,8 +46,8 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     <meta name="twitter:description" content="<?= e($pageDescription) ?>">
     <meta name="theme-color" content="#059669">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/uniweb.min.css?v=20260713a">
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/theme-light.css?v=6">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/uniweb.min.css?v=20260721a">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/theme-light.css?v=7">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/public-pages.css?v=20260719">
     <script>
     (function(){
