@@ -41,11 +41,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('kyc.php');
 }
 
-$docs = $db->prepare('SELECT * FROM kyc_documents WHERE merchant_id = ? ORDER BY created_at DESC');
-$docs->execute([$merchant['id']]);
-$documents = $docs->fetchAll();
+$documents = [];
+try {
+    $docs = $db->prepare('SELECT * FROM kyc_documents WHERE merchant_id = ? ORDER BY created_at DESC');
+    $docs->execute([$merchant['id']]);
+    $documents = $docs->fetchAll() ?: [];
+} catch (Throwable $e) {
+    try {
+        $docs = $db->prepare('SELECT id, merchant_id, doc_type, file_name, file_path, status, created_at FROM kyc_documents WHERE merchant_id = ? ORDER BY created_at DESC');
+        $docs->execute([$merchant['id']]);
+        $documents = $docs->fetchAll() ?: [];
+    } catch (Throwable $e2) {
+        $documents = [];
+    }
+}
 $uploadedTypes = array_unique(array_column($documents, 'doc_type'));
-$approvedTypes = array_unique(array_column(array_filter($documents, fn($d) => $d['status'] === 'approved'), 'doc_type'));
+$approvedTypes = array_unique(array_column(array_filter($documents, fn($d) => ($d['status'] ?? '') === 'approved'), 'doc_type'));
 
 /** Latest document row per type (already sorted newest-first). */
 $latestByType = [];

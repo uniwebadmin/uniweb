@@ -69,7 +69,8 @@ require_once __DIR__ . '/header.php';
 <div class="glass rounded-xl p-8 text-center text-gray-400 text-sm">No merchants assigned to you yet. Ask your manager to assign merchants from Merchant View.</div>
 <?php else: ?>
 <div id="merchant-results" class="glass rounded-xl overflow-hidden">
-    <table class="w-full text-sm">
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm min-w-[720px]">
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
                 <th class="px-5 py-3 text-left">Code</th><th class="px-5 py-3 text-left">Business</th>
                 <th class="px-5 py-3 text-left">Entity Type</th><th class="px-5 py-3 text-left">Contact</th><th class="px-5 py-3 text-left">KYC</th>
@@ -137,6 +138,7 @@ require_once __DIR__ . '/header.php';
             <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php endif; ?>
 <?php require_once __DIR__ . '/footer.php'; ?>

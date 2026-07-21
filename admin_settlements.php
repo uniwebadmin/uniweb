@@ -102,7 +102,8 @@ require_once __DIR__ . '/header.php';
         <p class="text-sm text-gray-500 max-w-md mx-auto">When merchants transfer from wallet, pending rows appear here for finance to complete after bank transfer.</p>
     </div>
     <?php else: ?>
-    <table class="w-full text-sm">
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm min-w-[720px]">
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
             <th class="px-5 py-3 text-left">ID</th><th class="px-5 py-3 text-left">Merchant</th>
             <th class="px-5 py-3 text-left">Amount</th><th class="px-5 py-3 text-left">Net</th>
@@ -144,6 +145,7 @@ require_once __DIR__ . '/header.php';
             <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
     <?php endif; ?>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

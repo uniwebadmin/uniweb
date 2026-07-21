@@ -147,21 +147,29 @@ class SimpleInvoicePdf
                 $desc = substr($desc, 0, 52) . '...';
             }
             $this->text(50, $y, $desc, 10);
-            $this->text(400, $y, CURRENCY_SYMBOL . number_format((float)($item['amount'] ?? 0), 2), 10);
+            $sym = defined('CURRENCY_SYMBOL') ? CURRENCY_SYMBOL : 'Rs.';
+            $this->text(400, $y, $sym . number_format((float)($item['amount'] ?? 0), 2), 10);
             $y -= 18;
         }
 
         $y -= 10;
         $this->line(50, $y, 545, $y);
         $y -= 20;
+        $fmt = static function (float $n): string {
+            if (function_exists('formatMoney')) {
+                return formatMoney($n);
+            }
+            $sym = defined('CURRENCY_SYMBOL') ? CURRENCY_SYMBOL : 'Rs.';
+            return $sym . number_format($n, 2);
+        };
         $this->text(300, $y, 'Subtotal:', 10);
-        $this->text(400, $y, formatMoney((float)($inv['amount'] ?? 0)), 10);
+        $this->text(400, $y, $fmt((float)($inv['amount'] ?? 0)), 10);
         $y -= 18;
         $this->text(300, $y, 'Tax:', 10);
-        $this->text(400, $y, formatMoney((float)($inv['tax_amount'] ?? 0)), 10);
+        $this->text(400, $y, $fmt((float)($inv['tax_amount'] ?? 0)), 10);
         $y -= 18;
         $this->text(300, $y, 'Total:', 12, true);
-        $this->text(400, $y, formatMoney((float)($inv['total_amount'] ?? 0)), 12, true);
+        $this->text(400, $y, $fmt((float)($inv['total_amount'] ?? 0)), 12, true);
 
         if (!empty($inv['due_date'])) {
             $y -= 30;

@@ -93,7 +93,8 @@ require_once __DIR__ . '/header.php';
     <button class="btn-primary px-4 py-2.5 text-sm">Filter</button>
 </form>
 <div id="admin-transaction-results" class="glass rounded-xl overflow-hidden">
-    <table class="w-full text-sm">
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm min-w-[640px]">
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
             <th class="px-5 py-3 text-left">Txn ID</th><th class="px-5 py-3 text-left">Merchant</th>
             <th class="px-5 py-3 text-left">Amount</th><th class="px-5 py-3 text-left">UTR</th>
@@ -125,5 +126,6 @@ require_once __DIR__ . '/header.php';
             <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

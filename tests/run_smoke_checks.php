@@ -204,6 +204,10 @@ $m2fa = (string)file_get_contents($root . '/merchant_2fa.php');
 $assert(str_contains($m2fa, 'mfaPolicy(') && str_contains($m2fa, 'Optional'), 'merchant_2fa_optional_policy_ui');
 $dashSrc = (string)file_get_contents($root . '/dashboard.php');
 $assert(str_contains($dashSrc, 'renderMerchantMfaSetupPrompt'), 'dashboard_mfa_setup_prompt');
+// MFA dismiss must run BEFORE header output (no headers-already-sent redirect).
+$assert(strpos($dashSrc, 'dismiss_mfa_prompt') !== false
+    && strpos($dashSrc, 'dismiss_mfa_prompt') < strpos($dashSrc, "require_once __DIR__ . '/header.php'"),
+    'dashboard_mfa_dismiss_before_header');
 
 // Payout scaffold (gated): enable request, beneficiaries, maker-checker placeholder, no live money.
 $payoutLib = (string)file_get_contents($root . '/includes/payout.php');
@@ -212,6 +216,7 @@ $assert(str_contains($payoutLib, 'function addPayoutBeneficiary') && str_contain
 $assert(str_contains($payoutLib, 'function createPayoutDraft') && str_contains($payoutLib, 'pending_checker'), 'payout_maker_checker_placeholder');
 $assert(str_contains($payoutLib, 'function payoutLiveMoneyAllowed') && str_contains($payoutLib, 'function getMerchantWalletSplitView'), 'payout_gate_and_wallet_split');
 $assert(str_contains($payoutLib, 'failure_reason') && str_contains($payoutLib, 'auto-reversal'), 'payout_no_auto_reversal_policy');
+$assert(str_contains($payoutLib, 'function payoutStrLimit'), 'payout_safe_str_limit_helper');
 $assert(is_file($root . '/merchant_payout.php') && is_file($root . '/admin_payout.php'), 'payout_pages_present');
 $mp = (string)file_get_contents($root . '/merchant_payout.php');
 $assert(str_contains($mp, 'payoutLiveMoneyAllowed') && str_contains($mp, 'keys pending'), 'merchant_payout_gated_copy');
@@ -220,6 +225,7 @@ $assert(str_contains($payoutLib, 'function parsePayoutBulkCsv') && str_contains(
 $assert(str_contains($header, 'admin_payout.php') && str_contains($header, 'merchant_payout.php'), 'nav_has_payout_pages');
 $assert(in_array('merchant_payout.php', $registryFiles, true) && in_array('admin_payout.php', $registryFiles, true), 'watchdog_registry_covers_payout');
 $assert(is_file($root . '/migrations/015_payout_scaffold.sql'), 'payout_migration_present');
+$assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');
 
 // Search Console meta + WhatsApp alert fan-out from notifications.
 $headerSeo = (string)file_get_contents($root . '/header.php');

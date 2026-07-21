@@ -87,7 +87,25 @@ function ensurePayoutSchema(): void
     } catch (Throwable $e) {
         error_log('ensurePayoutSchema orders: ' . $e->getMessage());
     }
-    schemaExecQuiet("ALTER TABLE merchants ADD COLUMN payout_enabled TINYINT(1) NOT NULL DEFAULT 0");
+    if (function_exists('schemaExecQuiet')) {
+        schemaExecQuiet("ALTER TABLE merchants ADD COLUMN payout_enabled TINYINT(1) NOT NULL DEFAULT 0");
+    } else {
+        try {
+            getDB()->exec("ALTER TABLE merchants ADD COLUMN payout_enabled TINYINT(1) NOT NULL DEFAULT 0");
+        } catch (Throwable $e) { /* column exists */ }
+    }
+}
+
+/** Safe UTF-8 truncate without requiring mbstring. */
+function payoutStrLimit(string $value, int $max): string
+{
+    if ($max < 1) {
+        return '';
+    }
+    if (function_exists('mb_substr')) {
+        return mb_substr($value, 0, $max);
+    }
+    return substr($value, 0, $max);
 }
 
 /** True only when a licensed partner payout rail has live keys configured. */
@@ -160,7 +178,7 @@ function requestPayoutEnable(int $merchantId, string $note = ''): array
             return ['ok' => false, 'error' => 'Payouts are already enabled for this account.'];
         }
         $db->prepare('INSERT INTO merchant_payout_enable_requests (merchant_id, merchant_note) VALUES (?,?)')
-            ->execute([$merchantId, mb_substr(trim($note), 0, 500) ?: null]);
+            ->execute([$merchantId, payoutStrLimit(trim($note), 500) ?: null]);
         return ['ok' => true, 'message' => 'Payout enable request submitted. Admin will review shortly.'];
     } catch (Throwable $e) {
         error_log('requestPayoutEnable: ' . $e->getMessage());
@@ -181,12 +199,16 @@ function decidePayoutEnableRequest(int $requestId, bool $approve, string $decide
         }
         $status = $approve ? 'approved' : 'rejected';
         $db->prepare('UPDATE merchant_payout_enable_requests SET status=?, admin_note=?, decided_by=?, decided_at=NOW() WHERE id=?')
-            ->execute([$status, mb_substr(trim($adminNote), 0, 500) ?: null, $decidedBy, $requestId]);
+            ->execute([$status, payoutStrLimit(trim($adminNote), 500) ?: null, $decidedBy, $requestId]);
         if ($approve) {
             try {
                 $db->prepare('UPDATE merchants SET payout_enabled=1 WHERE id=?')->execute([(int)$row['merchant_id']]);
             } catch (Throwable $e) {
-                schemaExecQuiet('ALTER TABLE merchants ADD COLUMN payout_enabled TINYINT(1) NOT NULL DEFAULT 0');
+                if (function_exists('schemaExecQuiet')) {
+                    schemaExecQuiet('ALTER TABLE merchants ADD COLUMN payout_enabled TINYINT(1) NOT NULL DEFAULT 0');
+                } else {
+                    try { getDB()->exec('ALTER TABLE merchants ADD COLUMN payout_enabled TINYINT(1) NOT NULL DEFAULT 0'); } catch (Throwable $e2) {}
+                }
                 $db->prepare('UPDATE merchants SET payout_enabled=1 WHERE id=?')->execute([(int)$row['merchant_id']]);
             }
             createNotification((int)$row['merchant_id'], 'Payout Access Approved', 'Your payout enable request was approved. Live transfers still require licensed partner keys.');
@@ -266,9 +288,9 @@ function addPayoutBeneficiary(int $merchantId, array $data): array
             'INSERT INTO payout_beneficiaries (merchant_id, label, account_holder, account_number, ifsc_code, bank_name, account_type, upi_vpa, penny_drop_status)
              VALUES (?,?,?,?,?,?,?,?,?)'
         )->execute([
-            $merchantId, mb_substr($label, 0, 120), mb_substr($holder, 0, 190), $account, $ifsc,
-            $bank !== '' ? mb_substr($bank, 0, 120) : null, $type,
-            $upi !== '' ? mb_substr($upi, 0, 120) : null,
+            $merchantId, payoutStrLimit($label, 120), payoutStrLimit($holder, 190), $account, $ifsc,
+            $bank !== '' ? payoutStrLimit($bank, 120) : null, $type,
+            $upi !== '' ? payoutStrLimit($upi, 120) : null,
             'pending', // penny-drop needs live bank keys — stay pending
         ]);
         return ['ok' => true, 'message' => 'Beneficiary saved. Penny-drop verification runs when bank/partner keys are configured.'];
@@ -340,7 +362,7 @@ function createPayoutDraft(int $merchantId, int $beneficiaryId, float $amount, s
                  VALUES (?,?,?,?,?,?,?,?,NOW())'
             )->execute([
                 $payoutId, $merchantId, $beneficiaryId, $amount,
-                mb_substr(trim($purpose), 0, 120) ?: 'Vendor payout',
+                payoutStrLimit(trim($purpose), 120) ?: 'Vendor payout',
                 $status, $failure, $makerBy,
             ]);
         } catch (Throwable $e) {
@@ -362,7 +384,7 @@ function createPayoutDraft(int $merchantId, int $beneficiaryId, float $amount, s
              VALUES (?,?,?,?,?,?,?,NOW())'
         )->execute([
             $payoutId, $merchantId, $beneficiaryId, $amount,
-            mb_substr(trim($purpose), 0, 120) ?: 'Vendor payout',
+            payoutStrLimit(trim($purpose), 120) ?: 'Vendor payout',
             $status, $makerBy,
         ]);
     } catch (Throwable $e) {

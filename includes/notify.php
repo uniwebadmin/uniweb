@@ -387,7 +387,12 @@ function maybeSendWhatsAppMerchantAlert(int $merchantId, string $event, string $
         if (strlen(preg_replace('/\D/', '', $phone)) < 10) {
             return;
         }
-        $text = mb_substr(trim($message), 0, 900);
+        $text = trim($message);
+        if (function_exists('mb_substr')) {
+            $text = mb_substr($text, 0, 900);
+        } else {
+            $text = substr($text, 0, 900);
+        }
         if ($text === '') {
             return;
         }
