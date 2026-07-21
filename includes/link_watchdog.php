@@ -183,6 +183,21 @@ function getWatchdogPageRegistry(): array
         $add($row[0], $row[1], $row[2], $row[3] ?? 'none');
     }
 
+    // Real launch pages that were previously auto-classified as "other" (so the
+    // live cron HTTP probe either skipped or mis-graded them). Register with the
+    // correct auth so redirects/JSON-guards are treated as healthy, not failures.
+    foreach ([
+        ['admin.php', 'Admin Entry', 'public', 'admin'],            // redirects to login/dashboard (302)
+        ['qr_pay.php', 'QR Scan Pay', 'public', 'none'],            // 404 without a QR code (branded)
+        ['blog_post.php', 'Blog Article', 'public', 'none'],        // 404 without a slug (branded)
+        ['video_kyc.php', 'Video KYC Upload', 'merchant', 'merchant'],
+        ['kyc_media_receiver.php', 'KYC Media Upload', 'merchant', 'merchant'],
+        ['global_search.php', 'Global Search', 'merchant', 'api'],  // JSON, 401 when logged out
+        ['migrate_release.php', 'Release Migrations', 'system', 'system'],
+    ] as $row) {
+        $add($row[0], $row[1], $row[2], $row[3] ?? 'none');
+    }
+
     return array_values($pages);
 }
 

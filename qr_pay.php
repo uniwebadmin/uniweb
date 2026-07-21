@@ -2,10 +2,38 @@
 require_once __DIR__ . '/config.php';
 ensureMerchantQrCodes();
 
+/**
+ * Branded dead-end for the public QR scan path — a customer who scans a stale,
+ * inactive or malformed QR must never see a bare white exit() screen during a
+ * merchant/bank demo. Mirrors checkout.php's renderCheckoutUnavailable().
+ */
+function renderQrUnavailable(string $heading, string $detail, int $status = 404): void
+{
+    if (!headers_sent()) {
+        http_response_code($status);
+        header('Cache-Control: no-store');
+    }
+    $pageTitle = $heading;
+    $hideNav = true;
+    $footerVariant = 'checkout';
+    require_once __DIR__ . '/header.php';
+    echo '<div class="min-h-screen flex items-center justify-center px-4 py-12"><div class="w-full max-w-md">'
+        . '<div class="glass rounded-2xl p-8 text-center">'
+        . '<h1 class="text-xl font-semibold mb-2">' . e($heading) . '</h1>'
+        . '<p class="text-sm text-gray-400 mb-6">' . e($detail) . '</p>'
+        . '<a href="index.php" class="inline-block btn-primary px-5 py-2.5 text-sm">Go to UniWeb</a>'
+        . ' <a href="contact.php" class="inline-block ml-2 text-sm text-gray-400 hover:text-white">Contact support</a>'
+        . '</div></div></div>';
+    require_once __DIR__ . '/footer.php';
+    exit;
+}
+
 $code = trim((string)($_GET['code'] ?? ''));
 if ($code === '' || !preg_match('/^QR[A-F0-9]{16}$/', $code)) {
-    http_response_code(404);
-    exit('QR code not found.');
+    renderQrUnavailable(
+        'QR code not found',
+        'This QR does not point to a valid UniWeb payment code. Please rescan the merchant QR, or contact the merchant for a fresh one.'
+    );
 }
 
 $db = getDB();
@@ -19,8 +47,11 @@ $stmt->execute([$code]);
 $qr = $stmt->fetch();
 
 if (!$qr || $qr['status'] !== 'active' || $qr['merchant_status'] !== 'active') {
-    http_response_code(410);
-    exit('This QR code is inactive.');
+    renderQrUnavailable(
+        'This QR code is inactive',
+        'This payment QR is no longer active. Please ask the merchant for a current QR code to complete your payment.',
+        410
+    );
 }
 
 $qrType = (string)($qr['qr_type'] ?? 'fixed');
@@ -59,8 +90,11 @@ if ($qrType === 'fixed') {
         ->execute([(int)$qr['id']]);
     $linkId = $createCheckout((float)$qr['amount'], false);
     if ($linkId === null) {
-        http_response_code(400);
-        exit('Invalid QR amount.');
+        renderQrUnavailable(
+            'QR amount unavailable',
+            'This QR has an invalid preset amount and a payment could not be started. Please ask the merchant to regenerate the QR code.',
+            400
+        );
     }
     header('Cache-Control: no-store');
     redirect('checkout.php?link=' . rawurlencode($linkId));

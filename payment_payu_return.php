@@ -16,7 +16,19 @@ $stmt->execute([$linkId]);
 $link = $stmt->fetch();
 
 if (!$link) {
-    die('Invalid payment link.');
+    http_response_code(404);
+    $pageTitle = 'Payment link not found';
+    $hideNav = true;
+    require_once __DIR__ . '/header.php';
+    echo '<div class="min-h-screen flex items-center justify-center px-4 py-12 bg-dark-950">'
+        . '<div class="glass rounded-2xl p-8 text-center max-w-md w-full border border-red-500/30">'
+        . '<h2 class="text-xl font-bold mb-2">Payment link not found</h2>'
+        . '<p class="text-gray-400 text-sm mb-6">We could not match this PayU return to a valid payment link. If money was debited it will auto-reconcile from the signed webhook; contact support with your bank reference if needed.</p>'
+        . '<a href="index.php" class="inline-block btn-primary px-6 py-2 text-sm">Go to UniWeb</a>'
+        . ' <a href="contact.php" class="inline-block ml-2 text-sm text-gray-400 hover:text-white">Contact support</a>'
+        . '</div></div>';
+    require_once __DIR__ . '/footer.php';
+    exit;
 }
 
 $verified = verifyPayUResponseHash($post);

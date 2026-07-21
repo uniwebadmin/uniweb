@@ -6,7 +6,20 @@ $slug = substr(trim((string)($_GET['slug'] ?? '')), 0, 200);
 $stmt = getDB()->prepare("SELECT * FROM blog_posts WHERE slug = ? AND status = 'published'");
 $stmt->execute([$slug]);
 $post = $stmt->fetch();
-if (!$post) { http_response_code(404); die('Post not found.'); }
+if (!$post) {
+    http_response_code(404);
+    $pageTitle = 'Article not found';
+    require_once __DIR__ . '/header.php';
+    echo '<main class="company-page"><section class="company-section"><div class="company-shell" style="max-width:640px">'
+        . '<div class="glass rounded-2xl p-8 text-center">'
+        . '<h1 class="text-xl font-semibold mb-2">Article not found</h1>'
+        . '<p class="text-sm text-gray-400 mb-6">This guide may have moved or been unpublished. Browse the Knowledge Centre for current articles.</p>'
+        . '<a href="blog.php" class="inline-block btn-primary px-5 py-2.5 text-sm">All guides</a>'
+        . ' <a href="index.php" class="inline-block ml-2 text-sm text-gray-400 hover:text-white">Home</a>'
+        . '</div></div></section></main>';
+    require_once __DIR__ . '/footer.php';
+    exit;
+}
 $pageTitle = $post['title_en'];
 $content = $post['content_en'];
 require_once __DIR__ . '/header.php';

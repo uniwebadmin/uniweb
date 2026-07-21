@@ -65,6 +65,11 @@ if (!defined('APP_URL')) {
     define('APP_URL', $liveBase ?: 'https://uniweb.co.in');
 }
 require_once $root . '/includes/link_watchdog.php';
+// KYC entity + BaaS helpers are asserted below; load them up-front so the
+// config-free static suite (cron auto-audit / CI) never hits an undefined
+// function before the later require_once calls run.
+require_once $root . '/includes/kyc_entity.php';
+require_once $root . '/includes/baas.php';
 $scan = runFullLinkWatchdog(false);
 $assert(!empty($scan['ok']) || ((int)($scan['summary']['broken_links'] ?? 0) === 0
     && (int)($scan['summary']['missing_files'] ?? 0) === 0
@@ -80,6 +85,13 @@ $assert(!empty($scan['ok']) || ((int)($scan['summary']['broken_links'] ?? 0) ===
 
 $header = (string)file_get_contents($root . '/header.php');
 $assert(str_contains($header, 'favicon.svg') && str_contains($header, 'favicon.ico'), 'header_favicon_links');
+
+// Watchdog registry must cover the real launch pages so the live cron audit
+// actually HTTP-probes them (not silently classified as "other").
+$registryFiles = array_column(getWatchdogPageRegistry(), 'file');
+foreach (['qr_pay.php', 'video_kyc.php', 'admin.php', 'blog_post.php', 'global_search.php', 'kyc_media_receiver.php'] as $mustCover) {
+    $assert(in_array($mustCover, $registryFiles, true), 'watchdog_registry_covers_' . str_replace('.php', '', $mustCover));
+}
 
 $kyc = (string)file_get_contents($root . '/admin_kyc.php');
 $assert(str_contains($kyc, 'independent checker') || str_contains($kyc, 'Independent checker'), 'kyc_maker_checker_copy');
@@ -102,8 +114,6 @@ $adminDash = (string)file_get_contents($root . '/admin_dashboard.php');
 $assert(!str_contains($adminDash, 'Verify to enable Live mode'), 'dashboard_no_misleading_verify_live_copy');
 $assert(str_contains($adminDash, 'Live mode is a separate activation gate'), 'dashboard_live_gate_copy');
 
-require_once $root . '/includes/kyc_entity.php';
-require_once $root . '/includes/baas.php';
 $individualDocs = getKycRequirements('individual');
 $assert($individualDocs === ['pan', 'aadhaar', 'bank_proof', 'photo'], 'kyc_individual_docs_only_identity_bank_photo');
 $assert(livePaymentAmountCap() >= 200000000.0, 'live_payment_cap_20_crore');
@@ -153,6 +163,15 @@ $assert(!str_contains($checkout, "die('Payment link expired or not found.')")
     && !str_contains($checkout, "die('This payment link is no longer active.')")
     && !str_contains($checkout, "die('This payment link has expired.')"), 'checkout_no_bare_die_deadends');
 $assert(substr_count($checkout, 'renderCheckoutUnavailable(') >= 4, 'checkout_error_states_use_branded_page');
+
+// The public QR scan path (qr_pay.php) must also brand its dead-ends — a stale,
+// inactive or malformed QR must never render a bare white exit() screen.
+$qrPayDeadends = (string)file_get_contents($root . '/qr_pay.php');
+$assert(str_contains($qrPayDeadends, 'function renderQrUnavailable'), 'qr_pay_branded_error_helper_present');
+$assert(!str_contains($qrPayDeadends, "exit('QR code not found.')")
+    && !str_contains($qrPayDeadends, "exit('This QR code is inactive.')")
+    && !str_contains($qrPayDeadends, "exit('Invalid QR amount.')"), 'qr_pay_no_bare_exit_deadends');
+$assert(substr_count($qrPayDeadends, 'renderQrUnavailable(') >= 3, 'qr_pay_error_states_use_branded_page');
 
 $htaccess = (string)file_get_contents($root . '/.htaccess');
 $assert(str_contains($htaccess, 'ErrorDocument 404'), 'htaccess_error_document_404');
