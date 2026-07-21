@@ -132,6 +132,13 @@ $assert(str_contains($ifscEp, 'lookupIfsc(') && str_contains($ifscEp, 'applicati
 $bankPage = (string)file_get_contents($root . '/add_bank.php');
 $assert(str_contains($bankPage, 'ifsc_lookup.php?ifsc=') && str_contains($bankPage, 'input[name="ifsc_code"]'), 'add_bank_ifsc_autofill');
 
+// Website compliance check (homepage scan for Contact/Privacy/Terms/Refund pages).
+$webLib = (string)file_get_contents($root . '/includes/merchant_website.php');
+$assert(str_contains($webLib, 'function checkWebsiteCompliance'), 'website_compliance_helper');
+$assert(str_contains($webLib, 'publicWebhookDestination('), 'website_compliance_ssrf_guard');
+$webPage = (string)file_get_contents($root . '/merchant_website.php');
+$assert(str_contains($webPage, 'run_compliance') && str_contains($webPage, 'checkWebsiteCompliance('), 'website_compliance_wired');
+
 $kyc = (string)file_get_contents($root . '/admin_kyc.php');
 $assert(str_contains($kyc, 'independent checker') || str_contains($kyc, 'Independent checker'), 'kyc_maker_checker_copy');
 $assert(!str_contains($kyc, 'Click Verify after documents OK — enables Live mode'), 'kyc_no_misleading_verify_live_copy');

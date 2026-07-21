@@ -125,6 +125,91 @@ function saveMerchantWebsite(int $merchantId, string $websiteUrl, string $androi
     return ['ok' => true, 'message' => 'Website & app details saved.', 'status' => $status];
 }
 
+/**
+ * Fetch a merchant's website homepage and check for the compliance pages
+ * gateways expect (Contact, Privacy, Terms, Refund/Cancellation, About) plus
+ * HTTPS. Read-only, SSRF-guarded, best-effort — never blocks onboarding.
+ * @return array{ok:bool,fetched:bool,error?:string,checks:array<int,array{key:string,label:string,pass:bool,required:bool,detail:string}>,score:int,max:int,required_pass:bool}
+ */
+function checkWebsiteCompliance(string $url): array
+{
+    $url = normalizeWebsiteUrl($url);
+    $checks = [];
+    $add = function (string $key, string $label, bool $pass, bool $required, string $detail = '') use (&$checks) {
+        $checks[] = ['key' => $key, 'label' => $label, 'pass' => $pass, 'required' => $required, 'detail' => $detail];
+    };
+
+    if ($url === '' || !isValidWebsiteUrl($url)) {
+        return ['ok' => false, 'fetched' => false, 'error' => 'Enter a valid website URL first.', 'checks' => [], 'score' => 0, 'max' => 0, 'required_pass' => false];
+    }
+
+    $isHttps = (bool)preg_match('#^https://#i', $url);
+    $guard = publicWebhookDestination(preg_replace('#^http://#i', 'https://', $url));
+    if (empty($guard['ok'])) {
+        $add('https', 'Served over HTTPS', $isHttps, true, $isHttps ? 'Secure' : 'Use https:// — gateways require a secure site');
+        return ['ok' => false, 'fetched' => false, 'error' => $guard['error'] ?? 'Website host could not be reached safely.', 'checks' => $checks, 'score' => 0, 'max' => 0, 'required_pass' => false];
+    }
+
+    $html = '';
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS => 4,
+            CURLOPT_TIMEOUT => 10,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_USERAGENT => 'UniWeb-ComplianceBot/1.0 (+' . APP_URL . ')',
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+        $out = curl_exec($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($out !== false && $code >= 200 && $code < 400) {
+            $html = (string)$out;
+        }
+    }
+    if ($html === '') {
+        $ctx = stream_context_create(['http' => ['timeout' => 10, 'ignore_errors' => true, 'user_agent' => 'UniWeb-ComplianceBot/1.0']]);
+        $out = @file_get_contents($url, false, $ctx, 0, 512000);
+        if ($out !== false) {
+            $html = (string)$out;
+        }
+    }
+
+    if ($html === '') {
+        $add('https', 'Served over HTTPS', $isHttps, true, $isHttps ? 'Secure' : 'Use https://');
+        return ['ok' => false, 'fetched' => false, 'error' => 'Could not load the homepage (site down, blocking bots, or too slow). You can still submit — admin will review manually.', 'checks' => $checks, 'score' => 0, 'max' => 0, 'required_pass' => false];
+    }
+
+    $hay = strtolower($html);
+    $has = function (array $needles) use ($hay): bool {
+        foreach ($needles as $n) {
+            if (str_contains($hay, $n)) return true;
+        }
+        return false;
+    };
+
+    $add('https', 'Served over HTTPS', $isHttps, true, $isHttps ? 'Secure connection' : 'Not secure — switch to https://');
+    $add('contact', 'Contact details / Contact Us page', $has(['contact us', 'contact-us', '>contact<', 'contact.php', '/contact', 'mailto:', 'tel:']), true, 'Phone/email or a Contact page');
+    $add('privacy', 'Privacy Policy', $has(['privacy policy', 'privacy-policy', '/privacy', 'privacy.php', '>privacy<']), true, 'Required by all gateways');
+    $add('terms', 'Terms & Conditions', $has(['terms & conditions', 'terms and conditions', 'terms of service', 'terms-and-conditions', '/terms', '>terms<']), true, 'Required by all gateways');
+    $add('refund', 'Refund / Cancellation Policy', $has(['refund', 'cancellation', 'return policy', 'refund-policy']), true, 'Required for card/UPI onboarding');
+    $add('about', 'About Us / business info', $has(['about us', 'about-us', '/about', '>about<']), false, 'Recommended');
+    $add('pricing', 'Products / Pricing shown', $has(['price', 'pricing', '₹', 'buy now', 'add to cart', 'products', 'services']), false, 'Recommended — shows a real business');
+
+    $score = 0;
+    $max = 0;
+    $requiredPass = true;
+    foreach ($checks as $c) {
+        $max++;
+        if ($c['pass']) $score++;
+        if ($c['required'] && !$c['pass']) $requiredPass = false;
+    }
+
+    return ['ok' => true, 'fetched' => true, 'checks' => $checks, 'score' => $score, 'max' => $max, 'required_pass' => $requiredPass];
+}
+
 function adminSetMerchantWebsiteStatus(int $merchantId, string $status): void
 {
     ensureMerchantWebsiteEngine();

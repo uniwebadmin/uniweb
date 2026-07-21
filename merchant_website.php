@@ -4,6 +4,13 @@ requireLogin();
 $merchant = getMerchant();
 ensureMerchantWebsiteEngine();
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'run_compliance' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    requireMerchantTeamCapability('settings');
+    $checkUrl = trim($_POST['website_url'] ?? (string)($merchant['website_url'] ?? ''));
+    $_SESSION['website_compliance'] = checkWebsiteCompliance($checkUrl);
+    redirect('merchant_website.php');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     requireMerchantTeamCapability('settings');
     $result = saveMerchantWebsite(
@@ -18,6 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
 $merchant = getMerchant();
 $pageTitle = 'Website & App';
+$compliance = $_SESSION['website_compliance'] ?? null;
+unset($_SESSION['website_compliance']);
 require_once __DIR__ . '/header.php';
 $status = merchantWebsiteStatus($merchant);
 ?>
@@ -71,12 +80,51 @@ $status = merchantWebsiteStatus($merchant);
 
             <div class="flex flex-wrap gap-3 pt-2">
                 <button type="submit" class="btn-primary px-6 py-2.5">Save Website & App</button>
+                <button type="submit" name="action" value="run_compliance" class="px-5 py-2.5 rounded-xl border border-sky-500/40 text-sm text-sky-300 hover:bg-sky-500/10">Run compliance check</button>
                 <?php if (!empty($merchant['website_url'])): ?>
                 <a href="<?= e($merchant['website_url']) ?>" target="_blank" rel="noopener" class="px-5 py-2.5 rounded-xl border border-gray-700 text-sm text-gray-300 hover:text-white">Open Website ↗</a>
                 <?php endif; ?>
             </div>
+            <p class="text-[11px] text-gray-600">Compliance check scans your homepage for Contact, Privacy, Terms &amp; Refund pages that gateways require. Save the URL first for best results.</p>
         </form>
     </div>
+
+    <?php if ($compliance !== null): ?>
+    <div class="glass rounded-xl p-6 border <?= !empty($compliance['required_pass']) ? 'border-emerald-500/30' : 'border-amber-500/30' ?>">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h3 class="font-semibold text-white">Website Compliance Check</h3>
+            <?php if (!empty($compliance['fetched'])): ?>
+            <span class="text-xs px-2.5 py-1 rounded-full <?= !empty($compliance['required_pass']) ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300' ?>">
+                <?= (int)$compliance['score'] ?>/<?= (int)$compliance['max'] ?> checks passed
+            </span>
+            <?php endif; ?>
+        </div>
+        <?php if (!empty($compliance['error'])): ?>
+        <p class="text-sm text-amber-300 mb-4"><?= e($compliance['error']) ?></p>
+        <?php endif; ?>
+        <?php if (!empty($compliance['checks'])): ?>
+        <ul class="space-y-2">
+            <?php foreach ($compliance['checks'] as $c): ?>
+            <li class="flex items-start gap-3 text-sm">
+                <span class="mt-0.5 <?= $c['pass'] ? 'text-emerald-400' : ($c['required'] ? 'text-red-400' : 'text-gray-500') ?>"><?= $c['pass'] ? '✓' : ($c['required'] ? '✗' : '○') ?></span>
+                <span class="flex-1">
+                    <span class="<?= $c['pass'] ? 'text-gray-200' : 'text-gray-300' ?>"><?= e($c['label']) ?></span>
+                    <?php if ($c['required']): ?><span class="text-[10px] text-gray-600 ml-1">(required)</span><?php endif; ?>
+                    <?php if (!$c['pass'] && !empty($c['detail'])): ?><span class="block text-[11px] text-gray-500"><?= e($c['detail']) ?></span><?php endif; ?>
+                </span>
+            </li>
+            <?php endforeach; ?>
+        </ul>
+        <?php endif; ?>
+        <?php if (!empty($compliance['fetched'])): ?>
+        <p class="text-xs mt-4 <?= !empty($compliance['required_pass']) ? 'text-emerald-300' : 'text-amber-300' ?>">
+            <?= !empty($compliance['required_pass'])
+                ? '✓ All required pages detected — your site looks gateway-ready. Save the URL and submit for verification.'
+                : 'Some required pages were not detected. Add the missing pages to your website, then re-run the check. (Automated scan can miss JS-rendered links — admin does a final manual review.)' ?>
+        </p>
+        <?php endif; ?>
+    </div>
+    <?php endif; ?>
 
     <div class="glass rounded-xl p-6 border border-brand-500/20">
         <h3 class="font-semibold text-brand-400 mb-2">Why this is needed</h3>

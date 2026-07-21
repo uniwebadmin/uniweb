@@ -64,7 +64,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | IFSC → branch auto-fetch | ✅ live — type valid IFSC on Add Bank → Bank Name auto-fills + branch/city/state shown (free `ifsc.razorpay.com` directory, no key; `lookupIfsc()` + auth-gated `ifsc_lookup.php` proxy) |
 | Merchant bank add/update/change | ✅ (`add_bank.php`, `admin_merchant_banks.php`) |
 | Merchant docs → Razorpay/Cashfree page | ✅ (multi-gateway forward, shipped) |
-| Website compliance check (Contact/Policy page) | 🔧 partial (`includes/merchant_website.php`) |
+| Website compliance check (Contact/Policy page) | ✅ live — "Run compliance check" on `merchant_website.php` scans homepage (SSRF-guarded, read-only) for HTTPS + Contact/Privacy/Terms/Refund/About pages, shows pass/fail scorecard (`checkWebsiteCompliance()`) |
 | Premium KYC / Video-KYC design | 🔧 polish |
 
 ### PART 3 — Gateways, API & transactions
@@ -73,7 +73,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Razorpay / Cashfree / Decentro / PayU | ⚙️ keys pending |
 | Pine Labs Plural | ❌ new integration |
 | Test/Live toggle | ✅ |
-| API keys security/refresh/connect/notify | ✅ / 🔧 (notify email 🔧) |
+| API keys security/refresh/connect/notify | ✅ (notify email + in-app done) |
 | MDR settings (partner-wise) | ✅ (`update_mdr.php`) |
 | Hide platform fee from customer | ✅ payer sees only "Amount Payable" (`checkout.php`); split breakdown removed |
 | Txn/settlement status + exact reason | ✅ live — transaction detail shows a tone-coded plain-language reason banner (`transactionStatusExplainer()`); settlements show reason via `settlementReasonText()` on list + `settlement_detail.php` |
@@ -118,7 +118,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Admin login security + IST | ✅ |
 | Universal MFA/OTP (admin/staff mandatory, merchant optional) | ✅/🔧 (2FA + step-up exist; enforce policy) |
 | Forget password all portals | ✅ (existing portals) |
-| API-generated email notification | 🔧 |
+| API-generated email notification | ✅ — key regenerate (merchant `api_settings.php` + admin `admin_edit_merchant.php`) sends email + in-app notification + staff-activity log via `regenerateMerchantApiKey()`; secret never emailed |
 | Blog + Search Console + WhatsApp | 🔧 (blog ✅; WhatsApp webhook exists; Search Console = config) |
 | e-Rupee / Shopify / WordPress | 🔜 (WooCommerce ✅) |
 
