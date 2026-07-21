@@ -88,7 +88,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Full Hindi website | ⛔ DROPPED (owner decision) — UI stays English-only |
 | Google location autocomplete + autofill | ✅ free OpenStreetMap Nominatim (search + device location); paid Google Places intentionally NOT used |
 | Pincode → address autofill | ✅ free India PIN lookup (`api.postalpincode.in`) — type 6-digit PIN → State/District/City autofill (`address-picker.js`) |
-| Razorpay-style QR + UniWeb logo + per-QR history | 🔧 enhancement (`qr_code.php`) |
+| Razorpay-style QR + UniWeb logo + per-QR history | ✅ LIVE — centre UniWeb logo baked (GD, ECC-H), per-QR Collected/Payments summary + Print poster + "View payments" (`qr_code.php`, `qr_image.php`) |
 | Customer profile self-update (auto-approve) | ❌ ⛔ fraud risk — OTP-verify, no auto-approve |
 | Invoice PDF (GST/name/addr/mobile/email/no.) | ✅ verify fields (`invoice_pdf.php`) |
 
