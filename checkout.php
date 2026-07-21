@@ -261,15 +261,6 @@ require_once __DIR__ . '/header.php';
                     <p class="text-sm text-gray-500 mb-1">Amount Payable</p>
                     <p class="text-4xl font-bold text-sky-400"><?= formatMoney($payAmount) ?></p>
                     <p class="text-xs text-gray-600 mt-1 font-mono">Ref: <?= e($link['link_id']) ?></p>
-                    <?php if ($split['platform_fee'] > 0 || $split['merchant_net'] > 0): ?>
-                    <div class="mt-4 pt-4 border-t border-gray-800/80 text-left text-xs space-y-1 max-w-xs mx-auto">
-                        <div class="flex justify-between text-gray-500"><span>Gross amount</span><span><?= formatMoney($payAmount) ?></span></div>
-                        <?php if ($split['platform_fee'] > 0): ?>
-                        <div class="flex justify-between text-gray-500"><span>Platform fee</span><span><?= formatMoney((float)$split['platform_fee']) ?></span></div>
-                        <?php endif; ?>
-                        <div class="flex justify-between text-emerald-400 font-medium"><span>Merchant receives</span><span><?= formatMoney((float)$split['merchant_net']) ?></span></div>
-                    </div>
-                    <?php endif; ?>
                 </div>
 
                 <!-- Payment method tabs -->
