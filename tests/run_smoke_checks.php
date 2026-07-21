@@ -232,6 +232,14 @@ $prefsUi = (string)file_get_contents($root . '/merchant_notify_settings.php');
 $assert(str_contains($prefsUi, 'whatsapp') && str_contains($prefsUi, 'WhatsApp'), 'merchant_notify_prefs_whatsapp_channel');
 $mui = (string)file_get_contents($root . '/includes/merchant_ui.php');
 $assert(str_contains($mui, "'whatsapp' => true") || str_contains($mui, "'whatsapp' => false"), 'merchant_notify_defaults_include_whatsapp');
+
+// Safe polish: method_requests include wired; payout key placeholders in gateway settings.
+$colSrc = (string)file_get_contents($root . '/collection_settings.php');
+$assert(str_contains($colSrc, "includes/method_requests.php"), 'collection_settings_requires_method_requests');
+$adminMr = (string)file_get_contents($root . '/admin_method_requests.php');
+$assert(str_contains($adminMr, "includes/method_requests.php"), 'admin_method_requests_requires_lib');
+$assert(str_contains($gwSeo, 'razorpayx_key_id') && str_contains($gwSeo, 'payout_live_enabled'), 'gateway_settings_payout_key_placeholders');
+$assert(is_file($root . '/migrations/011_staff_activity_logs.sql'), 'staff_activity_migration_present');
 $assert(!in_array('gst', $individualDocs, true) && !in_array('incorporation_certificate', $individualDocs, true), 'kyc_individual_no_gst_or_cin_docs');
 $propDocs = getKycRequirements('sole_proprietorship');
 $assert(in_array('gst', $propDocs, true) && in_array('aadhaar', $propDocs, true), 'kyc_proprietorship_includes_gst');

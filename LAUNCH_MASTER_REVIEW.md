@@ -12,7 +12,7 @@ _Evaluation of the full owner checklist against the actual codebase + live statu
 Core of all existing portals is live: Public site, Merchant portal, Admin panel, Staff/Ops. Plus recently shipped: **one-click multi-gateway forward + status matrix + compliance audit trail + KYC document versioning**, MDR settings (`update_mdr.php`), 2FA/step-up, security headers, IST timezone, invoice PDF, branded errors, high-throughput QR, custom address auto-fill with "use my location", bank-verify scaffold, settlement batches/engine.
 
 ### 2. What's left (real work)
-Payout module (new), QR-with-logo + per-QR history, real gateway API keys/adapters, Aadhaar face-match (via partner), payment-method request, API/email notifications, staff-log migration, owner-confirmed DB cleanup. _(All PART-1 bugs are now fixed + live. Full Hindi UI dropped by owner.)_
+Owner-gated: gateway/partner API keys (paste when received), Digio for Aadhaar face-match, DB cleanup + settlement "diabetes" value (owner-confirm), Pine Labs / e-Rupee / Shopify expansions. Payout scaffold is shipped but live money stays gated until licensed partner keys + `payout_live_enabled`. Staff activity migration `011` is in repo — apply on next live deploy if not yet run.
 
 ### 3. What we should NOT take / must reconsider ⛔
 - **Auto-deleting production merchants/payments** ("keep only AK Digital Media") — destructive; must be a backup + reversible archive, owner-confirmed. Not run automatically.
@@ -47,11 +47,11 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Report & Analysis oversized icons / trends | ✅ fixed (CSS caps in repo) + CSS cache-bust deployed |
 | Sidebar icons cut off | ✅ fixed (CSS) + cache-bust deployed |
 | Laptop footer | ✅ fixed + live |
-| Staff activity log not working | ✅ fail-safe query live (`includes/staff.php`); ⚠️ committed migration for `staff_activity_logs` still pending |
+| Staff activity log not working | ✅ fail-safe query live (`includes/staff.php`); migration `011_staff_activity_logs.sql` in repo — apply on live deploy if table missing (owner FTP step) |
 | Agreement download bug | ✅ FIXED + live — regenerates PDF on demand if missing (`merchant_agreement_pdf.php`) |
 | Settlement batch number clickable | ✅ live (`admin_settlement_batches.php`) |
 | "Use my location" button | ✅ FIXED + live — `.htaccess` had geolocation disabled; now `geolocation=(self)` |
-| "diabetes" weird settlement status word | ✅ badge hardened live (shows "Unknown"); ⚠️ correcting the stale DB value needs owner-confirmed DB write |
+| "diabetes" weird settlement status word | ✅ badge hardened live (shows "Unknown"); ⚠️ correcting the stale DB value needs owner-confirmed DB write — owner-confirm pending |
 | Unmatched webhook log section (admin) | ✅ live in `admin_reconciliation.php` ("PG Reconciliation" in admin nav) |
 
 ### PART 2 — KYC, onboarding & bank verification

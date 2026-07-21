@@ -244,6 +244,13 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             </div>
             <?php endforeach; ?>
         </div>
+        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">Payout Partner Keys (licensed rail)</h3>
+        <p class="text-xs text-gray-500 mb-2">Paste keys when a licensed payout partner is signed. Until then the payout module stays gated — no live money movement. Set <code class="text-gray-400">payout_live_enabled=1</code> only after compliance review.</p>
+        <?php foreach ([
+            ['razorpayx_key_id','RazorpayX Key ID','text'],['razorpayx_key_secret','RazorpayX Key Secret','password'],
+            ['cashfree_payout_client_id','Cashfree Payouts Client ID','text'],['cashfree_payout_client_secret','Cashfree Payouts Client Secret','password'],
+            ['payout_live_enabled','Enable live payout money movement (0/1)','number'],
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">Axis Bank (Virtual Account / Collections)</h3>
         <p class="text-xs text-gray-500"><a href="admin_axis.php" class="text-sky-400">Axis UAT Dashboard →</a> · Webhook: <?= e(axisWebhookUrl()) ?></p>
         <?php foreach ([
