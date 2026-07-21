@@ -12,7 +12,7 @@ _Evaluation of the full owner checklist against the actual codebase + live statu
 Core of all existing portals is live: Public site, Merchant portal, Admin panel, Staff/Ops. Plus recently shipped: **one-click multi-gateway forward + status matrix + compliance audit trail + KYC document versioning**, MDR settings (`update_mdr.php`), 2FA/step-up, security headers, IST timezone, invoice PDF, branded errors, high-throughput QR, custom address auto-fill with "use my location", bank-verify scaffold, settlement batches/engine.
 
 ### 2. What's left (real work)
-Payout module (new), Customer portal (new), full Hindi UI, Google-style address autocomplete, QR-with-logo + per-QR history, Aadhaar face-match, "unmatched webhook" admin section, several PART-1 bug fixes, and UI polish.
+Payout module (new), Customer portal (new, clarified spec below), QR-with-logo + per-QR history, real gateway API keys/adapters, Aadhaar face-match (via partner), payment-method request, API/email notifications, staff-log migration, owner-confirmed DB cleanup. _(All PART-1 bugs are now fixed + live. Full Hindi UI dropped by owner.)_
 
 ### 3. What we should NOT take / must reconsider ⛔
 - **Auto-deleting production merchants/payments** ("keep only AK Digital Media") — destructive; must be a backup + reversible archive, owner-confirmed. Not run automatically.
@@ -40,19 +40,19 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 ### PART 1 — Urgent bugs & DB reset
 | Item | Status |
 |---|---|
-| DB clean-up (keep only "AK Digital Media") | ⚠️⛔ destructive — owner-confirm + backup first, reversible archive (not auto) |
+| DB clean-up (keep only "AK Digital Media") | ⚠️⛔ destructive — owner-confirm + backup first, reversible archive (not auto). STILL PENDING owner confirm |
 | Test/Live toggle per merchant | ✅ (`merchant_toggle_mode.php`) |
-| Wallet balance transfer bug | 🐞 verify (`includes/wallet.php`, `admin_wallet.php`) |
-| Payment link "available method" / "please select an item" error | 🐞 verify (`payment_links.php`) |
-| Report & Analysis oversized icons / trends | 🐞 UI (`reports.php`) |
-| Sidebar icons cut off | 🐞 UI (`header.php`) |
-| Laptop footer | ✅ fixed + live (PR #28 today) |
-| Staff activity log not working | 🐞 verify (`admin_staff_activity.php`, `includes/staff.php`) |
-| Agreement download bug | 🐞 verify (`merchant_agreement_pdf.php`) |
-| Settlement batch number clickable | 🔧 small UI (`admin_settlement_batches.php`) |
-| "Use my location" button | 🐞 verify (`assets/js/address-picker.js`) — button exists |
-| "diabetes" weird settlement status word | ✅ not found in code (likely stale DB value) — verify data |
-| Unmatched webhook log section (admin) | 🔧 partial (`admin_pg_webhooks.php` exists; add dedicated view) |
+| Wallet balance transfer bug | ✅ FIXED + live — reservation model (no double-count); debit only on UTR-confirmed completion (`admin_wallet.php`) |
+| Payment link "available method" / "please select an item" error | ✅ root cause was address-form external API; fixed via local fallback + 6s timeout (`address-picker.js`) |
+| Report & Analysis oversized icons / trends | ✅ fixed (CSS caps in repo) + CSS cache-bust deployed |
+| Sidebar icons cut off | ✅ fixed (CSS) + cache-bust deployed |
+| Laptop footer | ✅ fixed + live |
+| Staff activity log not working | ✅ fail-safe query live (`includes/staff.php`); ⚠️ committed migration for `staff_activity_logs` still pending |
+| Agreement download bug | ✅ FIXED + live — regenerates PDF on demand if missing (`merchant_agreement_pdf.php`) |
+| Settlement batch number clickable | ✅ live (`admin_settlement_batches.php`) |
+| "Use my location" button | ✅ FIXED + live — `.htaccess` had geolocation disabled; now `geolocation=(self)` |
+| "diabetes" weird settlement status word | ✅ badge hardened live (shows "Unknown"); ⚠️ correcting the stale DB value needs owner-confirmed DB write |
+| Unmatched webhook log section (admin) | ✅ live in `admin_reconciliation.php` ("PG Reconciliation" in admin nav) |
 
 ### PART 2 — KYC, onboarding & bank verification
 | Item | Status |
