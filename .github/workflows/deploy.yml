@@ -50,11 +50,23 @@ jobs:
             exit 1
           fi
           PORT="${PORT:-65002}"
-          # Mirror local tracked checkout → remote public_html.
-          # Excludes keep secrets, tooling, and docs off the live tree.
-          # Idempotent: re-running only uploads diffs; never deletes remote-only
-          # files (no --delete) so live config.php / uploads stay intact.
-          lftp -e "set sftp:auto-confirm yes; set net:max-retries 3; set net:timeout 30; mirror -R --parallel=4 --exclude .git/ --exclude .github/ --exclude .vscode/ --exclude node_modules/ --exclude _inbox/ --exclude tests/ --exclude \.md$ ./ ${REMOTE}; bye" -u "${USER},${PASS}" -p "${PORT}" "sftp://${HOST}"
+          export LFTP_PASSWORD="${PASS}"
+          lftp -u "${USER}" -p "${PORT}" "sftp://${HOST}" <<EOF
+          set sftp:auto-confirm yes
+          set net:max-retries 5
+          set net:timeout 60
+          set cmd:fail-exit yes
+          mirror -R --parallel=4 \
+            --exclude .git/ \
+            --exclude .github/ \
+            --exclude .vscode/ \
+            --exclude node_modules/ \
+            --exclude _inbox/ \
+            --exclude tests/ \
+            --exclude \.md$ \
+            ./ ${REMOTE}
+          bye
+          EOF
 
       - name: Optional live smoke (non-blocking)
         continue-on-error: true
