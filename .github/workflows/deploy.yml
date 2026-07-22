@@ -115,3 +115,5 @@ jobs:
           curl -fsS -o /dev/null -w "login %{http_code}\n" "https://uniweb.co.in/login.php" || true
           curl -fsS -o /dev/null -w "demo %{http_code}\n" "https://uniweb.co.in/demo.php" || true
           curl -fsS -o /dev/null -w "customer_login %{http_code}\n" "https://uniweb.co.in/customer_login.php" || true
+          curl -fsS -o /dev/null -w "cust_php %{http_code}\n" "https://uniweb.co.in/cust.php" || true
+          curl -fsS -o /dev/null -w "cust_path %{http_code}\n" "https://uniweb.co.in/cust" || true
