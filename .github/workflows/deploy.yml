@@ -30,6 +30,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Upload tracked files via FTP (parallel)
         env:
@@ -43,24 +45,50 @@ jobs:
             echo "Missing required UNIWEB_FTP_* secrets."
             exit 1
           fi
-          BASE="${REMOTE:-public_html}"
+          RAW_REMOTE="${REMOTE:-}"
+          BASE="${RAW_REMOTE:-public_html}"
           BASE="${BASE#/}"
           BASE="${BASE%/}"
-          # Hostinger FTP is usually chrooted at the account home. Secrets may store
-          # home/USER/domains/site/public_html — strip home/USER/ so we land in
-          # domains/site/public_html. Do NOT collapse to bare public_html (main domain).
-          BASE="$(printf '%s' "$BASE" | sed -E 's#^home/[^/]+/##')"
-          if [ -z "$BASE" ]; then
-            BASE="public_html"
+          # Hostinger FTP accounts are often already chrooted into the site docroot.
+          # In that case the correct remote base is "." (not domains/.../public_html).
+          # Set GitHub secret UNIWEB_FTP_REMOTE to "." or "DOCROOT" when that applies.
+          # For account-home chroot, use domains/uniweb.co.in/public_html (no home/USER/).
+          if [ "$BASE" = "DOCROOT" ] || [ "$BASE" = "." ] || [ "$BASE" = "docroot" ]; then
+            BASE="."
+          else
+            BASE="$(printf '%s' "$BASE" | sed -E 's#^home/[^/]+/##')"
+            if [ -z "$BASE" ]; then
+              BASE="public_html"
+            fi
           fi
-          echo "FTP remote base: ${BASE}"
+          # Auto-fallback probe path: if secret still looks like a full domain path,
+          # also export FALLBACK_BASE="." for a second-pass critical-file upload when probe fails.
+          export FALLBACK_BASE="."
+          echo "FTP remote base: ${BASE} (raw secret set=$( [ -n "$RAW_REMOTE" ] && echo yes || echo no ))"
           export HOST BASE
           export USER_ENC PASS_ENC
           USER_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['USER'], safe=''))")
           PASS_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['PASS'], safe=''))")
 
-          mapfile -t FILES < <(git ls-files | grep -vE '^(tests/|\.github/|\.vscode/|_inbox/|.*\.md$)' || true)
-          echo "Uploading ${#FILES[@]} files to ftp://${HOST}/${BASE}/ (parallel=8 + retry)"
+          # Incremental deploy: on a normal push with a known previous commit,
+          # only upload files that actually changed (added/modified). This avoids
+          # hammering Hostinger's FTP with 300+ connections every time, which was
+          # tripping their anti-abuse/rate-limit and causing "Failed to connect
+          # ... port 21 ... Timeout" on nearly every file. Manual runs (or a push
+          # with no usable parent, e.g. first commit) fall back to a full sync.
+          BEFORE_SHA="${{ github.event.before || '' }}"
+          MODE="full"
+          if [ "${{ github.event_name }}" = "push" ] \
+             && [ -n "$BEFORE_SHA" ] \
+             && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ] \
+             && git cat-file -e "$BEFORE_SHA" 2>/dev/null; then
+            mapfile -t FILES < <(git diff --name-only --diff-filter=ACMR "$BEFORE_SHA" HEAD -- . \
+              | grep -vE '^(tests/|\.github/|\.vscode/|_inbox/|.*\.md$)' || true)
+            MODE="incremental (vs ${BEFORE_SHA:0:7})"
+          else
+            mapfile -t FILES < <(git ls-files | grep -vE '^(tests/|\.github/|\.vscode/|_inbox/|.*\.md$)' || true)
+          fi
+          echo "Uploading ${#FILES[@]} files to ftp://${HOST}/${BASE}/ (mode=${MODE}, parallel=3 + retry)"
 
           upload_one() {
             rel="$1"
@@ -70,7 +98,7 @@ jobs:
             attempt=1
             while [ "$attempt" -le 2 ]; do
               code=$(curl -sS --ftp-pasv --ftp-create-dirs \
-                --connect-timeout 15 --max-time 90 \
+                --connect-timeout 20 --max-time 90 \
                 -T "$rel" \
                 "$url" \
                 -w "%{http_code}" -o /dev/null) || code="000"
@@ -78,7 +106,7 @@ jobs:
               if [ "$code" = "226" ] || [ "$code" = "250" ]; then
                 return 0
               fi
-              sleep $((attempt * 2))
+              sleep $((attempt * 5))
               attempt=$((attempt + 1))
             done
             echo "FAIL $rel (curl=$code)"
@@ -87,10 +115,16 @@ jobs:
           export -f upload_one
 
           FAIL_FILE="$(mktemp)"
-          # Do not use set -e across xargs: collect failures, then serial retry.
-          set +e
-          printf '%s\n' "${FILES[@]}" | xargs -P 8 -I{} bash -c 'upload_one "$1" || echo "$1" >>"$2"' _ {} "$FAIL_FILE"
-          set -e
+          if [ "${#FILES[@]}" -gt 0 ]; then
+            # Do not use set -e across xargs: collect failures, then serial retry.
+            # Low parallelism (3) — Hostinger shared FTP throttles/blocks the
+            # source IP when too many simultaneous connections hit it at once.
+            set +e
+            printf '%s\n' "${FILES[@]}" | xargs -P 3 -I{} bash -c 'upload_one "$1" || echo "$1" >>"$2"' _ {} "$FAIL_FILE"
+            set -e
+          else
+            echo "No changed files to upload."
+          fi
 
           FAIL_COUNT=0
           if [ -s "$FAIL_FILE" ]; then

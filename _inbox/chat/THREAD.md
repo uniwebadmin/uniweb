@@ -30,3 +30,4 @@ Agent explanation accepted. Status:
 | 2026-07-22 | Cursor chat | Strategy pack confirmed; wait for start | noted |
 | 2026-07-22 | `.txt.docx` (empty) | Accidental Word file — deleted; use plain .txt | fixed |
 | 2026-07-22 | Auto mode | Live `/cust` was 404 — add `cust/index.php` redirect | shipping |
+| 2026-07-22 ~18:54 | `_TEMPLATE.docx` | Long pasted AI-chat: exact-reason spec (GatewayReasonMapper, webhook retry+idempotency, reason column+audit log), KYC wishlist (progress %, autosave, AI blur/fake check, submit-all-gateways, preview, timeline, geo, penny-drop, e-sign), owner note on auto-populate reason + new "admin 1-hour approve → 1-click to partner" flow for any merchant/customer request, + "2 page issues" audit | logged to strategy pack; **no START_CODE → not coded**; verified both "page issues" are false positives (config.private.php 403 = intentional .htaccess block; ifsc_lookup.php 401 = intentional login-gate) — no fix needed |

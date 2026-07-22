@@ -49,6 +49,15 @@ Do **not** implement until owner explicitly says “kaam start”. Budget uncons
 
 Owner sending more detail next — discuss before coding.
 
+### Added detail (2026-07-22, via chat inbox docx)
+
+- **#1 exact reason** — concrete spec liked by owner: gateway→reason mapping dict, webhook retry+idempotency, merchant UI reason column+icon, auto email/notify on failed settlement, audit log. Owner's key ask: reason should **auto-populate from partner straight to merchant** — no manual admin relay step needed.
+- **New: KYC/onboarding polish wishlist** — progress % bar, auto-save drafts, AI doc blur/fake check, one-click "submit to all gateways", doc preview, status timeline, Google location for address, penny-drop bank-verify button, digital signature/e-sign on agreement.
+- **New: generic "admin approve → 1-click to partner" flow** — whenever merchant/customer requests something (enable payment method, etc.), request lands with admin; admin has ~1 hour to review; one button press forwards straight to the partner (no manual re-typing/relay by admin). Apply this pattern broadly wherever a partner approval is needed.
+- **Page audit false positives (not bugs):** `config.private.php` 403 (intentional `.htaccess` block) and `ifsc_lookup.php` 401 (intentional login-gate) — verified, no fix needed.
+
+Still **waiting for explicit "start"** before any of this is coded.
+
 ### Owner confirm (2026-07-22 evening)
 
 - Agent ki baat sahi; usi hisaab se note.
