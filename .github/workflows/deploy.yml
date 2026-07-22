@@ -54,7 +54,7 @@ jobs:
           # Excludes keep secrets, tooling, and docs off the live tree.
           # Idempotent: re-running only uploads diffs; never deletes remote-only
           # files (no --delete) so live config.php / uploads stay intact.
-          lftp -e "set sftp:auto-confirm yes; set net:max-retries 3; set net:timeout 30; mirror -R --parallel=4 --exclude .git/ --exclude .github/ --exclude .vscode/ --exclude node_modules/ --exclude _inbox/ --exclude tests/ --exclude '*.md' ./ ${REMOTE}; bye" -u "${USER},${PASS}" -p "${PORT}" "sftp://${HOST}"
+          lftp -e "set sftp:auto-confirm yes; set net:max-retries 3; set net:timeout 30; mirror -R --parallel=4 --exclude .git/ --exclude .github/ --exclude .vscode/ --exclude node_modules/ --exclude _inbox/ --exclude tests/ --exclude \.md$ ./ ${REMOTE}; bye" -u "${USER},${PASS}" -p "${PORT}" "sftp://${HOST}"
 
       - name: Optional live smoke (non-blocking)
         continue-on-error: true
