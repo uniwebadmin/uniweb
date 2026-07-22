@@ -2,7 +2,7 @@
 
 Versioned SQL in this folder is the **schema of record**. Runtime `ensure*Schema()` helpers in `includes/` are a safety net; release deploys should still apply pending files via `migrate_release.php` so `schema_migrations` stays accurate.
 
-## Owner — one-time apply on live (011–017)
+## Owner — one-time apply on live (011–018)
 
 After FTP/CI ships these files to Hostinger, apply pending migrations once:
 
@@ -27,11 +27,11 @@ After FTP/CI ships these files to Hostinger, apply pending migrations once:
    }
    ```
 
-5. Safe to re-run: already-applied versions are skipped (checksum-checked). Idempotent `IF NOT EXISTS` guards on 011–017 avoid duplicate-column failures when runtime schema ensure already added columns.
+5. Safe to re-run: already-applied versions are skipped (checksum-checked). Idempotent `IF NOT EXISTS` / ENUM expand guards on 011–018 avoid duplicate-column failures when runtime schema ensure already added columns.
 
 If `ok: false`, fix the reported SQL error (often a missing base table from an older install) and re-run. Do **not** hand-edit `schema_migrations` unless advised.
 
-## What 011–017 add
+## What 011–018 add
 
 | File | Purpose |
 |---|---|
@@ -42,7 +42,7 @@ If `ok: false`, fix the reported SQL error (often a missing base table from an o
 | `015_payout_scaffold.sql` | Payout enable requests, beneficiaries, draft orders (live money gated) |
 | `016_customer_ticket_roles.sql` | Customer ticket merchant/staff sender roles + merchant index |
 | `017_payout_expansion.sql` | Payout batches, reversal queue, API credentials, penny-drop note |
-
+| `018_gateway_submissions_axis.sql` | Expand `gateway_submissions.gateway` ENUM to include Axis Bank |
 ## Local / cloud VM
 
 ```bash
