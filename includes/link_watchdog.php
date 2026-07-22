@@ -34,6 +34,7 @@ function getWatchdogPageRegistry(): array
         ['signup.php', 'Signup', 'public'],
         ['login.php', 'Merchant Login', 'public'],
         ['customer_login.php', 'Customer Login', 'public'],
+        ['cust/index.php', 'Customer Login short /cust', 'public'],
         ['customer_portal.php', 'Customer Portal', 'public'],
         ['customer_ticket.php', 'Customer Complaint', 'public'],
         ['customer_logout.php', 'Customer Logout', 'public'],
