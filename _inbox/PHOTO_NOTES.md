@@ -65,6 +65,13 @@ Still **waiting for explicit "start"** before any of this is coded.
 - Abhi **START nahi** — wait for explicit start.
 - Mobile chat inbox: `_inbox/chat/` (photo-style OneDrive drop).
 
+## ⚠️ Deploy investigation (2026-07-22 evening) — BLOCKED on owner's Hostinger hPanel screenshot
+
+- Fixed: rate-limit issue (8-parallel FTP was tripping Hostinger's anti-abuse, causing "Failed to connect port 21" on ~290/312 files). Deploy now incremental (only changed files) + 3-parallel — a full-sync run completed 100% success (`Upload OK: 312 files`).
+- **But:** live-site smoke probes (`ap-phone` CSS class, custom PHP marker files dropped at 5 different candidate FTP base paths: `.`, `public_html`, `domains/uniweb.co.in/public_html`, `httpdocs`, `www`) — **none** show up live. All return the app's own 404 page (proven by matching `UNIWEBSESSID` cookie + identical headers to a deliberately-fake path), meaning FTP uploads are landing somewhere that is **not** the real docroot Apache serves for uniweb.co.in.
+- Homepage/login/demo/customer_login all return 200 live — so the real site works, just not from wherever this FTP account's files land.
+- **Root cause unknown without owner's eyes on hPanel** — need a screenshot of Hostinger hPanel → Files → FTP Accounts (shows each account's bound "Directory"/docroot). Asked owner for this; diagnostic workflow `.github/workflows/ftp_probe.yml` left in repo for a follow-up round once we know the real path (delete after confirmed).
+
 ## Work log
 
 - 2026-07-22: Photo fixes PR #32/#35/#36 live. Migrations 011–018 apply still owner-manual.
