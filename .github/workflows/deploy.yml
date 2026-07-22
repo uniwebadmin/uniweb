@@ -45,11 +45,14 @@ jobs:
           fi
           BASE="${REMOTE:-public_html}"
           BASE="${BASE#/}"
-          case "$BASE" in
-            home/*/domains/*/public_html*|*/public_html) BASE="public_html" ;;
-            public_html*) ;;
-            *) BASE="public_html" ;;
-          esac
+          BASE="${BASE%/}"
+          # Hostinger addon domains live at e.g. home/USER/domains/uniweb.co.in/public_html
+          # NEVER collapse that to bare "public_html" — that uploads to the wrong docroot
+          # (FTP reports OK but uniweb.co.in never sees new files).
+          if [ -z "$BASE" ]; then
+            BASE="public_html"
+          fi
+          echo "FTP remote base: ${BASE}"
           export HOST BASE
           export USER_ENC PASS_ENC
           USER_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['USER'], safe=''))")
@@ -117,3 +120,10 @@ jobs:
           curl -fsS -o /dev/null -w "customer_login %{http_code}\n" "https://uniweb.co.in/customer_login.php" || true
           curl -fsS -o /dev/null -w "cust_php %{http_code}\n" "https://uniweb.co.in/cust.php" || true
           curl -fsS -o /dev/null -w "cust_path %{http_code}\n" "https://uniweb.co.in/cust" || true
+          curl -fsS -o /dev/null -w "payer_php %{http_code}\n" "https://uniweb.co.in/payer.php" || true
+          # Prove docroot is the real site: enlarged mobile field from PR #35
+          if curl -fsS "https://uniweb.co.in/assets/css/auth-portal.css?v=2" | grep -q "ap-phone"; then
+            echo "docroot_probe ap-phone OK"
+          else
+            echo "docroot_probe ap-phone MISSING — FTP may still be writing to the wrong folder (check UNIWEB_FTP_REMOTE)"
+          fi
