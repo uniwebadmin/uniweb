@@ -1,13 +1,11 @@
 # UniWeb — Hostinger FTP auto-deploy (laptop-free)
 #
 # Triggers on every push to `main` (and manual workflow_dispatch).
-# Secrets (repo Settings → Secrets → Actions) — never hardcoded:
-#   UNIWEB_FTP_HOST, UNIWEB_FTP_USER, UNIWEB_FTP_PASS,
-#   UNIWEB_FTP_REMOTE (= public_html relative path, e.g. public_html)
+# Secrets: UNIWEB_FTP_HOST, UNIWEB_FTP_USER, UNIWEB_FTP_PASS
+# Optional: UNIWEB_FTP_REMOTE (defaults to public_html)
 #
-# Uses plain FTP (same as scripts/release_deploy.ps1) so special characters
-# in passwords work. Git-ignored config.php / .vscode/sftp.json are never
-# in the checkout, so they are never overwritten.
+# Uses parallel FTP curl (same transport as scripts/release_deploy.ps1).
+# Git-ignored config.php / .vscode/sftp.json are never in checkout.
 
 name: Deploy to UniWeb Hostinger
 
@@ -18,7 +16,7 @@ on:
 
 concurrency:
   group: uniweb-live-deploy
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -29,7 +27,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Upload tracked files via FTP
+      - name: Upload tracked files via FTP (parallel)
         env:
           HOST: ${{ secrets.UNIWEB_FTP_HOST }}
           USER: ${{ secrets.UNIWEB_FTP_USER }}
@@ -41,39 +39,39 @@ jobs:
             echo "Missing required UNIWEB_FTP_* secrets."
             exit 1
           fi
-          # Normalize remote base: Hostinger FTP often wants public_html/...
           BASE="${REMOTE:-public_html}"
           BASE="${BASE#/}"
           case "$BASE" in
-            home/*/domains/*/public_html*) BASE="public_html" ;;
-            */public_html) BASE="public_html" ;;
+            home/*/domains/*/public_html*|*/public_html) BASE="public_html" ;;
             public_html*) ;;
             *) BASE="public_html" ;;
           esac
-
+          export HOST BASE
+          export USER_ENC PASS_ENC
           USER_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['USER'], safe=''))")
           PASS_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['PASS'], safe=''))")
 
           mapfile -t FILES < <(git ls-files | grep -vE '^(tests/|\.github/|\.vscode/|_inbox/|.*\.md$)' || true)
-          echo "Uploading ${#FILES[@]} tracked files to ftp://${HOST}/${BASE}/"
-          FAIL=0
-          for rel in "${FILES[@]}"; do
-            [ -f "$rel" ] || continue
+          echo "Uploading ${#FILES[@]} files to ftp://${HOST}/${BASE}/ (parallel=8)"
+
+          upload_one() {
+            rel="$1"
+            [ -f "$rel" ] || return 0
             remote="${BASE}/${rel}"
             code=$(curl -sS --ftp-pasv --ftp-create-dirs \
-              --connect-timeout 20 --max-time 120 \
+              --connect-timeout 15 --max-time 90 \
               -T "$rel" \
               "ftp://${USER_ENC}:${PASS_ENC}@${HOST}/${remote}" \
               -w "%{http_code}" -o /dev/null) || code="000"
             if [ "$code" != "226" ] && [ "$code" != "250" ]; then
               echo "FAIL $rel (curl=$code)"
-              FAIL=$((FAIL+1))
+              return 1
             fi
-          done
-          if [ "$FAIL" -gt 0 ]; then
-            echo "Upload finished with $FAIL failures"
-            exit 1
-          fi
+            return 0
+          }
+          export -f upload_one
+
+          printf '%s\n' "${FILES[@]}" | xargs -P 8 -I{} bash -c 'upload_one "$@"' _ {}
           echo "Upload OK: ${#FILES[@]} files"
 
       - name: Optional live smoke (non-blocking)
@@ -81,3 +79,4 @@ jobs:
         run: |
           curl -fsS -o /dev/null -w "homepage %{http_code}\n" "https://uniweb.co.in/" || true
           curl -fsS -o /dev/null -w "login %{http_code}\n" "https://uniweb.co.in/login.php" || true
+          curl -fsS -o /dev/null -w "customer_login %{http_code}\n" "https://uniweb.co.in/customer_login.php" || true

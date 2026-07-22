@@ -97,7 +97,9 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 > - **History:** all txns for that mobile across merchants (matches `transactions.customer_phone` + `payment_links.customer_phone`), read-only, status + reason.
 > - **Tickets:** raise grievance from any txn; thread replies.
 > - **Cross-role:** Admin + Staff (`admin_customer_tickets.php` in staff nav for support/ops) see all; Merchant (`merchant_customer_tickets.php`) sees **own merchant_id only** and can reply; replies fan out WhatsApp/SMS when configured (`replyToCustomerTicket` / migration `016`).
-> - **Guardrails:** no auto-approve contact self-update; no password on customer portal (OTP only).| Payment method request (merchant→admin) | ✅ live — merchant self-toggles only entitled methods; locked methods show "Request to Enable" → admin approve/reject queue (`admin_method_requests.php`), approval unlocks instantly (`includes/method_requests.php`, `collection_settings.php`) |
+> - **Guardrails:** no auto-approve contact self-update; no password on customer portal (OTP only).
+
+| Payment method request (merchant→admin) | ✅ live — merchant self-toggles only entitled methods; locked methods show "Request to Enable" → admin approve/reject queue (`admin_method_requests.php`), approval unlocks instantly (`includes/method_requests.php`, `collection_settings.php`) |
 
 ### PART 5 — Payout system (new module)
 | Item | Status |
