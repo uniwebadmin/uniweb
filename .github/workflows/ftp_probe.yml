@@ -23,7 +23,7 @@ jobs:
           USER_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['USER'], safe=''))")
           PASS_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['PASS'], safe=''))")
           MARK="probe-$(date +%s)"
-          echo "$MARK" > marker.txt
+          echo "<?php echo '$MARK'; ?>" > marker.txt
           echo "Marker content: $MARK"
 
           declare -A NAMES
@@ -35,7 +35,7 @@ jobs:
 
           for base in "." "public_html" "domains/uniweb.co.in/public_html" "httpdocs" "www"; do
             tag="${NAMES[$base]}"
-            fname="_ftpprobe_${tag}.txt"
+            fname="_ftpprobe_${tag}.php"
             remote="${base%/}/${fname}"
             remote="${remote#./}"
             url="ftp://${USER_ENC}:${PASS_ENC}@${HOST}/${remote}"
@@ -48,7 +48,7 @@ jobs:
           sleep 6
           set +e
           for tag in root publichtml domainspublichtml httpdocs www; do
-            url="https://uniweb.co.in/_ftpprobe_${tag}.txt"
+            url="https://uniweb.co.in/_ftpprobe_${tag}.php"
             body=$(curl -fsS --max-time 15 "$url" 2>/dev/null)
             httpcode=$(curl -s -o /dev/null --max-time 15 -w "%{http_code}" "$url")
             match="no"
