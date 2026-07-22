@@ -1,15 +1,13 @@
-# UniWeb — Hostinger SFTP auto-deploy (laptop-free)
+# UniWeb — Hostinger FTP auto-deploy (laptop-free)
 #
 # Triggers on every push to `main` (and manual workflow_dispatch).
 # Secrets (repo Settings → Secrets → Actions) — never hardcoded:
 #   UNIWEB_FTP_HOST, UNIWEB_FTP_USER, UNIWEB_FTP_PASS,
-#   UNIWEB_FTP_PORT (SFTP, typically 65002),
-#   UNIWEB_FTP_REMOTE (= /home/.../domains/uniweb.co.in/public_html)
+#   UNIWEB_FTP_REMOTE (= public_html relative path, e.g. public_html)
 #
-# Important: CI only has TRACKED files. Git-ignored secrets such as
-# config.php and .vscode/sftp.json are NEVER uploaded or overwritten.
-# New PHP helpers must be registered in includes/cloud_modules.php so
-# live config.php (which auto-loads that file) picks them up.
+# Uses plain FTP (same as scripts/release_deploy.ps1) so special characters
+# in passwords work. Git-ignored config.php / .vscode/sftp.json are never
+# in the checkout, so they are never overwritten.
 
 name: Deploy to UniWeb Hostinger
 
@@ -24,49 +22,59 @@ concurrency:
 
 jobs:
   deploy:
-    name: SFTP mirror to Hostinger
+    name: FTP upload to Hostinger
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install lftp
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq lftp
-
-      - name: Mirror tracked tree via SFTP
+      - name: Upload tracked files via FTP
         env:
           HOST: ${{ secrets.UNIWEB_FTP_HOST }}
           USER: ${{ secrets.UNIWEB_FTP_USER }}
           PASS: ${{ secrets.UNIWEB_FTP_PASS }}
-          PORT: ${{ secrets.UNIWEB_FTP_PORT }}
           REMOTE: ${{ secrets.UNIWEB_FTP_REMOTE }}
         run: |
           set -euo pipefail
-          if [ -z "${HOST:-}" ] || [ -z "${USER:-}" ] || [ -z "${PASS:-}" ] || [ -z "${REMOTE:-}" ]; then
+          if [ -z "${HOST:-}" ] || [ -z "${USER:-}" ] || [ -z "${PASS:-}" ]; then
             echo "Missing required UNIWEB_FTP_* secrets."
             exit 1
           fi
-          PORT="${PORT:-65002}"
-          export LFTP_PASSWORD="${PASS}"
-          lftp -u "${USER}" -p "${PORT}" "sftp://${HOST}" <<EOF
-          set sftp:auto-confirm yes
-          set net:max-retries 5
-          set net:timeout 60
-          set cmd:fail-exit yes
-          mirror -R --parallel=4 \
-            --exclude .git/ \
-            --exclude .github/ \
-            --exclude .vscode/ \
-            --exclude node_modules/ \
-            --exclude _inbox/ \
-            --exclude tests/ \
-            --exclude \.md$ \
-            ./ ${REMOTE}
-          bye
-          EOF
+          # Normalize remote base: Hostinger FTP often wants public_html/...
+          BASE="${REMOTE:-public_html}"
+          BASE="${BASE#/}"
+          case "$BASE" in
+            home/*/domains/*/public_html*) BASE="public_html" ;;
+            */public_html) BASE="public_html" ;;
+            public_html*) ;;
+            *) BASE="public_html" ;;
+          esac
+
+          USER_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['USER'], safe=''))")
+          PASS_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['PASS'], safe=''))")
+
+          mapfile -t FILES < <(git ls-files | grep -vE '^(tests/|\.github/|\.vscode/|_inbox/|.*\.md$)' || true)
+          echo "Uploading ${#FILES[@]} tracked files to ftp://${HOST}/${BASE}/"
+          FAIL=0
+          for rel in "${FILES[@]}"; do
+            [ -f "$rel" ] || continue
+            remote="${BASE}/${rel}"
+            code=$(curl -sS --ftp-pasv --ftp-create-dirs \
+              --connect-timeout 20 --max-time 120 \
+              -T "$rel" \
+              "ftp://${USER_ENC}:${PASS_ENC}@${HOST}/${remote}" \
+              -w "%{http_code}" -o /dev/null) || code="000"
+            if [ "$code" != "226" ] && [ "$code" != "250" ]; then
+              echo "FAIL $rel (curl=$code)"
+              FAIL=$((FAIL+1))
+            fi
+          done
+          if [ "$FAIL" -gt 0 ]; then
+            echo "Upload finished with $FAIL failures"
+            exit 1
+          fi
+          echo "Upload OK: ${#FILES[@]} files"
 
       - name: Optional live smoke (non-blocking)
         continue-on-error: true
