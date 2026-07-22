@@ -135,3 +135,8 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 6. **Pincode address autofill** — incremental. _(Full Hindi UI: dropped by owner — English-only.)_
 
 _Customer portal (clarified): passwordless WhatsApp-OTP login → own transaction history → raise grievance/ticket. Build later, step by step. No auto-approve contact self-update; no in-house biometrics (use a certified partner)._
+
+---
+
+## ⏳ TOMORROW — owner input pending (do NOT start without it)
+- **Login pages redesign (ALL 4: Merchant `login.php`, Admin `admin_login.php`, Staff `staff_login.php`, Customer `customer_login.php`)** — owner will give the exact design direction / reference photo on **the morning of 2026-07-22**. Requested scope: all pages, consistent look. Wait for the owner's reference before implementing; do not guess the visual style. (Noted 2026-07-21 evening.)
