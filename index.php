@@ -62,8 +62,8 @@ require_once __DIR__ . '/header.php';
                 ];
                 foreach ($homeSlides as $i => [$type, $t, $s, $tags]): ?>
                 <div class="home-slide <?= $i === 0 ? '' : 'hidden' ?>" data-i="<?= $i ?>">
-                    <div class="aspect-[16/10] sm:aspect-video max-h-[280px] sm:max-h-[360px] bg-gradient-to-br from-dark-950 via-slate-900 to-sky-950/40 p-4 sm:p-6 flex items-center justify-center">
-                        <div class="w-full max-w-md glass rounded-xl border border-gray-700/80 p-4 shadow-2xl">
+                    <div class="min-h-[240px] sm:min-h-[320px] bg-gradient-to-br from-dark-950 via-slate-900 to-sky-950/40 p-5 sm:p-8 flex items-center justify-center">
+                        <div class="w-full max-w-md glass rounded-xl border border-gray-700/80 p-4 shadow-2xl shrink-0">
                             <div class="flex items-center gap-2 mb-3">
                                 <div class="w-8 h-8 rounded-lg bg-brand-600/30 flex items-center justify-center text-xs font-bold text-brand-300">UW</div>
                                 <div>

@@ -77,6 +77,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     persistCheckoutCustomerDetails($link, $_POST);
 }
+$checkoutCustomerError = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $customerCheck = validateCheckoutCustomerDetails($_POST);
+    if (!$customerCheck['ok']) {
+        $checkoutCustomerError = $customerCheck['message'];
+    }
+}
 
 $handler = resolveCheckoutHandlerForLink($link);
 $split = calculateSplitBreakdown($payAmount, $link);
@@ -98,26 +105,30 @@ $currentMethod = null;
 foreach ($paymentMethods as $m) { if ($m['key'] === $selectedPay) { $currentMethod = $m; break; } }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'test_pay' && $allowInstantPay) {
-    $method = preg_replace('/[^a-z0-9_]/i', '', $selectedPay) ?: 'test';
-    $testReference = 'TEST' . strtoupper(bin2hex(random_bytes(6)));
-    $order = createBoundPaymentOrder($link, 'sandbox', 'instant:' . $testReference);
-    bindProviderOrder((int)$order['id'], 'sandbox', (string)$order['order_ref']);
-    $captured = captureVerifiedPaymentOrder([
-        'provider' => 'sandbox',
-        'provider_order_id' => (string)$order['order_ref'],
-        'provider_payment_id' => 'sandbox_' . $testReference,
-        'amount' => $payAmount,
-        'currency' => 'INR',
-        'captured' => true,
-        'signature_verified' => true,
-        'provider_verified' => true,
-        'reference' => $testReference,
-    ]);
-    $txnDbId = (int)($captured['transaction_id'] ?? 0);
-    $txnRow = getDB()->prepare('SELECT txn_id FROM transactions WHERE id = ?');
-    $txnRow->execute([$txnDbId]);
-    $successTxnId = $txnRow->fetchColumn() ?: null;
-    $success = true;
+    if ($checkoutCustomerError !== '') {
+        $error = $checkoutCustomerError;
+    } else {
+        $method = preg_replace('/[^a-z0-9_]/i', '', $selectedPay) ?: 'test';
+        $testReference = 'TEST' . strtoupper(bin2hex(random_bytes(6)));
+        $order = createBoundPaymentOrder($link, 'sandbox', 'instant:' . $testReference);
+        bindProviderOrder((int)$order['id'], 'sandbox', (string)$order['order_ref']);
+        $captured = captureVerifiedPaymentOrder([
+            'provider' => 'sandbox',
+            'provider_order_id' => (string)$order['order_ref'],
+            'provider_payment_id' => 'sandbox_' . $testReference,
+            'amount' => $payAmount,
+            'currency' => 'INR',
+            'captured' => true,
+            'signature_verified' => true,
+            'provider_verified' => true,
+            'reference' => $testReference,
+        ]);
+        $txnDbId = (int)($captured['transaction_id'] ?? 0);
+        $txnRow = getDB()->prepare('SELECT txn_id FROM transactions WHERE id = ?');
+        $txnRow->execute([$txnDbId]);
+        $successTxnId = $txnRow->fetchColumn() ?: null;
+        $success = true;
+    }
 }
 
 $razorpayKey = getSetting('razorpay_key_id', '');
@@ -187,7 +198,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $selectedPay === 'upi' && in_array(
     // payment_fail velocity stays for non-QR checkout only (bot UTR spray).
     $fromQr = !empty($link['qr_code_id']);
     $velocity = $fromQr ? ['blocked' => false, 'retry_after_minutes' => 0] : checkVelocityBlock('payment_fail');
-    if (!empty($velocity['blocked'])) {
+    if ($checkoutCustomerError !== '' && $utr !== '') {
+        $error = $checkoutCustomerError;
+    } elseif (!empty($velocity['blocked'])) {
         $error = velocityBlockMessage('payment_fail') . ' (retry in ~' . $velocity['retry_after_minutes'] . ' min)';
     } elseif ($allowInstantPay && ($_POST['action'] ?? '') === 'test_pay') {
         // handled above
@@ -285,6 +298,7 @@ require_once __DIR__ . '/header.php';
                 </div>
 
                 <div class="px-6 py-5">
+                    <?php if ($error): ?><div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg mb-4"><?= e($error) ?></div><?php endif; ?>
                     <?php if ($currentMethod): ?>
                     <p class="text-sm font-medium text-gray-300 mb-1"><?= e((string)($currentMethod['label'] ?? '')) ?></p>
                     <p class="text-xs text-gray-500 mb-4"><?= e((string)($currentMethod['sub'] ?? '')) ?></p>
@@ -324,11 +338,9 @@ require_once __DIR__ . '/header.php';
                     <?php if ($upiPa !== ''): ?>
                     <a href="<?= e($whatsappLink) ?>" target="_blank" rel="noopener" class="block text-center bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 py-2 rounded-xl text-sm mb-4">WhatsApp Pay Link</a>
                     <?php endif; ?>
-                    <?php if ($error): ?><div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg mb-4"><?= e($error) ?></div><?php endif; ?>
                     <?php if ($allowInstantPay): ?>
                     <form method="POST" class="space-y-3">
-                        <input type="text" name="customer_name" placeholder="Your Name" class="input-field" value="<?= e($link['customer_name'] ?? '') ?>">
-                        <input type="tel" name="customer_phone" placeholder="Phone" class="input-field" value="<?= e($link['customer_phone'] ?? '') ?>">
+                        <?php renderCheckoutCustomerFields($link); ?>
                         <input type="text" name="utr" placeholder="Test UPI reference" class="input-field">
                         <button type="submit" class="w-full border border-gray-700 text-gray-300 py-3 rounded-xl font-semibold">Confirm Test UPI Payment</button>
                         <p class="text-[11px] text-gray-600 text-center">Sandbox only: use any unique 10–22 character test reference.</p>

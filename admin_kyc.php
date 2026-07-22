@@ -111,20 +111,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('admin_kyc.php');
 }
 
-$pendingDocs = $db->query("SELECT k.*, m.business_name, m.merchant_code, m.business_entity_type FROM kyc_documents k JOIN merchants m ON k.merchant_id=m.id WHERE k.status='pending' ORDER BY k.created_at ASC")->fetchAll();
+$pendingDocs = [];
+try {
+    $pendingDocs = $db->query(
+        "SELECT k.*, m.business_name, m.merchant_code, m.business_entity_type
+         FROM kyc_documents k
+         JOIN merchants m ON k.merchant_id = m.id
+         WHERE k.status = CONVERT('pending' USING utf8mb4)
+         ORDER BY k.created_at ASC"
+    )->fetchAll();
+} catch (Throwable $e) {
+    try {
+        $pendingDocs = $db->query(
+            "SELECT k.*, m.business_name, m.merchant_code, m.business_entity_type
+             FROM kyc_documents k
+             JOIN merchants m ON k.merchant_id = m.id
+             WHERE k.status = 'pending'
+             ORDER BY k.created_at ASC"
+        )->fetchAll();
+    } catch (Throwable $e2) {
+        $pendingDocs = [];
+    }
+}
 $pendingMerchants = getPendingKycQueue(50);
 $recentSignups = getRecentSignupQueue(12);
-$approvalQueue = $db->query(
-    "SELECT r.*,m.business_name FROM approval_requests r
-     LEFT JOIN merchants m ON m.id=r.merchant_id
-     WHERE r.status='pending' AND r.action_type IN ('kyc_document_approve','kyc_merchant_verify','merchant_live_enable')
-     ORDER BY r.requested_at ASC LIMIT 50"
-)->fetchAll();
-$liveCandidates = $db->query(
-    "SELECT id,business_name,merchant_code FROM merchants
-     WHERE status='active' AND kyc_status='verified' AND account_mode='test'
-       AND email<>'demo@uniweb.co.in' ORDER BY id ASC LIMIT 50"
-)->fetchAll();
+$approvalQueue = [];
+try {
+    $approvalQueue = $db->query(
+        "SELECT r.*, m.business_name
+         FROM approval_requests r
+         LEFT JOIN merchants m ON m.id = r.merchant_id
+         WHERE r.status = 'pending' AND r.action_type IN ('kyc_document_approve','kyc_merchant_verify','merchant_live_enable')
+         ORDER BY r.requested_at ASC LIMIT 50"
+    )->fetchAll();
+} catch (Throwable $e) {
+    $approvalQueue = [];
+}
+$liveCandidates = [];
+try {
+    $liveCandidates = $db->query(
+        "SELECT id, business_name, merchant_code FROM merchants
+         WHERE status = 'active' AND kyc_status = 'verified' AND account_mode = 'test'
+           AND email <> CONVERT('demo@uniweb.co.in' USING utf8mb4)
+         ORDER BY id ASC LIMIT 50"
+    )->fetchAll();
+} catch (Throwable $e) {
+    try {
+        $liveCandidates = $db->query(
+            "SELECT id, business_name, merchant_code FROM merchants
+             WHERE status = 'active' AND kyc_status = 'verified' AND account_mode = 'test'
+               AND email <> 'demo@uniweb.co.in'
+             ORDER BY id ASC LIMIT 50"
+        )->fetchAll();
+    } catch (Throwable $e2) {
+        $liveCandidates = [];
+    }
+}
 $videoQueue = [];
 try {
     $videoQueue = $db->query(
@@ -133,17 +175,35 @@ try {
          FROM merchants m
          INNER JOIN kyc_documents k ON k.id = (
              SELECT k2.id FROM kyc_documents k2
-             WHERE k2.merchant_id = m.id AND k2.doc_type = 'video_kyc'
+             WHERE k2.merchant_id = m.id AND k2.doc_type = CONVERT('video_kyc' USING utf8mb4)
              ORDER BY k2.created_at DESC LIMIT 1
          )
          WHERE m.status = 'active'
-           AND m.email <> 'demo@uniweb.co.in'
+           AND m.email <> CONVERT('demo@uniweb.co.in' USING utf8mb4)
            AND COALESCE(m.video_kyc_status, 'pending') IN ('submitted', 'pending')
          ORDER BY k.created_at ASC
          LIMIT 50"
     )->fetchAll();
 } catch (Throwable $e) {
-    $videoQueue = [];
+    try {
+        $videoQueue = $db->query(
+            "SELECT m.id, m.business_name, m.merchant_code, m.video_kyc_status, m.kyc_status,
+                    k.id AS doc_id, k.created_at AS video_uploaded_at
+             FROM merchants m
+             INNER JOIN kyc_documents k ON k.id = (
+                 SELECT k2.id FROM kyc_documents k2
+                 WHERE k2.merchant_id = m.id AND k2.doc_type = 'video_kyc'
+                 ORDER BY k2.created_at DESC LIMIT 1
+             )
+             WHERE m.status = 'active'
+               AND m.email <> 'demo@uniweb.co.in'
+               AND COALESCE(m.video_kyc_status, 'pending') IN ('submitted', 'pending')
+             ORDER BY k.created_at ASC
+             LIMIT 50"
+        )->fetchAll();
+    } catch (Throwable $e2) {
+        $videoQueue = [];
+    }
 }
 if (!isSuperAdmin()) {
     $pendingDocs = array_values(array_filter($pendingDocs, static fn(array $row): bool => staffHasMerchantAccess((int)$row['merchant_id'])));

@@ -15,6 +15,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 }
 
 $rows = listMerchantChargebacks($merchantId);
+if (!$rows && strcasecmp((string)($merchant['email'] ?? ''), 'demo@uniweb.co.in') === 0) {
+    ensureDemoChargebacks($merchantId);
+    $rows = listMerchantChargebacks($merchantId);
+}
 $pageTitle = 'Chargebacks';
 require_once __DIR__ . '/header.php';
 ?>

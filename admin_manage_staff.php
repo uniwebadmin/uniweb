@@ -46,8 +46,8 @@ $managers = $db->query("SELECT id, name, role FROM admins WHERE role IN ('ceo','
 $pageTitle = 'Staff Control';
 require_once __DIR__ . '/header.php';
 ?>
-<div class="grid lg:grid-cols-3 gap-6">
-    <div class="glass rounded-xl p-6">
+<div class="grid lg:grid-cols-3 gap-6 pb-24 lg:pb-6">
+    <div class="glass rounded-xl p-6 lg:sticky lg:top-24 self-start max-h-[calc(100vh-7rem)] overflow-y-auto">
         <h2 class="font-semibold mb-4">Add Team Member</h2>
         <form method="POST" class="space-y-4 text-sm">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">

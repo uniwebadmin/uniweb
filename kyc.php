@@ -6,7 +6,7 @@ require_once __DIR__ . '/includes/kyc_upload.php';
 $merchant = getMerchant();
 $db = getDB();
 
-$entityType = $merchant['business_entity_type'] ?? 'sole_proprietorship';
+$entityType = normalizeKycEntityType($merchant['business_entity_type'] ?? 'sole_proprietorship');
 $requiredDocs = getKycRequirements($entityType);
 $docLabels = getKycDocLabels();
 $prefills = getMerchantKycPrefills($merchant);
@@ -117,8 +117,9 @@ $docStatusMeta = static function (string $status): array {
 };
 ?>
 
-<div class="max-w-3xl">
-    <div class="glass rounded-2xl p-5 mb-6 border border-sky-500/20">
+<div class="max-w-6xl grid lg:grid-cols-5 gap-6 items-start">
+    <div class="lg:col-span-3 space-y-6 min-w-0">
+    <div class="glass rounded-2xl p-5 border border-sky-500/20">
         <p class="text-xs text-sky-400 uppercase tracking-wider mb-1">KYC Verification</p>
         <h1 class="text-xl font-bold mb-3">Complete your compliance checklist</h1>
         <p class="text-sm text-gray-400 mb-4">Each document shows its live status. If a file is rejected, the exact reason appears so you can fix and re-upload.</p>
@@ -300,14 +301,21 @@ $docStatusMeta = static function (string $status): array {
                 <label class="text-sm text-gray-400 block mb-1">Document Type *</label>
                 <select name="doc_type" id="doc_type" required class="input-field">
                     <option value="">Select document</option>
-                    <?php foreach ($requiredDocs as $docKey):
-                        if (in_array($docKey, $approvedTypes, true)) {
-                            continue;
-                        }
-                    ?>
+                    <?php
+                    $uploadableDocs = array_values(array_filter(
+                        $requiredDocs,
+                        static fn(string $docKey): bool => !in_array($docKey, $approvedTypes, true)
+                    ));
+                    if ($uploadableDocs === []): ?>
+                    <option value="" disabled>All required documents are already approved</option>
+                    <?php else:
+                        foreach ($uploadableDocs as $docKey): ?>
                     <option value="<?= e($docKey) ?>"><?= e($docLabels[$docKey] ?? $docKey) ?></option>
-                    <?php endforeach; ?>
+                    <?php endforeach; endif; ?>
                 </select>
+                <?php if ($uploadableDocs === []): ?>
+                <p class="text-xs text-emerald-400 mt-2">Nothing left to upload for this entity type. If admin rejected a file, it will reappear here for re-upload.</p>
+                <?php endif; ?>
             </div>
             <div>
                 <label class="text-sm text-gray-400 block mb-1">Choose File (JPG, PNG, PDF — Max 15MB) *</label>
@@ -353,6 +361,24 @@ $docStatusMeta = static function (string $status): array {
         </div>
         <?php endif; ?>
     </div>
+    </div>
+
+    <aside class="lg:col-span-2 space-y-4 lg:sticky lg:top-24">
+        <div class="glass rounded-2xl p-5 border border-gray-800">
+            <h3 class="font-semibold text-sm mb-2">Status summary</h3>
+            <p class="text-xs text-gray-500 mb-3">Entity: <strong class="text-gray-300"><?= e(entityTypeLabel($entityType)) ?></strong></p>
+            <p class="text-3xl font-bold text-sky-400"><?= (int)$have ?>/<?= (int)$need ?></p>
+            <p class="text-xs text-gray-500 mt-1">documents uploaded · <?= (int)$approvedCount ?> approved</p>
+            <p class="text-xs mt-4 <?= ($merchant['kyc_status'] ?? '') === 'verified' ? 'text-emerald-400' : 'text-amber-300' ?>">
+                KYC: <?= e(ucfirst((string)($merchant['kyc_status'] ?? 'pending'))) ?>
+            </p>
+        </div>
+        <div class="glass rounded-2xl p-5 border border-gray-800 text-xs text-gray-500 space-y-2">
+            <p class="font-medium text-gray-300">Tips</p>
+            <p>Upload clear JPG/PNG/PDF under 15MB. Rejected files show the exact reason and reappear in the upload list.</p>
+            <p>Video KYC is a separate step after documents when Live Mode is requested.</p>
+        </div>
+    </aside>
 </div>
 
 <script>

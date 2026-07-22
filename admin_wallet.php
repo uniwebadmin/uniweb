@@ -174,10 +174,24 @@ require_once __DIR__ . '/header.php';
                 <tbody class="divide-y divide-gray-800">
                     <?php if (empty($ledger)): ?>
                     <tr><td colspan="4" class="px-4 py-8 text-center text-gray-500 text-xs">No commission yet. Entries appear after test payments.</td></tr>
-                    <?php else: foreach ($ledger as $w): $amt = walletAmount((float)$w['amount'], true); ?>
+                    <?php else: foreach ($ledger as $w):
+                        $amt = walletAmount((float)$w['amount'], true);
+                        $desc = (string)($w['description'] ?? '');
+                        $txnMatch = [];
+                        if (preg_match('/\b(TXN[A-Z0-9]+)\b/i', $desc, $txnMatch)) {
+                            $descHtml = preg_replace(
+                                '/\b(TXN[A-Z0-9]+)\b/i',
+                                '<a href="' . e(transactionDetailUrl($txnMatch[1])) . '" class="text-sky-400 hover:underline">' . e($txnMatch[1]) . '</a>',
+                                e($desc),
+                                1
+                            );
+                        } else {
+                            $descHtml = e($desc);
+                        }
+                    ?>
                     <tr>
                         <td class="px-4 py-2 text-xs text-gray-500"><?= formatDate($w['created_at']) ?></td>
-                        <td class="px-4 py-2 text-xs"><?= e($w['type']) ?><br><span class="text-gray-600"><?= e($w['description'] ?? '') ?></span></td>
+                        <td class="px-4 py-2 text-xs"><?= e($w['type']) ?><br><span class="text-gray-600"><?= $descHtml ?></span></td>
                         <td class="px-4 py-2 text-right <?= $amt >= 0 ? 'text-emerald-400' : 'text-red-400' ?>"><?= walletMoney($amt, true) ?></td>
                         <td class="px-4 py-2 text-right text-gray-400"><?= walletMoney((float)$w['balance_after'], true) ?></td>
                     </tr>

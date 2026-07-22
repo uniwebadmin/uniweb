@@ -52,6 +52,30 @@ function submitChargebackEvidence(int $chargebackId, int $merchantId, string $no
     recordImmutableAudit('chargeback_evidence_submitted', $merchantId, 'chargeback', (string)$chargebackId, $notes);
 }
 
+function ensureDemoChargebacks(int $merchantId): void
+{
+    if ($merchantId < 1) {
+        return;
+    }
+    try {
+        $st = getDB()->prepare('SELECT COUNT(*) FROM chargebacks WHERE merchant_id=?');
+        $st->execute([$merchantId]);
+        if ((int)$st->fetchColumn() > 0) {
+            return;
+        }
+        ingestChargeback([
+            'merchant_id' => $merchantId,
+            'amount' => 1.00,
+            'provider' => 'demo',
+            'reason_code' => '10.4',
+            'reason_text' => 'Demo chargeback — merchandise not received (sandbox sample)',
+            'evidence_due_at' => date('Y-m-d H:i:s', strtotime('+5 days')),
+        ]);
+    } catch (Throwable $e) {
+        // Table may be missing until migrations; ignore for demo seed.
+    }
+}
+
 function listMerchantChargebacks(int $merchantId): array
 {
     $st = getDB()->prepare('SELECT * FROM chargebacks WHERE merchant_id=? ORDER BY id DESC');

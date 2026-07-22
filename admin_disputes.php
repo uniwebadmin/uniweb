@@ -45,7 +45,7 @@ require_once __DIR__ . '/header.php';
                 <?php if (empty($disputes)): ?><tr><td colspan="7" class="px-5 py-12 text-center text-gray-500">No disputes.</td></tr>
                 <?php else: foreach ($disputes as $d): ?>
                 <tr<?= uiRowClick(transactionDetailUrl($d['txn_id'])) ?>>
-                    <td class="px-5 py-3 font-mono text-xs"><?= e($d['dispute_id']) ?></td>
+                    <td class="px-5 py-3 font-mono text-xs"><a href="<?= e(transactionDetailUrl($d['txn_id'])) ?>" class="text-sky-400 hover:underline"><?= e($d['dispute_id']) ?></a></td>
                     <td class="px-5 py-3 text-xs"><?= adminMerchantLink((int)$d['merchant_row_id'], $d['business_name']) ?></td>
                     <td class="px-5 py-3 font-mono text-xs"><?= txnDetailLink($d['txn_id']) ?></td>
                     <td class="px-5 py-3"><?= formatMoney(capStatAmount((float)$d['amount'])) ?></td>

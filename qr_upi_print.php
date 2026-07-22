@@ -16,23 +16,14 @@ if ($collectionMode === 'axis_va' && !empty($merchant['axis_va_upi'])) {
     $vpa = trim((string)$merchant['axis_va_upi']);
 }
 
-$amount = null;
-if (isset($_GET['amount']) && $_GET['amount'] !== '') {
-    $amount = (float)$_GET['amount'];
-    if ($amount < 1) {
-        $amount = null;
-    } elseif ($amount > livePaymentAmountCap()) {
-        $amount = livePaymentAmountCap();
-    }
-}
-
+$amount = null; // Instant UPI QR is always open-amount (customer types amount in UPI app).
 $note = trim((string)($_GET['note'] ?? ''));
 if (mb_strlen($note) > 60) {
     $note = mb_substr($note, 0, 60);
 }
 
 $hasVpa = $vpa !== '' && str_contains($vpa, '@');
-$intent = $hasVpa ? buildUpiPayIntent($vpa, $businessName, $amount, $note) : '';
+$intent = $hasVpa ? buildUpiPayIntent($vpa, $businessName, null, $note) : '';
 $qrImage = $hasVpa ? qrImageUrl($intent, 480) : '';
 
 $pageTitle = 'Instant UPI QR';
@@ -79,12 +70,8 @@ require_once __DIR__ . '/header.php';
     <div class="grid lg:grid-cols-3 gap-6">
         <div class="glass rounded-xl p-6 lg:col-span-1 no-print">
             <h2 class="font-semibold mb-1">Customise QR</h2>
-            <p class="text-xs text-gray-500 mb-5">Leave amount blank for an open-amount QR (customer types the amount in their UPI app).</p>
+            <p class="text-xs text-gray-500 mb-5">Open-amount only — customer types the amount in their UPI app after scan.</p>
             <form method="GET" class="space-y-4">
-                <div>
-                    <label class="text-sm text-gray-400">Fixed Amount (&#8377;)</label>
-                    <input type="number" name="amount" min="1" max="<?= (int)livePaymentAmountCap() ?>" step="0.01" value="<?= $amount !== null ? e((string)$amount) : '' ?>" class="input-field mt-1" placeholder="Open amount">
-                </div>
                 <div>
                     <label class="text-sm text-gray-400">Payment Note</label>
                     <input type="text" name="note" maxlength="60" value="<?= e($note) ?>" class="input-field mt-1" placeholder="e.g. Counter 1 / Table 5">
@@ -102,11 +89,7 @@ require_once __DIR__ . '/header.php';
             <div id="upi-poster" class="bg-white text-gray-900 rounded-2xl p-8 mx-auto max-w-sm text-center shadow-xl border border-gray-200">
                 <p class="text-[11px] tracking-widest uppercase text-gray-400">Scan &amp; Pay with any UPI app</p>
                 <h2 class="text-xl font-bold mt-1"><?= e($businessName) ?></h2>
-                <?php if ($amount !== null): ?>
-                <p class="text-3xl font-extrabold text-emerald-600 mt-2"><?= formatMoney($amount) ?></p>
-                <?php else: ?>
                 <p class="text-sm text-gray-500 mt-2">Enter amount in your UPI app</p>
-                <?php endif; ?>
                 <div class="bg-white rounded-2xl p-4 mt-4 border-2 border-emerald-100 inline-block">
                     <img src="<?= e($qrImage) ?>" alt="UPI QR for <?= e($businessName) ?>" width="260" height="260" class="mx-auto">
                 </div>

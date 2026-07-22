@@ -26,6 +26,14 @@ require_once __DIR__ . '/header.php';
         <div>
             <h2 class="text-xl font-bold font-mono"><?= e($batch['batch_code']) ?></h2>
             <p class="text-sm text-gray-500"><?= e($batch['business_name']) ?> · <?= e($batch['batch_type']) ?> · <?= settlementBatchStatusBadge($batch['status']) ?></p>
+            <?php
+            $batchReason = trim((string)($batch['api_message'] ?? $batch['failure_reason'] ?? ''));
+            if ($batchReason === '' && strtolower((string)$batch['status']) === 'failed') {
+                $batchReason = 'Failed — bank or payout API error. Check merchant bank details and retry.';
+            }
+            if ($batchReason !== ''): ?>
+            <p class="text-sm mt-2 <?= strtolower((string)$batch['status']) === 'failed' ? 'text-red-300' : 'text-gray-400' ?>"><span class="font-semibold">Reason:</span> <?= e($batchReason) ?></p>
+            <?php endif; ?>
         </div>
         <div class="text-right">
             <p class="text-2xl font-bold text-emerald-400"><?= walletMoney((float)$batch['net_amount']) ?></p>

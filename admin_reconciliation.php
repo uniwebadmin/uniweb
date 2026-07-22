@@ -84,9 +84,9 @@ require_once __DIR__ . '/header.php';
             <div class="max-h-80 overflow-y-auto">
                 <?php if (empty($report['txns_without_webhook'])): ?><p class="text-gray-500 text-sm text-center py-8">No gaps found.</p>
                 <?php else: foreach ($report['txns_without_webhook'] as $t): ?>
-                <div class="px-5 py-3 border-b border-gray-800 text-xs flex justify-between">
-                    <span class="font-mono text-sky-400"><?= e($t['txn_id']) ?></span>
-                    <span><?= formatMoney(capStatAmount((float)$t['amount'])) ?></span>
+                <div class="px-5 py-3 border-b border-gray-800 text-xs flex justify-between gap-3">
+                    <a href="<?= e(transactionDetailUrl($t['txn_id'])) ?>" class="font-mono text-sky-400 hover:underline"><?= e($t['txn_id']) ?></a>
+                    <span class="shrink-0"><?= formatMoney(capStatAmount((float)$t['amount'])) ?></span>
                 </div>
                 <?php endforeach; endif; ?>
             </div>

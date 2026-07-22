@@ -82,12 +82,44 @@ function recordSplitPayment(int $transactionId, int $merchantId, array $split, s
         ->execute([$split['platform_fee'], $split['merchant_net'], $transactionId]);
 }
 
-function persistCheckoutCustomerDetails(array &$link, array $post = []): void
+/**
+ * Normalize checkout mobile to 10 digits. Returns '' when invalid.
+ * Checkout requires mobile; no OTP is sent or verified here.
+ */
+function normalizeCheckoutCustomerPhone(string $raw): string
+{
+    $phone = preg_replace('/\D/', '', $raw) ?? '';
+    if (strlen($phone) > 10) {
+        $phone = substr($phone, -10);
+    }
+    if (strlen($phone) !== 10 || !preg_match('/^[6-9]/', $phone)) {
+        return '';
+    }
+    return $phone;
+}
+
+/** @return array{ok:bool,message:string,phone:string,email:string,name:string} */
+function validateCheckoutCustomerDetails(array $post = []): array
 {
     $name = mb_substr(trim((string)($post['customer_name'] ?? '')), 0, 120);
-    $phone = mb_substr(preg_replace('/\D/', '', (string)($post['customer_phone'] ?? '')), 0, 15);
+    $phone = normalizeCheckoutCustomerPhone((string)($post['customer_phone'] ?? ''));
     $emailRaw = mb_substr(trim((string)($post['customer_email'] ?? '')), 0, 190);
     $email = $emailRaw !== '' && filter_var($emailRaw, FILTER_VALIDATE_EMAIL) ? $emailRaw : '';
+    if ($emailRaw !== '' && $email === '') {
+        return ['ok' => false, 'message' => 'Enter a valid email address, or leave email blank.', 'phone' => $phone, 'email' => '', 'name' => $name];
+    }
+    if ($phone === '') {
+        return ['ok' => false, 'message' => 'Mobile number is required (10 digits, starting with 6–9). No OTP is needed.', 'phone' => '', 'email' => $email, 'name' => $name];
+    }
+    return ['ok' => true, 'message' => '', 'phone' => $phone, 'email' => $email, 'name' => $name];
+}
+
+function persistCheckoutCustomerDetails(array &$link, array $post = []): void
+{
+    $validated = validateCheckoutCustomerDetails($post);
+    $name = $validated['name'];
+    $phone = $validated['phone'];
+    $email = $validated['email'];
     $updates = [];
     $params = [];
     if ($name !== '') {

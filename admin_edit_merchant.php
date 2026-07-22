@@ -218,11 +218,17 @@ $methodCatalog = getPaymentMethodCatalog();
                     </select>
                 </div>
                 <div class="sm:col-span-2">
-                    <label class="text-sm text-gray-400 block mb-2">Payment Methods (enabled for merchant)</label>
-                    <div class="grid sm:grid-cols-2 gap-2 bg-dark-900/50 rounded-xl p-4 border border-gray-800 max-h-48 overflow-y-auto">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <label class="text-sm text-gray-400">Payment Methods (enabled for merchant)</label>
+                        <div class="flex gap-2 text-xs">
+                            <button type="button" id="enable-all-methods" class="px-2.5 py-1 rounded-lg border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10">Enable all</button>
+                            <button type="button" id="disable-all-methods" class="px-2.5 py-1 rounded-lg border border-gray-700 text-gray-400 hover:bg-white/5">Clear</button>
+                        </div>
+                    </div>
+                    <div class="grid sm:grid-cols-2 gap-2 bg-dark-900/50 rounded-xl p-4 border border-gray-800 max-h-48 overflow-y-auto" id="enabled-methods-box">
                         <?php foreach ($methodCatalog as $mk => $cat): ?>
                         <label class="flex items-center gap-2 text-xs cursor-pointer">
-                            <input type="checkbox" name="enabled_methods[]" value="<?= e($mk) ?>" <?= in_array($mk, $enabledMethods, true) ? 'checked' : '' ?> class="rounded border-gray-600">
+                            <input type="checkbox" name="enabled_methods[]" value="<?= e($mk) ?>" <?= in_array($mk, $enabledMethods, true) ? 'checked' : '' ?> class="rounded border-gray-600 method-toggle">
                             <span><?= e(($cat['icon'] ?? '') . ' ' . $cat['label']) ?></span>
                         </label>
                         <?php endforeach; ?>
@@ -313,10 +319,16 @@ $methodCatalog = getPaymentMethodCatalog();
 <script>
 (function(){
     var id = (location.hash || '').replace(/^#/, '');
-    if (!id) return;
-    var el = document.getElementById(id);
-    if (el) {
-        setTimeout(function(){ el.scrollIntoView({behavior:'smooth', block:'start'}); el.classList.add('ring-2','ring-brand-500/50'); }, 120);
+    if (id) {
+        var el = document.getElementById(id);
+        if (el) {
+            setTimeout(function(){ el.scrollIntoView({behavior:'smooth', block:'start'}); el.classList.add('ring-2','ring-brand-500/50'); }, 120);
+        }
     }
+    function setAllMethods(on) {
+        document.querySelectorAll('#enabled-methods-box .method-toggle').forEach(function(cb){ cb.checked = !!on; });
+    }
+    document.getElementById('enable-all-methods')?.addEventListener('click', function(){ setAllMethods(true); });
+    document.getElementById('disable-all-methods')?.addEventListener('click', function(){ setAllMethods(false); });
 })();
 </script>

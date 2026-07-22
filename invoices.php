@@ -12,8 +12,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $phone = trim($_POST['customer_phone'] ?? '');
     $address = trim($_POST['customer_address'] ?? '');
     $amount = (float)($_POST['amount'] ?? 0);
-    $tax = (float)($_POST['tax_amount'] ?? 0);
-    $total = $amount + $tax;
+    $taxPct = (float)($_POST['tax_percent'] ?? 0);
+    if (!in_array((int)$taxPct, [0, 12, 18, 28], true)) {
+        $taxPct = 0;
+    }
+    $tax = round($amount * ($taxPct / 100), 2);
+    $total = round($amount + $tax, 2);
     $dueDate = $_POST['due_date'] ?? date('Y-m-d', strtotime('+7 days'));
     if ($customer && $amount > 0 && $amount <= 100000) {
         $invoiceId = generateId('INV');
@@ -48,8 +52,17 @@ require_once __DIR__ . '/header.php';
             <div><label class="text-sm text-gray-400">Description</label><input type="text" name="description" class="input-field mt-1" placeholder="Service / Product"></div>
             <div class="grid grid-cols-2 gap-4">
                 <div><label class="text-sm text-gray-400">Amount (₹) *</label><input type="number" name="amount" required min="1" max="100000" step="0.01" class="input-field mt-1"></div>
-                <div><label class="text-sm text-gray-400">Tax (₹)</label><input type="number" name="tax_amount" min="0" step="0.01" value="0" class="input-field mt-1"></div>
+                <div>
+                    <label class="text-sm text-gray-400">Tax %</label>
+                    <select name="tax_percent" class="input-field mt-1">
+                        <option value="0">0% (no tax)</option>
+                        <option value="12">12% GST</option>
+                        <option value="18" selected>18% GST</option>
+                        <option value="28">28% GST</option>
+                    </select>
+                </div>
             </div>
+            <p class="text-xs text-gray-500">Tax is calculated as a % of amount (saved as ₹ on the invoice PDF).</p>
             <div><label class="text-sm text-gray-400">Due Date</label><input type="date" name="due_date" value="<?= date('Y-m-d', strtotime('+7 days')) ?>" class="input-field mt-1"></div>
             <p class="text-xs text-gray-500">PDF includes your GSTIN, business name, address, mobile and email from My Account, plus this invoice number.</p>
             <button type="submit" class="w-full btn-primary py-3">Create Invoice</button>

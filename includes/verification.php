@@ -24,7 +24,8 @@ function verifyDocument(string $type, string $number, int $merchantId): array
         'gst' => (bool)preg_match('/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z0-9]{1}Z[A-Z0-9]{1}$/', strtoupper($number)),
         'cin' => (bool)preg_match('/^[A-Z]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}$/', strtoupper($number)),
         'udyam' => strlen($number) >= 10,
-        'iec' => (bool)preg_match('/^\d{10}$/', $number),
+        // DGFT IEC: 10-digit legacy OR 10-char alphanumeric (often PAN-based)
+        'iec' => (bool)preg_match('/^(\d{10}|[A-Z]{5}\d{4}[A-Z]|[A-Z0-9]{10})$/i', strtoupper(preg_replace('/\s+/', '', $number) ?? '')),
         default => false,
     };
 

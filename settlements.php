@@ -12,6 +12,20 @@ if ($isTest) {
 $prefs = getMerchantSettlementPrefs($merchant);
 $openBatch = getMerchantOpenBatch($merchantId);
 $batchHistory = getMerchantBatchHistory($merchantId, 10);
+$viewBatchId = isset($_GET['batch']) ? (int)$_GET['batch'] : 0;
+$viewBatch = null;
+if ($viewBatchId > 0) {
+    foreach ($batchHistory as $bh) {
+        if ((int)$bh['id'] === $viewBatchId) { $viewBatch = $bh; break; }
+    }
+    if (!$viewBatch) {
+        try {
+            $st = $db->prepare('SELECT * FROM settlement_batches WHERE id=? AND merchant_id=? LIMIT 1');
+            $st->execute([$viewBatchId, $merchantId]);
+            $viewBatch = $st->fetch() ?: null;
+        } catch (Throwable $e) { $viewBatch = null; }
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     requireMerchantTeamCapability('settle');
@@ -82,6 +96,32 @@ renderMerchantCommercialCard($merchant);
     </div>
     <span class="text-xs text-gray-500">Balances are reconciled from immutable payment records.</span>
 </div>
+
+<?php if ($viewBatch):
+    $vbStatus = strtolower((string)($viewBatch['status'] ?? ''));
+    $vbReason = trim((string)($viewBatch['api_message'] ?? $viewBatch['failure_reason'] ?? ''));
+    if ($vbReason === '') {
+        $vbReason = $vbStatus === 'failed'
+            ? 'Failed — bank or payout partner rejected the transfer. Check IFSC/account and retry, or contact support.'
+            : ($vbStatus === 'settled' || $vbStatus === 'completed' ? 'Batch settled successfully.' : 'Batch is still processing.');
+    }
+?>
+<div class="glass rounded-xl p-5 mb-6 border <?= $vbStatus === 'failed' ? 'border-red-500/40 bg-red-500/5' : 'border-sky-500/30' ?>">
+    <div class="flex flex-wrap justify-between gap-3 items-start">
+        <div>
+            <p class="text-xs text-gray-500 uppercase">Settlement batch</p>
+            <p class="font-mono text-lg text-sky-400 mt-1"><?= e($viewBatch['batch_code']) ?></p>
+            <p class="text-xs text-gray-500 mt-1"><?= (int)($viewBatch['txn_count'] ?? 0) ?> txns · <?= e($viewBatch['batch_type'] ?? '') ?></p>
+        </div>
+        <div class="text-right">
+            <?= settlementBatchStatusBadge($viewBatch['status'] ?? '') ?>
+            <p class="text-xl font-bold text-emerald-400 mt-1"><?= walletMoney((float)($viewBatch['net_amount'] ?? 0)) ?></p>
+        </div>
+    </div>
+    <p class="text-sm mt-4 <?= $vbStatus === 'failed' ? 'text-red-300' : 'text-gray-300' ?>"><span class="font-semibold">Reason:</span> <?= e($vbReason) ?></p>
+    <a href="settlements.php" class="text-xs text-sky-400 mt-3 inline-block">← Back to all settlements</a>
+</div>
+<?php endif; ?>
 
 <!-- Settlement mode banner -->
 <div class="glass rounded-xl p-5 mb-6 border border-gray-800">
@@ -186,17 +226,22 @@ renderMerchantCommercialCard($merchant);
         <p class="text-xs text-gray-500">No batches yet.</p>
         <?php else: ?>
         <div class="space-y-2 max-h-48 overflow-y-auto">
-            <?php foreach ($batchHistory as $bh): ?>
-            <div class="flex justify-between items-center text-xs py-2 border-b border-gray-800/80">
+            <?php foreach ($batchHistory as $bh):
+                $batchFailReason = trim((string)($bh['api_message'] ?? $bh['failure_reason'] ?? ''));
+            ?>
+            <a href="settlements.php?batch=<?= (int)$bh['id'] ?>" class="flex justify-between items-center text-xs py-2 border-b border-gray-800/80 hover:bg-white/5 rounded px-1 -mx-1 block no-underline text-inherit">
                 <div>
-                    <p class="font-mono text-gray-400"><?= e($bh['batch_code']) ?></p>
+                    <p class="font-mono text-sky-400 hover:underline"><?= e($bh['batch_code']) ?></p>
                     <p class="text-gray-600"><?= (int)$bh['txn_count'] ?> txns · <?= e($bh['batch_type']) ?></p>
+                    <?php if (strtolower((string)$bh['status']) === 'failed'): ?>
+                    <p class="text-red-400/90 mt-0.5 max-w-[200px]"><?= e($batchFailReason !== '' ? $batchFailReason : 'Failed — open batch for details') ?></p>
+                    <?php endif; ?>
                 </div>
-                <div class="text-right" title="<?= e($bh['api_message'] ?: 'Batch ' . $bh['status']) ?>">
+                <div class="text-right shrink-0">
                     <p class="font-semibold text-emerald-400"><?= walletMoney((float)$bh['net_amount']) ?></p>
                     <?= settlementBatchStatusBadge($bh['status']) ?>
                 </div>
-            </div>
+            </a>
             <?php endforeach; ?>
         </div>
         <?php endif; ?>

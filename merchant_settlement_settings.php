@@ -21,6 +21,15 @@ $platform = getPlatformSettlementDefaults();
 $intervals = getSettlementBatchIntervals();
 $rails = getSettlementRails();
 $modes = getSettlementModes();
+$collectionMode = getMerchantCollectionMode($merchant);
+// Direct UPI (P2M): no rail picker — funds already land in merchant bank UPI.
+// Partner PG / Axis: auto-map rail from collection mode (no free-form rail choice).
+$autoRail = match ($collectionMode) {
+    'axis_va' => 'axis_va',
+    'payu_split', 'razorpay_route', 'cashfree_route', 'platform_pg' => 'platform_pg',
+    default => null,
+};
+$showRailPicker = $autoRail !== null;
 
 $pageTitle = 'Settlement Settings';
 require_once __DIR__ . '/header.php';
@@ -36,8 +45,16 @@ require_once __DIR__ . '/header.php';
         <p class="text-sm text-gray-500">Choose scheduled batching or manual settlement.</p>
     </div>
 
+    <?php if (!$showRailPicker): ?>
+    <div class="glass rounded-xl p-5 mb-6 border border-emerald-500/25 bg-emerald-500/5">
+        <p class="text-sm font-medium text-emerald-300">Direct UPI (P2M)</p>
+        <p class="text-xs text-gray-400 mt-1">Your collection mode settles straight to your UPI-linked bank account. UniWeb does not hold or re-route these funds — no settlement rail to configure. Use Settlements only for wallet / PG balances if you later enable a partner gateway.</p>
+    </div>
+    <?php endif; ?>
+
     <form method="POST" class="glass rounded-xl p-6 space-y-5 border border-gray-800">
         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+        <input type="hidden" name="settlement_rail" value="<?= e($showRailPicker ? $autoRail : 'wallet') ?>">
 
         <label class="flex items-start gap-3 p-4 rounded-xl border border-gray-800 bg-dark-900/40 cursor-pointer">
             <input type="checkbox" name="use_platform_default" value="1" <?= $prefs['use_platform_default'] ? 'checked' : '' ?> class="mt-1 rounded border-gray-600" id="use-platform">
@@ -61,15 +78,13 @@ require_once __DIR__ . '/header.php';
                     <?php endforeach; ?>
                 </select>
             </div>
+            <?php if ($showRailPicker): ?>
             <div>
                 <label class="text-sm text-gray-400">Settlement Rail</label>
-                <select name="settlement_rail" class="input-field mt-1">
-                    <?php foreach ($rails as $k => $r): ?>
-                    <option value="<?= $k ?>" <?= $prefs['rail'] === $k ? 'selected' : '' ?>><?= e($r['label']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <p class="text-[11px] text-gray-600 mt-1"><?= e($rails[$prefs['rail']]['short'] ?? '') ?></p>
+                <p class="input-field mt-1 opacity-90"><?= e($rails[$autoRail]['label'] ?? $autoRail) ?></p>
+                <p class="text-[11px] text-gray-600 mt-1">Auto-selected from your collection mode (<?= e(collectionModeLabel($collectionMode)) ?>). Other rails are managed by bank / payment partner.</p>
             </div>
+            <?php endif; ?>
             <div>
                 <label class="text-sm text-gray-400">Batch Interval</label>
                 <select name="batch_interval_minutes" class="input-field mt-1">

@@ -76,9 +76,18 @@ function renderGatewaySettingInput(string $key, string $label, string $type, arr
 
 function renderCheckoutCustomerFields(array $link): void
 {
+    $phone = preg_replace('/\D/', '', (string)($link['customer_phone'] ?? ''));
+    if (strlen($phone) > 10) {
+        $phone = substr($phone, -10);
+    }
+    $email = (string)($link['customer_email'] ?? '');
     echo '<div class="grid sm:grid-cols-2 gap-2 mb-3">';
     echo '<input type="text" name="customer_name" placeholder="Your name (optional)" class="input-field text-sm" value="' . e((string)($link['customer_name'] ?? '')) . '">';
-    echo '<input type="tel" name="customer_phone" placeholder="Phone for receipt lookup" class="input-field text-sm" value="' . e((string)($link['customer_phone'] ?? '')) . '">';
+    echo '<input type="tel" name="customer_phone" inputmode="numeric" pattern="[6-9][0-9]{9}" maxlength="10" required placeholder="Mobile number *" class="input-field text-sm" value="' . e($phone) . '" autocomplete="tel">';
+    echo '</div>';
+    echo '<div class="mb-3">';
+    echo '<input type="email" name="customer_email" placeholder="Email (optional)" class="input-field text-sm" value="' . e($email) . '" autocomplete="email">';
+    echo '<p class="text-[11px] text-gray-500 mt-1">Mobile is required for receipt lookup. No OTP on checkout.</p>';
     echo '</div>';
 }
 

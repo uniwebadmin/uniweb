@@ -157,3 +157,6 @@ _Customer portal: ✅ shipped (passwordless WhatsApp/SMS OTP → history → tic
 2. Paste gateway / Digio / payout partner keys when received
 3. Confirm DB cleanup + “diabetes” row only after explicit OK
 
+### Owner photo inbox (2026-07-22)
+- **28 photos** synced to `_inbox/`. Full task list: `_inbox/PHOTO_NOTES.md` (layout, clickables, settlement fail reason, invoice tax %, KYC select empty, checkout phone mandatory, chargeback demo, Axis forward, enable-all, etc.).
+
