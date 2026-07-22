@@ -1,0 +1,57 @@
+# One-off diagnostic: find the correct Hostinger FTP base path for uniweb.co.in.
+# Uploads a small unique marker file to several candidate remote base paths,
+# then checks over HTTPS which one actually lands in the live docroot.
+# Delete this file once UNIWEB_FTP_REMOTE is confirmed correct.
+name: FTP base-path probe (diagnostic)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    name: Probe FTP base paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Upload + check candidate base paths
+        env:
+          HOST: ${{ secrets.UNIWEB_FTP_HOST }}
+          USER: ${{ secrets.UNIWEB_FTP_USER }}
+          PASS: ${{ secrets.UNIWEB_FTP_PASS }}
+        run: |
+          set -euo pipefail
+          USER_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['USER'], safe=''))")
+          PASS_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['PASS'], safe=''))")
+          MARK="probe-$(date +%s)"
+          echo "$MARK" > marker.txt
+          echo "Marker content: $MARK"
+
+          declare -A NAMES
+          NAMES["."]="root"
+          NAMES["public_html"]="publichtml"
+          NAMES["domains/uniweb.co.in/public_html"]="domainspublichtml"
+          NAMES["httpdocs"]="httpdocs"
+          NAMES["www"]="www"
+
+          for base in "." "public_html" "domains/uniweb.co.in/public_html" "httpdocs" "www"; do
+            tag="${NAMES[$base]}"
+            fname="_ftpprobe_${tag}.txt"
+            remote="${base%/}/${fname}"
+            remote="${remote#./}"
+            url="ftp://${USER_ENC}:${PASS_ENC}@${HOST}/${remote}"
+            code=$(curl -sS --ftp-pasv --ftp-create-dirs --connect-timeout 20 --max-time 60 \
+              -T marker.txt "$url" -w "%{http_code}" -o /dev/null) || code="ERR"
+            echo "UPLOAD base='$base' file='$fname' ftp_code=$code"
+          done
+
+          echo "----"
+          sleep 6
+          set +e
+          for tag in root publichtml domainspublichtml httpdocs www; do
+            url="https://uniweb.co.in/_ftpprobe_${tag}.txt"
+            body=$(curl -fsS --max-time 15 "$url" 2>/dev/null)
+            httpcode=$(curl -s -o /dev/null --max-time 15 -w "%{http_code}" "$url")
+            match="no"
+            [ "$body" = "$MARK" ] && match="YES <-- this is the correct base path"
+            echo "CHECK tag=$tag http=$httpcode body='$body' match=$match"
+          done
