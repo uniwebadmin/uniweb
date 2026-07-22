@@ -65,7 +65,25 @@ Still **waiting for explicit "start"** before any of this is coded.
 - Abhi **START nahi** — wait for explicit start.
 - Mobile chat inbox: `_inbox/chat/` (photo-style OneDrive drop).
 
-## ⚠️ Deploy investigation (2026-07-22 evening) — BLOCKED on owner's Hostinger hPanel screenshot
+## Deploy fix — RESOLVED root cause (2026-07-22 ~21:15)
+
+Owner sent hPanel screenshots. Root cause confirmed: old main FTP account (`u806999427`, folder `public_html`) was **not** the real docroot. Owner created a dedicated scoped FTP account `u806999427.uniwebdeploy` with Directory `/home/u806999427/domains/uniweb.co.in/public_html` (Hostinger-verified correct path for uniweb.co.in). Updated GitHub secrets accordingly:
+- `UNIWEB_FTP_HOST` = `ftp.uniweb.co.in`
+- `UNIWEB_FTP_USER` = `u806999427.uniwebdeploy`
+- `UNIWEB_FTP_PASS` = (set, owner-provided)
+- `UNIWEB_FTP_REMOTE` = `.` (account is chrooted directly to the docroot now)
+
+Triggered full-sync deploy run `29935050455` (workflow_dispatch) to catch up all 312 files with correct target. **Status as of 21:22 IST: still in_progress, background-monitored** (`deploy_watch3.log` in repo root, watcher shell 901394). Owner went to sleep — continue autonomously:
+
+### Next steps when resuming (do NOT wait for "continue")
+1. Check `deploy_watch3.log` for completion + smoke-probe results (`Upload OK: 312 files`, `docroot_probe ap-phone OK`, `cust_php`/`cust_path`/`payer_php` should be 200 now).
+2. If probe still shows `ap-phone MISSING` or 404s → something still off (maybe need `UNIWEB_FTP_REMOTE=DOCROOT` alias instead of `.`, or double-check port 21 vs the account's actual port) — re-run `ftp_probe.yml` diagnostic with the NEW account creds this time.
+3. If confirmed live: delete `.github/workflows/ftp_probe.yml` (diagnostic no longer needed), clean up stray `_ftpprobe_*` marker files left on the OLD (wrong) docroot are irrelevant/harmless — ignore.
+4. Clean up local scratch files in repo root if any got accidentally tracked: `deploy_watch*.log`, `watch_deploy.ps1`, `run_full.log` (verify `git status` clean — these were local-only, not committed).
+5. Resume normal auto-mode priorities: broken links, cron auto-audit, KYC queue, gateway keys UI, smoke test homepage/signup/demo/checkout/admin_website.php (per AGENTS.md).
+6. Strategy pack (6 points + KYC wishlist + admin-approval-flow, logged above) — still **do not code** until owner explicitly says "start".
+
+## ⚠️ Deploy investigation (2026-07-22 evening) — BLOCKED on owner's Hostinger hPanel screenshot (RESOLVED — see above)
 
 - Fixed: rate-limit issue (8-parallel FTP was tripping Hostinger's anti-abuse, causing "Failed to connect port 21" on ~290/312 files). Deploy now incremental (only changed files) + 3-parallel — a full-sync run completed 100% success (`Upload OK: 312 files`).
 - **But:** live-site smoke probes (`ap-phone` CSS class, custom PHP marker files dropped at 5 different candidate FTP base paths: `.`, `public_html`, `domains/uniweb.co.in/public_html`, `httpdocs`, `www`) — **none** show up live. All return the app's own 404 page (proven by matching `UNIWEBSESSID` cookie + identical headers to a deliberately-fake path), meaning FTP uploads are landing somewhere that is **not** the real docroot Apache serves for uniweb.co.in.
