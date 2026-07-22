@@ -52,7 +52,7 @@ require_once __DIR__ . '/header.php';
 
     <div class="glass rounded-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Webhook Volume by Gateway</h2></div>
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr><th class="px-5 py-3 text-left">Gateway</th><th class="px-5 py-3 text-left">Status</th><th class="px-5 py-3 text-left">Count</th></tr></thead>
             <tbody class="divide-y divide-gray-800">
                 <?php if (empty($report['webhook_stats'])): ?><tr><td colspan="3" class="px-5 py-8 text-center text-gray-500">No webhook events in period.</td></tr>
@@ -60,7 +60,7 @@ require_once __DIR__ . '/header.php';
                 <tr><td class="px-5 py-3 capitalize"><?= e($row['gateway']) ?></td><td class="px-5 py-3"><?= statusBadge($row['status']) ?></td><td class="px-5 py-3"><?= (int)$row['c'] ?></td></tr>
                 <?php endforeach; endif; ?>
             </tbody>
-        </table>
+        </table></div>
     </div>
 
     <div class="grid lg:grid-cols-2 gap-6">

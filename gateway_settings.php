@@ -10,7 +10,7 @@ if (isset($_GET['test_gateway']) && verifyCsrf($_GET['csrf'] ?? '')) {
     if ($gw === 'axis') {
         $axis = axisTestConnection();
         flash(!empty($axis['token_ok']) ? 'success' : 'error', (string)($axis['message'] ?? 'Axis test finished.'));
-    } elseif (in_array($gw, ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe'], true)) {
+    } elseif (in_array($gw, ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe', 'pinelabs'], true)) {
         $result = testGatewayConnection($gw);
         flash($result['ok'] ? 'success' : 'error', $result['message']);
     } else {
@@ -69,6 +69,7 @@ $gatewayCards = [
     ['id' => 'cashfree', 'label' => 'Cashfree', 'test' => true],
     ['id' => 'payu', 'label' => 'PayU', 'test' => true],
     ['id' => 'phonepe', 'label' => 'PhonePe', 'test' => true, 'checkout' => false, 'note' => 'Keys stored now · checkout enabled in a later release'],
+    ['id' => 'pinelabs', 'label' => 'Pine Labs Plural', 'test' => true, 'checkout' => false, 'note' => 'Sandbox stub ready · keys pending · checkout on roadmap'],
     ['id' => 'axis', 'label' => 'Axis Bank', 'test' => true],
     ['id' => 'decentro', 'label' => 'Decentro KYC', 'test' => true],
 ];
@@ -233,6 +234,10 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['phonepe_merchant_id','PhonePe Merchant ID','text'],['phonepe_salt_key','PhonePe Salt Key','password'],
             ['phonepe_salt_index','PhonePe Salt Index','text'],
             ['phonepe_environment','PhonePe Env (sandbox/production)','text'],
+            ['pinelabs_merchant_id','Pine Labs Merchant ID','text'],
+            ['pinelabs_access_code','Pine Labs Access Code','text'],
+            ['pinelabs_secure_key','Pine Labs Secure Key','password'],
+            ['pinelabs_environment','Pine Labs Env (sandbox/production)','text'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <div class="rounded-xl border border-gray-800 bg-dark-900/50 p-4 text-xs text-gray-500 space-y-2">
             <p class="text-gray-400 font-medium text-sm mb-2">Webhook URLs (configure in PG dashboard)</p>
@@ -244,6 +249,13 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             </div>
             <?php endforeach; ?>
         </div>
+        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">Payout Partner Keys (licensed rail)</h3>
+        <p class="text-xs text-gray-500 mb-2">Paste keys when a licensed payout partner is signed. Until then the payout module stays gated — no live money movement. Set <code class="text-gray-400">payout_live_enabled=1</code> only after compliance review.</p>
+        <?php foreach ([
+            ['razorpayx_key_id','RazorpayX Key ID','text'],['razorpayx_key_secret','RazorpayX Key Secret','password'],
+            ['cashfree_payout_client_id','Cashfree Payouts Client ID','text'],['cashfree_payout_client_secret','Cashfree Payouts Client Secret','password'],
+            ['payout_live_enabled','Enable live payout money movement (0/1)','number'],
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">Axis Bank (Virtual Account / Collections)</h3>
         <p class="text-xs text-gray-500"><a href="admin_axis.php" class="text-sky-400">Axis UAT Dashboard →</a> · Webhook: <?= e(axisWebhookUrl()) ?></p>
         <?php foreach ([
@@ -265,6 +277,19 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['decentro_client_id','Decentro Client ID','text'],['decentro_client_secret','Decentro Client Secret','password'],
             ['decentro_consumer_urn','Decentro Master Consumer URN','text'],
             ['decentro_base_url','Decentro Base URL','text'],
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
+        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">Video KYC face-match partner (Digio)</h3>
+        <p class="text-xs text-gray-500 mb-2">Owner-confirmed: UniWeb does <strong>not</strong> store Aadhaar/face biometrics. Paste Digio (or equivalent certified partner) keys when contracted. Until then Video KYC is manual review only.</p>
+        <?php foreach ([
+            ['digio_client_id','Digio Client ID','text'],
+            ['digio_client_secret','Digio Client Secret','password'],
+            ['digio_environment','Digio Env (sandbox/production)','text'],
+            ['digio_face_match_enabled','Enable Digio face-match (0/1)','number'],
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
+        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">SEO — Google Search Console</h3>
+        <p class="text-xs text-gray-500 mb-2">Paste the HTML-tag verification token from Google Search Console (the <code class="text-gray-400">content</code> value only). It is rendered as <code class="text-gray-400">&lt;meta name="google-site-verification"&gt;</code> on every page via <code class="text-gray-400">header.php</code>. Setting key: <code class="text-gray-400">google_site_verification</code>.</p>
+        <?php foreach ([
+            ['google_site_verification','Google Search Console verification token','text'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">WhatsApp & OTP</h3>
         <p class="text-xs text-gray-500 mb-2">SMS disabled — use WhatsApp for OTP login and merchant alerts.</p>

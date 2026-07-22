@@ -30,8 +30,16 @@ $db = getDB();
 $recentTxns = $db->prepare('SELECT * FROM transactions WHERE merchant_id = ? AND is_test = ? ORDER BY created_at DESC LIMIT 8');
 $recentTxns->execute([$merchant['id'], $viewTest ? 1 : 0]);
 $transactions = $recentTxns->fetchAll();
+
+if (isset($_GET['dismiss_mfa_prompt'])) {
+    $_SESSION['mfa_prompt_dismissed_at'] = time();
+    redirect('dashboard.php');
+}
+ensureMerchant2FA();
+
 $pageTitle = __('dashboard');
 require_once __DIR__ . '/header.php';
+echo renderMerchantMfaSetupPrompt($merchant, 'dashboard');
 ?>
 
 <?php if (isDashboardTestMode($merchant) && $onboardingDone < count($onboarding)):

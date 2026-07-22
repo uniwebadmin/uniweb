@@ -2,6 +2,7 @@
 require_once __DIR__ . '/config.php';
 requireLogin();
 $merchant = getMerchant();
+ensureInvoiceSchema();
 $db = getDB();
 fixCorruptInvoices();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
@@ -9,6 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $customer = trim($_POST['customer_name'] ?? '');
     $email = trim($_POST['customer_email'] ?? '');
     $phone = trim($_POST['customer_phone'] ?? '');
+    $address = trim($_POST['customer_address'] ?? '');
     $amount = (float)($_POST['amount'] ?? 0);
     $tax = (float)($_POST['tax_amount'] ?? 0);
     $total = $amount + $tax;
@@ -16,8 +18,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     if ($customer && $amount > 0 && $amount <= 100000) {
         $invoiceId = generateId('INV');
         $items = json_encode([['description' => trim($_POST['description'] ?? 'Service'), 'amount' => $amount]]);
-        $db->prepare('INSERT INTO invoices (invoice_id, merchant_id, customer_name, customer_email, customer_phone, amount, tax_amount, total_amount, items, status, due_date) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-            ->execute([$invoiceId, $merchant['id'], $customer, $email, $phone, $amount, $tax, $total, $items, 'sent', $dueDate]);
+        try {
+            $db->prepare('INSERT INTO invoices (invoice_id, merchant_id, customer_name, customer_email, customer_phone, customer_address, amount, tax_amount, total_amount, items, status, due_date) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+                ->execute([$invoiceId, $merchant['id'], $customer, $email, $phone, $address ?: null, $amount, $tax, $total, $items, 'sent', $dueDate]);
+        } catch (Throwable $e) {
+            // Graceful fallback if customer_address column is not yet applied.
+            $db->prepare('INSERT INTO invoices (invoice_id, merchant_id, customer_name, customer_email, customer_phone, amount, tax_amount, total_amount, items, status, due_date) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+                ->execute([$invoiceId, $merchant['id'], $customer, $email, $phone, $amount, $tax, $total, $items, 'sent', $dueDate]);
+        }
         flash('success', 'Invoice created: ' . $invoiceId);
         redirect('invoices.php');
     }
@@ -35,13 +43,15 @@ require_once __DIR__ . '/header.php';
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div><label class="text-sm text-gray-400">Customer Name *</label><input type="text" name="customer_name" required class="input-field mt-1"></div>
             <div><label class="text-sm text-gray-400">Customer Email</label><input type="email" name="customer_email" class="input-field mt-1"></div>
-            <div><label class="text-sm text-gray-400">Customer Phone</label><input type="tel" name="customer_phone" maxlength="10" class="input-field mt-1"></div>
+            <div><label class="text-sm text-gray-400">Customer Mobile</label><input type="tel" name="customer_phone" maxlength="10" class="input-field mt-1" placeholder="10-digit mobile"></div>
+            <div><label class="text-sm text-gray-400">Customer Address</label><textarea name="customer_address" rows="2" class="input-field mt-1" placeholder="Full billing address"></textarea></div>
             <div><label class="text-sm text-gray-400">Description</label><input type="text" name="description" class="input-field mt-1" placeholder="Service / Product"></div>
             <div class="grid grid-cols-2 gap-4">
                 <div><label class="text-sm text-gray-400">Amount (₹) *</label><input type="number" name="amount" required min="1" max="100000" step="0.01" class="input-field mt-1"></div>
                 <div><label class="text-sm text-gray-400">Tax (₹)</label><input type="number" name="tax_amount" min="0" step="0.01" value="0" class="input-field mt-1"></div>
             </div>
             <div><label class="text-sm text-gray-400">Due Date</label><input type="date" name="due_date" value="<?= date('Y-m-d', strtotime('+7 days')) ?>" class="input-field mt-1"></div>
+            <p class="text-xs text-gray-500">PDF includes your GSTIN, business name, address, mobile and email from My Account, plus this invoice number.</p>
             <button type="submit" class="w-full btn-primary py-3">Create Invoice</button>
         </form>
     </div>

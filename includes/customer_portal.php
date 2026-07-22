@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 /**
  * Customer (payer) portal — passwordless WhatsApp/SMS OTP login, read-only
- * transaction history by mobile number, and grievance/support tickets.
- * Deliberately isolated from merchant/admin sessions and tables.
+ * transaction history by mobile number (across merchants), and grievance tickets
+ * visible to merchant / admin / staff with reply fan-out.
  */
 
 require_once __DIR__ . '/notify.php';
@@ -45,25 +45,37 @@ function ensureCustomerPortalSchema(): void
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             INDEX idx_customer_phone (customer_phone),
-            INDEX idx_status (status)
+            INDEX idx_status (status),
+            INDEX idx_merchant (merchant_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     } catch (Throwable $e) { /* ok */ }
     try {
         $db->exec("CREATE TABLE IF NOT EXISTS customer_ticket_messages (
             id INT AUTO_INCREMENT PRIMARY KEY,
             ticket_id INT NOT NULL,
-            sender_type ENUM('customer','admin') NOT NULL,
+            sender_type ENUM('customer','admin','merchant','staff') NOT NULL,
+            sender_label VARCHAR(120) DEFAULT NULL,
             message TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_ticket (ticket_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     } catch (Throwable $e) { /* ok */ }
+
+    // Graceful upgrades for older installs.
+    if (function_exists('schemaExecQuiet')) {
+        schemaExecQuiet("ALTER TABLE customer_tickets ADD INDEX idx_merchant (merchant_id)");
+        schemaExecQuiet("ALTER TABLE customer_ticket_messages MODIFY sender_type ENUM('customer','admin','merchant','staff') NOT NULL");
+        schemaExecQuiet("ALTER TABLE customer_ticket_messages ADD COLUMN sender_label VARCHAR(120) DEFAULT NULL");
+    } else {
+        try { $db->exec("ALTER TABLE customer_ticket_messages MODIFY sender_type ENUM('customer','admin','merchant','staff') NOT NULL"); } catch (Throwable $e) { /* ok */ }
+        try { $db->exec("ALTER TABLE customer_ticket_messages ADD COLUMN sender_label VARCHAR(120) DEFAULT NULL"); } catch (Throwable $e) { /* ok */ }
+    }
 }
 
 /** Reduce any Indian phone input to its 10-digit subscriber number, or '' if invalid. */
 function customerNormalizePhone(string $raw): string
 {
-    $digits = preg_replace('/\D/', '', $raw);
+    $digits = preg_replace('/\D/', '', $raw) ?? '';
     if (strlen($digits) > 10) {
         $digits = substr($digits, -10);
     }
@@ -95,8 +107,7 @@ function customerLogout(): void
 
 /**
  * Generate + deliver a login OTP. Falls back WhatsApp -> SMS. When no channel
- * is configured (e.g. demo without keys), returns the OTP in 'demo_otp' so the
- * login screen can show it in a clearly-labelled demo notice.
+ * is configured (e.g. demo without keys), returns the OTP in 'demo_otp'.
  * @return array{ok:bool,channel:string,demo_otp:?string,message:string}
  */
 function requestCustomerOtp(string $phone): array
@@ -139,7 +150,6 @@ function requestCustomerOtp(string $phone): array
     if ($channel !== 'none') {
         return ['ok' => true, 'channel' => $channel, 'demo_otp' => null, 'message' => 'OTP sent to your mobile via ' . strtoupper($channel) . '.'];
     }
-    // No delivery channel configured — demo mode: surface the OTP so the flow is testable.
     return ['ok' => true, 'channel' => 'demo', 'demo_otp' => $otp, 'message' => 'Demo mode: SMS/WhatsApp not configured. Use the OTP shown below.'];
 }
 
@@ -148,7 +158,7 @@ function verifyCustomerOtp(string $phone, string $otp): array
 {
     ensureCustomerPortalSchema();
     $db = getDB();
-    $otp = preg_replace('/\D/', '', $otp);
+    $otp = preg_replace('/\D/', '', $otp) ?? '';
     try {
         $st = $db->prepare("SELECT * FROM customer_otps WHERE phone=? AND consumed=0 AND expires_at >= NOW() ORDER BY id DESC LIMIT 1");
         $st->execute([$phone]);
@@ -178,35 +188,80 @@ function verifyCustomerOtp(string $phone, string $otp): array
     return ['ok' => true, 'message' => 'Logged in.'];
 }
 
-/** Read-only transaction history for a payer's mobile (last 10 digits match). */
+/**
+ * Read-only transaction history for a payer's mobile across ALL merchants.
+ * Matches transactions.customer_phone and falls back to payment_links.customer_phone.
+ */
 function getCustomerTransactions(string $phone, int $limit = 100): array
 {
     $db = getDB();
     $limit = max(1, min(200, $limit));
-    $sql = "SELECT t.*, m.business_name
-            FROM transactions t
-            LEFT JOIN merchants m ON m.id = t.merchant_id
-            WHERE RIGHT(REGEXP_REPLACE(COALESCE(t.customer_phone,''), '[^0-9]', ''), 10) = ?
-            ORDER BY t.created_at DESC LIMIT {$limit}";
-    try {
-        $st = $db->prepare($sql);
-        $st->execute([$phone]);
-        return $st->fetchAll();
-    } catch (Throwable $e) {
-        // Fallback for engines without REGEXP_REPLACE.
+    $phone = customerNormalizePhone($phone) ?: $phone;
+
+    $queries = [
+        // Prefer digit-normalized match on txn phone OR linked payment-link phone.
+        "SELECT t.*, m.business_name,
+                COALESCE(NULLIF(TRIM(t.customer_phone),''), NULLIF(TRIM(pl.customer_phone),'')) AS matched_phone
+         FROM transactions t
+         LEFT JOIN merchants m ON m.id = t.merchant_id
+         LEFT JOIN payment_links pl ON pl.id = t.payment_link_id
+         WHERE RIGHT(REGEXP_REPLACE(COALESCE(NULLIF(TRIM(t.customer_phone),''), NULLIF(TRIM(pl.customer_phone),''), ''), '[^0-9]', ''), 10) = ?
+         ORDER BY t.created_at DESC LIMIT {$limit}",
+        // Without REGEXP_REPLACE
+        "SELECT t.*, m.business_name
+         FROM transactions t
+         LEFT JOIN merchants m ON m.id = t.merchant_id
+         LEFT JOIN payment_links pl ON pl.id = t.payment_link_id
+         WHERE t.customer_phone LIKE CONCAT('%', ?)
+            OR pl.customer_phone LIKE CONCAT('%', ?)
+         ORDER BY t.created_at DESC LIMIT {$limit}",
+        // Minimal fallback (txn phone only)
+        "SELECT t.*, m.business_name FROM transactions t
+         LEFT JOIN merchants m ON m.id = t.merchant_id
+         WHERE t.customer_phone LIKE CONCAT('%', ?)
+         ORDER BY t.created_at DESC LIMIT {$limit}",
+    ];
+
+    foreach ($queries as $i => $sql) {
         try {
-            $st = $db->prepare("SELECT t.*, m.business_name FROM transactions t LEFT JOIN merchants m ON m.id = t.merchant_id
-                WHERE t.customer_phone LIKE CONCAT('%', ?) ORDER BY t.created_at DESC LIMIT {$limit}");
-            $st->execute([$phone]);
-            return $st->fetchAll();
-        } catch (Throwable $e2) {
-            return [];
+            $st = $db->prepare($sql);
+            if ($i === 1) {
+                $st->execute([$phone, $phone]);
+            } else {
+                $st->execute([$phone]);
+            }
+            $rows = $st->fetchAll();
+            // PHP-side harden: keep only exact last-10 match.
+            return array_values(array_filter($rows, static function (array $row) use ($phone): bool {
+                $raw = (string)($row['matched_phone'] ?? $row['customer_phone'] ?? '');
+                $norm = customerNormalizePhone($raw);
+                if ($norm === $phone) {
+                    return true;
+                }
+                // LIKE fallback may over-match; tighten here.
+                $digits = preg_replace('/\D/', '', $raw) ?? '';
+                return strlen($digits) >= 10 && substr($digits, -10) === $phone;
+            }));
+        } catch (Throwable $e) {
+            continue;
         }
     }
+    return [];
 }
 
 function customerTransactionReason(array $t): string
 {
+    if (function_exists('transactionStatusExplainer')) {
+        try {
+            $explained = transactionStatusExplainer($t);
+            if (is_array($explained) && !empty($explained['text'])) {
+                return (string)$explained['text'];
+            }
+            if (is_string($explained) && $explained !== '') {
+                return $explained;
+            }
+        } catch (Throwable $e) { /* fall through */ }
+    }
     foreach (['failure_reason', 'failure_message', 'status_reason', 'remarks'] as $col) {
         if (!empty($t[$col])) {
             return (string)$t[$col];
@@ -216,7 +271,7 @@ function customerTransactionReason(array $t): string
     return match ($status) {
         'success', 'paid', 'captured' => 'Payment successful.',
         'pending' => 'Payment is being confirmed by the bank/gateway.',
-        'failed' => 'Payment did not complete. Any debited amount is auto-reversed by your bank in 3-5 working days.',
+        'failed' => 'Payment did not complete. Any debited amount is usually auto-reversed by your bank in 3–5 working days.',
         default => '',
     };
 }
@@ -226,10 +281,12 @@ function createCustomerTicket(string $phone, string $subject, string $message, ?
     ensureCustomerPortalSchema();
     $subject = trim($subject);
     $message = trim($message);
+    $lenSub = function_exists('mb_strlen') ? mb_strlen($subject) : strlen($subject);
+    $lenMsg = function_exists('mb_strlen') ? mb_strlen($message) : strlen($message);
     if ($subject === '' || $message === '') {
         return ['ok' => false, 'message' => 'Please enter a subject and describe your issue.'];
     }
-    if (mb_strlen($subject) > 200 || mb_strlen($message) > 5000) {
+    if ($lenSub > 200 || $lenMsg > 5000) {
         return ['ok' => false, 'message' => 'Subject or message is too long.'];
     }
     $db = getDB();
@@ -237,19 +294,12 @@ function createCustomerTicket(string $phone, string $subject, string $message, ?
     $customerName = null;
     $txnRef = $txnRef ? trim($txnRef) : null;
     if ($txnRef) {
-        try {
-            $st = $db->prepare("SELECT merchant_id, customer_name FROM transactions
-                WHERE txn_id=? AND RIGHT(REGEXP_REPLACE(COALESCE(customer_phone,''), '[^0-9]', ''), 10)=? LIMIT 1");
-            $st->execute([$txnRef, $phone]);
-            $tx = $st->fetch();
-            if (!$tx) {
-                return ['ok' => false, 'message' => 'That transaction is not linked to your mobile number.'];
-            }
-            $merchantId = $tx['merchant_id'] !== null ? (int)$tx['merchant_id'] : null;
-            $customerName = $tx['customer_name'] ?: null;
-        } catch (Throwable $e) {
-            $merchantId = null;
+        $tx = findCustomerOwnedTransaction($phone, $txnRef);
+        if (!$tx) {
+            return ['ok' => false, 'message' => 'That transaction is not linked to your mobile number.'];
         }
+        $merchantId = $tx['merchant_id'] !== null ? (int)$tx['merchant_id'] : null;
+        $customerName = $tx['customer_name'] ?: null;
     }
     $ticketId = generateId('CT');
     try {
@@ -258,7 +308,46 @@ function createCustomerTicket(string $phone, string $subject, string $message, ?
     } catch (Throwable $e) {
         return ['ok' => false, 'message' => 'Could not create ticket. Please try again.'];
     }
+
+    // Notify merchant (in-app) when ticket is tied to their txn.
+    if ($merchantId && function_exists('createNotification')) {
+        try {
+            createNotification(
+                $merchantId,
+                'New customer complaint',
+                'Ticket ' . $ticketId . ': ' . $subject . ($txnRef ? ' (Txn ' . $txnRef . ')' : '')
+            );
+        } catch (Throwable $e) { /* best effort */ }
+    }
+
     return ['ok' => true, 'message' => 'Ticket ' . $ticketId . ' created.', 'ticket_id' => $ticketId];
+}
+
+/** Ensure the txn belongs to this payer mobile (txn phone or payment-link phone). */
+function findCustomerOwnedTransaction(string $phone, string $txnId): ?array
+{
+    $db = getDB();
+    $phone = customerNormalizePhone($phone) ?: $phone;
+    $attempts = [
+        ["SELECT t.* FROM transactions t LEFT JOIN payment_links pl ON pl.id = t.payment_link_id
+          WHERE t.txn_id=? AND RIGHT(REGEXP_REPLACE(COALESCE(NULLIF(TRIM(t.customer_phone),''), NULLIF(TRIM(pl.customer_phone),''), ''), '[^0-9]', ''), 10)=? LIMIT 1", [$txnId, $phone]],
+        ["SELECT t.* FROM transactions t LEFT JOIN payment_links pl ON pl.id = t.payment_link_id
+          WHERE t.txn_id=? AND (t.customer_phone LIKE CONCAT('%', ?) OR pl.customer_phone LIKE CONCAT('%', ?)) LIMIT 1", [$txnId, $phone, $phone]],
+        ["SELECT * FROM transactions WHERE txn_id=? AND customer_phone LIKE CONCAT('%', ?) LIMIT 1", [$txnId, $phone]],
+    ];
+    foreach ($attempts as [$sql, $params]) {
+        try {
+            $st = $db->prepare($sql);
+            $st->execute($params);
+            $row = $st->fetch();
+            if ($row) {
+                return $row;
+            }
+        } catch (Throwable $e) {
+            continue;
+        }
+    }
+    return null;
 }
 
 function getCustomerTickets(string $phone, int $limit = 50): array
@@ -296,17 +385,47 @@ function getCustomerTicketMessages(int $ticketDbId): array
     }
 }
 
-function addCustomerTicketMessage(int $ticketDbId, string $senderType, string $message): bool
+function customerTicketSenderLabel(string $senderType, ?string $storedLabel = null): string
+{
+    if ($storedLabel) {
+        return $storedLabel;
+    }
+    return match ($senderType) {
+        'customer' => 'You',
+        'merchant' => 'Merchant',
+        'staff' => 'Support Team',
+        'admin' => 'Support Team',
+        default => 'Support',
+    };
+}
+
+/**
+ * Add a message to a ticket. senderType: customer|admin|merchant|staff.
+ * Support-side replies notify the customer via WhatsApp/SMS when configured.
+ */
+function addCustomerTicketMessage(int $ticketDbId, string $senderType, string $message, string $senderLabel = ''): bool
 {
     $message = trim($message);
-    if ($message === '' || mb_strlen($message) > 5000) {
+    $len = function_exists('mb_strlen') ? mb_strlen($message) : strlen($message);
+    if ($message === '' || $len > 5000) {
         return false;
     }
-    $senderType = $senderType === 'admin' ? 'admin' : 'customer';
+    $allowed = ['customer', 'admin', 'merchant', 'staff'];
+    if (!in_array($senderType, $allowed, true)) {
+        $senderType = 'admin';
+    }
+    $label = $senderLabel !== '' ? (function_exists('mb_substr') ? mb_substr($senderLabel, 0, 120) : substr($senderLabel, 0, 120)) : null;
     try {
-        getDB()->prepare("INSERT INTO customer_ticket_messages (ticket_id, sender_type, message) VALUES (?,?,?)")
-            ->execute([$ticketDbId, $senderType, $message]);
-        $newStatus = $senderType === 'admin' ? 'in_progress' : 'open';
+        try {
+            getDB()->prepare("INSERT INTO customer_ticket_messages (ticket_id, sender_type, sender_label, message) VALUES (?,?,?,?)")
+                ->execute([$ticketDbId, $senderType, $label, $message]);
+        } catch (Throwable $e) {
+            // Older schema without sender_label / expanded enum — map merchant/staff → admin for storage.
+            $legacyType = in_array($senderType, ['merchant', 'staff'], true) ? 'admin' : $senderType;
+            getDB()->prepare("INSERT INTO customer_ticket_messages (ticket_id, sender_type, message) VALUES (?,?,?)")
+                ->execute([$ticketDbId, $legacyType === 'customer' ? 'customer' : 'admin', $message]);
+        }
+        $newStatus = $senderType === 'customer' ? 'open' : 'in_progress';
         getDB()->prepare("UPDATE customer_tickets SET status=? WHERE id=?")->execute([$newStatus, $ticketDbId]);
         return true;
     } catch (Throwable $e) {
@@ -314,7 +433,53 @@ function addCustomerTicketMessage(int $ticketDbId, string $senderType, string $m
     }
 }
 
-/* ---------------- Admin-side helpers ---------------- */
+/**
+ * Support/merchant reply helper: saves message, optional status, notifies customer.
+ * NEVER auto-approves contact changes — OTP-login only.
+ * @return array{ok:bool,message:string}
+ */
+function replyToCustomerTicket(int $ticketDbId, string $senderType, string $message, string $status = '', string $actorLabel = ''): array
+{
+    ensureCustomerPortalSchema();
+    $ticket = getCustomerTicketById($ticketDbId);
+    if (!$ticket) {
+        return ['ok' => false, 'message' => 'Complaint not found.'];
+    }
+    $message = trim($message);
+    if ($message !== '') {
+        if (!addCustomerTicketMessage($ticketDbId, $senderType, $message, $actorLabel)) {
+            return ['ok' => false, 'message' => 'Could not save reply.'];
+        }
+        notifyCustomerTicketReply($ticket, $message);
+    }
+    if ($status !== '' && in_array($status, ['open', 'in_progress', 'resolved', 'closed'], true)) {
+        setCustomerTicketStatus($ticketDbId, $status);
+    }
+    return ['ok' => true, 'message' => 'Reply saved for complaint ' . $ticket['ticket_id'] . '.'];
+}
+
+function notifyCustomerTicketReply(array $ticket, string $reply): void
+{
+    $phone = customerNormalizePhone((string)($ticket['customer_phone'] ?? ''));
+    if ($phone === '') {
+        return;
+    }
+    $ticketCode = (string)($ticket['ticket_id'] ?? '');
+    $snip = function_exists('mb_substr') ? mb_substr($reply, 0, 280) : substr($reply, 0, 280);
+    $text = "UniWeb support replied to your complaint {$ticketCode}: {$snip}";
+    $portalUrl = (defined('APP_URL') ? APP_URL : '') . '/customer_ticket.php?id=' . rawurlencode($ticketCode);
+    $text .= ' View: ' . $portalUrl;
+
+    try {
+        if (function_exists('sendWhatsAppTextMessage') && getSetting('whatsapp_enabled', '0') === '1') {
+            sendWhatsAppTextMessage($phone, $text);
+        } elseif (function_exists('sendSMS')) {
+            sendSMS($phone, $text);
+        }
+    } catch (Throwable $e) { /* best effort */ }
+}
+
+/* ---------------- Admin / staff / merchant helpers ---------------- */
 
 function getAllCustomerTickets(?string $status = null, int $limit = 100): array
 {
@@ -332,6 +497,50 @@ function getAllCustomerTickets(?string $status = null, int $limit = 100): array
         return $st->fetchAll();
     } catch (Throwable $e) {
         return [];
+    }
+}
+
+/** Tickets tied to a single merchant's transactions only. */
+function getMerchantCustomerTickets(int $merchantId, ?string $status = null, int $limit = 100): array
+{
+    ensureCustomerPortalSchema();
+    $sql = "SELECT ct.*, m.business_name FROM customer_tickets ct LEFT JOIN merchants m ON m.id = ct.merchant_id WHERE ct.merchant_id = ?";
+    $params = [$merchantId];
+    if ($status && in_array($status, ['open', 'in_progress', 'resolved', 'closed'], true)) {
+        $sql .= " AND ct.status = ?";
+        $params[] = $status;
+    }
+    $sql .= " ORDER BY ct.updated_at DESC LIMIT " . max(1, min(300, $limit));
+    try {
+        $st = getDB()->prepare($sql);
+        $st->execute($params);
+        return $st->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function getMerchantCustomerTicket(int $merchantId, int $ticketDbId): ?array
+{
+    ensureCustomerPortalSchema();
+    try {
+        $st = getDB()->prepare("SELECT ct.*, m.business_name FROM customer_tickets ct LEFT JOIN merchants m ON m.id = ct.merchant_id WHERE ct.id=? AND ct.merchant_id=? LIMIT 1");
+        $st->execute([$ticketDbId, $merchantId]);
+        return $st->fetch() ?: null;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function getPendingMerchantCustomerTicketCount(int $merchantId): int
+{
+    ensureCustomerPortalSchema();
+    try {
+        $st = getDB()->prepare("SELECT COUNT(*) FROM customer_tickets WHERE merchant_id=? AND status IN ('open','in_progress')");
+        $st->execute([$merchantId]);
+        return (int)$st->fetchColumn();
+    } catch (Throwable $e) {
+        return 0;
     }
 }
 

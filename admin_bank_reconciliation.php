@@ -66,14 +66,14 @@ require_once __DIR__ . '/header.php';
     <?php if (!empty($result['unmatched'])): ?>
     <div class="glass rounded-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-800"><h3 class="font-semibold text-amber-400">Unmatched Rows</h3></div>
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr><th class="px-5 py-3 text-left">UTR/Reference</th><th class="px-5 py-3 text-left">Amount</th><th class="px-5 py-3 text-left">Date</th></tr></thead>
             <tbody class="divide-y divide-gray-800">
                 <?php foreach ($result['unmatched'] as $u): ?>
                 <tr><td class="px-5 py-3 font-mono text-sky-400"><?= e($u['utr'] ?: '—') ?></td><td class="px-5 py-3"><?= formatMoney((float)$u['amount']) ?></td><td class="px-5 py-3 text-gray-500"><?= e($u['date'] ?: '—') ?></td></tr>
                 <?php endforeach; ?>
             </tbody>
-        </table>
+        </table></div>
         <p class="px-5 py-3 text-[11px] text-gray-500 border-t border-gray-800">No batch matched by UTR or amount+date. Check settlement_batches manually or verify the amount/date format.</p>
     </div>
     <?php endif; ?>
@@ -81,7 +81,7 @@ require_once __DIR__ . '/header.php';
 
     <div class="glass rounded-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-800"><h3 class="font-semibold">Upload History</h3></div>
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr><th class="px-5 py-3 text-left">File</th><th class="px-5 py-3 text-left">Rows</th><th class="px-5 py-3 text-left">Confirmed</th><th class="px-5 py-3 text-left">Suggested</th><th class="px-5 py-3 text-left">Unmatched</th><th class="px-5 py-3 text-left">When</th></tr></thead>
             <tbody class="divide-y divide-gray-800">
                 <?php if (empty($history)): ?>
@@ -97,7 +97,7 @@ require_once __DIR__ . '/header.php';
                 </tr>
                 <?php endforeach; endif; ?>
             </tbody>
-        </table>
+        </table></div>
     </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

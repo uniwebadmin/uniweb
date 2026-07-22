@@ -97,13 +97,32 @@ foreach (['qr_pay.php', 'video_kyc.php', 'admin.php', 'blog_post.php', 'global_s
 $custLib = (string)file_get_contents($root . '/includes/customer_portal.php');
 $assert(str_contains($custLib, 'function requestCustomerOtp') && str_contains($custLib, 'function verifyCustomerOtp'), 'customer_portal_otp_helpers');
 $assert(str_contains($custLib, 'function getCustomerTransactions'), 'customer_portal_history_helper');
+$assert(str_contains($custLib, 'payment_links pl') || str_contains($custLib, 'payment_link_id'), 'customer_history_matches_link_phone');
 $assert(str_contains($custLib, 'function createCustomerTicket') && str_contains($custLib, 'function addCustomerTicketMessage'), 'customer_portal_ticket_helpers');
+$assert(str_contains($custLib, 'function replyToCustomerTicket') && str_contains($custLib, 'function notifyCustomerTicketReply'), 'customer_ticket_reply_fanout');
+$assert(str_contains($custLib, 'function getMerchantCustomerTickets'), 'customer_merchant_ticket_scope');
+$assert(str_contains($custLib, "'merchant'") && str_contains($custLib, "'staff'"), 'customer_ticket_sender_roles');
 $assert(str_contains($custLib, 'password_hash(') && str_contains($custLib, 'password_verify('), 'customer_portal_otp_hashed');
 $custLogin = (string)file_get_contents($root . '/customer_login.php');
 $assert(str_contains($custLogin, 'requestCustomerOtp') && str_contains($custLogin, 'verifyCustomerOtp'), 'customer_login_uses_otp');
+$assert(str_contains($custLogin, 'auth-portal-shell') || str_contains($custLogin, 'authPortalUi'), 'customer_login_premium_shell');
+$assert(is_file($root . '/assets/css/customer-portal.css'), 'customer_portal_css_present');
+$assert(is_file($root . '/assets/css/auth-portal.css'), 'auth_portal_css_for_customer_login');
 $assert(in_array('customer_login.php', $registryFiles, true), 'watchdog_registry_covers_customer_login');
+$assert(in_array('customer_portal.php', $registryFiles, true) && in_array('customer_ticket.php', $registryFiles, true), 'watchdog_registry_covers_customer_pages');
+$assert(in_array('merchant_customer_tickets.php', $registryFiles, true), 'watchdog_registry_covers_merchant_customer_tickets');
+$assert(in_array('admin_customer_tickets.php', $registryFiles, true), 'watchdog_registry_covers_admin_customer_tickets');
 $assert(str_contains($header, 'admin_customer_tickets.php'), 'admin_nav_has_customer_complaints');
+$assert(str_contains($header, 'merchant_customer_tickets.php'), 'merchant_nav_has_customer_complaints');
+$staffNavSrc = (string)file_get_contents($root . '/includes/staff.php');
+$assert(str_contains($staffNavSrc, "'admin_customer_tickets.php'") && str_contains($staffNavSrc, 'Customer Complaints'), 'staff_nav_has_customer_complaints');
+$assert(is_file($root . '/merchant_customer_tickets.php'), 'merchant_customer_tickets_page_present');
+$mCust = (string)file_get_contents($root . '/merchant_customer_tickets.php');
+$assert(str_contains($mCust, 'getMerchantCustomerTicket') && str_contains($mCust, 'replyToCustomerTicket'), 'merchant_customer_tickets_scoped_reply');
 $assert(is_file($root . '/migrations/010_customer_portal.sql'), 'customer_portal_migration_present');
+$assert(is_file($root . '/migrations/016_customer_ticket_roles.sql'), 'customer_ticket_roles_migration_present');
+$teamSrc = (string)file_get_contents($root . '/includes/merchant_team.php');
+$assert(str_contains($teamSrc, "'support'") && str_contains($teamSrc, 'customer complaints'), 'merchant_team_support_capability');
 
 // Transaction / settlement "exact reason" copy for fail / pending / success states.
 $txnLib = (string)file_get_contents($root . '/includes/transaction_detail.php');
@@ -139,17 +158,37 @@ $assert(str_contains($webLib, 'publicWebhookDestination('), 'website_compliance_
 $webPage = (string)file_get_contents($root . '/merchant_website.php');
 $assert(str_contains($webPage, 'run_compliance') && str_contains($webPage, 'checkWebsiteCompliance('), 'website_compliance_wired');
 
+// Invoice PDF field completeness: GSTIN, business name, address, mobile, email, unique invoice no.
+$invPdf = (string)file_get_contents($root . '/lib/SimpleInvoicePdf.php');
+$assert(str_contains($invPdf, 'Invoice No:') && str_contains($invPdf, 'GSTIN:'), 'invoice_pdf_shows_number_and_gstin');
+$assert(str_contains($invPdf, 'Bill From:') && str_contains($invPdf, 'Bill To:'), 'invoice_pdf_bill_from_to');
+$assert(str_contains($invPdf, 'Mobile:') && str_contains($invPdf, 'Email:') && str_contains($invPdf, 'Address:'), 'invoice_pdf_contact_fields');
+$assert(str_contains($invPdf, 'function merchantFullAddress'), 'invoice_pdf_merchant_full_address_helper');
+$invForm = (string)file_get_contents($root . '/invoices.php');
+$assert(str_contains($invForm, 'customer_address') && str_contains($invForm, 'ensureInvoiceSchema'), 'invoice_form_collects_address');
+$invView = (string)file_get_contents($root . '/invoice_view.php');
+$assert(str_contains($invView, 'Bill From') && str_contains($invView, 'GSTIN:'), 'invoice_view_shows_merchant_gst');
+$assert(is_file($root . '/migrations/013_invoice_customer_address.sql'), 'invoice_address_migration_present');
+$schemaEns = (string)file_get_contents($root . '/includes/schema_ensure.php');
+$assert(str_contains($schemaEns, 'function ensureInvoiceSchema'), 'invoice_schema_ensure_present');
+
 $kyc = (string)file_get_contents($root . '/admin_kyc.php');
 $assert(str_contains($kyc, 'independent checker') || str_contains($kyc, 'Independent checker'), 'kyc_maker_checker_copy');
 $assert(!str_contains($kyc, 'Click Verify after documents OK — enables Live mode'), 'kyc_no_misleading_verify_live_copy');
 $assert(str_contains($kyc, 'Video KYC queue'), 'kyc_video_queue_section');
 $assert(str_contains($kyc, 'verify_video'), 'kyc_verify_video_action');
+$assert(str_contains($kyc, 'reject_video') && str_contains($kyc, 'rejection_reason'), 'kyc_reject_stores_reason');
+$assert(str_contains($kyc, 'createNotification'), 'kyc_reject_notifies_merchant');
 
 $videoKycPage = (string)file_get_contents($root . '/video_kyc.php');
 $assert(str_contains($videoKycPage, "'verified', 'approved'"), 'video_kyc_accepts_verified_status');
 $assert(!str_contains($videoKycPage, 'Face Mapping'), 'video_kyc_no_face_mapping_copy');
+$assert(str_contains($videoKycPage, 'rejection_reason') || str_contains($videoKycPage, 'Reason:'), 'video_kyc_shows_rejection_reason');
 $kycPage = (string)file_get_contents($root . '/kyc.php');
 $assert(!str_contains($kycPage, 'Face Mapping'), 'kyc_page_no_face_mapping_copy');
+$assert(str_contains($kycPage, 'rejection_reason') && str_contains($kycPage, 'latestByType'), 'kyc_page_per_doc_status_reason');
+$assert(str_contains($kycPage, 'Action needed') || str_contains($kycPage, 're-upload'), 'kyc_page_rejection_banner');
+$assert(is_file($root . '/migrations/014_kyc_rejection_reason.sql'), 'kyc_rejection_migration_present');
 $assert(normalizeKycEntityType('proprietor') === 'sole_proprietorship', 'kyc_normalize_proprietor');
 $assert(normalizeKycEntityType('freelancer') === 'individual', 'kyc_normalize_freelancer');
 $assert(canonicalizeKycDocType('pan_card') === 'pan', 'kyc_canonicalize_pan_card');
@@ -171,6 +210,91 @@ $assert(str_contains((string)file_get_contents($root . '/qr_code.php'), 'high-fr
 $checkoutSrc = (string)file_get_contents($root . '/checkout.php');
 $assert(str_contains($checkoutSrc, 'qr_code_id'), 'checkout_loads_qr_code_id');
 $assert(str_contains($checkoutSrc, '$fromQr'), 'checkout_skips_velocity_for_qr');
+
+// Universal MFA policy: admin/staff mandatory, merchant optional (setup prompts, no lockout).
+$totpLib = (string)file_get_contents($root . '/includes/totp.php');
+$assert(str_contains($totpLib, 'function mfaPolicy') && str_contains($totpLib, 'function renderMerchantMfaSetupPrompt'), 'mfa_policy_helpers');
+$assert(str_contains($totpLib, "'required' => true") && str_contains($totpLib, "'required' => false"), 'mfa_policy_admin_vs_merchant');
+$adminLogin = (string)file_get_contents($root . '/admin_login.php');
+$assert(str_contains($adminLogin, 'mfa_setup') && str_contains($adminLogin, 'mandatory'), 'admin_login_mandatory_mfa_setup');
+$staffLogin = (string)file_get_contents($root . '/staff_login.php');
+$assert(str_contains($staffLogin, 'Mandatory MFA') || str_contains($staffLogin, 'mandatory'), 'staff_login_mandatory_mfa');
+$m2fa = (string)file_get_contents($root . '/merchant_2fa.php');
+$assert(str_contains($m2fa, 'mfaPolicy(') && str_contains($m2fa, 'Optional'), 'merchant_2fa_optional_policy_ui');
+$dashSrc = (string)file_get_contents($root . '/dashboard.php');
+$assert(str_contains($dashSrc, 'renderMerchantMfaSetupPrompt'), 'dashboard_mfa_setup_prompt');
+// MFA dismiss must run BEFORE header output (no headers-already-sent redirect).
+$assert(strpos($dashSrc, 'dismiss_mfa_prompt') !== false
+    && strpos($dashSrc, 'dismiss_mfa_prompt') < strpos($dashSrc, "require_once __DIR__ . '/header.php'"),
+    'dashboard_mfa_dismiss_before_header');
+
+// Payout scaffold (gated): enable request, beneficiaries, maker-checker placeholder, no live money.
+$payoutLib = (string)file_get_contents($root . '/includes/payout.php');
+$assert(str_contains($payoutLib, 'function requestPayoutEnable') && str_contains($payoutLib, 'function decidePayoutEnableRequest'), 'payout_enable_helpers');
+$assert(str_contains($payoutLib, 'function addPayoutBeneficiary') && str_contains($payoutLib, 'function listPayoutBeneficiaries'), 'payout_beneficiary_helpers');
+$assert(str_contains($payoutLib, 'function createPayoutDraft') && str_contains($payoutLib, 'pending_checker'), 'payout_maker_checker_placeholder');
+$assert(str_contains($payoutLib, 'function payoutLiveMoneyAllowed') && str_contains($payoutLib, 'function getMerchantWalletSplitView'), 'payout_gate_and_wallet_split');
+$assert(str_contains($payoutLib, 'failure_reason') && str_contains($payoutLib, 'auto-reversal'), 'payout_no_auto_reversal_policy');
+$assert(str_contains($payoutLib, 'function payoutStrLimit'), 'payout_safe_str_limit_helper');
+$assert(str_contains($payoutLib, 'function updatePayoutBeneficiary') && str_contains($payoutLib, 'function requestPayoutBeneficiaryPennyDrop'), 'payout_beneficiary_edit_pennydrop');
+$assert(str_contains($payoutLib, 'function approvePayoutChecker') && str_contains($payoutLib, 'function requestPayoutReversal'), 'payout_checker_and_reversal');
+$assert(str_contains($payoutLib, 'function generatePayoutApiCredential') && str_contains($payoutLib, 'function revokePayoutApiCredential'), 'payout_api_key_helpers');
+$assert(str_contains($payoutLib, 'NEVER auto-credits') || str_contains($payoutLib, 'NOT auto-credited') || str_contains($payoutLib, 'no auto-credit'), 'payout_reversal_no_auto_credit');
+$assert(is_file($root . '/merchant_payout.php') && is_file($root . '/admin_payout.php'), 'payout_pages_present');
+$assert(is_file($root . '/merchant_payout_keys.php'), 'payout_api_keys_page_present');
+$mp = (string)file_get_contents($root . '/merchant_payout.php');
+$assert(str_contains($mp, 'payoutLiveMoneyAllowed') && str_contains($mp, 'keys pending'), 'merchant_payout_gated_copy');
+$assert(str_contains($mp, 'bulk_csv') && str_contains($payoutLib, 'function processPayoutBulkCsv'), 'payout_bulk_csv_scaffold');
+$assert(str_contains($mp, 'request_reversal') && str_contains($mp, 'approve_checker'), 'merchant_payout_reversal_checker_ui');
+$assert(str_contains($payoutLib, 'function parsePayoutBulkCsv') && str_contains($payoutLib, 'function payoutBulkCsvHeader'), 'payout_bulk_csv_helpers');
+$assert(str_contains($header, 'admin_payout.php') && str_contains($header, 'merchant_payout.php'), 'nav_has_payout_pages');
+$assert(str_contains($header, 'merchant_payout_keys.php'), 'nav_has_payout_api_keys');
+$assert(in_array('merchant_payout.php', $registryFiles, true) && in_array('admin_payout.php', $registryFiles, true), 'watchdog_registry_covers_payout');
+$assert(in_array('merchant_payout_keys.php', $registryFiles, true), 'watchdog_registry_covers_payout_keys');
+$assert(is_file($root . '/migrations/015_payout_scaffold.sql'), 'payout_migration_present');
+$assert(is_file($root . '/migrations/017_payout_expansion.sql'), 'payout_expansion_migration_present');
+$cloudMods = (string)file_get_contents($root . '/includes/cloud_modules.php');
+$assert(str_contains($cloudMods, "'payout.php'") && str_contains($cloudMods, "'customer_portal.php'"), 'cloud_modules_registers_payout_customer');
+$assert(is_file($root . '/.github/workflows/deploy.yml'), 'github_actions_deploy_workflow_present');
+$deployYml = (string)file_get_contents($root . '/.github/workflows/deploy.yml');
+$assert(str_contains($deployYml, 'UNIWEB_FTP_HOST') && str_contains($deployYml, 'lftp') && str_contains($deployYml, 'branches: [main]'), 'deploy_workflow_sftp_secrets');
+$assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');
+
+// Auth portal redesign (all four logins — presentation only).
+$assert(is_file($root . '/assets/css/auth-portal.css'), 'auth_portal_css_present');
+foreach (['login.php', 'admin_login.php', 'staff_login.php', 'customer_login.php'] as $loginFile) {
+    $src = (string)file_get_contents($root . '/' . $loginFile);
+    $assert(str_contains($src, 'authPortalUi') || str_contains($src, 'auth-portal-shell'), 'auth_shell_' . str_replace('.php', '', $loginFile));
+    $assert(str_contains($src, 'csrf_token'), 'auth_csrf_' . str_replace('.php', '', $loginFile));
+}
+
+// Pine Labs Plural scaffold (gated).
+$gwLibPine = (string)file_get_contents($root . '/includes/gateways.php');
+$assert(str_contains($gwLibPine, 'function pineLabsSandboxCreateOrder') && str_contains($gwLibPine, 'pinelabs'), 'pinelabs_plural_scaffold');
+$assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'pinelabs_merchant_id'), 'gateway_settings_pinelabs_fields');
+
+// Search Console meta + WhatsApp alert fan-out from notifications.
+$headerSeo = (string)file_get_contents($root . '/header.php');
+$assert(str_contains($headerSeo, 'google-site-verification') && str_contains($headerSeo, "getSetting('google_site_verification'"), 'search_console_meta_from_setting');
+$gwSeo = (string)file_get_contents($root . '/gateway_settings.php');
+$assert(str_contains($gwSeo, 'google_site_verification') && str_contains($gwSeo, 'Search Console'), 'gateway_settings_search_console_field');
+$assert(str_contains($gwSeo, 'digio_client_id') && str_contains($gwSeo, 'does <strong>not</strong> store'), 'gateway_settings_digio_partner_fields');
+$notifyLib = (string)file_get_contents($root . '/includes/notify.php');
+$assert(str_contains($notifyLib, 'function onMerchantNotificationCreated') && str_contains($notifyLib, 'function maybeSendWhatsAppMerchantAlert'), 'whatsapp_alert_hook_helpers');
+$cfgDev = (string)file_get_contents($root . '/config.dev.php');
+$assert(str_contains($cfgDev, 'onMerchantNotificationCreated'), 'config_dev_notification_hooks_whatsapp');
+$prefsUi = (string)file_get_contents($root . '/merchant_notify_settings.php');
+$assert(str_contains($prefsUi, 'whatsapp') && str_contains($prefsUi, 'WhatsApp'), 'merchant_notify_prefs_whatsapp_channel');
+$mui = (string)file_get_contents($root . '/includes/merchant_ui.php');
+$assert(str_contains($mui, "'whatsapp' => true") || str_contains($mui, "'whatsapp' => false"), 'merchant_notify_defaults_include_whatsapp');
+
+// Safe polish: method_requests include wired; payout key placeholders in gateway settings.
+$colSrc = (string)file_get_contents($root . '/collection_settings.php');
+$assert(str_contains($colSrc, "includes/method_requests.php"), 'collection_settings_requires_method_requests');
+$adminMr = (string)file_get_contents($root . '/admin_method_requests.php');
+$assert(str_contains($adminMr, "includes/method_requests.php"), 'admin_method_requests_requires_lib');
+$assert(str_contains($gwSeo, 'razorpayx_key_id') && str_contains($gwSeo, 'payout_live_enabled'), 'gateway_settings_payout_key_placeholders');
+$assert(is_file($root . '/migrations/011_staff_activity_logs.sql'), 'staff_activity_migration_present');
 $assert(!in_array('gst', $individualDocs, true) && !in_array('incorporation_certificate', $individualDocs, true), 'kyc_individual_no_gst_or_cin_docs');
 $propDocs = getKycRequirements('sole_proprietorship');
 $assert(in_array('gst', $propDocs, true) && in_array('aadhaar', $propDocs, true), 'kyc_proprietorship_includes_gst');

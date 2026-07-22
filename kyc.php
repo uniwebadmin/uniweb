@@ -41,11 +41,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('kyc.php');
 }
 
-$docs = $db->prepare('SELECT * FROM kyc_documents WHERE merchant_id = ? ORDER BY created_at DESC');
-$docs->execute([$merchant['id']]);
-$documents = $docs->fetchAll();
+$documents = [];
+try {
+    $docs = $db->prepare('SELECT * FROM kyc_documents WHERE merchant_id = ? ORDER BY created_at DESC');
+    $docs->execute([$merchant['id']]);
+    $documents = $docs->fetchAll() ?: [];
+} catch (Throwable $e) {
+    try {
+        $docs = $db->prepare('SELECT id, merchant_id, doc_type, file_name, file_path, status, created_at FROM kyc_documents WHERE merchant_id = ? ORDER BY created_at DESC');
+        $docs->execute([$merchant['id']]);
+        $documents = $docs->fetchAll() ?: [];
+    } catch (Throwable $e2) {
+        $documents = [];
+    }
+}
 $uploadedTypes = array_unique(array_column($documents, 'doc_type'));
-$approvedTypes = array_unique(array_column(array_filter($documents, fn($d) => $d['status'] === 'approved'), 'doc_type'));
+$approvedTypes = array_unique(array_column(array_filter($documents, fn($d) => ($d['status'] ?? '') === 'approved'), 'doc_type'));
+
+/** Latest document row per type (already sorted newest-first). */
+$latestByType = [];
+foreach ($documents as $doc) {
+    $t = (string)($doc['doc_type'] ?? '');
+    if ($t !== '' && !isset($latestByType[$t])) {
+        $latestByType[$t] = $doc;
+    }
+}
+$rejectedDocs = array_values(array_filter($latestByType, static fn(array $d): bool => ($d['status'] ?? '') === 'rejected'));
 
 // Number fields shown only if that doc type is required for this entity
 $verifyFields = [];
@@ -69,7 +90,9 @@ $approvedCount = count(array_intersect($requiredDocs, $approvedTypes));
 $pageTitle = 'KYC Verification';
 require_once __DIR__ . '/header.php';
 
-$step1Done = !empty($verifyFields) ? count(array_filter($verifyFields, static fn($k) => !empty($prefills[$k] ?? ''))) >= min(1, count($verifyFields)) : true;
+$step1Done = !empty($verifyFields)
+    ? count(array_filter(array_keys($verifyFields), static fn($k) => !empty($prefills[$k] ?? ''))) >= min(1, count($verifyFields))
+    : true;
 $step2Done = $need > 0 && $have >= $need;
 $step3Ready = ($merchant['kyc_status'] ?? '') === 'verified' || $approvedCount >= $need;
 $currentStep = 1;
@@ -83,11 +106,22 @@ $kycSteps = [
     2 => ['title' => 'Upload documents', 'hint' => 'Only files required for ' . entityTypeLabel($entityType)],
     3 => ['title' => 'Video KYC & agreement', 'hint' => 'Selfie video + contract'],
 ];
+
+$docStatusMeta = static function (string $status): array {
+    return match ($status) {
+        'approved' => ['label' => 'Approved', 'tone' => 'emerald', 'icon' => '✓'],
+        'rejected' => ['label' => 'Rejected — re-upload required', 'tone' => 'red', 'icon' => '!'],
+        'pending' => ['label' => 'Under review', 'tone' => 'amber', 'icon' => '…'],
+        default => ['label' => ucfirst($status ?: 'Unknown'), 'tone' => 'gray', 'icon' => '○'],
+    };
+};
 ?>
 
 <div class="max-w-3xl">
     <div class="glass rounded-2xl p-5 mb-6 border border-sky-500/20">
-        <p class="text-xs text-sky-400 uppercase tracking-wider mb-3">Paperless KYC — 3 steps</p>
+        <p class="text-xs text-sky-400 uppercase tracking-wider mb-1">KYC Verification</p>
+        <h1 class="text-xl font-bold mb-3">Complete your compliance checklist</h1>
+        <p class="text-sm text-gray-400 mb-4">Each document shows its live status. If a file is rejected, the exact reason appears so you can fix and re-upload.</p>
         <div class="grid sm:grid-cols-3 gap-3">
             <?php foreach ($kycSteps as $num => $step):
                 $done = $num === 1 ? $step1Done : ($num === 2 ? $step2Done : $step3Ready);
@@ -102,6 +136,22 @@ $kycSteps = [
         </div>
         <p class="text-xs text-gray-500 mt-3">Complete all steps for faster Live Mode activation. Real-time registry checks run when verification API keys are configured.</p>
     </div>
+
+    <?php if (!empty($rejectedDocs)): ?>
+    <div class="rounded-xl border border-red-500/40 bg-red-500/10 p-4 mb-6">
+        <p class="text-sm font-semibold text-red-300 mb-2">Action needed — <?= count($rejectedDocs) ?> document<?= count($rejectedDocs) === 1 ? '' : 's' ?> rejected</p>
+        <ul class="space-y-2">
+            <?php foreach ($rejectedDocs as $rej):
+                if (($rej['doc_type'] ?? '') === 'video_kyc') continue;
+            ?>
+            <li class="text-sm text-red-200/90">
+                <span class="font-medium"><?= e($docLabels[$rej['doc_type']] ?? $rej['doc_type']) ?>:</span>
+                <?= e(trim((string)($rej['rejection_reason'] ?? '')) ?: 'Please re-upload a clearer copy.') ?>
+            </li>
+            <?php endforeach; ?>
+        </ul>
+    </div>
+    <?php endif; ?>
     <?php
     $pct = $need > 0 ? (int)round($have / $need * 100) : 0;
     $ringCirc = 2 * 3.14159 * 26;
@@ -111,7 +161,7 @@ $kycSteps = [
         <div class="flex flex-wrap items-center gap-6">
             <div class="relative shrink-0" style="width:64px;height:64px;">
                 <svg width="64" height="64" viewBox="0 0 64 64" class="-rotate-90">
-                    <circle cx="32" cy="32" r="26" fill="none" stroke="#cbd5e1" stroke-width="6"/>
+                    <circle cx="32" cy="32" r="26" fill="none" stroke="#334155" stroke-width="6"/>
                     <circle cx="32" cy="32" r="26" fill="none" stroke="<?= $pct === 100 ? '#10b981' : '#0ea5e9' ?>" stroke-width="6" stroke-linecap="round"
                         stroke-dasharray="<?= $ringCirc ?>" stroke-dashoffset="<?= $ringOffset ?>"/>
                 </svg>
@@ -130,34 +180,65 @@ $kycSteps = [
     </div>
 
     <div class="glass rounded-xl p-6 mb-6">
-        <h2 class="font-semibold mb-4">Required Documents — <?= e(entityTypeLabel($entityType)) ?></h2>
+        <div class="flex flex-wrap items-end justify-between gap-2 mb-4">
+            <div>
+                <h2 class="font-semibold">Required Documents — <?= e(entityTypeLabel($entityType)) ?></h2>
+                <p class="text-xs text-gray-500 mt-1">Status and rejection reasons update after compliance review.</p>
+            </div>
+        </div>
         <div class="grid sm:grid-cols-2 gap-3">
             <?php foreach ($requiredDocs as $docKey):
-                $uploaded = in_array($docKey, $uploadedTypes, true);
-                $approved = in_array($docKey, $approvedTypes, true);
+                $latest = $latestByType[$docKey] ?? null;
+                $status = $latest['status'] ?? '';
+                $uploaded = $latest !== null;
+                $approved = $status === 'approved';
+                $rejected = $status === 'rejected';
+                $meta = $uploaded ? $docStatusMeta($status) : ['label' => 'Not uploaded', 'tone' => 'gray', 'icon' => '○'];
+                $tone = $meta['tone'];
+                $border = $approved ? 'border-emerald-500/30 bg-emerald-500/5' : ($rejected ? 'border-red-500/40 bg-red-500/5' : ($uploaded ? 'border-amber-500/30 bg-amber-500/5' : 'border-gray-800'));
+                $iconBg = $approved ? 'bg-emerald-500/15 text-emerald-400' : ($rejected ? 'bg-red-500/15 text-red-400' : ($uploaded ? 'bg-amber-500/15 text-amber-400' : 'bg-gray-800 text-gray-500'));
+                $labelTone = $approved ? 'text-emerald-400' : ($rejected ? 'text-red-400' : ($uploaded ? 'text-amber-400' : 'text-gray-500'));
             ?>
-            <div class="flex items-center gap-3 rounded-xl border p-3.5 <?= $approved ? 'border-emerald-500/30 bg-emerald-500/5' : ($uploaded ? 'border-amber-500/30 bg-amber-500/5' : 'border-gray-800') ?>">
-                <span class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 <?= $approved ? 'bg-emerald-500/15 text-emerald-400' : ($uploaded ? 'bg-amber-500/15 text-amber-400' : 'bg-gray-800 text-gray-500') ?>">
-                    <?php if ($approved): ?>✓<?php elseif ($uploaded): ?>◷<?php else: ?>○<?php endif; ?>
-                </span>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium truncate"><?= e($docLabels[$docKey] ?? $docKey) ?></p>
-                    <p class="text-xs <?= $approved ? 'text-emerald-400' : ($uploaded ? 'text-amber-400' : 'text-gray-500') ?>"><?= $approved ? 'Approved' : ($uploaded ? 'Under Review' : 'Not uploaded') ?></p>
+            <div class="rounded-xl border p-3.5 <?= $border ?>">
+                <div class="flex items-start gap-3">
+                    <span class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 text-sm font-bold <?= $iconBg ?>"><?= e($meta['icon']) ?></span>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium truncate"><?= e($docLabels[$docKey] ?? $docKey) ?></p>
+                        <p class="text-xs mt-0.5 <?= $labelTone ?>"><?= e($meta['label']) ?></p>
+                        <?php if ($rejected): ?>
+                        <p class="text-xs text-red-300/90 mt-2 leading-relaxed">Reason: <?= e(trim((string)($latest['rejection_reason'] ?? '')) ?: 'Please re-upload a clearer copy.') ?></p>
+                        <?php endif; ?>
+                    </div>
+                    <?php if (!$approved): ?>
+                    <button type="button" onclick="openKycUploader('<?= e($docKey) ?>')" class="text-xs text-brand-400 hover:underline shrink-0 mt-1"><?= $rejected ? 'Re-upload' : 'Upload' ?></button>
+                    <?php endif; ?>
                 </div>
-                <?php if (!$approved): ?>
-                <button type="button" onclick="openKycUploader('<?= e($docKey) ?>')" class="text-xs text-brand-400 hover:underline shrink-0">Upload</button>
-                <?php endif; ?>
             </div>
             <?php endforeach; ?>
         </div>
     </div>
 
-    <a href="merchant_video_verification.php" class="block glass rounded-xl p-5 mb-6 border border-violet-500/30 bg-violet-500/5 hover:border-violet-500/50 transition group">
+    <?php
+    $vkStatus = (string)($merchant['video_kyc_status'] ?? 'pending');
+    $vkLatest = $latestByType['video_kyc'] ?? null;
+    $vkRejected = $vkStatus === 'rejected' || (($vkLatest['status'] ?? '') === 'rejected');
+    $vkOk = in_array($vkStatus, ['verified', 'approved'], true);
+    $vkBorder = $vkOk ? 'border-emerald-500/30 bg-emerald-500/5' : ($vkRejected ? 'border-red-500/40 bg-red-500/5' : 'border-violet-500/30 bg-violet-500/5');
+    ?>
+    <a href="merchant_video_verification.php" class="block glass rounded-xl p-5 mb-6 border <?= $vkBorder ?> hover:opacity-95 transition group">
         <div class="flex items-center gap-4">
-            <span class="w-12 h-12 rounded-xl bg-violet-500/15 text-violet-400 flex items-center justify-center shrink-0 text-xl">📹</span>
-            <div class="flex-1">
-                <p class="font-semibold text-violet-300 group-hover:text-violet-200">Video KYC</p>
-                <p class="text-xs text-gray-500 mt-0.5">Upload a short selfie video holding your Aadhaar/PAN</p>
+            <span class="w-12 h-12 rounded-xl bg-violet-500/15 text-violet-400 flex items-center justify-center shrink-0">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            </span>
+            <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                    <p class="font-semibold text-violet-200 group-hover:text-white">Video KYC</p>
+                    <?= statusBadge($vkStatus) ?>
+                </div>
+                <p class="text-xs text-gray-500 mt-0.5">Short selfie video holding your Aadhaar or PAN</p>
+                <?php if ($vkRejected): ?>
+                <p class="text-xs text-red-300 mt-2">Reason: <?= e(trim((string)($vkLatest['rejection_reason'] ?? '')) ?: 'Please record again with clearer face and document.') ?></p>
+                <?php endif; ?>
             </div>
             <span class="text-violet-400">→</span>
         </div>
@@ -242,21 +323,28 @@ $kycSteps = [
     </div>
 
     <div class="glass rounded-xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Uploaded Documents</h2></div>
+        <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Upload history</h2></div>
         <?php if (empty($documents)): ?>
         <p class="text-gray-500 text-sm text-center py-8">No documents uploaded yet.</p>
         <?php else: ?>
         <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50">
-                <tr><th class="px-5 py-3 text-left">Document</th><th class="px-5 py-3 text-left">File</th><th class="px-5 py-3 text-left">Status</th><th class="px-5 py-3 text-left">Date</th></tr>
+                <tr><th class="px-5 py-3 text-left">Document</th><th class="px-5 py-3 text-left">File</th><th class="px-5 py-3 text-left">Status</th><th class="px-5 py-3 text-left">Notes</th><th class="px-5 py-3 text-left">Date</th></tr>
             </thead>
             <tbody class="divide-y divide-gray-800">
-                <?php foreach ($documents as $doc): ?>
+                <?php foreach ($documents as $doc):
+                    if (($doc['doc_type'] ?? '') === 'video_kyc') continue;
+                ?>
                 <tr class="hover:bg-white/5">
                     <td class="px-5 py-3"><?= e($docLabels[$doc['doc_type']] ?? $doc['doc_type']) ?></td>
                     <td class="px-5 py-3 text-xs"><?= e($doc['file_name']) ?></td>
                     <td class="px-5 py-3"><?= statusBadge($doc['status']) ?></td>
+                    <td class="px-5 py-3 text-xs <?= ($doc['status'] ?? '') === 'rejected' ? 'text-red-300' : 'text-gray-500' ?>">
+                        <?= ($doc['status'] ?? '') === 'rejected'
+                            ? e(trim((string)($doc['rejection_reason'] ?? '')) ?: 'Re-upload required')
+                            : '—' ?>
+                    </td>
                     <td class="px-5 py-3 text-xs text-gray-500"><?= formatDate($doc['created_at']) ?></td>
                 </tr>
                 <?php endforeach; ?>

@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id = (int)($_POST['id'] ?? 0);
     $reason = trim((string)($_POST['reason'] ?? 'Compliance review'));
     try {
-        if (in_array($action, ['approve_doc', 'verify_merchant', 'live_enable', 'verify_video', 'reject_doc'], true)) {
+        if (in_array($action, ['approve_doc', 'verify_merchant', 'live_enable', 'verify_video', 'reject_video', 'reject_doc'], true)) {
             requireStaffKycMutation();
         }
         if (in_array($action, ['approve_request', 'reject_request', 'live_enable'], true) && !$canChecker) {
@@ -44,17 +44,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'verify_video') {
             requireMerchantAccess($id);
             $db->prepare("UPDATE merchants SET video_kyc_status='verified' WHERE id=?")->execute([$id]);
+            try {
+                $db->prepare("UPDATE kyc_documents SET status='approved', rejection_reason=NULL, reviewed_at=NOW() WHERE merchant_id=? AND doc_type='video_kyc' AND status IN ('pending','rejected')")
+                    ->execute([$id]);
+            } catch (Throwable $e) { /* column may be missing on older DBs */ }
             recordImmutableAudit('video_kyc_verified', $id, 'merchant', (string)$id, $reason);
+            createNotification($id, 'Video KYC Verified', 'Your Video KYC was approved. Continue with remaining onboarding steps.');
             flash('success', 'Video KYC marked verified.');
+        } elseif ($action === 'reject_video') {
+            requireMerchantAccess($id);
+            if ($reason === '' || $reason === 'Compliance review') {
+                throw new RuntimeException('Please enter a clear rejection reason for the merchant.');
+            }
+            $db->prepare("UPDATE merchants SET video_kyc_status='rejected' WHERE id=?")->execute([$id]);
+            $vidId = null;
+            try {
+                $st = $db->prepare("SELECT id FROM kyc_documents WHERE merchant_id=? AND doc_type='video_kyc' ORDER BY created_at DESC LIMIT 1");
+                $st->execute([$id]);
+                $vidId = $st->fetchColumn();
+            } catch (Throwable $e) {
+                $vidId = null;
+            }
+            if ($vidId) {
+                try {
+                    $db->prepare("UPDATE kyc_documents SET status='rejected', rejection_reason=?, reviewed_at=NOW() WHERE id=?")
+                        ->execute([$reason, $vidId]);
+                } catch (Throwable $e) {
+                    $db->prepare("UPDATE kyc_documents SET status='rejected', reviewed_at=NOW() WHERE id=?")->execute([$vidId]);
+                }
+            }
+            logStaffActivity('video_kyc_rejected', $reason, $id, 'merchant', (string)$id);
+            createNotification($id, 'Video KYC Needs Re-upload', 'Reason: ' . $reason);
+            flash('success', 'Video KYC rejected with reason shown to merchant.');
         } elseif ($action === 'reject_doc') {
             $doc = $db->prepare('SELECT merchant_id,doc_type FROM kyc_documents WHERE id=?');
             $doc->execute([$id]);
             $d = $doc->fetch();
             if (!$d) throw new RuntimeException('Document not found.');
             requireMerchantAccess((int)$d['merchant_id']);
-            $db->prepare("UPDATE kyc_documents SET status='rejected',reviewed_at=NOW() WHERE id=?")->execute([$id]);
+            if ($reason === '' || $reason === 'Compliance review') {
+                throw new RuntimeException('Please enter a clear rejection reason for the merchant.');
+            }
+            try {
+                $db->prepare("UPDATE kyc_documents SET status='rejected', rejection_reason=?, reviewed_at=NOW() WHERE id=?")->execute([$reason, $id]);
+            } catch (Throwable $e) {
+                $db->prepare("UPDATE kyc_documents SET status='rejected', reviewed_at=NOW() WHERE id=?")->execute([$id]);
+            }
             $db->prepare("UPDATE merchants SET kyc_status='submitted',onboarding_state='clarification',account_mode='test' WHERE id=?")->execute([(int)$d['merchant_id']]);
             logStaffActivity('kyc_clarification_requested', $d['doc_type'] . ': ' . $reason, (int)$d['merchant_id'], 'kyc_document', (string)$id);
+            $docLabel = str_replace('_', ' ', (string)$d['doc_type']);
+            createNotification((int)$d['merchant_id'], 'KYC Document Rejected', ucfirst($docLabel) . ' — ' . $reason . ' Please re-upload a clearer copy.');
             flash('success', 'Document rejected and clarification requested.');
         } elseif ($action === 'approve_request') {
             requireStepUpAuth();
@@ -163,6 +202,7 @@ require_once __DIR__ . '/header.php';
             <a href="admin_kyc_doc.php?id=<?= (int)$videoRow['doc_id'] ?>&token=<?= csrfToken() ?>" target="_blank" rel="noopener" class="text-xs bg-sky-600/20 text-sky-400 px-3 py-2 rounded-lg">Play / view video</a>
             <?php endif; ?>
             <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="verify_video"><input type="hidden" name="id" value="<?= (int)$videoRow['id'] ?>"><input type="hidden" name="reason" value="Video KYC reviewed"><button class="text-xs bg-violet-600 text-white px-3 py-2 rounded-lg">Mark video verified</button></form>
+            <form method="post" class="flex gap-2 items-center"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="reject_video"><input type="hidden" name="id" value="<?= (int)$videoRow['id'] ?>"><input name="reason" required maxlength="500" placeholder="Rejection reason (shown to merchant)" class="text-xs bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 min-w-[200px]"><button class="text-xs bg-red-600/20 text-red-400 px-3 py-2 rounded-lg">Reject video</button></form>
         </div>
     </div>
     <?php endforeach; ?>

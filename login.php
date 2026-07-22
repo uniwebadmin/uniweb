@@ -162,53 +162,69 @@ $otpWaUrl = $_SESSION['login_otp_wa_url'] ?? null;
 unset($_SESSION['login_otp_wa_url']);
 $pageTitle = __('login_title');
 $hideNav = true;
+$hideFooter = true;
 $footerVariant = 'auth';
+$authPortalUi = true;
+$bodyClass = trim(($bodyClass ?? '') . ' auth-portal-shell auth-portal--merchant');
 require_once __DIR__ . '/header.php';
 ?>
-<div class="min-h-screen flex items-center justify-center px-4 py-12">
-    <div class="relative w-full max-w-md">
-
-        <div class="text-center mb-8">
+<div class="ap-wrap">
+    <aside class="ap-visual" aria-hidden="true">
+        <div>
             <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
-            <h1 class="text-2xl font-bold"><?= __('login_title') ?></h1>
-            <p class="text-gray-500 text-sm mt-2"><?= __('login_sub') ?></p>
+            <h2 class="ap-display text-3xl font-bold mt-10 leading-tight">Accept payments.<br>Settle with clarity.</h2>
+            <p class="mt-4 text-white/80 text-sm max-w-sm leading-relaxed">Merchant portal for links, QR, settlements, KYC, and payouts — built for Indian businesses.</p>
         </div>
-        <div class="glass rounded-2xl p-8">
-            <?php if ($error): ?><div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg mb-6"><?= e($error) ?></div><?php endif; ?>
+        <div class="relative z-10 space-y-3 text-sm text-white/85">
+            <p>✓ UPI, cards &amp; payment links</p>
+            <p>✓ Instant settlements &amp; reports</p>
+            <p>✓ Optional 2FA — enable anytime</p>
+        </div>
+    </aside>
+    <div class="ap-panel">
+        <div class="ap-card">
+            <div class="sm:hidden mb-4"><?php $logoHref = 'index.php'; $logoSize = 'sm'; require __DIR__ . '/includes/brand_logo.php'; ?></div>
+            <p class="ap-eyebrow">Merchant portal</p>
+            <h1 class="ap-display"><?= $totpStep || $otpStep ? 'Verify to continue' : e(__('login_title')) ?></h1>
+            <p class="ap-sub"><?= $totpStep ? 'Two-factor authentication is on for this account.' : ($otpStep ? 'Enter the one-time code we sent you.' : e(__('login_sub'))) ?></p>
+
+            <?php if ($error): ?><div class="ap-alert ap-alert-error mt-5"><?= e($error) ?></div><?php endif; ?>
+
             <?php if ($totpStep): ?>
-            <p class="text-xs text-gray-500 text-center mb-4">🔐 Two-Factor Authentication is ON. Enter the 6-digit code from your authenticator app.</p>
-            <form method="POST" class="space-y-5">
+            <p class="ap-alert ap-alert-info mt-5">Enter the 6-digit code from your authenticator app.</p>
+            <form method="POST" class="space-y-5 mt-2">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                <div><label class="block text-sm text-gray-400 mb-1.5">Authenticator Code</label><input type="text" name="totp_code" required maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" class="input-field text-center text-2xl tracking-widest" placeholder="000000" autofocus></div>
-                <button type="submit" class="w-full btn-primary py-3">Verify &amp; Login</button>
-                <p class="text-center text-xs mt-4"><a href="login.php?cancel_2fa=1" class="text-gray-500 hover:text-white">← Back to password login</a></p>
+                <div class="ap-field"><label>Authenticator Code</label><input type="text" name="totp_code" required maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" class="ap-input ap-otp" placeholder="000000" autofocus></div>
+                <button type="submit" class="ap-btn">Verify &amp; Login</button>
+                <p class="text-center text-xs mt-4"><a href="login.php?cancel_2fa=1" class="text-slate-500 hover:text-teal-700">← Back to password login</a></p>
             </form>
             <?php elseif ($otpStep): ?>
             <?php if (!empty($otpWaUrl)): ?>
             <script>window.open(<?= json_encode($otpWaUrl) ?>, '_blank');</script>
-            <p class="text-xs text-emerald-400 text-center mb-4">OTP sent via WhatsApp (and email if on file). WhatsApp opened — check your chat.</p>
+            <p class="ap-alert ap-alert-ok mt-5">OTP sent via WhatsApp (and email if on file). WhatsApp opened — check your chat.</p>
             <?php else: ?>
-            <p class="text-xs text-gray-500 text-center mb-4">OTP sent to your registered WhatsApp / email.</p>
+            <p class="ap-alert ap-alert-info mt-5">OTP sent to your registered WhatsApp / email.</p>
             <?php endif; ?>
             <form method="POST" class="space-y-5">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                <p class="text-sm text-gray-400 text-center"><?= __('otp_enter') ?></p>
-                <div><label class="block text-sm text-gray-400 mb-1.5"><?= __('otp_code') ?></label><input type="text" name="otp_code" required maxlength="6" pattern="[0-9]{6}" class="input-field text-center text-2xl tracking-widest" placeholder="000000"></div>
-                <button type="submit" class="w-full btn-primary py-3"><?= __('otp_verify') ?></button>
-                <p class="text-center text-xs mt-4"><a href="login.php?cancel_otp=1" class="text-gray-500 hover:text-white">← Back to password login</a></p>
+                <p class="text-sm text-slate-600 text-center"><?= __('otp_enter') ?></p>
+                <div class="ap-field"><label><?= __('otp_code') ?></label><input type="text" name="otp_code" required maxlength="6" pattern="[0-9]{6}" class="ap-input ap-otp" placeholder="000000"></div>
+                <button type="submit" class="ap-btn"><?= __('otp_verify') ?></button>
+                <p class="text-center text-xs mt-4"><a href="login.php?cancel_otp=1" class="text-slate-500 hover:text-teal-700">← Back to password login</a></p>
             </form>
             <?php else: ?>
-            <form method="POST" class="space-y-5">
+            <form method="POST" class="space-y-5 mt-6">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                <div><label class="block text-sm text-gray-400 mb-1.5"><?= __('email_or_mobile') ?></label><input type="text" name="email" required class="input-field" placeholder="<?= e(__('email_or_mobile_ph')) ?>" value="<?= e($_POST['email']??'') ?>"></div>
-                <div><label class="block text-sm text-gray-400 mb-1.5"><?= __('password') ?></label><input type="password" name="password" required class="input-field" placeholder="••••••••"></div>
-                <div class="flex justify-end"><a href="forgot_password.php" class="text-sm text-brand-400 hover:text-brand-300"><?= __('forgot_password') ?></a></div>
-                <button type="submit" class="w-full btn-primary py-3"><?= __('login_btn') ?></button>
+                <div class="ap-field"><label><?= __('email_or_mobile') ?></label><input type="text" name="email" required class="ap-input" placeholder="<?= e(__('email_or_mobile_ph')) ?>" value="<?= e($_POST['email']??'') ?>"></div>
+                <div class="ap-field"><label><?= __('password') ?></label><input type="password" name="password" required class="ap-input" placeholder="••••••••"></div>
+                <div class="flex justify-end"><a href="forgot_password.php" class="text-sm ap-link"><?= __('forgot_password') ?></a></div>
+                <button type="submit" class="ap-btn"><?= __('login_btn') ?></button>
             </form>
             <?php endif; ?>
-            <p class="text-center text-sm text-gray-500 mt-6"><?= __('no_account') ?> <a href="merchant_register.php" class="text-brand-400"><?= __('create_account') ?></a></p>
+            <p class="ap-foot"><?= __('no_account') ?> <a href="merchant_register.php" class="ap-link"><?= __('create_account') ?></a></p>
+            <p class="text-center text-[11px] text-slate-500 mt-3">Merchant 2FA is optional — enable anytime from Settings. Admin/staff MFA is mandatory.</p>
             <?php if (!isOTPEnabled()): ?>
-            <p class="text-center text-[11px] text-gray-600 mt-3">Password login active · WhatsApp OTP when Meta template is approved</p>
+            <p class="text-center text-[11px] text-slate-500 mt-1">Password login active · WhatsApp OTP when Meta template is approved</p>
             <?php endif; ?>
         </div>
     </div>

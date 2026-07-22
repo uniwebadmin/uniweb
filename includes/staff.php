@@ -212,6 +212,7 @@ function staffNavForRole(string $role): array
         'admin_refunds.php' => ['Refunds', ['super', 'ceo', 'regional_manager', 'finance', 'ops']],
         'admin_disputes.php' => ['Disputes', ['super', 'ceo', 'regional_manager', 'team_leader', 'support', 'ops']],
         'admin_support.php' => ['Support Tickets', ['super', 'ceo', 'regional_manager', 'team_leader', 'support', 'ops']],
+        'admin_customer_tickets.php' => ['Customer Complaints', ['super', 'ceo', 'regional_manager', 'team_leader', 'support', 'ops']],
         'admin_transactions.php' => ['Transactions', ['super', 'ceo', 'regional_manager', 'finance', 'ops']],
         'admin_settlements.php' => ['Settlements', ['super', 'ceo', 'regional_manager', 'finance', 'ops']],
         'admin_settlement_batches.php' => ['Settlement Batches', ['super', 'ceo', 'finance', 'ops']],

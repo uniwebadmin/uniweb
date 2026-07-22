@@ -36,7 +36,7 @@ require_once __DIR__ . '/header.php';
     <?php if ($batch['utr']): ?><p class="text-xs text-gray-500 mt-3">UTR: <span class="font-mono text-sky-400"><?= e($batch['utr']) ?></span></p><?php endif; ?>
 </div>
 <div class="glass rounded-xl overflow-hidden mb-8">
-    <table class="w-full text-sm">
+    <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
             <th class="px-4 py-3 text-left">Txn ID</th><th class="px-4 py-3 text-left">Method</th>
             <th class="px-4 py-3 text-right">Amount</th><th class="px-4 py-3 text-left">Date</th>
@@ -49,12 +49,12 @@ require_once __DIR__ . '/header.php';
                 <td class="px-4 py-3 text-xs text-gray-500"><?= formatDate($it['txn_at']) ?></td></tr>
             <?php endforeach; ?>
         </tbody>
-    </table>
+    </table></div>
 </div>
 <?php endif; ?>
 
 <div class="glass rounded-xl overflow-hidden">
-    <table class="w-full text-sm">
+    <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
             <th class="px-4 py-3 text-left">Batch</th><th class="px-4 py-3 text-left">Merchant</th>
             <th class="px-4 py-3 text-left">Type</th><th class="px-4 py-3 text-right">Net</th>
@@ -72,7 +72,7 @@ require_once __DIR__ . '/header.php';
             </tr>
             <?php endforeach; ?>
         </tbody>
-    </table>
+    </table></div>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

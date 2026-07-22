@@ -328,3 +328,76 @@ function sendLoginOtpViaWhatsAppAndEmail(array $merchant, string $otp): array
     }
     return ['whatsapp_sent' => $waSent, 'whatsapp_url' => $waUrl, 'email_sent' => $emailSent];
 }
+
+/**
+ * Map in-app notification titles to merchant notify-pref event keys.
+ * Unknown titles map to null (WhatsApp skipped — avoid spam).
+ */
+function notificationEventFromTitle(string $title): ?string
+{
+    $t = strtolower($title);
+    if (str_contains($t, 'payment') || str_contains($t, 'received')) {
+        return 'payment_success';
+    }
+    if (str_contains($t, 'fail') || str_contains($t, 'failed')) {
+        return 'payment_failed';
+    }
+    if (str_contains($t, 'settlement') || str_contains($t, 'payout access')) {
+        return 'settlement';
+    }
+    if (str_contains($t, 'refund')) {
+        return 'refund';
+    }
+    if (str_contains($t, 'kyc') || str_contains($t, 'video kyc') || str_contains($t, 'account live') || str_contains($t, '2fa')) {
+        return 'account';
+    }
+    return null;
+}
+
+/** Fan-out from createNotification — WhatsApp when prefs + Meta keys allow. */
+function onMerchantNotificationCreated(int $merchantId, string $title, string $body): void
+{
+    $event = notificationEventFromTitle($title);
+    if ($event === null) {
+        return;
+    }
+    maybeSendWhatsAppMerchantAlert($merchantId, $event, $title . "\n" . $body);
+}
+
+/**
+ * Send a WhatsApp text alert when:
+ *  - platform whatsapp_enabled=1 and token/phone configured
+ *  - merchant prefs allow WhatsApp for this event (default off except payment_success)
+ */
+function maybeSendWhatsAppMerchantAlert(int $merchantId, string $event, string $message): void
+{
+    if (getSetting('whatsapp_enabled', '0') !== '1') {
+        return;
+    }
+    if (trim(getSetting('whatsapp_api_token', '')) === '' || trim(getSetting('whatsapp_phone_id', '')) === '') {
+        return;
+    }
+    if (function_exists('merchantWantsNotify') && !merchantWantsNotify($merchantId, $event, 'whatsapp')) {
+        return;
+    }
+    try {
+        $st = getDB()->prepare('SELECT phone FROM merchants WHERE id=? LIMIT 1');
+        $st->execute([$merchantId]);
+        $phone = (string)($st->fetchColumn() ?: '');
+        if (strlen(preg_replace('/\D/', '', $phone)) < 10) {
+            return;
+        }
+        $text = trim($message);
+        if (function_exists('mb_substr')) {
+            $text = mb_substr($text, 0, 900);
+        } else {
+            $text = substr($text, 0, 900);
+        }
+        if ($text === '') {
+            return;
+        }
+        sendWhatsAppTextMessage($phone, 'UniWeb: ' . $text);
+    } catch (Throwable $e) {
+        // non-fatal
+    }
+}

@@ -79,6 +79,7 @@ function merchantTeamCan(string $capability): bool
         'settings' => ['admin'],
         'settle' => ['admin', 'finance'],
         'refund' => ['admin', 'finance'],
+        'support' => ['admin', 'finance'], // customer complaints reply
         'api' => ['admin', 'developer'],
         'create_links' => ['admin', 'developer', 'finance'],
         'view' => ['admin', 'finance', 'developer', 'viewer'],

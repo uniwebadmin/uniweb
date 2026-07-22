@@ -31,7 +31,7 @@ $overall = $health['operational'] && !$health['maintenance'];
 
     <div class="glass rounded-xl overflow-hidden mb-8">
         <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Payment Gateways</h2></div>
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
             <tbody class="divide-y divide-gray-800">
                 <?php foreach (['razorpay' => 'Razorpay', 'cashfree' => 'Cashfree', 'payu' => 'PayU', 'axis' => 'Axis Bank VA'] as $key => $label): ?>
                 <tr>
@@ -46,7 +46,7 @@ $overall = $health['operational'] && !$health['maintenance'];
                 </tr>
                 <?php endforeach; ?>
             </tbody>
-        </table>
+        </table></div>
     </div>
 
     <div class="glass rounded-xl p-6 text-sm text-gray-400 space-y-2">

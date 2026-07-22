@@ -83,7 +83,7 @@ require_once __DIR__ . '/header.php';
                 <h2 class="font-semibold">Team Hierarchy</h2>
                 <a href="admin_staff_activity.php" class="text-xs text-sky-400">View full activity log →</a>
             </div>
-            <table class="w-full text-sm">
+            <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
                 <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
                     <th class="px-5 py-3 text-left">ID</th><th class="px-5 py-3 text-left">Name</th><th class="px-5 py-3 text-left">Role</th><th class="px-5 py-3 text-left">Manager</th><th class="px-5 py-3 text-left">Status</th><th class="px-5 py-3 text-left">Action</th>
                 </tr></thead>
@@ -108,7 +108,7 @@ require_once __DIR__ . '/header.php';
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
-            </table>
+            </table></div>
         </div>
     </div>
 </div>

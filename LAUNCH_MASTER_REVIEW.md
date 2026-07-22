@@ -12,7 +12,7 @@ _Evaluation of the full owner checklist against the actual codebase + live statu
 Core of all existing portals is live: Public site, Merchant portal, Admin panel, Staff/Ops. Plus recently shipped: **one-click multi-gateway forward + status matrix + compliance audit trail + KYC document versioning**, MDR settings (`update_mdr.php`), 2FA/step-up, security headers, IST timezone, invoice PDF, branded errors, high-throughput QR, custom address auto-fill with "use my location", bank-verify scaffold, settlement batches/engine.
 
 ### 2. What's left (real work)
-Payout module (new), QR-with-logo + per-QR history, real gateway API keys/adapters, Aadhaar face-match (via partner), payment-method request, API/email notifications, staff-log migration, owner-confirmed DB cleanup. _(All PART-1 bugs are now fixed + live. Full Hindi UI dropped by owner.)_
+Owner-gated: gateway/partner API keys (paste when received), Digio for Aadhaar face-match, DB cleanup + settlement "diabetes" value (owner-confirm), Pine Labs / e-Rupee / Shopify expansions. Payout scaffold is shipped but live money stays gated until licensed partner keys + `payout_live_enabled`. Staff activity migration `011` is in repo — apply on next live deploy if not yet run.
 
 ### 3. What we should NOT take / must reconsider ⛔
 - **Auto-deleting production merchants/payments** ("keep only AK Digital Media") — destructive; must be a backup + reversible archive, owner-confirmed. Not run automatically.
@@ -47,79 +47,81 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Report & Analysis oversized icons / trends | ✅ fixed (CSS caps in repo) + CSS cache-bust deployed |
 | Sidebar icons cut off | ✅ fixed (CSS) + cache-bust deployed |
 | Laptop footer | ✅ fixed + live |
-| Staff activity log not working | ✅ fail-safe query live (`includes/staff.php`); ⚠️ committed migration for `staff_activity_logs` still pending |
+| Staff activity log not working | ✅ fail-safe query live (`includes/staff.php`); migration `011_staff_activity_logs.sql` in repo — apply on live deploy if table missing (owner FTP step) |
 | Agreement download bug | ✅ FIXED + live — regenerates PDF on demand if missing (`merchant_agreement_pdf.php`) |
 | Settlement batch number clickable | ✅ live (`admin_settlement_batches.php`) |
 | "Use my location" button | ✅ FIXED + live — `.htaccess` had geolocation disabled; now `geolocation=(self)` |
-| "diabetes" weird settlement status word | ✅ badge hardened live (shows "Unknown"); ⚠️ correcting the stale DB value needs owner-confirmed DB write |
+| "diabetes" weird settlement status word | ✅ badge hardened live (shows "Unknown"); ⚠️ correcting the stale DB value needs owner-confirmed DB write — owner-confirm pending |
 | Unmatched webhook log section (admin) | ✅ live in `admin_reconciliation.php` ("PG Reconciliation" in admin nav) |
 
 ### PART 2 — KYC, onboarding & bank verification
 | Item | Status |
 |---|---|
 | KYC docs (Aadhaar/PAN/GST/MCA/Udyam) entity-based | ✅ |
-| Video KYC | ✅ (page); ⚙️ automated match needs Digio |
-| Aadhaar face mapping (live selfie) | 🔜 ⚙️ via partner (do not build in-house) |
+| Video KYC | ✅ (page); ⚙️ automated face-match via Digio keys in Gateway Settings (no in-house biometrics) |
+| Aadhaar face mapping (live selfie) | 🔜 ⚙️ Digio partner key fields ready (`digio_*` in `gateway_settings.php`) — do not build in-house |
 | Bank verification (penny drop + name fetch) | ⚙️ scaffold (`includes/verification.php`, `add_bank.php`) — needs live bank/Decentro keys |
 | IFSC → branch auto-fetch | ✅ live — type valid IFSC on Add Bank → Bank Name auto-fills + branch/city/state shown (free `ifsc.razorpay.com` directory, no key; `lookupIfsc()` + auth-gated `ifsc_lookup.php` proxy) |
 | Merchant bank add/update/change | ✅ (`add_bank.php`, `admin_merchant_banks.php`) |
 | Merchant docs → Razorpay/Cashfree page | ✅ (multi-gateway forward, shipped) |
 | Website compliance check (Contact/Policy page) | ✅ live — "Run compliance check" on `merchant_website.php` scans homepage (SSRF-guarded, read-only) for HTTPS + Contact/Privacy/Terms/Refund/About pages, shows pass/fail scorecard (`checkWebsiteCompliance()`) |
-| Premium KYC / Video-KYC design | 🔧 polish |
+| Premium KYC / Video-KYC design | ✅ LIVE — merchant KYC shows per-doc status + rejection reason banner; Video KYC shows reject reason + re-upload; admin stores `rejection_reason` + notifies merchant (`kyc.php`, `video_kyc.php`, `admin_kyc.php`, migration `014`) |
 
 ### PART 3 — Gateways, API & transactions
 | Item | Status |
 |---|---|
-| Razorpay / Cashfree / Decentro / PayU | ⚙️ keys pending |
-| Pine Labs Plural | ❌ new integration |
+| Razorpay / Cashfree / Decentro / PayU | ⚙️ keys pending — adapters + test connections live; UI shows "Keys pending" via `isGatewayConfigured()` |
+| Pine Labs Plural | ⚙️ scaffold — sandbox stub `pineLabsSandboxCreateOrder()` + Gateway Settings fields; checkout gated (roadmap) |
 | Test/Live toggle | ✅ |
 | API keys security/refresh/connect/notify | ✅ (notify email + in-app done) |
 | MDR settings (partner-wise) | ✅ (`update_mdr.php`) |
 | Hide platform fee from customer | ✅ payer sees only "Amount Payable" (`checkout.php`); split breakdown removed |
 | Txn/settlement status + exact reason | ✅ live — transaction detail shows a tone-coded plain-language reason banner (`transactionStatusExplainer()`); settlements show reason via `settlementReasonText()` on list + `settlement_detail.php` |
-| Delayed split settlement (1–2 hr batch) | ✅/⚙️ (`includes/settlement_engine.php`, batches) |
+| Delayed split settlement (1–2 hr batch) | ✅ engine live (`includes/settlement_engine.php`, batches); ⚙️ bank rail confirms when partner keys are live |
 | Unmatched webhook section | ✅ `admin_reconciliation.php` ("Unmatched Webhooks" + "Gateway Txns Without Webhook Log"), linked in admin nav as "PG Reconciliation" |
 | Shopify/WordPress/e-Rupee | 🔜 (WooCommerce plugin exists) |
 
 ### PART 4 — Portals, UI/UX, QR & customer features
 | Item | Status |
 |---|---|
-| 4 portals responsive | ✅ (public/merchant/admin/staff); Customer portal ✅ LIVE (`customer_login.php`/`customer_portal.php`) |
+| 4 portals responsive | ✅ (public/merchant/admin/staff); Customer portal ✅ LIVE + premium redesign (`customer_login.php` / `customer_portal.php` / `customer_ticket.php`) |
 | Full Hindi website | ⛔ DROPPED (owner decision) — UI stays English-only |
 | Google location autocomplete + autofill | ✅ free OpenStreetMap Nominatim (search + device location); paid Google Places intentionally NOT used |
 | Pincode → address autofill | ✅ free India PIN lookup (`api.postalpincode.in`) — type 6-digit PIN → State/District/City autofill (`address-picker.js`) |
 | Razorpay-style QR + UniWeb logo + per-QR history | ✅ LIVE — centre UniWeb logo baked (GD, ECC-H), per-QR Collected/Payments summary + Print poster + "View payments" (`qr_code.php`, `qr_image.php`) |
 | Customer profile self-update (auto-approve) | ❌ ⛔ fraud risk — OTP-verify, no auto-approve |
-| Invoice PDF (GST/name/addr/mobile/email/no.) | ✅ verify fields (`invoice_pdf.php`) |
+| Invoice PDF (GST/name/addr/mobile/email/no.) | ✅ LIVE — PDF always prints Invoice No, Bill From (business name, GSTIN, full address, mobile, email) + Bill To (name, email, mobile, address); create form collects customer address (`invoice_pdf.php`, `SimpleInvoicePdf`, migration `013`) |
 
-> **Customer Portal — ✅ BUILT + LIVE (2026-07-21):** lightweight **payer-facing** portal, NOT a full account.
-> - **Login:** mobile + **WhatsApp/SMS OTP** (passwordless, hashed OTP, 10-min expiry, rate-limited). Demo-mode shows OTP on screen when no channel configured. (`customer_login.php`)
-> - **View:** payer's own **transaction history** matched by mobile, read-only, with plain-language status reason. (`customer_portal.php`)
-> - **Support:** raise + track a **grievance/ticket** from any transaction; admin replies via **admin_customer_tickets.php** ("Customer Complaints" in admin nav). (`customer_ticket.php`)
-> - **Guardrails honoured:** no auto-approve contact self-update; transactions read-only; isolated session + tables (migration `010_customer_portal.sql`).
-| Payment method request (merchant→admin) | ✅ live — merchant self-toggles only entitled methods; locked methods show "Request to Enable" → admin approve/reject queue (`admin_method_requests.php`), approval unlocks instantly (`includes/method_requests.php`, `collection_settings.php`) |
+> **Customer Portal — ✅ PREMIUM + CROSS-ROLE (2026-07-21 overnight):** lightweight **payer-facing** portal.
+> - **Login:** mobile + **WhatsApp/SMS OTP** (passwordless). Premium Manrope/Fraunces shell on `customer_login.php` (owner-approved redesign). Demo OTP when channels lack keys.
+> - **History:** all txns for that mobile across merchants (matches `transactions.customer_phone` + `payment_links.customer_phone`), read-only, status + reason.
+> - **Tickets:** raise grievance from any txn; thread replies.
+> - **Cross-role:** Admin + Staff (`admin_customer_tickets.php` in staff nav for support/ops) see all; Merchant (`merchant_customer_tickets.php`) sees **own merchant_id only** and can reply; replies fan out WhatsApp/SMS when configured (`replyToCustomerTicket` / migration `016`).
+> - **Guardrails:** no auto-approve contact self-update; no password on customer portal (OTP only).| Payment method request (merchant→admin) | ✅ live — merchant self-toggles only entitled methods; locked methods show "Request to Enable" → admin approve/reject queue (`admin_method_requests.php`), approval unlocks instantly (`includes/method_requests.php`, `collection_settings.php`) |
 
 ### PART 5 — Payout system (new module)
 | Item | Status |
 |---|---|
-| Payout enable request | ❌ new |
-| IMPS/NEFT/RTGS/UPI payout | ❌ ⚙️ needs licensed payout partner |
-| Beneficiary mgmt + penny drop | ❌ new |
-| Bulk payout (CSV) | ❌ new |
-| Separate collection vs payout wallet | ❌ new (wallet exists; split needed) |
-| Failed payout reason + auto-reversal | ❌ show reason ✅ plan; auto-reversal ⛔ OWNER-CONFIRMED: no auto-credit — reversal only after reconciliation gate |
-| Maker-checker high-value payout | ❌ new (RBAC exists to build on) |
-| Payout API keys | ❌ new |
+| Payout enable request | ✅ scaffold — merchant request → admin approve (`merchant_payout.php`, `admin_payout.php`); live money still gated |
+| IMPS/NEFT/RTGS/UPI payout | ⚙️ needs licensed payout partner keys (`payoutLiveMoneyAllowed()` hard gate) |
+| Beneficiary mgmt + penny drop | ✅ add/edit/list/deactivate + IFSC autofill; penny-drop button gated (`requestPayoutBeneficiaryPennyDrop`) |
+| Bulk payout (CSV) | ✅ scaffold — CSV template + upload on `merchant_payout.php` (`processPayoutBulkCsv`); live money still gated |
+| Separate collection vs payout wallet | ✅ display-only split on payout page (`getMerchantWalletSplitView`) |
+| Failed payout reason + auto-reversal | ✅ failed drafts show `failure_reason`; reversal queue (`requestPayoutReversal` → admin reconcile) ⛔ NEVER auto-credits |
+| Maker-checker high-value payout | ✅ ≥ ₹50k → `pending_checker`; `approvePayoutChecker` (maker ≠ checker); no live dispatch without keys |
+| Payout API keys | ✅ generate/rotate/revoke UI (`merchant_payout_keys.php`) — live use gated; paste partner keys in Gateway Settings when signed |
 
 ### PART 6 — Legal, security & marketing
 | Item | Status |
 |---|---|
 | Privacy / Terms / Business Agreement | ✅ |
 | Admin login security + IST | ✅ |
-| Universal MFA/OTP (admin/staff mandatory, merchant optional) | ✅/🔧 (2FA + step-up exist; enforce policy) |
-| Forget password all portals | ✅ (existing portals) |
+| Universal MFA/OTP (admin/staff mandatory, merchant optional) | ✅ LIVE — admin/staff login forces MFA enrollment or challenge (setup prompt, no lockout); merchant 2FA optional with dashboard/settings prompts + clear policy UI (`mfaPolicy()`, `merchant_2fa.php`, `admin_login.php`, `staff_login.php`) |
+| Login pages (merchant / admin / staff / customer) | ✅ PREMIUM redesigned (2026-07-21 overnight) — shared `auth-portal.css` brand panel + focused form; POST/CSRF/fields unchanged. Owner freeze lifted. |
+| Forget password all portals | ✅ merchant + admin; customer is OTP-only (no password). Staff uses admin recovery for privileged accounts |
 | API-generated email notification | ✅ — key regenerate (merchant `api_settings.php` + admin `admin_edit_merchant.php`) sends email + in-app notification + staff-activity log via `regenerateMerchantApiKey()`; secret never emailed |
-| Blog + Search Console + WhatsApp | 🔧 (blog ✅; WhatsApp webhook exists; Search Console = config) |
+| Blog + Search Console + WhatsApp | ✅ LIVE — blog exists; Search Console token via Gateway Settings → `google_site_verification` (meta in `header.php`); WhatsApp alerts fan out from `createNotification` → `onMerchantNotificationCreated` when merchant prefs enable WhatsApp + Meta keys are set |
+| Cloud auto-deploy (laptop-free) | ✅ `.github/workflows/deploy.yml` — push to `main` → SFTP mirror via repo secrets (`UNIWEB_FTP_*`). `config.php` never overwritten (git-ignored). New includes registered in `includes/cloud_modules.php`. |
 | e-Rupee / Shopify / WordPress | 🔜 (WooCommerce ✅) |
 
 ---

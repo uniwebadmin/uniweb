@@ -65,10 +65,11 @@ function ensureMerchantNotifyPrefsEngine(): void
 function defaultMerchantNotifyPrefs(): array
 {
     return [
-        'payment_success' => ['email' => true, 'webhook' => true],
-        'payment_failed' => ['email' => true, 'webhook' => false],
-        'settlement' => ['email' => true, 'webhook' => false],
-        'refund' => ['email' => true, 'webhook' => true],
+        'payment_success' => ['email' => true, 'webhook' => true, 'whatsapp' => true],
+        'payment_failed' => ['email' => true, 'webhook' => false, 'whatsapp' => false],
+        'settlement' => ['email' => true, 'webhook' => false, 'whatsapp' => true],
+        'refund' => ['email' => true, 'webhook' => true, 'whatsapp' => false],
+        'account' => ['email' => true, 'webhook' => false, 'whatsapp' => true],
     ];
 }
 

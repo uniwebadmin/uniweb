@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/method_requests.php';
 requireLogin();
 $merchant = getMerchant();
 $merchantId = (int)$merchant['id'];

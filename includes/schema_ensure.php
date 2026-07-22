@@ -26,6 +26,8 @@ function ensureKycSchema(): void
     schemaExecQuiet("ALTER TABLE merchants ADD COLUMN aadhaar_number VARCHAR(20) DEFAULT NULL");
     schemaExecQuiet("ALTER TABLE merchants ADD COLUMN bank_verified TINYINT(1) DEFAULT 0");
     schemaExecQuiet("ALTER TABLE merchants ADD COLUMN deleted_at DATETIME DEFAULT NULL");
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN rejection_reason VARCHAR(500) DEFAULT NULL");
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN reviewed_at DATETIME DEFAULT NULL");
 }
 
 function ensurePasswordResetsTable(): void
@@ -172,4 +174,33 @@ function ensureMerchantAgreementSchema(): void
         INDEX idx_agreement_merchant (merchant_id),
         INDEX idx_agreement_accepted (accepted_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+/** Ensure invoices carry customer address for complete tax-invoice PDFs. */
+function ensureInvoiceSchema(): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    schemaExecQuiet("CREATE TABLE IF NOT EXISTS invoices (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        invoice_id VARCHAR(40) NOT NULL UNIQUE,
+        merchant_id INT NOT NULL,
+        customer_name VARCHAR(190) NOT NULL,
+        customer_email VARCHAR(150) DEFAULT NULL,
+        customer_phone VARCHAR(20) DEFAULT NULL,
+        customer_address VARCHAR(500) DEFAULT NULL,
+        amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+        tax_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+        total_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+        items TEXT,
+        status VARCHAR(30) NOT NULL DEFAULT 'sent',
+        due_date DATE DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_inv_merchant (merchant_id),
+        INDEX idx_inv_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    schemaExecQuiet("ALTER TABLE invoices ADD COLUMN customer_address VARCHAR(500) DEFAULT NULL");
 }

@@ -33,7 +33,7 @@ require_once __DIR__ . '/header.php';
         <div class="company-kicker">Published MDR</div>
         <h2 class="company-title">Indicative rates (INR)</h2>
         <div class="glass rounded-xl overflow-hidden border border-gray-800">
-            <table class="w-full text-sm">
+            <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
                 <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
                     <th class="px-5 py-3 text-left">Method</th>
                     <th class="px-5 py-3 text-left">Indicative total MDR</th>
@@ -44,7 +44,7 @@ require_once __DIR__ . '/header.php';
                     <td class="px-5 py-3 font-mono"><?= e(number_format((float)getMdrWithMargin((string)$key), 2)) ?>%</td></tr>
                 <?php endforeach; ?>
                 </tbody>
-            </table>
+            </table></div>
         </div>
         <p class="text-xs text-gray-500 mt-3">Rates are indicative and may change by MCC, volume and partner. Your portal schedule is authoritative.</p>
     </div></section>

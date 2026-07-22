@@ -183,7 +183,7 @@ require_once __DIR__ . '/header.php';
 <div class="grid lg:grid-cols-2 gap-6">
     <div class="glass rounded-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-800 flex justify-between"><h2 class="font-semibold">Recent Transactions</h2><a href="admin_transactions.php" class="text-xs text-brand-400">View All</a></div>
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
             <tbody class="divide-y divide-gray-800">
                 <?php foreach ($recentTxns as $t): ?>
                 <tr class="hover:bg-white/5 cursor-pointer" onclick="location.href='<?= e(transactionDetailUrl($t['txn_id'])) ?>'">
@@ -193,11 +193,11 @@ require_once __DIR__ . '/header.php';
                 </tr>
                 <?php endforeach; ?>
             </tbody>
-        </table>
+        </table></div>
     </div>
     <div class="glass rounded-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-800 flex justify-between"><h2 class="font-semibold">New Merchants</h2><a href="manage_merchant.php" class="text-xs text-brand-400">View All</a></div>
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
             <tbody class="divide-y divide-gray-800">
                 <?php foreach ($recentMerchants as $m): ?>
                 <tr<?= uiRowClick(adminMerchantUrl((int)$m['id'])) ?>>
@@ -211,7 +211,7 @@ require_once __DIR__ . '/header.php';
                 </tr>
                 <?php endforeach; ?>
             </tbody>
-        </table>
+        </table></div>
     </div>
 </div>
 

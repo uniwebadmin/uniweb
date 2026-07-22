@@ -15,6 +15,7 @@ declare(strict_types=1);
 
 $__cloudModules = [
     'payout.php',
+    'customer_portal.php',
 ];
 
 foreach ($__cloudModules as $__cloudModule) {

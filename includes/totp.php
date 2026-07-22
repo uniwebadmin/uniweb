@@ -108,3 +108,61 @@ function ensureMerchant2FA(): void
         getDB()->exec("ALTER TABLE merchants ADD COLUMN totp_enabled TINYINT(1) NOT NULL DEFAULT 0");
     } catch (Throwable $e) { /* ok */ }
 }
+
+/** Universal MFA policy: admin/staff = mandatory, merchant = optional. */
+function mfaPolicy(string $audience = 'merchant'): array
+{
+    $audience = strtolower($audience);
+    if (in_array($audience, ['admin', 'staff', 'ops'], true)) {
+        return [
+            'audience' => $audience,
+            'required' => true,
+            'label' => 'Mandatory',
+            'summary' => 'Authenticator MFA is required for all admin and staff logins. First login enrolls your authenticator — you are never locked out without a setup prompt.',
+            'setup_hint' => 'Scan the secret with Google Authenticator or Authy, then enter the 6-digit code to finish enrollment.',
+        ];
+    }
+    return [
+        'audience' => 'merchant',
+        'required' => false,
+        'label' => 'Optional',
+        'summary' => 'Two-factor authentication is optional for merchants. Enable it anytime from Settings for stronger login protection.',
+        'setup_hint' => 'Recommended for accounts that move money or manage team access. You can turn it off later with your password.',
+    ];
+}
+
+function merchantHasMfaEnabled(?array $merchant): bool
+{
+    return !empty($merchant['totp_enabled']) && !empty($merchant['totp_secret']);
+}
+
+/**
+ * Soft setup banner for merchants without 2FA. Never blocks access.
+ * Returns HTML string (already escaped) or empty when not applicable.
+ */
+function renderMerchantMfaSetupPrompt(?array $merchant, string $context = 'dashboard'): string
+{
+    if (!$merchant || merchantHasMfaEnabled($merchant)) {
+        return '';
+    }
+    // Avoid nagging on the 2FA page itself or during setup wizard.
+    if ($context === '2fa_page') {
+        return '';
+    }
+    $policy = mfaPolicy('merchant');
+    $dismissKey = 'mfa_prompt_dismissed_at';
+    if ($context === 'dashboard' && !empty($_SESSION[$dismissKey]) && (time() - (int)$_SESSION[$dismissKey]) < 86400) {
+        return '';
+    }
+    return '<div class="glass rounded-xl p-4 mb-6 border border-sky-500/25 flex flex-wrap items-center justify-between gap-3">'
+        . '<div class="min-w-0">'
+        . '<p class="text-sm font-semibold text-sky-300">Optional: enable Two-Factor Authentication</p>'
+        . '<p class="text-xs text-gray-500 mt-1">' . htmlspecialchars($policy['setup_hint'], ENT_QUOTES, 'UTF-8') . '</p>'
+        . '</div>'
+        . '<div class="flex flex-wrap gap-2">'
+        . '<a href="merchant_2fa.php" class="text-xs bg-sky-600 text-white px-3 py-2 rounded-lg hover:bg-sky-500">Set up 2FA</a>'
+        . ($context === 'dashboard'
+            ? '<a href="?dismiss_mfa_prompt=1" class="text-xs text-gray-500 px-3 py-2 hover:text-gray-300">Remind me later</a>'
+            : '')
+        . '</div></div>';
+}

@@ -1,0 +1,424 @@
+/**
+ * UniWeb Customer Portal — premium payer UI (Razorpay-inspired clarity).
+ * Scoped to body.customer-portal-shell so merchant/admin login pages stay untouched.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap');
+
+body.customer-portal-shell {
+  --cp-bg: #f4f7fb;
+  --cp-surface: #ffffff;
+  --cp-ink: #0b1220;
+  --cp-muted: #5b6b7c;
+  --cp-line: #e6edf5;
+  --cp-brand: #0d9488;
+  --cp-brand-deep: #0f766e;
+  --cp-accent: #0369a1;
+  --cp-warn: #b45309;
+  --cp-ok: #047857;
+  --cp-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+  font-family: 'Manrope', system-ui, sans-serif;
+  color: var(--cp-ink);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(13, 148, 136, 0.14), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(3, 105, 161, 0.10), transparent 50%),
+    linear-gradient(180deg, #eef5f8 0%, var(--cp-bg) 42%, #eef2f7 100%);
+  min-height: 100vh;
+}
+
+body.customer-portal-shell .cp-display {
+  font-family: 'Fraunces', Georgia, serif;
+  letter-spacing: -0.02em;
+}
+
+body.customer-portal-shell .cp-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+body.customer-portal-shell .cp-topbar {
+  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.78);
+  border-bottom: 1px solid var(--cp-line);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+body.customer-portal-shell .cp-topbar-inner,
+body.customer-portal-shell .cp-main,
+body.customer-portal-shell .cp-footer-inner {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+  body.customer-portal-shell .cp-topbar-inner,
+  body.customer-portal-shell .cp-main,
+  body.customer-portal-shell .cp-footer-inner {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+body.customer-portal-shell .cp-topbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 64px;
+}
+
+body.customer-portal-shell .cp-phone-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--cp-muted);
+  background: #f0f7f6;
+  border: 1px solid #d7ebe8;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-weight: 600;
+}
+
+body.customer-portal-shell .cp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  padding: 0.7rem 1.15rem;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+body.customer-portal-shell .cp-btn:active {
+  transform: translateY(1px);
+}
+
+body.customer-portal-shell .cp-btn-primary {
+  background: linear-gradient(135deg, var(--cp-brand) 0%, var(--cp-brand-deep) 100%);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(13, 148, 136, 0.28);
+}
+
+body.customer-portal-shell .cp-btn-primary:hover {
+  box-shadow: 0 14px 28px rgba(13, 148, 136, 0.36);
+}
+
+body.customer-portal-shell .cp-btn-ghost {
+  background: transparent;
+  color: var(--cp-muted);
+  border: 1px solid var(--cp-line);
+}
+
+body.customer-portal-shell .cp-btn-ghost:hover {
+  color: var(--cp-ink);
+  background: #fff;
+}
+
+body.customer-portal-shell .cp-panel {
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-line);
+  border-radius: 20px;
+  box-shadow: var(--cp-shadow);
+  overflow: hidden;
+}
+
+body.customer-portal-shell .cp-panel-head {
+  padding: 1.1rem 1.25rem;
+  border-bottom: 1px solid var(--cp-line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+body.customer-portal-shell .cp-hero {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  body.customer-portal-shell .cp-hero {
+    grid-template-columns: 1.4fr 0.8fr;
+    align-items: end;
+  }
+}
+
+body.customer-portal-shell .cp-stat {
+  background: linear-gradient(160deg, #0f766e 0%, #0e7490 100%);
+  color: #fff;
+  border-radius: 20px;
+  padding: 1.25rem 1.4rem;
+  box-shadow: 0 16px 40px rgba(15, 118, 110, 0.28);
+}
+
+body.customer-portal-shell .cp-stat p {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.8rem;
+}
+
+body.customer-portal-shell .cp-stat strong {
+  display: block;
+  font-size: 1.75rem;
+  margin-top: 0.35rem;
+  font-weight: 800;
+}
+
+body.customer-portal-shell .cp-txn-list {
+  display: flex;
+  flex-direction: column;
+}
+
+body.customer-portal-shell .cp-txn-row {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1.1rem 1.25rem;
+  border-bottom: 1px solid var(--cp-line);
+  transition: background 0.15s ease;
+}
+
+body.customer-portal-shell .cp-txn-row:last-child {
+  border-bottom: 0;
+}
+
+body.customer-portal-shell .cp-txn-row:hover {
+  background: #f8fbfd;
+}
+
+@media (min-width: 720px) {
+  body.customer-portal-shell .cp-txn-row {
+    grid-template-columns: 1.2fr 1fr 0.7fr 1.1fr auto;
+    align-items: center;
+  }
+}
+
+body.customer-portal-shell .cp-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--cp-accent);
+  font-weight: 600;
+}
+
+body.customer-portal-shell .cp-muted {
+  color: var(--cp-muted);
+  font-size: 0.8rem;
+}
+
+body.customer-portal-shell .cp-reason {
+  margin-top: 0.25rem;
+  font-size: 0.72rem;
+  color: #64748b;
+  max-width: 28rem;
+  line-height: 1.35;
+}
+
+body.customer-portal-shell .cp-empty {
+  text-align: center;
+  padding: 3rem 1.25rem;
+  color: var(--cp-muted);
+  font-size: 0.9rem;
+}
+
+body.customer-portal-shell .cp-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--cp-line);
+  background: rgba(255, 255, 255, 0.65);
+}
+
+body.customer-portal-shell .cp-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  font-size: 0.75rem;
+  color: #7b8794;
+}
+
+body.customer-portal-shell .cp-footer a:hover {
+  color: var(--cp-brand-deep);
+}
+
+/* Auth / login composition */
+body.customer-portal-shell .cp-auth-wrap {
+  flex: 1;
+  display: grid;
+  min-height: calc(100vh - 2rem);
+}
+
+@media (min-width: 960px) {
+  body.customer-portal-shell .cp-auth-wrap {
+    grid-template-columns: 1.05fr 0.95fr;
+  }
+}
+
+body.customer-portal-shell .cp-auth-visual {
+  display: none;
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(155deg, rgba(15, 118, 110, 0.92), rgba(3, 105, 161, 0.88)),
+    url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><path fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1" d="M0 80h160M80 0v160"/></svg>');
+  color: #fff;
+  padding: 3rem;
+}
+
+@media (min-width: 960px) {
+  body.customer-portal-shell .cp-auth-visual {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+}
+
+body.customer-portal-shell .cp-auth-visual::after {
+  content: '';
+  position: absolute;
+  inset: auto -20% -30% 20%;
+  height: 70%;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.22), transparent 65%);
+  pointer-events: none;
+  animation: cpPulse 7s ease-in-out infinite;
+}
+
+@keyframes cpPulse {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.7; }
+  50% { transform: translateY(-18px) scale(1.08); opacity: 1; }
+}
+
+body.customer-portal-shell .cp-auth-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem;
+}
+
+body.customer-portal-shell .cp-auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-line);
+  border-radius: 24px;
+  box-shadow: var(--cp-shadow);
+  padding: 2rem 1.5rem;
+  animation: cpRise 0.55s ease both;
+}
+
+@keyframes cpRise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+body.customer-portal-shell .cp-auth-card h1 {
+  font-size: 1.65rem;
+  font-weight: 800;
+  margin-top: 0.75rem;
+}
+
+body.customer-portal-shell .cp-field label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--cp-muted);
+  margin-bottom: 0.4rem;
+}
+
+body.customer-portal-shell .cp-input {
+  width: 100%;
+  border: 1px solid #d5dee8;
+  background: #fff;
+  color: var(--cp-ink);
+  border-radius: 12px;
+  padding: 0.85rem 0.95rem;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+body.customer-portal-shell .cp-input:focus {
+  border-color: var(--cp-brand);
+  box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.15);
+}
+
+body.customer-portal-shell .cp-otp {
+  letter-spacing: 0.35em;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+body.customer-portal-shell .cp-alert {
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+body.customer-portal-shell .cp-alert-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+body.customer-portal-shell .cp-alert-ok {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+}
+
+body.customer-portal-shell .cp-alert-demo {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+body.customer-portal-shell .cp-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-top: 1.25rem;
+}
+
+body.customer-portal-shell .cp-bubble {
+  border-radius: 14px;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--cp-line);
+  background: #f8fafc;
+}
+
+body.customer-portal-shell .cp-bubble-support {
+  background: #f0fdfa;
+  border-color: #99f6e4;
+}
+
+body.customer-portal-shell .cp-bubble-you {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+/* Light-mode theme overrides for shared badges inside customer shell */
+body.customer-portal-shell .glass {
+  background: var(--cp-surface) !important;
+  border-color: var(--cp-line) !important;
+  box-shadow: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.customer-portal-shell .cp-auth-card,
+  body.customer-portal-shell .cp-auth-visual::after,
+  body.customer-portal-shell .cp-btn {
+    animation: none !important;
+    transition: none !important;
+  }
+}

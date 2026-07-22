@@ -54,7 +54,7 @@ require_once __DIR__ . '/header.php';
     </div>
     <div class="lg:col-span-2 glass rounded-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Open / evidence queue</h2></div>
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr><th class="px-4 py-3 text-left">Ref</th><th class="px-4 py-3 text-left">Merchant</th><th class="px-4 py-3 text-left">Amount</th><th class="px-4 py-3 text-left">Due</th><th class="px-4 py-3 text-left">Status</th><th class="px-4 py-3 text-left">Resolve</th></tr></thead>
             <tbody class="divide-y divide-gray-800">
             <?php if (!$rows): ?><tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No open chargebacks.</td></tr><?php endif; ?>
@@ -71,7 +71,7 @@ require_once __DIR__ . '/header.php';
             </tr>
             <?php endforeach; ?>
             </tbody>
-        </table>
+        </table></div>
     </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>
