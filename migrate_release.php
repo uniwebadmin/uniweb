@@ -1,7 +1,11 @@
 <?php
 /**
  * Versioned migration gate for releases.
- * URL: migrate_release.php?key=CRON_KEY
+ *
+ * URL: migrate_release.php?key=YOUR_EXISTING_WATCHDOG_KEY
+ *
+ * Use the same key as cron_auto_audit.php (Gateway Settings → “Test cron now”).
+ * Do not invent a new CRON_KEY. See migrations/README.md for owner steps (011–017).
  */
 require_once __DIR__ . '/config.php';
 

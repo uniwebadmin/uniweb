@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 function createRazorpayOrder(float $amount, string $receipt, array $notes = []): ?array
 {
+    if (!isGatewayConfigured('razorpay')) {
+        return null;
+    }
     $keyId = getSetting('razorpay_key_id', '');
     $keySecret = getSetting('razorpay_key_secret', '');
     if (!$keyId || !$keySecret) return null;
@@ -208,6 +211,9 @@ function cashfreeApiBase(): string
 
 function createCashfreeOrder(string $orderId, float $amount, string $customerPhone, string $customerEmail, string $returnUrl, string $linkId = ''): ?array
 {
+    if (!isGatewayConfigured('cashfree')) {
+        return null;
+    }
     $appId = getSetting('cashfree_app_id', '');
     $secret = getSetting('cashfree_secret_key', '');
     if (!$appId || !$secret) return null;
@@ -518,12 +524,18 @@ function getMerchantKycDocumentVersions(int $merchantId): array
 
 function getActivePaymentGateway(): string
 {
-    $preferred = getSetting('active_payment_gateway', '');
-    if ($preferred === 'razorpay' && getSetting('razorpay_key_id', '')) return 'razorpay';
-    if ($preferred === 'cashfree' && getSetting('cashfree_app_id', '')) return 'cashfree';
-    if (getSetting('razorpay_key_id', '')) return 'razorpay';
-    if (getSetting('cashfree_app_id', '')) return 'cashfree';
-    if (getSetting('payu_merchant_key', '')) return 'payu';
+    $preferred = trim((string)getSetting('active_payment_gateway', ''));
+    // Prefer the admin-selected primary only when fully configured AND checkout-capable.
+    if ($preferred !== ''
+        && isGatewayConfigured($preferred)
+        && gatewaySupportsLiveCheckout($preferred)) {
+        return $preferred;
+    }
+    foreach (['razorpay', 'cashfree', 'payu'] as $gw) {
+        if (isGatewayConfigured($gw)) {
+            return $gw;
+        }
+    }
     return 'manual';
 }
 
@@ -783,6 +795,9 @@ function buildPayUSplitRequest(float $amount, array $merchant): string
 
 function buildPayUPaymentForm(array $link, array $merchant, bool $withSplit = true, string $enforcePg = '', string $txnidSuffix = '', ?float $amountOverride = null): ?array
 {
+    if (!isGatewayConfigured('payu')) {
+        return null;
+    }
     $c = payuCredentials();
     if (!$c['key'] || !$c['salt']) return null;
 
@@ -841,6 +856,9 @@ function buildPayUPaymentForm(array $link, array $merchant, bool $withSplit = tr
 
 function createRazorpayOrderWithRoute(float $amount, string $receipt, array $merchant, array $notes = []): ?array
 {
+    if (!isGatewayConfigured('razorpay')) {
+        return null;
+    }
     $keyId = getSetting('razorpay_key_id', '');
     $keySecret = getSetting('razorpay_key_secret', '');
     if (!$keyId || !$keySecret) return null;
@@ -879,6 +897,9 @@ function createRazorpayOrderWithRoute(float $amount, string $receipt, array $mer
 
 function createCashfreeOrderWithSplit(string $orderId, float $amount, array $merchant, string $phone, string $email, string $returnUrl): ?array
 {
+    if (!isGatewayConfigured('cashfree')) {
+        return null;
+    }
     $appId = getSetting('cashfree_app_id', '');
     $secret = getSetting('cashfree_secret_key', '');
     if (!$appId || !$secret) return null;

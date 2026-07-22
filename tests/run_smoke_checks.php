@@ -257,7 +257,26 @@ $cloudMods = (string)file_get_contents($root . '/includes/cloud_modules.php');
 $assert(str_contains($cloudMods, "'payout.php'") && str_contains($cloudMods, "'customer_portal.php'"), 'cloud_modules_registers_payout_customer');
 $assert(is_file($root . '/.github/workflows/deploy.yml'), 'github_actions_deploy_workflow_present');
 $deployYml = (string)file_get_contents($root . '/.github/workflows/deploy.yml');
-$assert(str_contains($deployYml, 'UNIWEB_FTP_HOST') && str_contains($deployYml, 'lftp') && str_contains($deployYml, 'branches: [main]'), 'deploy_workflow_sftp_secrets');
+$assert(str_contains($deployYml, 'UNIWEB_FTP_HOST')
+    && str_contains($deployYml, 'ftp://')
+    && str_contains($deployYml, 'curl')
+    && str_contains($deployYml, 'branches: [main]'), 'deploy_workflow_ftp_curl_secrets');
+$assert(str_contains($deployYml, 'xargs -P') || str_contains($deployYml, 'parallel'), 'deploy_workflow_parallel_uploads');
+$assert(is_file($root . '/migrations/README.md'), 'migrations_readme_present');
+$migReadme = (string)file_get_contents($root . '/migrations/README.md');
+$assert(str_contains($migReadme, 'migrate_release.php') && str_contains($migReadme, 'Do not invent'), 'migrations_readme_owner_apply_steps');
+$assert(str_contains($migReadme, '011_') && str_contains($migReadme, '017_'), 'migrations_readme_covers_011_017');
+$migrateRelease = (string)file_get_contents($root . '/migrate_release.php');
+$assert(str_contains($migrateRelease, 'YOUR_EXISTING_WATCHDOG_KEY') || str_contains($migrateRelease, 'migrations/README.md'), 'migrate_release_documents_existing_key');
+$gwSettingsMig = (string)file_get_contents($root . '/gateway_settings.php');
+$assert(str_contains($gwSettingsMig, 'migrate_release.php?key=') && str_contains($gwSettingsMig, 'Apply pending migrations'), 'gateway_settings_migrate_release_link');
+$migLib = (string)file_get_contents($root . '/includes/migrations.php');
+$assert(str_contains($migLib, "str_starts_with(\$trimmed, '--')"), 'migration_parser_strips_line_comments');
+$cfgDev = (string)file_get_contents($root . '/config.dev.php');
+$assert(!preg_match('/^function getBusinessEntityTypes\(/m', $cfgDev), 'config_dev_no_kyc_entity_redeclare');
+$assert(str_contains($cfgDev, "'kyc_entity'"), 'config_dev_loads_kyc_entity_include');
+$kycEnt = (string)file_get_contents($root . '/includes/kyc_entity.php');
+$assert(str_contains($kycEnt, "function_exists('getBusinessEntityTypes')"), 'kyc_entity_guards_redeclare');
 $assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');
 
 // Auth portal redesign (all four logins — presentation only).
@@ -271,6 +290,8 @@ foreach (['login.php', 'admin_login.php', 'staff_login.php', 'customer_login.php
 // Pine Labs Plural scaffold (gated).
 $gwLibPine = (string)file_get_contents($root . '/includes/gateways.php');
 $assert(str_contains($gwLibPine, 'function pineLabsSandboxCreateOrder') && str_contains($gwLibPine, 'pinelabs'), 'pinelabs_plural_scaffold');
+$assert(str_contains($gwLibPine, "isGatewayConfigured('razorpay')") && str_contains($gwLibPine, "isGatewayConfigured('cashfree')"), 'gateway_create_orders_gated');
+$assert(str_contains($gwLibPine, 'gatewaySupportsLiveCheckout($preferred)'), 'active_gateway_requires_live_checkout_capable');
 $assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'pinelabs_merchant_id'), 'gateway_settings_pinelabs_fields');
 
 // Search Console meta + WhatsApp alert fan-out from notifications.

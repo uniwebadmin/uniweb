@@ -12,6 +12,18 @@ function ensureMigrationRegistry(PDO $db): void
 
 function migrationStatements(string $sql): array
 {
+    // Strip SQL line comments so semicolons inside "-- notes; more" do not split statements.
+    $lines = preg_split("/\r\n|\n|\r/", $sql) ?: [];
+    $cleaned = [];
+    foreach ($lines as $line) {
+        $trimmed = ltrim($line);
+        if (str_starts_with($trimmed, '--')) {
+            continue;
+        }
+        $cleaned[] = $line;
+    }
+    $sql = implode("\n", $cleaned);
+
     $statements = [];
     $buffer = '';
     $quoted = false;
