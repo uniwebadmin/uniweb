@@ -139,3 +139,21 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 
 _Customer portal: ✅ shipped (passwordless WhatsApp/SMS OTP → history → tickets; cross-role admin/staff/merchant). No auto-approve contact self-update; no in-house biometrics (Digio partner)._
 
+---
+
+## Session log — 2026-07-22 (afternoon)
+
+### Shipped / merged
+- **PR #29 MERGED + LIVE** — invoice PDF fields, premium KYC + rejection reason, MFA policy, payout scaffold (money-gated), Search Console + WhatsApp fan-out, customer portal premium + cross-role tickets, all 4 login redesigns, Pine Labs stub, `cloud_modules.php`, migrations `013`–`017`.
+- **CI auto-deploy fixed** — Hostinger FTP parallel curl (`xargs -P8`); Actions run **green**. Secrets: `UNIWEB_FTP_*` (no secrets in git).
+- **PR #30 MERGED** (was draft from cloud agent [Continue remaining parts overnight](bc-b39e79bc-fc69-40fd-a1a7-754269257a9e)) — `migrations/README.md`, migration apply link in Gateway Settings, gateway create-order gated by `isGatewayConfigured()`, CI FTP retry, KYC load safety (`function_exists` + `config.dev.php` stub cleanup).
+
+### Cloud agents status (this session)
+- Overnight agent completed work into PR #29 / later PR #30 draft; some follow-up cloud resumes failed with conversation-state version errors — work was recovered from draft PR #30 and merged.
+- Photo inbox `_inbox/` empty (no new owner screenshots).
+
+### Still owner-manual
+1. Gateway Settings → **Apply pending migrations** (011–017)
+2. Paste gateway / Digio / payout partner keys when received
+3. Confirm DB cleanup + “diabetes” row only after explicit OK
+
