@@ -46,9 +46,10 @@ jobs:
           BASE="${REMOTE:-public_html}"
           BASE="${BASE#/}"
           BASE="${BASE%/}"
-          # Hostinger addon domains live at e.g. home/USER/domains/uniweb.co.in/public_html
-          # NEVER collapse that to bare "public_html" — that uploads to the wrong docroot
-          # (FTP reports OK but uniweb.co.in never sees new files).
+          # Hostinger FTP is usually chrooted at the account home. Secrets may store
+          # home/USER/domains/site/public_html — strip home/USER/ so we land in
+          # domains/site/public_html. Do NOT collapse to bare public_html (main domain).
+          BASE="$(printf '%s' "$BASE" | sed -E 's#^home/[^/]+/##')"
           if [ -z "$BASE" ]; then
             BASE="public_html"
           fi
