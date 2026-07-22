@@ -160,5 +160,7 @@ _Customer portal: ✅ shipped (passwordless WhatsApp/SMS OTP → history → tic
 ### Owner photo inbox (2026-07-22)
 - **28 photos** synced to `_inbox/`. Full task list: `_inbox/PHOTO_NOTES.md`.
 - **PR #32 MERGED + LIVE** (FTP deploy green) — clickables, settlement fail reason, checkout mobile mandatory, invoice tax %, KYC/Axis/P2M/open-amount QR, layout polish.
-- Follow-up inbox photo: customer portal mobile field too small → enlarged `+91` control (next commit).
+- Follow-up inbox photo: customer portal mobile field too small → enlarged `+91` control (**LIVE** PR #35).
+- **PR #37** chat inbox `_inbox/chat/` LIVE. Strategy pack waits for owner **start**.
+- Auto: live `/cust` 404 → physical `cust/index.php` redirect (next PR).
 

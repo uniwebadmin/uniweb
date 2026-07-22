@@ -18,6 +18,8 @@ File naam suggestion:
   20260722_shopify_notes.txt
 
 Supported: .txt .md (plain text). Photos alag: parent folder _inbox/ me daalo.
+Word (.docx / .doc) mat bhejo — phone pe "Text document" / Notepad type file banao.
+Empty ".txt.docx" files agent ignore karega.
 
 Agent kya karega:
 - Naye messages padhega

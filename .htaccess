@@ -48,6 +48,7 @@ ErrorDocument 500 /error.php
     RewriteRule ^register/?$ merchant_register.php [L]
     RewriteRule ^login/?$ login.php [L]
     RewriteRule ^admin/?$ admin_login.php [L]
-    RewriteRule ^cust/?$ customer_login.php [L,QSA]
+    # Prefer physical cust/index.php when present; keep rewrite as fallback
+    RewriteRule ^cust/?$ cust/index.php [L,QSA]
     RewriteRule ^customer/?$ customer_login.php [L,QSA]
 </IfModule>

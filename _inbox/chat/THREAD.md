@@ -28,3 +28,5 @@ Agent explanation accepted. Status:
 |------|---------------|---------|--------|
 | 2026-07-22 | Cursor chat | Chat inbox system requested (like photos) | created this folder |
 | 2026-07-22 | Cursor chat | Strategy pack confirmed; wait for start | noted |
+| 2026-07-22 | `.txt.docx` (empty) | Accidental Word file — deleted; use plain .txt | fixed |
+| 2026-07-22 | Auto mode | Live `/cust` was 404 — add `cust/index.php` redirect | shipping |
