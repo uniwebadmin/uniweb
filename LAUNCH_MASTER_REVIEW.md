@@ -153,10 +153,12 @@ _Customer portal: ✅ shipped (passwordless WhatsApp/SMS OTP → history → tic
 - Photo inbox `_inbox/` empty (no new owner screenshots).
 
 ### Still owner-manual
-1. Gateway Settings → **Apply pending migrations** (011–017)
+1. Gateway Settings → **Apply pending migrations** (011–**018**)
 2. Paste gateway / Digio / payout partner keys when received
 3. Confirm DB cleanup + “diabetes” row only after explicit OK
 
 ### Owner photo inbox (2026-07-22)
-- **28 photos** synced to `_inbox/`. Full task list: `_inbox/PHOTO_NOTES.md` (layout, clickables, settlement fail reason, invoice tax %, KYC select empty, checkout phone mandatory, chargeback demo, Axis forward, enable-all, etc.).
+- **28 photos** synced to `_inbox/`. Full task list: `_inbox/PHOTO_NOTES.md`.
+- **PR #32 MERGED + LIVE** (FTP deploy green) — clickables, settlement fail reason, checkout mobile mandatory, invoice tax %, KYC/Axis/P2M/open-amount QR, layout polish.
+- Follow-up inbox photo: customer portal mobile field too small → enlarged `+91` control (next commit).
 

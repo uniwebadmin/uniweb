@@ -170,6 +170,75 @@ body.auth-portal-shell .input-field:focus {
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--ap-brand) 18%, transparent) !important;
 }
 
+/* Customer login: one large +91 | number control (mobile + laptop) */
+body.auth-portal-shell .ap-phone {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-height: 3.35rem;
+  border: 1.5px solid #c5d0dc;
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+body.auth-portal-shell .ap-phone:focus-within {
+  border-color: var(--ap-brand);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ap-brand) 18%, transparent);
+}
+
+body.auth-portal-shell .ap-phone-cc {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 4.25rem;
+  padding: 0 0.85rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #0f766e;
+  background: #f0fdfa;
+  border-right: 1.5px solid #d5dee8;
+}
+
+body.auth-portal-shell .ap-phone-input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--ap-ink) !important;
+  border-radius: 0 !important;
+  padding: 1rem 1rem !important;
+  font-size: 1.2rem !important;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  outline: none;
+  box-shadow: none !important;
+}
+
+body.auth-portal-shell .ap-phone-input::placeholder {
+  color: #94a3b8;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+@media (min-width: 640px) {
+  body.auth-portal-shell .ap-phone {
+    min-height: 3.6rem;
+  }
+  body.auth-portal-shell .ap-phone-input {
+    font-size: 1.35rem !important;
+    padding: 1.1rem 1.15rem !important;
+  }
+  body.auth-portal-shell .ap-phone-cc {
+    min-width: 4.75rem;
+    font-size: 1.15rem;
+  }
+}
+
 body.auth-portal-shell .ap-otp {
   letter-spacing: 0.35em;
   text-align: center;

@@ -33,5 +33,6 @@ Owner phone screenshots → `_inbox/`. Sync via OneDrive. Do not treat `*-aamina
 
 ## Work log
 
-- 2026-07-22: Notebook created. Restored OneDrive-truncated files from git. Photo fixes shipped in working tree (not committed yet). Owner must Apply migration 018 + pending 011–017 via Gateway Settings; paste gateway keys.
-- Manual still: live FTP if CI secrets missing; confirm diabetes DB cleanup if requested.
+- 2026-07-22: Notebook created. Photo fixes merged PR #32 + FTP deploy green. Owner must Apply migrations 011–018 via Gateway Settings; paste gateway keys.
+- 2026-07-22 inbox photo: customer portal `/cust` mobile field too small — enlarged +91 | number control on `customer_login.php` + `auth-portal.css`.
+- Manual still: confirm diabetes DB cleanup if requested.

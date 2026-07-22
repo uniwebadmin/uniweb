@@ -112,11 +112,11 @@ require_once __DIR__ . '/header.php';
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <div class="ap-field">
                     <label for="mobile">Mobile number</label>
-                    <div class="flex gap-2">
-                        <span class="ap-input w-16 text-center text-slate-500 shrink-0 flex items-center justify-center">+91</span>
-                        <input id="mobile" type="tel" name="mobile" required maxlength="10" pattern="[6-9][0-9]{9}" inputmode="numeric" class="ap-input" placeholder="10-digit mobile" value="<?= e($_POST['mobile'] ?? '') ?>" autofocus>
+                    <div class="ap-phone" role="group" aria-label="Indian mobile number">
+                        <span class="ap-phone-cc" aria-hidden="true">+91</span>
+                        <input id="mobile" type="tel" name="mobile" required maxlength="10" pattern="[6-9][0-9]{9}" inputmode="numeric" autocomplete="tel-national" class="ap-phone-input" placeholder="98765 43210" value="<?= e($_POST['mobile'] ?? '') ?>" autofocus>
                     </div>
-                    <p class="text-xs text-slate-500 mt-1.5">We'll send an OTP by WhatsApp or SMS.</p>
+                    <p class="text-xs text-slate-500 mt-2">India (+91) · enter your 10-digit mobile. We send an OTP by WhatsApp or SMS.</p>
                 </div>
                 <button type="submit" class="ap-btn">Send OTP →</button>
             </form>

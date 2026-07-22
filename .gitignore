@@ -34,6 +34,19 @@ release_manifest_*.txt
 .DS_Store
 Thumbs.db
 
+# OneDrive conflict copies + local-only diagnostics (never ship)
+*-aaminalaptop.*
+*-aaminalaptop.php
+db_probe.php
+db_wizard.php
+_inbox/*.jpg
+_inbox/*.jpeg
+_inbox/*.png
+_inbox/*.webp
+_inbox/*.gif
+!_inbox/README.txt
+!_inbox/PHOTO_NOTES.md
+
 # Locally downloaded build tools
 tools/*.exe
 
