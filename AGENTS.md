@@ -21,6 +21,18 @@ UniWeb live launch continue. Priority: broken pages/links; cron auto-audit green
 - `config.php` and SFTP credentials are **not** in git. Do not recreate secrets in PRs.
 - Partner gateway keys are pasted by the owner in the live admin UI when received.
 
+## Mobile inbox (photos + chat points)
+
+OneDrive sync folder in the repo (keep **Always on this device**):
+
+| Drop here | What |
+|-----------|------|
+| `_inbox/` | Screenshots / photos (jpg, png, …) |
+| `_inbox/chat/` | Text points as `.txt` / `.md` (use `_TEMPLATE.txt`) |
+
+Agent memory: `_inbox/PHOTO_NOTES.md`, `_inbox/chat/THREAD.md`.  
+When the owner says **start**, work the strategy pack in PHOTO_NOTES; until then discuss / note only.
+
 ## Deploy note
 
 Live Hostinger deploy may need the laptop/FTP once for a release, or an allowlisted `scripts/release_deploy.ps1` when credentials are available in the environment. Cloud agents should still ship code via PR even if live FTP is unavailable.

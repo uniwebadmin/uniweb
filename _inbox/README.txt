@@ -1,14 +1,26 @@
-UniWeb — Photo Inbox for the AI agent
+UniWeb — Mobile inbox (photos + chat)
 =====================================
 
-Owner: apne phone se yahan photo/screenshot upload karo. Ye OneDrive folder
-laptop pe sync hoga aur agent seedhe padh lega.
+Do folders:
 
-Phone se kaise bhejein:
-1. OneDrive app kholo (ya onedrive.com par login karo)
-2. Files > Desktop > uniweb > _inbox folder me jao
-3. "Upload" / "+" se photo daal do (jitni chahiye utni)
-4. Chat me bas likh do: "inbox me photo daali — check karo, ismein <kya karna hai>"
+A) PHOTOS  →  _inbox/
+   Screenshots / camera photos (jpg, png, webp, gif).
+   Chat me: "inbox me photo daali — check karo"
 
-Agent yahan ki nayi image files khud padh lega aur kaam kar dega.
-File naam kuch bhi ho sakta hai (jaise IMG_1234.jpg). Supported: jpg, png, webp, gif.
+B) CHAT / POINTS  →  _inbox/chat/
+   Text instructions from phone (txt/md).
+   Use _TEMPLATE.txt or any new .txt file.
+   Chat me: "chat inbox check karo"
+
+Phone (OneDrive app):
+1. Files > Desktop > uniweb > _inbox   (photos)
+   OR  ... > _inbox > chat             (text points)
+2. Upload / New file
+3. Cursor agents (cursor.com/agents) ko batao — ya next auto-mode turn pe agent padhega
+
+Notes (agent memory, git):
+- _inbox/PHOTO_NOTES.md
+- _inbox/chat/THREAD.md
+
+Trusted people with OneDrive access to this folder can drop files too.
+Subjects: UniWeb product / launch / bugs only.

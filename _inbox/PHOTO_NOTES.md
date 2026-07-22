@@ -25,14 +25,38 @@ Owner phone screenshots → `_inbox/`. Sync via OneDrive. Do not treat `*-aamina
 5. Layout cut-offs (A) — done (basic)
 6. UPI open amount, P2M-only settings, chargeback demo, Axis, enable-all (B/C/F/G) — done
 
-## Guardrails
+## Owner strategy pack (2026-07-22) — TALK FIRST, code only when owner says start
 
-- English UI only; Hindi OK in chat
-- No inventing credentials; no force-push; no destructive DB without confirm
-- Commit only when user asks (unless shipping via agreed live-prep path)
+Do **not** implement until owner explicitly says “kaam start”. Budget unconstrained; prefer correct/partner-gated design over shortcuts.
+
+| # | Topic | Repo reality (today) | Agreed direction |
+|---|--------|----------------------|------------------|
+| 1 | Txn/settlement **exact reason** copy | Mostly ✅ `transactionStatusExplainer()` + settlement reason text live | Next polish: clearer Hindi-owner-facing English copy, more statuses, list pages consistency |
+| 2 | Shopify / WordPress / e-Rupee | WooCommerce plugin ✅ `plugins/woocommerce/`; Shopify/WP generic/e-Rupee 🔜 | After primary PG live; Shopify app + e-Rupee via bank/partner API |
+| 3 | Razorpay-style QR + UniWeb logo + per-QR history | Marked ✅ LIVE in master review (`qr_code.php`, `qr_image.php`) | Owner called “quick win pending” — verify live vs gaps (logo bake, history UX) then polish |
+| 4 | Auto-approve profile self-update | ⛔ fraud — never auto-approve | Contact change = OTP verify on **mobile and email** only; no silent profile overwrite |
+| 5 | Payout stack (enable, rails, beneficiary, penny-drop, CSV, wallets, maker-checker, API keys) | Scaffold ✅; live money gated | Keys from partners: Razorpay/X, Cashfree, PayU, Worldline, Axis — paste when signed |
+| 6 | Failed-payout auto-reversal | ⛔ OWNER-CONFIRMED: no auto-credit without recon | Reversal only after recon confirms bank did not debit + licensed partner |
+
+### How we can execute (no code until “start”)
+
+1. **Exact reason** — inventory every txn/settlement status → map to one-line English reason; show on detail + key list rows; no fake bank reasons.
+2. **Shopify/WP/e-Rupee** — Woo already in repo; Shopify = OAuth app + webhook; e-Rupee = CBDC partner/bank API when available (not invent).
+3. **QR polish** — smoke live QR print/logo/history; fix only missing bits.
+4. **OTP contact change** — request → OTP to old+new channel → apply; never auto-approve.
+5. **Payout** — keep UI; wire partner APIs only with keys + `payout_live_enabled`; penny-drop via Decentro/bank.
+6. **Reversal** — queue + admin reconcile only; never wallet auto-credit on partner “failed”.
+
+Owner sending more detail next — discuss before coding.
+
+### Owner confirm (2026-07-22 evening)
+
+- Agent ki baat sahi; usi hisaab se note.
+- Jo already ho chuka → chhod dena; jo pending → **sirf jab owner "start" bole**.
+- Abhi **START nahi** — wait for explicit start.
+- Mobile chat inbox: `_inbox/chat/` (photo-style OneDrive drop).
 
 ## Work log
 
-- 2026-07-22: Notebook created. Photo fixes merged PR #32 + FTP deploy green. Owner must Apply migrations 011–018 via Gateway Settings; paste gateway keys.
-- 2026-07-22 inbox photo: customer portal `/cust` mobile field too small — enlarged +91 | number control on `customer_login.php` + `auth-portal.css`.
-- Manual still: confirm diabetes DB cleanup if requested.
+- 2026-07-22: Photo fixes PR #32/#35/#36 live. Migrations 011–018 apply still owner-manual.
+- 2026-07-22: Strategy pack confirmed; chat inbox created; coding waits for start.

@@ -44,8 +44,12 @@ _inbox/*.jpeg
 _inbox/*.png
 _inbox/*.webp
 _inbox/*.gif
+_inbox/chat/*
 !_inbox/README.txt
 !_inbox/PHOTO_NOTES.md
+!_inbox/chat/README.txt
+!_inbox/chat/THREAD.md
+!_inbox/chat/_TEMPLATE.txt
 
 # Locally downloaded build tools
 tools/*.exe
