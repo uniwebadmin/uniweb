@@ -48,6 +48,7 @@ ErrorDocument 500 /error.php
     RewriteRule ^register/?$ merchant_register.php [L]
     RewriteRule ^login/?$ login.php [L]
     RewriteRule ^admin/?$ admin_login.php [L]
-    RewriteRule ^cust/?$ cust.php [L,QSA]
-    RewriteRule ^customer/?$ customer_login.php [L,QSA]
+    # External redirect avoids a shadowing empty /cust/ directory on Hostinger
+    RewriteRule ^cust/?$ /customer_login.php [L,QSA,R=302]
+    RewriteRule ^customer/?$ /customer_login.php [L,QSA,R=302]
 </IfModule>
