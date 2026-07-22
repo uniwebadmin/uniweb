@@ -69,7 +69,7 @@ $gatewayCards = [
     ['id' => 'cashfree', 'label' => 'Cashfree', 'test' => true],
     ['id' => 'payu', 'label' => 'PayU', 'test' => true],
     ['id' => 'phonepe', 'label' => 'PhonePe', 'test' => true, 'checkout' => false, 'note' => 'Keys stored now · checkout enabled in a later release'],
-    ['id' => 'pinelabs', 'label' => 'Pine Labs Plural', 'test' => true, 'checkout' => false, 'note' => 'Sandbox stub ready · keys pending · checkout on roadmap'],
+    ['id' => 'pinelabs', 'label' => 'Pine Labs Plural', 'test' => true, 'checkout' => false, 'note' => 'Paste keys when received · sandbox stub only · checkout stays on roadmap'],
     ['id' => 'axis', 'label' => 'Axis Bank', 'test' => true],
     ['id' => 'decentro', 'label' => 'Decentro KYC', 'test' => true],
 ];
@@ -124,8 +124,10 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
         <p class="text-gray-500">Cron key (masked): <span class="font-mono text-gray-400"><?= e($cronKeyMasked) ?></span></p>
         <div class="flex flex-wrap gap-2 pt-2">
             <a href="cron_auto_audit.php?key=<?= rawurlencode($cronKey) ?>&verbose=1" target="_blank" rel="noopener" class="text-xs px-3 py-2 rounded-lg border border-gray-700 text-gray-300 hover:text-white">Test cron now ↗</a>
+            <a href="migrate_release.php?key=<?= rawurlencode($cronKey) ?>" target="_blank" rel="noopener" class="text-xs px-3 py-2 rounded-lg border border-sky-700/60 text-sky-300 hover:text-white" title="Applies pending migrations/*.sql using this same cron key. Safe to re-run.">Apply pending migrations ↗</a>
             <a href="?rotate_cron_key=1&csrf=<?= e(csrfToken()) ?>" class="text-xs px-3 py-2 rounded-lg border border-amber-500/40 text-amber-400 hover:bg-amber-500/10" onclick="return confirm('Rotate cron key? You must update Hostinger cron URL after this.')">Rotate key</a>
         </div>
+        <p class="text-[11px] text-gray-500">One-time after deploy: <strong class="text-gray-400 font-medium">Apply pending migrations</strong> uses the same watchdog key (never invent a new CRON_KEY). Expect JSON <code class="text-sky-400">ok: true</code>. Details in <code class="text-gray-400">migrations/README.md</code>.</p>
         <div class="pt-4 mt-2 border-t border-gray-800">
             <p class="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Optional — Settlement batch cron (every 15 min)</p>
             <code class="block text-violet-300 font-mono break-all bg-dark-900/60 p-3 rounded-lg text-[11px]"><?= e($settleCronUrl) ?></code>

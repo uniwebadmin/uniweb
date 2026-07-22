@@ -1,5 +1,6 @@
 -- Invoice PDF field completeness: customer address on invoices.
 -- Mirrors ensureInvoiceSchema() in includes/schema_ensure.php.
+-- Idempotent: CREATE includes the column; ALTER uses IF NOT EXISTS for older tables.
 
 CREATE TABLE IF NOT EXISTS invoices (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -20,5 +21,5 @@ CREATE TABLE IF NOT EXISTS invoices (
     INDEX idx_inv_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Safe on existing installs that already have invoices without address.
-ALTER TABLE invoices ADD COLUMN customer_address VARCHAR(500) DEFAULT NULL;
+-- Older installs that already had invoices without address.
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS customer_address VARCHAR(500) DEFAULT NULL;

@@ -4,8 +4,12 @@
 # Secrets: UNIWEB_FTP_HOST, UNIWEB_FTP_USER, UNIWEB_FTP_PASS
 # Optional: UNIWEB_FTP_REMOTE (defaults to public_html)
 #
-# Uses parallel FTP curl (same transport as scripts/release_deploy.ps1).
-# Git-ignored config.php / .vscode/sftp.json are never in checkout.
+# Uses parallel FTP curl (same transport as scripts/release_deploy.ps1) so
+# special characters in passwords work. Git-ignored config.php /
+# .vscode/sftp.json are never in the checkout.
+#
+# Parallel uploads + per-file retry + serial second pass for flaky Hostinger
+# connections (sequential curl of 300+ files was too slow / timed out).
 
 name: Deploy to UniWeb Hostinger
 
@@ -52,26 +56,56 @@ jobs:
           PASS_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['PASS'], safe=''))")
 
           mapfile -t FILES < <(git ls-files | grep -vE '^(tests/|\.github/|\.vscode/|_inbox/|.*\.md$)' || true)
-          echo "Uploading ${#FILES[@]} files to ftp://${HOST}/${BASE}/ (parallel=8)"
+          echo "Uploading ${#FILES[@]} files to ftp://${HOST}/${BASE}/ (parallel=8 + retry)"
 
           upload_one() {
             rel="$1"
             [ -f "$rel" ] || return 0
             remote="${BASE}/${rel}"
-            code=$(curl -sS --ftp-pasv --ftp-create-dirs \
-              --connect-timeout 15 --max-time 90 \
-              -T "$rel" \
-              "ftp://${USER_ENC}:${PASS_ENC}@${HOST}/${remote}" \
-              -w "%{http_code}" -o /dev/null) || code="000"
-            if [ "$code" != "226" ] && [ "$code" != "250" ]; then
-              echo "FAIL $rel (curl=$code)"
-              return 1
-            fi
-            return 0
+            url="ftp://${USER_ENC}:${PASS_ENC}@${HOST}/${remote}"
+            attempt=1
+            while [ "$attempt" -le 2 ]; do
+              code=$(curl -sS --ftp-pasv --ftp-create-dirs \
+                --connect-timeout 15 --max-time 90 \
+                -T "$rel" \
+                "$url" \
+                -w "%{http_code}" -o /dev/null) || code="000"
+              # FTP success: 226 transfer complete, 250 requested file action OK.
+              if [ "$code" = "226" ] || [ "$code" = "250" ]; then
+                return 0
+              fi
+              sleep $((attempt * 2))
+              attempt=$((attempt + 1))
+            done
+            echo "FAIL $rel (curl=$code)"
+            return 1
           }
           export -f upload_one
 
-          printf '%s\n' "${FILES[@]}" | xargs -P 8 -I{} bash -c 'upload_one "$@"' _ {}
+          FAIL_FILE="$(mktemp)"
+          # Do not use set -e across xargs: collect failures, then serial retry.
+          set +e
+          printf '%s\n' "${FILES[@]}" | xargs -P 8 -I{} bash -c 'upload_one "$1" || echo "$1" >>"$2"' _ {} "$FAIL_FILE"
+          set -e
+
+          FAIL_COUNT=0
+          if [ -s "$FAIL_FILE" ]; then
+            FAIL_COUNT=$(wc -l < "$FAIL_FILE" | tr -d ' ')
+            echo "Retrying $FAIL_COUNT failed uploads serially…"
+            while IFS= read -r rel; do
+              if ! upload_one "$rel"; then
+                echo "STILL FAIL $rel"
+              else
+                FAIL_COUNT=$((FAIL_COUNT - 1))
+              fi
+            done < "$FAIL_FILE"
+          fi
+          rm -f "$FAIL_FILE"
+
+          if [ "$FAIL_COUNT" -gt 0 ]; then
+            echo "Upload finished with $FAIL_COUNT failures"
+            exit 1
+          fi
           echo "Upload OK: ${#FILES[@]} files"
 
       - name: Optional live smoke (non-blocking)
@@ -79,4 +113,5 @@ jobs:
         run: |
           curl -fsS -o /dev/null -w "homepage %{http_code}\n" "https://uniweb.co.in/" || true
           curl -fsS -o /dev/null -w "login %{http_code}\n" "https://uniweb.co.in/login.php" || true
+          curl -fsS -o /dev/null -w "demo %{http_code}\n" "https://uniweb.co.in/demo.php" || true
           curl -fsS -o /dev/null -w "customer_login %{http_code}\n" "https://uniweb.co.in/customer_login.php" || true

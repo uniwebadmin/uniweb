@@ -321,11 +321,6 @@ function statusBadge(string $status): string
     return '<span class="px-2 py-1 rounded-full text-xs font-medium ' . $cls . '">' . e(ucfirst(str_replace('_', ' ', $status))) . '</span>';
 }
 
-function entityTypeLabel(string $type): string
-{
-    return getBusinessEntityTypes()[$type] ?? ucwords(str_replace('_', ' ', $type));
-}
-
 function categoryLabel(string $businessType): string
 {
     return getBusinessCategories()[$businessType] ?? ucwords(str_replace('_', ' ', $businessType));
@@ -333,6 +328,9 @@ function categoryLabel(string $businessType): string
 
 /* ------------------------------------------------------------------ *
  *  Onboarding / KYC metadata
+ *  Entity types + KYC doc maps live in includes/kyc_entity.php (loaded below).
+ *  Do not redefine getBusinessEntityTypes / getKycRequirements here — redeclarations
+ *  fatal when staff.php loads kyc_entity.php.
  * ------------------------------------------------------------------ */
 function getBusinessCategories(): array
 {
@@ -347,62 +345,6 @@ function getBusinessCategories(): array
         'saas'        => 'Software / SaaS',
         'ngo'         => 'NGO / Non-Profit',
         'other'       => 'Other',
-    ];
-}
-
-function getBusinessEntityTypes(): array
-{
-    return [
-        'sole_proprietorship' => 'Sole Proprietorship',
-        'individual'          => 'Individual',
-        'partnership'         => 'Partnership',
-        'llp'                 => 'LLP',
-        'private_limited'     => 'Private Limited Company',
-        'public_limited'      => 'Public Limited Company',
-        'trust'               => 'Trust / Society',
-        'huf'                 => 'HUF',
-    ];
-}
-
-function getKycDocLabels(): array
-{
-    return [
-        'pan_card'         => 'PAN Card',
-        'aadhaar'          => 'Aadhaar Card',
-        'gst_certificate'  => 'GST Certificate',
-        'bank_statement'   => 'Bank Statement / Cancelled Cheque',
-        'business_proof'   => 'Business Registration Proof',
-        'partnership_deed' => 'Partnership Deed',
-        'incorporation'    => 'Certificate of Incorporation',
-        'video_kyc'        => 'Video KYC',
-    ];
-}
-
-function getKycRequirements(string $entityType): array
-{
-    $base = ['pan_card', 'aadhaar', 'bank_statement'];
-    switch ($entityType) {
-        case 'partnership':
-            return array_merge($base, ['partnership_deed', 'gst_certificate']);
-        case 'llp':
-        case 'private_limited':
-        case 'public_limited':
-            return array_merge($base, ['incorporation', 'gst_certificate']);
-        case 'trust':
-            return array_merge($base, ['business_proof']);
-        default:
-            return $base;
-    }
-}
-
-function getMerchantKycPrefills(array $merchant): array
-{
-    return [
-        'pan_number'      => $merchant['pan_number'] ?? '',
-        'aadhaar_number'  => $merchant['aadhaar_number'] ?? '',
-        'cin_llpin'       => $merchant['cin_llpin'] ?? '',
-        'business_name'   => $merchant['business_name'] ?? '',
-        'legal_name'      => $merchant['name'] ?? '',
     ];
 }
 
@@ -474,7 +416,7 @@ function formatPublicVolume(float $amount): string
  * ------------------------------------------------------------------ */
 $__includes = [
     'schema_ensure', 'migrations', 'financial_integrity', 'ops_security',
-    'onboarding', 'onboarding_security', 'verification', 'totp', 'notify',
+    'kyc_entity', 'onboarding', 'onboarding_security', 'verification', 'totp', 'notify',
     'velocity_check', 'cron_guard', 'baas', 'gateways', 'smart_routing',
     'wallet', 'settlement_engine', 'reconciliation', 'refunds', 'chargebacks',
     'merchant_profile', 'merchant_ui', 'merchant_admin_view', 'merchant_website',

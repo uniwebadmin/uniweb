@@ -1,5 +1,6 @@
 -- Payout module expansion (017): batches, reversal queue, API credentials, penny-drop note.
 -- Mirrors ensurePayoutSchema() upgrades in includes/payout.php.
+-- Idempotent IF NOT EXISTS on ALTER columns (safe after runtime ensure).
 
 CREATE TABLE IF NOT EXISTS payout_batches (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -44,5 +45,5 @@ CREATE TABLE IF NOT EXISTS payout_api_credentials (
     UNIQUE KEY uq_pac_prefix (key_prefix)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-ALTER TABLE payout_orders ADD COLUMN batch_id INT DEFAULT NULL;
-ALTER TABLE payout_beneficiaries ADD COLUMN penny_drop_note VARCHAR(255) DEFAULT NULL;
+ALTER TABLE payout_orders ADD COLUMN IF NOT EXISTS batch_id INT DEFAULT NULL;
+ALTER TABLE payout_beneficiaries ADD COLUMN IF NOT EXISTS penny_drop_note VARCHAR(255) DEFAULT NULL;

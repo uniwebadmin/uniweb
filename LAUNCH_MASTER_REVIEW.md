@@ -12,7 +12,7 @@ _Evaluation of the full owner checklist against the actual codebase + live statu
 Core of all existing portals is live: Public site, Merchant portal, Admin panel, Staff/Ops. Plus recently shipped: **one-click multi-gateway forward + status matrix + compliance audit trail + KYC document versioning**, MDR settings (`update_mdr.php`), 2FA/step-up, security headers, IST timezone, invoice PDF, branded errors, high-throughput QR, custom address auto-fill with "use my location", bank-verify scaffold, settlement batches/engine.
 
 ### 2. What's left (real work)
-Owner-gated: gateway/partner API keys (paste when received), Digio for Aadhaar face-match, DB cleanup + settlement "diabetes" value (owner-confirm), Pine Labs / e-Rupee / Shopify expansions. Payout scaffold is shipped but live money stays gated until licensed partner keys + `payout_live_enabled`. Staff activity migration `011` is in repo — apply on next live deploy if not yet run.
+Owner-gated: gateway/partner API keys (paste when received), Digio for Aadhaar face-match, DB cleanup + settlement "diabetes" value (owner-confirm), Pine Labs / e-Rupee / Shopify expansions. Payout scaffold is shipped but live money stays gated until licensed partner keys + `payout_live_enabled`. **One-time:** apply pending migrations `011`–`017` via Gateway Settings → **Apply pending migrations** (same watchdog key as cron — see `migrations/README.md`). Cloud auto-deploy uses FTP curl on `main` (secrets in GitHub Actions); if CI fails, manual FTP remains the fallback.
 
 ### 3. What we should NOT take / must reconsider ⛔
 - **Auto-deleting production merchants/payments** ("keep only AK Digital Media") — destructive; must be a backup + reversible archive, owner-confirmed. Not run automatically.
@@ -47,7 +47,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Report & Analysis oversized icons / trends | ✅ fixed (CSS caps in repo) + CSS cache-bust deployed |
 | Sidebar icons cut off | ✅ fixed (CSS) + cache-bust deployed |
 | Laptop footer | ✅ fixed + live |
-| Staff activity log not working | ✅ fail-safe query live (`includes/staff.php`); migration `011_staff_activity_logs.sql` in repo — apply on live deploy if table missing (owner FTP step) |
+| Staff activity log not working | ✅ fail-safe query live (`includes/staff.php`); migration `011_staff_activity_logs.sql` in repo — **owner: one-time Apply pending migrations** if table missing |
 | Agreement download bug | ✅ FIXED + live — regenerates PDF on demand if missing (`merchant_agreement_pdf.php`) |
 | Settlement batch number clickable | ✅ live (`admin_settlement_batches.php`) |
 | "Use my location" button | ✅ FIXED + live — `.htaccess` had geolocation disabled; now `geolocation=(self)` |
@@ -70,7 +70,7 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 ### PART 3 — Gateways, API & transactions
 | Item | Status |
 |---|---|
-| Razorpay / Cashfree / Decentro / PayU | ⚙️ keys pending — adapters + test connections live; UI shows "Keys pending" via `isGatewayConfigured()` |
+| Razorpay / Cashfree / Decentro / PayU | ⚙️ keys pending — adapters + test connections live; UI shows "Keys pending" via `isGatewayConfigured()`; create-order helpers no-op without full keys; `getActivePaymentGateway()` only selects checkout-capable configured gateways |
 | Pine Labs Plural | ⚙️ scaffold — sandbox stub `pineLabsSandboxCreateOrder()` + Gateway Settings fields; checkout gated (roadmap) |
 | Test/Live toggle | ✅ |
 | API keys security/refresh/connect/notify | ✅ (notify email + in-app done) |
@@ -123,18 +123,19 @@ Recommended order: **(a)** fix PART-1 demo-critical bugs first (cheap, high trus
 | Forget password all portals | ✅ merchant + admin; customer is OTP-only (no password). Staff uses admin recovery for privileged accounts |
 | API-generated email notification | ✅ — key regenerate (merchant `api_settings.php` + admin `admin_edit_merchant.php`) sends email + in-app notification + staff-activity log via `regenerateMerchantApiKey()`; secret never emailed |
 | Blog + Search Console + WhatsApp | ✅ LIVE — blog exists; Search Console token via Gateway Settings → `google_site_verification` (meta in `header.php`); WhatsApp alerts fan out from `createNotification` → `onMerchantNotificationCreated` when merchant prefs enable WhatsApp + Meta keys are set |
-| Cloud auto-deploy (laptop-free) | ⚙️ `.github/workflows/deploy.yml` on `main` — SFTP via `UNIWEB_FTP_*` secrets; manual FTP deploy used for PR #29 merge (CI auth fix in progress) |
+| Cloud auto-deploy (laptop-free) | ⚙️ `.github/workflows/deploy.yml` on `main` — **FTP curl** (parallel=8 + per-file retry) via `UNIWEB_FTP_*` secrets; verified green after parallel fix; PR #29 features also live via manual FTP. Merge to `main` to auto-deploy; fall back to manual FTP if Actions fails |
+| Schema migrations 011–017 | ⚙️ in repo + `migrations/README.md` — **owner one-time** Gateway Settings → Apply pending migrations (same cron/watchdog key; do not invent `CRON_KEY`). Idempotent `IF NOT EXISTS` on ALTER columns |
 | e-Rupee / Shopify / WordPress | 🔜 (WooCommerce ✅) |
 
 ---
 
 ## Recommended immediate sequence
-1. **PART-1 bug fixes** (wallet transfer, payment-link method, staff activity log, agreement download, settlement batch clickable, use-my-location, report/sidebar UI, unmatched-webhook view). Cheap, demo-critical, low risk.
-2. **DB cleanup** — only after owner confirms; via backup + reversible soft-archive, never a blind delete.
-3. **QR logo + per-QR history** — quick, visible win.
-4. **First real gateway API adapter** — when a partner signs.
-5. **Payout module** — via licensed partner API, phased, with maker-checker; not in-house money movement.
-6. **Pincode address autofill** — incremental. _(Full Hindi UI: dropped by owner — English-only.)_
+1. **Owner one-time migrations** — Gateway Settings → **Apply pending migrations** (011–017). Expect `ok: true`. See `migrations/README.md`.
+2. **Paste first partner gateway keys** when received; Test Connection; set Primary Payment Gateway.
+3. **Confirm CI auto-deploy** on next `main` merge (Actions → Deploy to UniWeb Hostinger). If red, use laptop FTP once.
+4. **DB cleanup / diabetes settlement status** — only after owner confirms; backup + reversible soft-archive.
+5. **Payout live money** — only with licensed partner keys + `payout_live_enabled` (never auto-credit reversals).
+6. **Pine Labs / PhonePe / e-Rupee / Shopify** — after primary PG is live.
 
-_Customer portal (clarified): passwordless WhatsApp-OTP login → own transaction history → raise grievance/ticket. Build later, step by step. No auto-approve contact self-update; no in-house biometrics (use a certified partner)._
+_Customer portal: ✅ shipped (passwordless WhatsApp/SMS OTP → history → tickets; cross-role admin/staff/merchant). No auto-approve contact self-update; no in-house biometrics (Digio partner)._
 
