@@ -270,3 +270,13 @@ Per the task's own safety rule #1 ("if you see connections hanging/timing out, S
 1. Give the FTP account a real cool-down - **at least 30-60 minutes with zero FTP connection attempts from any agent/session** - before trying again. Check `gh run list` for any `in_progress` FTP-related run before connecting, same as done here.
 2. When ready, use the new `full_inventory` job added to `.github/workflows/ftp_probe.yml` this session (`workflow_dispatch`) - it does the entire recursive listing in one lftp connection/session, which is the lowest-connection-count option available. Read its output (`/tmp/inventory.txt` in the job log) to confirm `public_html/public_html` is gone and to spot any other stray files, then decide on further cleanup from that single listing rather than opening more connections to explore.
 3. If that single listing again hangs/fails to connect at all (not just slow, but a hard hang past ~30-60s), that's a strong signal the account itself is still blocked account-wide - stop again and consider asking the owner to check hPanel for an active IP/connection block notice, or simply wait longer before the next attempt, rather than continuing to retry through code.
+
+## Hostinger Git deploy — SUCCESS (2026-07-23 ~17:36 IST)
+
+Owner completed hPanel Advanced → Git → connect GitHub → repo uniweb → Deploy. Live verification:
+
+- DEPLOY_MARKER present on homepage (FTP mystery RESOLVED — Git reaches real docroot)
+- ap-phone CSS live (Last-Modified 2026-07-23)
+- /payer.php, /cust.php, /cust all 302 → customer_login.php (no longer 404)
+- Prefer Hostinger Git over FTP for future releases
+
