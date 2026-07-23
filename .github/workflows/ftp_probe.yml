@@ -105,3 +105,12 @@ jobs:
           for d in public_html domains "domains/uniweb.co.in" "domains/uniweb.co.in/public_html" "domains/uniweb.co.in/public_html/public_html" httpdocs www; do
             list_dir "$d" "$d"
           done
+
+          echo "=== FULL NAMES: home (.) ==="
+          curl -sS --ftp-pasv --connect-timeout 20 --max-time 30 -l "ftp://${USER_ENC}:${PASS_ENC}@${HOST}/" 2>&1
+          echo
+          echo "=== FULL NAMES: domains/ ==="
+          curl -sS --ftp-pasv --connect-timeout 20 --max-time 30 -l "ftp://${USER_ENC}:${PASS_ENC}@${HOST}/domains/" 2>&1
+          echo
+          echo "=== FULL NAMES: public_html/ ==="
+          curl -sS --ftp-pasv --connect-timeout 20 --max-time 30 -l "ftp://${USER_ENC}:${PASS_ENC}@${HOST}/public_html/" 2>&1
