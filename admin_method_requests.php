@@ -81,7 +81,7 @@ require_once __DIR__ . '/header.php';
                         <form method="POST" class="flex flex-wrap items-center gap-2" onsubmit="return confirm('Confirm this decision?')">
                             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                             <input type="hidden" name="request_id" value="<?= (int)$r['id'] ?>">
-                            <input type="text" name="admin_note" placeholder="Note (optional)" class="input-field text-xs py-1 w-36">
+                            <input type="text" name="admin_note" placeholder="Note (optional)" class="input-field text-xs py-1 w-36" aria-label="Admin note">
                             <button type="submit" name="action" value="approve" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium">Approve</button>
                             <button type="submit" name="action" value="reject" class="text-xs px-3 py-1.5 rounded-lg bg-red-600/80 hover:bg-red-600 text-white">Reject</button>
                         </form>

@@ -553,6 +553,7 @@ function isGatewayConfigured(string $gateway): bool
             || (bool)(getSetting('axis_api_key', '') && getSetting('axis_api_secret', '')),
         'decentro' => (bool)getSetting('decentro_client_id', '') && (bool)getSetting('decentro_client_secret', ''),
         'pinelabs' => (bool)getSetting('pinelabs_merchant_id', '') && (bool)getSetting('pinelabs_access_code', '') && (bool)getSetting('pinelabs_secure_key', ''),
+        'worldline' => (bool)getSetting('worldline_merchant_id', '') && (bool)getSetting('worldline_access_key', '') && (bool)getSetting('worldline_secret_key', ''),
         default => false,
     };
 }

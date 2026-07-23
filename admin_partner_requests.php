@@ -106,7 +106,7 @@ require_once __DIR__ . '/header.php';
         <?php endforeach; ?>
     </p>
     <?php endif; ?>
-    <textarea readonly rows="16" id="draft-<?= e($key) ?>" class="input-field text-xs font-mono leading-relaxed mb-3"><?= e($draft) ?></textarea>
+    <textarea readonly rows="16" id="draft-<?= e($key) ?>" class="input-field text-xs font-mono leading-relaxed mb-3" aria-label="Partner email draft"><?= e($draft) ?></textarea>
     <div class="flex flex-wrap gap-2">
         <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('draft-<?= e($key) ?>').value);this.textContent='Copied!'" class="btn-primary text-xs px-4 py-2">Copy Email Draft</button>
         <?php if ($emails): ?>

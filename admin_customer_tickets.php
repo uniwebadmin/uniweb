@@ -72,9 +72,9 @@ require_once __DIR__ . '/header.php';
         <form method="POST" class="space-y-3 mt-6 border-t border-gray-800 pt-5">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="ticket_db_id" value="<?= (int)$view['id'] ?>">
-            <textarea name="admin_reply" rows="3" maxlength="5000" class="input-field w-full" placeholder="Reply to the customer…"></textarea>
+            <textarea name="admin_reply" rows="3" maxlength="5000" class="input-field w-full" placeholder="Reply to the customer…" aria-label="Reply to customer"></textarea>
             <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
-                <select name="status" class="input-field w-full sm:w-auto">
+                <select name="status" class="input-field w-full sm:w-auto" aria-label="Ticket status">
                     <?php foreach (['open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'closed' => 'Closed'] as $k => $lbl): ?>
                     <option value="<?= e($k) ?>" <?= $view['status'] === $k ? 'selected' : '' ?>><?= e($lbl) ?></option>
                     <?php endforeach; ?>
