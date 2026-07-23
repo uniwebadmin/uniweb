@@ -76,8 +76,8 @@ jobs:
           echo "Safety check passed (has index.php, no config.php) — deleting public_html/ (nested duplicate) recursively..."
           lftp -u "$USER,$PASS" "$HOST" -e "set ftp:ssl-allow no; rm -rf public_html; bye"
           echo "---"
-          echo "Listing AFTER delete (should now error / be gone):"
-          lftp -u "$USER,$PASS" "$HOST" -e "set ftp:ssl-allow no; ls public_html; bye" || echo "(gone, as expected)"
+          echo "Listing AFTER delete (should now be empty/gone):"
+          timeout 30 lftp -u "$USER,$PASS" "$HOST" -e "set ftp:ssl-allow no; nlist public_html; bye" 2>&1 || echo "(gone or timed out, as expected)"
 
   list:
     name: List FTP directories to find the real docroot (re-run if needed)
