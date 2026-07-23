@@ -7,9 +7,10 @@ require_once __DIR__ . '/header.php';
 
 $overall = $health['operational'] && !$health['maintenance'];
 ?>
-
+<?= renderPagePrintStyles() ?>
 <section class="pt-28 pb-16 px-4 max-w-3xl mx-auto">
     <div class="text-center mb-10">
+        <div class="no-print flex justify-center mb-4"><?= renderPrintButton('Print status') ?></div>
         <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold mb-4 <?= $overall ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30' ?>">
             <span class="w-2 h-2 rounded-full <?= $overall ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400' ?>"></span>
             <?= $health['maintenance'] ? 'Maintenance Mode' : ($overall ? 'Core Platform Available' : 'Partial Service') ?>

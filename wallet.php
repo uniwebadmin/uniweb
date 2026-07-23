@@ -27,6 +27,7 @@ $canTransfer = $available >= $minSettlement;
 $pageTitle = __('wallet_title');
 require_once __DIR__ . '/header.php';
 ?>
+<?= renderPagePrintStyles() ?>
 
 <div class="bg-sky-500/10 border border-sky-500/30 rounded-xl p-4 mb-6 flex flex-wrap items-center justify-between gap-3 text-sm">
     <div>
@@ -34,6 +35,7 @@ require_once __DIR__ . '/header.php';
         <p class="text-xs text-gray-500 mt-1"><?= e($merchant['email']) ?> · <?= accountModeBadge($merchant) ?> · <?= (int)$wallet['success_txns'] ?> successful payment(s)</p>
     </div>
     <a href="settlements.php" class="text-sm px-4 py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:text-white">Settlements →</a>
+    <span class="no-print"><?= renderPrintButton() ?></span>
 </div>
 
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -85,10 +87,11 @@ require_once __DIR__ . '/header.php';
         <?php if (!$canTransfer): ?>
         <p class="text-xs text-amber-400 mb-2"><?= __('wallet_low_balance') ?> <a href="demo.php" class="text-sky-400 underline"><?= __('wallet_demo_pay') ?></a></p>
         <?php endif; ?>
-        <form method="POST" class="space-y-2" novalidate>
+        <form method="POST" class="space-y-2" novalidate aria-label="Quick bank transfer">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="transfer">
-            <input type="number" name="amount" min="<?= $minSettlement ?>" max="<?= max($minSettlement, $available) ?>" step="0.01"
+            <?= uxFormLabel(uxFieldId('transfer-amount'), 'Amount') ?>
+            <input type="number" name="amount" id="<?= e(uxFieldId('transfer-amount')) ?>" min="<?= $minSettlement ?>" max="<?= max($minSettlement, $available) ?>" step="0.01"
                 value="<?= $canTransfer ? max($minSettlement, $available) : ($available > 0 ? $available : $minSettlement) ?>"
                 class="input-field text-sm">
             <button type="submit" class="w-full bg-brand-600 hover:bg-brand-500 text-white py-3 rounded-xl font-bold transition">
@@ -111,7 +114,7 @@ require_once __DIR__ . '/header.php';
             </tr></thead>
             <tbody class="divide-y divide-gray-800">
                 <?php if (empty($ledger)): ?>
-                <tr><td colspan="3" class="px-5 py-12 text-center text-gray-500 text-xs"><?= __('no_data') ?></td></tr>
+                <tr><td colspan="3" class="p-0"><?= renderMerchantEmptyState('No wallet activity yet', 'Complete a test or live payment to see ledger entries here.', 'demo.php', 'Try ₹1 demo →') ?></td></tr>
                 <?php else: foreach ($ledger as $w):
                     $amt = safeDisplayBalance((float)$w['amount'], $isTest);
                     $balAfter = safeDisplayBalance((float)$w['balance_after'], $isTest);

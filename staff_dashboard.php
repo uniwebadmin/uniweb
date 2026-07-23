@@ -38,6 +38,12 @@ $assignedCount = count(getStaffAssignedMerchants((int)($admin['id'] ?? 0)));
     </a>
     <?php endforeach; ?>
 </div>
+<?php if ($pendingKyc === 0 && $openTickets === 0 && $openDisputes === 0 && $pendingRefunds === 0): ?>
+<div class="glass rounded-xl p-8 mb-8 text-center border border-emerald-500/20">
+    <p class="text-emerald-300 font-semibold">Queue clear</p>
+    <p class="text-sm text-gray-500 mt-2">No pending KYC, tickets, disputes or refunds in your workspace right now.</p>
+</div>
+<?php endif; ?>
 <?php if (staffCanAccess('admin_kyc.php') && $pendingKyc > 0):
     $queue = getPendingKycQueue(5);
 ?>

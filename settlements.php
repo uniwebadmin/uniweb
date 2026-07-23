@@ -69,7 +69,13 @@ if ($settlementQ !== '') {
 if ($settlementStatus !== 'all') { $settlementWhere .= ' AND s.status = ?'; $settlementParams[] = $settlementStatus; }
 if ($settlementFrom !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $settlementFrom)) { $settlementWhere .= ' AND DATE(s.created_at) >= ?'; $settlementParams[] = $settlementFrom; }
 if ($settlementTo !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $settlementTo)) { $settlementWhere .= ' AND DATE(s.created_at) <= ?'; $settlementParams[] = $settlementTo; }
-$settlements = $db->prepare("SELECT s.*, b.bank_name, b.account_number FROM settlements s LEFT JOIN bank_accounts b ON s.bank_account_id = b.id WHERE $settlementWhere ORDER BY s.created_at DESC LIMIT 50");
+$settlementPage = max(1, (int)($_GET['page'] ?? 1));
+$settlementPerPage = 50;
+$settlementOffset = ($settlementPage - 1) * $settlementPerPage;
+$settlementCountStmt = $db->prepare("SELECT COUNT(*) FROM settlements s WHERE $settlementWhere");
+$settlementCountStmt->execute($settlementParams);
+$settlementTotal = (int)$settlementCountStmt->fetchColumn();
+$settlements = $db->prepare("SELECT s.*, b.bank_name, b.account_number FROM settlements s LEFT JOIN bank_accounts b ON s.bank_account_id = b.id WHERE $settlementWhere ORDER BY s.created_at DESC LIMIT $settlementPerPage OFFSET $settlementOffset");
 $settlements->execute($settlementParams);
 $settlementList = $settlements->fetchAll();
 
@@ -85,7 +91,9 @@ $pageTitle = __('settlements_title');
 require_once __DIR__ . '/header.php';
 $canTransfer = $availableBalance >= $minSettlement;
 renderMerchantCommercialCard($merchant);
+$exportQuery = http_build_query(['q' => $settlementQ, 'status' => $settlementStatus, 'from' => $settlementFrom, 'to' => $settlementTo]);
 ?>
+<?= renderPagePrintStyles() ?>
 
 <div class="flex flex-wrap gap-3 mb-6 justify-between items-center">
     <div class="flex flex-wrap gap-2">
@@ -248,15 +256,19 @@ renderMerchantCommercialCard($merchant);
     </div>
 </div>
 
-<form method="GET" data-live-search-form data-results-target="settlement-results" class="glass rounded-xl p-4 mb-5 border border-gray-800 flex flex-wrap gap-3 items-end">
-    <div class="flex-1 min-w-[210px]"><label class="text-[10px] text-gray-600 uppercase">Search settlements</label><input name="q" value="<?= e($settlementQ) ?>" class="input-field mt-1 text-sm" placeholder="Settlement ID / UTR / Date / Amount" autocomplete="off"></div>
-    <div><label class="text-[10px] text-gray-600 uppercase">Status</label><select name="status" class="input-field mt-1 text-sm"><?php foreach (['all'=>'All','pending'=>'Pending','processing'=>'Processing','completed'=>'Complete','failed'=>'Failed'] as $sk=>$sl): ?><option value="<?= $sk ?>" <?= $settlementStatus===$sk?'selected':'' ?>><?= $sl ?></option><?php endforeach; ?></select></div>
-    <div><label class="text-[10px] text-gray-600 uppercase">From</label><input type="date" name="from" value="<?= e($settlementFrom) ?>" class="input-field mt-1 text-sm"></div>
-    <div><label class="text-[10px] text-gray-600 uppercase">To</label><input type="date" name="to" value="<?= e($settlementTo) ?>" class="input-field mt-1 text-sm"></div>
+<form method="GET" data-live-search-form data-results-target="settlement-results" class="glass rounded-xl p-4 mb-5 border border-gray-800 flex flex-wrap gap-3 items-end" aria-label="Filter settlements">
+    <div class="flex-1 min-w-[210px]"><?= uxFormLabel(uxFieldId('settlement-q'), 'Search settlements') ?><input name="q" id="<?= e(uxFieldId('settlement-q')) ?>" value="<?= e($settlementQ) ?>" class="input-field mt-1 text-sm" placeholder="Settlement ID / UTR / Date / Amount" autocomplete="off"></div>
+    <div><?= uxFormLabel(uxFieldId('settlement-status'), 'Status') ?><select name="status" id="<?= e(uxFieldId('settlement-status')) ?>" class="input-field mt-1 text-sm"><?php foreach (['all'=>'All','pending'=>'Pending','processing'=>'Processing','completed'=>'Complete','failed'=>'Failed'] as $sk=>$sl): ?><option value="<?= $sk ?>" <?= $settlementStatus===$sk?'selected':'' ?>><?= $sl ?></option><?php endforeach; ?></select></div>
+    <div><?= uxFormLabel(uxFieldId('settlement-from'), 'From') ?><input type="date" name="from" id="<?= e(uxFieldId('settlement-from')) ?>" value="<?= e($settlementFrom) ?>" class="input-field mt-1 text-sm"></div>
+    <div><?= uxFormLabel(uxFieldId('settlement-to'), 'To') ?><input type="date" name="to" id="<?= e(uxFieldId('settlement-to')) ?>" value="<?= e($settlementTo) ?>" class="input-field mt-1 text-sm"></div>
     <button class="btn-primary px-4 py-2.5 text-sm">Filter</button>
+    <div class="flex gap-2 ml-auto no-print">
+        <?= renderExportCsvLink('export_settlements.php?' . $exportQuery) ?>
+        <?= renderPrintButton() ?>
+    </div>
 </form>
 <div id="settlement-results" class="glass rounded-xl overflow-hidden">
-    <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Bank Transfer History</h2></div>
+    <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap justify-between gap-2"><h2 class="font-semibold">Bank Transfer History</h2><span class="text-xs text-gray-500"><?= $settlementTotal ?> transfer(s)</span></div>
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
@@ -297,6 +309,7 @@ renderMerchantCommercialCard($merchant);
             </tbody>
         </table>
     </div>
+    <?= renderPagination($settlementPage, $settlementPerPage, $settlementTotal, ['q' => $settlementQ, 'status' => $settlementStatus, 'from' => $settlementFrom, 'to' => $settlementTo]) ?>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>
