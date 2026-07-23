@@ -90,6 +90,24 @@ Triggered full-sync deploy run `29935050455` (workflow_dispatch) to catch up all
 - Homepage/login/demo/customer_login all return 200 live — so the real site works, just not from wherever this FTP account's files land.
 - **Root cause unknown without owner's eyes on hPanel** — need a screenshot of Hostinger hPanel → Files → FTP Accounts (shows each account's bound "Directory"/docroot). Asked owner for this; diagnostic workflow `.github/workflows/ftp_probe.yml` left in repo for a follow-up round once we know the real path (delete after confirmed).
 
+## Deploy fix — morning round 4 (2026-07-23) — STILL UNRESOLVED, FTP probing hit a wall
+
+Owner sent password "Kevin#121" for the OLD main FTP account (`u806999427`). Tested it — login works (FTP 230). Findings:
+
+1. Confirmed via `.htaccess`: the app's own `error.php` handles ALL 404/403 (`ErrorDocument 404 /error.php`), and it sets our real `UNIWEBSESSID` cookie — meaning every 404 we see live is our own PHP code running and deciding "not found", not a raw Apache miss. This is consistent with earlier nights' findings, not a new bug.
+2. Live homepage (200) is real and current. But `assets/css/auth-portal.css` — even after busting the CDN cache (`x-hcdn-cache-status: MISS`, straight from origin) — has `Last-Modified: Wed 22 Jul 09:47 UTC`, which is **before** the mobile-phone-field fix (git commit at 11:59 UTC same day, PR #35) — and the live file genuinely has no `ap-phone` class. So a real, merged, "deploy green" fix from yesterday did NOT reach the live file, on the SAME day it was merged. This is the clearest proof yet that CI's FTP upload path is not the live docroot, independent of caching/timing.
+3. Re-tried the "list directories via FTP" probe with the OLD account. Got wildly **inconsistent** results between two runs taken minutes apart (same credentials, same paths): one run showed `public_html/` full of our real files (payer.php, cust.php, config.dev.php, etc.) with today's timestamps; the very next run showed the same path as completely empty, and `domains/uniweb.co.in/public_html/public_html/` — which had 184 matching files moments earlier — errored with "Server denied you to change to the given directory". This strongly suggests Hostinger is rate-limiting/throttling rapid repeat FTP connections from GitHub Actions IPs (consistent with the "anti-abuse" blocking found earlier this week), making further blind automated FTP probing unreliable — we cannot trust any single listing enough to safely flip the live `UNIWEB_FTP_REMOTE` again without owner-verified ground truth.
+
+**Decision: stop blind FTP path-guessing.** Two nights + this morning of automated probing has not found the real docroot, and the probing itself may now be triggering false negatives. Need ONE piece of ground truth directly from hPanel's browser UI (not FTP, not rate-limited) — see the Hindi ask below. Left `.github/workflows/ftp_probe.yml` in the repo (workflow_dispatch only, harmless) for a future run once we have that ground truth. Current GitHub secrets are set to old-main-account (`u806999427` / `Kevin#121` / host `89.117.188.154` / remote `public_html`) — **not yet re-validated as correct**, no full deploy run against these secrets yet, so no live risk either way.
+
+**⚠️ Ask owner (Hindi, simplest possible, needs 2 screenshots):**
+
+1. hPanel खोलें → ऊपर "uniweb.co.in" website चुनें (जो पहले चुना था)।
+2. बायें "Files" में "File Manager" खोलें। जो पहला folder खुले (जिसमें `config.php` नाम की file दिखे — अगर pehle screen par public_html अंदर जाना पड़े तो जाइए), उसमें ऊपर टूलबार में "Upload" बटन दबायें और कोई भी छोटी नयी text file बनाकर upload करें, नाम रखें: `owner_test.txt` अंदर लिख दें सिर्फ `hello` — File Manager से (FTP से नहीं)। भेज दो confirm karte hi main check kar lunga live par.
+3. फिर वापस "Files" → "FTP Accounts" पर जायें, `u806999427` account पर "Directory" column में जो लिखा है उसका screenshot bhejo (poora text, chhota sa hi hota hai).
+
+Isse 2 minute mein pata chal jayega asli sahi jagah kaunsi hai, guessing khatam.
+
 ## Deploy fix — overnight round 3 (2026-07-22 late night) — STILL UNRESOLVED, needs owner's eyes
 
 Continued from the "RESOLVED root cause" section above. That section's conclusion turned out to be **premature** — switching to the new dedicated FTP account (`u806999427.uniwebdeploy`) did NOT actually fix live serving. Full empirical investigation tonight (see `.github/workflows/ftp_probe.yml`, branch `overnight/ftp-fix-continued`):
