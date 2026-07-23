@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 $pageTitle = 'Re-authenticate';
 require_once __DIR__ . '/header.php';
 ?>
-<div class="max-w-md mx-auto glass rounded-2xl p-8 border border-amber-500/20">
+<div class="max-w-md mx-auto px-4 pb-24 lg:pb-6 glass rounded-2xl p-8 border border-amber-500/20">
     <h1 class="text-xl font-bold mb-2">Step-up authentication</h1>
     <p class="text-sm text-gray-500 mb-6">Bank, API, settlement and Live activation actions require a fresh password + MFA challenge.</p>
     <?php if ($error): ?><div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg mb-4"><?= e($error) ?></div><?php endif; ?>

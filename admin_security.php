@@ -49,7 +49,7 @@ $pageTitle = 'Admin Security';
 require_once __DIR__ . '/header.php';
 ?>
 
-<div class="max-w-lg space-y-6">
+<div class="max-w-lg mx-auto pb-24 lg:pb-6 space-y-6">
     <?php $mfaPol = mfaPolicy(in_array(adminRole($admin), ['super', 'ceo'], true) ? 'admin' : 'staff'); ?>
     <div class="glass rounded-xl p-4 border border-amber-500/25 text-sm">
         <p class="font-semibold text-amber-300">MFA policy — <?= e($mfaPol['label']) ?></p>

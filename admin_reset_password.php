@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 require_once __DIR__ . '/header.php';
 ?>
-<div class="min-h-screen flex items-center justify-center px-4 py-12">
+<div class="min-h-screen flex items-center justify-center px-4 py-12 pb-24">
     <div class="w-full max-w-md">
         <div class="text-center mb-8">
             <div class="w-14 h-14 bg-gradient-to-br from-red-500 to-orange-500 rounded-2xl flex items-center justify-center font-bold text-dark-900 text-xl mx-auto mb-4">UW</div>
