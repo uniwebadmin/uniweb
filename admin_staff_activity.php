@@ -1,36 +1,74 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/page_ux.php';
 require_once __DIR__ . '/includes/staff.php';
 require_once __DIR__ . '/includes/ui_links.php';
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'area_sales_manager', 'team_leader', 'staff_manager']);
 
 $filterStaff = (int)($_GET['staff_id'] ?? 0);
-$logs = getStaffActivityLogs($filterStaff ?: null, 80);
+$q = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
+$page = max(1, (int)($_GET['page'] ?? 1));
+$logs = getStaffActivityLogs($filterStaff ?: null, 500);
+if ($q !== '') {
+    $qLower = strtolower($q);
+    $logs = array_values(array_filter($logs, static function (array $log) use ($qLower): bool {
+        $hay = strtolower(implode(' ', [
+            $log['action'] ?? '',
+            $log['staff_name'] ?? '',
+            $log['username'] ?? '',
+            $log['business_name'] ?? '',
+            $log['details'] ?? '',
+        ]));
+        return str_contains($hay, $qLower);
+    }));
+}
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    $csvRows = [];
+    foreach ($logs as $log) {
+        $csvRows[] = [
+            $log['created_at'] ?? '',
+            $log['staff_name'] ?? '',
+            $log['username'] ?? '',
+            $log['action'] ?? '',
+            $log['business_name'] ?? '',
+            $log['details'] ?? '',
+        ];
+    }
+    sendCsvDownload(['Time', 'Staff', 'Username', 'Action', 'Merchant', 'Details'], $csvRows, 'staff-activity-' . date('Y-m-d') . '.csv');
+}
+$paged = uxPaginateSlice($logs, $page, 50);
+$logs = $paged['rows'];
 $staffList = getDB()->query("SELECT id, name, username, role FROM admins WHERE role NOT IN ('super') ORDER BY name")->fetchAll();
 $pageTitle = 'Staff Activity Log';
 require_once __DIR__ . '/header.php';
 ?>
-<div class="mb-6 flex flex-wrap gap-3 items-center justify-between">
+<?= uxListToolbar(uxExportCsvLink(array_filter(['staff_id' => $filterStaff ?: null, 'q' => $q ?: null]))) ?>
+<div class="mb-6 flex flex-wrap gap-3 items-center justify-between no-print">
     <p class="text-sm text-gray-400">Full audit trail — who did what, when.</p>
-    <form method="GET" class="flex gap-2">
-        <select name="staff_id" class="input-field text-sm">
+    <form method="GET" class="flex flex-wrap gap-2 items-end" aria-label="Filter staff activity">
+        <div><?= uxLabel('staff-filter', 'Staff') ?>
+        <select id="staff-filter" name="staff_id" class="input-field text-sm">
             <option value="">All staff</option>
             <?php foreach ($staffList as $s): ?>
             <option value="<?= (int)$s['id'] ?>" <?= $filterStaff === (int)$s['id'] ? 'selected' : '' ?>><?= e($s['name']) ?> (<?= e(staffRoleLabel($s['role'])) ?>)</option>
             <?php endforeach; ?>
-        </select>
+        </select></div>
+        <div><?= uxLabel('staff-q', 'Search') ?><input id="staff-q" name="q" value="<?= e($q) ?>" class="input-field text-sm" placeholder="Action / merchant / details"></div>
         <button type="submit" class="btn-primary text-sm px-4">Filter</button>
     </form>
 </div>
 <div class="glass rounded-xl overflow-hidden">
+    <?php if (empty($logs) && $paged['total'] === 0): ?>
+    <?= uxEmptyState('No activity logged yet', 'Staff actions on merchants, KYC, settlements, and transactions appear here.') ?>
+    <?php else: ?>
     <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
+        <?= uxTableCaption('Staff activity log') ?>
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
             <th class="px-5 py-3 text-left">Time</th><th class="px-5 py-3 text-left">Staff</th><th class="px-5 py-3 text-left">Action</th>
             <th class="px-5 py-3 text-left">Merchant</th><th class="px-5 py-3 text-left">Details</th>
         </tr></thead>
         <tbody class="divide-y divide-gray-800">
-            <?php if (empty($logs)): ?><tr><td colspan="5" class="px-5 py-12 text-center text-gray-500">No activity logged yet.</td></tr>
-            <?php else: foreach ($logs as $log): ?>
+            <?php foreach ($logs as $log): ?>
             <tr class="hover:bg-white/5">
                 <td class="px-5 py-3 text-xs text-gray-500 whitespace-nowrap"><?= formatDate($log['created_at']) ?></td>
                 <td class="px-5 py-3 text-xs"><?= e($log['staff_name']) ?> <span class="text-gray-600">(<?= e($log['username']) ?>)</span></td>
@@ -38,8 +76,10 @@ require_once __DIR__ . '/header.php';
                 <td class="px-5 py-3 text-xs"><?= $log['merchant_id'] ? adminMerchantLink((int)$log['merchant_id'], $log['business_name'] ?? 'Merchant') : '—' ?></td>
                 <td class="px-5 py-3 text-xs text-gray-400 max-w-md truncate" title="<?= e($log['details'] ?? '') ?>"><?= e($log['details'] ?? '') ?></td>
             </tr>
-            <?php endforeach; endif; ?>
+            <?php endforeach; ?>
         </tbody>
     </table></div>
+    <?= uxPageNav($paged['page'], $paged['total_pages'], array_filter(['staff_id' => $filterStaff ?: null, 'q' => $q ?: null])) ?>
+    <?php endif; ?>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

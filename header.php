@@ -101,6 +101,14 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
         table{font-size:.8125rem}
         .stat-card{padding:1rem!important}
     }
+    @media print{
+        nav,.no-print,button:not(.print-keep),form[method="GET"],#flash-msg,[data-spotlight-open],#uniweb-spotlight,.theme-toggle-btn,#sidebar-toggle,#admin-sidebar-toggle,#profile-menu-btn,#public-menu-btn{display:none!important}
+        body{background:#fff!important;color:#000!important}
+        .glass{border:1px solid #ccc!important;box-shadow:none!important;background:#fff!important}
+        a{color:#000!important;text-decoration:underline}
+        .text-brand-400,.text-sky-400,.text-emerald-400{color:#000!important}
+    }
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
     </style>
 </head>
 <body class="bg-dark-950 text-gray-100 min-h-screen flex flex-col w-full max-w-full <?= e($bodyClass) ?> <?= $isPublic ? 'public-site' : '' ?>">

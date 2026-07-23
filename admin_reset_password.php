@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/page_ux.php';
 ensurePasswordResetsTable();
 ensureAdminAuthSecurity();
 
@@ -73,31 +74,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 require_once __DIR__ . '/header.php';
 ?>
-<div class="min-h-screen flex items-center justify-center px-4 py-12">
+<div class="min-h-screen flex items-center justify-center px-4 py-12" role="main">
     <div class="w-full max-w-md">
         <div class="text-center mb-8">
-            <div class="w-14 h-14 bg-gradient-to-br from-red-500 to-orange-500 rounded-2xl flex items-center justify-center font-bold text-dark-900 text-xl mx-auto mb-4">UW</div>
+            <div class="w-14 h-14 bg-gradient-to-br from-red-500 to-orange-500 rounded-2xl flex items-center justify-center font-bold text-dark-900 text-xl mx-auto mb-4" aria-hidden="true">UW</div>
             <h1 class="text-2xl font-bold">Reset Admin Password</h1>
         </div>
         <div class="glass rounded-2xl p-8 border border-red-500/10">
             <?php if ($success): ?>
-            <div class="text-center">
+            <div class="text-center" role="status">
                 <p class="text-emerald-400 font-semibold mb-2">Password changed securely.</p>
                 <p class="text-xs text-gray-500 mb-5">All old admin sessions were signed out.</p>
                 <a href="admin_login.php" class="inline-block bg-red-600 hover:bg-red-500 text-white px-6 py-2.5 rounded-xl">Admin Login</a>
             </div>
             <?php elseif ($reset): ?>
-            <?php if ($error): ?><div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg mb-5"><?= e($error) ?></div><?php endif; ?>
-            <form method="POST" class="space-y-5">
+            <?php if ($error): ?><div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg mb-5" role="alert"><?= e($error) ?></div><?php endif; ?>
+            <form method="POST" class="space-y-5" aria-label="Reset admin password">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="token" value="<?= e($plainToken) ?>">
-                <p class="text-xs text-gray-500">Use 12+ characters containing uppercase, lowercase, number and symbol.</p>
-                <div><label class="text-sm text-gray-400">New Password</label><input type="password" name="password" required minlength="12" autocomplete="new-password" class="input-field mt-1"></div>
-                <div><label class="text-sm text-gray-400">Confirm Password</label><input type="password" name="confirm_password" required minlength="12" autocomplete="new-password" class="input-field mt-1"></div>
+                <p id="pwd-policy" class="text-xs text-gray-500">Use 12+ characters containing uppercase, lowercase, number and symbol.</p>
+                <div><?= uxLabel('admin-new-password', 'New Password', true) ?><input id="admin-new-password" type="password" name="password" required minlength="12" autocomplete="new-password" class="input-field mt-1" aria-describedby="pwd-policy"></div>
+                <div><?= uxLabel('admin-confirm-password', 'Confirm Password', true) ?><input id="admin-confirm-password" type="password" name="confirm_password" required minlength="12" autocomplete="new-password" class="input-field mt-1"></div>
                 <button type="submit" class="w-full bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-semibold">Reset & Sign Out All Sessions</button>
             </form>
             <?php else: ?>
-            <div class="text-center">
+            <div class="text-center" role="alert">
                 <p class="text-red-400 mb-5"><?= e($error) ?></p>
                 <a href="admin_forgot_password.php" class="text-red-300 hover:text-red-200">Request a new reset link</a>
             </div>

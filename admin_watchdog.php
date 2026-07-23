@@ -1,9 +1,6 @@
 <?php
-/**
- * Link Watchdog — full portal/page/link scan + auto-audit history.
- * Linked from admin dashboard, header, KYC, platform status, and Link Audit.
- */
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/page_ux.php';
 requireSuperAdmin();
 
 $tab = preg_replace('/[^a-z]/', '', (string)($_GET['tab'] ?? 'scan'));
@@ -43,6 +40,19 @@ $scan = $_SESSION['watchdog_scan'] ?? $_SESSION['watchdog_quick_scan'] ?? null;
 $lastAuto = getLastAutoAuditRun();
 $autoHistory = getAutoAuditHistory(25);
 $registry = getWatchdogPageRegistry();
+if (isset($_GET['export']) && $_GET['export'] === 'csv' && $tab === 'rules') {
+    $csvRows = [];
+    foreach ($registry as $row) {
+        $csvRows[] = [
+            $row['portal'] ?? '',
+            $row['file'] ?? '',
+            $row['label'] ?? '',
+            $row['auth'] ?? '',
+            is_file(__DIR__ . '/' . ($row['file'] ?? '')) ? 'yes' : 'no',
+        ];
+    }
+    sendCsvDownload(['Portal', 'File', 'Label', 'Auth', 'On disk'], $csvRows, 'watchdog-registry-' . date('Y-m-d') . '.csv');
+}
 $intervalMin = (int)(autoAuditIntervalSeconds() / 60);
 $unresolvedErrors = countUnresolvedPlatformErrors();
 
@@ -274,8 +284,13 @@ $tabClass = static function (string $id, string $active): string {
 <?php else: /* rules */ ?>
 
 <div class="glass rounded-xl p-5 mb-6 border border-gray-800">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
     <p class="text-sm text-gray-400">Registry of pages the Link Watchdog expects across public, merchant, admin, staff, API, webhook, and system portals. Link Audit redirects here.</p>
     <p class="text-xs text-gray-600 mt-2"><?= count($registry) ?> registered routes</p>
+        </div>
+        <?= uxExportCsvLink(['tab' => 'rules']) ?>
+    </div>
 </div>
 
 <div class="glass rounded-xl overflow-hidden mb-8">

@@ -19,6 +19,7 @@ $__cloudModules = [
     // Strategy pack 2026-07-23 — load without editing gitignored live config.php
     'gateway_reason_map.php',
     'contact_change.php',
+    'page_ux.php',
 ];
 
 foreach ($__cloudModules as $__cloudModule) {

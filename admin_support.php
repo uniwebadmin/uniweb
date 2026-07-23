@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/page_ux.php';
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'team_leader', 'support', 'ops']);
 ensureSupportTicketTable();
 $db = getDB();
@@ -29,17 +30,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     redirect('admin_support.php');
 }
 
-$tickets = $db->query('SELECT t.*, m.business_name, m.email FROM support_tickets t JOIN merchants m ON t.merchant_id=m.id ORDER BY FIELD(t.status,"open","in_progress","resolved","closed"), t.created_at DESC LIMIT 50')->fetchAll();
+$q = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
+$statusFilter = trim($_GET['status'] ?? 'all');
+$sql = 'SELECT t.*, m.business_name, m.email FROM support_tickets t JOIN merchants m ON t.merchant_id=m.id';
+$params = [];
+$where = [];
+if ($statusFilter !== 'all' && in_array($statusFilter, ['open', 'in_progress', 'resolved', 'closed'], true)) {
+    $where[] = 't.status = ?';
+    $params[] = $statusFilter;
+}
+if ($q !== '') {
+    $like = '%' . strtolower($q) . '%';
+    $where[] = '(LOWER(TRIM(COALESCE(t.ticket_id,\'\'))) LIKE ? OR LOWER(TRIM(COALESCE(t.subject,\'\'))) LIKE ? OR LOWER(TRIM(COALESCE(m.business_name,\'\'))) LIKE ?)';
+    array_push($params, $like, $like, $like);
+}
+if ($where) {
+    $sql .= ' WHERE ' . implode(' AND ', $where);
+}
+$sql .= ' ORDER BY FIELD(t.status,"open","in_progress","resolved","closed"), t.created_at DESC LIMIT 80';
+$stmt = $db->prepare($sql);
+$stmt->execute($params);
+$tickets = $stmt->fetchAll();
 if (!isSuperAdmin()) {
     $tickets = array_values(array_filter($tickets, static fn(array $row): bool => staffHasMerchantAccess((int)$row['merchant_id'])));
+}
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    $csvRows = [];
+    foreach ($tickets as $t) {
+        $csvRows[] = [$t['ticket_id'] ?? '', $t['business_name'] ?? '', $t['subject'] ?? '', $t['status'] ?? '', $t['priority'] ?? '', $t['created_at'] ?? ''];
+    }
+    sendCsvDownload(['Ticket', 'Merchant', 'Subject', 'Status', 'Priority', 'Created'], $csvRows, 'support-tickets-' . date('Y-m-d') . '.csv');
 }
 $pageTitle = 'Support Tickets';
 require_once __DIR__ . '/header.php';
 ?>
 
+<?= uxListToolbar(uxExportCsvLink(array_filter(['q' => $q ?: null, 'status' => $statusFilter !== 'all' ? $statusFilter : null]))) ?>
+<form method="GET" class="glass rounded-xl p-4 mb-6 border border-gray-800 flex flex-wrap gap-3 items-end no-print" aria-label="Filter support tickets">
+    <div class="flex-1 min-w-[180px]"><?= uxLabel('support-q', 'Search') ?><input id="support-q" name="q" value="<?= e($q) ?>" class="input-field mt-1 text-sm" placeholder="Ticket ID / subject / merchant"></div>
+    <div><?= uxLabel('support-status', 'Status') ?><select id="support-status" name="status" class="input-field mt-1 text-sm"><?php foreach (['all'=>'All','open'=>'Open','in_progress'=>'In Progress','resolved'=>'Resolved','closed'=>'Closed'] as $sk=>$sl): ?><option value="<?= $sk ?>" <?= $statusFilter===$sk?'selected':'' ?>><?= $sl ?></option><?php endforeach; ?></select></div>
+    <button class="btn-primary px-4 py-2.5 text-sm">Filter</button>
+</form>
+
 <div class="space-y-4">
     <?php if (empty($tickets)): ?>
-    <div class="glass rounded-xl p-12 text-center text-gray-500">No support tickets yet.</div>
+    <?= uxEmptyState('No support tickets yet', 'Merchant support requests from the portal appear here for your team to reply.') ?>
     <?php else: foreach ($tickets as $t):
         $threadStmt = $db->prepare('SELECT * FROM support_ticket_messages WHERE ticket_id=? ORDER BY created_at ASC, id ASC');
         $threadStmt->execute([(int)$t['id']]);
@@ -71,12 +106,14 @@ require_once __DIR__ . '/header.php';
             <p class="text-gray-300 whitespace-pre-wrap"><?= e($msg['message']) ?></p>
         </div>
         <?php endforeach; ?>
-        <form method="POST" class="space-y-3 border-t border-gray-800 pt-4">
+        <form method="POST" class="space-y-3 border-t border-gray-800 pt-4" aria-label="Reply to ticket <?= e($t['ticket_id']) ?>">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="ticket_id" value="<?= $t['id'] ?>">
-            <textarea name="admin_reply" rows="2" class="input-field" placeholder="Type your reply..." required></textarea>
+            <?= uxLabel('reply-' . (int)$t['id'], 'Reply') ?>
+            <textarea id="reply-<?= (int)$t['id'] ?>" name="admin_reply" rows="2" class="input-field mt-1" placeholder="Type your reply..." required></textarea>
             <div class="flex gap-3 items-center">
-                <select name="status" class="input-field w-auto">
+                <?= uxLabel('status-' . (int)$t['id'], 'Status') ?>
+                <select id="status-<?= (int)$t['id'] ?>" name="status" class="input-field w-auto mt-1">
                     <?php foreach (['open'=>'Open','in_progress'=>'In Progress','resolved'=>'Resolved','closed'=>'Closed'] as $value=>$label): ?>
                     <option value="<?= $value ?>" <?= ($t['status'] ?? '')===$value?'selected':'' ?>><?= $label ?></option>
                     <?php endforeach; ?>
