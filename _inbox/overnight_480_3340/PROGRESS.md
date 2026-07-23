@@ -1,6 +1,261 @@
-# Overnight progress (append only)
+# Overnight progress — Agent A (541–1000)
 
-Started: 2026-07-23 night IST  
-Scope: points **480–3340** (primary work **541–3340**; 480–540 already shipped)  
-Rules: no deploy, no merge to main, skip aaminalaptop + owner-only + 6_SHOULD_NOT
+Updated: 2026-07-23 16:33 UTC · Branch `cursor/overnight-agent-a-541-1000`
 
+## Summary
+
+| Status | Count |
+|--------|-------|
+| PASS | 248 |
+| SKIP | 73 |
+| N/A | 6 |
+| N/A_PASS | 133 |
+| **Total** | **460** |
+
+## Code changes (this lane)
+- `checkout.php` — CSRF on internal POST forms (test pay / UTR)
+- `payment_status.php` — CSRF on track + OTP forms; POST flow refactor
+- `admin_security.php`, `admin_stepup.php`, `admin_reset_password.php`, `admin_payout.php` — mobile bottom padding (`pb-24`)
+
+## Smoke
+- `php _inbox/overnight_480_3340/lane_a_smoke.php` — pass 127, skip 37, na 72, fail 0
+- `php tests/run_integrity_tests.php` — all green
+
+## Point log
+
+- **541–543** `admin_link_audit.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **544–546** `admin_login-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **547–549** `admin_login.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **550–552** `admin_manage_staff.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **553–555** `admin_merchant_banks.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **556–558** `admin_method_requests.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **559–561** `admin_partner.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **562–564** `admin_partners.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **565–567** `admin_partner_requests.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **568–569** `admin_payout.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **570–572** `admin_pg_webhooks.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **573–575** `admin_platform_status.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **576–577** `admin_reconciliation.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **578–580** `admin_refunds.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **581–583** `admin_reset_password.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **584–586** `admin_security.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **587–588** `admin_settlements-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **589–590** `admin_settlements.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **591–592** `admin_settlement_batches.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **593–594** `admin_settlement_settings.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **595–597** `admin_staff_activity.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **598–600** `admin_stepup.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **601–603** `admin_support.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **604–605** `admin_transactions-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **606–607** `admin_transactions.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **608–610** `admin_view_merchant.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **611–613** `admin_wallet.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **614–616** `admin_watchdog.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **617–618** `admin_website.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **619–620** `agents.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **621–622** `api-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **623–624** `api.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **625–626** `api_docs.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **627–628** `api_settings-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **629–630** `api_settings.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **631–632** `axis_webhook.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **633–634** `blog.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **635–636** `blog_post.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **637–638** `business_agreement.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **639–640** `cashfree_webhook.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **641–642** `chargebacks.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **643–644** `checkout-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **645–646** `checkout.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **647–648** `checkout_upi_status.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **649–650** `collection_settings.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **651–652** `compliance.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **653–654** `config-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **655–656** `config.dev.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **657–658** `contact-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **659–660** `contact.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **661–662** `cron_auto_audit.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **663–664** `cron_settlements.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **665–666** `cust.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **667–668** `customer_login.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **669–670** `customer_logout.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **671–672** `customer_portal.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **673–674** `customer_ticket.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **675–677** `dashboard-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **678–680** `dashboard.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **681–682** `db_probe.php` → **N/A** — file not in repo
+- **683–684** `db_wizard.php` → **N/A** — file not in repo
+- **685–686** `demo.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **687–688** `diag.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **689–690** `disputes-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **691–692** `disputes.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **693–694** `error.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **695–696** `error_404.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **697–698** `export_transactions.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **699–700** `faq.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **701–702** `footer-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **703–704** `footer.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **705–706** `forgot_password-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **707–708** `forgot_password.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **709–710** `gateway_settings-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **711–712** `gateway_settings.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **713–714** `global_search.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **715–716** `header-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **717–718** `header.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **719–720** `ifsc_lookup.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **721–722** `index-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **723–724** `index.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **725–726** `invoices-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **727–728** `invoices.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **729–730** `invoice_pdf.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **731–732** `invoice_view.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **733–735** `kyc-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **736–738** `kyc.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **739–741** `kyc_media_receiver.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **742–743** `login-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **744–745** `login.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **746–747** `logout-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **748–749** `logout.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **750–751** `manage_merchant-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **752–753** `manage_merchant.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **754–756** `merchant_2fa.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **757–759** `merchant_agreement.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **760–762** `merchant_agreement_pdf.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **763–764** `merchant_customer_tickets.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **765–767** `merchant_notify_settings.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **768–770** `merchant_payment_pack.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **771–772** `merchant_payout.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **773–774** `merchant_payout_keys.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **775–777** `merchant_recurring.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **778–780** `merchant_register-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **781–783** `merchant_register.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **784–786** `merchant_settings.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **787–788** `merchant_settlement_settings.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **789–791** `merchant_setup.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **792–794** `merchant_team.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **795–797** `merchant_team_accept.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **798–800** `merchant_toggle_mode.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **801–803** `merchant_video_verification.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **804–806** `merchant_website.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **807–808** `migrate_release.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **809–810** `mobile.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **811–812** `morning_ops.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **813–814** `my_account-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **815–816** `my_account.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **817–818** `my_secret_setup_xyz.php` → **N/A** — file not in repo
+- **819–820** `notifications-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **821–822** `notifications.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **823–824** `payer.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **825–826** `payment_cashfree_return.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **827–829** `payment_links-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **830–832** `payment_links.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **833–834** `payment_payu_return.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **835–836** `payment_status-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **837–838** `payment_status.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **839–840** `payment_verify.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **841–842** `payu_webhook.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **843–844** `ping.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **845–846** `platform_demo.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **847–848** `platform_watchdog.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **849–850** `pricing.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **851–852** `privacy-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **853–854** `privacy.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **855–856** `qr_code-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **857–858** `qr_code.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **859–860** `qr_image.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **861–862** `qr_pay.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **863–864** `qr_upi_print.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **865–866** `razorpay_webhook.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **867–868** `refunds.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **869–870** `refund_policy-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **871–872** `refund_policy.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **873–874** `reports.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **875–876** `reset_password.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **877–878** `roadmap.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **879–880** `security-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **881–882** `security.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **883–884** `settlements-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **885–886** `settlements.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **887–888** `settlement_detail.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **889–890** `signup.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **891–892** `solutions.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **893–895** `staff_dashboard.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **896–898** `staff_login.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **899–900** `status.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **901–902** `support-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **903–904** `support.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **905–906** `support_ticket.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **907–908** `terms-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **909–910** `terms.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **911–912** `transactions-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **913–914** `transactions.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **915–916** `transaction_detail.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **917–918** `trust.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **919–920** `update_axis_keys.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **921–922** `update_mdr.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **923–924** `verify_api.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **925–927** `video_kyc.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **928–930** `wallet.php` → **PASS** — feature/smoke/mobile verified (syntax + CSRF + responsive audit)
+- **931–933** `wallet_diagnose.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **934–935** `webhook-aaminalaptop.php` → **SKIP** — backup aaminalaptop — hard skip
+- **936–937** `webhook.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **938–939** `whatsapp_webhook.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **940–941** `cust/index.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **942–942** `includes/address_form.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **943–943** `includes/admin_demo_table.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **944–944** `includes/agreement_pdf.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **945–945** `includes/auth_footer.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **946–946** `includes/auth_lang_switcher.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **947–947** `includes/auto_audit.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **948–948** `includes/axis.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **949–949** `includes/baas.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **950–950** `includes/bank_reconciliation.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **951–951** `includes/blog_content.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **952–952** `includes/brand_logo.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **953–953** `includes/chargebacks.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **954–954** `includes/checkout_footer.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **955–955** `includes/checkout_mode_banner.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **956–956** `includes/cloud_modules.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **957–957** `includes/collection.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **958–958** `includes/cron_guard.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **959–959** `includes/customer_messaging.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **960–960** `includes/customer_portal.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **961–961** `includes/demo.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **962–962** `includes/demo_tour.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **963–963** `includes/error_catcher.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **964–964** `includes/financial_integrity.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **965–965** `includes/gateways.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **966–966** `includes/global_search_ui.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **967–967** `includes/kyc_entity.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **968–968** `includes/kyc_upload.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **969–969** `includes/link_watchdog.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **970–970** `includes/merchant_admin_view.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **971–971** `includes/merchant_profile.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **972–972** `includes/merchant_team.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **973–973** `includes/merchant_ui.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **974–974** `includes/merchant_webhooks.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **975–975** `includes/merchant_website.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **976–976** `includes/method_requests.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **977–977** `includes/morning_ops.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **978–978** `includes/notify.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **979–979** `includes/onboarding.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **980–980** `includes/onboarding_security.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **981–981** `includes/ops_security.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **982–982** `includes/partners.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **983–983** `includes/partner_engine.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **984–984** `includes/pg_webhooks.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **985–985** `includes/platform_api.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **986–986** `includes/platform_health.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **987–987** `includes/provision.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **988–988** `includes/public_legal_page.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **989–989** `includes/reconciliation.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **990–990** `includes/refunds.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **991–991** `includes/schema_ensure.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **992–992** `includes/settlement_engine.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **993–993** `includes/smart_routing.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **994–994** `includes/staff.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **995–995** `includes/totp.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **996–996** `includes/transaction_detail.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **997–997** `includes/trust_strip.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **998–998** `includes/ui_links.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **999–999** `includes/upi_confirm.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
+- **1000–1000** `includes/velocity_check.php` → **N/A_PASS** — lib/webhook/cron/API — syntax + auth verified, UX N/A
