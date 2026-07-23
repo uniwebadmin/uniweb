@@ -53,6 +53,15 @@ Also: `.htaccess` maps `/about` → `about.php`. Never smoke `*-aaminalaptop.php
 | 518–519 | `admin_disputes.php` | Live **302** OK; table mobile + CSRF note |
 | 520 | Feature `admin_edit_merchant.php` | **Polished** — mobile form, ap-phone, live-gate reminder |
 
+## Batch 521–530 (2026-07-23)
+
+| # | Point | Result |
+|---|--------|--------|
+| 521–522 | Live smoke + Mobile `admin_edit_merchant.php` | Live **302** (auth); sidebar cards `p-4 sm:p-5`, Save full-width mobile |
+| 523–525 | Feature + smoke + mobile `admin_error_log.php` | **100%** — removed plaintext watchdog URL/key from UI; CSRF + mobile actions; live **302** |
+| 526–528 | Feature + smoke + mobile `admin_financial_reports.php` | **100%** — txn count, CSV export, date swap fix, mobile stats/table; live **302** |
+| 529–530 | Feature + smoke `admin_forgot_password.php` | **100%** — CSRF + anti-enumeration kept; mobile pad + note; live **200** |
+
 ## Themes from owner photos (28)
 
 | Area | Owner ask | Status |

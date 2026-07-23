@@ -246,11 +246,11 @@ $methodCatalog = getPaymentMethodCatalog();
                     </select>
                 </div>
             </div>
-            <button type="submit" class="btn-primary px-8 py-2.5">Save Changes</button>
+            <button type="submit" class="btn-primary w-full sm:w-auto px-8 py-2.5">Save Changes</button>
         </form>
     </div>
-    <div class="space-y-4">
-        <div class="glass rounded-xl p-5 text-sm" id="website">
+    <div class="space-y-4 min-w-0">
+        <div class="glass rounded-xl p-4 sm:p-5 text-sm" id="website">
             <h3 class="font-semibold mb-2">Website & App</h3>
             <?php if (!empty($merchant['website_url'])): ?>
             <a href="<?= e($merchant['website_url']) ?>" target="_blank" rel="noopener" class="text-sky-400 text-xs break-all hover:underline"><?= e($merchant['website_url']) ?></a>
@@ -263,7 +263,7 @@ $methodCatalog = getPaymentMethodCatalog();
             <p class="text-xs text-gray-500">Merchant has not added a website yet.</p>
             <?php endif; ?>
         </div>
-        <div class="glass rounded-xl p-5">
+        <div class="glass rounded-xl p-4 sm:p-5">
             <h3 class="font-semibold text-sm mb-3">KYC Progress</h3>
             <p class="text-2xl font-bold text-brand-400"><?= $kycProgress['uploaded'] ?>/<?= $kycProgress['required'] ?></p>
             <p class="text-xs text-gray-500 mt-1">Documents uploaded</p>
@@ -278,12 +278,12 @@ $methodCatalog = getPaymentMethodCatalog();
             <?php endif; ?>
             <a href="admin_kyc.php" class="inline-block mt-3 text-xs text-brand-400">Review KYC →</a>
         </div>
-        <div class="glass rounded-xl p-5 text-sm">
+        <div class="glass rounded-xl p-4 sm:p-5 text-sm">
             <h3 class="font-semibold mb-2">Wallet</h3>
             <p class="text-xl font-bold"><?= formatMoney(getMerchantWalletBalance($merchant)) ?></p>
             <p class="text-xs text-gray-500 mt-1">Merchant ID: <?= e($merchant['merchant_code']) ?></p>
         </div>
-        <div class="glass rounded-xl p-5 text-sm">
+        <div class="glass rounded-xl p-4 sm:p-5 text-sm">
             <h3 class="font-semibold mb-2">Payment Profile</h3>
             <p class="text-xs text-gray-400"><?= e($methodPreview['profile_label']) ?></p>
             <p class="text-xs text-brand-400 mt-2"><?= count($methodPreview['methods']) ?> methods · <?= !empty($merchant['auto_provisioned']) ? 'Auto ✓' : 'Manual' ?></p>
@@ -291,7 +291,7 @@ $methodCatalog = getPaymentMethodCatalog();
             <p class="text-xs text-emerald-400 mt-2"><?= count($packLinks) ?> dedicated links</p>
             <?php endif; ?>
         </div>
-        <div class="glass rounded-xl p-5 text-sm">
+        <div class="glass rounded-xl p-4 sm:p-5 text-sm">
             <h3 class="font-semibold mb-2">Collection</h3>
             <p class="text-xs text-gray-400 mb-2"><?= e(collectionModeLabel(getMerchantCollectionMode($merchant))) ?></p>
             <?php if (!empty($merchant['axis_va_number'])): ?>
@@ -300,7 +300,7 @@ $methodCatalog = getPaymentMethodCatalog();
             <a href="admin_edit_merchant.php?id=<?= $id ?>&action=provision_axis_va&token=<?= csrfToken() ?>" class="text-xs text-brand-400">Provision Axis VA →</a>
             <?php endif; ?>
         </div>
-        <div class="glass rounded-xl p-5 text-xs text-gray-500 space-y-3" id="api-keys">
+        <div class="glass rounded-xl p-4 sm:p-5 text-xs text-gray-500 space-y-3" id="api-keys">
             <div>
                 <p class="text-[10px] uppercase text-gray-600 mb-1">UniWeb API (give to merchant)</p>
                 <p class="text-gray-500">Live key:</p>
