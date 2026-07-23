@@ -20,7 +20,7 @@ if (isset($_GET['action']) && verifyCsrf($_GET['token'] ?? '')) {
                 : 'VA creation failed — check API logs. Subscribe Virtual Account API on Axis portal.');
         }
     } elseif ($action === 'clear_logs') {
-        try { $db->exec('TRUNCATE TABLE axis_api_logs'); flash('success', 'Logs cleared.'); } catch (Throwable $e) { flash('error', 'Run update_v10.php first.'); }
+        try { $db->exec('TRUNCATE TABLE axis_api_logs'); flash('success', 'Logs cleared.'); } catch (Throwable $e) { flash('error', 'Axis API logs table missing — apply pending migrations first.'); }
     }
     redirect('admin_axis.php');
 }
@@ -36,7 +36,7 @@ require_once __DIR__ . '/header.php';
     <a href="gateway_settings.php" class="text-sm text-gray-400 hover:text-white">← Gateway Settings</a>
 </div>
 
-<div class="bg-sky-500/10 border border-sky-500/30 rounded-xl p-5 mb-6">
+<div class="bg-sky-500/10 border border-sky-500/30 rounded-xl p-4 sm:p-5 mb-6">
     <h2 class="font-semibold text-sky-300 mb-2">Axis Developer Portal — UAT Checklist</h2>
     <ol class="text-sm text-gray-400 space-y-2 list-decimal list-inside">
         <li>Login: <a href="https://apiportal.axis.bank.in/portal/" class="text-sky-400" target="_blank" rel="noopener">apiportal.axis.bank.in</a></li>
@@ -45,27 +45,28 @@ require_once __DIR__ . '/header.php';
         <li>Run <strong>Test Token</strong> + <strong>Create Test VA</strong> below — calls appear on portal</li>
         <li>After Axis approval → receive live keys → set <code>axis_environment=production</code> in Gateway Settings</li>
     </ol>
+    <p class="text-xs text-amber-200/90 mt-3">Production Axis (beyond sandbox/UAT) stays gated until bank RM approval — do not invent keys.</p>
 </div>
 
-<div class="grid lg:grid-cols-5 gap-4 mb-8">
-    <div class="glass rounded-xl p-5">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8">
+    <div class="glass rounded-xl p-4 sm:p-5 min-w-0">
         <p class="text-xs text-gray-500">Environment</p>
         <p class="text-xl font-bold text-sky-400"><?= strtoupper(e(getSetting('axis_environment', 'uat'))) ?></p>
     </div>
-    <div class="glass rounded-xl p-5">
+    <div class="glass rounded-xl p-4 sm:p-5 min-w-0">
         <p class="text-xs text-gray-500">API Base</p>
         <p class="text-xs font-mono text-gray-300 mt-1 break-all"><?= e(axisApiBase()) ?></p>
     </div>
-    <div class="glass rounded-xl p-5">
+    <div class="glass rounded-xl p-4 sm:p-5 min-w-0">
         <p class="text-xs text-gray-500">Server IP (whitelist)</p>
-        <p class="text-sm font-mono text-amber-300 mt-1"><?= e($test['server_ip'] ?? axisServerPublicIp()) ?></p>
+        <p class="text-sm font-mono text-amber-300 mt-1 break-all"><?= e($test['server_ip'] ?? axisServerPublicIp()) ?></p>
         <p class="text-xs text-gray-600 mt-1">Whitelist this IP on Axis portal</p>
     </div>
-    <div class="glass rounded-xl p-5">
+    <div class="glass rounded-xl p-4 sm:p-5 min-w-0">
         <p class="text-xs text-gray-500">Token Status</p>
         <p class="text-xl font-bold <?= $test['token_ok'] ? 'text-emerald-400' : 'text-amber-400' ?>"><?= $test['token_ok'] ? 'OK' : 'Pending' ?></p>
     </div>
-    <div class="glass rounded-xl p-5">
+    <div class="glass rounded-xl p-4 sm:p-5 min-w-0 sm:col-span-2 lg:col-span-1">
         <p class="text-xs text-gray-500">Mock VA</p>
         <p class="text-xl font-bold <?= axisAllowMock() ? 'text-amber-400' : 'text-emerald-400' ?>"><?= axisAllowMock() ? 'ON' : 'OFF' ?></p>
         <p class="text-xs text-gray-600 mt-1">OFF = real Axis API only</p>
@@ -133,7 +134,7 @@ require_once __DIR__ . '/header.php';
             </thead>
             <tbody class="divide-y divide-gray-800 font-mono">
                 <?php if (empty($logs)): ?>
-                <tr><td colspan="5" class="px-4 py-10 text-center text-gray-500">No API calls yet. Run update_v10.php then Test Token.</td></tr>
+                <tr><td colspan="5" class="px-4 py-10 text-center text-gray-500">No API calls yet. Paste Axis keys in Gateway Settings, then run Test Token.</td></tr>
                 <?php else: foreach ($logs as $log): ?>
                 <tr class="hover:bg-white/5">
                     <td class="px-4 py-2 text-gray-500 whitespace-nowrap"><?= formatDate($log['created_at']) ?></td>

@@ -36,15 +36,15 @@ $pageTitle = 'AML Compliance';
 require_once __DIR__ . '/header.php';
 ?>
 
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
     <?php foreach ([['Open Flags',$stats['open'],'text-red-400'],['High Severity',$stats['high'],'text-red-400'],['KYC Pending',$stats['kyc_pending'],'text-amber-400'],['Month Volume',formatMoney($stats['volume']),'text-brand-400']] as [$l,$v,$c]): ?>
-    <div class="stat-card border border-gray-800 rounded-xl p-5"><p class="text-xs text-gray-500"><?= $l ?></p><p class="text-2xl font-bold <?= $c ?> mt-1"><?= $v ?></p></div>
+    <div class="stat-card border border-gray-800 rounded-xl p-3 sm:p-5 min-w-0"><p class="text-xs text-gray-500"><?= $l ?></p><p class="text-xl sm:text-2xl font-bold <?= $c ?> mt-1 break-words"><?= $v ?></p></div>
     <?php endforeach; ?>
 </div>
 
-<div class="glass rounded-xl p-6 mb-6">
+<div class="glass rounded-xl p-4 sm:p-6 mb-6">
     <h2 class="font-semibold mb-2">RBI Compliance Checklist</h2>
-    <div class="grid md:grid-cols-2 gap-3 text-sm text-gray-400">
+    <div class="grid sm:grid-cols-2 gap-2 sm:gap-3 text-sm text-gray-400">
         <div>✓ KYC verification before live payments</div>
         <div>✓ High-value transaction monitoring (≥ <?= formatMoney($threshold) ?>)</div>
         <div>✓ Merchant entity type verification</div>
@@ -52,10 +52,11 @@ require_once __DIR__ . '/header.php';
         <div>✓ Transaction audit trail maintained</div>
         <div>✓ Settlement only to verified bank accounts</div>
     </div>
+    <p class="text-xs text-gray-500 mt-4">Flags auto-open for high-value success txns and incomplete-KYC active merchants. Review or Clear from the table below.</p>
 </div>
 
-<div class="glass rounded-xl overflow-hidden">
-    <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">AML Flags</h2></div>
+<div class="glass rounded-xl overflow-hidden min-w-0">
+    <div class="px-4 sm:px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">AML Flags</h2></div>
     <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
             <th class="px-5 py-3 text-left">Merchant</th><th class="px-5 py-3 text-left">Type</th>

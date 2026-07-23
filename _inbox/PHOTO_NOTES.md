@@ -2,6 +2,47 @@
 
 Owner phone screenshots → `_inbox/`. Sync via OneDrive. Do not treat `*-aaminalaptop.php` as source of truth; prefer git HEAD. If a file shrinks oddly, restore from git blob then re-apply fixes. Keep this folder **Always keep on this device** in OneDrive.
 
+## Batch 480–490 (10-point mode, 2026-07-23)
+
+| # | Point | Result |
+|---|--------|--------|
+| 480–481 | Live/Mobile `about-aaminalaptop.php` | **SKIP** — local backup only; live 404 |
+| 482 | Live smoke `about.php` | **OK** — live 200 |
+| 483 | Mobile OK `about.php` | **OK** — viewport + company layout |
+| 484 | Live smoke `add_agent.php` | **OK** — auth → login |
+| 485 | Mobile OK `add_agent.php` | **Fixed** — full-width, ap-phone, padding |
+| 486–487 | `add_bank-aaminalaptop.php` | **SKIP** — backup |
+| 488 | Live smoke `add_bank.php` | **OK** — auth → login |
+| 489 | Mobile OK `add_bank.php` | **Fixed** — IFSC grid stacks on small screens |
+| 490 | Live smoke `add_merchant-aaminalaptop.php` | **SKIP** — backup |
+
+Also: `.htaccess` maps `/about` → `about.php`. Never smoke `*-aaminalaptop.php` as product pages.
+
+## Batch 491–500 (10-point mode, 2026-07-23)
+
+| # | Point | Result |
+|---|--------|--------|
+| 491 | Mobile `add_merchant-aaminalaptop.php` | **SKIP** — backup; live 404 |
+| 492 | Live smoke `add_merchant.php` | **OK** — 302 → admin_login |
+| 493 | Mobile OK `add_merchant.php` | **Fixed** — same form polish as add_agent |
+| 494 | Live smoke `admin.php` | **OK** — 302 → admin_login / dashboard redirect |
+| 495 | Mobile OK `admin.php` | **OK** — redirect-only page |
+| 496 | Feature `admin_aml.php` ~50% | **Polished** — clearer checklist note; mobile stats/table |
+| 497 | Live smoke `admin_aml.php` | **OK** — 302 → admin_login |
+| 498 | Mobile OK `admin_aml.php` | **Fixed** — responsive padding + overflow |
+| 499 | Feature `admin_axis.php` ~50% | **Polished** — UAT gate note; logs empty-state; mobile stats grid |
+| 500 | Live smoke `admin_axis.php` | **OK** — 302 → admin_login |
+
+## Batch 501–509 (10-point mode + deploy, 2026-07-23)
+
+| # | Point | Result |
+|---|--------|--------|
+| 501 | Mobile OK `admin_axis.php` | **OK** — polished in 499 batch |
+| 502–503 | `admin_bank_reconciliation.php` | Live **302** OK; mobile upload form + security note (no auto-settle) |
+| 504–505 | `admin_chargebacks.php` | Live **302** OK; mobile form; CSRF + step-up kept |
+| 506–507 | `admin_customer_message.php` | Live **302** OK; redirect stub → merchant view (mobile N/A) |
+| 508–509 | `admin_customer_tickets.php` | Live **302** OK; mobile ticket/reply polish |
+
 ## Themes from owner photos (28)
 
 | Area | Owner ask | Status |
