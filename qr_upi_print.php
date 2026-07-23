@@ -1,5 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
+// Defense in depth: live config.php is gitignored and may omit 'qr_svg' from $__includes.
+if (!function_exists('qrImageUrl')) {
+    require_once __DIR__ . '/includes/qr_svg.php';
+}
 requireLogin();
 
 $merchant = getMerchant();

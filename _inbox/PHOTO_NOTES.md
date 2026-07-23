@@ -33,7 +33,7 @@ Do **not** implement until owner explicitly says “kaam start”. Budget uncons
 |---|--------|----------------------|------------------|
 | 1 | Txn/settlement **exact reason** copy | Mostly ✅ `transactionStatusExplainer()` + settlement reason text live | Next polish: clearer Hindi-owner-facing English copy, more statuses, list pages consistency |
 | 2 | Shopify / WordPress / e-Rupee | WooCommerce plugin ✅ `plugins/woocommerce/`; Shopify/WP generic/e-Rupee 🔜 | After primary PG live; Shopify app + e-Rupee via bank/partner API |
-| 3 | Razorpay-style QR + UniWeb logo + per-QR history | Marked ✅ LIVE in master review (`qr_code.php`, `qr_image.php`) | Owner called “quick win pending” — verify live vs gaps (logo bake, history UX) then polish |
+| 3 | Razorpay-style QR + UniWeb logo + per-QR history | ✅ Verified live 2026-07-23 (logo bake, demo checkout QR, history UI) | Code defense shipped; **owner still needs live `config.php` `'qr_svg'`** (see section below) |
 | 4 | Auto-approve profile self-update | ⛔ fraud — never auto-approve | Contact change = OTP verify on **mobile and email** only; no silent profile overwrite |
 | 5 | Payout stack (enable, rails, beneficiary, penny-drop, CSV, wallets, maker-checker, API keys) | Scaffold ✅; live money gated | Keys from partners: Razorpay/X, Cashfree, PayU, Worldline, Axis — paste when signed |
 | 6 | Failed-payout auto-reversal | ⛔ OWNER-CONFIRMED: no auto-credit without recon | Reversal only after recon confirms bank did not debit + licensed partner |
@@ -60,11 +60,47 @@ Owner sending more detail next — discuss before coding.
 
 Owner said **"let's start"**. Coding began on strategy pack:
 - #1 Exact reason polish — agent in progress
-- #3 QR verify/polish (+ defensive qr_svg load) — agent in progress
+- #3 QR verify/polish (+ defensive qr_svg load) — **DONE this session** (see section below)
 - #4 OTP contact change (email/mobile) — agent in progress
 - #2 Shopify/WP/e-Rupee — leave (Woo exists; rest after PG live)
 - #5 Payout wire — leave until partner keys
 - #6 Failed-payout auto-reversal — keep gate (recon-only)
+
+## Strategy #3 — Razorpay-style QR polish (2026-07-23 evening) — DONE in repo
+
+**Live smoke (uniweb.co.in, Hostinger Git deploy):**
+- `qr_image.php?d=…&s=200` → PNG 200, UniWeb logo baked (with-logo file larger than `logo=0`)
+- `assets/icons/icon-192.png` → 200 (logo asset present)
+- Demo checkout (`checkout.php?link=LNK…&pay=upi`) → renders `<img src="…/qr_image.php?…">`, no `qrImageUrl` fatal
+- Merchant pages `qr_code.php` / `qr_upi_print.php` → login gate (expected when logged out)
+
+**Repo already had (no product gap to invent):** centre UniWeb logo (GD + ECC-H), print poster, Instant UPI QR, per-QR Collected/Payments + “View payments” → `transactions.php?qr_id=`, `qr_pay.php` stamps `qr_code_id` on links.
+
+**Shipped this round:** defensive `if (!function_exists('qrImageUrl')) require_once …/qr_svg.php` on `checkout.php`, `qr_code.php`, `qr_upi_print.php`, `qr_image.php` so pages work even if live `$__includes` omits `qr_svg`. `config.dev.php` already lists `'qr_svg'`.
+
+### ⚠️ OWNER MANUAL — live `config.php` mein `'qr_svg'` add karo (Git se nahi jata)
+
+Live `config.php` **gitignored** hai — Hostinger Git deploy is file ko overwrite nahi karta. Demo checkout abhi chal raha hai, lekin **proper fix** yeh hai:
+
+**English (exact steps):**
+1. hPanel → website **uniweb.co.in** → **Files → File Manager**.
+2. Open the folder that contains live `config.php` (same place as `index.php`).
+3. Right-click **config.php** → **Edit**.
+4. Find `$__includes = [` (long list of include basenames).
+5. Add `'qr_svg',` next to the other names — same as `config.dev.php` (`'mailer', 'qr_svg',`).
+   - Or after the includes loop, add: `require_once __DIR__ . '/includes/qr_svg.php';`
+6. **Save**. No FTP/Git needed.
+7. Optional check: open demo checkout UPI QR — image should still load.
+
+**Hindi (seedhe steps):**
+1. hPanel kholo → **uniweb.co.in** select karo → **Files → File Manager**.
+2. Jis folder mein live `config.php` dikhe (saath mein `index.php`), usko kholo.
+3. `config.php` pe right-click → **Edit**.
+4. Andar `$__includes = [` wali list dhoondo.
+5. List mein `'qr_svg',` add kar do (jaise `config.dev.php` mein `'mailer', 'qr_svg',` hai).
+   - Ya includes loop ke baad yeh line: `require_once __DIR__ . '/includes/qr_svg.php';`
+6. **Save** dabao. Git/FTP ki zaroorat nahi.
+7. Check: demo checkout pe UPI QR image dikhni chahiye.
 
 ### Owner confirm (2026-07-22 evening)
 

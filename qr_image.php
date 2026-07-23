@@ -1,5 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
+// Defense in depth: ensure qr_svg helpers exist if live config.php omitted 'qr_svg'.
+if (!function_exists('qrImageUrl')) {
+    require_once __DIR__ . '/includes/qr_svg.php';
+}
 
 $data = $_GET['d'] ?? '';
 if ($data === '') {
