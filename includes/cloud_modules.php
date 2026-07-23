@@ -16,6 +16,9 @@ declare(strict_types=1);
 $__cloudModules = [
     'payout.php',
     'customer_portal.php',
+    // Strategy pack 2026-07-23 — load without editing gitignored live config.php
+    'gateway_reason_map.php',
+    'contact_change.php',
 ];
 
 foreach ($__cloudModules as $__cloudModule) {
