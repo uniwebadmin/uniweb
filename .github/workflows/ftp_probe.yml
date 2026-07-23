@@ -114,3 +114,12 @@ jobs:
           echo
           echo "=== FULL NAMES: public_html/ ==="
           curl -sS --ftp-pasv --connect-timeout 20 --max-time 30 -l "ftp://${USER_ENC}:${PASS_ENC}@${HOST}/public_html/" 2>&1
+          echo
+          echo "=== FULL NAMES: domains/uniweb.co.in/ ==="
+          curl -sS --ftp-pasv --connect-timeout 20 --max-time 30 -l "ftp://${USER_ENC}:${PASS_ENC}@${HOST}/domains/uniweb.co.in/" 2>&1
+          echo
+          echo "=== FULL NAMES: domains/uniweb.co.in/public_html/ ==="
+          curl -sS --ftp-pasv --connect-timeout 20 --max-time 30 -l "ftp://${USER_ENC}:${PASS_ENC}@${HOST}/domains/uniweb.co.in/public_html/" 2>&1
+          echo
+          echo "=== FULL NAMES: domains/uniweb.co.in/public_html/public_html/ ==="
+          curl -sS --ftp-pasv --connect-timeout 20 --max-time 30 -l "ftp://${USER_ENC}:${PASS_ENC}@${HOST}/domains/uniweb.co.in/public_html/public_html/" 2>&1
