@@ -1,0 +1,3782 @@
+﻿[
+    {
+        "n":  2801,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: security-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2802,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: security-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2803,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: security-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2804,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: security-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2805,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: security.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  2806,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: security.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2807,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: security.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2808,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: security.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2809,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: security.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2810,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: security.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2811,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: security.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2812,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: security.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2813,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: security.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2814,
+        "bucket":  "3_PCT25",
+        "title":  "Deep UX polish: settlements-aaminalaptop.php",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  2815,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: settlements-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2816,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: settlements-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2817,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: settlements-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2818,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: settlements-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2819,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: settlements-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2820,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: settlements-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2821,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: settlements-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2822,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: settlements-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2823,
+        "bucket":  "3_PCT25",
+        "title":  "Deep UX polish: settlements.php",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  2824,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: settlements.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2825,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: settlements.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2826,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: settlements.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2827,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: settlements.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2828,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: settlements.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2829,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: settlements.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2830,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: settlements.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2831,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: settlements.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2832,
+        "bucket":  "3_PCT25",
+        "title":  "Deep UX polish: settlement_detail.php",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  2833,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: settlement_detail.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2834,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: settlement_detail.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2835,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: settlement_detail.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2836,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: settlement_detail.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2837,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: settlement_detail.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2838,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: settlement_detail.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2839,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: settlement_detail.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2840,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: settlement_detail.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2841,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: signup.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  2842,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: signup.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2843,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: signup.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2844,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: signup.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2845,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: signup.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2846,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: signup.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2847,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: signup.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2848,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: signup.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2849,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: signup.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2850,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: solutions.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  2851,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: solutions.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2852,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: solutions.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2853,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: solutions.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2854,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: solutions.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2855,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: solutions.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2856,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: solutions.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2857,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: solutions.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2858,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: solutions.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2859,
+        "bucket":  "3_PCT25",
+        "title":  "Deep UX polish: staff_dashboard.php",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  2860,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: staff_dashboard.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2861,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: staff_dashboard.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2862,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: staff_dashboard.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2863,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: staff_dashboard.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2864,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: staff_dashboard.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2865,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: staff_dashboard.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2866,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: staff_dashboard.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2867,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: staff_dashboard.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2868,
+        "bucket":  "3_PCT25",
+        "title":  "Deep UX polish: staff_login.php",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  2869,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: staff_login.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2870,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: staff_login.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2871,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: staff_login.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2872,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: staff_login.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2873,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: staff_login.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2874,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: staff_login.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2875,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: staff_login.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2876,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: staff_login.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2877,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: status.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  2878,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: status.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2879,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: status.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2880,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: status.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2881,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: status.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2882,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: status.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2883,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: status.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2884,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: status.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2885,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: status.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2886,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: support-aaminalaptop.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  2887,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: support-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2888,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: support-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2889,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: support-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2890,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: support-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2891,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: support-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2892,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: support-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2893,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: support-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2894,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: support-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2895,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: support.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  2896,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: support.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2897,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: support.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2898,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: support.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2899,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: support.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2900,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: support.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2901,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: support.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2902,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: support.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2903,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: support.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2904,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: support_ticket.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  2905,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: support_ticket.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2906,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: support_ticket.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2907,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: support_ticket.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2908,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: support_ticket.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2909,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: support_ticket.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2910,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: support_ticket.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2911,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: support_ticket.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2912,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: support_ticket.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2913,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: terms-aaminalaptop.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  2914,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: terms-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2915,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: terms-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2916,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: terms-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2917,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: terms-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2918,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: terms-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2919,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: terms-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2920,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: terms-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2921,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: terms-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2922,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: terms.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  2923,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: terms.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2924,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: terms.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2925,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: terms.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2926,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: terms.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2927,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: terms.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2928,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: terms.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2929,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: terms.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2930,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: terms.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2931,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: transactions-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2932,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: transactions-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2933,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: transactions-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2934,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: transactions-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2935,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: transactions-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2936,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: transactions-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2937,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: transactions-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2938,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: transactions-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2939,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: transactions.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2940,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: transactions.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2941,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: transactions.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2942,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: transactions.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2943,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: transactions.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2944,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: transactions.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2945,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: transactions.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2946,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: transactions.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2947,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: transaction_detail.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  2948,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: transaction_detail.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2949,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: transaction_detail.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2950,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: transaction_detail.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2951,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: transaction_detail.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2952,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: transaction_detail.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2953,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: transaction_detail.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2954,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: transaction_detail.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2955,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: transaction_detail.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2956,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: trust.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  2957,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: trust.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2958,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: trust.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2959,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: trust.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2960,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: trust.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2961,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: trust.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2962,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: trust.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2963,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: trust.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2964,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: trust.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2965,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: update_axis_keys.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  2966,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: update_axis_keys.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2967,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: update_axis_keys.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2968,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: update_axis_keys.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2969,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: update_axis_keys.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2970,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: update_axis_keys.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2971,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: update_axis_keys.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2972,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: update_axis_keys.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2973,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: update_axis_keys.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2974,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: update_mdr.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  2975,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: update_mdr.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2976,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: update_mdr.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2977,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: update_mdr.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2978,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: update_mdr.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2979,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: update_mdr.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2980,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: update_mdr.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2981,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: update_mdr.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2982,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: update_mdr.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2983,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: verify_api.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  2984,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: verify_api.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2985,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: verify_api.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2986,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: verify_api.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2987,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: verify_api.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2988,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: verify_api.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2989,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: verify_api.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2990,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: verify_api.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2991,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: verify_api.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2992,
+        "bucket":  "3_PCT25",
+        "title":  "Deep UX polish: video_kyc.php",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  2993,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: video_kyc.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2994,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: video_kyc.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2995,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: video_kyc.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2996,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: video_kyc.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2997,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: video_kyc.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2998,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: video_kyc.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  2999,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: video_kyc.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3000,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: video_kyc.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3001,
+        "bucket":  "3_PCT25",
+        "title":  "Deep UX polish: wallet.php",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  3002,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: wallet.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3003,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: wallet.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3004,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: wallet.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3005,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: wallet.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3006,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: wallet.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3007,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: wallet.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3008,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: wallet.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3009,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: wallet.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3010,
+        "bucket":  "3_PCT25",
+        "title":  "Deep UX polish: wallet_diagnose.php",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  3011,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: wallet_diagnose.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3012,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: wallet_diagnose.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3013,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: wallet_diagnose.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3014,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: wallet_diagnose.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3015,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: wallet_diagnose.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3016,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: wallet_diagnose.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3017,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: wallet_diagnose.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3018,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: wallet_diagnose.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3019,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: webhook-aaminalaptop.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  3020,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: webhook-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3021,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: webhook-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3022,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: webhook-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3023,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: webhook-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3024,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: webhook-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3025,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: webhook-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3026,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: webhook-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3027,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: webhook-aaminalaptop.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3028,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: webhook.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  3029,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: webhook.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3030,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: webhook.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3031,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: webhook.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3032,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: webhook.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3033,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: webhook.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3034,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: webhook.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3035,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: webhook.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3036,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: webhook.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3037,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: whatsapp_webhook.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  3038,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: whatsapp_webhook.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3039,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: whatsapp_webhook.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3040,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: whatsapp_webhook.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3041,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: whatsapp_webhook.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3042,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: whatsapp_webhook.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3043,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: whatsapp_webhook.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3044,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: whatsapp_webhook.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3045,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: whatsapp_webhook.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3046,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: cust/index.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3047,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: cust/index.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3048,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: cust/index.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3049,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: cust/index.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3050,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: cust/index.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3051,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: cust/index.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3052,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: cust/index.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3053,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: cust/index.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3054,
+        "bucket":  "3_PCT25",
+        "title":  "Production wire: includes/payout.php",
+        "note":  "Partner keys / later",
+        "reason":  ""
+    },
+    {
+        "n":  3055,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: lang/en.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  3056,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: lang/en.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3057,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: lang/en.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3058,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: lang/en.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3059,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: lang/en.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3060,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: lang/en.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3061,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: lang/en.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3062,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: lang/en.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3063,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: lang/en.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3064,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: lib/SimpleAgreementPdf.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  3065,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: lib/SimpleAgreementPdf.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3066,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: lib/SimpleAgreementPdf.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3067,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: lib/SimpleAgreementPdf.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3068,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: lib/SimpleAgreementPdf.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3069,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: lib/SimpleAgreementPdf.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3070,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: lib/SimpleAgreementPdf.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3071,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: lib/SimpleAgreementPdf.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3072,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: lib/SimpleAgreementPdf.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3073,
+        "bucket":  "3_PCT25",
+        "title":  "Deep UX polish: lib/SimpleInvoicePdf.php",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  3074,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: lib/SimpleInvoicePdf.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3075,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: lib/SimpleInvoicePdf.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3076,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: lib/SimpleInvoicePdf.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3077,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: lib/SimpleInvoicePdf.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3078,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: lib/SimpleInvoicePdf.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3079,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: lib/SimpleInvoicePdf.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3080,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: lib/SimpleInvoicePdf.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3081,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: lib/SimpleInvoicePdf.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3082,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: plugins/woocommerce/uniweb-payments/uniweb-payments.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  3083,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: plugins/woocommerce/uniweb-payments/uniweb-payments.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3084,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: plugins/woocommerce/uniweb-payments/uniweb-payments.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3085,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: plugins/woocommerce/uniweb-payments/uniweb-payments.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3086,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: plugins/woocommerce/uniweb-payments/uniweb-payments.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3087,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: plugins/woocommerce/uniweb-payments/uniweb-payments.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3088,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: plugins/woocommerce/uniweb-payments/uniweb-payments.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3089,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: plugins/woocommerce/uniweb-payments/uniweb-payments.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3090,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: plugins/woocommerce/uniweb-payments/uniweb-payments.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3091,
+        "bucket":  "3_PCT25",
+        "title":  "Deep UX polish: scripts/migrate_legacy_kyc.php",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  3092,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: scripts/migrate_legacy_kyc.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3093,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: scripts/migrate_legacy_kyc.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3094,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: scripts/migrate_legacy_kyc.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3095,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: scripts/migrate_legacy_kyc.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3096,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: scripts/migrate_legacy_kyc.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3097,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: scripts/migrate_legacy_kyc.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3098,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: scripts/migrate_legacy_kyc.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3099,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: scripts/migrate_legacy_kyc.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3100,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: tests/run_integrity_tests.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  3101,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: tests/run_integrity_tests.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3102,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: tests/run_integrity_tests.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3103,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: tests/run_integrity_tests.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3104,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: tests/run_integrity_tests.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3105,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: tests/run_integrity_tests.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3106,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: tests/run_integrity_tests.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3107,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: tests/run_integrity_tests.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3108,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: tests/run_integrity_tests.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3109,
+        "bucket":  "3_PCT25",
+        "title":  "Feature completeness: tests/run_smoke_checks.php",
+        "note":  "~25% scaffold/early",
+        "reason":  ""
+    },
+    {
+        "n":  3110,
+        "bucket":  "3_PCT25",
+        "title":  "CSRF/form token on POSTs: tests/run_smoke_checks.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3111,
+        "bucket":  "3_PCT25",
+        "title":  "Flash message after save: tests/run_smoke_checks.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3112,
+        "bucket":  "3_PCT25",
+        "title":  "Empty state UI: tests/run_smoke_checks.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3113,
+        "bucket":  "3_PCT25",
+        "title":  "Pagination if lists: tests/run_smoke_checks.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3114,
+        "bucket":  "3_PCT25",
+        "title":  "Search/filter if lists: tests/run_smoke_checks.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3115,
+        "bucket":  "3_PCT25",
+        "title":  "Export CSV if reports: tests/run_smoke_checks.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3116,
+        "bucket":  "3_PCT25",
+        "title":  "Print stylesheet if printable: tests/run_smoke_checks.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3117,
+        "bucket":  "3_PCT25",
+        "title":  "A11y basic labels: tests/run_smoke_checks.php",
+        "note":  "UX audit atom",
+        "reason":  ""
+    },
+    {
+        "n":  3118,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Razorpay - Test mode call",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3119,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Razorpay - Live mode call",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3120,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Razorpay - Webhook idempotency",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3121,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Razorpay - Refund path",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3122,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Razorpay - Settlement path",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3123,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Razorpay - MDR apply",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3124,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Razorpay - Recon match",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3125,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Cashfree - Test mode call",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3126,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Cashfree - Live mode call",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3127,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Cashfree - Webhook idempotency",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3128,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Cashfree - Refund path",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3129,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Cashfree - Settlement path",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3130,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Cashfree - MDR apply",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3131,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Cashfree - Recon match",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3132,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PayU - Test mode call",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3133,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PayU - Live mode call",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3134,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PayU - Webhook idempotency",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3135,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PayU - Refund path",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3136,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PayU - Settlement path",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3137,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PayU - MDR apply",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3138,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PayU - Recon match",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3139,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Decentro - Test mode call",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3140,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Decentro - Live mode call",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3141,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Decentro - Webhook receive",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3142,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Decentro - Webhook idempotency",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3143,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Decentro - Failure reason map",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3144,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Decentro - Success capture",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3145,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Decentro - Refund path",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3146,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Decentro - Settlement path",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3147,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Decentro - MDR apply",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3148,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Decentro - Recon match",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3149,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Decentro - Merchant visibility",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3150,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Axis - Test mode call",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3151,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Axis - Webhook receive",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3152,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Axis - Webhook idempotency",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3153,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Axis - Failure reason map",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3154,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Axis - Success capture",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3155,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Axis - MDR apply",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3156,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Axis - Recon match",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3157,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Axis - Merchant visibility",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3158,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PineLabs - Test mode call",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3159,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PineLabs - Webhook receive",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3160,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PineLabs - Webhook idempotency",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3161,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PineLabs - Failure reason map",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3162,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PineLabs - Success capture",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3163,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PineLabs - MDR apply",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3164,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PineLabs - Recon match",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3165,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PineLabs - Merchant visibility",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3166,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PhonePe - Test mode call",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3167,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PhonePe - Webhook receive",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3168,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PhonePe - Webhook idempotency",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3169,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PhonePe - Failure reason map",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3170,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PhonePe - Success capture",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3171,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PhonePe - MDR apply",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3172,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PhonePe - Recon match",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3173,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: PhonePe - Merchant visibility",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3174,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Worldline - Test mode call",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3175,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Worldline - Webhook receive",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3176,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Worldline - Webhook idempotency",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3177,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Worldline - Failure reason map",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3178,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Worldline - Success capture",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3179,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Worldline - MDR apply",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3180,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Worldline - Recon match",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3181,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Worldline - Merchant visibility",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3182,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Digio - Test mode call",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3183,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Digio - Live mode call",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3184,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Digio - Webhook receive",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3185,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Digio - Webhook idempotency",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3186,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Digio - Failure reason map",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3187,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Digio - Success capture",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3188,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Digio - Refund path",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3189,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Digio - Settlement path",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3190,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Digio - MDR apply",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3191,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Digio - Recon match",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3192,
+        "bucket":  "3_PCT25",
+        "title":  "Gateway x op: Digio - Merchant visibility",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3193,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_IMPS - Checkout show",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3194,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_IMPS - Checkout pay",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3195,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_IMPS - Method enable request",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3196,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_IMPS - Admin approve method",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3197,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_IMPS - MDR config",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3198,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_IMPS - Txn list filter",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3199,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_IMPS - Report breakdown",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3200,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_NEFT - Checkout show",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3201,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_NEFT - Checkout pay",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3202,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_NEFT - Method enable request",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3203,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_NEFT - Admin approve method",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3204,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_NEFT - MDR config",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3205,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_NEFT - Txn list filter",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3206,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_NEFT - Report breakdown",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3207,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_RTGS - Checkout show",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3208,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_RTGS - Checkout pay",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3209,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_RTGS - Method enable request",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3210,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_RTGS - Admin approve method",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3211,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_RTGS - MDR config",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3212,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_RTGS - Txn list filter",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3213,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_RTGS - Report breakdown",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3214,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_UPI - Checkout show",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3215,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_UPI - Checkout pay",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3216,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_UPI - Method enable request",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3217,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_UPI - Admin approve method",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3218,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_UPI - MDR config",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3219,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_UPI - Txn list filter",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3220,
+        "bucket":  "3_PCT25",
+        "title":  "Method x flow: Payout_UPI - Report breakdown",
+        "note":  "Payment method matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3221,
+        "bucket":  "3_PCT25",
+        "title":  "Payout UI scaffold",
+        "note":  "Feature status",
+        "reason":  ""
+    },
+    {
+        "n":  3222,
+        "bucket":  "3_PCT25",
+        "title":  "Payout CSV scaffold",
+        "note":  "Feature status",
+        "reason":  ""
+    },
+    {
+        "n":  3223,
+        "bucket":  "3_PCT25",
+        "title":  "Split/delayed settlement engine",
+        "note":  "Feature status",
+        "reason":  ""
+    },
+    {
+        "n":  3224,
+        "bucket":  "3_PCT25",
+        "title":  "Smart routing failover",
+        "note":  "Feature status",
+        "reason":  ""
+    },
+    {
+        "n":  3225,
+        "bucket":  "3_PCT25",
+        "title":  "Velocity fraud rules",
+        "note":  "Feature status",
+        "reason":  ""
+    },
+    {
+        "n":  3226,
+        "bucket":  "3_PCT25",
+        "title":  "Bank file auto-recon",
+        "note":  "Feature status",
+        "reason":  ""
+    },
+    {
+        "n":  3227,
+        "bucket":  "3_PCT25",
+        "title":  "Subscription billing lifecycle",
+        "note":  "Feature status",
+        "reason":  ""
+    },
+    {
+        "n":  3228,
+        "bucket":  "3_PCT25",
+        "title":  "Global MDR + geo rules",
+        "note":  "Feature status",
+        "reason":  ""
+    },
+    {
+        "n":  3229,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: normal - Delay minutes config",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3230,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: normal - Cron picks due rows",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3231,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: normal - Transfer API call",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3232,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: normal - On hold",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3233,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: normal - Release",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3234,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: normal - Merchant report",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3235,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: normal - Admin override",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3236,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: plate_roadside - Delay minutes config",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3237,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: plate_roadside - Cron picks due rows",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3238,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: plate_roadside - Transfer API call",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3239,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: plate_roadside - On hold",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3240,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: plate_roadside - Release",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3241,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: plate_roadside - Merchant report",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3242,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: plate_roadside - Admin override",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3243,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: ecommerce - Delay minutes config",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3244,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: ecommerce - Cron picks due rows",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3245,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: ecommerce - Transfer API call",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3246,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: ecommerce - On hold",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3247,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: ecommerce - Release",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3248,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: ecommerce - Merchant report",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3249,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: ecommerce - Admin override",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3250,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: education - Delay minutes config",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3251,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: education - Cron picks due rows",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3252,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: education - Transfer API call",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3253,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: education - On hold",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3254,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: education - Release",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3255,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: education - Merchant report",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3256,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: education - Admin override",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3257,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: healthcare - Delay minutes config",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3258,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: healthcare - Cron picks due rows",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3259,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: healthcare - Transfer API call",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3260,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: healthcare - On hold",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3261,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: healthcare - Release",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3262,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: healthcare - Merchant report",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3263,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: healthcare - Admin override",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3264,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: default - Delay minutes config",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3265,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: default - Cron picks due rows",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3266,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: default - Transfer API call",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3267,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: default - On hold",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3268,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: default - Release",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3269,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: default - Merchant report",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3270,
+        "bucket":  "3_PCT25",
+        "title":  "Settlement delay: default - Admin override",
+        "note":  "Delayed settlement spec",
+        "reason":  ""
+    },
+    {
+        "n":  3271,
+        "bucket":  "4_REMAIN",
+        "title":  "Gateway x op: PineLabs - Live mode call",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3272,
+        "bucket":  "4_REMAIN",
+        "title":  "Gateway x op: PineLabs - Refund path",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3273,
+        "bucket":  "4_REMAIN",
+        "title":  "Gateway x op: PineLabs - Settlement path",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3274,
+        "bucket":  "4_REMAIN",
+        "title":  "Gateway x op: PhonePe - Live mode call",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3275,
+        "bucket":  "4_REMAIN",
+        "title":  "Gateway x op: PhonePe - Refund path",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3276,
+        "bucket":  "4_REMAIN",
+        "title":  "Gateway x op: PhonePe - Settlement path",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3277,
+        "bucket":  "4_REMAIN",
+        "title":  "Gateway x op: Worldline - Live mode call",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3278,
+        "bucket":  "4_REMAIN",
+        "title":  "Gateway x op: Worldline - Refund path",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3279,
+        "bucket":  "4_REMAIN",
+        "title":  "Gateway x op: Worldline - Settlement path",
+        "note":  "Integration matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3280,
+        "bucket":  "4_REMAIN",
+        "title":  "Google Location API dropdown",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  3281,
+        "bucket":  "4_REMAIN",
+        "title":  "Use my location button",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  3282,
+        "bucket":  "4_REMAIN",
+        "title":  "Aadhaar face match",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  3283,
+        "bucket":  "4_REMAIN",
+        "title":  "Penny-drop verify",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  3284,
+        "bucket":  "4_REMAIN",
+        "title":  "E-sign agreement",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  3285,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC progress percent",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  3286,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC autosave",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  3287,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC AI fake/blur check",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  3288,
+        "bucket":  "4_REMAIN",
+        "title":  "Submit KYC all gateways one click",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  3289,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC timeline UI",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  3290,
+        "bucket":  "4_REMAIN",
+        "title":  "Admin 1h to 1-click partner forward",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  3291,
+        "bucket":  "4_REMAIN",
+        "title":  "Document versioning audit trail",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  3292,
+        "bucket":  "4_REMAIN",
+        "title":  "Unified compliance multi-gateway forward UI",
+        "note":  "Work queue",
+        "reason":  ""
+    },
+    {
+        "n":  3293,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: Aadhaar - Show in timeline",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3294,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: Aadhaar - Forward to partner",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3295,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: PAN - Show in timeline",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3296,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: PAN - Forward to partner",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3297,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: GST - Show in timeline",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3298,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: GST - Forward to partner",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3299,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: MCA - Show in timeline",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3300,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: MCA - Forward to partner",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3301,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: Udyam - Show in timeline",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3302,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: Udyam - Forward to partner",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3303,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: CancelledCheque - Show in timeline",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3304,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: CancelledCheque - Forward to partner",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3305,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: BoardResolution - Show in timeline",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3306,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: BoardResolution - Forward to partner",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3307,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: PartnershipDeed - Show in timeline",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3308,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: PartnershipDeed - Forward to partner",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3309,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: VideoKYC - Show in timeline",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3310,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: VideoKYC - Forward to partner",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3311,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: Selfie - Show in timeline",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3312,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: Selfie - Forward to partner",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3313,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: AddressProof - Show in timeline",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3314,
+        "bucket":  "4_REMAIN",
+        "title":  "KYC doc x step: AddressProof - Forward to partner",
+        "note":  "KYC matrix",
+        "reason":  ""
+    },
+    {
+        "n":  3315,
+        "bucket":  "5_SHOULD",
+        "title":  "Keep cron auto-audit green weekly",
+        "note":  "Recommended ops/process",
+        "reason":  ""
+    },
+    {
+        "n":  3316,
+        "bucket":  "5_SHOULD",
+        "title":  "Paste partner keys when received",
+        "note":  "Recommended ops/process",
+        "reason":  ""
+    },
+    {
+        "n":  3317,
+        "bucket":  "5_SHOULD",
+        "title":  "Confirm migrations applied on live DB",
+        "note":  "Recommended ops/process",
+        "reason":  ""
+    },
+    {
+        "n":  3318,
+        "bucket":  "5_SHOULD",
+        "title":  "Smoke homepage signup demo checkout admin_website",
+        "note":  "Recommended ops/process",
+        "reason":  ""
+    },
+    {
+        "n":  3319,
+        "bucket":  "5_SHOULD",
+        "title":  "Prefer Hostinger Git for every release",
+        "note":  "Recommended ops/process",
+        "reason":  ""
+    },
+    {
+        "n":  3320,
+        "bucket":  "5_SHOULD",
+        "title":  "Talk before coding big wishlist",
+        "note":  "Recommended ops/process",
+        "reason":  ""
+    },
+    {
+        "n":  3321,
+        "bucket":  "5_SHOULD",
+        "title":  "Re-verify wallet transfer on live",
+        "note":  "Recommended ops/process",
+        "reason":  ""
+    },
+    {
+        "n":  3322,
+        "bucket":  "5_SHOULD",
+        "title":  "Re-verify video KYC upload",
+        "note":  "Recommended ops/process",
+        "reason":  ""
+    },
+    {
+        "n":  3323,
+        "bucket":  "5_SHOULD",
+        "title":  "Re-verify footer light-mode contrast",
+        "note":  "Recommended ops/process",
+        "reason":  ""
+    },
+    {
+        "n":  3324,
+        "bucket":  "5_SHOULD",
+        "title":  "Monitor Auto-deploy after each main push",
+        "note":  "Recommended ops/process",
+        "reason":  ""
+    },
+    {
+        "n":  3325,
+        "bucket":  "5_SHOULD",
+        "title":  "Never put secrets in public screenshots",
+        "note":  "Recommended ops/process",
+        "reason":  ""
+    },
+    {
+        "n":  3326,
+        "bucket":  "5_SHOULD",
+        "title":  "Backup before any DB cleanup",
+        "note":  "Recommended ops/process",
+        "reason":  ""
+    },
+    {
+        "n":  3327,
+        "bucket":  "5_SHOULD",
+        "title":  "Owner review bilkul-mat list before asking auto-reverse",
+        "note":  "Recommended ops/process",
+        "reason":  ""
+    },
+    {
+        "n":  3328,
+        "bucket":  "5_SHOULD",
+        "title":  "Keep _inbox Always on this device",
+        "note":  "Recommended ops/process",
+        "reason":  ""
+    },
+    {
+        "n":  3329,
+        "bucket":  "5_SHOULD",
+        "title":  "Use English-only for product UI text",
+        "note":  "Recommended ops/process",
+        "reason":  ""
+    },
+    {
+        "n":  3330,
+        "bucket":  "6_SHOULD_NOT",
+        "title":  "Gateway x op: Axis - Live mode call",
+        "note":  "Integration matrix",
+        "reason":  "After Axis RM/UAT"
+    },
+    {
+        "n":  3331,
+        "bucket":  "6_SHOULD_NOT",
+        "title":  "Gateway x op: Axis - Refund path",
+        "note":  "Integration matrix",
+        "reason":  "After Axis RM/UAT"
+    },
+    {
+        "n":  3332,
+        "bucket":  "6_SHOULD_NOT",
+        "title":  "Gateway x op: Axis - Settlement path",
+        "note":  "Integration matrix",
+        "reason":  "After Axis RM/UAT"
+    },
+    {
+        "n":  3333,
+        "bucket":  "6_SHOULD_NOT",
+        "title":  "Shopify OAuth app now",
+        "note":  "After primary PG live + partners",
+        "reason":  "After primary PG live + partners"
+    },
+    {
+        "n":  3334,
+        "bucket":  "6_SHOULD_NOT",
+        "title":  "e-Rupee CBDC now",
+        "note":  "Needs bank/CBDC partner - do not invent",
+        "reason":  "Needs bank/CBDC partner - do not invent"
+    },
+    {
+        "n":  3335,
+        "bucket":  "6_SHOULD_NOT",
+        "title":  "Axis production beyond sandbox now",
+        "note":  "Wait Axis RM / UAT package",
+        "reason":  "Wait Axis RM / UAT package"
+    },
+    {
+        "n":  3336,
+        "bucket":  "6_SHOULD_NOT",
+        "title":  "Payout live money now",
+        "note":  "Wait partner keys",
+        "reason":  "Wait partner keys"
+    },
+    {
+        "n":  3337,
+        "bucket":  "6_SHOULD_NOT",
+        "title":  "FTP path probing spam",
+        "note":  "Hostinger rate-limits; Git deploy works",
+        "reason":  "Hostinger rate-limits; Git deploy works"
+    },
+    {
+        "n":  3338,
+        "bucket":  "6_SHOULD_NOT",
+        "title":  "Blind live DB wipe without backup",
+        "note":  "Data loss risk",
+        "reason":  "Data loss risk"
+    },
+    {
+        "n":  3339,
+        "bucket":  "6_SHOULD_NOT",
+        "title":  "Invent partner production keys",
+        "note":  "Must come from partner / owner paste",
+        "reason":  "Must come from partner / owner paste"
+    },
+    {
+        "n":  3340,
+        "bucket":  "6_SHOULD_NOT",
+        "title":  "Code big wishlist without owner start",
+        "note":  "Owner rule: talk first",
+        "reason":  "Owner rule: talk first"
+    }
+]
