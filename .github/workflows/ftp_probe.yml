@@ -47,6 +47,38 @@ jobs:
           done
           set -e
 
+  delete_nested_public_html:
+    name: Delete the wrong nested public_html/public_html duplicate (owner-requested cleanup)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Install lftp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+      - name: Recursively delete public_html/ relative to FTP login root
+        env:
+          HOST: ${{ secrets.UNIWEB_FTP_HOST }}
+          USER: ${{ secrets.UNIWEB_FTP_USER }}
+          PASS: ${{ secrets.UNIWEB_FTP_PASS }}
+        run: |
+          set -uo pipefail
+          echo "Listing BEFORE delete (sanity check — should show the duplicate repo mirror, NOT config.php):"
+          BEFORE="$(lftp -u "$USER,$PASS" "$HOST" -e "set ftp:ssl-allow no; nlist public_html; bye" 2>&1)"
+          echo "$BEFORE"
+          echo "---"
+          if echo "$BEFORE" | grep -qiFx "config.php"; then
+            echo "##[error] SAFETY ABORT: public_html/ contains config.php — this looks like the REAL docroot, not the duplicate. Refusing to delete."
+            exit 1
+          fi
+          if ! echo "$BEFORE" | grep -qiFx "index.php"; then
+            echo "##[error] SAFETY ABORT: public_html/ does not contain index.php — doesn't look like our repo mirror. Refusing to delete."
+            exit 1
+          fi
+          echo "Safety check passed (has index.php, no config.php) — deleting public_html/ (nested duplicate) recursively..."
+          lftp -u "$USER,$PASS" "$HOST" -e "set ftp:ssl-allow no; rm -rf public_html; bye"
+          echo "---"
+          echo "Listing AFTER delete (should now error / be gone):"
+          lftp -u "$USER,$PASS" "$HOST" -e "set ftp:ssl-allow no; ls public_html; bye" || echo "(gone, as expected)"
+
   list:
     name: List FTP directories to find the real docroot (re-run if needed)
     runs-on: ubuntu-latest
