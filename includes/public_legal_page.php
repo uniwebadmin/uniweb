@@ -58,6 +58,7 @@ function renderPublicLegalPage(array $page): void
                 <div class="public-doc-help">
                     <span>Need clarification?</span>
                     <a href="contact.php">Contact support →</a>
+                    <button type="button" onclick="window.print()" class="block mt-3 text-sm text-sky-400 hover:text-sky-300">Print this page</button>
                 </div>
             </aside>
             <article class="public-doc-article">
@@ -77,5 +78,6 @@ function renderPublicLegalPage(array $page): void
             </article>
         </div>
     </main>
+    <style>@media print { .public-doc-toc, header, footer, #public-mobile-menu { display: none !important; } .public-doc-page { color: #111; background: #fff; } }</style>
     <?php
 }

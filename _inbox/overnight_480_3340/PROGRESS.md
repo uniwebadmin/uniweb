@@ -32,3 +32,18 @@ All `*-aaminalaptop.php` UX atoms + work-queue + scaffold entries per brief hard
 
 ### N/A (35)
 Non-UI smoke/mobile (lang, lib, tests, scripts), public-portal session concerns, customer OTP-only flows, bounded admin lists without pagination/export requirement.
+
+---
+
+## Agent B failover → Agent C started (1601–2200)
+
+Audit: `php tests/audit_overnight_c_1601_2200.php` — **in progress** (partial)
+
+| Status | Count |
+|--------|------:|
+| 100% | 377 |
+| SKIP | 146 |
+| N/A | 48 |
+| FAIL | 27 (remaining — Agent C lane) |
+
+Added `tests/audit_overnight_c_1601_2200.php`, settlements CSV export, legal-page print stylesheet, staff-activity a11y label.

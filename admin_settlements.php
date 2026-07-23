@@ -78,6 +78,27 @@ foreach ($settlements as $row) {
     }
 }
 $pageTitle = 'Settlements';
+
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="settlements_' . date('Y-m-d') . '.csv"');
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['Settlement ID', 'Merchant', 'Amount', 'Net', 'Status', 'UTR', 'Created']);
+    foreach ($settlements as $row) {
+        fputcsv($out, [
+            $row['settlement_id'] ?? '',
+            $row['business_name'] ?? '',
+            $row['amount'] ?? '',
+            $row['net_amount'] ?? '',
+            $row['status'] ?? '',
+            $row['utr'] ?? '',
+            $row['created_at'] ?? '',
+        ]);
+    }
+    fclose($out);
+    exit;
+}
+
 require_once __DIR__ . '/header.php';
 ?>
 <div class="glass rounded-xl p-4 mb-6 border border-sky-500/20 text-sm text-gray-400">

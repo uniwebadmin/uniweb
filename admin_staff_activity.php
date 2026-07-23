@@ -13,7 +13,7 @@ require_once __DIR__ . '/header.php';
 <div class="mb-6 flex flex-wrap gap-3 items-center justify-between">
     <p class="text-sm text-gray-400">Full audit trail — who did what, when.</p>
     <form method="GET" class="flex gap-2">
-        <select name="staff_id" class="input-field text-sm">
+        <select name="staff_id" class="input-field text-sm" aria-label="Filter by staff member">
             <option value="">All staff</option>
             <?php foreach ($staffList as $s): ?>
             <option value="<?= (int)$s['id'] ?>" <?= $filterStaff === (int)$s['id'] ? 'selected' : '' ?>><?= e($s['name']) ?> (<?= e(staffRoleLabel($s['role'])) ?>)</option>
