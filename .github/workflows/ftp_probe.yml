@@ -158,7 +158,7 @@ jobs:
 
 
   full_inventory:
-    name: TEMP - single recursive listing of full FTP tree (safety audit, remove after use)
+    name: Single-connection recursive listing of full FTP tree (safety audit) - NOT yet run, added 2026-07-23 but paused for FTP rate-limit cooldown, see PHOTO_NOTES.md
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
