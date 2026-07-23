@@ -65,11 +65,11 @@ jobs:
           BEFORE="$(lftp -u "$USER,$PASS" "$HOST" -e "set ftp:ssl-allow no; nlist public_html; bye" 2>&1)"
           echo "$BEFORE"
           echo "---"
-          if echo "$BEFORE" | grep -qiFx "config.php"; then
+          if echo "$BEFORE" | grep -qiE '(^|/)config\.php$'; then
             echo "##[error] SAFETY ABORT: public_html/ contains config.php — this looks like the REAL docroot, not the duplicate. Refusing to delete."
             exit 1
           fi
-          if ! echo "$BEFORE" | grep -qiFx "index.php"; then
+          if ! echo "$BEFORE" | grep -qiE '(^|/)index\.php$'; then
             echo "##[error] SAFETY ABORT: public_html/ does not contain index.php — doesn't look like our repo mirror. Refusing to delete."
             exit 1
           fi
