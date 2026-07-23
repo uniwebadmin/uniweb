@@ -977,6 +977,9 @@ function settlementReasonText(array $settlement, ?array $merchant = null): strin
 
     if ($s['key'] === 'failed') {
         $note = trim((string)($settlement['api_message'] ?? $settlement['failure_reason'] ?? ''));
+        if ($note !== '' && function_exists('mapGatewayFailureReason')) {
+            $note = mapGatewayFailureReason(null, $note);
+        }
         if ($note !== '') {
             return 'Failed: ' . $note;
         }

@@ -13,19 +13,20 @@ Agent explanation accepted. Status:
 
 | # | Point | Action when owner says start |
 |---|--------|------------------------------|
-| 1 | Exact reason copy | Polish if gaps; leave if already sufficient |
+| 1 | Exact reason copy | ✅ STARTED+shipped `feature/exact-reason-polish` |
 | 2 | Shopify / WP / e-Rupee | Woo exists — leave; others after PG live |
-| 3 | Razorpay-style QR | Verify live; polish gaps only |
-| 4 | No auto-approve contact update | OTP for email+mobile change only |
+| 3 | Razorpay-style QR | ✅ Verified + defensive load shipped |
+| 4 | No auto-approve contact update | ✅ OTP shipped (`feature/otp-contact-change`) |
 | 5 | Payout partners | Scaffold OK; wire when keys arrive |
 | 6 | No failed-payout auto-reversal | Keep gate; recon-only |
 
-**START received 2026-07-23 ~18:06 IST** ("let's start"). Coding #1, #3, #4 in parallel; #2/#5/#6 stay leave/scaffold per table.
+**START received 2026-07-23 ~18:06 IST** ("let's start"). Coding #1/#3/#4; #2/#5/#6 stay leave/scaffold.
 
 ## Message log
 
 | When | File / source | Summary | Agent |
 |------|---------------|---------|--------|
+| 2026-07-23 ~18:20 | Cursor agent | **#1 Exact reason polish STARTED + shipped** — `gateway_reason_map.php`, webhook→`failure_reason`, txn list Reason column, migration 020. Branch `feature/exact-reason-polish`. Owner: add `'gateway_reason_map'` to live `config.php` `$__includes`. | coding+PR |
 | 2026-07-23 ~18:10 | Cursor agent | **#4 OTP contact change started + shipped** — merchant email/mobile change on `my_account.php` now requires OTP to new (+ old when real); never silent profile overwrite. Branch `feature/otp-contact-change`. Customer portal stays OTP-login only (no profile self-update). | shipped PR |
 | 2026-07-23 ~18:06 | Cursor chat | Owner: let's start — strategy pack coding begins | #1/#3/#4 agents launched |
 | 2026-07-22 | Cursor chat | Chat inbox system requested (like photos) | created this folder |

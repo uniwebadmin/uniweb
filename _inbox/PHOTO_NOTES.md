@@ -31,7 +31,7 @@ Do **not** implement until owner explicitly says “kaam start”. Budget uncons
 
 | # | Topic | Repo reality (today) | Agreed direction |
 |---|--------|----------------------|------------------|
-| 1 | Txn/settlement **exact reason** copy | Mostly ✅ `transactionStatusExplainer()` + settlement reason text live | Next polish: clearer Hindi-owner-facing English copy, more statuses, list pages consistency |
+| 1 | Txn/settlement **exact reason** copy | ✅ STARTED+SHIPPED 2026-07-23 — `gateway_reason_map.php` + webhook store + list Reason column | Partner codes → English one-liners; auto-populate to merchant; no admin relay |
 | 2 | Shopify / WordPress / e-Rupee | WooCommerce plugin ✅ `plugins/woocommerce/`; Shopify/WP generic/e-Rupee 🔜 | After primary PG live; Shopify app + e-Rupee via bank/partner API |
 | 3 | Razorpay-style QR + UniWeb logo + per-QR history | ✅ Verified live 2026-07-23 (logo bake, demo checkout QR, history UI) | Code defense shipped; **owner still needs live `config.php` `'qr_svg'`** (see section below) |
 | 4 | Auto-approve profile self-update | ✅ OTP-gated on `my_account.php` | Contact change = OTP verify on **mobile and email** only; no silent profile overwrite |
@@ -59,12 +59,26 @@ Owner sending more detail next — discuss before coding.
 ### Owner START (2026-07-23 ~18:06 IST)
 
 Owner said **"let's start"**. Coding began on strategy pack:
-- #1 Exact reason polish — agent in progress
+- #1 Exact reason polish — **CODING STARTED + shipped** on branch `feature/exact-reason-polish` (mapper + webhook failure_reason + list Reason column). **Owner:** add `'gateway_reason_map'` to live `config.php` `$__includes` (same place as `qr_svg` note).
 - #3 QR verify/polish (+ defensive qr_svg load) — **DONE this session** (see section below)
 - #4 OTP contact change (email/mobile) — ✅ shipped (`feature/otp-contact-change`, PR #48)
 - #2 Shopify/WP/e-Rupee — leave (Woo exists; rest after PG live)
 - #5 Payout wire — leave until partner keys
 - #6 Failed-payout auto-reversal — keep gate (recon-only)
+
+## Strategy #1 — Exact reason polish (2026-07-23 evening) — CODING STARTED + shipped
+
+**Gaps that existed:** detail banner existed, but (1) no gateway error_code→English dictionary, (2) Razorpay/Cashfree/PayU webhooks ignored payment failures (only success), (3) settlement fail stored raw partner text and did not copy reason onto `settlements`, (4) merchant `transactions.php` list had no Reason column.
+
+**Shipped on `feature/exact-reason-polish`:**
+- `includes/gateway_reason_map.php` — dictionary + `mapGatewayFailureReason()` / safe fallback
+- `recordPaymentOrderFailure()` — stores mapped reason on `payment_attempts` + failed `transactions.failure_reason`
+- Webhooks: Razorpay `payment.failed`, Cashfree failure events, PayU failure statuses; RazorpayX payout fail → mapped `settlement_batches` + `settlements.failure_reason`
+- Merchant txn list Reason column + icon; settlement list shows reason under failed/pending
+- Migration `020_txn_settlement_failure_reason.sql` + `ensureFailureReasonColumns()`
+- `config.dev.php` loads `'gateway_reason_map'`
+
+**Owner manual:** live `config.php` `$__includes` me `'gateway_reason_map'` add karo (gitignored — same as `qr_svg`).
 
 ## Strategy #3 — Razorpay-style QR polish (2026-07-23 evening) — DONE in repo
 
@@ -202,6 +216,7 @@ After the FTP investigation above stalled on needing the owner's hPanel access, 
 
 ## Work log
 
+- 2026-07-23 ~18:20 IST: Strategy **#1 Exact reason polish CODING STARTED + shipped** — branch `feature/exact-reason-polish` (gateway reason map, webhook failure store, txn list Reason column, migration 020). Owner must add `'gateway_reason_map'` to live `config.php` includes.
 - 2026-07-22: Photo fixes PR #32/#35/#36 live. Migrations 011–018 apply still owner-manual.
 - 2026-07-22: Strategy pack confirmed; chat inbox created; coding waits for start.
 - 2026-07-22 (overnight, branch `overnight/ftp-fix-continued`): Deep FTP docroot investigation — proved via direct FTP `LIST` that files land exactly where hPanel says (not a wrong-path issue), proved it's not caching/CDN/multi-node/PHP-fatal-error-mislabeled-as-404 either. Root cause still open — needs owner's hPanel File Manager screenshot (see section above). Fixed `error.php`'s 404-default-for-unclassified-errors bug (now defaults to 500) as a small side-fix while investigating (not the cause of tonight's FTP issue). Then moved to priority #2 (live-prep) and found + fixed 4 more real bugs via actual end-to-end smoke-testing in a bootstrapped local sandbox: 2 missing DB base tables (`gateway_submissions`, `kyc_verifications` — new migrations 017a/019), a broken checkout QR code (`qrImageUrl()` undefined — missing from config's include list), and QR *images* being corrupted by vendored-library PHP8.1 deprecation noise leaking into PNG output (now `@`-suppressed). See "Overnight live-prep bug fixes" section above for full detail — **one of these (#2, the QR include gap) needs a matching one-line owner edit to the live `config.php`** since that file is private/not deployed through git.

@@ -204,3 +204,16 @@ function ensureInvoiceSchema(): void
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     schemaExecQuiet("ALTER TABLE invoices ADD COLUMN customer_address VARCHAR(500) DEFAULT NULL");
 }
+
+/** Partner-mapped failure text on txn / settlement rows (exact-reason polish). */
+function ensureFailureReasonColumns(): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    schemaExecQuiet('ALTER TABLE transactions ADD COLUMN failure_reason VARCHAR(500) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE settlements ADD COLUMN failure_reason VARCHAR(500) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE settlements ADD COLUMN api_message VARCHAR(255) DEFAULT NULL');
+}

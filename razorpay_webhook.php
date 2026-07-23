@@ -96,10 +96,26 @@ if (in_array($event, ['payout.processed', 'payout.failed', 'payout.reversed'], t
             createNotification((int)$batch['merchant_id'], 'Settlement Complete', formatMoney((float)$batch['net_amount']) . ' transferred. UTR: ' . $utr);
             $result = ['ok' => true, 'status' => 'settled', 'utr' => $utr];
         } elseif (in_array($event, ['payout.failed', 'payout.reversed'], true) || in_array($providerStatus, ['failed', 'reversed', 'rejected'], true)) {
+            if (function_exists('ensureFailureReasonColumns')) {
+                ensureFailureReasonColumns();
+            }
+            $mappedReason = mapGatewayFailureFromPayload(is_array($providerPayout) ? $providerPayout : []);
+            if ($mappedReason === GATEWAY_REASON_FALLBACK) {
+                $mappedReason = mapGatewayFailureReason(
+                    (string)($providerPayout['status_details']['reason'] ?? $providerPayout['error']['code'] ?? ''),
+                    (string)($providerPayout['failure_reason'] ?? $providerPayout['status_details']['description'] ?? 'Provider payout failed or reversed.')
+                );
+            }
+            $mappedReason = mb_substr($mappedReason, 0, 500);
             getDB()->prepare("UPDATE settlement_batches SET status='failed',api_status='failed',provider_status=?,failure_reason=?,processed_at=NOW() WHERE id=?")
-                ->execute([$providerStatus, mb_substr((string)($providerPayout['failure_reason'] ?? 'Provider payout failed or reversed.'), 0, 500), (int)$batch['id']]);
+                ->execute([$providerStatus, $mappedReason, (int)$batch['id']]);
             if (!empty($batch['settlement_id'])) {
-                getDB()->prepare("UPDATE settlements SET status='failed',processed_at=NOW() WHERE settlement_id=?")->execute([$batch['settlement_id']]);
+                try {
+                    getDB()->prepare("UPDATE settlements SET status='failed',failure_reason=?,processed_at=NOW() WHERE settlement_id=?")
+                        ->execute([$mappedReason, $batch['settlement_id']]);
+                } catch (Throwable $e) {
+                    getDB()->prepare("UPDATE settlements SET status='failed',processed_at=NOW() WHERE settlement_id=?")->execute([$batch['settlement_id']]);
+                }
             }
             postMerchantWalletMovement(
                 (int)$batch['merchant_id'],
@@ -108,7 +124,7 @@ if (in_array($event, ['payout.processed', 'payout.failed', 'payout.reversed'], t
                 'batch:' . $batch['batch_code'],
                 'Provider payout failed or reversed'
             );
-            $result = ['ok' => true, 'status' => 'failed'];
+            $result = ['ok' => true, 'status' => 'failed', 'failure_reason' => $mappedReason];
         } else {
             getDB()->prepare("UPDATE settlement_batches SET provider_status=?,api_status='submitted' WHERE id=?")
                 ->execute([$providerStatus, (int)$batch['id']]);
@@ -124,6 +140,43 @@ if (in_array($event, ['payout.processed', 'payout.failed', 'payout.reversed'], t
 }
 
 $successEvents = ['payment.captured', 'order.paid'];
+$failureEvents = ['payment.failed'];
+if (in_array($event, $failureEvents, true) && $paymentId !== '') {
+    try {
+        $providerPayment = fetchRazorpayPayment($paymentId);
+        if (!$providerPayment || (string)($providerPayment['id'] ?? '') !== $paymentId) {
+            // Fall back to webhook entity if live fetch is unavailable.
+            $providerPayment = is_array($entity) ? $entity : [];
+            $providerPayment['id'] = $paymentId;
+        }
+        $orderId = (string)($providerPayment['order_id'] ?? $entity['order_id'] ?? '');
+        if ($orderId === '') {
+            throw new RuntimeException('Razorpay failed payment is missing order_id.');
+        }
+        $err = is_array($providerPayment['error'] ?? null) ? $providerPayment['error'] : [];
+        $result = recordPaymentOrderFailure([
+            'provider' => 'razorpay',
+            'provider_order_id' => $orderId,
+            'provider_payment_id' => $paymentId,
+            'error_code' => (string)($err['code'] ?? $providerPayment['error_code'] ?? $entity['error_code'] ?? ''),
+            'error_description' => (string)($err['description'] ?? $providerPayment['error_description'] ?? $entity['error_description'] ?? ''),
+            'amount' => isset($providerPayment['amount']) ? ((float)$providerPayment['amount'] / 100) : null,
+            'currency' => (string)($providerPayment['currency'] ?? 'INR'),
+            'signature_verified' => true,
+            'provider_verified' => !empty($providerPayment['id']),
+            'reference' => $paymentId,
+        ]);
+        setGatewayEventStatus((int)$gatewayEvent['id'], !empty($result['duplicate']) || !empty($result['ignored']) ? 'duplicate' : 'processed');
+        logPgWebhook('razorpay', 'processed_failure', $event, $paymentId, null, json_encode($result));
+        jsonResponse(['ok' => true, 'result' => $result]);
+    } catch (Throwable $e) {
+        setGatewayEventStatus((int)$gatewayEvent['id'], 'failed', null, $e->getMessage());
+        logPgWebhook('razorpay', 'failed', $event, $paymentId, null, json_encode(['error' => $e->getMessage()]));
+        logPlatformError('error', 'Razorpay payment.failed webhook processing failed.', ['event_id' => $eventId, 'error' => $e->getMessage()]);
+        jsonResponse(['error' => 'Failure processing failed'], 422);
+    }
+}
+
 if (!in_array($event, $successEvents, true) || $paymentId === '') {
     setGatewayEventStatus((int)$gatewayEvent['id'], 'processed');
     jsonResponse(['ok' => true, 'ignored' => true]);

@@ -40,18 +40,34 @@ function transactionDetailUrl(string $txnId): string
 }
 
 /**
- * Human-readable "why this status" for a transaction. Prefers any gateway/DB
- * reason stored on the row, otherwise a plain-language explanation by status.
+ * Human-readable "why this status" for a transaction. Prefers partner-mapped
+ * failure_reason (auto-populated from webhooks), otherwise maps any raw error
+ * code, otherwise a plain-language explanation by status. Never invents fake bank reasons.
  * @return array{tone:string,title:string,text:string}
  */
 function transactionStatusExplainer(array $txn): array
 {
     $status = strtolower(trim((string)($txn['status'] ?? '')));
     $stored = '';
+    $rawCode = '';
     foreach (['failure_reason', 'failure_message', 'status_reason', 'gateway_response', 'remarks', 'error_description'] as $col) {
         if (!empty($txn[$col])) {
-            $stored = (string)$txn[$col];
+            $stored = trim((string)$txn[$col]);
             break;
+        }
+    }
+    foreach (['error_code', 'failure_code', 'gateway_error_code'] as $col) {
+        if (!empty($txn[$col])) {
+            $rawCode = trim((string)$txn[$col]);
+            break;
+        }
+    }
+    if (function_exists('mapGatewayFailureReason') && ($rawCode !== '' || $stored !== '')) {
+        // If stored text is already a mapped sentence, mapGatewayFailureReason keeps it;
+        // if it is a bare code, it becomes a clear one-liner.
+        $mapped = mapGatewayFailureReason($rawCode !== '' ? $rawCode : null, $stored !== '' ? $stored : null);
+        if ($mapped !== '') {
+            $stored = $mapped;
         }
     }
     switch ($status) {
@@ -65,7 +81,7 @@ function transactionStatusExplainer(array $txn): array
             return ['tone' => 'warning', 'title' => 'Payment pending', 'text' => $stored ?: 'Awaiting confirmation from the bank / payment gateway. This can take a few minutes for UPI. No action is needed unless it stays pending beyond 30 minutes.'];
         case 'failed':
         case 'error':
-            return ['tone' => 'danger', 'title' => 'Payment failed', 'text' => $stored ?: 'The payment did not complete. Common reasons: customer cancelled, insufficient balance, bank/UPI timeout, or an expired session. Any amount debited is auto-reversed by the bank in 3-5 working days.'];
+            return ['tone' => 'danger', 'title' => 'Payment failed', 'text' => $stored ?: (defined('GATEWAY_REASON_FALLBACK') ? GATEWAY_REASON_FALLBACK : 'Technical issue from bank side. Please try again later.') . ' Any amount debited is usually auto-reversed by the bank in 3–5 working days.'];
         case 'expired':
             return ['tone' => 'muted', 'title' => 'Link expired', 'text' => $stored ?: 'The payment link/session expired before the customer paid. Share a fresh link.'];
         case 'refunded':

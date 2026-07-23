@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireLogin();
+if (function_exists('ensureFailureReasonColumns')) {
+    ensureFailureReasonColumns();
+}
 $merchant = getMerchant();
 $db = getDB();
 $filter = trim($_GET['status'] ?? 'all');
@@ -127,11 +130,12 @@ require_once __DIR__ . '/header.php';
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
                 <th class="px-5 py-3 text-left">Txn ID</th><th class="px-5 py-3 text-left">Customer</th>
                 <th class="px-5 py-3 text-left">Amount</th><th class="px-5 py-3 text-left">Method</th>
-                <th class="px-5 py-3 text-left">UTR</th><th class="px-5 py-3 text-left">Status</th><th class="px-5 py-3 text-left">Date</th>
+                <th class="px-5 py-3 text-left">UTR</th><th class="px-5 py-3 text-left">Status</th>
+                <th class="px-5 py-3 text-left">Reason</th><th class="px-5 py-3 text-left">Date</th>
             </tr></thead>
             <tbody class="divide-y divide-gray-800">
                 <?php if (empty($transactions)): ?>
-                <tr><td colspan="7" class="p-0">
+                <tr><td colspan="8" class="p-0">
                     <?= renderMerchantEmptyState(
                         'No transactions found',
                         $viewTest
@@ -141,14 +145,39 @@ require_once __DIR__ . '/header.php';
                         $viewTest ? 'Open Payment Pack →' : 'Create payment link →'
                     ) ?>
                 </td></tr>
-                <?php else: foreach ($transactions as $t): ?>
+                <?php else: foreach ($transactions as $t):
+                    $rowReason = null;
+                    $st = strtolower((string)($t['status'] ?? ''));
+                    if (in_array($st, ['failed', 'error', 'pending', 'processing', 'initiated', 'expired', 'cancelled', 'canceled'], true)
+                        && function_exists('transactionStatusExplainer')) {
+                        $rowReason = transactionStatusExplainer($t);
+                    }
+                ?>
                 <tr class="hover:bg-white/5 cursor-pointer" onclick="location.href='<?= e(transactionDetailUrl($t['txn_id'])) ?>'">
                     <td class="px-5 py-3 font-mono text-xs"><a href="<?= e(transactionDetailUrl($t['txn_id'])) ?>" class="text-sky-400 hover:underline"><?= e($t['txn_id']) ?></a></td>
                     <td class="px-5 py-3"><?= e($t['customer_name'] ?: $t['customer_phone'] ?: '—') ?></td>
                     <td class="px-5 py-3 font-semibold"><?= formatMoney((float)$t['amount']) ?></td>
                     <td class="px-5 py-3 uppercase text-xs"><?= e($t['payment_method']) ?></td>
                     <td class="px-5 py-3 font-mono text-xs text-gray-500"><?= e($t['utr'] ?: '—') ?></td>
-                    <td class="px-5 py-3"><?= statusBadge($t['status']) ?></td>
+                    <td class="px-5 py-3">
+                        <?php if ($rowReason): ?>
+                        <div class="flex items-start gap-2" title="<?= e($rowReason['text']) ?>">
+                            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 <?= $rowReason['tone'] === 'danger' ? 'bg-red-400' : ($rowReason['tone'] === 'warning' ? 'bg-amber-400' : 'bg-gray-500') ?>"></span>
+                            <div>
+                                <?= statusBadge($t['status']) ?>
+                            </div>
+                        </div>
+                        <?php else: ?>
+                        <?= statusBadge($t['status']) ?>
+                        <?php endif; ?>
+                    </td>
+                    <td class="px-5 py-3 text-xs text-gray-400 max-w-[220px]">
+                        <?php if ($rowReason && $rowReason['text'] !== ''): ?>
+                        <span class="line-clamp-2" title="<?= e($rowReason['text']) ?>"><?= e($rowReason['text']) ?></span>
+                        <?php else: ?>
+                        <span class="text-gray-600">—</span>
+                        <?php endif; ?>
+                    </td>
                     <td class="px-5 py-3 text-xs text-gray-500"><?= formatDate($t['created_at']) ?></td>
                 </tr>
                 <?php endforeach; endif; ?>

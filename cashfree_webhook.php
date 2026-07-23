@@ -38,6 +38,40 @@ if (!empty($gatewayEvent['duplicate'])) {
 
 logPgWebhook('cashfree', 'received', $event, $paymentId ?: $orderId, null, '');
 
+$failureEvents = ['PAYMENT_FAILED_WEBHOOK', 'PAYMENT_FAILED', 'ORDER_FAILED'];
+$paymentStatus = strtoupper((string)($payment['payment_status'] ?? $data['payment_status'] ?? ''));
+$isFailure = in_array(strtoupper($event), $failureEvents, true)
+    || in_array($orderStatus, ['FAILED', 'CANCELLED', 'EXPIRED'], true)
+    || in_array($paymentStatus, ['FAILED', 'USER_DROPPED', 'CANCELLED', 'EXPIRED'], true);
+
+if ($isFailure && $orderId !== '') {
+    try {
+        $result = recordPaymentOrderFailure([
+            'provider' => 'cashfree',
+            'provider_order_id' => $orderId,
+            'provider_payment_id' => $paymentId !== '' ? $paymentId : ('fail:' . $orderId),
+            'error_code' => (string)($payment['error_code']
+                ?? (is_array($payment['payment_gateway_details'] ?? null) ? ($payment['payment_gateway_details']['error_code'] ?? null) : null)
+                ?? $data['error_code']
+                ?? ($orderStatus !== '' ? $orderStatus : $paymentStatus)),
+            'error_description' => (string)($payment['payment_message'] ?? $payment['error_details'] ?? $data['payment_message'] ?? $order['order_note'] ?? ''),
+            'amount' => (float)($payment['payment_amount'] ?? $order['order_amount'] ?? $data['order_amount'] ?? 0) ?: null,
+            'currency' => (string)($payment['payment_currency'] ?? $order['order_currency'] ?? 'INR'),
+            'signature_verified' => true,
+            'provider_verified' => true,
+            'reference' => $paymentId ?: $orderId,
+        ]);
+        setGatewayEventStatus((int)$gatewayEvent['id'], !empty($result['duplicate']) || !empty($result['ignored']) ? 'duplicate' : 'processed');
+        logPgWebhook('cashfree', 'processed_failure', $event, $paymentId ?: $orderId, null, json_encode($result));
+        jsonResponse(['ok' => true, 'result' => $result]);
+    } catch (Throwable $e) {
+        setGatewayEventStatus((int)$gatewayEvent['id'], 'failed', null, $e->getMessage());
+        logPgWebhook('cashfree', 'failed', $event, $paymentId ?: $orderId, null, json_encode(['error' => $e->getMessage()]));
+        logPlatformError('error', 'Cashfree payment failure webhook processing failed.', ['event_id' => $eventId, 'error' => $e->getMessage()]);
+        jsonResponse(['error' => 'Failure processing failed'], 422);
+    }
+}
+
 if ($orderStatus !== 'PAID' || $orderId === '') {
     setGatewayEventStatus((int)$gatewayEvent['id'], 'processed');
     jsonResponse(['ok' => true, 'ignored' => true]);

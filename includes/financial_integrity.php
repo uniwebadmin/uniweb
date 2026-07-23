@@ -639,3 +639,190 @@ function captureVerifiedPaymentOrder(array $verification): array
     }
     return ['ok' => true, 'duplicate' => false, 'transaction_id' => $transactionId];
 }
+
+/**
+ * Persist a partner payment failure onto the bound order + merchant-visible txn.
+ * Maps error_code → clear English via mapGatewayFailureReason(); never invents bank stories.
+ *
+ * Expected keys: provider, provider_order_id; optional provider_payment_id, error_code,
+ * error_description / failure_reason, amount, currency, reference.
+ */
+function recordPaymentOrderFailure(array $payload): array
+{
+    requireFinancialTables();
+    if (!function_exists('ensureFailureReasonColumns')) {
+        // no-op if schema helper not loaded
+    } else {
+        ensureFailureReasonColumns();
+    }
+    $provider = strtolower(trim((string)($payload['provider'] ?? '')));
+    $providerOrderId = trim((string)($payload['provider_order_id'] ?? ''));
+    if ($provider === '' || $providerOrderId === '') {
+        throw new InvalidArgumentException('provider and provider_order_id are required to record a payment failure.');
+    }
+
+    $errorCode = isset($payload['error_code']) ? (string)$payload['error_code'] : null;
+    $rawMessage = (string)($payload['error_description']
+        ?? $payload['failure_reason']
+        ?? $payload['failure_message']
+        ?? $payload['error_message']
+        ?? '');
+    if (($errorCode === null || $errorCode === '') && function_exists('extractGatewayErrorFields')) {
+        [$extractedCode, $extractedMsg] = extractGatewayErrorFields($payload);
+        $errorCode = $extractedCode;
+        if ($rawMessage === '' && $extractedMsg) {
+            $rawMessage = $extractedMsg;
+        }
+    }
+    $reason = function_exists('mapGatewayFailureReason')
+        ? mapGatewayFailureReason($errorCode, $rawMessage !== '' ? $rawMessage : null)
+        : ($rawMessage !== '' ? mb_substr($rawMessage, 0, 500) : 'Technical issue from bank side. Please try again later.');
+    $reason = mb_substr($reason, 0, 500);
+    $providerPaymentId = trim((string)($payload['provider_payment_id'] ?? $payload['reference'] ?? ''));
+    if ($providerPaymentId === '') {
+        $providerPaymentId = 'fail:' . $providerOrderId;
+    }
+
+    $db = getDB();
+    $db->beginTransaction();
+    $transactionId = 0;
+    try {
+        $orderSt = $db->prepare(
+            'SELECT o.*, pl.link_id, pl.description AS link_description, pl.link_collection_mode,
+                    m.commission_rate, m.collection_mode
+             FROM payment_orders o
+             JOIN payment_links pl ON pl.id=o.payment_link_id
+             JOIN merchants m ON m.id=o.merchant_id
+             WHERE o.provider=? AND o.provider_order_id=? FOR UPDATE'
+        );
+        $orderSt->execute([$provider, $providerOrderId]);
+        $order = $orderSt->fetch();
+        if (!$order) {
+            throw new RuntimeException('No bound payment order matches the provider order.');
+        }
+
+        // Never overwrite a successful capture.
+        if ($order['status'] === 'paid') {
+            $mapped = $db->prepare('SELECT transaction_id FROM payment_order_transactions WHERE payment_order_id=?');
+            $mapped->execute([(int)$order['id']]);
+            $transactionId = (int)$mapped->fetchColumn();
+            $db->commit();
+            return ['ok' => true, 'ignored' => true, 'reason' => 'already_paid', 'transaction_id' => $transactionId];
+        }
+
+        $amount = isset($payload['amount']) ? round((float)$payload['amount'], 2) : (float)$order['expected_amount'];
+        $currency = strtoupper((string)($payload['currency'] ?? $order['currency'] ?? 'INR'));
+
+        $attempt = $db->prepare(
+            'INSERT INTO payment_attempts
+             (payment_order_id,provider,provider_payment_id,provider_order_id,amount,currency,status,signature_verified,provider_verified,captured,failure_code,failure_message,raw_reference,verified_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())
+             ON DUPLICATE KEY UPDATE status=VALUES(status),failure_code=VALUES(failure_code),failure_message=VALUES(failure_message),verified_at=NOW()'
+        );
+        $attempt->execute([
+            (int)$order['id'],
+            $provider,
+            mb_substr($providerPaymentId, 0, 120),
+            $providerOrderId,
+            $amount,
+            $currency,
+            'failed',
+            !empty($payload['signature_verified']) ? 1 : 0,
+            !empty($payload['provider_verified']) ? 1 : 0,
+            0,
+            $errorCode !== null && $errorCode !== '' ? mb_substr(normalizeGatewayErrorCode($errorCode) ?: (string)$errorCode, 0, 100) : null,
+            $reason,
+            mb_substr((string)($payload['reference'] ?? $providerPaymentId), 0, 190) ?: null,
+        ]);
+
+        $db->prepare("UPDATE payment_orders SET status='failed' WHERE id=? AND status IN ('created','pending','authorized','failed')")
+            ->execute([(int)$order['id']]);
+
+        $mapped = $db->prepare('SELECT transaction_id FROM payment_order_transactions WHERE payment_order_id=?');
+        $mapped->execute([(int)$order['id']]);
+        $existingTxnId = (int)$mapped->fetchColumn();
+        if ($existingTxnId > 0) {
+            $db->prepare("UPDATE transactions SET status='failed', failure_reason=? WHERE id=? AND status IN ('pending','processing','initiated','failed')")
+                ->execute([$reason, $existingTxnId]);
+            $transactionId = $existingTxnId;
+            $db->commit();
+            return ['ok' => true, 'duplicate' => true, 'transaction_id' => $transactionId, 'failure_reason' => $reason];
+        }
+
+        $txnRef = generateId('TXN');
+        $collectionMode = $order['link_collection_mode'] ?: $order['collection_mode'] ?: 'platform_pg';
+        $txnInsert = $db->prepare(
+            'INSERT INTO transactions
+             (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,failure_reason)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?)'
+        );
+        try {
+            $txnInsert->execute([
+                $txnRef,
+                (int)$order['merchant_id'],
+                $amount,
+                'failed',
+                $provider,
+                $order['link_description'] ?: $order['description'],
+                mb_substr($providerPaymentId, 0, 64),
+                (int)$order['payment_link_id'],
+                0,
+                0,
+                $order['mode'] === 'test' ? 1 : 0,
+                $collectionMode,
+                mb_substr(trim((string)($order['customer_name'] ?? '')), 0, 160) ?: null,
+                mb_substr(trim((string)($order['customer_email'] ?? '')), 0, 190) ?: null,
+                mb_substr(trim((string)($order['customer_phone'] ?? '')), 0, 32) ?: null,
+                $reason,
+            ]);
+        } catch (Throwable $e) {
+            // Older DBs without failure_reason column — insert without it, then best-effort UPDATE.
+            $txnInsert2 = $db->prepare(
+                'INSERT INTO transactions
+                 (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?)'
+            );
+            $txnInsert2->execute([
+                $txnRef,
+                (int)$order['merchant_id'],
+                $amount,
+                'failed',
+                $provider,
+                $order['link_description'] ?: $order['description'],
+                mb_substr($providerPaymentId, 0, 64),
+                (int)$order['payment_link_id'],
+                0,
+                0,
+                $order['mode'] === 'test' ? 1 : 0,
+                $collectionMode,
+                mb_substr(trim((string)($order['customer_name'] ?? '')), 0, 160) ?: null,
+                mb_substr(trim((string)($order['customer_email'] ?? '')), 0, 190) ?: null,
+                mb_substr(trim((string)($order['customer_phone'] ?? '')), 0, 32) ?: null,
+            ]);
+            try {
+                $db->prepare('UPDATE transactions SET failure_reason=? WHERE txn_id=?')->execute([$reason, $txnRef]);
+            } catch (Throwable $ignored) { /* column missing */ }
+        }
+        $transactionId = (int)$db->lastInsertId();
+        $db->prepare('INSERT INTO payment_order_transactions (payment_order_id,transaction_id) VALUES (?,?)')
+            ->execute([(int)$order['id'], $transactionId]);
+        $db->commit();
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $e;
+    }
+
+    try {
+        createNotification(
+            (int)$order['merchant_id'],
+            'Payment Failed',
+            formatMoney($amount) . ' payment failed — ' . $reason
+        );
+    } catch (Throwable $e) {
+        // non-fatal
+    }
+
+    return ['ok' => true, 'duplicate' => false, 'transaction_id' => $transactionId, 'failure_reason' => $reason];
+}

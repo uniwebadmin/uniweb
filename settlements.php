@@ -283,6 +283,13 @@ renderMerchantCommercialCard($merchant);
                     <td class="px-5 py-3 text-xs"><?= e($s['bank_name'] ?? '—') ?></td>
                     <td class="px-5 py-3">
                         <div title="<?= e(settlementReasonText($s, $merchant)) ?>"><?= settlementStatusBadge($s['status']) ?></div>
+                        <?php
+                        $sKey = canonicalSettlementStatus($s['status'] ?? null)['key'];
+                        if ($sKey === 'failed' || $sKey === 'pending'):
+                            $sReason = settlementReasonText($s, $merchant);
+                        ?>
+                        <p class="text-[11px] text-gray-400 mt-1 max-w-[240px] line-clamp-2" title="<?= e($sReason) ?>"><?= e($sReason) ?></p>
+                        <?php endif; ?>
                     </td>
                     <td class="px-5 py-3 text-xs text-gray-500"><?= formatDate($s['created_at']) ?></td>
                 </tr>

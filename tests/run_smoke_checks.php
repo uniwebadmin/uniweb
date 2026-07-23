@@ -127,9 +127,23 @@ $assert(str_contains($teamSrc, "'support'") && str_contains($teamSrc, 'customer 
 // Transaction / settlement "exact reason" copy for fail / pending / success states.
 $txnLib = (string)file_get_contents($root . '/includes/transaction_detail.php');
 $assert(str_contains($txnLib, 'function transactionStatusExplainer'), 'txn_status_explainer_helper');
-$assert(str_contains($txnLib, 'auto-reversed'), 'txn_failed_reason_copy');
+$assert(str_contains($txnLib, 'auto-reversed') || str_contains($txnLib, 'mapGatewayFailureReason'), 'txn_failed_reason_copy');
 $txnPage = (string)file_get_contents($root . '/transaction_detail.php');
 $assert(str_contains($txnPage, 'transactionStatusExplainer('), 'txn_detail_shows_reason_banner');
+$reasonMap = (string)file_get_contents($root . '/includes/gateway_reason_map.php');
+$assert(str_contains($reasonMap, 'function mapGatewayFailureReason') && str_contains($reasonMap, 'INSUFFICIENT_FUNDS'), 'gateway_reason_map_helper');
+$assert(str_contains($reasonMap, 'Technical issue from bank side'), 'gateway_reason_fallback_copy');
+$txnList = (string)file_get_contents($root . '/transactions.php');
+$assert(str_contains($txnList, 'transactionStatusExplainer(') && str_contains($txnList, 'Reason'), 'txn_list_shows_reason_column');
+$rzpWh = (string)file_get_contents($root . '/razorpay_webhook.php');
+$assert(str_contains($rzpWh, 'payment.failed') && str_contains($rzpWh, 'recordPaymentOrderFailure'), 'razorpay_webhook_stores_mapped_failure');
+$cfWh = (string)file_get_contents($root . '/cashfree_webhook.php');
+$assert(str_contains($cfWh, 'recordPaymentOrderFailure'), 'cashfree_webhook_stores_mapped_failure');
+$finLib = (string)file_get_contents($root . '/includes/financial_integrity.php');
+$assert(str_contains($finLib, 'function recordPaymentOrderFailure'), 'record_payment_order_failure_helper');
+$cfgDev = (string)file_get_contents($root . '/config.dev.php');
+$assert(str_contains($cfgDev, "'gateway_reason_map'"), 'config_dev_loads_gateway_reason_map');
+$assert(is_file($root . '/migrations/020_txn_settlement_failure_reason.sql'), 'failure_reason_migration_present');
 
 // Payment method request (merchant -> admin "Request to Enable").
 $mReq = (string)file_get_contents($root . '/includes/method_requests.php');
