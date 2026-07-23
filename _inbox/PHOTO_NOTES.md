@@ -218,3 +218,28 @@ Ask: Please confirm the exact filesystem path LiteSpeed/Apache uses as the docro
 
 ### Owner action still needed for QR (independent of deploy)
 Live `config.php` mein `$__includes` array me `'qr_svg'` add karo (File Manager se Edit) — yeh FTP se nahi jata (gitignored). Without this, checkout QR remains broken even after deploy is fixed.
+
+## FTP sub-account (u806999427.uniwebdeploy) audit - 2026-07-23 afternoon - SKIPPED, no credentials found
+
+Task requested: log into the dedicated FTP sub-account `u806999427.uniwebdeploy`, do one recursive directory listing, clean up leftover diagnostic files, and report back. Read this file fully first (all "Deploy fix" sections dated 2026-07-22 and 2026-07-23) per instructions - summary of that history is above; this section only adds today's findings.
+
+**Password search (exhaustive) - result: NOT FOUND anywhere in this repo/session.**
+
+- The sub-account's password is referenced multiple times across the "Deploy fix" sections above but is never written in plaintext. The "RESOLVED root cause" section (2026-07-22 ~21:15) explicitly redacts it as "(set, owner-provided)".
+- The only plaintext FTP password recorded anywhere in these notes, `Kevin#121` (round 4, 2026-07-23 morning), is documented as belonging to the OLD MAIN account (`u806999427`), not the `uniwebdeploy` sub-account.
+- Searched full git history (`git log --all -p`, all branches) for `uniwebdeploy` and for credential-shaped strings. Every reference to the sub-account in every commit is either prose discussion or a `${{ secrets.UNIWEB_FTP_* }}` placeholder in workflow YAML - never a literal password.
+- Searched `_inbox/chat/THREAD.md` and `_inbox/chat/README.txt` - no credentials.
+- Checked leftover local scratch files (`deploy_watch.log`, `deploy_watch2.log`, `deploy_watch3.log`, `run_full.log`) still sitting untracked in the repo root - no raw passwords logged, only masked/env-var references.
+- Checked `gh secret list` - as expected, secret values are never retrievable, only names + last-updated timestamps. Current secrets (`UNIWEB_FTP_HOST`, `UNIWEB_FTP_USER`, `UNIWEB_FTP_PASS`, `UNIWEB_FTP_PORT`, `UNIWEB_FTP_REMOTE`) were last updated 2026-07-23 ~11:24-12:15 IST, timing that matches the round-4 pivot back to the OLD main account (`u806999427` / `Kevin#121` / host `89.117.188.154` / remote `public_html`) described in the round-4 section above. So the secrets currently set point at the MAIN account, not the sub-account, confirming this task's starting assumption.
+
+**Conclusion:** the `u806999427.uniwebdeploy` sub-account's password is genuinely unrecoverable from anything in this repo or its history. It was only ever supplied once, directly into a GitHub Actions secret (write-only, cannot be read back), by an earlier session on 2026-07-22 evening, and that secret slot has since been overwritten with the main account's credentials during the round-4 investigation on 2026-07-23 morning. It was never committed to git, never logged, and never saved in plaintext in any note or chat file this session could find.
+
+**Per task instructions, skipped steps 1 and 2 of the FTP audit entirely:** made no FTP connections of any kind (main or sub-account), did not set `UNIWEB_FTP_USER2` / `UNIWEB_FTP_PASS2` secrets (nothing valid to put in them), did not add or trigger any `workflow_dispatch` job, and made no changes to `.github/workflows/ftp_probe.yml` or `.github/workflows/deploy.yml`. Zero risk to the live site or to other agents' parallel FTP work on the main account.
+
+**Recommendation:**
+
+1. If the owner still has the `uniwebdeploy` password saved somewhere outside this repo (password manager, the original Hostinger "FTP account created" confirmation email, or hPanel itself under Files -> FTP Accounts -> that account -> Change password), drop it into a fresh `.txt` in `_inbox/chat/` and a future session can safely run the one-off probe this task described.
+2. Given the round-4 finding that this saga may be a deeper Hostinger vhost/live-serving issue independent of *which* FTP account is used (both the main and sub accounts' FTP writes land correctly, but new/changed content doesn't reach whatever the live site actually serves from), a directory listing of the sub-account is unlikely to be the decisive piece of evidence anymore even if credentials turn up. The higher-value next step remains the one already queued above: owner using hPanel's own browser-based File Manager (not FTP) to hand-edit a live file, or a Hostinger support ticket - neither needs any FTP password recovery at all.
+3. If/when the owner resets the `uniwebdeploy` password fresh (easier than hunting for the old one), simplest path is to paste the new password directly into chat/`_inbox/chat/` so it can go straight into a GitHub secret - do not attempt to guess, brute-force, or reuse an unrelated password against this account.
+
+No FTP connections were attempted this session, so the 30-45s connection-spacing safety rule did not come into play.
