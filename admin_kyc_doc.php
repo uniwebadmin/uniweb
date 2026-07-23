@@ -54,10 +54,17 @@ if ($isVideo && empty($_GET['raw'])) {
     $src = 'admin_kyc_doc.php?id=' . $id . '&token=' . rawurlencode((string)($_GET['token'] ?? '')) . '&raw=1';
     header('Content-Type: text/html; charset=utf-8');
     echo '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-        . '<title>Video KYC</title><style>body{margin:0;background:#0b1220;color:#e5e7eb;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;padding:24px}'
-        . 'video{max-width:min(960px,100%);width:100%;border-radius:12px;background:#000}a{color:#38bdf8;margin-top:16px}</style></head><body>'
+        . '<title>Video KYC</title><style>'
+        . 'html,body{margin:0;background:#0b1220;color:#e5e7eb;font-family:system-ui,sans-serif}'
+        . 'body{display:flex;flex-direction:column;align-items:center;padding:16px;min-height:100vh;box-sizing:border-box}'
+        . '@media(min-width:640px){body{padding:24px}}'
+        . 'video{max-width:min(960px,100%);width:100%;border-radius:12px;background:#000;aspect-ratio:16/9;object-fit:contain}'
+        . 'a{color:#38bdf8;margin-top:16px;padding:10px 14px;border:1px solid rgba(56,189,248,.35);border-radius:10px;text-decoration:none}'
+        . 'p.note{font-size:12px;color:#9ca3af;margin:8px 0 0;text-align:center;max-width:28rem}'
+        . '</style></head><body>'
         . '<h1 style="font-size:16px;font-weight:600;margin:0 0 16px">Video KYC preview</h1>'
-        . '<video controls playsinline src="' . htmlspecialchars($src, ENT_QUOTES, 'UTF-8') . '"></video>'
+        . '<video controls playsinline preload="metadata" src="' . htmlspecialchars($src, ENT_QUOTES, 'UTF-8') . '"></video>'
+        . '<p class="note">CSRF token required · file stays private · works on mobile browsers</p>'
         . '<a href="' . htmlspecialchars($src, ENT_QUOTES, 'UTF-8') . '" download>Download file</a></body></html>';
     exit;
 }
