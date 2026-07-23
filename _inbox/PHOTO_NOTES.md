@@ -56,14 +56,22 @@ Owner sending more detail next — discuss before coding.
 - **New: generic "admin approve → 1-click to partner" flow** — whenever merchant/customer requests something (enable payment method, etc.), request lands with admin; admin has ~1 hour to review; one button press forwards straight to the partner (no manual re-typing/relay by admin). Apply this pattern broadly wherever a partner approval is needed.
 - **Page audit false positives (not bugs):** `config.private.php` 403 (intentional `.htaccess` block) and `ifsc_lookup.php` 401 (intentional login-gate) — verified, no fix needed.
 
-Still **waiting for explicit "start"** before any of this is coded.
+### Owner START (2026-07-23 ~18:06 IST)
+
+Owner said **"let's start"**. Coding began on strategy pack:
+- #1 Exact reason polish — agent in progress
+- #3 QR verify/polish (+ defensive qr_svg load) — agent in progress
+- #4 OTP contact change (email/mobile) — agent in progress
+- #2 Shopify/WP/e-Rupee — leave (Woo exists; rest after PG live)
+- #5 Payout wire — leave until partner keys
+- #6 Failed-payout auto-reversal — keep gate (recon-only)
 
 ### Owner confirm (2026-07-22 evening)
 
 - Agent ki baat sahi; usi hisaab se note.
 - Jo already ho chuka → chhod dena; jo pending → **sirf jab owner "start" bole**.
-- Abhi **START nahi** — wait for explicit start.
 - Mobile chat inbox: `_inbox/chat/` (photo-style OneDrive drop).
+- **START received 2026-07-23** — see section above.
 
 ## Deploy fix — RESOLVED root cause (2026-07-22 ~21:15)
 
