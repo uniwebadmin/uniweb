@@ -57,6 +57,16 @@ assertTrue(str_contains($webhook, '410') || str_contains($webhook, 'Gone'), 'gen
 // Demo isolation helper
 assertTrue(function_exists('ensureDemoMerchant') || file_exists($root . '/includes/demo.php'), 'demo_module_present');
 
+$contactChangeLib = (string)file_get_contents($root . '/includes/contact_change.php');
+assertTrue(is_file($root . '/includes/contact_change.php'), 'contact_change_module_present');
+assertTrue(str_contains($contactChangeLib, 'function requestMerchantEmailChange'), 'contact_change_email_request');
+assertTrue(str_contains($contactChangeLib, 'function requestMerchantPhoneChange'), 'contact_change_phone_request');
+assertTrue(str_contains($contactChangeLib, 'function verifyMerchantContactChange'), 'contact_change_verify');
+assertTrue(str_contains($contactChangeLib, 'Never applies contact updates from a plain profile POST'), 'contact_change_no_silent_policy');
+
+$notifyLib = (string)file_get_contents($root . '/includes/notify.php');
+assertTrue(str_contains($notifyLib, 'function ensureOtpVerificationsSchema'), 'otp_schema_ensure');
+
 // Migration files present
 foreach ([
     '001_financial_integrity.sql',
@@ -66,6 +76,14 @@ foreach ([
 ] as $file) {
     assertTrue(is_file($root . '/migrations/' . $file), 'migration_' . $file);
 }
+
+// my_account must OTP-gate email/mobile; profile POST must not SET email/phone
+$myAccount = (string)file_get_contents($root . '/my_account.php');
+assertTrue(str_contains($myAccount, 'verify_contact_change'), 'my_account_otp_verify_action');
+assertTrue(str_contains($myAccount, 'request_email_change'), 'my_account_email_otp_request');
+assertTrue(str_contains($myAccount, 'request_phone_change'), 'my_account_phone_otp_request');
+assertTrue(!preg_match('/UPDATE\s+merchants\s+SET[^;]*\b(email|phone)\s*=/i', $myAccount), 'my_account_no_silent_contact_update');
+
 
 // Launch public assets
 foreach (['robots.txt', 'sitemap.xml', 'favicon.ico', 'favicon.svg', 'manifest.json', 'assets/icons/icon-192.png'] as $asset) {

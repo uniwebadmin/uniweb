@@ -26,6 +26,7 @@ Agent explanation accepted. Status:
 
 | When | File / source | Summary | Agent |
 |------|---------------|---------|--------|
+| 2026-07-23 ~18:10 | Cursor agent | **#4 OTP contact change started + shipped** — merchant email/mobile change on `my_account.php` now requires OTP to new (+ old when real); never silent profile overwrite. Branch `feature/otp-contact-change`. Customer portal stays OTP-login only (no profile self-update). | shipped PR |
 | 2026-07-23 ~18:06 | Cursor chat | Owner: let's start — strategy pack coding begins | #1/#3/#4 agents launched |
 | 2026-07-22 | Cursor chat | Chat inbox system requested (like photos) | created this folder |
 | 2026-07-22 | Cursor chat | Strategy pack confirmed; wait for start | noted |

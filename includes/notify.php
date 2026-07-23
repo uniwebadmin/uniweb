@@ -267,8 +267,30 @@ function testWhatsAppConnection(): array
     return ['ok' => false, 'message' => $msg];
 }
 
+function ensureOtpVerificationsSchema(): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    try {
+        getDB()->exec("CREATE TABLE IF NOT EXISTS otp_verifications (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            identifier VARCHAR(190) NOT NULL,
+            otp_code VARCHAR(12) NOT NULL,
+            otp_type VARCHAR(40) NOT NULL DEFAULT 'login',
+            expires_at DATETIME NOT NULL,
+            used TINYINT(1) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_otp_lookup (identifier, otp_type, used, expires_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) { /* ok */ }
+}
+
 function generateOTP(string $identifier, string $type = 'login'): string
 {
+    ensureOtpVerificationsSchema();
     $code = (string)random_int(100000, 999999);
     $expires = date('Y-m-d H:i:s', time() + 600);
     $db = getDB();
