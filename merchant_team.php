@@ -36,6 +36,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 }
 
 $members = listMerchantTeamMembers($merchantId);
+$teamQ = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
+$listParams = listPageParams(20);
+if ($teamQ !== '') {
+    $members = array_values(array_filter($members, static function ($row) use ($teamQ) {
+        $hay = strtolower(($row['name'] ?? '') . ' ' . ($row['email'] ?? '') . ' ' . ($row['role'] ?? ''));
+        return str_contains($hay, strtolower($teamQ));
+    }));
+}
+$teamTotal = count($members) + 1;
+$pagedMembers = array_slice($members, max(0, $listParams['offset'] - 1), $listParams['page'] === 1 ? max(0, $listParams['perPage'] - 1) : $listParams['perPage']);
 $pageTitle = 'Team Members';
 require_once __DIR__ . '/header.php';
 $roles = merchantTeamRoles();
@@ -71,7 +81,15 @@ $roles = merchantTeamRoles();
     <?php endif; ?>
 
     <div class="glass rounded-xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Team</h2></div>
+        <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="font-semibold">Team</h2>
+            <form method="GET" class="flex gap-2 items-center">
+                <label class="sr-only" for="team-q">Search team</label>
+                <input id="team-q" type="search" name="q" value="<?= e($teamQ) ?>" placeholder="Name / email / role" class="input-field text-sm">
+                <button type="submit" class="btn-primary text-sm px-3 py-1.5">Search</button>
+            </form>
+            <?= renderExportCsvLink('export_team.php?q=' . rawurlencode($teamQ)) ?>
+        </div>
         <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
                 <th class="px-5 py-3 text-left">Member</th>
@@ -86,9 +104,9 @@ $roles = merchantTeamRoles();
                     <td class="px-5 py-3"><?= statusBadge('active') ?></td>
                     <td class="px-5 py-3 text-xs text-gray-600">—</td>
                 </tr>
-                <?php if (empty($members)): ?>
-                <tr><td colspan="4" class="px-5 py-8 text-center text-gray-500 text-xs">No invited teammates yet.</td></tr>
-                <?php else: foreach ($members as $row): ?>
+                <?php if (empty($members) && $teamQ !== ''): ?>
+                <tr><td colspan="4" class="px-5 py-8 text-center text-gray-500 text-xs">No teammates match your search.</td></tr>
+                <?php else: foreach ($pagedMembers as $row): ?>
                 <tr>
                     <td class="px-5 py-3"><p class="font-medium"><?= e($row['name']) ?></p><p class="text-xs text-gray-500"><?= e($row['email']) ?></p></td>
                     <td class="px-5 py-3 text-xs"><?= e(merchantTeamRoleLabel((string)$row['role'])) ?></td>
@@ -104,9 +122,12 @@ $roles = merchantTeamRoles();
                         <?php else: ?>—<?php endif; ?>
                     </td>
                 </tr>
-                <?php endforeach; endif; ?>
+                <?php endforeach; if (empty($members) && $teamQ === ''): ?>
+                <tr><td colspan="4" class="px-5 py-8 text-center text-gray-500 text-xs">No invited teammates yet.</td></tr>
+                <?php endif; endif; ?>
             </tbody>
         </table></div>
+        <?= renderListPagination($listParams['page'], $teamTotal, $listParams['perPage'], ['q' => $teamQ]) ?>
     </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

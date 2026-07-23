@@ -12,55 +12,67 @@ if (isset($_GET['cancel_otp'])) {
     redirect('payment_status.php');
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['otp_code'])) {
-    // Step 2: verify OTP before revealing any transaction list tied to this phone number.
-    $phone = $_SESSION['pending_customer_phone'] ?? '';
-    if ($phone && verifyOTP('customer_phone_' . $phone, $_POST['otp_code'], 'customer_lookup')) {
-        unset($_SESSION['pending_customer_phone']);
-        $stmt = getDB()->prepare('SELECT t.*, m.business_name FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE t.customer_phone = ? ORDER BY t.created_at DESC LIMIT 10');
-        $stmt->execute([$phone]);
-        $txnList = $stmt->fetchAll();
-        if (empty($txnList)) {
-            $error = 'No payments found for this number.';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
+        $error = 'Security token expired. Refresh and try again.';
+    } elseif (isset($_POST['otp_code'])) {
+        $phone = $_SESSION['pending_customer_phone'] ?? '';
+        if ($phone && verifyOTP('customer_phone_' . $phone, $_POST['otp_code'], 'customer_lookup')) {
+            unset($_SESSION['pending_customer_phone']);
+            $stmt = getDB()->prepare('SELECT t.*, m.business_name FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE t.customer_phone = ? ORDER BY t.created_at DESC LIMIT 10');
+            $stmt->execute([$phone]);
+            $txnList = $stmt->fetchAll();
+            if (empty($txnList)) {
+                $error = 'No payments found for this number.';
+            } else {
+                flash('success', count($txnList) . ' recent payment(s) loaded.');
+            }
+        } else {
+            recordVelocityEvent('customer_lookup', $phone);
+            $error = 'Invalid or expired code. Please try again.';
+            $otpStep = true;
         }
     } else {
-        recordVelocityEvent('customer_lookup', $phone);
-        $error = 'Invalid or expired code. Please try again.';
-        $otpStep = true;
-    }
-} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' || $prefillTxn !== '') {
-    $txnId = $prefillTxn;
-    $phone = trim($_POST['phone'] ?? '');
-    if ($txnId) {
-        // A transaction ID is itself the customer's private receipt reference — no extra proof needed.
-        $stmt = getDB()->prepare('SELECT t.*, m.business_name FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE t.txn_id = ?');
-        $stmt->execute([$txnId]);
-        $txn = $stmt->fetch();
-        if (!$txn) {
-            $error = 'No payment found with that Transaction ID.';
-        }
-    } elseif ($phone) {
-        $digits = preg_replace('/\D/', '', $phone);
-        if (strlen($digits) !== 10) {
-            $error = 'Enter a valid 10-digit mobile number.';
-        } elseif (checkVelocityBlock('customer_lookup')['blocked']) {
-            $v = checkVelocityBlock('customer_lookup');
-            $error = 'Too many attempts. Please try again in ~' . $v['retry_after_minutes'] . ' min.';
-        } else {
-            // Phone lookup reveals payment history to that number — require OTP proof of ownership first.
-            $otp = generateOTP('customer_phone_' . $digits, 'customer_lookup');
-            $waResult = ['ok' => false];
-            if (getSetting('whatsapp_enabled', '0') === '1') {
-                $waResult = sendWhatsAppOtp($digits, $otp);
-            }
-            if (empty($waResult['ok'])) {
-                unset($_SESSION['pending_customer_phone']);
-                $error = 'Phone verification is temporarily unavailable. Use your Transaction ID or try again later.';
+        $txnId = trim($_POST['txn_id'] ?? '');
+        $phone = trim($_POST['phone'] ?? '');
+        if ($txnId !== '') {
+            $stmt = getDB()->prepare('SELECT t.*, m.business_name FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE t.txn_id = ?');
+            $stmt->execute([$txnId]);
+            $txn = $stmt->fetch();
+            if (!$txn) {
+                $error = 'No payment found with that Transaction ID.';
             } else {
-                $_SESSION['pending_customer_phone'] = $digits;
-                $otpStep = true;
+                flash('success', 'Payment details loaded.');
+            }
+        } elseif ($phone !== '') {
+            $digits = preg_replace('/\D/', '', $phone);
+            if (strlen($digits) !== 10) {
+                $error = 'Enter a valid 10-digit mobile number.';
+            } elseif (checkVelocityBlock('customer_lookup')['blocked']) {
+                $v = checkVelocityBlock('customer_lookup');
+                $error = 'Too many attempts. Please try again in ~' . $v['retry_after_minutes'] . ' min.';
+            } else {
+                $otp = generateOTP('customer_phone_' . $digits, 'customer_lookup');
+                $waResult = ['ok' => false];
+                if (getSetting('whatsapp_enabled', '0') === '1') {
+                    $waResult = sendWhatsAppOtp($digits, $otp);
+                }
+                if (empty($waResult['ok'])) {
+                    unset($_SESSION['pending_customer_phone']);
+                    $error = 'Phone verification is temporarily unavailable. Use your Transaction ID or try again later.';
+                } else {
+                    $_SESSION['pending_customer_phone'] = $digits;
+                    $otpStep = true;
+                }
             }
         }
+    }
+} elseif ($prefillTxn !== '') {
+    $stmt = getDB()->prepare('SELECT t.*, m.business_name FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE t.txn_id = ?');
+    $stmt->execute([$prefillTxn]);
+    $txn = $stmt->fetch();
+    if (!$txn) {
+        $error = 'No payment found with that Transaction ID.';
     }
 }
 
@@ -80,6 +92,7 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-2xl p-8 mb-8">
         <p class="text-xs text-gray-500 text-center mb-4">Verification code sent to your WhatsApp.</p>
         <form method="POST" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <p class="text-sm text-gray-400 text-center">We need to confirm this is your number before showing payment history.</p>
             <div><label class="text-sm text-gray-400">Verification Code</label><input type="text" name="otp_code" required maxlength="6" pattern="[0-9]{6}" class="input-field mt-1 text-center text-2xl tracking-widest" placeholder="000000" autofocus></div>
             <button type="submit" class="w-full btn-primary py-3">Verify &amp; View Payments</button>
@@ -89,6 +102,7 @@ require_once __DIR__ . '/header.php';
     <?php else: ?>
     <div class="glass rounded-2xl p-8 mb-8">
         <form method="POST" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div><label class="text-sm text-gray-400">Transaction ID</label><input type="text" name="txn_id" class="input-field mt-1 font-mono" placeholder="TXN..." value="<?= e($prefillTxn) ?>"></div>
             <p class="text-center text-gray-600 text-xs">— OR —</p>
             <div><label class="text-sm text-gray-400">Phone Number</label><input type="tel" name="phone" maxlength="10" class="input-field mt-1" placeholder="10-digit mobile" value="<?= e($_POST['phone']??'') ?>"></div>

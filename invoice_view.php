@@ -16,6 +16,7 @@ $total = capStatAmount((float)$inv['total_amount']);
 $merchantAddr = SimpleInvoicePdf::merchantFullAddress($merchant);
 $pageTitle = 'Invoice ' . $inv['invoice_id'];
 require_once __DIR__ . '/header.php';
+echo renderPrintStylesheet();
 ?>
 <div class="max-w-2xl mx-auto space-y-6">
     <a href="invoices.php" class="text-sm text-brand-400 hover:text-brand-300">← Back to Invoices</a>

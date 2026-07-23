@@ -42,6 +42,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $documents = [];
+$docFilter = trim($_GET['doc'] ?? '');
+$listParams = listPageParams(15);
+$docTotal = 0;
+$pagedDocuments = [];
 try {
     $docs = $db->prepare('SELECT * FROM kyc_documents WHERE merchant_id = ? ORDER BY created_at DESC');
     $docs->execute([$merchant['id']]);
@@ -55,6 +59,12 @@ try {
         $documents = [];
     }
 }
+$historyDocs = $documents;
+if ($docFilter !== '') {
+    $historyDocs = array_values(array_filter($historyDocs, static fn($d) => ($d['doc_type'] ?? '') === $docFilter));
+}
+$docTotal = count($historyDocs);
+$pagedDocuments = array_slice($historyDocs, $listParams['offset'], $listParams['perPage']);
 $uploadedTypes = array_unique(array_column($documents, 'doc_type'));
 $approvedTypes = array_unique(array_column(array_filter($documents, fn($d) => ($d['status'] ?? '') === 'approved'), 'doc_type'));
 
@@ -331,9 +341,19 @@ $docStatusMeta = static function (string $status): array {
     </div>
 
     <div class="glass rounded-xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Upload history</h2></div>
-        <?php if (empty($documents)): ?>
-        <p class="text-gray-500 text-sm text-center py-8">No documents uploaded yet.</p>
+        <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="font-semibold">Upload history</h2>
+            <form method="GET" class="flex gap-2 items-center">
+                <label class="sr-only" for="kyc-doc-filter">Filter by document type</label>
+                <select id="kyc-doc-filter" name="doc" class="input-field text-sm">
+                    <option value="">All documents</option>
+                    <?php foreach ($requiredDocs as $dk): ?><option value="<?= e($dk) ?>" <?= ($docFilter ?? '')===$dk?'selected':'' ?>><?= e($docLabels[$dk] ?? $dk) ?></option><?php endforeach; ?>
+                </select>
+                <button type="submit" class="btn-primary text-sm px-3 py-1.5">Filter</button>
+            </form>
+        </div>
+        <?php if (empty($pagedDocuments)): ?>
+        <p class="text-gray-500 text-sm text-center py-8">No documents uploaded yet<?= $docFilter !== '' ? ' for this filter' : '' ?>.</p>
         <?php else: ?>
         <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -341,7 +361,7 @@ $docStatusMeta = static function (string $status): array {
                 <tr><th class="px-5 py-3 text-left">Document</th><th class="px-5 py-3 text-left">File</th><th class="px-5 py-3 text-left">Status</th><th class="px-5 py-3 text-left">Notes</th><th class="px-5 py-3 text-left">Date</th></tr>
             </thead>
             <tbody class="divide-y divide-gray-800">
-                <?php foreach ($documents as $doc):
+                <?php foreach ($pagedDocuments as $doc):
                     if (($doc['doc_type'] ?? '') === 'video_kyc') continue;
                 ?>
                 <tr class="hover:bg-white/5">
@@ -359,6 +379,7 @@ $docStatusMeta = static function (string $status): array {
             </tbody>
         </table>
         </div>
+        <?php if (!empty($docTotal)): ?><?= renderListPagination($listParams['page'], $docTotal, $listParams['perPage'], ['doc' => $docFilter ?? '']) ?><?php endif; ?>
         <?php endif; ?>
     </div>
     </div>
