@@ -422,7 +422,7 @@ $__includes = [
     'merchant_profile', 'merchant_ui', 'merchant_admin_view', 'merchant_website',
     'merchant_webhooks', 'pg_webhooks', 'collection', 'upi_confirm',
     'transaction_detail', 'ui_links', 'staff', 'partners', 'partner_engine',
-    'provision', 'demo', 'demo_tour', 'customer_messaging', 'mailer',
+    'provision', 'demo', 'demo_tour', 'customer_messaging', 'mailer', 'qr_svg',
     'platform_api', 'platform_health', 'link_watchdog', 'auto_audit',
     'morning_ops', 'axis', 'notify', 'error_catcher',
 ];

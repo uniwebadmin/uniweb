@@ -1,57 +1,92 @@
 # One-off diagnostic: find the correct Hostinger FTP base path for uniweb.co.in.
-# Uploads a small unique marker file to several candidate remote base paths,
-# then checks over HTTPS which one actually lands in the live docroot.
-# Delete this file once UNIWEB_FTP_REMOTE is confirmed correct.
+#
+# Investigation concluded 2026-07-22 (see _inbox/PHOTO_NOTES.md "Deploy fix"
+# section for full writeup). Summary: the new dedicated FTP sub-account
+# (u806999427.uniwebdeploy) uploads succeed (FTP 226) and its own FTP LIST
+# correctly shows the uploaded files (including pre-existing site files like
+# index.php/demo.php/customer_login.php AND our newly-uploaded files) sitting
+# in what hPanel calls the real docroot — but anything written through this
+# sub-account (new files AND edits to existing files) never becomes visible
+# over HTTPS, on either resolved IP, with or without cache-busting, even for
+# a zero-dependency plain-text PHP file. Pre-existing content (uploaded via
+# the OLD/main FTP account historically) continues to serve fine from the
+# exact same directory. This points to the sub-account's writes not reaching
+# whatever filesystem the live web server actually reads from (a hosting/
+# hPanel-side account-scoping issue), not a wrong path — needs the owner's
+# hPanel access to resolve further (see PHOTO_NOTES.md for exact next steps).
+#
+# This job just deletes the throwaway probe/marker files this investigation
+# left on the account. Keep this workflow (workflow_dispatch only) in case a
+# future session with Actions-dispatch permission needs to re-probe.
 name: FTP base-path probe (diagnostic)
 
 on:
   workflow_dispatch:
 
 jobs:
-  probe:
-    name: Probe FTP base paths
+  cleanup:
+    name: Delete stray probe/marker files left on the account during investigation
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-      - name: Upload + check candidate base paths
+      - name: Delete _ftpprobe_* and _diag_probe.php
         env:
           HOST: ${{ secrets.UNIWEB_FTP_HOST }}
           USER: ${{ secrets.UNIWEB_FTP_USER }}
           PASS: ${{ secrets.UNIWEB_FTP_PASS }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           USER_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['USER'], safe=''))")
           PASS_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['PASS'], safe=''))")
-          MARK="probe-$(date +%s)"
-          echo "<?php echo '$MARK'; ?>" > marker.txt
-          echo "Marker content: $MARK"
-
-          declare -A NAMES
-          NAMES["."]="root"
-          NAMES["public_html"]="publichtml"
-          NAMES["domains/uniweb.co.in/public_html"]="domainspublichtml"
-          NAMES["httpdocs"]="httpdocs"
-          NAMES["www"]="www"
-
-          for base in "." "public_html" "domains/uniweb.co.in/public_html" "httpdocs" "www"; do
-            tag="${NAMES[$base]}"
-            fname="_ftpprobe_${tag}.php"
-            remote="${base%/}/${fname}"
-            remote="${remote#./}"
-            url="ftp://${USER_ENC}:${PASS_ENC}@${HOST}/${remote}"
-            code=$(curl -sS --ftp-pasv --ftp-create-dirs --connect-timeout 20 --max-time 60 \
-              -T marker.txt "$url" -w "%{http_code}" -o /dev/null) || code="ERR"
-            echo "UPLOAD base='$base' file='$fname' ftp_code=$code"
-          done
-
-          echo "----"
-          sleep 6
           set +e
-          for tag in root publichtml domainspublichtml httpdocs www; do
-            url="https://uniweb.co.in/_ftpprobe_${tag}.php"
-            body=$(curl -fsS --max-time 15 "$url" 2>/dev/null)
-            httpcode=$(curl -s -o /dev/null --max-time 15 -w "%{http_code}" "$url")
-            match="no"
-            [ "$body" = "$MARK" ] && match="YES <-- this is the correct base path"
-            echo "CHECK tag=$tag http=$httpcode body='$body' match=$match"
+          root_url="ftp://${USER_ENC}:${PASS_ENC}@${HOST}/"
+          for f in _ftpprobe_root.php _ftpprobe_publichtml.php _ftpprobe_domainspublichtml.php _ftpprobe_httpdocs.php _ftpprobe_www.php _diag_probe.php; do
+            out=$(curl -sS --ftp-pasv --connect-timeout 20 --max-time 30 -Q "DELE ${f}" "$root_url" 2>&1)
+            code=$?
+            echo "DELE $f -> exit=$code out='$out'"
+          done
+          set -e
+
+  list:
+    name: List FTP directories to find the real docroot (re-run if needed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: List candidate directories over FTP
+        env:
+          HOST: ${{ secrets.UNIWEB_FTP_HOST }}
+          USER: ${{ secrets.UNIWEB_FTP_USER }}
+          PASS: ${{ secrets.UNIWEB_FTP_PASS }}
+        run: |
+          set -uo pipefail
+          USER_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['USER'], safe=''))")
+          PASS_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['PASS'], safe=''))")
+
+          list_dir() {
+            label="$1"
+            path="$2"
+            url="ftp://${USER_ENC}:${PASS_ENC}@${HOST}/${path}"
+            echo "=== LIST [$label] path='$path' ==="
+            out=$(curl -sS --ftp-pasv --connect-timeout 20 --max-time 30 -l "$url" 2>&1)
+            code=$?
+            if [ $code -ne 0 ]; then
+              echo "(curl exit=$code — likely does not exist or no access)"
+            else
+              nfiles=$(echo "$out" | wc -l)
+              echo "(...$nfiles entries total)"
+              echo "--- key markers ---"
+              for key in "index.php" "config.php" ".htaccess" "includes" "assets" "migrations"; do
+                if echo "$out" | grep -qiFx "$key"; then
+                  echo "  [FOUND]   $key"
+                else
+                  echo "  [MISSING] $key"
+                fi
+              done
+            fi
+            echo
+          }
+
+          list_dir "home (.)" ""
+          for d in public_html domains "domains/uniweb.co.in" "domains/uniweb.co.in/public_html" "domains/uniweb.co.in/public_html/public_html" httpdocs www; do
+            list_dir "$d" "$d"
           done

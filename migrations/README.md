@@ -42,7 +42,9 @@ If `ok: false`, fix the reported SQL error (often a missing base table from an o
 | `015_payout_scaffold.sql` | Payout enable requests, beneficiaries, draft orders (live money gated) |
 | `016_customer_ticket_roles.sql` | Customer ticket merchant/staff sender roles + merchant index |
 | `017_payout_expansion.sql` | Payout batches, reversal queue, API credentials, penny-drop note |
+| `017a_gateway_submissions_base_table.sql` | Base `gateway_submissions` table (previously only runtime-created; a genuinely fresh install had no schema for it, breaking 018 below) — sorts before 018 intentionally |
 | `018_gateway_submissions_axis.sql` | Expand `gateway_submissions.gateway` ENUM to include Axis Bank |
+| `019_kyc_verifications_table.sql` | Base `kyc_verifications` table (Aadhaar/PAN/bank verification results) — had no CREATE TABLE anywhere in the repo at all; found via overnight smoke-testing (KYC page threw "table doesn't exist") |
 ## Local / cloud VM
 
 ```bash

@@ -20,9 +20,13 @@ if (is_file($lib)) {
     header('Content-Type: image/png');
     header('Cache-Control: public, max-age=86400');
     // High error-correction (H, ~30% recoverable) so a center logo cutout stays scannable.
+    // @-suppress: the vendored phpqrcode lib throws PHP 8.1+ "implicit float->int
+    // conversion" deprecations. With display_errors on, those get echoed straight
+    // into this same output buffer and corrupt the PNG bytes (imagecreatefromstring
+    // then fails on the mixed HTML+binary blob). Not our code to fix; suppress it.
     if ($wantLogo && function_exists('imagecreatetruecolor')) {
         ob_start();
-        QRcode::png($decoded, false, QR_ECLEVEL_H, max(2, (int)round($size / 50)), 2, false);
+        @QRcode::png($decoded, false, QR_ECLEVEL_H, max(2, (int)round($size / 50)), 2, false);
         $png = ob_get_clean();
         $img = $png ? imagecreatefromstring($png) : false;
         if ($img) {
@@ -31,7 +35,7 @@ if (is_file($lib)) {
         }
         if ($png) { echo $png; exit; }
     }
-    QRcode::png($decoded, false, QR_ECLEVEL_H, max(2, (int)round($size / 50)), 2, false);
+    @QRcode::png($decoded, false, QR_ECLEVEL_H, max(2, (int)round($size / 50)), 2, false);
     exit;
 }
 

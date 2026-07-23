@@ -22,8 +22,11 @@ $code = (int)($_SERVER['REDIRECT_STATUS'] ?? 0);
 if ($code < 400 || $code > 599) {
     $code = (int)($_GET['code'] ?? 0);
 }
+// Default to 500 (not 404) when the real status is unknown: a genuine
+// crash silently mislabeled "page not found" hides real bugs behind a
+// misleading message, whereas "something went wrong" is honest either way.
 if ($code < 400 || $code > 599) {
-    $code = 404;
+    $code = 500;
 }
 [$heading, $detail] = $statusMap[$code] ?? ['Error ' . $code, 'An unexpected error occurred. Please try again.'];
 
