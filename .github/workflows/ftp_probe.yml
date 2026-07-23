@@ -52,6 +52,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Print login PWD (true FTP home, no guessing)
+        env:
+          HOST: ${{ secrets.UNIWEB_FTP_HOST }}
+          USER: ${{ secrets.UNIWEB_FTP_USER }}
+          PASS: ${{ secrets.UNIWEB_FTP_PASS }}
+        run: |
+          set -uo pipefail
+          USER_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['USER'], safe=''))")
+          PASS_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['PASS'], safe=''))")
+          url="ftp://${USER_ENC}:${PASS_ENC}@${HOST}/"
+          echo "=== PWD (raw curl verbose, look for '257' line) ==="
+          curl -sS --ftp-pasv --connect-timeout 20 --max-time 30 -Q "PWD" "$url" -v 2>&1 | grep -E "^< 257|^< 530|Connected to|^< 220|^< 230" || true
+          echo "=== SYST (server type) ==="
+          curl -sS --ftp-pasv --connect-timeout 20 --max-time 30 -Q "SYST" "$url" -v 2>&1 | grep -E "^< 215" || true
+
       - name: List candidate directories over FTP
         env:
           HOST: ${{ secrets.UNIWEB_FTP_HOST }}
