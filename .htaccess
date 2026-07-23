@@ -45,6 +45,7 @@ ErrorDocument 500 /error.php
     RewriteRule ^pay/([A-Za-z0-9]+)/?$ checkout.php?link=$1 [L,QSA]
     RewriteRule ^checkout/([A-Za-z0-9]+)/?$ checkout.php?link=$1 [L,QSA]
     RewriteRule ^demo/?$ demo.php [L]
+    RewriteRule ^about/?$ about.php [L]
     RewriteRule ^register/?$ merchant_register.php [L]
     RewriteRule ^login/?$ login.php [L]
     RewriteRule ^admin/?$ admin_login.php [L]

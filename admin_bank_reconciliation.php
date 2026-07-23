@@ -44,16 +44,16 @@ require_once __DIR__ . '/header.php';
         <a href="admin_reconciliation.php" class="text-xs text-sky-400 hover:underline">PG Webhook Reconciliation →</a>
     </div>
 
-    <div class="glass rounded-xl p-6">
-        <form method="POST" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">
+    <div class="glass rounded-xl p-4 sm:p-6">
+        <form method="POST" enctype="multipart/form-data" class="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
             <input type="hidden" name="action" value="upload_statement">
             <input type="hidden" name="csrf" value="<?= csrfToken() ?>">
-            <div class="flex-1 min-w-[240px]">
+            <div class="flex-1 min-w-0 w-full sm:min-w-[240px]">
                 <label class="text-sm text-gray-400">Bank statement CSV</label>
-                <input type="file" name="statement" accept=".csv" required class="input-field mt-1">
-                <p class="text-[11px] text-gray-500 mt-1">Expected columns (any order, any casing): UTR/Reference, Amount, Date.</p>
+                <input type="file" name="statement" accept=".csv,text/csv" required class="input-field mt-1 w-full">
+                <p class="text-[11px] text-gray-500 mt-1">Expected columns (any order, any casing): UTR/Reference, Amount, Date. Exact UTR matches only — never auto-settles without review.</p>
             </div>
-            <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl">Upload &amp; Reconcile</button>
+            <button type="submit" class="btn-primary w-full sm:w-auto px-6 py-2.5 rounded-xl">Upload &amp; Reconcile</button>
         </form>
     </div>
 

@@ -126,27 +126,27 @@ $pageTitle = 'Bank Accounts';
 require_once __DIR__ . '/header.php';
 ?>
 
-<div class="grid lg:grid-cols-2 gap-6">
-    <div class="glass rounded-xl p-6">
+<div class="grid lg:grid-cols-2 gap-4 sm:gap-6">
+    <div class="glass rounded-xl p-4 sm:p-6 min-w-0">
         <h2 class="font-semibold mb-4">Add Bank Account</h2>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div>
                 <label class="text-sm text-gray-400 block mb-1">Bank Name *</label>
-                <input type="text" name="bank_name" required class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-2.5 text-white focus:border-brand-500 outline-none">
+                <input type="text" name="bank_name" required autocomplete="organization" class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-2.5 text-white focus:border-brand-500 outline-none">
             </div>
             <div>
                 <label class="text-sm text-gray-400 block mb-1">Account Holder Name *</label>
-                <input type="text" name="account_holder" required value="<?= e($merchant['name']) ?>" class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-2.5 text-white focus:border-brand-500 outline-none">
+                <input type="text" name="account_holder" required value="<?= e($merchant['name']) ?>" autocomplete="name" class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-2.5 text-white focus:border-brand-500 outline-none">
             </div>
             <div>
                 <label class="text-sm text-gray-400 block mb-1">Account Number *</label>
-                <input type="text" name="account_number" required class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-2.5 text-white focus:border-brand-500 outline-none">
+                <input type="text" name="account_number" required inputmode="numeric" autocomplete="off" class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-2.5 text-white focus:border-brand-500 outline-none">
             </div>
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="text-sm text-gray-400 block mb-1">IFSC Code *</label>
-                    <input type="text" name="ifsc_code" required maxlength="11" class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-2.5 text-white focus:border-brand-500 outline-none uppercase">
+                    <input type="text" name="ifsc_code" required maxlength="11" autocomplete="off" class="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-2.5 text-white focus:border-brand-500 outline-none uppercase">
                 </div>
                 <div>
                     <label class="text-sm text-gray-400 block mb-1">Account Type</label>
@@ -160,7 +160,7 @@ require_once __DIR__ . '/header.php';
         </form>
     </div>
 
-    <div class="glass rounded-xl p-6">
+    <div class="glass rounded-xl p-4 sm:p-6 min-w-0">
         <h2 class="font-semibold mb-4">Your Bank Accounts</h2>
         <?php if (empty($bankAccounts)): ?>
         <?= renderMerchantEmptyState(

@@ -38,22 +38,23 @@ $rows = listOpenChargebacks(100);
 $pageTitle = 'Chargebacks';
 require_once __DIR__ . '/header.php';
 ?>
-<div class="grid lg:grid-cols-3 gap-6 mb-8">
-    <div class="lg:col-span-1 glass rounded-xl p-6">
+<div class="grid lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+    <div class="lg:col-span-1 glass rounded-xl p-4 sm:p-6 min-w-0">
         <h2 class="font-semibold mb-4">Ingest dispute</h2>
         <form method="post" class="space-y-3">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="ingest">
-            <div><label class="text-xs text-gray-500">Merchant ID</label><input type="number" name="merchant_id" required class="input-field mt-1"></div>
-            <div><label class="text-xs text-gray-500">Transaction ID</label><input type="number" name="transaction_id" class="input-field mt-1"></div>
-            <div><label class="text-xs text-gray-500">Amount</label><input type="number" step="0.01" name="amount" required class="input-field mt-1"></div>
-            <div><label class="text-xs text-gray-500">Provider dispute ID</label><input name="provider_dispute_id" class="input-field mt-1"></div>
-            <div><label class="text-xs text-gray-500">Reason</label><input name="reason_text" class="input-field mt-1"></div>
+            <div><label class="text-xs text-gray-500">Merchant ID</label><input type="number" name="merchant_id" required inputmode="numeric" class="input-field mt-1 w-full"></div>
+            <div><label class="text-xs text-gray-500">Transaction ID</label><input type="number" name="transaction_id" inputmode="numeric" class="input-field mt-1 w-full"></div>
+            <div><label class="text-xs text-gray-500">Amount</label><input type="number" step="0.01" name="amount" required inputmode="decimal" class="input-field mt-1 w-full"></div>
+            <div><label class="text-xs text-gray-500">Provider dispute ID</label><input name="provider_dispute_id" class="input-field mt-1 w-full"></div>
+            <div><label class="text-xs text-gray-500">Reason</label><input name="reason_text" class="input-field mt-1 w-full"></div>
             <button class="btn-primary w-full py-2.5">Open chargeback</button>
         </form>
+        <p class="text-[11px] text-gray-500 mt-3">Resolve actions require step-up auth. CSRF protected.</p>
     </div>
-    <div class="lg:col-span-2 glass rounded-xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Open / evidence queue</h2></div>
+    <div class="lg:col-span-2 glass rounded-xl overflow-hidden min-w-0">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Open / evidence queue</h2></div>
         <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr><th class="px-4 py-3 text-left">Ref</th><th class="px-4 py-3 text-left">Merchant</th><th class="px-4 py-3 text-left">Amount</th><th class="px-4 py-3 text-left">Due</th><th class="px-4 py-3 text-left">Status</th><th class="px-4 py-3 text-left">Resolve</th></tr></thead>
             <tbody class="divide-y divide-gray-800">
