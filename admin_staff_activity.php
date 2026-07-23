@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/staff.php';
+require_once __DIR__ . '/includes/ui_links.php';
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'area_sales_manager', 'team_leader', 'staff_manager']);
 
 $filterStaff = (int)($_GET['staff_id'] ?? 0);

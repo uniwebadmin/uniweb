@@ -14,7 +14,7 @@
 ?>
 <footer class="<?= $footerMargin ?> w-full max-w-full border-t border-gray-800/70 bg-dark-950 mt-auto">
     <?php if ($isPanel): ?>
-    <div class="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
+    <div class="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-400">
         <span>&copy; <?= date('Y') ?> <?= COMPANY_LEGAL_NAME ?></span>
         <nav class="flex flex-wrap justify-center gap-x-4 gap-y-1">
             <?php if (!empty($isAdmin)): ?>
@@ -31,18 +31,18 @@
             <a href="terms.php" class="hover:text-brand-400 transition">Terms</a>
             <a href="privacy.php" class="hover:text-brand-400 transition">Privacy</a>
         </nav>
-        <span class="font-mono"><?= !empty($isAdmin) ? '30' : '60' ?> min idle · IST · v<?= APP_VERSION ?></span>
+        <span class="font-mono text-gray-500"><?= !empty($isAdmin) ? '30' : '60' ?> min idle · IST · v<?= APP_VERSION ?></span>
     </div>
     <?php else: ?>
     <div class="site-footer-wrap w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div class="site-footer-grid">
             <div class="site-footer-card">
                 <?php $logoHref = 'index.php'; $logoSize = 'sm'; require __DIR__ . '/includes/brand_logo.php'; ?>
-                <p class="text-sm text-gray-500 mt-3 leading-relaxed max-w-xs">B2B payments for Indian businesses — UPI, cards, links &amp; settlements.</p>
+                <p class="text-sm text-gray-400 mt-3 leading-relaxed max-w-xs">B2B payments for Indian businesses — UPI, cards, links &amp; settlements.</p>
             </div>
             <div class="site-footer-card">
                 <p class="site-footer-heading text-sm font-semibold text-gray-300 mb-3">Product</p>
-                <ul class="space-y-2 text-sm text-gray-500">
+                <ul class="space-y-2 text-sm text-gray-400">
                     <li><a href="platform_demo.php" class="hover:text-brand-400 transition">Platform Tour</a></li>
                     <li><a href="demo.php" class="hover:text-brand-400 transition">Live Demo</a></li>
                     <li><a href="solutions.php" class="hover:text-brand-400 transition">Solutions</a></li>
@@ -53,7 +53,7 @@
             </div>
             <div class="site-footer-card">
                 <p class="site-footer-heading text-sm font-semibold text-gray-300 mb-3">Company</p>
-                <ul class="space-y-2 text-sm text-gray-500">
+                <ul class="space-y-2 text-sm text-gray-400">
                     <li><a href="about.php" class="hover:text-brand-400 transition">About</a></li>
                     <li><a href="solutions.php" class="hover:text-brand-400 transition">Solutions</a></li>
                     <li><a href="roadmap.php" class="hover:text-brand-400 transition">Roadmap</a></li>
@@ -66,7 +66,7 @@
             </div>
             <div class="site-footer-card">
                 <p class="site-footer-heading text-sm font-semibold text-gray-300 mb-3">Legal</p>
-                <ul class="space-y-2 text-sm text-gray-500">
+                <ul class="space-y-2 text-sm text-gray-400">
                     <li><a href="terms.php" class="hover:text-brand-400 transition">Terms</a></li>
                     <li><a href="privacy.php" class="hover:text-brand-400 transition">Privacy</a></li>
                     <li><a href="refund_policy.php" class="hover:text-brand-400 transition">Refund Policy</a></li>
@@ -76,9 +76,9 @@
                 </ul>
             </div>
         </div>
-        <div class="site-footer-bottom mt-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-600">
+        <div class="site-footer-bottom mt-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-500">
             <span>&copy; <?= date('Y') ?> <?= COMPANY_LEGAL_NAME ?></span>
-            <span>GST <?= COMPANY_GST ?> · CIN <?= COMPANY_CIN ?></span>
+            <span class="hidden sm:inline">GST <?= COMPANY_GST ?> · CIN <?= COMPANY_CIN ?></span>
             <span>IST · v<?= APP_VERSION ?></span>
         </div>
     </div>

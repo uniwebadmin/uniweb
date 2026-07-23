@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/schema_ensure.php';
 require_once __DIR__ . '/includes/public_legal_page.php';
 require_once __DIR__ . '/includes/agreement_pdf.php';
 requireLogin();
