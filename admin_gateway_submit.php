@@ -71,18 +71,18 @@ $statusOptions = ['submitted' => 'Submitted', 'pending_review' => 'Pending Revie
 $pageTitle = 'Gateway Submission';
 require_once __DIR__ . '/header.php';
 ?>
-<div class="max-w-6xl mx-auto space-y-6">
+<div class="max-w-6xl mx-auto space-y-4 sm:space-y-6 min-w-0">
     <div>
-        <h1 class="text-2xl font-bold">Multi-Gateway Forward</h1>
-        <p class="text-sm text-gray-400 mt-1">Forward a merchant's verified KYC to several gateways in one click, then track each gateway's status. Sensitive documents are shared via each gateway's secure portal/API — never emailed.</p>
+        <h1 class="text-xl sm:text-2xl font-bold">Multi-Gateway Forward</h1>
+        <p class="text-sm text-gray-400 mt-1">Forward a merchant's verified KYC to several gateways in one click, then track each gateway's status. Sensitive documents are shared via each gateway's secure portal/API — never emailed. CSRF required on all POST actions.</p>
     </div>
 
     <!-- Step 1: pick merchant -->
-    <div class="glass rounded-xl p-6">
+    <div class="glass rounded-xl p-4 sm:p-6 min-w-0">
         <form method="GET" class="flex flex-col sm:flex-row gap-3 sm:items-end">
-            <div class="flex-1">
+            <div class="flex-1 min-w-0">
                 <label class="text-sm text-gray-400">Merchant</label>
-                <select name="merchant_id" class="input-field mt-1" onchange="this.form.submit()">
+                <select name="merchant_id" class="input-field mt-1 w-full" onchange="this.form.submit()">
                     <option value="">Select a merchant…</option>
                     <?php foreach ($merchants as $m): ?>
                     <option value="<?= (int)$m['id'] ?>" <?= $selectedId === (int)$m['id'] ? 'selected' : '' ?>>
@@ -97,13 +97,13 @@ require_once __DIR__ . '/header.php';
 
     <?php if ($selMerchant): ?>
     <!-- Step 2: forward + status matrix -->
-    <div class="glass rounded-xl p-6">
+    <div class="glass rounded-xl p-4 sm:p-6 min-w-0">
         <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
-            <div>
-                <h2 class="font-semibold"><?= e($selMerchant['business_name'] ?: $selMerchant['name']) ?></h2>
-                <p class="text-xs text-gray-500 font-mono"><?= e($selMerchant['merchant_code']) ?> · <?= e(str_replace('_', ' ', (string)$selMerchant['business_entity_type'])) ?> · KYC <?= e($selMerchant['kyc_status']) ?></p>
+            <div class="min-w-0">
+                <h2 class="font-semibold break-words"><?= e($selMerchant['business_name'] ?: $selMerchant['name']) ?></h2>
+                <p class="text-xs text-gray-500 font-mono break-all"><?= e($selMerchant['merchant_code']) ?> · <?= e(str_replace('_', ' ', (string)$selMerchant['business_entity_type'])) ?> · KYC <?= e($selMerchant['kyc_status']) ?></p>
             </div>
-            <a href="<?= e(adminMerchantUrl($selectedId)) ?>" class="text-sm text-sky-400 hover:underline">Open full profile →</a>
+            <a href="<?= e(adminMerchantUrl($selectedId)) ?>" class="text-sm text-sky-400 hover:underline shrink-0">Open full profile →</a>
         </div>
 
         <form method="POST" class="space-y-4">
@@ -111,12 +111,12 @@ require_once __DIR__ . '/header.php';
             <input type="hidden" name="merchant_id" value="<?= $selectedId ?>">
             <div>
                 <label class="text-sm text-gray-400 mb-2 block">Select gateways to forward</label>
-                <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     <?php foreach ($allowedGateways as $gw): $r = $registry[$gw] ?? ['name' => ucfirst($gw), 'icon' => '💳']; $cur = $matrix[$gw] ?? null; ?>
-                    <label class="flex items-center gap-2 glass rounded-lg px-3 py-2.5 cursor-pointer hover:bg-white/5">
-                        <input type="checkbox" name="gateways[]" value="<?= e($gw) ?>" class="accent-sky-500">
-                        <span class="text-lg"><?= $r['icon'] ?></span>
-                        <span class="text-sm flex-1"><?= e($r['name']) ?></span>
+                    <label class="flex items-center gap-2 glass rounded-lg px-3 py-2.5 cursor-pointer hover:bg-white/5 min-w-0">
+                        <input type="checkbox" name="gateways[]" value="<?= e($gw) ?>" class="accent-sky-500 shrink-0">
+                        <span class="text-lg shrink-0"><?= $r['icon'] ?></span>
+                        <span class="text-sm flex-1 min-w-0 truncate"><?= e($r['name']) ?></span>
                         <?php if ($cur): ?><?= statusBadge($cur['status']) ?><?php endif; ?>
                     </label>
                     <?php endforeach; ?>
@@ -124,20 +124,20 @@ require_once __DIR__ . '/header.php';
             </div>
             <div>
                 <label class="text-sm text-gray-400">Admin note (optional)</label>
-                <input type="text" name="notes" class="input-field mt-1" placeholder="Internal note for this forward…">
+                <input type="text" name="notes" class="input-field mt-1 w-full" placeholder="Internal note for this forward…">
             </div>
-            <div class="flex flex-wrap gap-3">
-                <button type="submit" name="action" value="forward" class="btn-primary px-6 py-2.5">Forward to selected</button>
-                <button type="submit" name="action" value="forward_all" class="border border-gray-700 rounded-lg hover:bg-white/5 px-6 py-2.5" onclick="return confirm('Forward this merchant to ALL gateways?')">Forward to ALL gateways</button>
+            <div class="flex flex-col sm:flex-row flex-wrap gap-3">
+                <button type="submit" name="action" value="forward" class="btn-primary px-6 py-2.5 w-full sm:w-auto">Forward to selected</button>
+                <button type="submit" name="action" value="forward_all" class="border border-gray-700 rounded-lg hover:bg-white/5 px-6 py-2.5 w-full sm:w-auto" onclick="return confirm('Forward this merchant to ALL gateways?')">Forward to ALL gateways</button>
             </div>
         </form>
     </div>
 
     <!-- Status matrix -->
-    <div class="glass rounded-xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Gateway status</h2></div>
+    <div class="glass rounded-xl overflow-hidden min-w-0">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Gateway status</h2></div>
         <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+            <table class="min-w-[640px] w-full text-sm">
                 <thead class="text-xs text-gray-500 uppercase bg-dark-900/50">
                     <tr>
                         <th class="px-4 py-3 text-left">Gateway</th>
@@ -155,12 +155,12 @@ require_once __DIR__ . '/header.php';
                         <td class="px-4 py-3">
                             <div class="flex flex-wrap items-center gap-2">
                                 <?php if ($cur): ?>
-                                <form method="POST" class="flex items-center gap-2">
+                                <form method="POST" class="flex flex-wrap items-center gap-2 min-w-0">
                                     <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                                     <input type="hidden" name="merchant_id" value="<?= $selectedId ?>">
                                     <input type="hidden" name="action" value="update_status">
                                     <input type="hidden" name="submission_id" value="<?= (int)$cur['id'] ?>">
-                                    <select name="status" class="input-field !py-1 !text-xs">
+                                    <select name="status" class="input-field !py-1 !text-xs w-full sm:w-auto">
                                         <?php foreach ($statusOptions as $sv => $sl): ?>
                                         <option value="<?= $sv ?>" <?= ($cur['status'] === $sv) ? 'selected' : '' ?>><?= $sl ?></option>
                                         <?php endforeach; ?>
@@ -178,10 +178,10 @@ require_once __DIR__ . '/header.php';
         </div>
     </div>
 
-    <div class="grid lg:grid-cols-2 gap-6">
+    <div class="grid lg:grid-cols-2 gap-4 sm:gap-6">
         <!-- Document versions -->
-        <div class="glass rounded-xl overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Documents &amp; version history</h2></div>
+        <div class="glass rounded-xl overflow-hidden min-w-0">
+            <div class="px-4 sm:px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Documents &amp; version history</h2></div>
             <div class="p-4">
                 <?php if (empty($docVersions)): ?>
                 <p class="text-gray-500 text-sm text-center py-6">No KYC documents uploaded yet.</p>
@@ -206,8 +206,8 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <!-- Audit trail -->
-        <div class="glass rounded-xl overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Compliance audit trail</h2></div>
+        <div class="glass rounded-xl overflow-hidden min-w-0">
+            <div class="px-4 sm:px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Compliance audit trail</h2></div>
             <div class="p-4">
                 <?php if (empty($audit)): ?>
                 <p class="text-gray-500 text-sm text-center py-6">No audit events yet.</p>
@@ -227,13 +227,13 @@ require_once __DIR__ . '/header.php';
     <?php endif; ?>
 
     <!-- Recent submissions -->
-    <div class="glass rounded-xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Recent submissions (all merchants)</h2></div>
+    <div class="glass rounded-xl overflow-hidden min-w-0">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Recent submissions (all merchants)</h2></div>
         <?php if (empty($submissions)): ?>
         <p class="text-gray-500 text-sm text-center py-8">No gateway submissions yet.</p>
         <?php else: ?>
         <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+            <table class="min-w-[560px] w-full text-sm">
                 <thead class="text-xs text-gray-500 uppercase bg-dark-900/50">
                     <tr><th class="px-4 py-3 text-left">Merchant</th><th class="px-4 py-3 text-left">Gateway</th><th class="px-4 py-3 text-left">Status</th><th class="px-4 py-3 text-left">Date</th></tr>
                 </thead>

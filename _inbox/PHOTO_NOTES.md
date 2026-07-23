@@ -62,6 +62,16 @@ Also: `.htaccess` maps `/about` → `about.php`. Never smoke `*-aaminalaptop.php
 | 526–528 | Feature + smoke + mobile `admin_financial_reports.php` | **100%** — txn count, CSV export, date swap fix, mobile stats/table; live **302** |
 | 529–530 | Feature + smoke `admin_forgot_password.php` | **100%** — CSRF + anti-enumeration kept; mobile pad + note; live **200** |
 
+## Batch 531–540 (2026-07-23)
+
+| # | Point | Result |
+|---|--------|--------|
+| 531 | Mobile OK `admin_forgot_password.php` | **OK** — already polished in 521–530 |
+| 532–534 | Feature + smoke + mobile `admin_gateway_submit.php` | **100%** — mobile forms/tables; CSRF note; live **302** |
+| 535–536 | `admin_kyc-aaminalaptop.php` | **SKIP** — backup; live **404** |
+| 537–538 | Live smoke + Mobile `admin_kyc.php` | Live **302**; queues/forms stack on mobile |
+| 539–540 | Live smoke + Mobile `admin_kyc_doc.php` | Live **302**/403 without token (auth); video player mobile CSS |
+
 ## Themes from owner photos (28)
 
 | Area | Owner ask | Status |
