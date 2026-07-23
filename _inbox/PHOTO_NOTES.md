@@ -162,3 +162,45 @@ After the FTP investigation above stalled on needing the owner's hPanel access, 
 - 2026-07-22: Strategy pack confirmed; chat inbox created; coding waits for start.
 - 2026-07-22 (overnight, branch `overnight/ftp-fix-continued`): Deep FTP docroot investigation — proved via direct FTP `LIST` that files land exactly where hPanel says (not a wrong-path issue), proved it's not caching/CDN/multi-node/PHP-fatal-error-mislabeled-as-404 either. Root cause still open — needs owner's hPanel File Manager screenshot (see section above). Fixed `error.php`'s 404-default-for-unclassified-errors bug (now defaults to 500) as a small side-fix while investigating (not the cause of tonight's FTP issue). Then moved to priority #2 (live-prep) and found + fixed 4 more real bugs via actual end-to-end smoke-testing in a bootstrapped local sandbox: 2 missing DB base tables (`gateway_submissions`, `kyc_verifications` — new migrations 017a/019), a broken checkout QR code (`qrImageUrl()` undefined — missing from config's include list), and QR *images* being corrupted by vendored-library PHP8.1 deprecation noise leaking into PNG output (now `@`-suppressed). See "Overnight live-prep bug fixes" section above for full detail — **one of these (#2, the QR include gap) needs a matching one-line owner edit to the live `config.php`** since that file is private/not deployed through git.
 - 2026-07-22 (same night): PR opened from branch `overnight/ftp-fix-continued` against `main`, left as **draft, unmerged** per guardrail — owner to review/merge in the morning. No deploy triggered; `.github/workflows/deploy.yml` untouched by this session (only pushed to the feature branch, never to `main`).
+
+## Hosting-alternative research + support ticket (2026-07-23 ~17:20 IST)
+
+(Agent swarm for this work partially crashed on Cursor network `ENOTFOUND agentn.global.api5.cursor.sh`; parent agent completed the research + ticket draft directly.)
+
+### Live status re-check (17:20 IST)
+- Homepage 200, login 200 — still NO `DEPLOY_MARKER_20260723_1245_IST` in HTML.
+- `payer.php` / `cust.php` / `/cust` still 404.
+- Conclusion unchanged: FTP uploads still do not reach the live-serving docroot.
+
+### Best path forward (recommended): Hostinger built-in Git deploy
+Hostinger hPanel has **Advanced → Git** that connects GitHub via OAuth and deploys PHP repos to `public_html` (or a chosen path). Auto-deploy-on-push is available on Business (and some Premium) plans. This bypasses our broken FTP path entirely and uses Hostinger's own filesystem mapping — exactly what we need.
+
+**Owner steps (Hindi, 5 minutes):**
+1. hPanel खोलें → website **uniweb.co.in** → Dashboard.
+2. बाएं / search में **Advanced → Git** खोलें।
+3. **Continue with GitHub** दबाएं → GitHub login → Hostinger app authorize करें (repo `6396601005/uniweb` select करें)।
+4. Branch: **main**. Root directory: **public_html** (ya jo bhi hPanel default dikhaye for uniweb.co.in — usually `domains/uniweb.co.in/public_html` or just `public_html`).
+5. Agar **Auto Deployment** toggle dikhe to ON karo.
+6. **Deploy** dabao. Complete hone ke baad agent ko bata dena — main live pe `DEPLOY_MARKER` check karunga.
+
+**Backup option:** Advanced → SSH Access ON karke (port **65002**, user `u806999427`) details bhejna — phir GitHub Actions se `rsync`/SSH deploy set kar sakte hain. Git wala pehle try karo (easier, no laptop).
+
+### Ready-to-paste Hostinger support ticket (English)
+
+Subject: FTP uploads succeed but live site uniweb.co.in does not serve the uploaded files
+
+Body:
+```
+Hosting account: u806999427
+Domain: uniweb.co.in
+FTP host: 89.117.188.154 / ftp.uniweb.co.in
+
+Problem: Files uploaded via FTP (main account u806999427 and sub-account u806999427.uniwebdeploy, Directory /home/u806999427/domains/uniweb.co.in/public_html) succeed with FTP 226 and appear in FTP LIST / File Manager, but https://uniweb.co.in never serves them — including edits to already-live files (e.g. assets/css/auth-portal.css) and a unique HTML marker comment in header.php. Verified by connecting directly to origin IP 89.117.188.154 (bypassing CDN) — still stale.
+
+Ask: Please confirm the exact filesystem path LiteSpeed/Apache uses as the docroot for https://uniweb.co.in, and confirm FTP account u806999427 has write access to that same path. There appears to be a mismatch between what FTP/File Manager shows and what the web server actually reads.
+```
+
+**Owner: paste this into Hostinger Help/live chat** (hPanel top-right Help / chat icon) IF Git deploy setup is not available on your plan or fails. Screenshot of their reply bhej dena.
+
+### Owner action still needed for QR (independent of deploy)
+Live `config.php` mein `$__includes` array me `'qr_svg'` add karo (File Manager se Edit) — yeh FTP se nahi jata (gitignored). Without this, checkout QR remains broken even after deploy is fixed.

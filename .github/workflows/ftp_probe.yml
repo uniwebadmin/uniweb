@@ -155,3 +155,22 @@ jobs:
           echo
           echo "=== FULL NAMES: domains/uniweb.co.in/public_html/public_html/ ==="
           curl -sS --ftp-pasv --connect-timeout 20 --max-time 30 -l "ftp://${USER_ENC}:${PASS_ENC}@${HOST}/domains/uniweb.co.in/public_html/public_html/" 2>&1
+
+
+  full_inventory:
+    name: TEMP - single recursive listing of full FTP tree (safety audit, remove after use)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Install lftp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+      - name: Recursive find from login root (ONE connection, no retries/reconnects)
+        env:
+          HOST: ${{ secrets.UNIWEB_FTP_HOST }}
+          USER: ${{ secrets.UNIWEB_FTP_USER }}
+          PASS: ${{ secrets.UNIWEB_FTP_PASS }}
+        run: |
+          set -uo pipefail
+          lftp -u "$USER,$PASS" "$HOST" -e "set ftp:ssl-allow no; set net:max-retries 1; set net:timeout 20; set net:reconnect-interval-base 5; set cmd:fail-exit no; find .; bye" 2>&1 | tee /tmp/inventory.txt
+          echo "=== inventory line count ==="
+          wc -l /tmp/inventory.txt
