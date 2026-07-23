@@ -280,3 +280,35 @@ Owner completed hPanel Advanced → Git → connect GitHub → repo uniweb → D
 - /payer.php, /cust.php, /cust all 302 → customer_login.php (no longer 404)
 - Prefer Hostinger Git over FTP for future releases
 
+## FINAL consolidated summary — FTP cleanup + deploy mystery (2026-07-23 ~17:55 IST)
+
+Coordination/verification pass, done in parallel with (not instead of) the two FTP-cleanup agents above — **zero additional FTP connections made this session**, only 1 git repo (read-only, multiple `git pull`) + a handful of plain `https://` GET requests to public pages. Waited ~13 minutes (3 poll cycles) for both agents to report back before doing the sanity check.
+
+### Kya hua — dono FTP cleanup agents ka result
+
+- **Sub-account (`u806999427.uniwebdeploy`) audit** — koi FTP connection hi nahi hua. Agent ne password dhoondha (git history, chat inbox, `gh secret list`) — kahin nahi mila (secret write-only hota hai, kabhi plaintext save nahi hua). **Kuch bhi delete/rescue nahi hua** is account par is round mein.
+- **Main-account (`u806999427`) inventory/cleanup** — yeh agent bhi FTP se connect nahi hua. Usne pehle `gh run list` check kiya aur dekha ki ek doosra diagnostic run already 15-minute tak hang ho kar timeout ho gaya tha (live rate-limit ka saboot) — to usne apna connection bhi nahi kholaa, taaki account aur zyada block na ho. **Kuch bhi delete/rescue nahi hua** is account par bhi is round mein.
+- **Neither agent created `_inbox/rescued_duplicate_data/` this round** — koi naya rescued-file folder nahi bana, is liye review karne ke liye kuch nahi hai. (`_inbox/_public_html.zip` pehle se untouched/untracked hai, purani cleanup se — usse koi agent ne touch nahi kiya.)
+- Ek teesra agent (parallel, deploy-focused) ne isi window mein **Hostinger's own "Advanced → Git" deploy feature** try kiya (owner ne hPanel mein GitHub connect kiya) — aur woh **kaam kar gaya**. Isliye FTP cleanup ki zaroorat hi kam ho gayi — ab FTP ke bajaye Git deploy use hoga.
+
+### Git-side sanity check (source of truth)
+
+- `git ls-files` → **329 tracked files** total. Yeh live server par honi chahiye set hai.
+- Earlier is morning ek delete hua tha (commit `8057124`, is round se pehle): nested `public_html/public_html` duplicate folder delete kiya gaya FTP se — usme ek **safety check** thi jo `config.php` dhoondhti agar mile to delete ABORT ho jata (verified in `.github/workflows/ftp_probe.yml` lines ~62-77: `grep -qiE '(^|/)config\.php$'` → agar match to `exit 1`, kabhi delete nahi hota). Yeh "safe to delete" category mein aata hai (throwaway nested duplicate, real docroot ki nahi).
+- **`config.php` / `config.private.php` kabhi bhi "duplicate mila" report nahi hua** kisi agent se — poore `PHOTO_NOTES.md` mein search kiya, sirf ek mention hai (safety-check ke context mein, protect karne ke liye, delete karne ke liye nahi).
+- **Koi inconsistency ya risky deletion nahi mili** is round ke reports mein — kyunki is round mein actual delete hua hi nahi (dono agents ne conservative decision liya: skip / pause).
+
+### Live-deploy marker check (single curl, no FTP)
+
+- `https://uniweb.co.in/` → **200 OK**, aur `<!-- DEPLOY_MARKER_20260723_1245_IST -->` HTML mein maujood tha (verified independently, same time as the 3rd agent's own report above).
+- `cust.php`, `payer.php` → **200 OK** (pehle 404 the).
+- `assets/css/auth-portal.css` → cache-busted request se confirm hua ki `.ap-phone` class ab live hai (Last-Modified updated to today) — bina cache-bust ke purana CDN-cached (`max-age=604800`) response mil raha tha, isliye lag rahaa tha "stale" hai, par asal mein file update ho gayi thi.
+- **Conclusion: FTP live-deploy mystery ab RESOLVED hai** — root cause tha ki FTP writes kabhi live-serving docroot tak nahi pahunchti thi (Hostinger-side account/vhost quirk). Fix: FTP ko bypass karke Hostinger ke apne "Advanced → Git" deploy feature use kiya — woh directly correct docroot mein deploy karta hai. **Hostinger support ticket ab zaroori nahi hai** (ready-to-paste ticket text upar section mein rakha hai bas backup ke liye, agar Git deploy kabhi fail ho).
+
+### Owner ke liye status (seedhe seedhe)
+
+- ✅ FTP duplicate cleanup: koi risky ya important file delete nahi hua; jo ek nested duplicate folder delete hua tha woh safe tha (double-check hua config.php ke against).
+- ✅ Production data/`config.php`: kabhi touch/duplicate nahi hua — bilkul safe hai.
+- ✅ Live-deploy mystery: **resolved** — Hostinger Git deploy se ab naye commits seedha live jaate hain. FTP-based `deploy.yml` ko future mein backup/optional treat karo, Git deploy primary hai.
+- ⚠️ Still owner-manual (unrelated to this task, carried over from earlier notes): live `config.php` mein `$__includes` array mein `'qr_svg'` add karna baaki hai (checkout QR fix ke liye) — yeh FTP/Git dono se nahi jata kyunki file gitignored/private hai, sirf File Manager se edit karna hoga.
+
