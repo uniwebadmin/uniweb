@@ -23,23 +23,23 @@ $emailBody = partnerProductionEmail('decentro');
     <a href="platform_demo.php" target="_blank" class="text-sm text-sky-400">Open Public Tour →</a>
 </div>
 
-<div class="bg-brand-500/10 border border-brand-500/30 rounded-xl p-6 mb-8">
-    <h1 class="text-2xl font-bold text-brand-300 mb-2">Decentro — 30 Minute Demo Call Script</h1>
+<div class="bg-brand-500/10 border border-brand-500/30 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8">
+    <h1 class="text-xl sm:text-2xl font-bold text-brand-300 mb-2">Decentro — 30 Minute Demo Call Script</h1>
     <p class="text-gray-400 text-sm">Follow this order during screen share. Show Decentro we need full collections + payouts stack, not KYC-only.</p>
 </div>
 
-<div class="grid lg:grid-cols-2 gap-6 mb-8">
-    <div class="glass rounded-xl p-6">
+<div class="grid lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+    <div class="glass rounded-xl p-4 sm:p-6 min-w-0">
         <h2 class="font-semibold text-lg mb-4">Before Call — Checklist</h2>
         <ul class="text-sm text-gray-400 space-y-2">
             <li>☐ Browser tabs: Homepage, Platform Tour, Admin, Demo Checkout</li>
-            <li>☐ Login: <code class="text-xs bg-dark-900 px-1 rounded">demo@uniweb.co.in</code> / Demo@1234</li>
+            <li>☐ Login: <code class="text-xs bg-dark-900 px-1 rounded break-all">demo@uniweb.co.in</code> (demo password in ops notes — do not paste live secrets here)</li>
             <li>☐ Live demo link ready<?= $packLink ? ': <a class="text-sky-400 break-all" href="' . e($packLink) . '" target="_blank">' . e($packLink) . '</a>' : ' (run Auto Setup on demo merchant)' ?></li>
             <li>☐ Gateway Settings: Decentro sandbox keys (if available)</li>
             <li>☐ Screen resolution 1920×1080, notifications off</li>
         </ul>
     </div>
-    <div class="glass rounded-xl p-6">
+    <div class="glass rounded-xl p-4 sm:p-6 min-w-0">
         <h2 class="font-semibold text-lg mb-4">What Decentro Should Enable</h2>
         <ul class="text-sm text-gray-400 space-y-1 list-disc list-inside">
             <li>KYC Stack (PAN, GST, Bank, Udyam)</li>
@@ -91,8 +91,8 @@ $emailBody = partnerProductionEmail('decentro');
         ]],
     ];
     foreach ($steps as [$time, $title, $bullets]): ?>
-    <div class="glass rounded-xl p-6">
-        <div class="flex items-center gap-3 mb-3">
+    <div class="glass rounded-xl p-4 sm:p-6 min-w-0">
+        <div class="flex flex-wrap items-center gap-3 mb-3">
             <span class="text-xs font-bold bg-sky-600/30 text-sky-300 px-3 py-1 rounded-full"><?= e($time) ?></span>
             <h3 class="font-semibold text-lg"><?= e($title) ?></h3>
         </div>
@@ -103,9 +103,9 @@ $emailBody = partnerProductionEmail('decentro');
     <?php endforeach; ?>
 </div>
 
-<div class="mt-8 glass rounded-xl p-6">
+<div class="mt-6 sm:mt-8 glass rounded-xl p-4 sm:p-6 min-w-0">
     <h2 class="font-semibold mb-3">Email Sent to Decentro (reference)</h2>
-    <pre class="text-xs text-gray-500 whitespace-pre-wrap max-h-64 overflow-y-auto bg-dark-900 p-4 rounded-lg"><?= e($emailBody) ?></pre>
+    <pre class="text-xs text-gray-500 whitespace-pre-wrap max-h-64 overflow-y-auto overflow-x-auto bg-dark-900 p-3 sm:p-4 rounded-lg"><?= e($emailBody) ?></pre>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

@@ -43,6 +43,16 @@ Also: `.htaccess` maps `/about` → `about.php`. Never smoke `*-aaminalaptop.php
 | 506–507 | `admin_customer_message.php` | Live **302** OK; redirect stub → merchant view (mobile N/A) |
 | 508–509 | `admin_customer_tickets.php` | Live **302** OK; mobile ticket/reply polish |
 
+## Batch 510–520 (2026-07-23)
+
+| # | Point | Result |
+|---|--------|--------|
+| 510–512 | `admin_dashboard-aaminalaptop.php` | **SKIP** — backup; live 404 |
+| 513–515 | `admin_dashboard.php` | Live **302** OK; mobile stats/quick-links polish |
+| 516–517 | `admin_decentro_demo.php` | Live **302** OK; mobile + removed plaintext demo password from UI |
+| 518–519 | `admin_disputes.php` | Live **302** OK; table mobile + CSRF note |
+| 520 | Feature `admin_edit_merchant.php` | **Polished** — mobile form, ap-phone, live-gate reminder |
+
 ## Themes from owner photos (28)
 
 | Area | Owner ask | Status |

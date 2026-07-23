@@ -117,27 +117,27 @@ $enabledMethods = getMerchantEnabledMethods($merchant);
 $methodCatalog = getPaymentMethodCatalog();
 ?>
 
-<div class="mb-4 flex flex-wrap gap-3 items-center">
+<div class="mb-4 flex flex-wrap gap-2 sm:gap-3 items-center">
     <a href="manage_merchant.php" class="text-sm text-gray-400 hover:text-white">← Back to Merchants</a>
-    <a href="admin_view_merchant.php?id=<?= $id ?>" class="text-sm bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-semibold">👁 Merchant View</a>
-    <a href="?id=<?= $id ?>&action=auto_provision&token=<?= csrfToken() ?>" class="text-sm bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-semibold" onclick="return confirm('Auto Setup: profile + gateway submit + all method links (₹1)?')">⚡ Auto Setup Merchant</a>
+    <a href="admin_view_merchant.php?id=<?= $id ?>" class="text-sm bg-emerald-600 hover:bg-emerald-500 text-white px-3 sm:px-4 py-2 rounded-lg font-semibold">Merchant View</a>
+    <a href="?id=<?= $id ?>&action=auto_provision&token=<?= csrfToken() ?>" class="text-sm bg-emerald-600 hover:bg-emerald-500 text-white px-3 sm:px-4 py-2 rounded-lg font-semibold" onclick="return confirm('Auto Setup: profile + gateway submit + all method links (₹1)?')">Auto Setup Merchant</a>
     <a href="admin_partner_requests.php" class="text-sm text-sky-400">Partner Emails →</a>
 </div>
 
-<div class="grid lg:grid-cols-3 gap-6">
-    <div class="lg:col-span-2 glass rounded-xl p-6">
-        <div class="flex items-center justify-between mb-6">
-            <h2 class="font-semibold text-lg"><?= e($merchant['business_name']) ?></h2>
+<div class="grid lg:grid-cols-3 gap-4 sm:gap-6">
+    <div class="lg:col-span-2 glass rounded-xl p-4 sm:p-6 min-w-0">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-6">
+            <h2 class="font-semibold text-lg break-words"><?= e($merchant['business_name']) ?></h2>
             <?= accountModeBadge($merchant) ?>
         </div>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <p class="text-xs text-brand-400 font-medium uppercase tracking-wide">Personal & Business</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div><label class="text-sm text-gray-400">Full Name</label><input type="text" name="name" required class="input-field mt-1" value="<?= e($merchant['name']) ?>"></div>
-                <div><label class="text-sm text-gray-400">Business Name</label><input type="text" name="business_name" required class="input-field mt-1" value="<?= e($merchant['business_name']) ?>"></div>
-                <div><label class="text-sm text-gray-400">Email</label><input type="email" name="email" required class="input-field mt-1" value="<?= e($merchant['email']) ?>"></div>
-                <div><label class="text-sm text-gray-400">Phone</label><input type="text" name="phone" required class="input-field mt-1" value="<?= e($merchant['phone']) ?>"></div>
+                <div><label class="text-sm text-gray-400">Full Name</label><input type="text" name="name" required autocomplete="name" class="input-field mt-1 w-full" value="<?= e($merchant['name']) ?>"></div>
+                <div><label class="text-sm text-gray-400">Business Name</label><input type="text" name="business_name" required class="input-field mt-1 w-full" value="<?= e($merchant['business_name']) ?>"></div>
+                <div><label class="text-sm text-gray-400">Email</label><input type="email" name="email" required autocomplete="email" class="input-field mt-1 w-full" value="<?= e($merchant['email']) ?>"></div>
+                <div><label class="text-sm text-gray-400">Phone</label><input type="tel" name="phone" required maxlength="15" inputmode="numeric" autocomplete="tel" class="input-field mt-1 w-full ap-phone" value="<?= e($merchant['phone']) ?>"></div>
             </div>
             <p class="text-xs text-brand-400 font-medium uppercase tracking-wide pt-2">Legal Entity & Tax (Admin Control)</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -186,10 +186,11 @@ $methodCatalog = getPaymentMethodCatalog();
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="text-sm text-gray-400">Account Mode</label>
-                    <select name="account_mode" class="input-field mt-1">
+                    <select name="account_mode" class="input-field mt-1 w-full">
                         <option value="test" <?= merchantAccountMode($merchant) === 'test' ? 'selected' : '' ?>>Test Mode (Sandbox)</option>
                         <option value="live" <?= merchantAccountMode($merchant) === 'live' ? 'selected' : '' ?>>Live Mode (Real Payments)</option>
                     </select>
+                    <p class="text-[11px] text-amber-400/90 mt-1">Live mode blocked until KYC verified + live gates pass (server-enforced).</p>
                 </div>
                 <div>
                     <label class="text-sm text-gray-400">KYC Status</label>
