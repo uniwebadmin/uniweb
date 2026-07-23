@@ -33,18 +33,18 @@ $pageTitle = 'Admin Dashboard';
 require_once __DIR__ . '/header.php';
 ?>
 
-<div class="flex flex-wrap gap-3 mb-8">
-    <a href="admin_partners.php" class="glass px-4 py-2.5 rounded-xl text-sm text-violet-400 hover:text-violet-300">All Partners</a>
-    <a href="admin_platform_status.php" class="glass px-4 py-2.5 rounded-xl text-sm text-emerald-400 hover:text-emerald-300">Platform Status</a>
-    <a href="admin_error_log.php" class="glass px-4 py-2.5 rounded-xl text-sm <?= $unresolvedErrors > 0 ? 'text-red-400 border border-red-500/30' : 'text-gray-400' ?>">Error Log<?= $unresolvedErrors > 0 ? " ($unresolvedErrors)" : '' ?></a>
-    <a href="admin_watchdog.php" class="glass px-4 py-2.5 rounded-xl text-sm text-amber-400">Link Watchdog</a>
-    <a href="admin_link_audit.php" class="glass px-4 py-2.5 rounded-xl text-sm text-sky-400">Link Audit</a>
-    <a href="admin_decentro_demo.php" class="bg-violet-600/20 border border-violet-500/30 text-violet-300 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-violet-600/30">📞 Decentro 30-Min Demo</a>
-    <a href="platform_demo.php" target="_blank" class="glass px-4 py-2.5 rounded-xl text-sm text-violet-400">Platform Tour ↗</a>
-    <a href="admin_axis.php" class="glass px-4 py-2.5 rounded-xl text-sm text-gray-300 hover:text-white">Axis UAT</a>
-    <a href="gateway_settings.php" class="glass px-4 py-2.5 rounded-xl text-sm text-gray-300 hover:text-white">Gateway Keys</a>
-    <a href="demo.php" target="_blank" class="glass px-4 py-2.5 rounded-xl text-sm text-brand-400">Live Demo ↗</a>
-    <a href="<?= APP_URL ?>/demo" target="_blank" class="glass px-4 py-2.5 rounded-xl text-sm text-gray-400">/demo</a>
+<div class="flex flex-wrap gap-2 sm:gap-3 mb-6 sm:mb-8">
+    <a href="admin_partners.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-violet-400 hover:text-violet-300">All Partners</a>
+    <a href="admin_platform_status.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-emerald-400 hover:text-emerald-300">Platform Status</a>
+    <a href="admin_error_log.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm <?= $unresolvedErrors > 0 ? 'text-red-400 border border-red-500/30' : 'text-gray-400' ?>">Error Log<?= $unresolvedErrors > 0 ? " ($unresolvedErrors)" : '' ?></a>
+    <a href="admin_watchdog.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-amber-400">Link Watchdog</a>
+    <a href="admin_link_audit.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-sky-400">Link Audit</a>
+    <a href="admin_decentro_demo.php" class="bg-violet-600/20 border border-violet-500/30 text-violet-300 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium hover:bg-violet-600/30">Decentro 30-Min Demo</a>
+    <a href="platform_demo.php" target="_blank" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-violet-400">Platform Tour ↗</a>
+    <a href="admin_axis.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-gray-300 hover:text-white">Axis UAT</a>
+    <a href="gateway_settings.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-gray-300 hover:text-white">Gateway Keys</a>
+    <a href="demo.php" target="_blank" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-brand-400">Live Demo ↗</a>
+    <a href="<?= APP_URL ?>/demo" target="_blank" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-gray-400">/demo</a>
 </div>
 
 <?php if ($opsAllClear): ?>
@@ -148,7 +148,7 @@ require_once __DIR__ . '/header.php';
 
 <?php require_once __DIR__ . '/includes/admin_demo_table.php'; ?>
 
-<div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+<div class="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8">
     <?php foreach ([
         ['Total Merchants', $totalMerchants, 'text-brand-400', 'manage_merchant.php'],
         ['Active Merchants', $activeMerchants, 'text-cyan-400', 'manage_merchant.php'],
@@ -156,58 +156,58 @@ require_once __DIR__ . '/header.php';
         ['Pending Settlements', $pendingSettlements, 'text-purple-400', 'admin_settlements.php'],
         ['Platform Wallet', formatMoney($platformWallet), 'text-emerald-400', 'admin_wallet.php'],
     ] as [$l,$v,$c,$link]): ?>
-    <a href="<?= e($link) ?>" class="stat-card border border-gray-800 rounded-xl p-5 block hover:border-brand-500/40 transition">
+    <a href="<?= e($link) ?>" class="stat-card border border-gray-800 rounded-xl p-3 sm:p-5 block hover:border-brand-500/40 transition min-w-0">
         <p class="text-xs text-gray-500"><?= $l ?></p>
-        <p class="text-3xl font-bold <?= $c ?> mt-1"><?= is_numeric($v) ? $v : $v ?></p>
+        <p class="text-xl sm:text-3xl font-bold <?= $c ?> mt-1 break-words"><?= is_numeric($v) ? $v : $v ?></p>
     </a>
     <?php endforeach; ?>
 </div>
 
-<div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-    <div class="stat-card border border-gray-800 rounded-xl p-5">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
+    <div class="stat-card border border-gray-800 rounded-xl p-4 sm:p-5 min-w-0">
         <p class="text-xs text-gray-500">Today's Volume</p>
-        <p class="text-2xl font-bold text-brand-400 mt-1"><?= formatMoney($todayVol) ?></p>
+        <p class="text-xl sm:text-2xl font-bold text-brand-400 mt-1 break-words"><?= formatMoney($todayVol) ?></p>
         <p class="text-xs text-gray-600"><?= $todayTxn['c'] ?> transactions</p>
     </div>
-    <div class="stat-card border border-gray-800 rounded-xl p-5">
+    <div class="stat-card border border-gray-800 rounded-xl p-4 sm:p-5 min-w-0">
         <p class="text-xs text-gray-500">This Month</p>
-        <p class="text-2xl font-bold text-cyan-400 mt-1"><?= formatMoney($monthVol) ?></p>
+        <p class="text-xl sm:text-2xl font-bold text-cyan-400 mt-1 break-words"><?= formatMoney($monthVol) ?></p>
         <p class="text-xs text-gray-600"><?= $monthTxn['c'] ?> transactions</p>
     </div>
-    <div class="stat-card border border-gray-800 rounded-xl p-5">
+    <div class="stat-card border border-gray-800 rounded-xl p-4 sm:p-5 min-w-0 sm:col-span-2 lg:col-span-1">
         <p class="text-xs text-gray-500">Open Disputes</p>
-        <p class="text-2xl font-bold text-red-400 mt-1"><?= $openDisputes ?></p>
+        <p class="text-xl sm:text-2xl font-bold text-red-400 mt-1"><?= $openDisputes ?></p>
     </div>
 </div>
 
-<div class="grid lg:grid-cols-2 gap-6">
-    <div class="glass rounded-xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-800 flex justify-between"><h2 class="font-semibold">Recent Transactions</h2><a href="admin_transactions.php" class="text-xs text-brand-400">View All</a></div>
+<div class="grid lg:grid-cols-2 gap-4 sm:gap-6">
+    <div class="glass rounded-xl overflow-hidden min-w-0">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex justify-between"><h2 class="font-semibold">Recent Transactions</h2><a href="admin_transactions.php" class="text-xs text-brand-400">View All</a></div>
         <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
             <tbody class="divide-y divide-gray-800">
                 <?php foreach ($recentTxns as $t): ?>
                 <tr class="hover:bg-white/5 cursor-pointer" onclick="location.href='<?= e(transactionDetailUrl($t['txn_id'])) ?>'">
-                    <td class="px-5 py-3"><p class="font-mono text-xs"><a href="<?= e(transactionDetailUrl($t['txn_id'])) ?>" class="text-sky-400 hover:underline"><?= e($t['txn_id']) ?></a></p><p class="text-xs text-gray-500"><?= e($t['business_name']) ?></p></td>
-                    <td class="px-5 py-3 font-semibold"><?= formatMoney(capStatAmount((float)$t['amount'])) ?></td>
-                    <td class="px-5 py-3"><?= statusBadge($t['status']) ?></td>
+                    <td class="px-4 sm:px-5 py-3"><p class="font-mono text-xs"><a href="<?= e(transactionDetailUrl($t['txn_id'])) ?>" class="text-sky-400 hover:underline"><?= e($t['txn_id']) ?></a></p><p class="text-xs text-gray-500"><?= e($t['business_name']) ?></p></td>
+                    <td class="px-4 sm:px-5 py-3 font-semibold"><?= formatMoney(capStatAmount((float)$t['amount'])) ?></td>
+                    <td class="px-4 sm:px-5 py-3"><?= statusBadge($t['status']) ?></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table></div>
     </div>
-    <div class="glass rounded-xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-800 flex justify-between"><h2 class="font-semibold">New Merchants</h2><a href="manage_merchant.php" class="text-xs text-brand-400">View All</a></div>
+    <div class="glass rounded-xl overflow-hidden min-w-0">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex justify-between"><h2 class="font-semibold">New Merchants</h2><a href="manage_merchant.php" class="text-xs text-brand-400">View All</a></div>
         <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
             <tbody class="divide-y divide-gray-800">
                 <?php foreach ($recentMerchants as $m): ?>
                 <tr<?= uiRowClick(adminMerchantUrl((int)$m['id'])) ?>>
-                    <td class="px-5 py-3">
+                    <td class="px-4 sm:px-5 py-3">
                         <a href="<?= e(adminMerchantUrl((int)$m['id'])) ?>" class="font-medium text-white hover:text-sky-300" onclick="event.stopPropagation()"><?= e($m['business_name']) ?></a>
-                        <p class="text-xs text-gray-500"><?= e($m['email']) ?></p>
+                        <p class="text-xs text-gray-500 break-all"><?= e($m['email']) ?></p>
                     </td>
-                    <td class="px-5 py-3"><?= statusBadge($m['kyc_status']) ?></td>
-                    <td class="px-5 py-3"><?= statusBadge($m['status']) ?></td>
-                    <td class="px-5 py-3 text-right" onclick="event.stopPropagation()"><a href="admin_view_merchant.php?id=<?= (int)$m['id'] ?>" class="text-xs text-emerald-400 hover:text-emerald-300 font-semibold">View</a></td>
+                    <td class="px-4 sm:px-5 py-3"><?= statusBadge($m['kyc_status']) ?></td>
+                    <td class="px-4 sm:px-5 py-3"><?= statusBadge($m['status']) ?></td>
+                    <td class="px-4 sm:px-5 py-3 text-right" onclick="event.stopPropagation()"><a href="admin_view_merchant.php?id=<?= (int)$m['id'] ?>" class="text-xs text-emerald-400 hover:text-emerald-300 font-semibold">View</a></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
