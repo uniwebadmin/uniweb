@@ -164,6 +164,8 @@ $assert(is_file($root . '/merchant_nbfc.php') && is_file($root . '/merchant_inst
 $assert(is_file($root . '/admin_nbfc.php') && is_file($root . '/includes/nbfc.php'), 'nbfc_admin_module');
 $nbfcLib = (string)file_get_contents($root . '/includes/nbfc.php');
 $assert(str_contains($nbfcLib, 'function submitNbfcApplication') && str_contains($nbfcLib, 'function decideNbfcApplication'), 'nbfc_application_helpers');
+$assert(str_contains($nbfcLib, 'function createNbfcLoanFromApplication') && str_contains($nbfcLib, 'function getNbfcEmiSchedule'), 'nbfc_loan_emi_helpers');
+$assert(is_file($root . '/merchant_nbfc_loan.php'), 'nbfc_loan_page');
 $payoutLib2 = (string)file_get_contents($root . '/includes/payout.php');
 $assert(str_contains($payoutLib2, 'function dispatchQueuedPayouts'), 'payout_dispatch_queued');
 $gwSet = (string)file_get_contents($root . '/gateway_settings.php');

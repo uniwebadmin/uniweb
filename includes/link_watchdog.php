@@ -74,6 +74,7 @@ function getWatchdogPageRegistry(): array
         ['wallet.php', 'Wallet'],
         ['collection_settings.php', 'Collection Settings'],
         ['merchant_nbfc.php', 'NBFC Finance'],
+        ['merchant_nbfc_loan.php', 'NBFC Loan EMI'],
         ['merchant_instant_settlement.php', 'Instant Settlement'],
         ['qr_code.php', 'QR Code'],
         ['qr_upi_print.php', 'Instant UPI Print QR'],

@@ -98,6 +98,9 @@ require_once __DIR__ . '/header.php';
                 <p class="text-gray-300 mt-1"><?= formatMoney((float)$a['amount']) ?> · <?= (int)$a['tenure_months'] ?> months</p>
                 <p class="text-xs text-gray-500 mt-1"><?= e((string)$a['purpose']) ?></p>
                 <?php if (!empty($a['admin_note'])): ?><p class="text-xs text-gray-400 mt-1">Note: <?= e($a['admin_note']) ?></p><?php endif; ?>
+                <?php if (($a['status'] ?? '') === 'approved'): ?>
+                <a href="merchant_nbfc_loan.php" class="inline-block mt-2 text-xs text-sky-400">View loan &amp; EMI schedule →</a>
+                <?php endif; ?>
             </div>
             <?php endforeach; ?>
         </div>
