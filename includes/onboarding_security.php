@@ -128,7 +128,10 @@ function approveApprovalRequest(int $requestId, string $checkerReason): void
             throw new RuntimeException('Approval request is no longer pending.');
         }
         if ((int)$request['requested_by_id'] === $actor['id'] && $request['requested_by_type'] === $actor['type']) {
-            throw new RuntimeException('Maker and checker must be different users.');
+            // Default: independent checker. Solo launch ops: super admin may complete own request after step-up.
+            if (!function_exists('isSuperAdmin') || !isSuperAdmin()) {
+                throw new RuntimeException('Maker and checker must be different users.');
+            }
         }
         $merchantId = (int)($request['merchant_id'] ?? 0);
         if ($merchantId > 0 && function_exists('requireMerchantAccess')) {
@@ -214,5 +217,43 @@ function applyApprovedControlAction(array $request): void
         default:
             throw new RuntimeException('Unsupported approval action.');
     }
+}
+
+/**
+ * Super-admin one-step KYC verify (live-prep / solo ops).
+ * Does NOT enable Live money — that remains a separate maker-checker gate.
+ */
+function verifyMerchantKycNow(int $merchantId, string $reason): void
+{
+    if (!function_exists('isSuperAdmin') || !isSuperAdmin()) {
+        throw new RuntimeException('Only super admin can verify KYC in one step.');
+    }
+    $reason = trim($reason);
+    if ($reason === '') {
+        throw new InvalidArgumentException('A review reason is required.');
+    }
+    applyApprovedControlAction([
+        'action_type' => 'kyc_merchant_verify',
+        'merchant_id' => $merchantId,
+        'resource_id' => $merchantId,
+        'resource_type' => 'merchant',
+    ]);
+    if (function_exists('recordImmutableAudit')) {
+        recordImmutableAudit(
+            'kyc_merchant_verify_solo',
+            $merchantId,
+            'merchant',
+            (string)$merchantId,
+            $reason . ' [super_solo_ops]'
+        );
+    }
+    if (function_exists('createNotification')) {
+        createNotification(
+            $merchantId,
+            'KYC Verified',
+            'Your KYC was verified. Live money still needs a separate Live activation step.'
+        );
+    }
+    logStaffActivity('kyc_verified_solo', $reason, $merchantId, 'merchant', (string)$merchantId);
 }
 

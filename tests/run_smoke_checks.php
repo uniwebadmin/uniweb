@@ -188,6 +188,7 @@ $assert(str_contains($schemaEns, 'function ensureInvoiceSchema'), 'invoice_schem
 
 $kyc = (string)file_get_contents($root . '/admin_kyc.php');
 $assert(str_contains($kyc, 'independent checker') || str_contains($kyc, 'Independent checker'), 'kyc_maker_checker_copy');
+$assert(str_contains($kyc, 'verify_merchant_now') && str_contains($kyc, 'Verify KYC now'), 'kyc_super_verify_now_action');
 $assert(!str_contains($kyc, 'Click Verify after documents OK — enables Live mode'), 'kyc_no_misleading_verify_live_copy');
 $assert(str_contains($kyc, 'Video KYC queue'), 'kyc_video_queue_section');
 $assert(str_contains($kyc, 'verify_video'), 'kyc_verify_video_action');
@@ -208,6 +209,8 @@ $assert(normalizeKycEntityType('freelancer') === 'individual', 'kyc_normalize_fr
 $assert(canonicalizeKycDocType('pan_card') === 'pan', 'kyc_canonicalize_pan_card');
 $onboardSec = (string)file_get_contents($root . '/includes/onboarding_security.php');
 $assert(str_contains($onboardSec, "'verified', 'approved'"), 'live_gate_accepts_video_approved');
+$assert(str_contains($onboardSec, 'function verifyMerchantKycNow'), 'kyc_verify_now_helper');
+$assert(str_contains($onboardSec, 'super_solo_ops') || str_contains($onboardSec, 'isSuperAdmin'), 'kyc_solo_ops_guard');
 
 $adminDash = (string)file_get_contents($root . '/admin_dashboard.php');
 $assert(!str_contains($adminDash, 'Verify to enable Live mode'), 'dashboard_no_misleading_verify_live_copy');
