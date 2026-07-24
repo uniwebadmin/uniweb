@@ -93,6 +93,9 @@ function adminMerchantLink(int $merchantId, string $label, string $class = 'text
 
 function txnDetailLink(string $txnId, ?string $label = null, string $class = 'text-sky-400 hover:underline'): string
 {
+    if (function_exists('uwIdLink')) {
+        return uwIdLink($txnId, $label, $class);
+    }
     $label = $label ?? $txnId;
     return '<a href="' . e(transactionDetailUrl($txnId)) . '" class="' . e($class) . '">' . e($label) . '</a>';
 }

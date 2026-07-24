@@ -85,5 +85,11 @@
     <?php endif; ?>
 </footer>
 <?php endif; ?>
+<?php
+// Universal clickable IDs on every page (admin / merchant / customer / public)
+if (empty($skipIdClickableJs)):
+?>
+<script src="<?= defined('APP_URL') ? e(APP_URL) : '' ?>/assets/js/id-clickable.js?v=20260724c" defer></script>
+<?php endif; ?>
 </body>
 </html>
