@@ -47,6 +47,8 @@ function velocityPolicy(string $type): array
         'login_fail' => ['window_minutes' => 5, 'max_attempts' => 8, 'cooldown_minutes' => 15],
         'otp_fail' => ['window_minutes' => 10, 'max_attempts' => 6, 'cooldown_minutes' => 20],
         'contact_change' => ['window_minutes' => 30, 'max_attempts' => 8, 'cooldown_minutes' => 30],
+        // Public merchant signup — throttle bots creating many email accounts
+        'merchant_signup' => ['window_minutes' => 60, 'max_attempts' => 8, 'cooldown_minutes' => 60],
         'qr_link' => ['window_minutes' => 1, 'max_attempts' => 1000000, 'cooldown_minutes' => 0],
         // QR path no longer uses this policy for blocks (see qr_pay.php / checkout.php).
         // Kept extremely high so any legacy caller cannot throttle ₹100 × 10 lakh traffic.
@@ -100,6 +102,7 @@ function velocityBlockMessage(string $type): string
         'payment_fail' => 'Too many failed payment attempts from this network. For security, please try again in a few minutes.',
         'login_fail' => 'Too many failed login attempts. For security, please try again in a few minutes.',
         'otp_fail' => 'Too many incorrect OTP attempts. Please try again in a few minutes.',
+        'merchant_signup' => 'Too many signup attempts from this network. Please try again in about an hour.',
         'qr_link' => 'Too many payment links from this QR scan. Please wait a few minutes and try again.',
     ];
     return $labels[$type] ?? 'Too many attempts. Please try again later.';

@@ -13,7 +13,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $phone = '';
     $name = 'Merchant';
 
-    if ($signupMode === 'email') {
+    if (function_exists('checkVelocityBlock')) {
+        $v = checkVelocityBlock('merchant_signup');
+        if (!empty($v['blocked'])) {
+            $errors[] = function_exists('velocityBlockMessage')
+                ? velocityBlockMessage('merchant_signup')
+                : 'Too many signup attempts. Please try again later.';
+        }
+    }
+
+    if (empty($errors) && $signupMode === 'email') {
         $email = strtolower(trim($_POST['email'] ?? ''));
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $errors[] = __('err_valid_email');
@@ -60,8 +69,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 ]);
             $id = (int)$db->lastInsertId();
             if ($signupMode === 'email') {
+                // Synthetic unique phone so email-only signups do not collide on phone UNIQUE.
+                // Pattern +9199 + zero-padded id (e.g. id 7 → +919900000007) — NOT a real mobile.
                 $uniquePhone = '+9199' . str_pad((string)$id, 8, '0', STR_PAD_LEFT);
                 $db->prepare('UPDATE merchants SET phone=? WHERE id=?')->execute([$uniquePhone, $id]);
+            }
+            if (function_exists('recordVelocityEvent')) {
+                recordVelocityEvent('merchant_signup', 'merchant:' . $id);
             }
             try {
                 $db->prepare('UPDATE merchants SET test_api_key=?, test_api_secret=?, account_mode=?, provision_profile=? WHERE id=?')
