@@ -638,6 +638,31 @@ function queueAllExistingMerchantsMethodAutomation(string $note = 'Auto-queued f
     ];
 }
 
+/**
+ * After KYC is verified: ensure method queue exists, then auto-send pending
+ * partner methods so admin does not click Send for that merchant.
+ */
+function afterKycVerifiedAutoSendMethods(int $merchantId, string $actor = 'kyc_verified_auto'): array
+{
+    ensureMethodRequestSchema();
+    $boot = bootstrapMerchantMethodAutomation($merchantId, 'Auto-queued after KYC verified');
+    $sent = sendAllPendingMethodRequestsToPartner($merchantId, $actor, 'Auto-sent after KYC verified');
+    if (function_exists('createNotification')) {
+        createNotification(
+            $merchantId,
+            'Methods sent to partner',
+            'KYC verified. Your payment methods were forwarded to the partner for approval.'
+        );
+    }
+    return [
+        'ok' => !empty($sent['ok']),
+        'queued' => (int)($boot['queued'] ?? 0),
+        'sent' => (int)($sent['sent'] ?? 0),
+        'message' => 'KYC auto-send: queued ' . (int)($boot['queued'] ?? 0)
+            . ', sent/enabled ' . (int)($sent['sent'] ?? 0) . '.',
+    ];
+}
+
 /** Admin: one click — send every pending partner method for this merchant (or all merchants). */
 function sendAllPendingMethodRequestsToPartner(?int $merchantId, string $actor, string $adminNote = ''): array
 {
