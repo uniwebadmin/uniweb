@@ -1,9 +1,9 @@
 ---
-description: UniWeb live prep — continuous auto mode without waiting for "next move"
+description: UniWeb live prep — continuous auto mode, local only
 alwaysApply: true
 ---
 
-# UniWeb Auto Mode (Live Prep)
+# UniWeb Auto Mode (Local + Live Prep)
 
 Work autonomously until the user explicitly stops or changes direction.
 
@@ -11,8 +11,8 @@ Work autonomously until the user explicitly stops or changes direction.
 
 - Do NOT wait for the user to type "next move", "continue", or "aage badho".
 - After finishing a task, immediately start the next highest-impact item for live launch.
-- Prefer Cloud Agents so the owner can direct work from mobile (cursor.com/agents) without keeping a laptop open.
-- Deploy fixes to live (SFTP/FTP) without asking when credentials/tools are available; otherwise ship a PR and note deploy as manual.
+- Work **only on the local laptop** — no Cursor Cloud Agents.
+- Deploy to live (SFTP/FTP / GitHub Actions on `main`) only when the owner asks or when local credentials/tools are clearly available.
 - UI text must stay English-only; Hindi is OK in chat with the user.
 
 ## Live prep priorities (in order)
@@ -32,5 +32,5 @@ Work autonomously until the user explicitly stops or changes direction.
 
 ## End of each turn
 
-Give a short status: what was done, what's live, what's still manual for the user.
+Give a short status: what was done locally, what's still manual for the user.
 Do NOT ask "should I continue?" — just continue on the next turn.

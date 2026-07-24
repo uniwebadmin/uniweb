@@ -4,6 +4,9 @@ require_once __DIR__ . '/config.php';
 if (!function_exists('qrImageUrl')) {
     require_once __DIR__ . '/includes/qr_svg.php';
 }
+if (!function_exists('listPageParams')) {
+    require_once __DIR__ . '/includes/page_ux_compat.php';
+}
 requireLogin();
 ensureMerchantQrCodes();
 ensurePaymentPackSchema();
