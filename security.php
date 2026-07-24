@@ -18,14 +18,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 $pageTitle = 'Security';
 require_once __DIR__ . '/header.php';
 ?>
+<?= renderPagePrintStyles() ?>
 <div class="max-w-lg space-y-6">
+    <div class="flex justify-end no-print"><?= renderPrintButton() ?></div>
     <div class="glass rounded-xl p-6">
         <h2 class="font-semibold mb-4">Change Password</h2>
-        <form method="POST" class="space-y-4">
+        <form method="POST" class="space-y-4" aria-label="Change password form">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-            <div><label class="text-sm text-gray-400">Current Password</label><input type="password" name="current_password" required class="input-field mt-1"></div>
-            <div><label class="text-sm text-gray-400">New Password</label><input type="password" name="new_password" required minlength="8" class="input-field mt-1"></div>
-            <div><label class="text-sm text-gray-400">Confirm New Password</label><input type="password" name="confirm_password" required class="input-field mt-1"></div>
+            <div>
+                <?= uxFormLabel(uxFieldId('current_password'), 'Current Password', true) ?>
+                <input type="password" name="current_password" id="<?= e(uxFieldId('current_password')) ?>" required class="input-field mt-1" autocomplete="current-password">
+            </div>
+            <div>
+                <?= uxFormLabel(uxFieldId('new_password'), 'New Password', true) ?>
+                <input type="password" name="new_password" id="<?= e(uxFieldId('new_password')) ?>" required minlength="8" class="input-field mt-1" autocomplete="new-password">
+            </div>
+            <div>
+                <?= uxFormLabel(uxFieldId('confirm_password'), 'Confirm New Password', true) ?>
+                <input type="password" name="confirm_password" id="<?= e(uxFieldId('confirm_password')) ?>" required class="input-field mt-1" autocomplete="new-password">
+            </div>
             <button type="submit" class="btn-primary px-6 py-2.5">Update Password</button>
         </form>
     </div>

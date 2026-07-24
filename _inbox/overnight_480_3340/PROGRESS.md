@@ -1,15 +1,10 @@
 ﻿# Overnight progress (append only)
 
 Started: 2026-07-23 night IST  
-Scope: points **480–3340** (primary work **541–3340**; 480–540 already shipped)  
-Rules: no deploy overnight; morning merge to main for Hostinger Git deploy
+Scope: points **480–3340** (primary work **541–3340**; 480–540 already shipped)
 
 ## Morning ship 2026-07-24
-Integration branch `morning/overnight-ship` merges Agents C + A + B (+ D/E next).
+Branch `morning/overnight-ship` integrates Agents A/B/C/E (+ D next) for merge to `main` / Hostinger Git deploy.
 
-## Agent C — 1601–2200
-See prior Agent C section: page_ux.php + admin list polish.
-
-## Agent B — 1001–1600
-Worldline scaffold, a11y labels, chargebacks/recon CSV, audit scripts.
-QUEUE Q01–Q33 marked DONE by relay; Q34 SKIP (owner ops).
+QUEUE Q01–Q33 DONE (relay); Q34 SKIP (owner ops / nahi-karna).
+Partner live keys / Axis production = BLOCKED_OWNER.

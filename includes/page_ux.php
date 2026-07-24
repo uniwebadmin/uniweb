@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 declare(strict_types=1);
 
 /**
@@ -119,4 +119,34 @@ function uxCsvRow(array $assoc, array $keys): array
         $row[] = $assoc[$key] ?? '';
     }
     return $row;
+}
+
+/** Aliases used by overnight Agent E pages */
+function uxFieldId(string $name): string
+{
+    return 'ux-' . preg_replace('/[^a-z0-9_-]+/i', '-', $name);
+}
+
+function uxFormLabel(string $for, string $text, bool $required = false): string
+{
+    return uxLabel($for, $text, $required);
+}
+
+function renderPrintButton(string $label = 'Print'): string
+{
+    return '<button type="button" class="no-print text-sm glass px-4 py-1.5 rounded-lg text-gray-300 hover:text-white" onclick="window.print()" aria-label="' . e($label) . ' page">' . e($label) . '</button>';
+}
+
+function renderExportCsvLink(string $url, string $label = 'Export CSV'): string
+{
+    return '<a href="' . e($url) . '" class="no-print text-sm bg-brand-600/20 text-brand-400 px-4 py-1.5 rounded-lg hover:bg-brand-600/30 transition">' . e($label) . '</a>';
+}
+
+function renderPagination(int $page, int $perPage, int $total, array $queryParams = []): string
+{
+    if ($total <= $perPage) {
+        return '';
+    }
+    $pages = (int)max(1, ceil($total / $perPage));
+    return uxPageNav($page, $pages, $queryParams);
 }

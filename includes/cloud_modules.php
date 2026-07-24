@@ -20,6 +20,10 @@ $__cloudModules = [
     'gateway_reason_map.php',
     'contact_change.php',
     'page_ux.php',
+    // Overnight Agent E — UX + integration scaffolds (no partner live calls)
+    'integration_matrix.php',
+    'settlement_delay_spec.php',
+    'kyc_timeline.php',
 ];
 
 foreach ($__cloudModules as $__cloudModule) {
