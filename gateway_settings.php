@@ -294,11 +294,18 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['digio_face_match_enabled','Enable Digio face-match (0/1)','number'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">Method Partner Automation</h3>
-        <p class="text-xs text-gray-500 mb-2">Secret for <code class="text-gray-400">method_partner_webhook.php</code> — partner approve/reject updates merchant methods automatically. Also accepts Razorpay/PayU/Cashfree webhook secrets if this field is empty.</p>
+        <p class="text-xs text-gray-500 mb-2">Partner approve/reject hits this URL and turns merchant methods ON/OFF automatically.</p>
+        <div class="rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 mb-3 text-xs space-y-2">
+            <p class="text-[10px] text-gray-600 uppercase tracking-wide">Method partner webhook URL</p>
+            <code class="block text-sky-400 font-mono break-all"><?= e(rtrim(APP_URL, '/') . '/method_partner_webhook.php') ?></code>
+            <p class="text-gray-500">Auth header: <code class="text-gray-300">X-UniWeb-Method-Secret</code> (or query <code class="text-gray-300">?key=</code>). Body JSON: partner_ref + decision (approved|rejected).</p>
+        </div>
         <?php foreach ([
             ['method_partner_webhook_secret','Method Partner Webhook Secret','password'],
             ['nbfc_partner_gateway','NBFC Partner Gateway (payu/razorpay/…)','text'],
+            ['nbfc_live_enabled','NBFC live disbursement switch (0/1)','number'],
             ['instant_settlement_gateway','Instant Settlement Gateway','text'],
+            ['payout_live_enabled','Payout live money switch (0/1)','number'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">SEO — Google Search Console</h3>
         <p class="text-xs text-gray-500 mb-2">Paste the HTML-tag verification token from Google Search Console (the <code class="text-gray-400">content</code> value only). It is rendered as <code class="text-gray-400">&lt;meta name="google-site-verification"&gt;</code> on every page via <code class="text-gray-400">header.php</code>. Setting key: <code class="text-gray-400">google_site_verification</code>.</p>

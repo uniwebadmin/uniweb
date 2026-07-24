@@ -138,6 +138,7 @@ function getWatchdogPageRegistry(): array
         ['admin_payout.php', 'Payout Requests'],
         ['admin_kyc.php', 'KYC Review'],
         ['admin_method_requests.php', 'Method Requests'],
+        ['admin_nbfc.php', 'NBFC Applications'],
         ['method_partner_webhook.php', 'Method Partner Webhook', 'system', 'system'],
         ['merchant_nbfc.php', 'NBFC Finance', 'merchant'],
         ['merchant_instant_settlement.php', 'Instant Settlement', 'merchant'],

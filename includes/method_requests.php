@@ -507,6 +507,13 @@ function unlockMerchantMethod(int $merchantId, string $methodKey): void
             try {
                 $db->prepare('UPDATE merchants SET payout_enabled=1 WHERE id=?')->execute([$merchantId]);
             } catch (Throwable $e) { /* ok */ }
+            // Keep payout enable-request table in sync with method unlock.
+            try {
+                $db->prepare(
+                    "UPDATE merchant_payout_enable_requests SET status='approved', admin_note=COALESCE(admin_note,'Synced from method unlock'), decided_by='system', decided_at=NOW()
+                     WHERE merchant_id=? AND status='pending'"
+                )->execute([$merchantId]);
+            } catch (Throwable $e) { /* table may miss */ }
         }
         if ($methodKey === 'instant_settlement') {
             try {
