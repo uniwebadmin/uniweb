@@ -22,6 +22,26 @@ if (isset($_GET['action'], $_GET['token']) && verifyCsrf($_GET['token'])) {
 }
 
 $report = getPgReconciliationReport($days);
+
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="pg_reconciliation_' . $days . 'd.csv"');
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['Metric', 'Value']);
+    fputcsv($out, ['Days', $days]);
+    fputcsv($out, ['Successful txns', $report['transactions_success'] ?? 0]);
+    fputcsv($out, ['Pending txns', $report['transactions_pending'] ?? 0]);
+    fputcsv($out, ['Refunds', $report['refunds'] ?? 0]);
+    fputcsv($out, ['Unmatched webhooks', count($report['unmatched_webhooks'] ?? [])]);
+    fputcsv($out, []);
+    fputcsv($out, ['Webhook ID', 'Gateway', 'Event', 'Created']);
+    foreach ($report['unmatched_webhooks'] ?? [] as $wh) {
+        fputcsv($out, [$wh['id'] ?? '', $wh['gateway'] ?? '', $wh['event_type'] ?? '', $wh['created_at'] ?? '']);
+    }
+    fclose($out);
+    exit;
+}
+
 $pageTitle = 'PG Reconciliation';
 require_once __DIR__ . '/header.php';
 ?>
@@ -32,6 +52,7 @@ require_once __DIR__ . '/header.php';
             <a href="admin_pg_webhooks.php" class="text-xs text-sky-400 hover:underline">Webhook log →</a>
             <a href="admin_bank_reconciliation.php" class="text-xs text-emerald-400 hover:underline">⭐ Bank Auto-Reconciliation →</a>
             <a href="gateway_settings.php" class="text-xs text-gray-400 hover:text-white">Gateway keys →</a>
+            <a href="?days=<?= $days ?>&export=csv" class="text-xs text-sky-400 hover:text-white">Export CSV</a>
             <?php if (!empty($report['unmatched_webhooks'])): ?>
             <a href="?action=retry_all&days=<?= $days ?>&token=<?= csrfToken() ?>" class="text-xs bg-amber-600/20 text-amber-300 px-3 py-1.5 rounded-lg hover:bg-amber-600/30" onclick="return confirm('Retry all unmatched webhooks (max 20)?')">Retry unmatched</a>
             <?php endif; ?>

@@ -83,7 +83,7 @@ require_once __DIR__ . '/header.php';
                         <form method="POST" class="flex flex-wrap gap-2 items-center">
                             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                             <input type="hidden" name="reversal_id" value="<?= (int)$rv['id'] ?>">
-                            <input name="admin_note" maxlength="500" placeholder="Note" class="text-xs bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5">
+                            <input name="admin_note" maxlength="500" placeholder="Note" class="text-xs bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5" aria-label="Reversal note">
                             <button name="action" value="reversal_reconciled" class="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg">Mark reconciled (no auto-credit)</button>
                             <button name="action" value="reversal_rejected" class="text-xs bg-red-600/20 text-red-400 px-3 py-1.5 rounded-lg">Reject</button>
                         </form>
@@ -127,7 +127,7 @@ require_once __DIR__ . '/header.php';
                         <form method="POST" class="flex flex-wrap items-center gap-2" onsubmit="return confirm('Confirm this decision?')">
                             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                             <input type="hidden" name="request_id" value="<?= (int)$r['id'] ?>">
-                            <input name="admin_note" maxlength="500" placeholder="Note (optional)" class="text-xs bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5">
+                            <input name="admin_note" maxlength="500" placeholder="Note (optional)" class="text-xs bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5" aria-label="Decision note">
                             <button name="action" value="approve" class="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg">Approve</button>
                             <button name="action" value="reject" class="text-xs bg-red-600/20 text-red-400 px-3 py-1.5 rounded-lg">Reject</button>
                         </form>
