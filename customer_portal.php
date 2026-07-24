@@ -4,7 +4,15 @@ require_once __DIR__ . '/includes/customer_portal.php';
 requireCustomer();
 
 $phone = currentCustomerPhone();
-$txns = getCustomerTransactions($phone);
+$filters = [
+    'from' => mb_substr(trim($_GET['from'] ?? ''), 0, 10),
+    'to' => mb_substr(trim($_GET['to'] ?? ''), 0, 10),
+    'status' => strtolower(trim($_GET['status'] ?? 'all')),
+    'type' => strtolower(trim($_GET['type'] ?? 'all')),
+    'amount_min' => trim($_GET['amount_min'] ?? ''),
+    'amount_max' => trim($_GET['amount_max'] ?? ''),
+];
+$txns = getCustomerTransactions($phone, 100, $filters);
 $tickets = getCustomerTickets($phone);
 $openTickets = count(array_filter($tickets, static fn($t) => in_array(($t['status'] ?? ''), ['open', 'in_progress'], true)));
 
@@ -12,6 +20,7 @@ $pageTitle = 'My Payments';
 $hideNav = true;
 $hideFooter = true;
 $customerPortalUi = true;
+$cpNavActive = 'dashboard';
 $bodyClass = trim(($bodyClass ?? '') . ' customer-portal-shell');
 require_once __DIR__ . '/header.php';
 ?>
@@ -19,6 +28,7 @@ require_once __DIR__ . '/header.php';
     <header class="cp-topbar">
         <div class="cp-topbar-inner">
             <?php $logoHref = 'customer_portal.php'; $logoSize = 'sm'; require __DIR__ . '/includes/brand_logo.php'; ?>
+            <?php require __DIR__ . '/includes/customer_portal_nav.php'; ?>
             <div class="flex items-center gap-2 sm:gap-3">
                 <span class="cp-phone-chip">+91 <?= e($phone) ?></span>
                 <a href="customer_logout.php" class="cp-btn cp-btn-ghost text-xs !py-1.5 !px-3">Logout</a>
@@ -31,7 +41,7 @@ require_once __DIR__ . '/header.php';
             <div>
                 <p class="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Customer portal</p>
                 <h1 class="cp-display text-3xl sm:text-4xl font-bold mt-2 text-slate-900">My payments</h1>
-                <p class="cp-muted mt-2 max-w-xl">Every payment made with +91 <?= e($phone) ?> across UniWeb merchants — read-only history with clear status and reason.</p>
+                <p class="cp-muted mt-2 max-w-xl">Every payment made with +91 <?= e($phone) ?> across UniWeb merchants — filter, review status, and raise a complaint when needed.</p>
             </div>
             <div class="cp-stat">
                 <p>Payments found</p>
@@ -41,15 +51,52 @@ require_once __DIR__ . '/header.php';
             </div>
         </div>
 
-        <section class="cp-panel">
+        <section id="txns" class="cp-panel scroll-mt-24">
             <div class="cp-panel-head">
                 <h2 class="font-bold text-slate-900">Transaction history</h2>
                 <span class="cp-muted"><?= count($txns) ?> result<?= count($txns) === 1 ? '' : 's' ?></span>
             </div>
+            <form method="GET" class="cp-filters px-5 py-4 border-b border-slate-100 grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 items-end">
+                <div>
+                    <label class="text-[10px] uppercase text-slate-500 font-semibold" for="cp-from">From date</label>
+                    <input id="cp-from" type="date" name="from" value="<?= e($filters['from']) ?>" class="cp-input mt-1 !py-2">
+                </div>
+                <div>
+                    <label class="text-[10px] uppercase text-slate-500 font-semibold" for="cp-to">To date</label>
+                    <input id="cp-to" type="date" name="to" value="<?= e($filters['to']) ?>" class="cp-input mt-1 !py-2">
+                </div>
+                <div>
+                    <label class="text-[10px] uppercase text-slate-500 font-semibold" for="cp-status">Status</label>
+                    <select id="cp-status" name="status" class="cp-input mt-1 !py-2">
+                        <?php foreach (['all' => 'All statuses', 'success' => 'Success', 'pending' => 'Pending', 'failed' => 'Failed'] as $k => $lbl): ?>
+                        <option value="<?= e($k) ?>" <?= $filters['status'] === $k ? 'selected' : '' ?>><?= e($lbl) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] uppercase text-slate-500 font-semibold" for="cp-type">Type</label>
+                    <select id="cp-type" name="type" class="cp-input mt-1 !py-2">
+                        <?php foreach (['all' => 'All types', 'upi' => 'UPI', 'card' => 'Card', 'netbanking' => 'Netbanking', 'wallet' => 'Wallet'] as $k => $lbl): ?>
+                        <option value="<?= e($k) ?>" <?= $filters['type'] === $k ? 'selected' : '' ?>><?= e($lbl) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] uppercase text-slate-500 font-semibold" for="cp-amin">Min amount</label>
+                    <input id="cp-amin" type="number" step="0.01" min="0" name="amount_min" value="<?= e((string)$filters['amount_min']) ?>" class="cp-input mt-1 !py-2" placeholder="₹">
+                </div>
+                <div class="flex gap-2">
+                    <div class="flex-1">
+                        <label class="text-[10px] uppercase text-slate-500 font-semibold" for="cp-amax">Max amount</label>
+                        <input id="cp-amax" type="number" step="0.01" min="0" name="amount_max" value="<?= e((string)$filters['amount_max']) ?>" class="cp-input mt-1 !py-2" placeholder="₹">
+                    </div>
+                    <button type="submit" class="cp-btn cp-btn-primary !py-2 !px-3 text-xs self-end">Filter</button>
+                </div>
+            </form>
             <?php if (empty($txns)): ?>
             <div class="cp-empty">
-                <p class="font-semibold text-slate-700 mb-1">No payments found for this mobile</p>
-                <p>If you paid with a different number, log out and sign in with that number.</p>
+                <p class="font-semibold text-slate-700 mb-1">No payments match these filters</p>
+                <p>Clear filters or try another date / status. If you paid with a different number, log out and sign in with that number.</p>
             </div>
             <?php else: ?>
             <div class="cp-txn-list">
@@ -60,6 +107,7 @@ require_once __DIR__ . '/header.php';
                     <div>
                         <p class="cp-mono"><?= e($t['txn_id']) ?></p>
                         <p class="text-sm font-semibold text-slate-800 mt-1 sm:hidden"><?= formatMoney((float)$t['amount']) ?></p>
+                        <p class="cp-muted uppercase mt-0.5"><?= e(paymentMethodLabel($t['payment_method'] ?? '')) ?></p>
                     </div>
                     <div>
                         <p class="text-sm font-semibold text-slate-800"><?= e($t['business_name'] ?: 'Merchant') ?></p>
@@ -79,7 +127,7 @@ require_once __DIR__ . '/header.php';
             <?php endif; ?>
         </section>
 
-        <section class="cp-panel">
+        <section id="complaints" class="cp-panel scroll-mt-24">
             <div class="cp-panel-head">
                 <h2 class="font-bold text-slate-900">My complaints</h2>
                 <a href="customer_ticket.php?new=1" class="text-sm font-semibold text-teal-700 hover:underline">+ New</a>

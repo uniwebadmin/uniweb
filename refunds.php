@@ -111,7 +111,7 @@ echo renderPrintStylesheet();
                     <?php foreach ($refunds as $r): ?>
                     <tr class="hover:bg-white/5">
                         <td class="px-5 py-3 font-mono text-xs"><?= e($r['refund_id']) ?></td>
-                        <td class="px-5 py-3 font-mono text-xs"><?= e($r['txn_id']) ?></td>
+                        <td class="px-5 py-3 font-mono text-xs"><?= txnDetailLink((string)$r['txn_id']) ?></td>
                         <td class="px-5 py-3"><?= formatMoney(capStatAmount((float)$r['amount'])) ?></td>
                         <td class="px-5 py-3"><?= statusBadge($r['status']) ?></td>
                         <td class="px-5 py-3 text-xs text-gray-500"><?= formatDate($r['created_at']) ?></td>

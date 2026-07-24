@@ -55,19 +55,23 @@ $pageTitle = $ticket ? 'Complaint ' . $ticket['ticket_id'] : 'Raise a complaint'
 $hideNav = true;
 $hideFooter = true;
 $customerPortalUi = true;
+$cpNavActive = 'complaints';
 $bodyClass = trim(($bodyClass ?? '') . ' customer-portal-shell');
 require_once __DIR__ . '/header.php';
 ?>
 <div class="cp-shell">
     <header class="cp-topbar">
-        <div class="cp-topbar-inner" style="max-width:720px">
+        <div class="cp-topbar-inner">
             <?php $logoHref = 'customer_portal.php'; $logoSize = 'sm'; require __DIR__ . '/includes/brand_logo.php'; ?>
-            <a href="customer_logout.php" class="cp-btn cp-btn-ghost text-xs !py-1.5 !px-3">Logout</a>
+            <?php require __DIR__ . '/includes/customer_portal_nav.php'; ?>
+            <div class="flex items-center gap-2">
+                <a href="customer_logout.php" class="cp-btn cp-btn-ghost text-xs !py-1.5 !px-3">Logout</a>
+            </div>
         </div>
     </header>
 
     <main class="cp-main py-8 space-y-5 flex-1 w-full" style="max-width:720px">
-        <a href="customer_portal.php" class="text-sm font-semibold text-teal-700 hover:underline">← Back to my payments</a>
+        <a href="customer_portal.php#complaints" class="text-sm font-semibold text-teal-700 hover:underline">← Back to my payments</a>
         <?php if ($error): ?><div class="cp-alert cp-alert-error"><?= e($error) ?></div><?php endif; ?>
 
         <?php if ($ticket): ?>

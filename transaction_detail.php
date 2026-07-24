@@ -25,6 +25,67 @@ if (!$txn) {
     redirect($adminView ? 'admin_transactions.php' : 'transactions.php');
 }
 
+if ($adminView && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'refund_payment' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    requireStaffAccess(['super', 'ceo', 'regional_manager', 'finance', 'ops']);
+    require_once __DIR__ . '/includes/refunds.php';
+    ensureRefundsEngine();
+    $mode = (string)($_POST['refund_mode'] ?? 'full');
+    $amount = $mode === 'partial' ? (float)($_POST['amount'] ?? 0) : 0.0;
+    $reasonPick = trim((string)($_POST['reason_code'] ?? 'Customer requested refund'));
+    $reasonExtra = trim((string)($_POST['reason_note'] ?? ''));
+    $reasonOptions = function_exists('getRefundReasonOptions') ? getRefundReasonOptions() : [];
+    if ($reasonOptions && !in_array($reasonPick, $reasonOptions, true)) {
+        $reasonPick = 'Customer requested refund';
+    }
+    $reason = $reasonPick;
+    if ($reasonExtra !== '') {
+        $reason .= ' — ' . $reasonExtra;
+    }
+    requireStepUpAuth();
+    $admin = getAdmin();
+    $result = processRefund((int)$txn['id'], $amount, $reason, (int)($admin['id'] ?? 0));
+    flash($result['ok'] ? 'success' : 'error', $result['ok'] ? ('Refund ' . ($result['refund_id'] ?? '') . ' processed.') : ($result['error'] ?? 'Refund failed.'));
+    if ($result['ok'] && function_exists('logStaffActivity')) {
+        logStaffActivity('refund_processed', ($result['refund_id'] ?? '') . ' — txn ' . $txn['txn_id'], (int)$txn['merchant_id'], 'transaction', $txn['txn_id']);
+    }
+    redirect(transactionDetailUrl($txn['txn_id']) . '#refund');
+}
+
+$openComplaint = null;
+$openDispute = null;
+try {
+    require_once __DIR__ . '/includes/customer_portal.php';
+    ensureCustomerPortalSchema();
+    $st = getDB()->prepare("SELECT id, ticket_id, status FROM customer_tickets WHERE txn_reference = ? AND status IN ('open','in_progress') ORDER BY id DESC LIMIT 1");
+    $st->execute([$txn['txn_id']]);
+    $openComplaint = $st->fetch() ?: null;
+} catch (Throwable $e) {
+    $openComplaint = null;
+}
+try {
+    $st = getDB()->prepare("SELECT id, dispute_id, status FROM disputes WHERE txn_id = ? AND status IN ('open','pending','under_review') ORDER BY id DESC LIMIT 1");
+    $st->execute([$txn['txn_id']]);
+    $openDispute = $st->fetch() ?: null;
+} catch (Throwable $e) {
+    try {
+        $st = getDB()->prepare("SELECT d.id, d.dispute_id, d.status FROM disputes d JOIN transactions t ON t.id = d.transaction_id WHERE t.txn_id = ? AND d.status IN ('open','pending','under_review') ORDER BY d.id DESC LIMIT 1");
+        $st->execute([$txn['txn_id']]);
+        $openDispute = $st->fetch() ?: null;
+    } catch (Throwable $e2) {
+        $openDispute = null;
+    }
+}
+
+$canRefundHere = $adminView && strtolower((string)$txn['status']) === 'success'
+    && function_exists('staffCanAccess') && (staffCanAccess('admin_refunds.php') || isSuperAdmin() || in_array(adminRole(), ['finance', 'ops', 'ceo', 'super'], true));
+$reasonOptions = [];
+if ($canRefundHere) {
+    require_once __DIR__ . '/includes/refunds.php';
+    if (function_exists('getRefundReasonOptions')) {
+        $reasonOptions = getRefundReasonOptions();
+    }
+}
+
 $split = [
     'gross' => (float)$txn['amount'],
     'platform_fee' => (float)($txn['platform_fee'] ?? 0),
@@ -118,15 +179,68 @@ require_once __DIR__ . '/header.php';
                 <p class="text-gray-500">Direct payment (no payment link attached)</p>
                 <?php endif; ?>
                 <div class="flex justify-between gap-4 border-b border-gray-800 pb-3">
-                    <span class="text-gray-500">Customer Name</span>
-                    <span><?= e($txn['customer_name'] ?: $txn['link_customer_name'] ?: '—') ?></span>
-                </div>
-                <div class="flex justify-between gap-4">
-                    <span class="text-gray-500">Customer Phone</span>
-                    <span><?= e($txn['customer_phone'] ?: $txn['link_customer_phone'] ?: '—') ?></span>
+                    <span class="text-gray-500">Customer</span>
+                    <span><?php if ($adminView): ?>
+                        <?= e($txn['customer_name'] ?: '—') ?>
+                        <?php
+                        $cphone = (string)($txn['customer_phone'] ?: $txn['link_customer_phone'] ?: '');
+                        if ($cphone !== '' && function_exists('adminCustomerHistoryUrl')):
+                        ?> · <a href="<?= e(adminCustomerHistoryUrl($cphone)) ?>" class="text-sky-400 hover:underline"><?= e($cphone) ?></a>
+                        <?php elseif ($cphone !== ''): ?> · <?= e($cphone) ?>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <?= e(maskCustomerContact($txn['customer_phone'] ?: $txn['link_customer_phone'] ?? null, $txn['customer_name'] ?: $txn['link_customer_name'] ?? null)) ?>
+                    <?php endif; ?></span>
                 </div>
             </div>
         </div>
+
+        <?php if ($adminView && ($openComplaint || $openDispute)): ?>
+        <div class="rounded-xl border border-red-500/40 bg-red-500/10 p-4 flex flex-wrap gap-3 items-center">
+            <div class="flex-1 min-w-[200px]">
+                <p class="text-sm font-semibold text-red-200">Active complaint / dispute on this payment</p>
+                <p class="text-xs text-red-100/80 mt-1">Refund is available below. Prefer resolving with a clear reason code.</p>
+            </div>
+            <?php if ($openComplaint): ?>
+            <a href="admin_customer_tickets.php?id=<?= (int)$openComplaint['id'] ?>" class="text-sm glass px-3 py-2 rounded-lg text-sky-300">Complaint <?= e($openComplaint['ticket_id']) ?> →</a>
+            <?php endif; ?>
+            <?php if ($openDispute): ?>
+            <a href="admin_disputes.php" class="text-sm glass px-3 py-2 rounded-lg text-amber-300">Dispute <?= e($openDispute['dispute_id']) ?></a>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
+        <?php if ($canRefundHere): ?>
+        <div id="refund" class="glass rounded-xl p-6 border <?= ($openComplaint || $openDispute) ? 'border-red-500/50' : 'border-gray-800' ?> scroll-mt-24">
+            <h2 class="font-semibold mb-1 <?= ($openComplaint || $openDispute) ? 'text-red-300' : '' ?>">Refund this payment</h2>
+            <p class="text-xs text-gray-500 mb-4">1) Choose full or partial · 2) Pick a reason · 3) Confirm with step-up password · 4) Refund posts to the refunds ledger.</p>
+            <form method="POST" class="space-y-4 max-w-lg">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="refund_payment">
+                <div class="flex flex-wrap gap-4 text-sm">
+                    <label class="flex items-center gap-2"><input type="radio" name="refund_mode" value="full" checked class="accent-brand-500"> Full amount (<?= formatMoney((float)$txn['amount']) ?>)</label>
+                    <label class="flex items-center gap-2"><input type="radio" name="refund_mode" value="partial" class="accent-brand-500"> Partial</label>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500" for="refund_amount">Partial amount (₹)</label>
+                    <input id="refund_amount" type="number" step="0.01" min="0.01" max="<?= e((string)$txn['amount']) ?>" name="amount" class="input-field mt-1 w-full" placeholder="Leave blank for full when Full is selected">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500" for="reason_code">Reason</label>
+                    <select id="reason_code" name="reason_code" class="input-field mt-1 w-full" required>
+                        <?php foreach ($reasonOptions ?: ['Customer requested refund', 'Duplicate payment', 'Goods/services not provided', 'Other'] as $opt): ?>
+                        <option value="<?= e($opt) ?>"><?= e($opt) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500" for="reason_note">Extra note (optional)</label>
+                    <input id="reason_note" type="text" name="reason_note" maxlength="200" class="input-field mt-1 w-full" placeholder="Ops note">
+                </div>
+                <button type="submit" class="btn-primary px-5 py-2.5 text-sm <?= ($openComplaint || $openDispute) ? '!bg-red-600 hover:!bg-red-500' : '' ?>">Process refund</button>
+            </form>
+        </div>
+        <?php endif; ?>
 
         <?php if ($adminView && $txn['status'] === 'pending'): ?>
         <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex flex-wrap gap-3 items-center">
