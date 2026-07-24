@@ -52,14 +52,14 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     <meta name="google-site-verification" content="<?= e($gscToken) ?>">
     <?php endif; ?>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/uniweb.min.css?v=20260721a">
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/theme-light.css?v=8">
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/public-pages.css?v=20260719">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/uniweb.min.css?v=20260724b">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/theme-light.css?v=20260724b">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/public-pages.css?v=20260724b">
     <?php if (!empty($customerPortalUi)): ?>
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/customer-portal.css?v=1">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/customer-portal.css?v=20260724b">
     <?php endif; ?>
     <?php if (!empty($authPortalUi)): ?>
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/auth-portal.css?v=2">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/auth-portal.css?v=20260724b">
     <?php endif; ?>
     <script>
     (function(){

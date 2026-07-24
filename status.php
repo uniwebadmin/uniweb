@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('renderPrintButton')) {
+    require_once __DIR__ . '/includes/page_ux.php';
+}
 
 $health = getPlatformHealth();
 $pageTitle = 'System Status';

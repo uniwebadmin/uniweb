@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('uxFormLabel')) {
+    require_once __DIR__ . '/includes/page_ux.php';
+}
 requireLogin();
 $merchant = getMerchant();
 $db = getDB();
