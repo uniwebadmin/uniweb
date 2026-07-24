@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/page_ux.php';
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'finance', 'ops']);
 $db = getDB();
 
@@ -61,6 +62,13 @@ $transactions = $stmt->fetchAll();
 if (!isSuperAdmin()) {
     $transactions = array_values(array_filter($transactions, static fn(array $row): bool => staffHasMerchantAccess((int)$row['merchant_id'])));
 }
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    $csvRows = [];
+    foreach ($transactions as $t) {
+        $csvRows[] = [$t['txn_id'] ?? '', $t['business_name'] ?? '', $t['amount'] ?? '', $t['utr'] ?? '', $t['status'] ?? '', $t['created_at'] ?? ''];
+    }
+    sendCsvDownload(['Txn ID', 'Merchant', 'Amount', 'UTR', 'Status', 'Date'], $csvRows, 'admin-transactions-' . date('Y-m-d') . '.csv');
+}
 $filterMerchant = null;
 if ($merchantFilter > 0) {
     $fm = $db->prepare('SELECT merchant_code, business_name FROM merchants WHERE id=?');
@@ -76,7 +84,8 @@ require_once __DIR__ . '/header.php';
     <a href="admin_transactions.php" class="text-xs text-gray-400 hover:text-white">Clear filter</a>
 </div>
 <?php endif; ?>
-<div class="flex gap-2 mb-6 flex-wrap">
+<?= uxListToolbar(uxExportCsvLink(array_filter(['status' => $filter !== 'all' ? $filter : null, 'merchant_id' => $merchantFilter ?: null, 'q' => $q ?: null, 'method' => $method !== 'all' ? $method : null, 'from' => $from ?: null, 'to' => $to ?: null]))) ?>
+<div class="flex gap-2 mb-6 flex-wrap no-print">
     <?php foreach (['all'=>'All','pending'=>'Pending','success'=>'Success','failed'=>'Failed'] as $k=>$l):
         $qs = 'status=' . $k . ($merchantFilter > 0 ? '&merchant_id=' . $merchantFilter : '');
     ?>
@@ -93,8 +102,12 @@ require_once __DIR__ . '/header.php';
     <button class="btn-primary px-4 py-2.5 text-sm">Filter</button>
 </form>
 <div id="admin-transaction-results" class="glass rounded-xl overflow-hidden">
+    <?php if (empty($transactions)): ?>
+    <?= uxEmptyState('No transactions match', 'Try clearing filters or widening the date range.') ?>
+    <?php else: ?>
     <div class="overflow-x-auto">
     <table class="w-full text-sm min-w-[640px]">
+        <?= uxTableCaption('Admin transaction list') ?>
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
             <th class="px-5 py-3 text-left">Txn ID</th><th class="px-5 py-3 text-left">Merchant</th>
             <th class="px-5 py-3 text-left">Amount</th><th class="px-5 py-3 text-left">UTR</th>
@@ -127,5 +140,6 @@ require_once __DIR__ . '/header.php';
         </tbody>
     </table>
     </div>
+    <?php endif; ?>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

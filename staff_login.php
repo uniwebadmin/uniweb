@@ -123,22 +123,22 @@ require_once __DIR__ . '/header.php';
             <form method="POST" class="space-y-5">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="mfa_setup">
-                <div class="ap-field"><label>Authenticator Code</label><input type="text" name="totp_code" required maxlength="6" pattern="[0-9]{6}" class="ap-input ap-otp" autofocus></div>
+                <div class="ap-field"><?= uxFormLabel(uxFieldId('totp_setup'), 'Authenticator Code') ?><input type="text" name="totp_code" id="<?= e(uxFieldId('totp_setup')) ?>" required maxlength="6" pattern="[0-9]{6}" class="ap-input ap-otp" autofocus inputmode="numeric" autocomplete="one-time-code"></div>
                 <button type="submit" class="ap-btn">Enable MFA &amp; Continue</button>
             </form>
             <?php elseif ($mfaPending): ?>
             <form method="POST" class="space-y-5 mt-6">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="mfa_verify">
-                <div class="ap-field"><label>Authenticator Code</label><input type="text" name="totp_code" required maxlength="6" pattern="[0-9]{6}" class="ap-input ap-otp" autofocus></div>
+                <div class="ap-field"><?= uxFormLabel(uxFieldId('totp_verify'), 'Authenticator Code') ?><input type="text" name="totp_code" id="<?= e(uxFieldId('totp_verify')) ?>" required maxlength="6" pattern="[0-9]{6}" class="ap-input ap-otp" autofocus inputmode="numeric" autocomplete="one-time-code"></div>
                 <button type="submit" class="ap-btn">Verify &amp; Login</button>
             </form>
             <?php else: ?>
-            <form method="POST" class="space-y-5 mt-6">
+            <form method="POST" class="space-y-5 mt-6" aria-label="Staff sign in">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="password">
-                <div class="ap-field"><label>Staff ID</label><input type="text" name="username" required class="ap-input" placeholder="ops01"></div>
-                <div class="ap-field"><label>Password</label><input type="password" name="password" required class="ap-input"></div>
+                <div class="ap-field"><?= uxFormLabel(uxFieldId('username'), 'Staff ID') ?><input type="text" name="username" id="<?= e(uxFieldId('username')) ?>" required class="ap-input" placeholder="ops01" autocomplete="username"></div>
+                <div class="ap-field"><?= uxFormLabel(uxFieldId('password'), 'Password') ?><input type="password" name="password" id="<?= e(uxFieldId('password')) ?>" required class="ap-input" autocomplete="current-password"></div>
                 <button type="submit" class="ap-btn">Continue</button>
             </form>
             <?php endif; ?>

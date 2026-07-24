@@ -26,7 +26,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 $viewId = (int)($_GET['id'] ?? 0);
 $view = $viewId ? getMerchantCustomerTicket($merchantId, $viewId) : null;
 $statusFilter = (string)($_GET['status'] ?? '');
-$tickets = getMerchantCustomerTickets($merchantId, $statusFilter ?: null);
+$ticketQ = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
+$listParams = listPageParams(20);
+$allTickets = getMerchantCustomerTickets($merchantId, $statusFilter ?: null);
+if ($ticketQ !== '') {
+    $allTickets = array_values(array_filter($allTickets, static function ($tk) use ($ticketQ) {
+        $hay = strtolower(($tk['ticket_id'] ?? '') . ' ' . ($tk['subject'] ?? '') . ' ' . ($tk['customer_phone'] ?? '') . ' ' . ($tk['txn_reference'] ?? ''));
+        return str_contains($hay, strtolower($ticketQ));
+    }));
+}
+$ticketTotal = count($allTickets);
+$tickets = array_slice($allTickets, $listParams['offset'], $listParams['perPage']);
 $openCount = getPendingMerchantCustomerTicketCount($merchantId);
 
 $pageTitle = 'Customer Complaints';
@@ -42,8 +52,9 @@ require_once __DIR__ . '/header.php';
         </div>
         <div class="flex gap-2 text-xs flex-wrap">
             <?php foreach (['' => 'All', 'open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'closed' => 'Closed'] as $k => $lbl): ?>
-            <a href="?status=<?= e($k) ?>" class="px-3 py-1.5 rounded-lg <?= $statusFilter === $k ? 'bg-brand-600/20 text-brand-400' : 'text-gray-400 hover:text-white border border-gray-800' ?>"><?= e($lbl) ?></a>
+            <a href="?status=<?= e($k) ?>&q=<?= rawurlencode($ticketQ) ?>" class="px-3 py-1.5 rounded-lg <?= $statusFilter === $k ? 'bg-brand-600/20 text-brand-400' : 'text-gray-400 hover:text-white border border-gray-800' ?>"><?= e($lbl) ?></a>
             <?php endforeach; ?>
+            <?= renderExportCsvLink('export_customer_tickets.php?' . http_build_query(['status' => $statusFilter])) ?>
         </div>
     </div>
 
@@ -75,9 +86,9 @@ require_once __DIR__ . '/header.php';
         <form method="POST" class="space-y-3 mt-6 border-t border-gray-800 pt-5">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="ticket_db_id" value="<?= (int)$view['id'] ?>">
-            <textarea name="merchant_reply" rows="3" maxlength="5000" class="input-field" placeholder="Reply to the customer…"></textarea>
+            <textarea name="merchant_reply" rows="3" maxlength="5000" class="input-field" placeholder="Reply to the customer…" aria-label="Reply to customer"></textarea>
             <div class="flex flex-wrap items-center gap-3">
-                <select name="status" class="input-field w-auto">
+                <select name="status" class="input-field w-auto" aria-label="Ticket status">
                     <?php foreach (['open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'closed' => 'Closed'] as $k => $lbl): ?>
                     <option value="<?= e($k) ?>" <?= $view['status'] === $k ? 'selected' : '' ?>><?= e($lbl) ?></option>
                     <?php endforeach; ?>
@@ -89,7 +100,15 @@ require_once __DIR__ . '/header.php';
     <?php endif; ?>
 
     <div class="glass rounded-xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Complaints</h2></div>
+        <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="font-semibold">Complaints</h2>
+            <form method="GET" class="flex gap-2 items-center">
+                <input type="hidden" name="status" value="<?= e($statusFilter) ?>">
+                <label class="sr-only" for="ticket-q">Search complaints</label>
+                <input id="ticket-q" type="search" name="q" value="<?= e($ticketQ) ?>" placeholder="Ticket / subject / phone" class="input-field text-sm" aria-label="Search complaints">
+                <button type="submit" class="btn-primary text-sm px-3 py-1.5">Search</button>
+            </form>
+        </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm min-w-[640px]">
                 <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
@@ -102,7 +121,7 @@ require_once __DIR__ . '/header.php';
                 </tr></thead>
                 <tbody class="divide-y divide-gray-800">
                     <?php if (empty($tickets)): ?>
-                    <tr><td colspan="6" class="px-5 py-12 text-center text-gray-500">No customer complaints for your merchants yet<?= $statusFilter ? ' in this status' : '' ?>.</td></tr>
+                    <tr><td colspan="6" class="p-0"><?= renderMerchantEmptyState('No customer complaints yet', 'When a payer raises a complaint on your transaction, it will appear here for you to reply.', null, null) ?></td></tr>
                     <?php else: foreach ($tickets as $tk): ?>
                     <tr class="hover:bg-white/5 cursor-pointer" onclick="location.href='?id=<?= (int)$tk['id'] ?><?= $statusFilter !== '' ? '&status=' . urlencode($statusFilter) : '' ?>'">
                         <td class="px-5 py-3 font-mono text-xs text-sky-400"><?= e($tk['ticket_id']) ?></td>
@@ -116,6 +135,7 @@ require_once __DIR__ . '/header.php';
                 </tbody>
             </table>
         </div>
+        <?= renderListPagination($listParams['page'], $ticketTotal, $listParams['perPage'], ['status' => $statusFilter, 'q' => $ticketQ]) ?>
     </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

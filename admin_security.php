@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/page_ux.php';
 requireStaffAccess(['super', 'ceo', 'ops', 'kyc', 'staff_manager', 'regional_manager', 'area_sales_manager', 'team_leader', 'field_staff']);
 ensureAdminMfaColumns();
 $admin = getAdmin();
@@ -49,7 +50,7 @@ $pageTitle = 'Admin Security';
 require_once __DIR__ . '/header.php';
 ?>
 
-<div class="max-w-lg space-y-6">
+<div class="max-w-lg space-y-6" role="main">
     <?php $mfaPol = mfaPolicy(in_array(adminRole($admin), ['super', 'ceo'], true) ? 'admin' : 'staff'); ?>
     <div class="glass rounded-xl p-4 border border-amber-500/25 text-sm">
         <p class="font-semibold text-amber-300">MFA policy — <?= e($mfaPol['label']) ?></p>
@@ -62,12 +63,12 @@ require_once __DIR__ . '/header.php';
             <p class="mt-1">Logged in as: <span class="text-white"><?= e($admin['name']) ?></span></p>
             <p class="mt-1">MFA: <span class="<?= adminHasMfaEnabled($admin) ? 'text-emerald-400' : 'text-amber-400' ?>"><?= adminHasMfaEnabled($admin) ? 'Enabled (mandatory)' : 'Required at next login — setup prompt on sign-in' ?></span></p>
         </div>
-        <form method="POST" class="space-y-4">
+        <form method="POST" class="space-y-4" aria-label="Update admin profile">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="profile">
             <div>
-                <label class="text-sm text-gray-400">Display Name</label>
-                <input type="text" name="name" required class="input-field mt-1" value="<?= e($admin['name']) ?>">
+                <?= uxLabel('admin-display-name', 'Display Name', true) ?>
+                <input id="admin-display-name" type="text" name="name" required class="input-field mt-1" value="<?= e($admin['name']) ?>">
             </div>
             <button type="submit" class="btn-primary px-6 py-2.5">Update Profile</button>
         </form>
@@ -75,21 +76,21 @@ require_once __DIR__ . '/header.php';
 
     <div class="glass rounded-xl p-6 border border-red-500/20">
         <h2 class="font-semibold mb-4 text-red-400">Change Password</h2>
-        <p class="text-xs text-gray-500 mb-4">Minimum 12 characters with upper, lower, number and special character. All sessions are revoked after change.</p>
-        <form method="POST" class="space-y-4">
+        <p id="admin-pwd-policy" class="text-xs text-gray-500 mb-4">Minimum 12 characters with upper, lower, number and special character. All sessions are revoked after change.</p>
+        <form method="POST" class="space-y-4" aria-label="Change admin password">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="password">
             <div>
-                <label class="text-sm text-gray-400">Current Password</label>
-                <input type="password" name="current_password" required class="input-field mt-1" autocomplete="current-password">
+                <?= uxLabel('admin-current-password', 'Current Password', true) ?>
+                <input id="admin-current-password" type="password" name="current_password" required class="input-field mt-1" autocomplete="current-password">
             </div>
             <div>
-                <label class="text-sm text-gray-400">New Password</label>
-                <input type="password" name="new_password" required minlength="12" class="input-field mt-1" autocomplete="new-password">
+                <?= uxLabel('admin-new-password', 'New Password', true) ?>
+                <input id="admin-new-password" type="password" name="new_password" required minlength="12" class="input-field mt-1" autocomplete="new-password" aria-describedby="admin-pwd-policy">
             </div>
             <div>
-                <label class="text-sm text-gray-400">Confirm New Password</label>
-                <input type="password" name="confirm_password" required minlength="12" class="input-field mt-1" autocomplete="new-password">
+                <?= uxLabel('admin-confirm-new-password', 'Confirm New Password', true) ?>
+                <input id="admin-confirm-new-password" type="password" name="confirm_password" required minlength="12" class="input-field mt-1" autocomplete="new-password">
             </div>
             <button type="submit" class="w-full bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-semibold transition">Change Password</button>
         </form>

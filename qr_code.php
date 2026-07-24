@@ -94,7 +94,17 @@ $stmt = $db->prepare('SELECT q.*, pl.link_id, pl.status AS link_status
     WHERE q.merchant_id=? AND q.is_test=?
     ORDER BY q.created_at DESC');
 $stmt->execute([$merchantId, $isTest ? 1 : 0]);
-$qrCodes = $stmt->fetchAll();
+$allQrCodes = $stmt->fetchAll();
+$qrQ = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
+$listParams = listPageParams(12);
+if ($qrQ !== '') {
+    $allQrCodes = array_values(array_filter($allQrCodes, static function ($qr) use ($qrQ) {
+        $hay = strtolower(($qr['label'] ?? '') . ' ' . ($qr['qr_code'] ?? '') . ' ' . ($qr['qr_type'] ?? ''));
+        return str_contains($hay, strtolower($qrQ));
+    }));
+}
+$qrTotal = count($allQrCodes);
+$qrCodes = array_slice($allQrCodes, $listParams['offset'], $listParams['perPage']);
 
 // Per-QR collection summary (successful payments) — one grouped query reused
 // across every card. Maps transactions -> payment_links.qr_code_id, the same
@@ -173,6 +183,14 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <div class="lg:col-span-2">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <form method="GET" class="flex gap-2 items-center">
+                <label class="sr-only" for="qr-q">Search QR codes</label>
+                <input id="qr-q" type="search" name="q" value="<?= e($qrQ) ?>" placeholder="Name / QR code" class="input-field text-sm">
+                <button type="submit" class="btn-primary text-sm px-3 py-1.5">Search</button>
+            </form>
+            <?= renderExportCsvLink('export_qr_codes.php?q=' . rawurlencode($qrQ)) ?>
+        </div>
         <?php if (empty($qrCodes)): ?>
         <div class="glass rounded-xl p-10 text-center h-full flex flex-col items-center justify-center">
             <p class="text-4xl mb-3">▦</p>
@@ -252,6 +270,7 @@ require_once __DIR__ . '/header.php';
             </div>
             <?php endforeach; ?>
         </div>
+        <?= renderListPagination($listParams['page'], $qrTotal, $listParams['perPage'], ['q' => $qrQ]) ?>
         <?php endif; ?>
     </div>
 </div>

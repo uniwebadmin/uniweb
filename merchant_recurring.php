@@ -37,13 +37,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 }
 
 $rows = [];
+$recQ = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
+$listParams = listPageParams(20);
 try {
-    $st = getDB()->prepare('SELECT * FROM recurring_mandates WHERE merchant_id=? ORDER BY id DESC LIMIT 50');
+    $st = getDB()->prepare('SELECT * FROM recurring_mandates WHERE merchant_id=? ORDER BY id DESC');
     $st->execute([(int)$merchant['id']]);
     $rows = $st->fetchAll();
+    if ($recQ !== '') {
+        $rows = array_values(array_filter($rows, static function ($row) use ($recQ) {
+            $hay = strtolower(($row['mandate_ref'] ?? '') . ' ' . ($row['customer_name'] ?? '') . ' ' . ($row['customer_vpa'] ?? ''));
+            return str_contains($hay, strtolower($recQ));
+        }));
+    }
 } catch (Throwable $e) {
     $rows = [];
 }
+$recTotal = count($rows);
+$rows = array_slice($rows, $listParams['offset'], $listParams['perPage']);
 
 $pageTitle = 'Recurring / AutoPay';
 require_once __DIR__ . '/header.php';
@@ -68,14 +78,25 @@ require_once __DIR__ . '/header.php';
     </form>
     <?php endif; ?>
     <div class="glass rounded-xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-800"><h3 class="font-semibold">Mandate list</h3></div>
-        <?php if (!$rows): ?><p class="text-sm text-gray-500 text-center py-8">No mandates yet.</p><?php endif; ?>
+        <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3">
+            <h3 class="font-semibold">Mandate list</h3>
+            <div class="flex gap-2 items-center">
+                <form method="GET" class="flex gap-2 items-center">
+                    <label class="sr-only" for="rec-q">Search mandates</label>
+                    <input id="rec-q" type="search" name="q" value="<?= e($recQ) ?>" placeholder="Ref / customer / VPA" class="input-field text-sm">
+                    <button type="submit" class="btn-primary text-sm px-3 py-1.5">Search</button>
+                </form>
+                <?= renderExportCsvLink('export_recurring.php?q=' . rawurlencode($recQ)) ?>
+            </div>
+        </div>
+        <?php if (!$rows): ?><div class="p-0"><?= renderMerchantEmptyState('No mandates yet', 'Create a mandate request when partner AutoPay is approved.', null, null) ?></div><?php endif; ?>
         <?php foreach ($rows as $row): ?>
         <div class="px-6 py-3 border-b border-gray-800 flex justify-between gap-3 text-sm">
             <div><p class="font-mono text-xs text-sky-400"><?= e($row['mandate_ref']) ?></p><p><?= e($row['customer_name']) ?> · <?= formatMoney((float)$row['amount']) ?> / <?= e($row['frequency']) ?></p></div>
             <?= statusBadge($row['status']) ?>
         </div>
         <?php endforeach; ?>
+        <?= renderListPagination($listParams['page'], $recTotal, $listParams['perPage'], ['q' => $recQ]) ?>
     </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

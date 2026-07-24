@@ -15,7 +15,9 @@ require_once __DIR__ . '/header.php';
 </div>
 
 <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-    <?php foreach ($registry as $key => $p):
+    <?php if (empty($registry)): ?>
+    <div class="glass rounded-xl p-8 col-span-full text-center text-gray-500">No partners configured in registry yet.</div>
+    <?php else: foreach ($registry as $key => $p):
         $configured = partnerIsConfigured($key);
         $test = partnerTestConnection($key);
     ?>
@@ -40,7 +42,7 @@ require_once __DIR__ . '/header.php';
         </div>
         <p class="text-[11px] text-gray-600 mt-3 truncate" title="<?= e($test['message']) ?>"><?= e(mb_substr($test['message'], 0, 80)) ?></p>
     </div>
-    <?php endforeach; ?>
+    <?php endforeach; endif; ?>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

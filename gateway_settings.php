@@ -70,6 +70,7 @@ $gatewayCards = [
     ['id' => 'payu', 'label' => 'PayU', 'test' => true],
     ['id' => 'phonepe', 'label' => 'PhonePe', 'test' => true, 'checkout' => false, 'note' => 'Keys stored now · checkout enabled in a later release'],
     ['id' => 'pinelabs', 'label' => 'Pine Labs Plural', 'test' => true, 'checkout' => false, 'note' => 'Paste keys when received · sandbox stub only · checkout stays on roadmap'],
+    ['id' => 'worldline', 'label' => 'Worldline', 'test' => false, 'checkout' => false, 'note' => 'Paste keys when received · checkout stays on roadmap'],
     ['id' => 'axis', 'label' => 'Axis Bank', 'test' => true],
     ['id' => 'decentro', 'label' => 'Decentro KYC', 'test' => true],
 ];
@@ -240,6 +241,10 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['pinelabs_access_code','Pine Labs Access Code','text'],
             ['pinelabs_secure_key','Pine Labs Secure Key','password'],
             ['pinelabs_environment','Pine Labs Env (sandbox/production)','text'],
+            ['worldline_merchant_id','Worldline Merchant ID','text'],
+            ['worldline_access_key','Worldline Access Key','text'],
+            ['worldline_secret_key','Worldline Secret Key','password'],
+            ['worldline_environment','Worldline Env (sandbox/production)','text'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <div class="rounded-xl border border-gray-800 bg-dark-900/50 p-4 text-xs text-gray-500 space-y-2">
             <p class="text-gray-400 font-medium text-sm mb-2">Webhook URLs (configure in PG dashboard)</p>

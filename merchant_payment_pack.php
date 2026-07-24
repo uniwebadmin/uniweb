@@ -13,6 +13,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'regenerate_pack' && verifyCsr
 
 $preview = merchantMethodPreview($merchant);
 $packLinks = getMerchantPackLinks((int)$merchant['id'], $merchant['provision_pack_id'] ?? null);
+$packQ = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
+$listParams = listPageParams(20);
+if ($packQ !== '') {
+    $packLinks = array_values(array_filter($packLinks, static function ($link) use ($packQ) {
+        $hay = strtolower(($link['link_label'] ?? '') . ' ' . ($link['payment_method'] ?? '') . ' ' . ($link['gateway_code'] ?? ''));
+        return str_contains($hay, strtolower($packQ));
+    }));
+}
+$packTotal = count($packLinks);
+$packLinks = array_slice($packLinks, $listParams['offset'], $listParams['perPage']);
 $catalog = getPaymentMethodCatalog();
 $pageTitle = 'Payment Pack — All Methods';
 require_once __DIR__ . '/header.php';
@@ -50,7 +60,12 @@ require_once __DIR__ . '/header.php';
 <div class="glass rounded-xl overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap justify-between items-center gap-3">
         <h2 class="font-semibold"><?= __('payment_links_per_method') ?></h2>
-        <?php if (empty($packLinks)): ?>
+        <form method="GET" class="flex gap-2 items-center">
+            <label class="sr-only" for="pack-q">Search pack links</label>
+            <input id="pack-q" type="search" name="q" value="<?= e($packQ) ?>" placeholder="Method / gateway" class="input-field text-sm">
+            <button type="submit" class="btn-primary text-sm px-3 py-1.5">Filter</button>
+        </form>
+        <?php if (empty($packLinks) && $packQ === ''): ?>
         <a href="?action=regenerate_pack&token=<?= csrfToken() ?>" class="text-sm bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-semibold" onclick="return confirm('Create ₹1 test links for each enabled method (UPI, Card, etc.)?')"><?= __('generate_payment_pack') ?></a>
         <?php else: ?>
         <a href="?action=regenerate_pack&token=<?= csrfToken() ?>" class="text-xs bg-sky-600/30 text-sky-400 px-3 py-1.5 rounded-lg" onclick="return confirm('Regenerate new ₹1 test links for all methods?')"><?= __('regenerate_pack') ?></a>
@@ -90,5 +105,6 @@ require_once __DIR__ . '/header.php';
             </tbody>
         </table>
     </div>
+    <?= renderListPagination($listParams['page'], $packTotal, $listParams['perPage'], ['q' => $packQ]) ?>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

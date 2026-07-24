@@ -50,13 +50,16 @@ $pageTitle = 'Settlement ' . $settlementId;
 require_once __DIR__ . '/header.php';
 $backUrl = $adminView ? 'admin_settlements.php' : 'settlements.php';
 ?>
-
-<div class="mb-4 flex flex-wrap gap-3 items-center">
+<?= renderPagePrintStyles() ?>
+<div class="mb-4 flex flex-wrap gap-3 items-center justify-between">
+    <div class="flex flex-wrap gap-3 items-center">
     <a href="<?= e($backUrl) ?>" class="text-sm text-gray-400 hover:text-white">← Back to Bank Transfers</a>
     <?php if ($adminView): ?>
     <span class="text-xs bg-red-500/20 text-red-300 px-2 py-1 rounded">Admin View</span>
     <a href="admin_view_merchant.php?id=<?= (int)$s['merchant_id'] ?>" class="text-xs text-sky-400">Merchant →</a>
     <?php endif; ?>
+    </div>
+    <div class="no-print"><?= renderPrintButton() ?></div>
 </div>
 
 <div class="grid lg:grid-cols-3 gap-6">
@@ -147,6 +150,8 @@ $backUrl = $adminView ? 'admin_settlements.php' : 'settlements.php';
                 <?php endforeach; ?>
             </div>
         </div>
+        <?php else: ?>
+        <div class="glass rounded-xl p-6 text-sm text-gray-500">No wallet ledger entries linked to this settlement yet.</div>
         <?php endif; ?>
 
         <a href="<?= e($backUrl) ?>" class="block text-center glass rounded-xl py-3 text-sm text-sky-400 hover:text-sky-300">← All bank transfers</a>

@@ -117,6 +117,7 @@ ob_start();
 $acceptanceBlock = ob_get_clean();
 $pageTitle = 'Merchant Agreement';
 require_once __DIR__ . '/header.php';
+echo renderPrintStylesheet();
 renderPublicLegalPage([
     'eyebrow' => 'Authenticated Merchant Contract',
     'title' => 'Merchant Services Agreement',

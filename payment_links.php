@@ -89,7 +89,11 @@ if (in_array($linkStatus, ['active', 'inactive', 'expired'], true)) {
 }
 $paidCountSql = "(SELECT COUNT(*) FROM transactions t WHERE t.payment_link_id = pl.id AND t.status = 'success')";
 $having = $linkStatus === 'paid' ? ' HAVING paid_count > 0' : ($linkStatus === 'unpaid' ? ' HAVING paid_count = 0' : '');
-$links = $db->prepare("SELECT pl.*, $paidCountSql AS paid_count FROM payment_links pl WHERE $linkWhere$having ORDER BY pl.created_at DESC LIMIT 50");
+$listParams = listPageParams(20);
+$countStmt = $db->prepare("SELECT COUNT(*) FROM (SELECT pl.id, $paidCountSql AS paid_count FROM payment_links pl WHERE $linkWhere$having) x");
+$countStmt->execute($linkParams);
+$linkTotal = (int)$countStmt->fetchColumn();
+$links = $db->prepare("SELECT pl.*, $paidCountSql AS paid_count FROM payment_links pl WHERE $linkWhere$having ORDER BY pl.created_at DESC LIMIT {$listParams['perPage']} OFFSET {$listParams['offset']}");
 $links->execute($linkParams);
 $paymentLinks = $links->fetchAll();
 require_once __DIR__ . '/header.php';
@@ -167,7 +171,10 @@ $cfReady = isGatewayConfigured('cashfree');
     <div id="payment-link-results" class="lg:col-span-2 glass rounded-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap justify-between items-center gap-2">
             <h2 class="font-semibold">Your Payment Links</h2>
-            <a href="merchant_payment_pack.php" class="text-xs text-sky-400">Generate ₹1 pack (all methods) →</a>
+            <div class="flex gap-2 items-center">
+                <?= renderExportCsvLink('export_payment_links.php?' . http_build_query(['q' => $q, 'status' => $linkStatus])) ?>
+                <a href="merchant_payment_pack.php" class="text-xs text-sky-400">Generate ₹1 pack (all methods) →</a>
+            </div>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -209,6 +216,7 @@ $cfReady = isGatewayConfigured('cashfree');
                 </tbody>
             </table>
         </div>
+        <?= renderListPagination($listParams['page'], $linkTotal, $listParams['perPage'], ['q' => $q, 'status' => $linkStatus]) ?>
     </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

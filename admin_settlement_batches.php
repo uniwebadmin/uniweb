@@ -1,8 +1,10 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/page_ux.php';
 requireStaffAccess(['super', 'ceo', 'finance', 'ops']);
 $db = getDB();
 $batchId = isset($_GET['batch']) ? (int)$_GET['batch'] : 0;
+$q = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
 
 if ($batchId > 0) {
     $st = $db->prepare('SELECT sb.*, m.business_name FROM settlement_batches sb JOIN merchants m ON sb.merchant_id=m.id WHERE sb.id=?');
@@ -11,13 +13,33 @@ if ($batchId > 0) {
     $items = $batch ? getBatchItems($batchId) : [];
 }
 
-$all = $db->query('SELECT sb.*, m.business_name FROM settlement_batches sb JOIN merchants m ON sb.merchant_id=m.id ORDER BY sb.created_at DESC LIMIT 50')->fetchAll();
+$allSql = 'SELECT sb.*, m.business_name FROM settlement_batches sb JOIN merchants m ON sb.merchant_id=m.id';
+$allParams = [];
+if ($q !== '') {
+    $like = '%' . strtolower($q) . '%';
+    $allSql .= ' WHERE (LOWER(TRIM(COALESCE(sb.batch_code,\'\'))) LIKE ? OR LOWER(TRIM(COALESCE(m.business_name,\'\'))) LIKE ?)';
+    $allParams = [$like, $like];
+}
+$allSql .= ' ORDER BY sb.created_at DESC LIMIT 100';
+$allStmt = $db->prepare($allSql);
+$allStmt->execute($allParams);
+$all = $allStmt->fetchAll();
+
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    $csvRows = [];
+    foreach ($all as $b) {
+        $csvRows[] = [$b['batch_code'] ?? '', $b['business_name'] ?? '', $b['batch_type'] ?? '', $b['net_amount'] ?? '', $b['status'] ?? '', $b['created_at'] ?? ''];
+    }
+    sendCsvDownload(['Batch', 'Merchant', 'Type', 'Net', 'Status', 'Date'], $csvRows, 'settlement-batches-' . date('Y-m-d') . '.csv');
+}
+
 $pageTitle = 'Settlement Batches';
 require_once __DIR__ . '/header.php';
 ?>
 
-<div class="mb-4 flex gap-3">
+<div class="mb-4 flex flex-wrap gap-3 items-center justify-between no-print">
     <a href="admin_settlement_settings.php" class="text-sm text-gray-400 hover:text-white">← Settlement Engine</a>
+    <?= uxListToolbar(uxExportCsvLink(array_filter(['q' => $q ?: null, 'batch' => $batchId ?: null]))) ?>
 </div>
 
 <?php if (!empty($batch)): ?>
@@ -44,7 +66,11 @@ require_once __DIR__ . '/header.php';
     <?php if ($batch['utr']): ?><p class="text-xs text-gray-500 mt-3">UTR: <span class="font-mono text-sky-400"><?= e($batch['utr']) ?></span></p><?php endif; ?>
 </div>
 <div class="glass rounded-xl overflow-hidden mb-8">
+    <?php if (empty($items)): ?>
+    <?= uxEmptyState('No transactions in this batch', 'Batch line items appear here once generated.') ?>
+    <?php else: ?>
     <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
+        <?= uxTableCaption('Batch transaction items') ?>
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
             <th class="px-4 py-3 text-left">Txn ID</th><th class="px-4 py-3 text-left">Method</th>
             <th class="px-4 py-3 text-right">Amount</th><th class="px-4 py-3 text-left">Date</th>
@@ -58,11 +84,21 @@ require_once __DIR__ . '/header.php';
             <?php endforeach; ?>
         </tbody>
     </table></div>
+    <?php endif; ?>
 </div>
 <?php endif; ?>
 
+<form method="GET" class="glass rounded-xl p-4 mb-6 border border-gray-800 flex flex-wrap gap-3 items-end no-print" aria-label="Search settlement batches">
+    <div class="flex-1 min-w-[200px]"><?= uxLabel('batch-q', 'Search') ?><input id="batch-q" name="q" value="<?= e($q) ?>" class="input-field mt-1 text-sm" placeholder="Batch code / merchant"></div>
+    <button class="btn-primary px-4 py-2.5 text-sm">Filter</button>
+</form>
+
 <div class="glass rounded-xl overflow-hidden">
+    <?php if (empty($all)): ?>
+    <?= uxEmptyState('No settlement batches yet', 'Scheduled or manual batches from the settlement engine appear here.') ?>
+    <?php else: ?>
     <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
+        <?= uxTableCaption('Settlement batches') ?>
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
             <th class="px-4 py-3 text-left">Batch</th><th class="px-4 py-3 text-left">Merchant</th>
             <th class="px-4 py-3 text-left">Type</th><th class="px-4 py-3 text-right">Net</th>
@@ -81,6 +117,7 @@ require_once __DIR__ . '/header.php';
             <?php endforeach; ?>
         </tbody>
     </table></div>
+    <?php endif; ?>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/page_ux.php';
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'finance', 'ops']);
 $db = getDB();
 
@@ -71,6 +72,21 @@ $settlements = $settlementStmt->fetchAll();
 if (!isSuperAdmin()) {
     $settlements = array_values(array_filter($settlements, static fn(array $row): bool => staffHasMerchantAccess((int)$row['merchant_id'])));
 }
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    $csvRows = [];
+    foreach ($settlements as $s) {
+        $csvRows[] = [
+            $s['settlement_id'] ?? '',
+            $s['business_name'] ?? '',
+            $s['amount'] ?? '',
+            $s['net_amount'] ?? '',
+            $s['status'] ?? '',
+            $s['utr'] ?? '',
+            $s['created_at'] ?? '',
+        ];
+    }
+    sendCsvDownload(['Settlement ID', 'Merchant', 'Amount', 'Net', 'Status', 'UTR', 'Date'], $csvRows, 'settlements-' . date('Y-m-d') . '.csv');
+}
 $pendingCount = 0;
 foreach ($settlements as $row) {
     if (canonicalSettlementStatus($row['status'] ?? '')['key'] === 'pending') {
@@ -78,6 +94,27 @@ foreach ($settlements as $row) {
     }
 }
 $pageTitle = 'Settlements';
+
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="settlements_' . date('Y-m-d') . '.csv"');
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['Settlement ID', 'Merchant', 'Amount', 'Net', 'Status', 'UTR', 'Created']);
+    foreach ($settlements as $row) {
+        fputcsv($out, [
+            $row['settlement_id'] ?? '',
+            $row['business_name'] ?? '',
+            $row['amount'] ?? '',
+            $row['net_amount'] ?? '',
+            $row['status'] ?? '',
+            $row['utr'] ?? '',
+            $row['created_at'] ?? '',
+        ]);
+    }
+    fclose($out);
+    exit;
+}
+
 require_once __DIR__ . '/header.php';
 ?>
 <div class="glass rounded-xl p-4 mb-6 border border-sky-500/20 text-sm text-gray-400">
@@ -88,11 +125,12 @@ require_once __DIR__ . '/header.php';
     <?php endif; ?>
     <a href="admin_settlement_settings.php" class="inline-block text-xs text-sky-400 mt-2">Settlement settings & cron →</a>
 </div>
-<form method="GET" data-live-search-form data-results-target="admin-settlement-results" class="glass rounded-xl p-4 mb-6 border border-gray-800 flex flex-wrap gap-3 items-end">
-    <div class="flex-1 min-w-[220px]"><label class="text-[10px] text-gray-600 uppercase">Search</label><input name="q" value="<?= e($q) ?>" class="input-field mt-1 text-sm" placeholder="Settlement ID / UTR / Date / Merchant / Amount" autocomplete="off"></div>
-    <div><label class="text-[10px] text-gray-600 uppercase">Status</label><select name="status" class="input-field mt-1 text-sm"><?php foreach (['all'=>'All','pending'=>'Pending','processing'=>'Processing','completed'=>'Complete','failed'=>'Failed'] as $sk=>$sl): ?><option value="<?= $sk ?>" <?= $statusFilter===$sk?'selected':'' ?>><?= $sl ?></option><?php endforeach; ?></select></div>
-    <div><label class="text-[10px] text-gray-600 uppercase">From</label><input type="date" name="from" value="<?= e($from) ?>" class="input-field mt-1 text-sm"></div>
-    <div><label class="text-[10px] text-gray-600 uppercase">To</label><input type="date" name="to" value="<?= e($to) ?>" class="input-field mt-1 text-sm"></div>
+<?= uxListToolbar(uxExportCsvLink(array_filter(['q' => $q ?: null, 'status' => $statusFilter !== 'all' ? $statusFilter : null, 'from' => $from ?: null, 'to' => $to ?: null]))) ?>
+<form method="GET" data-live-search-form data-results-target="admin-settlement-results" class="glass rounded-xl p-4 mb-6 border border-gray-800 flex flex-wrap gap-3 items-end no-print" aria-label="Filter settlements">
+    <div class="flex-1 min-w-[220px]"><?= uxLabel('settlement-q', 'Search') ?><input id="settlement-q" name="q" value="<?= e($q) ?>" class="input-field mt-1 text-sm" placeholder="Settlement ID / UTR / Date / Merchant / Amount" autocomplete="off"></div>
+    <div><?= uxLabel('settlement-status', 'Status') ?><select id="settlement-status" name="status" class="input-field mt-1 text-sm"><?php foreach (['all'=>'All','pending'=>'Pending','processing'=>'Processing','completed'=>'Complete','failed'=>'Failed'] as $sk=>$sl): ?><option value="<?= $sk ?>" <?= $statusFilter===$sk?'selected':'' ?>><?= $sl ?></option><?php endforeach; ?></select></div>
+    <div><?= uxLabel('settlement-from', 'From') ?><input id="settlement-from" type="date" name="from" value="<?= e($from) ?>" class="input-field mt-1 text-sm"></div>
+    <div><?= uxLabel('settlement-to', 'To') ?><input id="settlement-to" type="date" name="to" value="<?= e($to) ?>" class="input-field mt-1 text-sm"></div>
     <button class="btn-primary px-4 py-2.5 text-sm">Filter</button>
 </form>
 <div id="admin-settlement-results" class="glass rounded-xl overflow-hidden">
@@ -104,6 +142,7 @@ require_once __DIR__ . '/header.php';
     <?php else: ?>
     <div class="overflow-x-auto">
     <table class="w-full text-sm min-w-[720px]">
+        <?= uxTableCaption('Settlement list') ?>
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
             <th class="px-5 py-3 text-left">ID</th><th class="px-5 py-3 text-left">Merchant</th>
             <th class="px-5 py-3 text-left">Amount</th><th class="px-5 py-3 text-left">Net</th>

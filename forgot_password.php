@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/page_ux.php';
 ensurePasswordResetsTable();
 $pageTitle = 'Forgot Password';
 $hideNav = true;
@@ -25,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 }
 require_once __DIR__ . '/header.php';
 ?>
-<div class="min-h-screen flex items-center justify-center px-4 py-12">
+<div class="min-h-screen flex items-center justify-center px-4 py-12" role="main">
     <div class="w-full max-w-md">
         <div class="text-center mb-8">
             <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
@@ -33,15 +34,15 @@ require_once __DIR__ . '/header.php';
         </div>
         <div class="glass rounded-2xl p-8">
             <?php if ($sent): ?>
-            <div class="text-center">
+            <div class="text-center" role="status">
                 <p class="text-gray-300 mb-4">If an account exists with that email, a password reset link has been sent. Check your inbox and spam folder.</p>
                 <a href="login.php" class="text-brand-400">← Back to Login</a>
             </div>
             <?php else: ?>
-            <form method="POST" class="space-y-5">
+            <form method="POST" class="space-y-5" aria-label="Request password reset">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <p class="text-gray-400 text-sm">Enter your registered merchant email address.</p>
-                <div><label class="text-sm text-gray-400">Email</label><input type="email" name="email" required class="input-field mt-1"></div>
+                <div><?= uxLabel('forgot-email', 'Email', true) ?><input id="forgot-email" type="email" name="email" required class="input-field mt-1" autocomplete="email"></div>
                 <button type="submit" class="w-full btn-primary py-3">Send Reset Link</button>
             </form>
             <p class="text-center text-sm text-gray-500 mt-6"><a href="login.php" class="text-brand-400">← Back to Login</a></p>

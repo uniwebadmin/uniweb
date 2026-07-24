@@ -98,9 +98,9 @@ require_once __DIR__ . '/header.php';
         </div>
         <details class="mt-4 border-t border-gray-800 pt-3"><summary class="text-xs text-sky-500 cursor-pointer">Change details</summary>
             <form method="POST" class="grid sm:grid-cols-2 gap-3 mt-3"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="merchant_id" value="<?= $merchantId ?>"><input type="hidden" name="account_id" value="<?= (int)$account['id'] ?>"><input type="hidden" name="action" value="edit">
-                <input name="bank_name" value="<?= e($account['bank_name']) ?>" required class="input-field text-sm" placeholder="Bank name"><input name="account_holder" value="<?= e($account['account_holder']) ?>" required class="input-field text-sm" placeholder="Holder">
-                <input name="account_number" value="<?= e($account['account_number']) ?>" required class="input-field text-sm" placeholder="Account number"><input name="ifsc_code" value="<?= e($account['ifsc_code']) ?>" required maxlength="11" class="input-field text-sm uppercase" placeholder="IFSC">
-                <select name="account_type" class="input-field text-sm"><option value="savings" <?= ($account['account_type']??'')==='savings'?'selected':'' ?>>Savings</option><option value="current" <?= ($account['account_type']??'')==='current'?'selected':'' ?>>Current</option></select><button class="btn-primary text-sm">Save Changes</button>
+                <input name="bank_name" value="<?= e($account['bank_name']) ?>" required class="input-field text-sm" placeholder="Bank name" aria-label="Bank name"><input name="account_holder" value="<?= e($account['account_holder']) ?>" required class="input-field text-sm" placeholder="Holder" aria-label="Account holder">
+                <input name="account_number" value="<?= e($account['account_number']) ?>" required class="input-field text-sm" placeholder="Account number" aria-label="Account number"><input name="ifsc_code" value="<?= e($account['ifsc_code']) ?>" required maxlength="11" class="input-field text-sm uppercase" placeholder="IFSC" aria-label="IFSC code">
+                <select name="account_type" class="input-field text-sm" aria-label="Account type"><option value="savings" <?= ($account['account_type']??'')==='savings'?'selected':'' ?>>Savings</option><option value="current" <?= ($account['account_type']??'')==='current'?'selected':'' ?>>Current</option></select><button class="btn-primary text-sm">Save Changes</button>
             </form>
         </details>
     </div>

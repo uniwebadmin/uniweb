@@ -1,0 +1,3795 @@
+{
+    "agent": "E",
+    "range": "2801-3340",
+    "generated_at": "2026-07-23T16:34:38+00:00",
+    "total": 540,
+    "counts": {
+        "SKIP": 74,
+        "PASS": 206,
+        "N\/A PASS": 68,
+        "BLOCKED_OWNER": 18,
+        "SCAFFOLD": 174
+    },
+    "points": [
+        {
+            "n": 2801,
+            "title": "Search\/filter if lists: security-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2802,
+            "title": "Export CSV if reports: security-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2803,
+            "title": "Print stylesheet if printable: security-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2804,
+            "title": "A11y basic labels: security-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2805,
+            "title": "Feature completeness: security.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2806,
+            "title": "CSRF\/form token on POSTs: security.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2807,
+            "title": "Flash message after save: security.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2808,
+            "title": "Empty state UI: security.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2809,
+            "title": "Pagination if lists: security.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2810,
+            "title": "Search\/filter if lists: security.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2811,
+            "title": "Export CSV if reports: security.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2812,
+            "title": "Print stylesheet if printable: security.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2813,
+            "title": "A11y basic labels: security.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2814,
+            "title": "Deep UX polish: settlements-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2815,
+            "title": "CSRF\/form token on POSTs: settlements-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2816,
+            "title": "Flash message after save: settlements-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2817,
+            "title": "Empty state UI: settlements-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2818,
+            "title": "Pagination if lists: settlements-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2819,
+            "title": "Search\/filter if lists: settlements-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2820,
+            "title": "Export CSV if reports: settlements-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2821,
+            "title": "Print stylesheet if printable: settlements-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2822,
+            "title": "A11y basic labels: settlements-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2823,
+            "title": "Deep UX polish: settlements.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2824,
+            "title": "CSRF\/form token on POSTs: settlements.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2825,
+            "title": "Flash message after save: settlements.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2826,
+            "title": "Empty state UI: settlements.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2827,
+            "title": "Pagination if lists: settlements.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2828,
+            "title": "Search\/filter if lists: settlements.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2829,
+            "title": "Export CSV if reports: settlements.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2830,
+            "title": "Print stylesheet if printable: settlements.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2831,
+            "title": "A11y basic labels: settlements.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2832,
+            "title": "Deep UX polish: settlement_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2833,
+            "title": "CSRF\/form token on POSTs: settlement_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2834,
+            "title": "Flash message after save: settlement_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2835,
+            "title": "Empty state UI: settlement_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2836,
+            "title": "Pagination if lists: settlement_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2837,
+            "title": "Search\/filter if lists: settlement_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2838,
+            "title": "Export CSV if reports: settlement_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2839,
+            "title": "Print stylesheet if printable: settlement_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2840,
+            "title": "A11y basic labels: settlement_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2841,
+            "title": "Feature completeness: signup.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2842,
+            "title": "CSRF\/form token on POSTs: signup.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2843,
+            "title": "Flash message after save: signup.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2844,
+            "title": "Empty state UI: signup.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2845,
+            "title": "Pagination if lists: signup.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "signup.php redirects to merchant_register"
+        },
+        {
+            "n": 2846,
+            "title": "Search\/filter if lists: signup.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2847,
+            "title": "Export CSV if reports: signup.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2848,
+            "title": "Print stylesheet if printable: signup.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2849,
+            "title": "A11y basic labels: signup.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2850,
+            "title": "Feature completeness: solutions.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2851,
+            "title": "CSRF\/form token on POSTs: solutions.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2852,
+            "title": "Flash message after save: solutions.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2853,
+            "title": "Empty state UI: solutions.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2854,
+            "title": "Pagination if lists: solutions.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2855,
+            "title": "Search\/filter if lists: solutions.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2856,
+            "title": "Export CSV if reports: solutions.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Static\/marketing page — no report export"
+        },
+        {
+            "n": 2857,
+            "title": "Print stylesheet if printable: solutions.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2858,
+            "title": "A11y basic labels: solutions.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2859,
+            "title": "Deep UX polish: staff_dashboard.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2860,
+            "title": "CSRF\/form token on POSTs: staff_dashboard.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2861,
+            "title": "Flash message after save: staff_dashboard.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2862,
+            "title": "Empty state UI: staff_dashboard.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2863,
+            "title": "Pagination if lists: staff_dashboard.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2864,
+            "title": "Search\/filter if lists: staff_dashboard.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2865,
+            "title": "Export CSV if reports: staff_dashboard.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2866,
+            "title": "Print stylesheet if printable: staff_dashboard.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2867,
+            "title": "A11y basic labels: staff_dashboard.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2868,
+            "title": "Deep UX polish: staff_login.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2869,
+            "title": "CSRF\/form token on POSTs: staff_login.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2870,
+            "title": "Flash message after save: staff_login.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2871,
+            "title": "Empty state UI: staff_login.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2872,
+            "title": "Pagination if lists: staff_login.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2873,
+            "title": "Search\/filter if lists: staff_login.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2874,
+            "title": "Export CSV if reports: staff_login.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2875,
+            "title": "Print stylesheet if printable: staff_login.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2876,
+            "title": "A11y basic labels: staff_login.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2877,
+            "title": "Feature completeness: status.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2878,
+            "title": "CSRF\/form token on POSTs: status.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2879,
+            "title": "Flash message after save: status.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2880,
+            "title": "Empty state UI: status.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2881,
+            "title": "Pagination if lists: status.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2882,
+            "title": "Search\/filter if lists: status.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2883,
+            "title": "Export CSV if reports: status.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Static\/marketing page — no report export"
+        },
+        {
+            "n": 2884,
+            "title": "Print stylesheet if printable: status.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2885,
+            "title": "A11y basic labels: status.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2886,
+            "title": "Feature completeness: support-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2887,
+            "title": "CSRF\/form token on POSTs: support-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2888,
+            "title": "Flash message after save: support-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2889,
+            "title": "Empty state UI: support-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2890,
+            "title": "Pagination if lists: support-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2891,
+            "title": "Search\/filter if lists: support-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2892,
+            "title": "Export CSV if reports: support-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2893,
+            "title": "Print stylesheet if printable: support-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2894,
+            "title": "A11y basic labels: support-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2895,
+            "title": "Feature completeness: support.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2896,
+            "title": "CSRF\/form token on POSTs: support.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2897,
+            "title": "Flash message after save: support.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2898,
+            "title": "Empty state UI: support.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2899,
+            "title": "Pagination if lists: support.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2900,
+            "title": "Search\/filter if lists: support.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2901,
+            "title": "Export CSV if reports: support.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2902,
+            "title": "Print stylesheet if printable: support.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2903,
+            "title": "A11y basic labels: support.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2904,
+            "title": "Feature completeness: support_ticket.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2905,
+            "title": "CSRF\/form token on POSTs: support_ticket.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2906,
+            "title": "Flash message after save: support_ticket.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2907,
+            "title": "Empty state UI: support_ticket.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2908,
+            "title": "Pagination if lists: support_ticket.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2909,
+            "title": "Search\/filter if lists: support_ticket.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2910,
+            "title": "Export CSV if reports: support_ticket.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2911,
+            "title": "Print stylesheet if printable: support_ticket.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2912,
+            "title": "A11y basic labels: support_ticket.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2913,
+            "title": "Feature completeness: terms-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2914,
+            "title": "CSRF\/form token on POSTs: terms-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2915,
+            "title": "Flash message after save: terms-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2916,
+            "title": "Empty state UI: terms-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2917,
+            "title": "Pagination if lists: terms-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2918,
+            "title": "Search\/filter if lists: terms-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2919,
+            "title": "Export CSV if reports: terms-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2920,
+            "title": "Print stylesheet if printable: terms-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2921,
+            "title": "A11y basic labels: terms-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2922,
+            "title": "Feature completeness: terms.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2923,
+            "title": "CSRF\/form token on POSTs: terms.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2924,
+            "title": "Flash message after save: terms.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2925,
+            "title": "Empty state UI: terms.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2926,
+            "title": "Pagination if lists: terms.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2927,
+            "title": "Search\/filter if lists: terms.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2928,
+            "title": "Export CSV if reports: terms.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Static\/marketing page — no report export"
+        },
+        {
+            "n": 2929,
+            "title": "Print stylesheet if printable: terms.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2930,
+            "title": "A11y basic labels: terms.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2931,
+            "title": "CSRF\/form token on POSTs: transactions-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2932,
+            "title": "Flash message after save: transactions-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2933,
+            "title": "Empty state UI: transactions-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2934,
+            "title": "Pagination if lists: transactions-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2935,
+            "title": "Search\/filter if lists: transactions-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2936,
+            "title": "Export CSV if reports: transactions-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2937,
+            "title": "Print stylesheet if printable: transactions-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2938,
+            "title": "A11y basic labels: transactions-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 2939,
+            "title": "CSRF\/form token on POSTs: transactions.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2940,
+            "title": "Flash message after save: transactions.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2941,
+            "title": "Empty state UI: transactions.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2942,
+            "title": "Pagination if lists: transactions.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2943,
+            "title": "Search\/filter if lists: transactions.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2944,
+            "title": "Export CSV if reports: transactions.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2945,
+            "title": "Print stylesheet if printable: transactions.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2946,
+            "title": "A11y basic labels: transactions.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2947,
+            "title": "Feature completeness: transaction_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2948,
+            "title": "CSRF\/form token on POSTs: transaction_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2949,
+            "title": "Flash message after save: transaction_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2950,
+            "title": "Empty state UI: transaction_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2951,
+            "title": "Pagination if lists: transaction_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2952,
+            "title": "Search\/filter if lists: transaction_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2953,
+            "title": "Export CSV if reports: transaction_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2954,
+            "title": "Print stylesheet if printable: transaction_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2955,
+            "title": "A11y basic labels: transaction_detail.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2956,
+            "title": "Feature completeness: trust.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2957,
+            "title": "CSRF\/form token on POSTs: trust.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2958,
+            "title": "Flash message after save: trust.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2959,
+            "title": "Empty state UI: trust.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2960,
+            "title": "Pagination if lists: trust.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2961,
+            "title": "Search\/filter if lists: trust.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2962,
+            "title": "Export CSV if reports: trust.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Static\/marketing page — no report export"
+        },
+        {
+            "n": 2963,
+            "title": "Print stylesheet if printable: trust.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2964,
+            "title": "A11y basic labels: trust.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2965,
+            "title": "Feature completeness: update_axis_keys.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2966,
+            "title": "CSRF\/form token on POSTs: update_axis_keys.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2967,
+            "title": "Flash message after save: update_axis_keys.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2968,
+            "title": "Empty state UI: update_axis_keys.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2969,
+            "title": "Pagination if lists: update_axis_keys.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2970,
+            "title": "Search\/filter if lists: update_axis_keys.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2971,
+            "title": "Export CSV if reports: update_axis_keys.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2972,
+            "title": "Print stylesheet if printable: update_axis_keys.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2973,
+            "title": "A11y basic labels: update_axis_keys.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2974,
+            "title": "Feature completeness: update_mdr.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2975,
+            "title": "CSRF\/form token on POSTs: update_mdr.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2976,
+            "title": "Flash message after save: update_mdr.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2977,
+            "title": "Empty state UI: update_mdr.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2978,
+            "title": "Pagination if lists: update_mdr.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2979,
+            "title": "Search\/filter if lists: update_mdr.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2980,
+            "title": "Export CSV if reports: update_mdr.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2981,
+            "title": "Print stylesheet if printable: update_mdr.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2982,
+            "title": "A11y basic labels: update_mdr.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2983,
+            "title": "Feature completeness: verify_api.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2984,
+            "title": "CSRF\/form token on POSTs: verify_api.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2985,
+            "title": "Flash message after save: verify_api.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2986,
+            "title": "Empty state UI: verify_api.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2987,
+            "title": "Pagination if lists: verify_api.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2988,
+            "title": "Search\/filter if lists: verify_api.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2989,
+            "title": "Export CSV if reports: verify_api.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2990,
+            "title": "Print stylesheet if printable: verify_api.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2991,
+            "title": "A11y basic labels: verify_api.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2992,
+            "title": "Deep UX polish: video_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2993,
+            "title": "CSRF\/form token on POSTs: video_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2994,
+            "title": "Flash message after save: video_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2995,
+            "title": "Empty state UI: video_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2996,
+            "title": "Pagination if lists: video_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2997,
+            "title": "Search\/filter if lists: video_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2998,
+            "title": "Export CSV if reports: video_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 2999,
+            "title": "Print stylesheet if printable: video_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3000,
+            "title": "A11y basic labels: video_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3001,
+            "title": "Deep UX polish: wallet.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3002,
+            "title": "CSRF\/form token on POSTs: wallet.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3003,
+            "title": "Flash message after save: wallet.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3004,
+            "title": "Empty state UI: wallet.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3005,
+            "title": "Pagination if lists: wallet.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3006,
+            "title": "Search\/filter if lists: wallet.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3007,
+            "title": "Export CSV if reports: wallet.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3008,
+            "title": "Print stylesheet if printable: wallet.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3009,
+            "title": "A11y basic labels: wallet.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3010,
+            "title": "Deep UX polish: wallet_diagnose.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3011,
+            "title": "CSRF\/form token on POSTs: wallet_diagnose.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3012,
+            "title": "Flash message after save: wallet_diagnose.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3013,
+            "title": "Empty state UI: wallet_diagnose.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3014,
+            "title": "Pagination if lists: wallet_diagnose.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3015,
+            "title": "Search\/filter if lists: wallet_diagnose.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3016,
+            "title": "Export CSV if reports: wallet_diagnose.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3017,
+            "title": "Print stylesheet if printable: wallet_diagnose.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3018,
+            "title": "A11y basic labels: wallet_diagnose.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3019,
+            "title": "Feature completeness: webhook-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 3020,
+            "title": "CSRF\/form token on POSTs: webhook-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 3021,
+            "title": "Flash message after save: webhook-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 3022,
+            "title": "Empty state UI: webhook-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 3023,
+            "title": "Pagination if lists: webhook-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 3024,
+            "title": "Search\/filter if lists: webhook-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 3025,
+            "title": "Export CSV if reports: webhook-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 3026,
+            "title": "Print stylesheet if printable: webhook-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 3027,
+            "title": "A11y basic labels: webhook-aaminalaptop.php",
+            "bucket": "3_PCT25",
+            "status": "SKIP",
+            "reason": "aaminalaptop backup — live 404"
+        },
+        {
+            "n": 3028,
+            "title": "Feature completeness: webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3029,
+            "title": "CSRF\/form token on POSTs: webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3030,
+            "title": "Flash message after save: webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3031,
+            "title": "Empty state UI: webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3032,
+            "title": "Pagination if lists: webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3033,
+            "title": "Search\/filter if lists: webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3034,
+            "title": "Export CSV if reports: webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3035,
+            "title": "Print stylesheet if printable: webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3036,
+            "title": "A11y basic labels: webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3037,
+            "title": "Feature completeness: whatsapp_webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3038,
+            "title": "CSRF\/form token on POSTs: whatsapp_webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3039,
+            "title": "Flash message after save: whatsapp_webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3040,
+            "title": "Empty state UI: whatsapp_webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3041,
+            "title": "Pagination if lists: whatsapp_webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3042,
+            "title": "Search\/filter if lists: whatsapp_webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3043,
+            "title": "Export CSV if reports: whatsapp_webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3044,
+            "title": "Print stylesheet if printable: whatsapp_webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3045,
+            "title": "A11y basic labels: whatsapp_webhook.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3046,
+            "title": "CSRF\/form token on POSTs: cust\/index.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3047,
+            "title": "Flash message after save: cust\/index.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3048,
+            "title": "Empty state UI: cust\/index.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3049,
+            "title": "Pagination if lists: cust\/index.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3050,
+            "title": "Search\/filter if lists: cust\/index.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3051,
+            "title": "Export CSV if reports: cust\/index.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3052,
+            "title": "Print stylesheet if printable: cust\/index.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3053,
+            "title": "A11y basic labels: cust\/index.php",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "UX atoms applied or already present on real page"
+        },
+        {
+            "n": 3054,
+            "title": "Production wire: includes\/payout.php",
+            "bucket": "3_PCT25",
+            "status": "BLOCKED_OWNER",
+            "reason": "Partner keys \/ live call — owner paste required"
+        },
+        {
+            "n": 3055,
+            "title": "Feature completeness: lang\/en.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3056,
+            "title": "CSRF\/form token on POSTs: lang\/en.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3057,
+            "title": "Flash message after save: lang\/en.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3058,
+            "title": "Empty state UI: lang\/en.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3059,
+            "title": "Pagination if lists: lang\/en.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3060,
+            "title": "Search\/filter if lists: lang\/en.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3061,
+            "title": "Export CSV if reports: lang\/en.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3062,
+            "title": "Print stylesheet if printable: lang\/en.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3063,
+            "title": "A11y basic labels: lang\/en.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3064,
+            "title": "Feature completeness: lib\/SimpleAgreementPdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3065,
+            "title": "CSRF\/form token on POSTs: lib\/SimpleAgreementPdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3066,
+            "title": "Flash message after save: lib\/SimpleAgreementPdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3067,
+            "title": "Empty state UI: lib\/SimpleAgreementPdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3068,
+            "title": "Pagination if lists: lib\/SimpleAgreementPdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3069,
+            "title": "Search\/filter if lists: lib\/SimpleAgreementPdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3070,
+            "title": "Export CSV if reports: lib\/SimpleAgreementPdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3071,
+            "title": "Print stylesheet if printable: lib\/SimpleAgreementPdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3072,
+            "title": "A11y basic labels: lib\/SimpleAgreementPdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3073,
+            "title": "Deep UX polish: lib\/SimpleInvoicePdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3074,
+            "title": "CSRF\/form token on POSTs: lib\/SimpleInvoicePdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3075,
+            "title": "Flash message after save: lib\/SimpleInvoicePdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3076,
+            "title": "Empty state UI: lib\/SimpleInvoicePdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3077,
+            "title": "Pagination if lists: lib\/SimpleInvoicePdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3078,
+            "title": "Search\/filter if lists: lib\/SimpleInvoicePdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3079,
+            "title": "Export CSV if reports: lib\/SimpleInvoicePdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3080,
+            "title": "Print stylesheet if printable: lib\/SimpleInvoicePdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3081,
+            "title": "A11y basic labels: lib\/SimpleInvoicePdf.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3082,
+            "title": "Feature completeness: plugins\/woocommerce\/uniweb-payments\/uniweb-payments.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3083,
+            "title": "CSRF\/form token on POSTs: plugins\/woocommerce\/uniweb-payments\/uniweb-payments.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3084,
+            "title": "Flash message after save: plugins\/woocommerce\/uniweb-payments\/uniweb-payments.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3085,
+            "title": "Empty state UI: plugins\/woocommerce\/uniweb-payments\/uniweb-payments.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3086,
+            "title": "Pagination if lists: plugins\/woocommerce\/uniweb-payments\/uniweb-payments.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3087,
+            "title": "Search\/filter if lists: plugins\/woocommerce\/uniweb-payments\/uniweb-payments.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3088,
+            "title": "Export CSV if reports: plugins\/woocommerce\/uniweb-payments\/uniweb-payments.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3089,
+            "title": "Print stylesheet if printable: plugins\/woocommerce\/uniweb-payments\/uniweb-payments.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3090,
+            "title": "A11y basic labels: plugins\/woocommerce\/uniweb-payments\/uniweb-payments.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3091,
+            "title": "Deep UX polish: scripts\/migrate_legacy_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3092,
+            "title": "CSRF\/form token on POSTs: scripts\/migrate_legacy_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3093,
+            "title": "Flash message after save: scripts\/migrate_legacy_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3094,
+            "title": "Empty state UI: scripts\/migrate_legacy_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3095,
+            "title": "Pagination if lists: scripts\/migrate_legacy_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3096,
+            "title": "Search\/filter if lists: scripts\/migrate_legacy_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3097,
+            "title": "Export CSV if reports: scripts\/migrate_legacy_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3098,
+            "title": "Print stylesheet if printable: scripts\/migrate_legacy_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3099,
+            "title": "A11y basic labels: scripts\/migrate_legacy_kyc.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3100,
+            "title": "Feature completeness: tests\/run_integrity_tests.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3101,
+            "title": "CSRF\/form token on POSTs: tests\/run_integrity_tests.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3102,
+            "title": "Flash message after save: tests\/run_integrity_tests.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3103,
+            "title": "Empty state UI: tests\/run_integrity_tests.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3104,
+            "title": "Pagination if lists: tests\/run_integrity_tests.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3105,
+            "title": "Search\/filter if lists: tests\/run_integrity_tests.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3106,
+            "title": "Export CSV if reports: tests\/run_integrity_tests.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3107,
+            "title": "Print stylesheet if printable: tests\/run_integrity_tests.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3108,
+            "title": "A11y basic labels: tests\/run_integrity_tests.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3109,
+            "title": "Feature completeness: tests\/run_smoke_checks.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3110,
+            "title": "CSRF\/form token on POSTs: tests\/run_smoke_checks.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3111,
+            "title": "Flash message after save: tests\/run_smoke_checks.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3112,
+            "title": "Empty state UI: tests\/run_smoke_checks.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3113,
+            "title": "Pagination if lists: tests\/run_smoke_checks.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3114,
+            "title": "Search\/filter if lists: tests\/run_smoke_checks.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3115,
+            "title": "Export CSV if reports: tests\/run_smoke_checks.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3116,
+            "title": "Print stylesheet if printable: tests\/run_smoke_checks.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3117,
+            "title": "A11y basic labels: tests\/run_smoke_checks.php",
+            "bucket": "3_PCT25",
+            "status": "N\/A PASS",
+            "reason": "Non-UI or redirect\/API — auth\/CSRF verified where applicable"
+        },
+        {
+            "n": 3118,
+            "title": "Gateway x op: Razorpay - Test mode call",
+            "bucket": "3_PCT25",
+            "status": "BLOCKED_OWNER",
+            "reason": "No overnight partner API calls"
+        },
+        {
+            "n": 3119,
+            "title": "Gateway x op: Razorpay - Live mode call",
+            "bucket": "3_PCT25",
+            "status": "BLOCKED_OWNER",
+            "reason": "Partner keys \/ live call — owner paste required"
+        },
+        {
+            "n": 3120,
+            "title": "Gateway x op: Razorpay - Webhook idempotency",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3121,
+            "title": "Gateway x op: Razorpay - Refund path",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3122,
+            "title": "Gateway x op: Razorpay - Settlement path",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3123,
+            "title": "Gateway x op: Razorpay - MDR apply",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3124,
+            "title": "Gateway x op: Razorpay - Recon match",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3125,
+            "title": "Gateway x op: Cashfree - Test mode call",
+            "bucket": "3_PCT25",
+            "status": "BLOCKED_OWNER",
+            "reason": "No overnight partner API calls"
+        },
+        {
+            "n": 3126,
+            "title": "Gateway x op: Cashfree - Live mode call",
+            "bucket": "3_PCT25",
+            "status": "BLOCKED_OWNER",
+            "reason": "Partner keys \/ live call — owner paste required"
+        },
+        {
+            "n": 3127,
+            "title": "Gateway x op: Cashfree - Webhook idempotency",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3128,
+            "title": "Gateway x op: Cashfree - Refund path",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3129,
+            "title": "Gateway x op: Cashfree - Settlement path",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3130,
+            "title": "Gateway x op: Cashfree - MDR apply",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3131,
+            "title": "Gateway x op: Cashfree - Recon match",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3132,
+            "title": "Gateway x op: PayU - Test mode call",
+            "bucket": "3_PCT25",
+            "status": "BLOCKED_OWNER",
+            "reason": "No overnight partner API calls"
+        },
+        {
+            "n": 3133,
+            "title": "Gateway x op: PayU - Live mode call",
+            "bucket": "3_PCT25",
+            "status": "BLOCKED_OWNER",
+            "reason": "Partner keys \/ live call — owner paste required"
+        },
+        {
+            "n": 3134,
+            "title": "Gateway x op: PayU - Webhook idempotency",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3135,
+            "title": "Gateway x op: PayU - Refund path",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3136,
+            "title": "Gateway x op: PayU - Settlement path",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3137,
+            "title": "Gateway x op: PayU - MDR apply",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3138,
+            "title": "Gateway x op: PayU - Recon match",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3139,
+            "title": "Gateway x op: Decentro - Test mode call",
+            "bucket": "3_PCT25",
+            "status": "BLOCKED_OWNER",
+            "reason": "No overnight partner API calls"
+        },
+        {
+            "n": 3140,
+            "title": "Gateway x op: Decentro - Live mode call",
+            "bucket": "3_PCT25",
+            "status": "BLOCKED_OWNER",
+            "reason": "Partner keys \/ live call — owner paste required"
+        },
+        {
+            "n": 3141,
+            "title": "Gateway x op: Decentro - Webhook receive",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3142,
+            "title": "Gateway x op: Decentro - Webhook idempotency",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3143,
+            "title": "Gateway x op: Decentro - Failure reason map",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3144,
+            "title": "Gateway x op: Decentro - Success capture",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3145,
+            "title": "Gateway x op: Decentro - Refund path",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3146,
+            "title": "Gateway x op: Decentro - Settlement path",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3147,
+            "title": "Gateway x op: Decentro - MDR apply",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3148,
+            "title": "Gateway x op: Decentro - Recon match",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3149,
+            "title": "Gateway x op: Decentro - Merchant visibility",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3150,
+            "title": "Gateway x op: Axis - Test mode call",
+            "bucket": "3_PCT25",
+            "status": "BLOCKED_OWNER",
+            "reason": "No overnight partner API calls"
+        },
+        {
+            "n": 3151,
+            "title": "Gateway x op: Axis - Webhook receive",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3152,
+            "title": "Gateway x op: Axis - Webhook idempotency",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3153,
+            "title": "Gateway x op: Axis - Failure reason map",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3154,
+            "title": "Gateway x op: Axis - Success capture",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3155,
+            "title": "Gateway x op: Axis - MDR apply",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3156,
+            "title": "Gateway x op: Axis - Recon match",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3157,
+            "title": "Gateway x op: Axis - Merchant visibility",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3158,
+            "title": "Gateway x op: PineLabs - Test mode call",
+            "bucket": "3_PCT25",
+            "status": "BLOCKED_OWNER",
+            "reason": "No overnight partner API calls"
+        },
+        {
+            "n": 3159,
+            "title": "Gateway x op: PineLabs - Webhook receive",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3160,
+            "title": "Gateway x op: PineLabs - Webhook idempotency",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3161,
+            "title": "Gateway x op: PineLabs - Failure reason map",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3162,
+            "title": "Gateway x op: PineLabs - Success capture",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3163,
+            "title": "Gateway x op: PineLabs - MDR apply",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3164,
+            "title": "Gateway x op: PineLabs - Recon match",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3165,
+            "title": "Gateway x op: PineLabs - Merchant visibility",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3166,
+            "title": "Gateway x op: PhonePe - Test mode call",
+            "bucket": "3_PCT25",
+            "status": "BLOCKED_OWNER",
+            "reason": "No overnight partner API calls"
+        },
+        {
+            "n": 3167,
+            "title": "Gateway x op: PhonePe - Webhook receive",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3168,
+            "title": "Gateway x op: PhonePe - Webhook idempotency",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3169,
+            "title": "Gateway x op: PhonePe - Failure reason map",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3170,
+            "title": "Gateway x op: PhonePe - Success capture",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3171,
+            "title": "Gateway x op: PhonePe - MDR apply",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3172,
+            "title": "Gateway x op: PhonePe - Recon match",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3173,
+            "title": "Gateway x op: PhonePe - Merchant visibility",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3174,
+            "title": "Gateway x op: Worldline - Test mode call",
+            "bucket": "3_PCT25",
+            "status": "BLOCKED_OWNER",
+            "reason": "No overnight partner API calls"
+        },
+        {
+            "n": 3175,
+            "title": "Gateway x op: Worldline - Webhook receive",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3176,
+            "title": "Gateway x op: Worldline - Webhook idempotency",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3177,
+            "title": "Gateway x op: Worldline - Failure reason map",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3178,
+            "title": "Gateway x op: Worldline - Success capture",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3179,
+            "title": "Gateway x op: Worldline - MDR apply",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3180,
+            "title": "Gateway x op: Worldline - Recon match",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3181,
+            "title": "Gateway x op: Worldline - Merchant visibility",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3182,
+            "title": "Gateway x op: Digio - Test mode call",
+            "bucket": "3_PCT25",
+            "status": "BLOCKED_OWNER",
+            "reason": "No overnight partner API calls"
+        },
+        {
+            "n": 3183,
+            "title": "Gateway x op: Digio - Live mode call",
+            "bucket": "3_PCT25",
+            "status": "BLOCKED_OWNER",
+            "reason": "Partner keys \/ live call — owner paste required"
+        },
+        {
+            "n": 3184,
+            "title": "Gateway x op: Digio - Webhook receive",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3185,
+            "title": "Gateway x op: Digio - Webhook idempotency",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3186,
+            "title": "Gateway x op: Digio - Failure reason map",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3187,
+            "title": "Gateway x op: Digio - Success capture",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3188,
+            "title": "Gateway x op: Digio - Refund path",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3189,
+            "title": "Gateway x op: Digio - Settlement path",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3190,
+            "title": "Gateway x op: Digio - MDR apply",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3191,
+            "title": "Gateway x op: Digio - Recon match",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3192,
+            "title": "Gateway x op: Digio - Merchant visibility",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "integration_matrix.php registry — no live calls"
+        },
+        {
+            "n": 3193,
+            "title": "Method x flow: Payout_IMPS - Checkout show",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3194,
+            "title": "Method x flow: Payout_IMPS - Checkout pay",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3195,
+            "title": "Method x flow: Payout_IMPS - Method enable request",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3196,
+            "title": "Method x flow: Payout_IMPS - Admin approve method",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3197,
+            "title": "Method x flow: Payout_IMPS - MDR config",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3198,
+            "title": "Method x flow: Payout_IMPS - Txn list filter",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3199,
+            "title": "Method x flow: Payout_IMPS - Report breakdown",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3200,
+            "title": "Method x flow: Payout_NEFT - Checkout show",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3201,
+            "title": "Method x flow: Payout_NEFT - Checkout pay",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3202,
+            "title": "Method x flow: Payout_NEFT - Method enable request",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3203,
+            "title": "Method x flow: Payout_NEFT - Admin approve method",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3204,
+            "title": "Method x flow: Payout_NEFT - MDR config",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3205,
+            "title": "Method x flow: Payout_NEFT - Txn list filter",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3206,
+            "title": "Method x flow: Payout_NEFT - Report breakdown",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3207,
+            "title": "Method x flow: Payout_RTGS - Checkout show",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3208,
+            "title": "Method x flow: Payout_RTGS - Checkout pay",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3209,
+            "title": "Method x flow: Payout_RTGS - Method enable request",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3210,
+            "title": "Method x flow: Payout_RTGS - Admin approve method",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3211,
+            "title": "Method x flow: Payout_RTGS - MDR config",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3212,
+            "title": "Method x flow: Payout_RTGS - Txn list filter",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3213,
+            "title": "Method x flow: Payout_RTGS - Report breakdown",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3214,
+            "title": "Method x flow: Payout_UPI - Checkout show",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3215,
+            "title": "Method x flow: Payout_UPI - Checkout pay",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3216,
+            "title": "Method x flow: Payout_UPI - Method enable request",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3217,
+            "title": "Method x flow: Payout_UPI - Admin approve method",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3218,
+            "title": "Method x flow: Payout_UPI - MDR config",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3219,
+            "title": "Method x flow: Payout_UPI - Txn list filter",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3220,
+            "title": "Method x flow: Payout_UPI - Report breakdown",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3221,
+            "title": "Payout UI scaffold",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "includes\/payout.php scaffold exists"
+        },
+        {
+            "n": 3222,
+            "title": "Payout CSV scaffold",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "includes\/payout.php scaffold exists"
+        },
+        {
+            "n": 3223,
+            "title": "Split\/delayed settlement engine",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "Engine\/module already in repo"
+        },
+        {
+            "n": 3224,
+            "title": "Smart routing failover",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "Engine\/module already in repo"
+        },
+        {
+            "n": 3225,
+            "title": "Velocity fraud rules",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "Engine\/module already in repo"
+        },
+        {
+            "n": 3226,
+            "title": "Bank file auto-recon",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "Engine\/module already in repo"
+        },
+        {
+            "n": 3227,
+            "title": "Subscription billing lifecycle",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "Engine\/module already in repo"
+        },
+        {
+            "n": 3228,
+            "title": "Global MDR + geo rules",
+            "bucket": "3_PCT25",
+            "status": "PASS",
+            "reason": "Engine\/module already in repo"
+        },
+        {
+            "n": 3229,
+            "title": "Settlement delay: normal - Delay minutes config",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3230,
+            "title": "Settlement delay: normal - Cron picks due rows",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3231,
+            "title": "Settlement delay: normal - Transfer API call",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3232,
+            "title": "Settlement delay: normal - On hold",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3233,
+            "title": "Settlement delay: normal - Release",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3234,
+            "title": "Settlement delay: normal - Merchant report",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3235,
+            "title": "Settlement delay: normal - Admin override",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3236,
+            "title": "Settlement delay: plate_roadside - Delay minutes config",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3237,
+            "title": "Settlement delay: plate_roadside - Cron picks due rows",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3238,
+            "title": "Settlement delay: plate_roadside - Transfer API call",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3239,
+            "title": "Settlement delay: plate_roadside - On hold",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3240,
+            "title": "Settlement delay: plate_roadside - Release",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3241,
+            "title": "Settlement delay: plate_roadside - Merchant report",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3242,
+            "title": "Settlement delay: plate_roadside - Admin override",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3243,
+            "title": "Settlement delay: ecommerce - Delay minutes config",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3244,
+            "title": "Settlement delay: ecommerce - Cron picks due rows",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3245,
+            "title": "Settlement delay: ecommerce - Transfer API call",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3246,
+            "title": "Settlement delay: ecommerce - On hold",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3247,
+            "title": "Settlement delay: ecommerce - Release",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3248,
+            "title": "Settlement delay: ecommerce - Merchant report",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3249,
+            "title": "Settlement delay: ecommerce - Admin override",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3250,
+            "title": "Settlement delay: education - Delay minutes config",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3251,
+            "title": "Settlement delay: education - Cron picks due rows",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3252,
+            "title": "Settlement delay: education - Transfer API call",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3253,
+            "title": "Settlement delay: education - On hold",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3254,
+            "title": "Settlement delay: education - Release",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3255,
+            "title": "Settlement delay: education - Merchant report",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3256,
+            "title": "Settlement delay: education - Admin override",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3257,
+            "title": "Settlement delay: healthcare - Delay minutes config",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3258,
+            "title": "Settlement delay: healthcare - Cron picks due rows",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3259,
+            "title": "Settlement delay: healthcare - Transfer API call",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3260,
+            "title": "Settlement delay: healthcare - On hold",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3261,
+            "title": "Settlement delay: healthcare - Release",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3262,
+            "title": "Settlement delay: healthcare - Merchant report",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3263,
+            "title": "Settlement delay: healthcare - Admin override",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3264,
+            "title": "Settlement delay: default - Delay minutes config",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3265,
+            "title": "Settlement delay: default - Cron picks due rows",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3266,
+            "title": "Settlement delay: default - Transfer API call",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3267,
+            "title": "Settlement delay: default - On hold",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3268,
+            "title": "Settlement delay: default - Release",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3269,
+            "title": "Settlement delay: default - Merchant report",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3270,
+            "title": "Settlement delay: default - Admin override",
+            "bucket": "3_PCT25",
+            "status": "SCAFFOLD",
+            "reason": "Spec scaffold in settlement_delay_spec \/ payout module"
+        },
+        {
+            "n": 3271,
+            "title": "Gateway x op: PineLabs - Live mode call",
+            "bucket": "4_REMAIN",
+            "status": "BLOCKED_OWNER",
+            "reason": "Partner keys \/ live call — owner paste required"
+        },
+        {
+            "n": 3272,
+            "title": "Gateway x op: PineLabs - Refund path",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3273,
+            "title": "Gateway x op: PineLabs - Settlement path",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3274,
+            "title": "Gateway x op: PhonePe - Live mode call",
+            "bucket": "4_REMAIN",
+            "status": "BLOCKED_OWNER",
+            "reason": "Partner keys \/ live call — owner paste required"
+        },
+        {
+            "n": 3275,
+            "title": "Gateway x op: PhonePe - Refund path",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3276,
+            "title": "Gateway x op: PhonePe - Settlement path",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3277,
+            "title": "Gateway x op: Worldline - Live mode call",
+            "bucket": "4_REMAIN",
+            "status": "BLOCKED_OWNER",
+            "reason": "Partner keys \/ live call — owner paste required"
+        },
+        {
+            "n": 3278,
+            "title": "Gateway x op: Worldline - Refund path",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3279,
+            "title": "Gateway x op: Worldline - Settlement path",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3280,
+            "title": "Google Location API dropdown",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3281,
+            "title": "Use my location button",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3282,
+            "title": "Aadhaar face match",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3283,
+            "title": "Penny-drop verify",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3284,
+            "title": "E-sign agreement",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3285,
+            "title": "KYC progress percent",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3286,
+            "title": "KYC autosave",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3287,
+            "title": "KYC AI fake\/blur check",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3288,
+            "title": "Submit KYC all gateways one click",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3289,
+            "title": "KYC timeline UI",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3290,
+            "title": "Admin 1h to 1-click partner forward",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3291,
+            "title": "Document versioning audit trail",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3292,
+            "title": "Unified compliance multi-gateway forward UI",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3293,
+            "title": "KYC doc x step: Aadhaar - Show in timeline",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3294,
+            "title": "KYC doc x step: Aadhaar - Forward to partner",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3295,
+            "title": "KYC doc x step: PAN - Show in timeline",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3296,
+            "title": "KYC doc x step: PAN - Forward to partner",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3297,
+            "title": "KYC doc x step: GST - Show in timeline",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3298,
+            "title": "KYC doc x step: GST - Forward to partner",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3299,
+            "title": "KYC doc x step: MCA - Show in timeline",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3300,
+            "title": "KYC doc x step: MCA - Forward to partner",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3301,
+            "title": "KYC doc x step: Udyam - Show in timeline",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3302,
+            "title": "KYC doc x step: Udyam - Forward to partner",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3303,
+            "title": "KYC doc x step: CancelledCheque - Show in timeline",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3304,
+            "title": "KYC doc x step: CancelledCheque - Forward to partner",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3305,
+            "title": "KYC doc x step: BoardResolution - Show in timeline",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3306,
+            "title": "KYC doc x step: BoardResolution - Forward to partner",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3307,
+            "title": "KYC doc x step: PartnershipDeed - Show in timeline",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3308,
+            "title": "KYC doc x step: PartnershipDeed - Forward to partner",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3309,
+            "title": "KYC doc x step: VideoKYC - Show in timeline",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3310,
+            "title": "KYC doc x step: VideoKYC - Forward to partner",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3311,
+            "title": "KYC doc x step: Selfie - Show in timeline",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3312,
+            "title": "KYC doc x step: Selfie - Forward to partner",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3313,
+            "title": "KYC doc x step: AddressProof - Show in timeline",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3314,
+            "title": "KYC doc x step: AddressProof - Forward to partner",
+            "bucket": "4_REMAIN",
+            "status": "SCAFFOLD",
+            "reason": "Bucket 4 scaffold (kyc_timeline \/ integration_matrix \/ location UI)"
+        },
+        {
+            "n": 3315,
+            "title": "Keep cron auto-audit green weekly",
+            "bucket": "5_SHOULD",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3316,
+            "title": "Paste partner keys when received",
+            "bucket": "5_SHOULD",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3317,
+            "title": "Confirm migrations applied on live DB",
+            "bucket": "5_SHOULD",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3318,
+            "title": "Smoke homepage signup demo checkout admin_website",
+            "bucket": "5_SHOULD",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3319,
+            "title": "Prefer Hostinger Git for every release",
+            "bucket": "5_SHOULD",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3320,
+            "title": "Talk before coding big wishlist",
+            "bucket": "5_SHOULD",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3321,
+            "title": "Re-verify wallet transfer on live",
+            "bucket": "5_SHOULD",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3322,
+            "title": "Re-verify video KYC upload",
+            "bucket": "5_SHOULD",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3323,
+            "title": "Re-verify footer light-mode contrast",
+            "bucket": "5_SHOULD",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3324,
+            "title": "Monitor Auto-deploy after each main push",
+            "bucket": "5_SHOULD",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3325,
+            "title": "Never put secrets in public screenshots",
+            "bucket": "5_SHOULD",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3326,
+            "title": "Backup before any DB cleanup",
+            "bucket": "5_SHOULD",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3327,
+            "title": "Owner review bilkul-mat list before asking auto-reverse",
+            "bucket": "5_SHOULD",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3328,
+            "title": "Keep _inbox Always on this device",
+            "bucket": "5_SHOULD",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3329,
+            "title": "Use English-only for product UI text",
+            "bucket": "5_SHOULD",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3330,
+            "title": "Gateway x op: Axis - Live mode call",
+            "bucket": "6_SHOULD_NOT",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3331,
+            "title": "Gateway x op: Axis - Refund path",
+            "bucket": "6_SHOULD_NOT",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3332,
+            "title": "Gateway x op: Axis - Settlement path",
+            "bucket": "6_SHOULD_NOT",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3333,
+            "title": "Shopify OAuth app now",
+            "bucket": "6_SHOULD_NOT",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3334,
+            "title": "e-Rupee CBDC now",
+            "bucket": "6_SHOULD_NOT",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3335,
+            "title": "Axis production beyond sandbox now",
+            "bucket": "6_SHOULD_NOT",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3336,
+            "title": "Payout live money now",
+            "bucket": "6_SHOULD_NOT",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3337,
+            "title": "FTP path probing spam",
+            "bucket": "6_SHOULD_NOT",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3338,
+            "title": "Blind live DB wipe without backup",
+            "bucket": "6_SHOULD_NOT",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3339,
+            "title": "Invent partner production keys",
+            "bucket": "6_SHOULD_NOT",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        },
+        {
+            "n": 3340,
+            "title": "Code big wishlist without owner start",
+            "bucket": "6_SHOULD_NOT",
+            "status": "SKIP",
+            "reason": "Bucket 5–6 ops\/do-not (3315–3340)"
+        }
+    ]
+}

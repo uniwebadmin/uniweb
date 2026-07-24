@@ -34,22 +34,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         redirect('invoices.php');
     }
 }
-$invoices = $db->prepare('SELECT * FROM invoices WHERE merchant_id = ? ORDER BY created_at DESC LIMIT 30');
-$invoices->execute([$merchant['id']]);
+$listParams = listPageParams(20);
+$page = $listParams['page'];
+$perPage = $listParams['perPage'];
+$offset = $listParams['offset'];
+$q = $listParams['q'];
+$statusFilter = trim($_GET['status'] ?? 'all');
+$invWhere = 'merchant_id = ?';
+$invParams = [$merchant['id']];
+if ($q !== '') {
+    $like = '%' . strtolower($q) . '%';
+    $invWhere .= " AND (LOWER(invoice_id) LIKE ? OR LOWER(customer_name) LIKE ? OR LOWER(COALESCE(customer_email,'')) LIKE ? OR LOWER(COALESCE(customer_phone,'')) LIKE ? OR CAST(total_amount AS CHAR) LIKE ?)";
+    array_push($invParams, $like, $like, $like, $like, $like);
+}
+if (in_array($statusFilter, ['sent', 'paid', 'overdue', 'cancelled'], true)) {
+    $invWhere .= ' AND status = ?';
+    $invParams[] = $statusFilter;
+}
+$countStmt = $db->prepare("SELECT COUNT(*) FROM invoices WHERE {$invWhere}");
+$countStmt->execute($invParams);
+$invTotal = (int)$countStmt->fetchColumn();
+$invoices = $db->prepare("SELECT * FROM invoices WHERE {$invWhere} ORDER BY created_at DESC LIMIT {$perPage} OFFSET {$offset}");
+$invoices->execute($invParams);
 $invoiceList = $invoices->fetchAll();
 $pageTitle = 'Invoices';
 require_once __DIR__ . '/header.php';
+echo renderPrintStylesheet();
 ?>
 <div class="grid lg:grid-cols-3 gap-6">
     <div class="glass rounded-xl p-6">
         <h2 class="font-semibold mb-4">Create Invoice</h2>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-            <div><label class="text-sm text-gray-400">Customer Name *</label><input type="text" name="customer_name" required class="input-field mt-1"></div>
-            <div><label class="text-sm text-gray-400">Customer Email</label><input type="email" name="customer_email" class="input-field mt-1"></div>
-            <div><label class="text-sm text-gray-400">Customer Mobile</label><input type="tel" name="customer_phone" maxlength="10" class="input-field mt-1" placeholder="10-digit mobile"></div>
-            <div><label class="text-sm text-gray-400">Customer Address</label><textarea name="customer_address" rows="2" class="input-field mt-1" placeholder="Full billing address"></textarea></div>
-            <div><label class="text-sm text-gray-400">Description</label><input type="text" name="description" class="input-field mt-1" placeholder="Service / Product"></div>
+            <div><label class="text-sm text-gray-400" for="inv-customer">Customer Name *</label><input id="inv-customer" type="text" name="customer_name" required class="input-field mt-1"></div>
+            <div><label class="text-sm text-gray-400" for="inv-email">Customer Email</label><input id="inv-email" type="email" name="customer_email" class="input-field mt-1"></div>
+            <div><label class="text-sm text-gray-400" for="inv-phone">Customer Mobile</label><input id="inv-phone" type="tel" name="customer_phone" maxlength="10" class="input-field mt-1" placeholder="10-digit mobile"></div>
+            <div><label class="text-sm text-gray-400" for="inv-address">Customer Address</label><textarea id="inv-address" name="customer_address" rows="2" class="input-field mt-1" placeholder="Full billing address"></textarea></div>
+            <div><label class="text-sm text-gray-400" for="inv-desc">Description</label><input id="inv-desc" type="text" name="description" class="input-field mt-1" placeholder="Service / Product"></div>
             <div class="grid grid-cols-2 gap-4">
                 <div><label class="text-sm text-gray-400">Amount (₹) *</label><input type="number" name="amount" required min="1" max="100000" step="0.01" class="input-field mt-1"></div>
                 <div>
@@ -69,7 +90,15 @@ require_once __DIR__ . '/header.php';
         </form>
     </div>
     <div class="lg:col-span-2 glass rounded-xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Invoices</h2></div>
+        <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="font-semibold">Invoices</h2>
+            <?= renderExportCsvLink('export_invoices.php?' . http_build_query(['q' => $q, 'status' => $statusFilter])) ?>
+        </div>
+        <form method="GET" class="px-6 py-3 border-b border-gray-800 flex flex-wrap gap-3 items-end">
+            <div class="flex-1 min-w-[160px]"><label class="text-[10px] text-gray-600 uppercase" for="inv-q">Search</label><input id="inv-q" type="search" name="q" value="<?= e($q) ?>" placeholder="Invoice ID / customer / amount" class="input-field mt-1 text-sm"></div>
+            <div><label class="text-[10px] text-gray-600 uppercase" for="inv-status">Status</label><select id="inv-status" name="status" class="input-field mt-1 text-sm"><option value="all">All</option><?php foreach (['sent','paid','overdue','cancelled'] as $st): ?><option value="<?= $st ?>" <?= $statusFilter===$st?'selected':'' ?>><?= ucfirst($st) ?></option><?php endforeach; ?></select></div>
+            <button type="submit" class="btn-primary text-sm px-4 py-2">Filter</button>
+        </form>
         <div class="overflow-x-auto">
         <table class="w-full text-sm min-w-[640px]">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
@@ -97,6 +126,7 @@ require_once __DIR__ . '/header.php';
             </tbody>
         </table>
         </div>
+        <?= renderListPagination($page, $invTotal, $perPage, ['q' => $q, 'status' => $statusFilter]) ?>
     </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

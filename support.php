@@ -44,30 +44,30 @@ require_once __DIR__ . '/header.php';
     <div class="space-y-6">
         <div class="glass rounded-xl p-6">
             <h2 class="font-semibold mb-4">Raise a Ticket</h2>
-            <form method="POST" class="space-y-4">
+            <form method="POST" class="space-y-4" aria-label="Raise support ticket">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <div>
-                    <label class="text-sm text-gray-400">Category *</label>
-                    <select name="category" class="input-field mt-1" id="ticket-category">
+                    <?= uxFormLabel('ticket-category', 'Category', true) ?>
+                    <select name="category" class="input-field mt-1" id="ticket-category" required>
                         <?php foreach ($categories as $k => $label): ?>
                         <option value="<?= e($k) ?>"><?= e($label) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
                 <div id="txn-field" class="hidden">
-                    <label class="text-sm text-gray-400">Transaction ID (optional)</label>
-                    <select name="txn_reference" class="input-field mt-1">
+                    <?= uxFormLabel('txn_reference', 'Transaction ID (optional)') ?>
+                    <select name="txn_reference" id="txn_reference" class="input-field mt-1">
                         <option value="">— Select transaction —</option>
                         <?php foreach ($txnList as $t): ?>
                         <option value="<?= e($t['txn_id']) ?>"><?= e($t['txn_id']) ?> · <?= formatMoney((float)$t['amount']) ?> · <?= e($t['status']) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div><label class="text-sm text-gray-400">Subject *</label><input type="text" name="subject" required class="input-field mt-1" placeholder="Brief issue title"></div>
-                <div><label class="text-sm text-gray-400">Priority</label>
-                    <select name="priority" class="input-field mt-1"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select>
+                <div><?= uxFormLabel(uxFieldId('subject'), 'Subject', true) ?><input type="text" name="subject" id="<?= e(uxFieldId('subject')) ?>" required class="input-field mt-1" placeholder="Brief issue title"></div>
+                <div><?= uxFormLabel(uxFieldId('priority'), 'Priority') ?>
+                    <select name="priority" id="<?= e(uxFieldId('priority')) ?>" class="input-field mt-1"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select>
                 </div>
-                <div><label class="text-sm text-gray-400">Message *</label><textarea name="message" required rows="4" class="input-field mt-1" placeholder="Describe your issue in detail"></textarea></div>
+                <div><?= uxFormLabel(uxFieldId('message'), 'Message', true) ?><textarea name="message" id="<?= e(uxFieldId('message')) ?>" required rows="4" class="input-field mt-1" placeholder="Describe your issue in detail"></textarea></div>
                 <button type="submit" class="w-full btn-primary py-3">Submit Ticket</button>
             </form>
         </div>
@@ -93,7 +93,7 @@ require_once __DIR__ . '/header.php';
     <div class="lg:col-span-2 glass rounded-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Your Tickets</h2></div>
         <?php if (empty($ticketList)): ?>
-        <p class="text-gray-500 text-sm text-center py-12">No support tickets yet.</p>
+        <div class="p-6"><?= renderMerchantEmptyState('No support tickets yet', 'Raise a ticket for payment, settlement or KYC questions. We usually respond within one business day.', null, null) ?></div>
         <?php else: ?>
         <div class="divide-y divide-gray-800">
             <?php foreach ($ticketList as $t):

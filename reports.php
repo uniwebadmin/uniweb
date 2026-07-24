@@ -19,8 +19,12 @@ $monthly->execute([$mid]); $monthlyData = $monthly->fetchAll();
 
 $pageTitle = __('reports');
 require_once __DIR__ . '/header.php';
+echo renderPrintStylesheet();
 $hasData = !empty($dailyData) || !empty($methodData) || !empty($statusData) || !empty($monthlyData);
 ?>
+<div class="flex flex-wrap justify-end gap-3 mb-4">
+    <?= renderExportCsvLink('export_reports.php') ?>
+</div>
 <?php if (!$hasData): ?>
 <div class="mb-6">
     <?= renderMerchantEmptyState(

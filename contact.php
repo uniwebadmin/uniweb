@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/page_ux.php';
 $sent = false;
 $error = '';
 
@@ -66,12 +67,12 @@ require_once __DIR__ . '/header.php';
             <h2 class="company-title" style="font-size:1.65rem">Tell us how we can help.</h2>
             <p class="company-lead text-sm mb-5">Provide enough information to identify the case, without including payment credentials.</p>
             <?php if ($error !== ''): ?><p class="text-sm text-amber-400 mb-4"><?= e($error) ?></p><?php endif; ?>
-            <form method="POST" class="space-y-4">
+            <form method="POST" class="space-y-4" aria-label="Contact form">
                 <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
-                <div><label class="text-sm text-gray-400">Full name</label><input type="text" name="name" required maxlength="120" class="input-field mt-1" value="<?= e($_POST['name'] ?? '') ?>"></div>
-                <div><label class="text-sm text-gray-400">Email address</label><input type="email" name="email" required maxlength="190" class="input-field mt-1" value="<?= e($_POST['email'] ?? '') ?>"></div>
-                <div><label class="text-sm text-gray-400">Subject or reference ID</label><input type="text" name="subject" required maxlength="190" class="input-field mt-1" value="<?= e($_POST['subject'] ?? '') ?>"></div>
-                <div><label class="text-sm text-gray-400">Message</label><textarea name="message" required maxlength="4000" rows="7" class="input-field mt-1"><?= e($_POST['message'] ?? '') ?></textarea></div>
+                <div><?= uxLabel('contact-name', 'Full name', true) ?><input id="contact-name" type="text" name="name" required maxlength="120" class="input-field mt-1" value="<?= e($_POST['name'] ?? '') ?>"></div>
+                <div><?= uxLabel('contact-email', 'Email address', true) ?><input id="contact-email" type="email" name="email" required maxlength="190" class="input-field mt-1" value="<?= e($_POST['email'] ?? '') ?>"></div>
+                <div><?= uxLabel('contact-subject', 'Subject or reference ID', true) ?><input id="contact-subject" type="text" name="subject" required maxlength="190" class="input-field mt-1" value="<?= e($_POST['subject'] ?? '') ?>"></div>
+                <div><?= uxLabel('contact-message', 'Message', true) ?><textarea id="contact-message" name="message" required maxlength="4000" rows="7" class="input-field mt-1"><?= e($_POST['message'] ?? '') ?></textarea></div>
                 <button type="submit" class="w-full btn-primary py-3">Send securely</button>
             </form>
         </div>

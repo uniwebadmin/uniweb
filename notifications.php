@@ -8,67 +8,78 @@ $merchant = getMerchant();
 
 $db = getDB();
 
-
-
-if (isset($_GET['read']) && $_GET['read'] === 'all') {
-
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_all_read']) && verifyCsrf($_POST['csrf_token'] ?? '')) {
     $db->prepare('UPDATE notifications SET is_read = 1 WHERE merchant_id = ?')->execute([$merchant['id']]);
-
+    flash('success', 'All notifications marked as read.');
     redirect('notifications.php');
-
 }
-
-
 
 if (isset($_GET['read']) && ctype_digit((string)$_GET['read'])) {
-
     $nid = (int)$_GET['read'];
-
     $db->prepare('UPDATE notifications SET is_read = 1 WHERE id = ? AND merchant_id = ?')->execute([$nid, $merchant['id']]);
-
     $st = $db->prepare('SELECT title, message FROM notifications WHERE id = ? AND merchant_id = ?');
-
     $st->execute([$nid, $merchant['id']]);
-
     $row = $st->fetch();
-
     if ($row) {
-
         redirect(notificationActionUrl($row));
-
     }
-
     redirect('notifications.php');
-
 }
 
-
-
-$notifs = $db->prepare('SELECT * FROM notifications WHERE merchant_id = ? ORDER BY created_at DESC LIMIT 50');
-
-$notifs->execute([$merchant['id']]);
-
+$notifQ = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
+$readFilter = trim($_GET['filter'] ?? 'all');
+$listParams = listPageParams(25);
+$where = 'merchant_id = ?';
+$params = [$merchant['id']];
+if ($notifQ !== '') {
+    $like = '%' . strtolower($notifQ) . '%';
+    $where .= ' AND (LOWER(title) LIKE ? OR LOWER(message) LIKE ?)';
+    array_push($params, $like, $like);
+}
+if ($readFilter === 'unread') {
+    $where .= ' AND is_read = 0';
+} elseif ($readFilter === 'read') {
+    $where .= ' AND is_read = 1';
+}
+$countStmt = $db->prepare("SELECT COUNT(*) FROM notifications WHERE {$where}");
+$countStmt->execute($params);
+$notifTotal = (int)$countStmt->fetchColumn();
+$notifs = $db->prepare("SELECT * FROM notifications WHERE {$where} ORDER BY created_at DESC LIMIT {$listParams['perPage']} OFFSET {$listParams['offset']}");
+$notifs->execute($params);
 $notifications = $notifs->fetchAll();
 
 $pageTitle = 'Notifications';
-
 require_once __DIR__ . '/header.php';
 
 ?>
 
-<div class="flex justify-between items-center mb-6">
-
-    <p class="text-sm text-gray-500"><?= count(array_filter($notifications, fn($n) => !$n['is_read'])) ?> unread</p>
-
-    <a href="?read=all" class="text-sm text-brand-400">Mark all as read</a>
-
+<div class="flex flex-wrap justify-between items-center gap-3 mb-6">
+    <p class="text-sm text-gray-500"><?= count(array_filter($notifications, fn($n) => !$n['is_read'])) ?> unread on this page</p>
+    <div class="flex gap-2 items-center flex-wrap">
+        <form method="GET" class="flex gap-2 items-center">
+            <label class="sr-only" for="notif-q">Search notifications</label>
+            <input id="notif-q" type="search" name="q" value="<?= e($notifQ) ?>" placeholder="Search title / message" class="input-field text-sm">
+            <select name="filter" class="input-field text-sm" aria-label="Read filter">
+                <option value="all" <?= $readFilter==='all'?'selected':'' ?>>All</option>
+                <option value="unread" <?= $readFilter==='unread'?'selected':'' ?>>Unread</option>
+                <option value="read" <?= $readFilter==='read'?'selected':'' ?>>Read</option>
+            </select>
+            <button type="submit" class="btn-primary text-sm px-3 py-1.5">Filter</button>
+        </form>
+        <?= renderExportCsvLink('export_notifications.php?' . http_build_query(['q' => $notifQ, 'filter' => $readFilter])) ?>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="mark_all_read" value="1">
+            <button type="submit" class="text-sm text-brand-400">Mark all as read</button>
+        </form>
+    </div>
 </div>
 
 <div class="space-y-3">
 
     <?php if (empty($notifications)): ?>
 
-    <div class="glass rounded-xl p-12 text-center text-gray-500">No notifications yet.</div>
+    <?= renderMerchantEmptyState('No notifications yet', 'Payment, settlement and account alerts will appear here.', null, null) ?>
 
     <?php else: foreach ($notifications as $n):
 
@@ -95,6 +106,5 @@ require_once __DIR__ . '/header.php';
     <?php endforeach; endif; ?>
 
 </div>
-
+<?= renderListPagination($listParams['page'], $notifTotal, $listParams['perPage'], ['q' => $notifQ, 'filter' => $readFilter]) ?>
 <?php require_once __DIR__ . '/footer.php'; ?>
-
