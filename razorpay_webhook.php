@@ -178,6 +178,16 @@ if (in_array($event, $failureEvents, true) && $paymentId !== '') {
 }
 
 if (!in_array($event, $successEvents, true) || $paymentId === '') {
+    if (!function_exists('tryApplyMethodDecisionFromGatewayWebhook') && is_file(__DIR__ . '/includes/method_partner_adapters.php')) {
+        require_once __DIR__ . '/includes/method_partner_adapters.php';
+    }
+    if (function_exists('tryApplyMethodDecisionFromGatewayWebhook')) {
+        $methodDecision = tryApplyMethodDecisionFromGatewayWebhook('razorpay', $event, is_array($payload) ? $payload : []);
+        if (is_array($methodDecision) && !empty($methodDecision['ok'])) {
+            setGatewayEventStatus((int)$gatewayEvent['id'], 'processed');
+            jsonResponse(['ok' => true, 'method_decision' => $methodDecision]);
+        }
+    }
     setGatewayEventStatus((int)$gatewayEvent['id'], 'processed');
     jsonResponse(['ok' => true, 'ignored' => true]);
 }
