@@ -1,18 +1,17 @@
 ---
-description: Prefer Cursor Cloud Agents so the owner can work from mobile only
+description: Local-first UniWeb work — no Cursor Cloud Agents
 alwaysApply: true
 ---
 
-# Mobile / Cloud First
+# Local First (no cloud agents)
 
-The owner primarily works from a phone (cursor.com/agents). Laptop is optional.
+Owner order (2026-07-24): **do all work on the laptop**. Do not launch Cursor Cloud Agents.
 
 ## How to work
 
-- Prefer **Cloud Agents** over local laptop agents whenever the repo has a GitHub remote.
-- After finishing a task, open/continue the next highest-impact live-prep item on a cloud branch (do not wait for "continue").
-- Commit on the cloud branch and open a PR when the fix is ready.
-- Never require the user to keep a laptop open for agent compute.
+- Use **local Agent / IDE only** in this repo on the Windows laptop.
+- Do **not** start cloud agents, cloud branches, or `cursor.com/agents` workflows unless the owner explicitly reverses this.
+- Run PHP + MariaDB locally (`dev_local` bootstrap + `php -S localhost:8000`).
 - Chat replies to the user may be Hindi; all product/UI text stays English.
 
 ## Do not
@@ -20,3 +19,4 @@ The owner primarily works from a phone (cursor.com/agents). Laptop is optional.
 - Do not delete production pages or run broad remote deletes.
 - Do not invent or commit credentials (`config.php`, `.vscode/sftp.json`, API keys).
 - Do not force-push or hard-reset unless the user explicitly asks.
+- Do not open cloud agent sessions for UniWeb work.

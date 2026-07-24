@@ -4,6 +4,8 @@
 .vscode/
 config.php
 config.private.php
+config.live.local.bak.php
+dev_local/mariadb_error.log
 db.local.php
 
 # One-time setup, diagnostics, and deployment scripts

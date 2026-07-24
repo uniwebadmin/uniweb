@@ -12,7 +12,8 @@ function ensureMigrationRegistry(PDO $db): void
 
 function migrationStatements(string $sql): array
 {
-    // Strip SQL line comments so semicolons inside "-- notes; more" do not split statements.
+    // Strip accidental PHP open tags (broken overnight files) and SQL line comments.
+    $sql = preg_replace('/^\s*<\?php\s*/i', '', $sql) ?? $sql;
     $lines = preg_split("/\r\n|\n|\r/", $sql) ?: [];
     $cleaned = [];
     foreach ($lines as $line) {
