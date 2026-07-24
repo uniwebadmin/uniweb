@@ -155,7 +155,7 @@ require_once __DIR__ . '/header.php';
                 ?>
                 <tr class="hover:bg-white/5 cursor-pointer" onclick="location.href='<?= e(transactionDetailUrl($t['txn_id'])) ?>'">
                     <td class="px-5 py-3 font-mono text-xs"><a href="<?= e(transactionDetailUrl($t['txn_id'])) ?>" class="text-sky-400 hover:underline"><?= e($t['txn_id']) ?></a></td>
-                    <td class="px-5 py-3"><?= e($t['customer_name'] ?: $t['customer_phone'] ?: '—') ?></td>
+                    <td class="px-5 py-3"><?= e(maskCustomerContact($t['customer_phone'] ?? null, $t['customer_name'] ?? null)) ?></td>
                     <td class="px-5 py-3 font-semibold"><?= formatMoney((float)$t['amount']) ?></td>
                     <td class="px-5 py-3 uppercase text-xs"><?= e($t['payment_method']) ?></td>
                     <td class="px-5 py-3 font-mono text-xs text-gray-500"><?= e($t['utr'] ?: '—') ?></td>

@@ -84,7 +84,7 @@ require_once __DIR__ . '/header.php';
                 <?php foreach ($disputeList as $d): ?>
                 <tr class="hover:bg-white/5">
                     <td class="px-5 py-3 font-mono text-xs"><?= e($d['dispute_id']) ?></td>
-                    <td class="px-5 py-3 font-mono text-xs"><?= e($d['txn_id']) ?></td>
+                    <td class="px-5 py-3 font-mono text-xs"><?= txnDetailLink((string)$d['txn_id']) ?></td>
                     <td class="px-5 py-3"><?= formatMoney(capStatAmount((float)$d['amount'])) ?></td>
                     <td class="px-5 py-3 text-xs text-gray-400 max-w-[12rem] truncate" title="<?= e($d['reason']) ?>"><?= e($d['reason']) ?></td>
                     <td class="px-5 py-3"><?= statusBadge($d['status']) ?></td>

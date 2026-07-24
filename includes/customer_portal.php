@@ -191,8 +191,10 @@ function verifyCustomerOtp(string $phone, string $otp): array
 /**
  * Read-only transaction history for a payer's mobile across ALL merchants.
  * Matches transactions.customer_phone and falls back to payment_links.customer_phone.
+ *
+ * @param array{from?:string,to?:string,status?:string,type?:string,amount_min?:float|string,amount_max?:float|string} $filters
  */
-function getCustomerTransactions(string $phone, int $limit = 100): array
+function getCustomerTransactions(string $phone, int $limit = 100, array $filters = []): array
 {
     $db = getDB();
     $limit = max(1, min(200, $limit));
@@ -206,7 +208,7 @@ function getCustomerTransactions(string $phone, int $limit = 100): array
          LEFT JOIN merchants m ON m.id = t.merchant_id
          LEFT JOIN payment_links pl ON pl.id = t.payment_link_id
          WHERE RIGHT(REGEXP_REPLACE(COALESCE(NULLIF(TRIM(t.customer_phone),''), NULLIF(TRIM(pl.customer_phone),''), ''), '[^0-9]', ''), 10) = ?
-         ORDER BY t.created_at DESC LIMIT {$limit}",
+         ORDER BY t.created_at DESC LIMIT 200",
         // Without REGEXP_REPLACE
         "SELECT t.*, m.business_name
          FROM transactions t
@@ -214,14 +216,15 @@ function getCustomerTransactions(string $phone, int $limit = 100): array
          LEFT JOIN payment_links pl ON pl.id = t.payment_link_id
          WHERE t.customer_phone LIKE CONCAT('%', ?)
             OR pl.customer_phone LIKE CONCAT('%', ?)
-         ORDER BY t.created_at DESC LIMIT {$limit}",
+         ORDER BY t.created_at DESC LIMIT 200",
         // Minimal fallback (txn phone only)
         "SELECT t.*, m.business_name FROM transactions t
          LEFT JOIN merchants m ON m.id = t.merchant_id
          WHERE t.customer_phone LIKE CONCAT('%', ?)
-         ORDER BY t.created_at DESC LIMIT {$limit}",
+         ORDER BY t.created_at DESC LIMIT 200",
     ];
 
+    $rows = [];
     foreach ($queries as $i => $sql) {
         try {
             $st = $db->prepare($sql);
@@ -232,21 +235,92 @@ function getCustomerTransactions(string $phone, int $limit = 100): array
             }
             $rows = $st->fetchAll();
             // PHP-side harden: keep only exact last-10 match.
-            return array_values(array_filter($rows, static function (array $row) use ($phone): bool {
+            $rows = array_values(array_filter($rows, static function (array $row) use ($phone): bool {
                 $raw = (string)($row['matched_phone'] ?? $row['customer_phone'] ?? '');
                 $norm = customerNormalizePhone($raw);
                 if ($norm === $phone) {
                     return true;
                 }
-                // LIKE fallback may over-match; tighten here.
                 $digits = preg_replace('/\D/', '', $raw) ?? '';
                 return strlen($digits) >= 10 && substr($digits, -10) === $phone;
             }));
+            break;
         } catch (Throwable $e) {
             continue;
         }
     }
-    return [];
+
+    $from = trim((string)($filters['from'] ?? ''));
+    $to = trim((string)($filters['to'] ?? ''));
+    $status = strtolower(trim((string)($filters['status'] ?? '')));
+    $type = strtolower(trim((string)($filters['type'] ?? '')));
+    $amountMin = $filters['amount_min'] ?? '';
+    $amountMax = $filters['amount_max'] ?? '';
+    $amountMin = $amountMin === '' || $amountMin === null ? null : (float)$amountMin;
+    $amountMax = $amountMax === '' || $amountMax === null ? null : (float)$amountMax;
+
+    $rows = array_values(array_filter($rows, static function (array $row) use ($from, $to, $status, $type, $amountMin, $amountMax): bool {
+        $created = (string)($row['created_at'] ?? '');
+        if ($from !== '' && $created !== '' && strncmp($created, $from, 10) < 0) {
+            return false;
+        }
+        if ($to !== '' && $created !== '' && strncmp($created, $to, 10) > 0) {
+            return false;
+        }
+        if ($status !== '' && $status !== 'all' && strtolower((string)($row['status'] ?? '')) !== $status) {
+            return false;
+        }
+        if ($type !== '' && $type !== 'all') {
+            $method = strtolower((string)($row['payment_method'] ?? ''));
+            $mode = strtolower((string)($row['collection_mode'] ?? ''));
+            if ($method !== $type && $mode !== $type && !str_contains($method, $type)) {
+                return false;
+            }
+        }
+        $amt = (float)($row['amount'] ?? 0);
+        if ($amountMin !== null && $amt < $amountMin) {
+            return false;
+        }
+        if ($amountMax !== null && $amt > $amountMax) {
+            return false;
+        }
+        return true;
+    }));
+
+    return array_slice($rows, 0, $limit);
+}
+
+/** Mask payer phone for merchant UI (privacy). */
+if (!function_exists('maskCustomerContactPortal')) {
+    function maskCustomerContactPortal(?string $phone, ?string $name = null): string
+    {
+        $phone = trim((string)$phone);
+        $digits = preg_replace('/\D/', '', $phone) ?? '';
+        if (strlen($digits) >= 4) {
+            return '••••' . substr($digits, -4);
+        }
+        $name = trim((string)$name);
+        if ($name !== '') {
+            $first = function_exists('mb_substr') ? mb_substr($name, 0, 1) : substr($name, 0, 1);
+            return $first . '***';
+        }
+        return '—';
+    }
+}
+
+if (!function_exists('maskCustomerContact')) {
+    function maskCustomerContact(?string $phone, ?string $name = null): string
+    {
+        return maskCustomerContactPortal($phone, $name);
+    }
+}
+
+if (!function_exists('adminCustomerHistoryUrl')) {
+    function adminCustomerHistoryUrl(string $phone): string
+    {
+        $norm = customerNormalizePhone($phone) ?: preg_replace('/\D/', '', $phone);
+        return 'admin_customer_view.php?phone=' . rawurlencode((string)$norm);
+    }
 }
 
 function customerTransactionReason(array $t): string

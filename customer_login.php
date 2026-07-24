@@ -121,7 +121,7 @@ require_once __DIR__ . '/header.php';
                 <button type="submit" class="ap-btn">Send OTP →</button>
             </form>
             <?php endif; ?>
-            <p class="ap-foot">Merchant? <a href="login.php" class="ap-link">Merchant login</a></p>
+            <p class="ap-foot">Need help? <a href="contact.php" class="ap-link">Contact support</a></p>
         </div>
     </div>
 </div>

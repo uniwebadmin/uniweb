@@ -97,6 +97,24 @@ function txnDetailLink(string $txnId, ?string $label = null, string $class = 'te
     return '<a href="' . e(transactionDetailUrl($txnId)) . '" class="' . e($class) . '">' . e($label) . '</a>';
 }
 
+/** Mask payer identity on merchant-facing lists (privacy). */
+if (!function_exists('maskCustomerContact')) {
+    function maskCustomerContact(?string $phone, ?string $name = null): string
+    {
+        $phone = trim((string)$phone);
+        $digits = preg_replace('/\D/', '', $phone) ?? '';
+        if (strlen($digits) >= 4) {
+            return '••••' . substr($digits, -4);
+        }
+        $name = trim((string)$name);
+        if ($name !== '') {
+            $first = function_exists('mb_substr') ? mb_substr($name, 0, 1) : substr($name, 0, 1);
+            return $first . '***';
+        }
+        return '—';
+    }
+}
+
 function getAdminLinkAuditRules(): array
 {
     return [

@@ -31,6 +31,24 @@ $view = $viewId ? getCustomerTicketById($viewId) : null;
 $statusFilter = (string)($_GET['status'] ?? '');
 $tickets = getAllCustomerTickets($statusFilter ?: null);
 
+$linkedTxn = null;
+$customerHistory = [];
+if ($view) {
+    if (!empty($view['txn_reference'])) {
+        $linkedTxn = findCustomerOwnedTransaction((string)$view['customer_phone'], (string)$view['txn_reference']);
+        if (!$linkedTxn) {
+            try {
+                $st = getDB()->prepare('SELECT t.*, m.business_name FROM transactions t LEFT JOIN merchants m ON m.id = t.merchant_id WHERE t.txn_id = ? LIMIT 1');
+                $st->execute([(string)$view['txn_reference']]);
+                $linkedTxn = $st->fetch() ?: null;
+            } catch (Throwable $e) {
+                $linkedTxn = null;
+            }
+        }
+    }
+    $customerHistory = getCustomerTransactions((string)$view['customer_phone'], 20);
+}
+
 $pageTitle = 'Customer Complaints';
 require_once __DIR__ . '/header.php';
 ?>
@@ -50,10 +68,41 @@ require_once __DIR__ . '/header.php';
             <div class="min-w-0">
                 <p class="font-mono text-sm text-sky-400 break-all"><?= e($view['ticket_id']) ?></p>
                 <h2 class="text-lg font-semibold mt-1 break-words"><?= e($view['subject']) ?></h2>
-                <p class="text-xs text-gray-500 mt-1 break-words">+91 <?= e($view['customer_phone']) ?><?= $view['business_name'] ? ' · ' . e($view['business_name']) : '' ?><?= !empty($view['txn_reference']) ? ' · Txn ' . e($view['txn_reference']) : '' ?></p>
+                <p class="text-xs text-gray-500 mt-1 break-words">
+                    <a href="<?= e(adminCustomerHistoryUrl((string)$view['customer_phone'])) ?>" class="text-sky-400 hover:underline">+91 <?= e($view['customer_phone']) ?></a>
+                    <?php if ($view['business_name']): ?> · <?= e($view['business_name']) ?><?php endif; ?>
+                </p>
             </div>
             <?= statusBadge((string)$view['status']) ?>
         </div>
+
+        <?php if ($linkedTxn || !empty($view['txn_reference'])): ?>
+        <div class="mb-5 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+            <p class="text-[10px] uppercase tracking-wide text-amber-300 font-semibold mb-2">Linked payment (complaint)</p>
+            <?php if ($linkedTxn): ?>
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p class="font-mono text-sky-300 text-sm"><?= txnDetailLink((string)$linkedTxn['txn_id']) ?></p>
+                    <p class="text-2xl font-bold text-white mt-1"><?= formatMoney((float)$linkedTxn['amount']) ?></p>
+                    <p class="text-xs text-gray-400 mt-2"><?= formatDate($linkedTxn['created_at']) ?> · <?= statusBadge((string)$linkedTxn['status']) ?> · <?= e(paymentMethodLabel($linkedTxn['payment_method'] ?? '')) ?></p>
+                    <?php if (!empty($linkedTxn['business_name'])): ?>
+                    <p class="text-xs text-gray-500 mt-1"><?= e($linkedTxn['business_name']) ?></p>
+                    <?php endif; ?>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <a href="<?= e(transactionDetailUrl((string)$linkedTxn['txn_id'])) ?>" class="btn-primary text-sm px-4 py-2 text-center">Open full details</a>
+                    <a href="<?= e(adminCustomerHistoryUrl((string)$view['customer_phone']) . '&txn=' . rawurlencode((string)$linkedTxn['txn_id'])) ?>" class="text-sm text-center glass px-4 py-2 rounded-lg text-sky-300 hover:text-white">Customer history →</a>
+                    <?php if (strtolower((string)$linkedTxn['status']) === 'success'): ?>
+                    <a href="transaction_detail.php?txn=<?= rawurlencode((string)$linkedTxn['txn_id']) ?>#refund" class="text-sm text-center bg-red-500/20 text-red-300 border border-red-500/40 px-4 py-2 rounded-lg font-semibold hover:bg-red-500/30">Refund this payment</a>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php else: ?>
+            <p class="text-sm text-amber-100 font-mono">Txn <?= e((string)$view['txn_reference']) ?> <span class="text-gray-500">(not found in DB)</span></p>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
         <p class="text-sm text-gray-300 whitespace-pre-wrap"><?= e($view['message']) ?></p>
         <p class="text-xs text-gray-600 mt-2"><?= formatDate($view['created_at']) ?></p>
         <?php foreach (getCustomerTicketMessages((int)$view['id']) as $msg):
@@ -69,10 +118,40 @@ require_once __DIR__ . '/header.php';
             <p class="text-xs text-gray-600 mt-2"><?= formatDate($msg['created_at']) ?></p>
         </div>
         <?php endforeach; ?>
+
+        <?php if ($customerHistory): ?>
+        <div class="mt-6 border-t border-gray-800 pt-5">
+            <div class="flex flex-wrap justify-between gap-2 mb-3">
+                <h3 class="font-semibold text-sm">Customer recent payments</h3>
+                <a href="<?= e(adminCustomerHistoryUrl((string)$view['customer_phone']) . (!empty($view['txn_reference']) ? '&txn=' . rawurlencode((string)$view['txn_reference']) : '')) ?>" class="text-xs text-sky-400 hover:underline">Full history →</a>
+            </div>
+            <div class="overflow-x-auto rounded-lg border border-gray-800">
+                <table class="w-full text-xs min-w-[560px]">
+                    <thead class="text-gray-500 uppercase bg-dark-900/50"><tr>
+                        <th class="px-3 py-2 text-left">Txn</th><th class="px-3 py-2 text-left">Amount</th><th class="px-3 py-2 text-left">Status</th><th class="px-3 py-2 text-left">Date</th>
+                    </tr></thead>
+                    <tbody class="divide-y divide-gray-800">
+                        <?php foreach ($customerHistory as $ht):
+                            $hit = !empty($view['txn_reference']) && strcasecmp((string)$ht['txn_id'], (string)$view['txn_reference']) === 0;
+                        ?>
+                        <tr class="<?= $hit ? 'bg-amber-500/10' : '' ?>">
+                            <td class="px-3 py-2 font-mono"><?= txnDetailLink((string)$ht['txn_id']) ?></td>
+                            <td class="px-3 py-2"><?= formatMoney((float)$ht['amount']) ?></td>
+                            <td class="px-3 py-2"><?= statusBadge((string)$ht['status']) ?></td>
+                            <td class="px-3 py-2 text-gray-500"><?= formatDate($ht['created_at']) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <form method="POST" class="space-y-3 mt-6 border-t border-gray-800 pt-5">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="ticket_db_id" value="<?= (int)$view['id'] ?>">
-            <textarea name="admin_reply" rows="3" maxlength="5000" class="input-field w-full" placeholder="Reply to the customer…" aria-label="Reply to customer"></textarea>
+            <label class="sr-only" for="admin_reply">Reply to customer</label>
+            <textarea id="admin_reply" name="admin_reply" rows="3" maxlength="5000" class="input-field w-full" placeholder="Reply to the customer…" aria-label="Reply to customer"></textarea>
             <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
                 <select name="status" class="input-field w-full sm:w-auto" aria-label="Ticket status">
                     <?php foreach (['open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'closed' => 'Closed'] as $k => $lbl): ?>
@@ -88,10 +167,11 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl overflow-hidden min-w-0">
         <div class="px-4 sm:px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Complaints</h2></div>
         <div class="overflow-x-auto">
-            <table class="w-full text-sm min-w-[720px]">
+            <table class="w-full text-sm min-w-[820px]">
                 <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
                     <th class="px-5 py-3 text-left">Ticket</th>
                     <th class="px-5 py-3 text-left">Customer</th>
+                    <th class="px-5 py-3 text-left">Txn</th>
                     <th class="px-5 py-3 text-left">Subject</th>
                     <th class="px-5 py-3 text-left">Merchant</th>
                     <th class="px-5 py-3 text-left">Status</th>
@@ -99,11 +179,12 @@ require_once __DIR__ . '/header.php';
                 </tr></thead>
                 <tbody class="divide-y divide-gray-800">
                     <?php if (empty($tickets)): ?>
-                    <tr><td colspan="6" class="px-5 py-12 text-center text-gray-500">No customer complaints<?= $statusFilter ? ' in this status' : '' ?>.</td></tr>
+                    <tr><td colspan="7" class="px-5 py-12 text-center text-gray-500">No customer complaints<?= $statusFilter ? ' in this status' : '' ?>.</td></tr>
                     <?php else: foreach ($tickets as $tk): ?>
                     <tr class="hover:bg-white/5 cursor-pointer" onclick="location.href='?id=<?= (int)$tk['id'] ?><?= $statusFilter !== '' ? '&status=' . urlencode($statusFilter) : '' ?>'">
                         <td class="px-5 py-3 font-mono text-xs text-sky-400"><?= e($tk['ticket_id']) ?></td>
-                        <td class="px-5 py-3 text-xs">+91 <?= e($tk['customer_phone']) ?></td>
+                        <td class="px-5 py-3 text-xs" onclick="event.stopPropagation()"><a href="<?= e(adminCustomerHistoryUrl((string)$tk['customer_phone'])) ?>" class="text-sky-400 hover:underline">+91 <?= e($tk['customer_phone']) ?></a></td>
+                        <td class="px-5 py-3 font-mono text-xs" onclick="event.stopPropagation()"><?= !empty($tk['txn_reference']) ? txnDetailLink((string)$tk['txn_reference']) : '—' ?></td>
                         <td class="px-5 py-3 max-w-[240px] truncate"><?= e($tk['subject']) ?></td>
                         <td class="px-5 py-3 text-xs text-gray-400"><?= e($tk['business_name'] ?: '—') ?></td>
                         <td class="px-5 py-3"><?= statusBadge((string)$tk['status']) ?></td>
