@@ -78,11 +78,20 @@ if ($link['expires_at'] && strtotime($link['expires_at']) < time()) {
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     incrementPaymentLinkView((int)$link['id']);
 }
+$checkoutPostBlocked = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $isExternalPayuPost = !empty($_POST['hash']) && !empty($_POST['key']);
+    if (!$isExternalPayuPost && !verifyCsrf($_POST['csrf_token'] ?? '')) {
+        $checkoutPostBlocked = true;
+    }
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked) {
     persistCheckoutCustomerDetails($link, $_POST);
 }
 $checkoutCustomerError = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($checkoutPostBlocked) {
+    $checkoutCustomerError = 'Security token expired. Refresh the page and try again.';
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $customerCheck = validateCheckoutCustomerDetails($_POST);
     if (!$customerCheck['ok']) {
         $checkoutCustomerError = $customerCheck['message'];
@@ -108,7 +117,7 @@ if (!in_array($selectedPay, $validKeys, true)) $selectedPay = $validKeys[0] ?? '
 $currentMethod = null;
 foreach ($paymentMethods as $m) { if ($m['key'] === $selectedPay) { $currentMethod = $m; break; } }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'test_pay' && $allowInstantPay) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && ($_POST['action'] ?? '') === 'test_pay' && $allowInstantPay) {
     if ($checkoutCustomerError !== '') {
         $error = $checkoutCustomerError;
     } else {
@@ -196,7 +205,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $selectedPay === 'upi' && in_array($handler, ['direct_upi', 'axis_va'], true) && !$success) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && $selectedPay === 'upi' && in_array($handler, ['direct_upi', 'axis_va'], true) && !$success) {
     $utr = trim($_POST['utr'] ?? '');
     // High-throughput QR: never block busy counters for "high frequency" (₹100 × 10 lakh, etc.).
     // payment_fail velocity stays for non-QR checkout only (bot UTR spray).
@@ -311,6 +320,7 @@ require_once __DIR__ . '/header.php';
                     <?php if ($selectedPay === 'upi'): ?>
                     <?php if ($allowInstantPay): ?>
                     <form method="POST" class="mb-4">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <input type="hidden" name="action" value="test_pay">
                         <input type="hidden" name="pay" value="upi">
                         <?php renderCheckoutCustomerFields($link); ?>
@@ -344,6 +354,7 @@ require_once __DIR__ . '/header.php';
                     <?php endif; ?>
                     <?php if ($allowInstantPay): ?>
                     <form method="POST" class="space-y-3">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <?php renderCheckoutCustomerFields($link); ?>
                         <input type="text" name="utr" placeholder="Test UPI reference" class="input-field">
                         <button type="submit" class="w-full border border-gray-700 text-gray-300 py-3 rounded-xl font-semibold">Confirm Test UPI Payment</button>
@@ -358,6 +369,7 @@ require_once __DIR__ . '/header.php';
                     <?php $pf = $payuForms[$selectedPay]; ?>
                     <?php if ($allowInstantPay): ?>
                     <form method="POST" class="space-y-3 mb-4">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <input type="hidden" name="action" value="test_pay">
                         <input type="hidden" name="pay" value="<?= e($selectedPay) ?>">
                         <?php renderCheckoutCustomerFields($link); ?>
@@ -393,6 +405,7 @@ require_once __DIR__ . '/header.php';
                     <?php elseif ($selectedPay === 'razorpay' && $razorpayOrder && $razorpayKey): ?>
                     <?php if ($allowInstantPay): ?>
                     <form method="POST" class="space-y-3 mb-4">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <input type="hidden" name="action" value="test_pay">
                         <input type="hidden" name="pay" value="razorpay">
                         <?php renderCheckoutCustomerFields($link); ?>
@@ -424,6 +437,7 @@ require_once __DIR__ . '/header.php';
                     <?php elseif ($selectedPay === 'cashfree' && $cashfreeSession): ?>
                     <?php if ($allowInstantPay): ?>
                     <form method="POST" class="space-y-3 mb-4">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <input type="hidden" name="action" value="test_pay">
                         <input type="hidden" name="pay" value="cashfree">
                         <?php renderCheckoutCustomerFields($link); ?>
@@ -444,6 +458,7 @@ require_once __DIR__ . '/header.php';
                     <?php else: ?>
                     <?php if ($allowInstantPay): ?>
                     <form method="POST" class="space-y-3">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <input type="hidden" name="action" value="test_pay">
                         <input type="hidden" name="pay" value="<?= e($selectedPay) ?>">
                         <?php renderCheckoutCustomerFields($link); ?>
