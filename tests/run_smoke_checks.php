@@ -151,6 +151,9 @@ $assert(str_contains($mReq, 'function requestMethodEnable') && str_contains($mRe
 $assert(str_contains($mReq, 'function bootstrapMerchantMethodAutomation'), 'method_auto_queue_bootstrap');
 $assert(str_contains($mReq, 'function queueAllExistingMerchantsMethodAutomation'), 'method_queue_existing_merchants');
 $assert(str_contains($mReq, 'function afterKycVerifiedAutoSendMethods'), 'method_kyc_auto_send');
+$assert(is_file($root . '/includes/method_partner_adapters.php'), 'method_partner_adapters_file');
+$adapters = (string)file_get_contents($root . '/includes/method_partner_adapters.php');
+$assert(str_contains($adapters, 'function normalizePartnerMethodWebhookPayload') && str_contains($adapters, 'function applyNormalizedPartnerMethodWebhook'), 'method_partner_adapters_helpers');
 $onboardSecKyc = (string)file_get_contents($root . '/includes/onboarding_security.php');
 $assert(str_contains($onboardSecKyc, 'afterKycVerifiedAutoSendMethods'), 'kyc_verify_triggers_auto_send');
 $adminMr = (string)file_get_contents($root . '/admin_method_requests.php');
