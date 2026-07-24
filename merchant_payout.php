@@ -96,7 +96,31 @@ if (isset($_GET['download_csv_template'])) {
 $enableReq = getMerchantPayoutEnableRequest($merchantId);
 $enabled = merchantPayoutEnabled($merchant);
 $beneficiaries = listPayoutBeneficiaries($merchantId, false);
-$orders = listPayoutOrders($merchantId, 30);
+$payoutQ = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
+$payoutStatus = trim($_GET['status'] ?? 'all');
+$listParams = listPageParams(20);
+$orderWhere = 'o.merchant_id = ?';
+$orderParams = [$merchantId];
+if ($payoutQ !== '') {
+    $like = '%' . strtolower($payoutQ) . '%';
+    $orderWhere .= ' AND (LOWER(o.payout_id) LIKE ? OR LOWER(COALESCE(b.label,\'\')) LIKE ? OR LOWER(COALESCE(o.failure_reason,\'\')) LIKE ?)';
+    array_push($orderParams, $like, $like, $like);
+}
+if ($payoutStatus !== 'all') {
+    $orderWhere .= ' AND o.status = ?';
+    $orderParams[] = $payoutStatus;
+}
+try {
+    $countSt = $db->prepare("SELECT COUNT(*) FROM payout_orders o LEFT JOIN payout_beneficiaries b ON b.id=o.beneficiary_id WHERE {$orderWhere}");
+    $countSt->execute($orderParams);
+    $orderTotal = (int)$countSt->fetchColumn();
+    $orderSt = $db->prepare("SELECT o.*, b.label AS beneficiary_label, b.account_number FROM payout_orders o LEFT JOIN payout_beneficiaries b ON b.id=o.beneficiary_id WHERE {$orderWhere} ORDER BY o.id DESC LIMIT {$listParams['perPage']} OFFSET {$listParams['offset']}");
+    $orderSt->execute($orderParams);
+    $orders = $orderSt->fetchAll();
+} catch (Throwable $e) {
+    $orders = listPayoutOrders($merchantId, 30);
+    $orderTotal = count($orders);
+}
 $wallet = ensureMerchantWalletReady($merchantId);
 $split = getMerchantWalletSplitView($merchant, $wallet);
 $isTest = (bool)($wallet['is_test'] ?? isMerchantTest($merchant));
@@ -311,6 +335,11 @@ require_once __DIR__ . '/header.php';
         <h2 class="font-semibold">Payout history</h2>
         <p class="text-xs text-gray-500 mt-1">Failed rows always show a reason. No auto-reversal / auto-credit.</p>
     </div>
+    <form method="GET" class="px-6 py-3 border-b border-gray-800 flex flex-wrap gap-3 items-end">
+        <div class="flex-1 min-w-[160px]"><label class="text-[10px] text-gray-600 uppercase" for="payout-q">Search</label><input id="payout-q" type="search" name="q" value="<?= e($payoutQ) ?>" class="input-field mt-1 text-sm" placeholder="Payout ID / beneficiary"></div>
+        <div><label class="text-[10px] text-gray-600 uppercase" for="payout-status">Status</label><select id="payout-status" name="status" class="input-field mt-1 text-sm"><option value="all">All</option><?php foreach (['draft','pending_checker','submitted','completed','failed'] as $pst): ?><option value="<?= $pst ?>" <?= $payoutStatus===$pst?'selected':'' ?>><?= ucfirst(str_replace('_',' ',$pst)) ?></option><?php endforeach; ?></select></div>
+        <button type="submit" class="btn-primary text-sm px-4 py-2">Filter</button>
+    </form>
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
@@ -355,6 +384,7 @@ require_once __DIR__ . '/header.php';
             </tbody>
         </table>
     </div>
+    <?= renderListPagination($listParams['page'], $orderTotal, $listParams['perPage'], ['q' => $payoutQ, 'status' => $payoutStatus]) ?>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

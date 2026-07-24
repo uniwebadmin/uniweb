@@ -32,15 +32,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 }
 
 $refunds = getMerchantRefunds((int)$merchant['id']);
+$refundQ = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
+$listParams = listPageParams(20);
+if ($refundQ !== '') {
+    $refunds = array_values(array_filter($refunds, static function ($r) use ($refundQ) {
+        $hay = strtolower(($r['refund_id'] ?? '') . ' ' . ($r['txn_id'] ?? '') . ' ' . ($r['reason'] ?? ''));
+        return str_contains($hay, strtolower($refundQ));
+    }));
+}
+$refundTotal = count($refunds);
+$refunds = array_slice($refunds, $listParams['offset'], $listParams['perPage']);
 $txns = $db->prepare("SELECT id, txn_id, amount FROM transactions WHERE merchant_id = ? AND status = 'success' AND id NOT IN (SELECT transaction_id FROM refunds WHERE status IN ('pending','completed')) ORDER BY created_at DESC LIMIT 30");
 $txns->execute([$merchant['id']]);
 $txnList = $txns->fetchAll();
 $pageTitle = 'Refunds';
 require_once __DIR__ . '/header.php';
+echo renderPrintStylesheet();
 ?>
 <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
     <p class="text-sm text-gray-400">Process refunds with standard reason codes (ops / dispute ready)</p>
-    <a href="refund_policy.php" target="_blank" class="text-xs text-sky-400">Refund policy →</a>
+    <div class="flex gap-2 items-center">
+        <?= renderExportCsvLink('export_refunds.php') ?>
+        <a href="refund_policy.php" target="_blank" class="text-xs text-sky-400">Refund policy →</a>
+    </div>
 </div>
 <div class="grid lg:grid-cols-3 gap-6">
     <div class="glass rounded-xl p-6 border border-gray-800">
@@ -80,7 +94,14 @@ require_once __DIR__ . '/header.php';
         ) ?>
         <?php else: ?>
         <div class="glass rounded-xl overflow-hidden border border-gray-800">
-            <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Refund History</h2></div>
+            <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3">
+                <h2 class="font-semibold">Refund History</h2>
+                <form method="GET" class="flex gap-2 items-center">
+                    <label class="sr-only" for="refund-q">Search refunds</label>
+                    <input id="refund-q" type="search" name="q" value="<?= e($refundQ) ?>" placeholder="Refund / txn ID" class="input-field text-sm">
+                    <button type="submit" class="btn-primary text-sm px-3 py-1.5">Search</button>
+                </form>
+            </div>
             <div class="overflow-x-auto">
             <table class="w-full text-sm min-w-[520px]">
                 <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
@@ -99,6 +120,7 @@ require_once __DIR__ . '/header.php';
                 </tbody>
             </table>
             </div>
+            <?= renderListPagination($listParams['page'], $refundTotal, $listParams['perPage'], ['q' => $refundQ]) ?>
         </div>
         <?php endif; ?>
     </div>
