@@ -597,6 +597,47 @@ function bootstrapMerchantMethodAutomation(int $merchantId, string $note = 'Auto
     ];
 }
 
+/**
+ * One-click for OLD merchants (signed up before auto-queue existed).
+ * Runs bootstrapMerchantMethodAutomation for each active merchant (idempotent).
+ */
+function queueAllExistingMerchantsMethodAutomation(string $note = 'Auto-queued for existing merchant (admin one-click)', int $limit = 500): array
+{
+    ensureMethodRequestSchema();
+    $limit = max(1, min(2000, $limit));
+    try {
+        $rows = getDB()->query(
+            "SELECT id FROM merchants
+             WHERE status='active'
+               AND COALESCE(email,'') <> 'demo@uniweb.co.in'
+             ORDER BY id ASC
+             LIMIT {$limit}"
+        )->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not load merchants.', 'merchants' => 0, 'queued_total' => 0];
+    }
+
+    $merchantCount = 0;
+    $queuedTotal = 0;
+    foreach ($rows as $mid) {
+        $mid = (int)$mid;
+        if ($mid < 1) {
+            continue;
+        }
+        $boot = bootstrapMerchantMethodAutomation($mid, $note);
+        $merchantCount++;
+        $queuedTotal += (int)($boot['queued'] ?? 0);
+    }
+
+    return [
+        'ok' => true,
+        'merchants' => $merchantCount,
+        'queued_total' => $queuedTotal,
+        'message' => 'Processed ' . $merchantCount . ' merchant(s). New queue rows: ' . $queuedTotal
+            . '. (Already-queued methods were skipped.)',
+    ];
+}
+
 /** Admin: one click — send every pending partner method for this merchant (or all merchants). */
 function sendAllPendingMethodRequestsToPartner(?int $merchantId, string $actor, string $adminNote = ''): array
 {

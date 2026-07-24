@@ -149,6 +149,9 @@ $assert(is_file($root . '/migrations/020_txn_settlement_failure_reason.sql'), 'f
 $mReq = (string)file_get_contents($root . '/includes/method_requests.php');
 $assert(str_contains($mReq, 'function requestMethodEnable') && str_contains($mReq, 'function decideMethodRequest'), 'method_request_helpers');
 $assert(str_contains($mReq, 'function bootstrapMerchantMethodAutomation'), 'method_auto_queue_bootstrap');
+$assert(str_contains($mReq, 'function queueAllExistingMerchantsMethodAutomation'), 'method_queue_existing_merchants');
+$adminMr = (string)file_get_contents($root . '/admin_method_requests.php');
+$assert(str_contains($adminMr, 'queue_all_existing') && str_contains($adminMr, 'Queue all existing merchants'), 'admin_queue_existing_button');
 $assert(str_contains($mReq, 'function applyPartnerMethodDecisionByRef'), 'method_partner_webhook_helper');
 $assert(is_file($root . '/method_partner_webhook.php'), 'method_partner_webhook_page');
 $assert(is_file($root . '/merchant_nbfc.php') && is_file($root . '/merchant_instant_settlement.php'), 'nbfc_instant_pages');

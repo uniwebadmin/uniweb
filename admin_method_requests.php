@@ -13,7 +13,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $merchantFilter = (int)($_POST['merchant_id'] ?? 0);
 
     $res = ['ok' => false, 'error' => 'Unknown action.'];
-    if ($action === 'send_all_pending') {
+    if ($action === 'queue_all_existing') {
+        if (!isSuperAdmin()) {
+            $res = ['ok' => false, 'error' => 'Only super admin can queue all existing merchants.'];
+        } else {
+            $res = queueAllExistingMerchantsMethodAutomation('Auto-queued for existing merchant (admin one-click)');
+        }
+    } elseif ($action === 'send_all_pending') {
         $res = sendAllPendingMethodRequestsToPartner($merchantFilter > 0 ? $merchantFilter : null, (string)$actor, $note !== '' ? $note : 'Bulk send to partner');
     } elseif ($action === 'send_partner') {
         $res = sendMethodRequestToPartner($id, (string)$actor, $note, $gateway);
@@ -53,6 +59,13 @@ require_once __DIR__ . '/header.php';
         <p class="text-sm text-gray-500 mt-1">Merchants auto-queue on signup/KYC. You send once to partner. Partner reply turns methods ON/OFF automatically.</p>
     </div>
     <div class="flex flex-wrap gap-2 text-xs items-center">
+        <?php if (isSuperAdmin()): ?>
+        <form method="POST" onsubmit="return confirm('Queue ALL existing active merchants? P2M turns ON; other methods go to this list. Safe to run again.')">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="action" value="queue_all_existing">
+            <button class="px-3 py-1.5 rounded-lg bg-violet-600 text-white font-medium">① Queue all existing merchants</button>
+        </form>
+        <?php endif; ?>
         <form method="POST" onsubmit="return confirm('Send ALL pending requests to partner?')">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="send_all_pending">
@@ -75,7 +88,7 @@ require_once __DIR__ . '/header.php';
 </div>
 
 <div class="glass rounded-xl p-4 mb-4 text-xs text-gray-400 border border-sky-500/20">
-    <p><strong class="text-sky-300">Automation:</strong> Signup + KYC upload auto-creates requests. P2M is already ON. Partner webhook URL: <code class="text-gray-300">method_partner_webhook.php</code> (secret in Gateway Settings).</p>
+    <p><strong class="text-sky-300">Automation:</strong> Signup + KYC upload auto-creates requests. Old merchants: use <strong class="text-violet-300">Queue all existing merchants</strong> once. P2M is already ON. Partner webhook: <code class="text-gray-300">method_partner_webhook.php</code>.</p>
     <p class="mt-1">Partner approve = method enabled for merchant (no second Final Enable needed). Manual Partner approved button still works if webhook is late.</p>
 </div>
 
