@@ -91,7 +91,7 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
         </div>
         <?php endforeach; ?>
     </div>
-    <p class="text-[10px] text-gray-600 mt-3">Paste keys below → Test Connection → set environment to live when PG approves.</p>
+    <p class="text-[10px] text-gray-600 mt-3">When partner production keys arrive: paste below → Save → Test Connection → set environment to live when PG approves. Blank password fields keep the existing secret.</p>
 </div>
 <?php else: ?>
 <div class="glass rounded-xl p-4 mb-6 border border-emerald-500/30 bg-emerald-500/5 max-w-4xl">
