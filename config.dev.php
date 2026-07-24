@@ -421,7 +421,7 @@ $__includes = [
     'wallet', 'settlement_engine', 'reconciliation', 'refunds', 'chargebacks',
     'merchant_profile', 'contact_change', 'merchant_ui', 'page_ux', 'page_ux_compat', 'merchant_admin_view', 'merchant_website',
     'merchant_webhooks', 'pg_webhooks', 'collection', 'upi_confirm',
-    'gateway_reason_map', 'transaction_detail', 'ui_links', 'staff', 'partners', 'partner_engine',
+    'gateway_reason_map', 'transaction_detail', 'ui_links', 'id_click', 'staff', 'partners', 'partner_engine',
     'provision', 'demo', 'demo_tour', 'customer_messaging', 'customer_portal', 'mailer', 'qr_svg',
     'platform_api', 'platform_health', 'link_watchdog', 'auto_audit',
     'morning_ops', 'axis', 'notify', 'error_catcher',

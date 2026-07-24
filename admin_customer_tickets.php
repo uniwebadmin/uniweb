@@ -29,7 +29,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 $viewId = (int)($_GET['id'] ?? 0);
 $view = $viewId ? getCustomerTicketById($viewId) : null;
 $statusFilter = (string)($_GET['status'] ?? '');
+$ticketQ = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
+if (!$view && $ticketQ !== '' && preg_match('/^CT/i', $ticketQ)) {
+    try {
+        $st = getDB()->prepare('SELECT id FROM customer_tickets WHERE ticket_id = ? LIMIT 1');
+        $st->execute([$ticketQ]);
+        $found = (int)($st->fetchColumn() ?: 0);
+        if ($found > 0) {
+            redirect('admin_customer_tickets.php?id=' . $found . ($statusFilter !== '' ? '&status=' . rawurlencode($statusFilter) : ''));
+        }
+    } catch (Throwable $e) { /* ok */ }
+}
 $tickets = getAllCustomerTickets($statusFilter ?: null);
+if ($ticketQ !== '') {
+    $tickets = array_values(array_filter($tickets, static function ($tk) use ($ticketQ) {
+        $hay = strtolower(($tk['ticket_id'] ?? '') . ' ' . ($tk['subject'] ?? '') . ' ' . ($tk['customer_phone'] ?? '') . ' ' . ($tk['txn_reference'] ?? '') . ' ' . ($tk['business_name'] ?? ''));
+        return str_contains($hay, strtolower($ticketQ));
+    }));
+}
 
 $linkedTxn = null;
 $customerHistory = [];
