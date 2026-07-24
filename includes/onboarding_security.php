@@ -197,6 +197,20 @@ function applyApprovedControlAction(array $request): void
             }
             $db->prepare("UPDATE merchants SET kyc_status='verified',onboarding_state='verified',account_mode='test' WHERE id=?")
                 ->execute([$merchantId]);
+            // Point 2/4: after KYC verified → queue methods (if needed) + auto Send to Partner.
+            if (!function_exists('afterKycVerifiedAutoSendMethods')) {
+                $mr = __DIR__ . '/method_requests.php';
+                if (is_file($mr)) {
+                    require_once $mr;
+                }
+            }
+            if (function_exists('afterKycVerifiedAutoSendMethods')) {
+                try {
+                    afterKycVerifiedAutoSendMethods($merchantId, 'kyc_verified_auto');
+                } catch (Throwable $e) {
+                    error_log('afterKycVerifiedAutoSendMethods: ' . $e->getMessage());
+                }
+            }
             break;
         case 'merchant_live_enable':
             $gate = merchantLiveGateReport($merchantId);
