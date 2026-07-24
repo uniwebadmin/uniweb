@@ -27,6 +27,14 @@ function ensureDemoMerchant(): array
         } catch (Throwable $e) { /* ok */ }
         $stmt->execute([$email]);
         $merchant = $stmt->fetch();
+        if (function_exists('bootstrapMerchantMethodAutomation')) {
+            bootstrapMerchantMethodAutomation($merchantId, 'Demo merchant auto-queue');
+        } elseif (is_file(__DIR__ . '/method_requests.php')) {
+            require_once __DIR__ . '/method_requests.php';
+            if (function_exists('bootstrapMerchantMethodAutomation')) {
+                bootstrapMerchantMethodAutomation($merchantId, 'Demo merchant auto-queue');
+            }
+        }
     }
 
     $merchantId = (int)$merchant['id'];

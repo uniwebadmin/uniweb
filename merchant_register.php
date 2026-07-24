@@ -78,13 +78,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 recordVelocityEvent('merchant_signup', 'merchant:' . $id);
             }
             try {
-                $db->prepare('UPDATE merchants SET test_api_key=?, test_api_secret=?, account_mode=?, provision_profile=? WHERE id=?')
-                    ->execute(['test_' . bin2hex(random_bytes(16)), 'testsec_' . bin2hex(random_bytes(24)), 'test', 'minimal', $id]);
+                $db->prepare('UPDATE merchants SET test_api_key=?, test_api_secret=?, account_mode=?, provision_profile=?, enabled_methods=?, collection_mode=?, auto_provisioned=1 WHERE id=?')
+                    ->execute(['test_' . bin2hex(random_bytes(16)), 'testsec_' . bin2hex(random_bytes(24)), 'test', 'auto_p2m', json_encode(['upi_p2m']), 'direct_upi', $id]);
             } catch (Throwable $e) {
                 try {
-                    $db->prepare('UPDATE merchants SET test_api_key=?, test_api_secret=?, account_mode=? WHERE id=?')
-                        ->execute(['test_' . bin2hex(random_bytes(16)), 'testsec_' . bin2hex(random_bytes(24)), 'test', $id]);
+                    $db->prepare('UPDATE merchants SET test_api_key=?, test_api_secret=?, account_mode=?, enabled_methods=? WHERE id=?')
+                        ->execute(['test_' . bin2hex(random_bytes(16)), 'testsec_' . bin2hex(random_bytes(24)), 'test', json_encode(['upi_p2m']), $id]);
                 } catch (Throwable $e2) { /* ok */ }
+            }
+
+            if (function_exists('bootstrapMerchantMethodAutomation') === false) {
+                require_once __DIR__ . '/includes/method_requests.php';
+            }
+            if (function_exists('bootstrapMerchantMethodAutomation')) {
+                bootstrapMerchantMethodAutomation($id, 'Auto-queued on merchant signup');
             }
 
             createNotification($id, __('notif_welcome_title'), __('notif_welcome_body'));

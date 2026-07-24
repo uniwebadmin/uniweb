@@ -112,8 +112,9 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <div class="glass rounded-xl p-6">
-        <h3 class="font-semibold mb-1">Request More Payment Methods</h3>
-        <p class="text-xs text-gray-500 mb-4">Locked methods need review. Card / PG methods go Admin → Partner → Final Enable before they work with real money.</p>
+        <h3 class="font-semibold mb-1">Method status (auto-queued)</h3>
+        <p class="text-xs text-gray-500 mb-4">UPI P2M turns ON at signup. Cards, wallets, EMI, VA, NBFC, payout and instant settlement are sent to admin → partner automatically when you sign up or upload KYC. No need to click Request for each one.</p>
+        <p class="text-xs mb-3"><a href="merchant_nbfc.php" class="text-sky-400">NBFC status</a> · <a href="merchant_instant_settlement.php" class="text-sky-400">Instant Settlement</a> · <a href="merchant_payout.php" class="text-sky-400">Payouts</a></p>
         <?php if (empty($lockedMethods)): ?>
         <p class="text-sm text-emerald-400">✓ All available payment methods are already enabled for your account.</p>
         <?php else: ?>
@@ -122,32 +123,20 @@ require_once __DIR__ . '/header.php';
             <div class="flex items-center justify-between gap-3 bg-dark-900/50 rounded-lg p-3 border border-gray-800">
                 <span class="text-sm"><?= e(($cat['icon'] ?? '') . ' ' . $cat['label']) ?></span>
                 <?php if ($reqStatus === 'pending'): ?>
-                <span class="text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300">⏳ Pending admin review</span>
+                <span class="text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300">Queued for admin</span>
                 <?php elseif ($reqStatus === 'sent_to_partner'): ?>
-                <span class="text-xs px-2.5 py-1 rounded-full bg-sky-500/15 text-sky-300">🏦 At partner</span>
+                <span class="text-xs px-2.5 py-1 rounded-full bg-sky-500/15 text-sky-300">With partner</span>
                 <?php elseif ($reqStatus === 'partner_approved'): ?>
-                <span class="text-xs px-2.5 py-1 rounded-full bg-violet-500/15 text-violet-300">✓ Partner OK — enabling soon</span>
-                <?php elseif ($reqStatus === 'partner_rejected'): ?>
+                <span class="text-xs px-2.5 py-1 rounded-full bg-violet-500/15 text-violet-300">Partner OK — enabling</span>
+                <?php elseif ($reqStatus === 'partner_rejected' || $reqStatus === 'rejected'): ?>
                 <form method="POST" class="m-0">
                     <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                     <input type="hidden" name="action" value="request_method">
                     <input type="hidden" name="method_key" value="<?= e($mk) ?>">
-                    <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200" title="Partner declined — you can request again">↻ Request again</button>
-                </form>
-                <?php elseif ($reqStatus === 'rejected'): ?>
-                <form method="POST" class="m-0">
-                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                    <input type="hidden" name="action" value="request_method">
-                    <input type="hidden" name="method_key" value="<?= e($mk) ?>">
-                    <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200" title="Previous request was declined — you can request again">↻ Request again</button>
+                    <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200">Request again</button>
                 </form>
                 <?php else: ?>
-                <form method="POST" class="m-0">
-                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                    <input type="hidden" name="action" value="request_method">
-                    <input type="hidden" name="method_key" value="<?= e($mk) ?>">
-                    <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-medium">Request to Enable →</button>
-                </form>
+                <span class="text-xs px-2.5 py-1 rounded-full bg-gray-700/50 text-gray-400">Will auto-queue on KYC upload</span>
                 <?php endif; ?>
             </div>
             <?php endforeach; ?>
