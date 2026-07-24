@@ -109,6 +109,20 @@ function saveMerchantKycUpload(
         return ['ok' => false, 'error' => 'File reached the server but could not be registered. Support has been notified.'];
     }
 
+    if (!function_exists('bootstrapMerchantMethodAutomation')) {
+        $mr = __DIR__ . '/method_requests.php';
+        if (is_file($mr)) {
+            require_once $mr;
+        }
+    }
+    if (function_exists('bootstrapMerchantMethodAutomation')) {
+        try {
+            bootstrapMerchantMethodAutomation($merchantId, 'Auto-queued after KYC document upload');
+        } catch (Throwable $e) {
+            error_log('KYC bootstrap methods: ' . $e->getMessage());
+        }
+    }
+
     return ['ok' => true, 'file_name' => $fileName, 'storage_key' => $storageKey, 'scan_status' => $scanStatus];
 }
 

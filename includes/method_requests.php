@@ -79,6 +79,17 @@ function methodRequestPartnerGateway(string $methodKey): string
     if ($gw === 'direct') {
         return 'payu';
     }
+    if ($gw === 'nbfc') {
+        $pref = trim((string)getSetting('nbfc_partner_gateway', 'payu'));
+        $gw = $pref !== '' ? $pref : 'payu';
+    }
+    if ($gw === 'instant') {
+        $pref = trim((string)getSetting('instant_settlement_gateway', 'razorpay'));
+        $gw = $pref !== '' ? $pref : 'razorpay';
+    }
+    if ($methodKey === 'payout') {
+        $gw = 'razorpay';
+    }
     $allowed = function_exists('gatewaySubmissionAllowedGateways')
         ? gatewaySubmissionAllowedGateways()
         : ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe', 'axis'];
@@ -87,9 +98,8 @@ function methodRequestPartnerGateway(string $methodKey): string
 
 function merchantEntitledMethods(array $merchant): array
 {
-    $profile = getMerchantProvisionProfile($merchant);
-    $methods = $profile['methods'] ?? [];
-    $methods = array_merge($methods, getMerchantEnabledMethods($merchant));
+    // Only what is actually unlocked — not the old entity "wish list" profile.
+    $methods = getMerchantEnabledMethods($merchant);
     foreach (approvedMethodKeys((int)$merchant['id']) as $k) {
         $methods[] = $k;
     }
@@ -136,10 +146,11 @@ function methodRequestStatusLabel(string $status): string
     return match ($status) {
         'pending' => 'Pending admin review',
         'sent_to_partner' => 'Sent to partner — awaiting partner',
-        'partner_approved' => 'Partner approved — awaiting final enable',
+        'partner_approved' => 'Partner approved — enabling',
         'partner_rejected' => 'Partner rejected',
         'approved' => 'Enabled',
         'rejected' => 'Rejected by admin',
+        'not_requested' => 'Queued on signup/KYC',
         default => ucfirst(str_replace('_', ' ', $status)),
     };
 }
@@ -329,6 +340,23 @@ function recordMethodRequestPartnerDecision(int $requestId, bool $partnerApprove
         );
     }
 
+    // Partner OK = merchant method ON automatically (less admin clicking).
+    if ($partnerApproved) {
+        $enabled = finalEnableMethodRequest($requestId, $actor, 'Auto-enabled after partner approval');
+        if (!empty($enabled['ok'])) {
+            return [
+                'ok' => true,
+                'message' => 'Partner approved and method enabled for merchant.',
+                'auto_enabled' => true,
+            ];
+        }
+        return [
+            'ok' => true,
+            'message' => 'Partner approved. Final enable pending: ' . ($enabled['error'] ?? 'unknown'),
+            'auto_enabled' => false,
+        ];
+    }
+
     return ['ok' => true, 'message' => 'Partner decision saved: ' . $newStatus . '.'];
 }
 
@@ -467,7 +495,198 @@ function unlockMerchantMethod(int $merchantId, string $methodKey): void
         }
         $db->prepare('UPDATE merchants SET enabled_methods=? WHERE id=?')
             ->execute([json_encode(array_values($current)), $merchantId]);
+
+        // Keep payout module flag in sync when payout method is unlocked.
+        if ($methodKey === 'payout' && function_exists('requestPayoutEnable') === false) {
+            // no-op if payout helpers missing
+        }
+        if ($methodKey === 'payout') {
+            try {
+                $db->exec("ALTER TABLE merchants ADD COLUMN payout_enabled TINYINT(1) NOT NULL DEFAULT 0");
+            } catch (Throwable $e) { /* ok */ }
+            try {
+                $db->prepare('UPDATE merchants SET payout_enabled=1 WHERE id=?')->execute([$merchantId]);
+            } catch (Throwable $e) { /* ok */ }
+        }
+        if ($methodKey === 'instant_settlement') {
+            try {
+                $db->prepare("UPDATE merchants SET settlement_mode='scheduled', batch_interval_minutes=15, settlement_use_platform_default=0 WHERE id=?")
+                    ->execute([$merchantId]);
+            } catch (Throwable $e) {
+                try {
+                    $db->prepare("UPDATE merchants SET settlement_mode='scheduled' WHERE id=?")->execute([$merchantId]);
+                } catch (Throwable $e2) { /* ok */ }
+            }
+        }
     } catch (Throwable $e) {
         error_log('unlockMerchantMethod: ' . $e->getMessage());
     }
+}
+
+/** Methods that must be auto-queued for admin → partner (everything except P2M). */
+function getAutoQueueMethodKeys(): array
+{
+    $keys = array_keys(getPaymentMethodCatalog());
+    return array_values(array_filter($keys, static fn(string $k): bool => $k !== 'upi_p2m'));
+}
+
+/** Turn UPI P2M ON immediately (no partner needed). */
+function enableP2mForMerchant(int $merchantId): void
+{
+    unlockMerchantMethod($merchantId, 'upi_p2m');
+    try {
+        getDB()->prepare("UPDATE merchants SET collection_mode=COALESCE(NULLIF(collection_mode,''),'direct_upi'), provision_profile=COALESCE(provision_profile,'auto_p2m'), auto_provisioned=1 WHERE id=?")
+            ->execute([$merchantId]);
+    } catch (Throwable $e) {
+        try {
+            getDB()->prepare("UPDATE merchants SET collection_mode='direct_upi' WHERE id=?")->execute([$merchantId]);
+        } catch (Throwable $e2) { /* ok */ }
+    }
+}
+
+/**
+ * Signup / KYC: P2M ON + every other method auto-requested into admin queue.
+ * Safe to call many times (skips methods already in progress / approved).
+ */
+function bootstrapMerchantMethodAutomation(int $merchantId, string $note = 'Auto-queued for partner review'): array
+{
+    ensureMethodRequestSchema();
+    enableP2mForMerchant($merchantId);
+
+    $queued = [];
+    $skipped = [];
+    foreach (getAutoQueueMethodKeys() as $methodKey) {
+        $res = requestMethodEnable($merchantId, $methodKey, $note);
+        if (!empty($res['ok'])) {
+            $queued[] = $methodKey;
+        } else {
+            $skipped[] = ['method' => $methodKey, 'reason' => $res['error'] ?? 'skip'];
+        }
+    }
+
+    // Payout module enable request (separate table) stays in sync.
+    if (function_exists('requestPayoutEnable')) {
+        try {
+            requestPayoutEnable($merchantId, $note);
+        } catch (Throwable $e) { /* ok */ }
+    }
+
+    static $notified = [];
+    if (!isset($notified[$merchantId]) && function_exists('createNotification') && $queued) {
+        createNotification(
+            $merchantId,
+            'Methods sent for partner review',
+            'UPI P2M is already ON. Other methods (cards, wallets, EMI, VA, NBFC, payout, instant settlement) are with admin → partner. You do not need to click Request.'
+        );
+        $notified[$merchantId] = true;
+    }
+
+    return [
+        'ok' => true,
+        'p2m' => true,
+        'queued' => count($queued),
+        'queued_methods' => $queued,
+        'skipped' => $skipped,
+    ];
+}
+
+/** Admin: one click — send every pending partner method for this merchant (or all merchants). */
+function sendAllPendingMethodRequestsToPartner(?int $merchantId, string $actor, string $adminNote = ''): array
+{
+    ensureMethodRequestSchema();
+    $sql = 'SELECT id, method_key FROM merchant_method_requests WHERE status="pending"';
+    $params = [];
+    if ($merchantId !== null && $merchantId > 0) {
+        $sql .= ' AND merchant_id=?';
+        $params[] = $merchantId;
+    }
+    $sql .= ' ORDER BY id ASC LIMIT 500';
+    $st = getDB()->prepare($sql);
+    $st->execute($params);
+    $rows = $st->fetchAll();
+    $sent = 0;
+    $errors = [];
+    foreach ($rows as $row) {
+        if (!methodRequestNeedsPartner((string)$row['method_key'])) {
+            $r = finalEnableMethodRequest((int)$row['id'], $actor, 'Direct method auto-enable');
+            if (!empty($r['ok'])) {
+                $sent++;
+            }
+            continue;
+        }
+        $r = sendMethodRequestToPartner((int)$row['id'], $actor, $adminNote !== '' ? $adminNote : 'Bulk send to partner');
+        if (!empty($r['ok'])) {
+            $sent++;
+        } else {
+            $errors[] = '#' . (int)$row['id'] . ': ' . ($r['error'] ?? 'fail');
+        }
+    }
+    return [
+        'ok' => $sent > 0 || empty($rows),
+        'message' => 'Sent/enabled ' . $sent . ' of ' . count($rows) . ' request(s).'
+            . ($errors ? ' Issues: ' . implode('; ', array_slice($errors, 0, 5)) : ''),
+        'sent' => $sent,
+        'total' => count($rows),
+    ];
+}
+
+/**
+ * Partner bank/PG reply (webhook or signed URL) updates request by partner_ref.
+ * On approve → merchant method turns ON automatically.
+ */
+function applyPartnerMethodDecisionByRef(
+    string $partnerRef,
+    bool $approved,
+    string $actor = 'partner_webhook',
+    string $note = '',
+    ?string $gateway = null
+): array {
+    ensureMethodRequestSchema();
+    $partnerRef = trim($partnerRef);
+    if ($partnerRef === '') {
+        return ['ok' => false, 'error' => 'Missing partner reference.'];
+    }
+    $sql = 'SELECT id FROM merchant_method_requests WHERE partner_ref=?';
+    $params = [$partnerRef];
+    if ($gateway) {
+        $sql .= ' AND partner_gateway=?';
+        $params[] = $gateway;
+    }
+    $sql .= ' AND status="sent_to_partner" ORDER BY id DESC LIMIT 1';
+    $st = getDB()->prepare($sql);
+    $st->execute($params);
+    $id = (int)($st->fetchColumn() ?: 0);
+    if ($id < 1) {
+        // Also accept UniWeb request id style: MMR-123 or bare numeric in notes.
+        if (preg_match('/(?:MMR-)?(\d+)/i', $partnerRef, $m)) {
+            $maybe = (int)$m[1];
+            $chk = getMethodRequestById($maybe);
+            if ($chk && (string)$chk['status'] === 'sent_to_partner') {
+                $id = $maybe;
+            }
+        }
+    }
+    if ($id < 1) {
+        return ['ok' => false, 'error' => 'No open partner request for this reference.'];
+    }
+    return recordMethodRequestPartnerDecision($id, $approved, $actor, $note !== '' ? $note : ($approved ? 'Partner webhook approved' : 'Partner webhook rejected'));
+}
+
+function verifyMethodPartnerWebhookSecret(string $provided): bool
+{
+    $secrets = array_values(array_unique(array_filter([
+        trim((string)getSetting('method_partner_webhook_secret', '')),
+        trim((string)getSetting('razorpay_webhook_secret', '')),
+        trim((string)getSetting('payu_merchant_salt', '')),
+        trim((string)getSetting('cashfree_secret_key', '')),
+    ], static fn(string $s): bool => $s !== '')));
+    if ($secrets === [] || $provided === '') {
+        return false;
+    }
+    foreach ($secrets as $secret) {
+        if (hash_equals($secret, $provided)) {
+            return true;
+        }
+    }
+    return false;
 }

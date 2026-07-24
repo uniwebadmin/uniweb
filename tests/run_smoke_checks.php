@@ -148,9 +148,19 @@ $assert(is_file($root . '/migrations/020_txn_settlement_failure_reason.sql'), 'f
 // Payment method request (merchant -> admin "Request to Enable").
 $mReq = (string)file_get_contents($root . '/includes/method_requests.php');
 $assert(str_contains($mReq, 'function requestMethodEnable') && str_contains($mReq, 'function decideMethodRequest'), 'method_request_helpers');
+$assert(str_contains($mReq, 'function bootstrapMerchantMethodAutomation'), 'method_auto_queue_bootstrap');
+$assert(str_contains($mReq, 'function applyPartnerMethodDecisionByRef'), 'method_partner_webhook_helper');
+$assert(is_file($root . '/method_partner_webhook.php'), 'method_partner_webhook_page');
+$assert(is_file($root . '/merchant_nbfc.php') && is_file($root . '/merchant_instant_settlement.php'), 'nbfc_instant_pages');
+$prov = (string)file_get_contents($root . '/includes/provision.php');
+$assert(str_contains($prov, "'nbfc'") && str_contains($prov, "'instant_settlement'"), 'catalog_nbfc_instant');
+$reg = (string)file_get_contents($root . '/merchant_register.php');
+$assert(str_contains($reg, 'bootstrapMerchantMethodAutomation'), 'signup_auto_queues_methods');
 $assert(str_contains($mReq, 'function merchantEntitledMethods') && str_contains($mReq, 'function merchantLockedMethods'), 'method_request_entitlement_helpers');
 $colPage = (string)file_get_contents($root . '/collection_settings.php');
-$assert(str_contains($colPage, 'request_method') && str_contains($colPage, 'Request to Enable'), 'collection_settings_request_button');
+$assert(str_contains($colPage, 'Method status (auto-queued)') || str_contains($colPage, 'auto-queued'), 'collection_settings_auto_queue_copy');
+$assert(str_contains($colPage, 'merchant_nbfc.php') && str_contains($colPage, 'merchant_instant_settlement.php'), 'collection_settings_nbfc_instant_links');
+$assert(str_contains($colPage, 'request_method'), 'collection_settings_request_again_action');
 $assert(str_contains($colPage, 'merchantEntitledMethods('), 'collection_settings_gated_by_entitlement');
 $assert(is_file($root . '/admin_method_requests.php'), 'admin_method_requests_page_present');
 $assert(str_contains($header, 'admin_method_requests.php'), 'admin_nav_has_method_requests');

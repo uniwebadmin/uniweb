@@ -10,9 +10,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $note = (string)($_POST['admin_note'] ?? '');
     $actor = getAdmin()['name'] ?? ($_SESSION['admin_username'] ?? 'admin');
     $gateway = trim((string)($_POST['partner_gateway'] ?? '')) ?: null;
+    $merchantFilter = (int)($_POST['merchant_id'] ?? 0);
 
     $res = ['ok' => false, 'error' => 'Unknown action.'];
-    if ($action === 'send_partner') {
+    if ($action === 'send_all_pending') {
+        $res = sendAllPendingMethodRequestsToPartner($merchantFilter > 0 ? $merchantFilter : null, (string)$actor, $note !== '' ? $note : 'Bulk send to partner');
+    } elseif ($action === 'send_partner') {
         $res = sendMethodRequestToPartner($id, (string)$actor, $note, $gateway);
     } elseif ($action === 'partner_approve') {
         $res = recordMethodRequestPartnerDecision($id, true, (string)$actor, $note);
@@ -47,9 +50,14 @@ require_once __DIR__ . '/header.php';
 <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
     <div>
         <h1 class="text-xl font-bold">Payment Method Requests</h1>
-        <p class="text-sm text-gray-500 mt-1">Flow: Merchant request → Admin send to partner → Partner decision → Admin final enable.</p>
+        <p class="text-sm text-gray-500 mt-1">Merchants auto-queue on signup/KYC. You send once to partner. Partner reply turns methods ON/OFF automatically.</p>
     </div>
-    <div class="flex flex-wrap gap-2 text-xs">
+    <div class="flex flex-wrap gap-2 text-xs items-center">
+        <form method="POST" onsubmit="return confirm('Send ALL pending requests to partner?')">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="action" value="send_all_pending">
+            <button class="px-3 py-1.5 rounded-lg bg-sky-600 text-white font-medium">Send all pending → Partner</button>
+        </form>
         <?php foreach ([
             'actionable' => 'Needs action',
             'pending' => 'Pending',
@@ -67,8 +75,8 @@ require_once __DIR__ . '/header.php';
 </div>
 
 <div class="glass rounded-xl p-4 mb-4 text-xs text-gray-400 border border-sky-500/20">
-    <p><strong class="text-sky-300">Credit Card / PayU methods:</strong> use <em>Send to Partner</em> → mark partner result → <em>Final Enable</em>. Real card charges also need gateway keys in Gateway Settings.</p>
-    <p class="mt-1">Internal unlock without partner: Approve with note starting with <code class="text-gray-300">internal</code> (ops only).</p>
+    <p><strong class="text-sky-300">Automation:</strong> Signup + KYC upload auto-creates requests. P2M is already ON. Partner webhook URL: <code class="text-gray-300">method_partner_webhook.php</code> (secret in Gateway Settings).</p>
+    <p class="mt-1">Partner approve = method enabled for merchant (no second Final Enable needed). Manual Partner approved button still works if webhook is late.</p>
 </div>
 
 <div class="glass rounded-xl overflow-hidden">

@@ -114,6 +114,30 @@ function getPaymentMethodCatalog(): array
             'icon' => '💰',
             'mdr' => 'card_debit',
         ],
+        'nbfc' => [
+            'label' => 'NBFC / Merchant Finance',
+            'pay_key' => 'nbfc',
+            'gateway' => 'nbfc',
+            'collection_mode' => 'platform_pg',
+            'icon' => '🏢',
+            'mdr' => 'netbanking',
+        ],
+        'instant_settlement' => [
+            'label' => 'Instant Settlement',
+            'pay_key' => 'instant_settlement',
+            'gateway' => 'instant',
+            'collection_mode' => 'platform_pg',
+            'icon' => '⚡',
+            'mdr' => 'upi',
+        ],
+        'payout' => [
+            'label' => 'Payouts',
+            'pay_key' => 'payout',
+            'gateway' => 'razorpay',
+            'collection_mode' => 'platform_pg',
+            'icon' => '💸',
+            'mdr' => 'netbanking',
+        ],
     ];
 }
 
@@ -204,9 +228,12 @@ function getMerchantEnabledMethods(array $merchant): array
     $raw = $merchant['enabled_methods'] ?? '';
     if ($raw) {
         $decoded = json_decode($raw, true);
-        if (is_array($decoded) && $decoded) return $decoded;
+        if (is_array($decoded) && $decoded) {
+            return array_values(array_unique(array_map('strval', $decoded)));
+        }
     }
-    return getMerchantProvisionProfile($merchant)['methods'];
+    // New merchants: only UPI P2M until partner/admin unlocks more.
+    return ['upi_p2m'];
 }
 
 function buildPaymentLinkUrl(string $linkId, ?string $payKey = null): string
@@ -338,44 +365,27 @@ function autoProvisionMerchant(int $merchantId, int $adminId): array
     $stmt = $db->prepare('SELECT * FROM merchants WHERE id = ?');
     $stmt->execute([$merchantId]);
     $merchant = $stmt->fetch();
-    if (!$merchant) return ['ok' => false, 'message' => 'Merchant not found.'];
-
-    $profile = getMerchantProvisionProfile($merchant);
-    $methods = $profile['methods'];
-    $collectionMode = $profile['collection_mode'];
-
-    try {
-        $db->prepare('UPDATE merchants SET collection_mode=?, enabled_methods=?, provision_profile=?, auto_provisioned=1 WHERE id=?')
-            ->execute([$collectionMode, json_encode($methods), $profile['profile'], $merchantId]);
-    } catch (Throwable $e) {
-        $db->prepare('UPDATE merchants SET collection_mode=? WHERE id=?')
-            ->execute([$collectionMode, $merchantId]);
+    if (!$merchant) {
+        return ['ok' => false, 'message' => 'Merchant not found.'];
     }
 
-    $gateways = ['payu', 'razorpay', 'cashfree', 'decentro'];
-    foreach ($gateways as $gw) {
-        if (isGatewayConfigured($gw) || $gw === 'decentro') {
-            submitMerchantToGateway($merchantId, $gw, $adminId, 'Auto-provision batch — ' . $profile['label']);
-        }
+    if (!function_exists('bootstrapMerchantMethodAutomation')) {
+        require_once __DIR__ . '/method_requests.php';
     }
-
-  // Axis VA skipped in auto batch unless explicitly in methods and configured
-    if (in_array('axis_va', $methods, true) && isGatewayConfigured('axis')) {
-        submitMerchantToGateway($merchantId, 'axis', $adminId, 'VA onboarding request');
-    }
+    $boot = bootstrapMerchantMethodAutomation($merchantId, 'Admin auto setup — P2M on, other methods queued for partner');
 
     $pack = generateMerchantPaymentPack($merchantId, 1.0);
 
     createNotification(
         $merchantId,
-        'Payment Stack Ready',
-        'Admin enabled auto setup: ' . count($pack['links']) . ' payment links created (UPI, Cards, VA, etc.). Check Payment Pack page.'
+        'Payment Stack Queued',
+        'UPI P2M is active in TEST mode. Other methods are waiting for admin → partner approval.'
     );
 
     return [
         'ok' => true,
-        'message' => 'Auto setup complete — ' . count($pack['links']) . ' method links created.',
-        'profile' => $profile,
+        'message' => 'P2M enabled. ' . (int)($boot['queued'] ?? 0) . ' method(s) queued for partner. ' . count($pack['links']) . ' test link(s) ready.',
+        'bootstrap' => $boot,
         'pack' => $pack,
     ];
 }

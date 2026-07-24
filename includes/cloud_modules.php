@@ -23,6 +23,7 @@ $__cloudModules = [
     // Defines listPageParams / print helpers even if an older page_ux was cached
     'page_ux_compat.php',
     'id_click.php',
+    'method_requests.php',
     // Overnight Agent E — UX + integration scaffolds (no partner live calls)
     'integration_matrix.php',
     'settlement_delay_spec.php',
