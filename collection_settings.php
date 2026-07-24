@@ -113,7 +113,7 @@ require_once __DIR__ . '/header.php';
 
     <div class="glass rounded-xl p-6">
         <h3 class="font-semibold mb-1">Request More Payment Methods</h3>
-        <p class="text-xs text-gray-500 mb-4">These methods aren't active on your account yet. Request one and our team will review &amp; enable it.</p>
+        <p class="text-xs text-gray-500 mb-4">Locked methods need review. Card / PG methods go Admin → Partner → Final Enable before they work with real money.</p>
         <?php if (empty($lockedMethods)): ?>
         <p class="text-sm text-emerald-400">✓ All available payment methods are already enabled for your account.</p>
         <?php else: ?>
@@ -122,7 +122,18 @@ require_once __DIR__ . '/header.php';
             <div class="flex items-center justify-between gap-3 bg-dark-900/50 rounded-lg p-3 border border-gray-800">
                 <span class="text-sm"><?= e(($cat['icon'] ?? '') . ' ' . $cat['label']) ?></span>
                 <?php if ($reqStatus === 'pending'): ?>
-                <span class="text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300">⏳ Pending review</span>
+                <span class="text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300">⏳ Pending admin review</span>
+                <?php elseif ($reqStatus === 'sent_to_partner'): ?>
+                <span class="text-xs px-2.5 py-1 rounded-full bg-sky-500/15 text-sky-300">🏦 At partner</span>
+                <?php elseif ($reqStatus === 'partner_approved'): ?>
+                <span class="text-xs px-2.5 py-1 rounded-full bg-violet-500/15 text-violet-300">✓ Partner OK — enabling soon</span>
+                <?php elseif ($reqStatus === 'partner_rejected'): ?>
+                <form method="POST" class="m-0">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="action" value="request_method">
+                    <input type="hidden" name="method_key" value="<?= e($mk) ?>">
+                    <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200" title="Partner declined — you can request again">↻ Request again</button>
+                </form>
                 <?php elseif ($reqStatus === 'rejected'): ?>
                 <form method="POST" class="m-0">
                     <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
