@@ -3,6 +3,12 @@
 **Owner order (2026-07-24):** do **all** agent work on this Windows laptop.  
 Do **not** use Cursor Cloud Agents (`cursor.com/agents`) unless the owner reverses this.
 
+## Owner chat (permanent — 2026-07-24)
+
+- Talk to the owner in **simple everyday Hindi / Urdu** (Delhi style). Short lines. No heavy tech jargon.
+- Website / product UI text stays **English**.
+- Rule file: `.cursor/rules/owner-simple-hindi.mdc`
+
 Repo: https://github.com/6396601005/uniweb
 
 ## Local stack (Windows)
