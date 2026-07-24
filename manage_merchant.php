@@ -84,6 +84,9 @@ require_once __DIR__ . '/header.php';
             <?php foreach ($merchants as $m):
                 $mid = (int)$m['id'];
                 $waUrl = merchantWhatsAppUrl($m['phone'] ?? '');
+                $phoneIsPlaceholder = function_exists('isPlaceholderMerchantPhone')
+                    && isPlaceholderMerchantPhone((string)($m['phone'] ?? ''), $mid);
+                $bizIsDefault = trim((string)($m['business_name'] ?? '')) === 'My Business';
             ?>
             <tr class="hover:bg-white/5">
                 <td class="px-5 py-3 font-mono text-xs">
@@ -92,14 +95,22 @@ require_once __DIR__ . '/header.php';
                 <td class="px-5 py-3">
                     <?= adminMerchantLink($mid, $m['business_name'], 'font-medium text-white hover:text-sky-300') ?>
                     <p class="text-xs text-gray-500"><?= e($m['name']) ?></p>
+                    <?php if ($bizIsDefault): ?>
+                    <p class="text-[10px] text-amber-400/90 mt-0.5">Default business name (email signup — setup not finished)</p>
+                    <?php endif; ?>
                 </td>
                 <td class="px-5 py-3 text-xs"><?= e(entityTypeLabel($m['business_entity_type'] ?? 'sole_proprietorship')) ?></td>
                 <td class="px-5 py-3 text-xs">
                     <p><?= merchantMailtoLink((string)$m['email']) ?></p>
                     <?php if (!empty($m['phone'])): ?>
                     <p class="text-gray-500 mt-0.5">
+                        <?php if ($phoneIsPlaceholder): ?>
+                        <span class="text-amber-300" title="System placeholder for email signup — not a real WhatsApp number"><?= e($m['phone']) ?></span>
+                        <span class="block text-[10px] text-amber-400/80 mt-0.5">Provisional phone (email signup)</span>
+                        <?php else: ?>
                         <a href="tel:<?= e(preg_replace('/\D+/', '', $m['phone'])) ?>" class="hover:text-white"><?= e($m['phone']) ?></a>
                         <?php if ($waUrl): ?> · <a href="<?= e($waUrl) ?>" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">WA</a><?php endif; ?>
+                        <?php endif; ?>
                     </p>
                     <?php endif; ?>
                 </td>
