@@ -291,6 +291,14 @@ function isMerchantDueForBatch(array $merchant): bool
     }
     $next = $merchant['next_batch_at'] ?? null;
     if (!$next) {
+        // First run: respect vertical delay so brand-new merchants are not swept instantly.
+        if (function_exists('merchantSettlementDelayMinutes')) {
+            $created = strtotime((string)($merchant['created_at'] ?? '')) ?: 0;
+            $delaySec = merchantSettlementDelayMinutes($merchant) * 60;
+            if ($created > 0 && (time() - $created) < $delaySec) {
+                return false;
+            }
+        }
         return true;
     }
     return strtotime($next) <= time();

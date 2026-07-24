@@ -152,6 +152,15 @@ $assert(str_contains($mReq, 'function bootstrapMerchantMethodAutomation'), 'meth
 $assert(str_contains($mReq, 'function applyPartnerMethodDecisionByRef'), 'method_partner_webhook_helper');
 $assert(is_file($root . '/method_partner_webhook.php'), 'method_partner_webhook_page');
 $assert(is_file($root . '/merchant_nbfc.php') && is_file($root . '/merchant_instant_settlement.php'), 'nbfc_instant_pages');
+$assert(is_file($root . '/admin_nbfc.php') && is_file($root . '/includes/nbfc.php'), 'nbfc_admin_module');
+$nbfcLib = (string)file_get_contents($root . '/includes/nbfc.php');
+$assert(str_contains($nbfcLib, 'function submitNbfcApplication') && str_contains($nbfcLib, 'function decideNbfcApplication'), 'nbfc_application_helpers');
+$payoutLib2 = (string)file_get_contents($root . '/includes/payout.php');
+$assert(str_contains($payoutLib2, 'function dispatchQueuedPayouts'), 'payout_dispatch_queued');
+$gwSet = (string)file_get_contents($root . '/gateway_settings.php');
+$assert(str_contains($gwSet, 'method_partner_webhook.php') && str_contains($gwSet, 'Method partner webhook URL'), 'method_webhook_url_ui');
+$settleDue = (string)file_get_contents($root . '/includes/settlement_engine.php');
+$assert(str_contains($settleDue, 'merchantSettlementDelayMinutes'), 'settlement_delay_wired');
 $prov = (string)file_get_contents($root . '/includes/provision.php');
 $assert(str_contains($prov, "'nbfc'") && str_contains($prov, "'instant_settlement'"), 'catalog_nbfc_instant');
 $reg = (string)file_get_contents($root . '/merchant_register.php');

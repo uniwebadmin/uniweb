@@ -279,6 +279,15 @@ function decidePayoutEnableRequest(int $requestId, bool $approve, string $decide
                 }
                 $db->prepare('UPDATE merchants SET payout_enabled=1 WHERE id=?')->execute([(int)$row['merchant_id']]);
             }
+            // Sync method-request catalog flag.
+            if (function_exists('unlockMerchantMethod')) {
+                unlockMerchantMethod((int)$row['merchant_id'], 'payout');
+            } elseif (is_file(__DIR__ . '/method_requests.php')) {
+                require_once __DIR__ . '/method_requests.php';
+                if (function_exists('unlockMerchantMethod')) {
+                    unlockMerchantMethod((int)$row['merchant_id'], 'payout');
+                }
+            }
             createNotification((int)$row['merchant_id'], 'Payout Access Approved', 'Your payout enable request was approved. Live transfers still require licensed partner keys.');
         } else {
             createNotification((int)$row['merchant_id'], 'Payout Access Rejected', $adminNote !== '' ? $adminNote : 'Your payout enable request was rejected. Contact support for details.');
@@ -946,4 +955,108 @@ function revokePayoutApiCredential(int $merchantId, int $credentialId): array
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => 'Could not revoke key.'];
     }
+}
+
+/**
+ * Process queued payout orders via RazorpayX when live gate is open.
+ * Without keys / payout_live_enabled: returns gated (no money moved).
+ */
+function dispatchQueuedPayouts(int $limit = 20): array
+{
+    ensurePayoutSchema();
+    $limit = max(1, min(50, $limit));
+    if (!payoutLiveMoneyAllowed()) {
+        return [
+            'ok' => true,
+            'gated' => true,
+            'processed' => 0,
+            'message' => payoutActivationMessage(),
+        ];
+    }
+    if (!function_exists('createRazorpayXPayout')) {
+        return ['ok' => false, 'processed' => 0, 'error' => 'RazorpayX helper missing.'];
+    }
+
+    try {
+        $rows = getDB()->query(
+            "SELECT o.*, b.account_holder, b.account_number, b.ifsc_code, b.bank_name
+             FROM payout_orders o
+             LEFT JOIN payout_beneficiaries b ON b.id = o.beneficiary_id
+             WHERE o.status = 'queued'
+             ORDER BY o.id ASC
+             LIMIT {$limit}"
+        )->fetchAll();
+    } catch (Throwable $e) {
+        return ['ok' => false, 'processed' => 0, 'error' => $e->getMessage()];
+    }
+
+    $ok = 0;
+    $fail = 0;
+    foreach ($rows as $row) {
+        $orderId = (int)$row['id'];
+        $merchantId = (int)$row['merchant_id'];
+        try {
+            getDB()->prepare("UPDATE payout_orders SET status='processing' WHERE id=? AND status='queued'")->execute([$orderId]);
+        } catch (Throwable $e) {
+            continue;
+        }
+        $mst = getDB()->prepare('SELECT * FROM merchants WHERE id=? LIMIT 1');
+        $mst->execute([$merchantId]);
+        $merchant = $mst->fetch();
+        if (!$merchant) {
+            getDB()->prepare("UPDATE payout_orders SET status='failed', failure_reason=? WHERE id=?")
+                ->execute(['Merchant missing', $orderId]);
+            $fail++;
+            continue;
+        }
+        $bank = [
+            'id' => 0,
+            'account_holder' => (string)($row['account_holder'] ?? $merchant['business_name'] ?? 'Merchant'),
+            'account_number' => (string)($row['account_number'] ?? ''),
+            'ifsc_code' => (string)($row['ifsc_code'] ?? ''),
+            'bank_name' => (string)($row['bank_name'] ?? ''),
+            'razorpay_contact_id' => null,
+            'razorpay_fund_account_id' => null,
+        ];
+        if ($bank['account_number'] === '' || $bank['ifsc_code'] === '') {
+            getDB()->prepare("UPDATE payout_orders SET status='failed', failure_reason=? WHERE id=?")
+                ->execute(['Beneficiary bank details incomplete', $orderId]);
+            $fail++;
+            continue;
+        }
+        // Prefer merchant settlement bank row if beneficiary columns lack Razorpay fund ids.
+        try {
+            $bst = getDB()->prepare('SELECT * FROM bank_accounts WHERE merchant_id=? AND status="verified" ORDER BY id DESC LIMIT 1');
+            $bst->execute([$merchantId]);
+            $verified = $bst->fetch();
+            if ($verified && (string)$verified['account_number'] === $bank['account_number']) {
+                $bank = array_merge($bank, $verified);
+            }
+        } catch (Throwable $e) { /* ok */ }
+
+        $ref = (string)$row['payout_id'];
+        $resp = createRazorpayXPayout($merchant, $bank, (float)$row['amount'], $ref);
+        $partnerId = is_array($resp) ? (string)($resp['id'] ?? '') : '';
+        if ($partnerId === '') {
+            getDB()->prepare("UPDATE payout_orders SET status='failed', failure_reason=?, partner_ref=NULL WHERE id=?")
+                ->execute([payoutStrLimit('Partner payout API returned empty / keys incomplete', 500), $orderId]);
+            $fail++;
+            continue;
+        }
+        getDB()->prepare("UPDATE payout_orders SET status='success', partner_ref=?, failure_reason=NULL, processed_at=NOW() WHERE id=?")
+            ->execute([$partnerId, $orderId]);
+        if (function_exists('createNotification')) {
+            createNotification($merchantId, 'Payout sent', 'Payout ' . $ref . ' submitted to partner (' . $partnerId . ').');
+        }
+        $ok++;
+    }
+
+    return [
+        'ok' => true,
+        'gated' => false,
+        'processed' => $ok + $fail,
+        'success' => $ok,
+        'failed' => $fail,
+        'message' => "Payout dispatch: {$ok} success, {$fail} failed.",
+    ];
 }
