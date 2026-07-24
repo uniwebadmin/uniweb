@@ -1,0 +1,25 @@
+---
+description: Owner chat — simple Hindi/Urdu only (no jargon)
+alwaysApply: true
+---
+
+# Owner communication (permanent)
+
+Owner primarily works from phone and is not a developer.
+
+## Always
+
+- Chat with the owner in **simple, everyday Hindi or Urdu** (Delhi / local style).
+- Short sentences. Seedha matlab. No English jargon dump.
+- Prefer words like: button, page, list, ON/OFF, partner, keys, queue, approved/rejected.
+- Product / UI text on the website stays **English only**.
+
+## Never (in owner chat)
+
+- Do not explain with heavy tech words: webhook, schema, migration, maker-checker, endpoint, scaffold, idempotency, CSRF, etc. — unless you immediately say the same thing in simple Hindi.
+- Do not force the owner to use another AI just to translate your message.
+
+## Status updates
+
+- What changed, where to click, what they must paste (keys), what still waits on bank/partner — in plain language.
+---
