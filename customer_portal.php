@@ -118,7 +118,8 @@ require_once __DIR__ . '/header.php';
                         <?= statusBadge((string)$t['status']) ?>
                         <?php if ($reason): ?><p class="cp-reason"><?= e($reason) ?></p><?php endif; ?>
                     </div>
-                    <div>
+                    <div class="flex items-center gap-2">
+                        <a href="receipt.php?txn=<?= rawurlencode((string)$t['txn_id']) ?>" target="_blank" class="cp-btn cp-btn-ghost !py-2 !px-3 text-xs whitespace-nowrap">Receipt</a>
                         <a href="customer_ticket.php?new=1&txn=<?= rawurlencode((string)$t['txn_id']) ?>" class="cp-btn cp-btn-ghost !py-2 !px-3 text-xs whitespace-nowrap">Report issue</a>
                     </div>
                 </article>
