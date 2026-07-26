@@ -675,29 +675,18 @@ function testDecentroConnection(): array
         return ['ok' => false, 'message' => 'Decentro Client ID and Secret are required.'];
     }
 
-    $base = function_exists('decentroBaseUrl') ? decentroBaseUrl() : rtrim(getSetting('decentro_base_url', ''), '/');
-    if ($base === '') {
-        return ['ok' => true, 'message' => 'Decentro credentials saved. Set base URL and use Admin → Decentro Demo to verify KYC API.'];
-    }
+    $base = decentroV3ApiBase();
+    $referenceId = 'UWTEST' . date('YmdHis') . random_int(1000, 9999);
+    $result = createDecentroDynamicQr(10.00, 'Payment', $referenceId, 5);
 
-    $ch = curl_init($base . '/');
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_NOBODY => true,
-        CURLOPT_TIMEOUT => 10,
-    ]);
-    curl_exec($ch);
-    $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $err = curl_error($ch);
-    curl_close($ch);
-
-    if ($err) {
-        return ['ok' => false, 'message' => 'Decentro host unreachable: ' . $err];
+    if (!is_array($result)) {
+        return ['ok' => false, 'message' => 'Decentro v3 API did not respond. Check base URL (' . $base . ') and network.'];
     }
-    if ($http >= 200 && $http < 500) {
-        return ['ok' => true, 'message' => 'Decentro host reachable (' . $base . ', HTTP ' . $http . '). Use KYC demo for full API test.'];
+    if (($result['api_status'] ?? '') === 'SUCCESS') {
+        return ['ok' => true, 'message' => 'Decentro v3 Dynamic QR API connected (' . $base . ').'];
     }
-    return ['ok' => false, 'message' => 'Decentro host returned HTTP ' . $http . '. Check base URL in settings.'];
+    $message = is_string($result['message'] ?? null) ? $result['message'] : (is_string($result['response_key'] ?? null) ? $result['response_key'] : json_encode($result));
+    return ['ok' => false, 'message' => 'Decentro v3 API: ' . $message];
 }
 
 /** @return array{ok:bool,message:string} */
@@ -1003,6 +992,128 @@ function pineLabsSandboxCreateOrder(array $link, array $merchant, float $amount)
         'order_id' => $orderId,
         'redirect_url' => null,
     ];
+}
+
+// ─── Decentro v3 UPI P2M Collections ───────────────────────────────────────
+
+function decentroV3ApiBase(): string
+{
+    return getSetting('decentro_environment', 'sandbox') === 'production'
+        ? 'https://api.decentro.tech'
+        : 'https://staging.api.decentro.tech';
+}
+
+function decentroV3Headers(): array
+{
+    $clientId = getSetting('decentro_client_id', '');
+    $clientSecret = getSetting('decentro_client_secret', '');
+    $headers = [
+        'Content-Type: application/json',
+        'Accept: application/json',
+        'client_id: ' . $clientId,
+        'client_secret: ' . $clientSecret,
+    ];
+    $moduleSecret = getSetting('decentro_module_secret', '');
+    if ($moduleSecret !== '') {
+        $headers[] = 'module_secret: ' . $moduleSecret;
+    }
+    $providerSecret = getSetting('decentro_provider_secret', '');
+    if ($providerSecret !== '') {
+        $headers[] = 'provider_secret: ' . $providerSecret;
+    }
+    return $headers;
+}
+
+function decentroV3Request(string $endpoint, array $payload): ?array
+{
+    $url = rtrim(decentroV3ApiBase(), '/') . '/' . ltrim($endpoint, '/');
+    $ch = curl_init($url);
+    $opts = [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => decentroV3Headers(),
+        CURLOPT_POSTFIELDS => json_encode($payload),
+        CURLOPT_TIMEOUT => 30,
+    ];
+    // Sandbox only: local Windows PHP often lacks a CA bundle, so staging calls fail
+    // with SSL verify errors. Production keeps verification enabled by default.
+    if (getSetting('decentro_environment', 'sandbox') === 'sandbox') {
+        $opts[CURLOPT_SSL_VERIFYPEER] = false;
+        $opts[CURLOPT_SSL_VERIFYHOST] = 0;
+    }
+    curl_setopt_array($ch, $opts);
+    $response = curl_exec($ch);
+    $err = curl_error($ch);
+    curl_close($ch);
+    if ($err !== '') {
+        return ['api_status' => 'NETWORK_ERROR', 'message' => $err];
+    }
+    return json_decode($response, true) ?: null;
+}
+
+/**
+ * Create a Decentro v3 Dynamic UPI QR.
+ * Docs: https://docs.decentro.tech/reference/payments_api-collectionsv3-dynamicqr
+ *
+ * @param float $amount Transaction amount in INR.
+ * @param string $purpose_message Note shown to payer (5–50 chars, safe characters).
+ * @param string $referenceId Unique platform reference.
+ * @param int $expiryMinutes QR expiry in minutes (1–10).
+ * @param string|null $consumerUrn Defaults to decentro_consumer_urn setting.
+ * @param string|null $customUrl Optional https callback after payment.
+ * @return array|null Decentro JSON response or null on network error.
+ */
+function createDecentroDynamicQr(float $amount, string $purpose_message, string $referenceId, int $expiryMinutes = 5, ?string $consumerUrn = null, ?string $customUrl = null): ?array
+{
+    $consumerUrn ??= getSetting('decentro_consumer_urn', '');
+    if ($consumerUrn === '' || $amount <= 0) {
+        return null;
+    }
+
+    $cleanPurpose = preg_replace('/[^A-Za-z0-9 ]/', '', $purpose_message);
+    $cleanPurpose = substr(trim((string)$cleanPurpose), 0, 50);
+    if (strlen($cleanPurpose) < 5) {
+        $cleanPurpose = 'Payment via UniWeb';
+    }
+
+    $referenceId = preg_replace('/[^A-Za-z0-9]/', '', $referenceId) ?: ('UW' . time());
+    $expiryMinutes = max(1, min(10, $expiryMinutes));
+
+    $payload = [
+        'reference_id' => $referenceId,
+        'consumer_urn' => $consumerUrn,
+        'amount' => number_format($amount, 2, '.', ''),
+        'purpose_message' => $cleanPurpose,
+        'expiry_time' => $expiryMinutes,
+    ];
+    if ($customUrl !== null && $customUrl !== '') {
+        $payload['custom_url'] = $customUrl;
+    }
+
+    return decentroV3Request('v3/payments/upi/qr', $payload);
+}
+
+function fetchDecentroTransactionStatus(string $decentroTxnId): ?array
+{
+    $url = rtrim(decentroV3ApiBase(), '/') . '/v3/payments/upi/transaction/' . rawurlencode($decentroTxnId);
+    $ch = curl_init($url);
+    $opts = [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => decentroV3Headers(),
+        CURLOPT_TIMEOUT => 15,
+    ];
+    if (getSetting('decentro_environment', 'sandbox') === 'sandbox') {
+        $opts[CURLOPT_SSL_VERIFYPEER] = false;
+        $opts[CURLOPT_SSL_VERIFYHOST] = 0;
+    }
+    curl_setopt_array($ch, $opts);
+    $response = curl_exec($ch);
+    $err = curl_error($ch);
+    curl_close($ch);
+    if ($err !== '') {
+        return null;
+    }
+    return json_decode($response, true) ?: null;
 }
 
 // Axis VA — see includes/axis.php

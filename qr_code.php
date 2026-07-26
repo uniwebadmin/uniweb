@@ -223,7 +223,10 @@ require_once __DIR__ . '/header.php';
                 <div class="bg-white rounded-2xl px-4 pt-5 pb-4 text-center mb-3 border border-gray-200 shadow-lg shadow-emerald-900/10">
                     <p class="text-[11px] font-semibold text-gray-800 truncate px-2"><?= e($businessName) ?></p>
                     <?php if ($isFixed): ?><p class="text-lg font-extrabold text-emerald-600 leading-tight"><?= formatMoney((float)$qr['amount']) ?></p><?php endif; ?>
-                    <img src="<?= e($qrImage) ?>" alt="<?= e($qr['label']) ?> QR" width="200" height="200" class="mx-auto rounded-lg mt-2">
+                    <div class="relative inline-block mt-2">
+                        <img src="<?= e($qrImage) ?>" alt="<?= e($qr['label']) ?> QR" width="200" height="200" class="rounded-lg">
+                        <img src="<?= e(APP_URL) ?>/assets/img/uniweb-logo.svg" alt="<?= e(APP_NAME) ?>" width="32" height="32" class="absolute w-8 h-8 bg-white rounded-full p-0.5 shadow" style="top:50%;left:50%;transform:translate(-50%,-50%)">
+                    </div>
                     <p class="text-[10px] text-gray-400 mt-2 tracking-widest uppercase">Scan &amp; Pay · Powered by <?= e(APP_NAME) ?></p>
                 </div>
                 <div class="grid grid-cols-2 gap-2 mb-3">

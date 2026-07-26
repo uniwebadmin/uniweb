@@ -156,6 +156,10 @@ require_once __DIR__ . '/header.php';
                     </select>
                 </div>
             </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <button type="button" id="verify-bank-btn" onclick="verifyBankAccountNow()" class="bg-sky-600 hover:bg-sky-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition">Verify my account</button>
+                <p id="verify-bank-status" class="text-sm"></p>
+            </div>
             <button type="submit" class="w-full bg-brand-600 hover:bg-brand-500 text-white py-3 rounded-xl font-semibold transition">Add Account</button>
         </form>
     </div>
@@ -262,6 +266,43 @@ require_once __DIR__ . '/header.php';
         if (input.value.trim()) { /* pre-filled edit form: don't overwrite, just verify */ }
     });
 })();
+async function verifyBankAccountNow() {
+    const account = document.querySelector('input[name="account_number"]');
+    const ifsc = document.querySelector('input[name="ifsc_code"]');
+    const holder = document.querySelector('input[name="account_holder"]');
+    const bank = document.querySelector('input[name="bank_name"]');
+    const status = document.getElementById('verify-bank-status');
+    const btn = document.getElementById('verify-bank-btn');
+    if (!account || !ifsc || !status || !btn) return;
+    const accVal = account.value.replace(/\s+/g, '');
+    const ifscVal = ifsc.value.trim().toUpperCase();
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscVal)) { status.textContent = 'Enter valid IFSC first'; status.className = 'text-sm text-red-400'; return; }
+    if (accVal.length < 9) { status.textContent = 'Enter valid account number first'; status.className = 'text-sm text-red-400'; return; }
+    const csrf = document.querySelector('input[name="csrf_token"]');
+    if (!csrf) return;
+    btn.disabled = true; btn.textContent = 'Verifying...';
+    status.className = 'text-sm text-cyan-400'; status.textContent = 'Verifying...';
+    try {
+        const fd = new FormData();
+        fd.append('account_number', accVal);
+        fd.append('ifsc_code', ifscVal);
+        fd.append('csrf_token', csrf.value);
+        const r = await fetch('verify_bank_account.php', { method: 'POST', body: fd });
+        const d = await r.json();
+        if (!d.ok) { status.textContent = d.error || 'Verification failed'; status.className = 'text-sm text-red-400'; return; }
+        if (d.bank && bank) { bank.value = d.bank; bank.dataset.ifscAuto = '1'; }
+        if (d.verified && d.account_holder && holder) { holder.value = d.account_holder; }
+        const parts = [d.branch, d.city || d.district, d.state].filter(Boolean);
+        const branchText = parts.length ? ' — ' + parts.join(', ') : '';
+        status.textContent = (d.message || '') + branchText;
+        status.className = 'text-sm ' + (d.verified ? 'text-emerald-400' : 'text-amber-400');
+    } catch (e) {
+        status.textContent = 'Network error. Try again.';
+        status.className = 'text-sm text-red-400';
+    } finally {
+        btn.disabled = false; btn.textContent = 'Verify my account';
+    }
+}
 </script>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

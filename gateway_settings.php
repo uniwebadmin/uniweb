@@ -283,6 +283,8 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
         <?php foreach ([
             ['decentro_client_id','Decentro Client ID','text'],['decentro_client_secret','Decentro Client Secret','password'],
             ['decentro_consumer_urn','Decentro Master Consumer URN','text'],
+            ['decentro_module_secret','Decentro Module Secret','password'],
+            ['decentro_provider_secret','Decentro Provider Secret','password'],
             ['decentro_base_url','Decentro Base URL','text'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">Video KYC face-match partner (Digio)</h3>

@@ -5,26 +5,69 @@ $merchant = getMerchant();
 $db = getDB();
 $mid = $merchant['id'];
 
-$daily = $db->prepare("SELECT DATE(created_at) as d, COALESCE(SUM(amount),0) as total, COUNT(*) as cnt FROM transactions WHERE merchant_id=? AND status='success' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) GROUP BY DATE(created_at) ORDER BY d");
-$daily->execute([$mid]); $dailyData = $daily->fetchAll();
+$from = trim($_GET['from'] ?? '');
+$to = trim($_GET['to'] ?? '');
+$method = trim($_GET['method'] ?? 'all');
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) $from = '';
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) $to = '';
+$validMethods = ['upi','card','netbanking','wallet','razorpay','cashfree','payu'];
+if ($method !== 'all' && !in_array($method, $validMethods, true)) $method = 'all';
 
-$methods = $db->prepare("SELECT payment_method, COUNT(*) as cnt, COALESCE(SUM(amount),0) as total FROM transactions WHERE merchant_id=? AND status='success' GROUP BY payment_method");
-$methods->execute([$mid]); $methodData = $methods->fetchAll();
+$dateWhere = 'merchant_id = ?';
+$dateParams = [$mid];
+if ($from !== '') { $dateWhere .= ' AND DATE(created_at) >= ?'; $dateParams[] = $from; }
+if ($to !== '') { $dateWhere .= ' AND DATE(created_at) <= ?'; $dateParams[] = $to; }
 
-$statuses = $db->prepare("SELECT status, COUNT(*) as cnt FROM transactions WHERE merchant_id=? GROUP BY status");
-$statuses->execute([$mid]); $statusData = $statuses->fetchAll();
+$dailyFrom = $from !== '' ? $from : date('Y-m-d', strtotime('-29 days'));
+$dailyWhere = "merchant_id = ? AND status = 'success' AND DATE(created_at) >= ?";
+$dailyParams = [$mid, $dailyFrom];
+if ($to !== '') { $dailyWhere .= ' AND DATE(created_at) <= ?'; $dailyParams[] = $to; }
+$daily = $db->prepare("SELECT DATE(created_at) as d, COALESCE(SUM(amount),0) as total, COUNT(*) as cnt FROM transactions WHERE $dailyWhere GROUP BY DATE(created_at) ORDER BY d");
+$daily->execute($dailyParams); $dailyData = $daily->fetchAll();
 
-$monthly = $db->prepare("SELECT DATE_FORMAT(created_at,'%Y-%m') as m, COALESCE(SUM(amount),0) as total FROM transactions WHERE merchant_id=? AND status='success' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH) GROUP BY m ORDER BY m");
-$monthly->execute([$mid]); $monthlyData = $monthly->fetchAll();
+$methodWhere = $dateWhere . " AND status = 'success'";
+$methodParams = $dateParams;
+if ($method !== 'all') { $methodWhere .= ' AND payment_method = ?'; $methodParams[] = $method; }
+$methods = $db->prepare("SELECT payment_method, COUNT(*) as cnt, COALESCE(SUM(amount),0) as total FROM transactions WHERE $methodWhere GROUP BY payment_method");
+$methods->execute($methodParams); $methodData = $methods->fetchAll();
+
+$statuses = $db->prepare("SELECT status, COUNT(*) as cnt FROM transactions WHERE $dateWhere GROUP BY status");
+$statuses->execute($dateParams); $statusData = $statuses->fetchAll();
+
+$monthlyFrom = $from !== '' ? $from : date('Y-m-01', strtotime('-5 months'));
+$monthlyWhere = "merchant_id = ? AND status = 'success' AND DATE(created_at) >= ?";
+$monthlyParams = [$mid, $monthlyFrom];
+if ($to !== '') { $monthlyWhere .= ' AND DATE(created_at) <= ?'; $monthlyParams[] = $to; }
+$monthly = $db->prepare("SELECT DATE_FORMAT(created_at,'%Y-%m') as m, COALESCE(SUM(amount),0) as total FROM transactions WHERE $monthlyWhere GROUP BY m ORDER BY m");
+$monthly->execute($monthlyParams); $monthlyData = $monthly->fetchAll();
 
 $pageTitle = __('reports');
 require_once __DIR__ . '/header.php';
 echo renderPrintStylesheet();
 $hasData = !empty($dailyData) || !empty($methodData) || !empty($statusData) || !empty($monthlyData);
 ?>
-<div class="flex flex-wrap justify-end gap-3 mb-4">
-    <?= renderExportCsvLink('export_reports.php') ?>
-</div>
+<form method="GET" class="glass rounded-xl p-4 mb-6 border border-gray-800 flex flex-wrap gap-3 items-end">
+    <div>
+        <label class="text-[10px] text-gray-600 uppercase">From</label>
+        <input type="date" name="from" value="<?= e($from) ?>" class="input-field mt-1 text-sm">
+    </div>
+    <div>
+        <label class="text-[10px] text-gray-600 uppercase">To</label>
+        <input type="date" name="to" value="<?= e($to) ?>" class="input-field mt-1 text-sm">
+    </div>
+    <div>
+        <label class="text-[10px] text-gray-600 uppercase">Method</label>
+        <select name="method" class="input-field mt-1 text-sm">
+            <option value="all" <?= $method === 'all' ? 'selected' : '' ?>>All methods</option>
+            <?php foreach (['upi'=>'UPI','card'=>'Card','netbanking'=>'Netbanking','wallet'=>'Wallet','razorpay'=>'Razorpay','cashfree'=>'Cashfree','payu'=>'PayU'] as $mk => $ml): ?>
+            <option value="<?= e($mk) ?>" <?= $method === $mk ? 'selected' : '' ?>><?= e($ml) ?></option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+    <button type="submit" class="btn-primary px-4 py-2.5 text-sm">Filter</button>
+    <a href="reports.php" class="text-sm text-gray-500 hover:text-white px-2 py-2.5">Reset</a>
+    <?= renderExportCsvLink('export_reports.php?' . http_build_query(['from' => $from, 'to' => $to, 'method' => $method])) ?>
+</form>
 <?php if (!$hasData): ?>
 <div class="mb-6">
     <?= renderMerchantEmptyState(

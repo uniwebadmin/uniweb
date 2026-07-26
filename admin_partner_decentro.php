@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireSuperAdmin();
-$pageTitle = 'Decentro 30-Min Demo Script';
+$pageTitle = 'Decentro Partner Onboarding Checklist';
 require_once __DIR__ . '/header.php';
 
 $db = getDB();

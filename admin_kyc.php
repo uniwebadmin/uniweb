@@ -396,6 +396,7 @@ require_once __DIR__ . '/header.php';
                 <?php if (isSuperAdmin()): ?>
                 <form method="post" class="flex-1 sm:flex-none"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="verify_merchant_now"><input type="hidden" name="id" value="<?= (int)$m['id'] ?>"><input type="hidden" name="reason" value="KYC package reviewed — super solo verify"><button class="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg w-full">Verify KYC now</button></form>
                 <?php endif; ?>
+                <a href="admin_gateway_submit.php?merchant_id=<?= (int)$m['id'] ?>" class="text-xs bg-violet-600/20 text-violet-400 px-3 py-1.5 rounded-lg text-center flex-1 sm:flex-none">1-Click Partner Forward</a>
                 <?php endif; ?>
             </div>
         </div>

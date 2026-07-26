@@ -105,6 +105,7 @@ require_once __DIR__ . '/header.php';
     <?php if ($adminView): ?>
     <span class="text-xs bg-red-500/20 text-red-300 px-2 py-1 rounded">Admin View</span>
     <?php endif; ?>
+    <a href="receipt.php?txn=<?= e($txn['txn_id']) ?>" target="_blank" class="ml-auto text-sm bg-brand-600/20 text-brand-400 hover:bg-brand-600/30 px-3 py-1.5 rounded-lg">Print receipt</a>
 </div>
 
 <div class="grid lg:grid-cols-3 gap-6">
