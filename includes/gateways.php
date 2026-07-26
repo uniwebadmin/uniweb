@@ -1028,13 +1028,20 @@ function decentroV3Request(string $endpoint, array $payload): ?array
 {
     $url = rtrim(decentroV3ApiBase(), '/') . '/' . ltrim($endpoint, '/');
     $ch = curl_init($url);
-    curl_setopt_array($ch, [
+    $opts = [
         CURLOPT_POST => true,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER => decentroV3Headers(),
         CURLOPT_POSTFIELDS => json_encode($payload),
         CURLOPT_TIMEOUT => 30,
-    ]);
+    ];
+    // Sandbox only: local Windows PHP often lacks a CA bundle, so staging calls fail
+    // with SSL verify errors. Production keeps verification enabled by default.
+    if (getSetting('decentro_environment', 'sandbox') === 'sandbox') {
+        $opts[CURLOPT_SSL_VERIFYPEER] = false;
+        $opts[CURLOPT_SSL_VERIFYHOST] = 0;
+    }
+    curl_setopt_array($ch, $opts);
     $response = curl_exec($ch);
     $err = curl_error($ch);
     curl_close($ch);
@@ -1090,11 +1097,16 @@ function fetchDecentroTransactionStatus(string $decentroTxnId): ?array
 {
     $url = rtrim(decentroV3ApiBase(), '/') . '/v3/payments/upi/transaction/' . rawurlencode($decentroTxnId);
     $ch = curl_init($url);
-    curl_setopt_array($ch, [
+    $opts = [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER => decentroV3Headers(),
         CURLOPT_TIMEOUT => 15,
-    ]);
+    ];
+    if (getSetting('decentro_environment', 'sandbox') === 'sandbox') {
+        $opts[CURLOPT_SSL_VERIFYPEER] = false;
+        $opts[CURLOPT_SSL_VERIFYHOST] = 0;
+    }
+    curl_setopt_array($ch, $opts);
     $response = curl_exec($ch);
     $err = curl_error($ch);
     curl_close($ch);

@@ -22,7 +22,7 @@ foreach ($packLinks as $pl) {
             <h3 class="font-semibold text-violet-300">Demo &amp; Partner Pitch</h3>
             <p class="text-xs text-gray-500 mt-1">30-minute partner calls · Decentro / banks · quick links</p>
         </div>
-        <a href="admin_decentro_demo.php" class="text-xs text-violet-400 hover:text-violet-300 font-medium">Full Demo Script →</a>
+        <a href="admin_partner_decentro.php" class="text-xs text-violet-400 hover:text-violet-300 font-medium">Full Demo Script →</a>
     </div>
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -57,7 +57,7 @@ foreach ($packLinks as $pl) {
                 <tr class="hover:bg-white/[0.02]">
                     <td class="px-5 py-3 font-medium">Decentro 30-Min Demo</td>
                     <td class="px-5 py-3 text-gray-400 text-xs">Screen-share script · KYC + Collections + Payouts</td>
-                    <td class="px-5 py-3 text-right"><a href="admin_decentro_demo.php" class="text-violet-400 hover:text-violet-300 text-xs font-medium">Open Script</a></td>
+                    <td class="px-5 py-3 text-right"><a href="admin_partner_decentro.php" class="text-violet-400 hover:text-violet-300 text-xs font-medium">Open Script</a></td>
                 </tr>
                 <tr class="hover:bg-white/[0.02]">
                     <td class="px-5 py-3 font-medium">Platform Tour</td>

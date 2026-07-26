@@ -39,7 +39,7 @@ require_once __DIR__ . '/header.php';
     <a href="admin_error_log.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm <?= $unresolvedErrors > 0 ? 'text-red-400 border border-red-500/30' : 'text-gray-400' ?>">Error Log<?= $unresolvedErrors > 0 ? " ($unresolvedErrors)" : '' ?></a>
     <a href="admin_watchdog.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-amber-400">Link Watchdog</a>
     <a href="admin_link_audit.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-sky-400">Link Audit</a>
-    <a href="admin_decentro_demo.php" class="bg-violet-600/20 border border-violet-500/30 text-violet-300 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium hover:bg-violet-600/30">Decentro 30-Min Demo</a>
+    <a href="admin_partner_decentro.php" class="bg-violet-600/20 border border-violet-500/30 text-violet-300 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium hover:bg-violet-600/30">Decentro Checklist</a>
     <a href="platform_demo.php" target="_blank" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-violet-400">Platform Tour ↗</a>
     <a href="admin_axis.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-gray-300 hover:text-white">Axis UAT</a>
     <a href="gateway_settings.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-gray-300 hover:text-white">Gateway Keys</a>

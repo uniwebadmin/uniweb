@@ -162,7 +162,7 @@ function getWatchdogPageRegistry(): array
         ['admin_stepup.php', 'Step-up Auth'],
         ['gateway_settings.php', 'Gateway Settings'],
         ['admin_security.php', 'Security'],
-        ['admin_decentro_demo.php', 'Decentro Demo'],
+        ['admin_partner_decentro.php', 'Decentro Checklist'],
         ['admin_customer_message.php', 'Customer Message'],
     ] as $row) {
         $add($row[0], $row[1], 'admin', 'admin');

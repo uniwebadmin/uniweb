@@ -26,6 +26,9 @@ Agent explanation accepted. Status:
 
 | When | File / source | Summary | Agent |
 |------|---------------|---------|--------|
+| 2026-07-24 ~19:00 | Owner: auto flow + Hindi rule | Permanent rule: simple Hindi/Urdu chat. Coding: signup/KYC pe saari methods auto-queue; P2M turant ON; NBFC+Instant pages; partner webhook se auto ON/OFF. PR shipping. | coding |
+| 2026-07-24 ~18:00 | Live-prep auto | KYC **Verify KYC now** (super + step-up) shipped PR #74. Smoke green; static broken_links 0. Keys UI tip clarified. Signup default-request model still discuss/await start. | shipped #74 |
+| 2026-07-24 ~16:57 | Owner: **start** | Method Request partner flow **SHIPPED** — PR #73 merged + Hostinger deploy green. Flow: Merchant request → Admin Send to Partner → Partner decision → Final Enable. Real card money still needs gateway keys. | shipped #73 |
 | 2026-07-23 ~18:20 | Cursor agent | **#1 Exact reason polish STARTED + shipped** — `gateway_reason_map.php`, webhook→`failure_reason`, txn list Reason column, migration 020. Branch `feature/exact-reason-polish`. Owner: add `'gateway_reason_map'` to live `config.php` `$__includes`. | coding+PR |
 | 2026-07-23 ~18:10 | Cursor agent | **#4 OTP contact change started + shipped** — merchant email/mobile change on `my_account.php` now requires OTP to new (+ old when real); never silent profile overwrite. Branch `feature/otp-contact-change`. Customer portal stays OTP-login only (no profile self-update). | shipped PR |
 | 2026-07-23 ~18:06 | Cursor chat | Owner: let's start — strategy pack coding begins | #1/#3/#4 agents launched |
