@@ -290,9 +290,9 @@ $exportQuery = http_build_query(['q' => $settlementQ, 'status' => $settlementSta
                     ) ?>
                 </td></tr>
                 <?php else: foreach ($settlementList as $s): ?>
-                <tr class="hover:bg-white/5">
+                <tr<?= uiRowClick('settlement_detail.php?id=' . rawurlencode($s['settlement_id'])) ?>>
                     <td class="px-5 py-3 font-mono text-xs">
-                        <a href="settlement_detail.php?id=<?= urlencode($s['settlement_id']) ?>" class="text-sky-400 hover:text-sky-300 hover:underline"><?= e($s['settlement_id']) ?></a>
+                        <a href="settlement_detail.php?id=<?= urlencode($s['settlement_id']) ?>" class="text-sky-400 hover:text-sky-300 hover:underline"<?= uiStopClick() ?>><?= e($s['settlement_id']) ?></a>
                     </td>
                     <td class="px-5 py-3 font-semibold text-brand-400"><?= walletMoney((float)$s['net_amount']) ?></td>
                     <td class="px-5 py-3 text-xs"><?= e($s['bank_name'] ?? '—') ?></td>

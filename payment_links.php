@@ -194,9 +194,9 @@ $cfReady = isGatewayConfigured('cashfree');
                         $payUrl = buildPaymentLinkUrl($link['link_id'], $cat['pay_key'] ?? null);
                         $methodLabel = $link['link_label'] ?? ($cat['label'] ?? 'All Methods');
                     ?>
-                    <tr>
+                    <tr<?= uiRowClick($payUrl) ?>>
                         <td class="px-5 py-3 font-mono text-xs">
-                            <a href="<?= e($payUrl) ?>" target="_blank" class="text-sky-400 hover:underline"><?= e($link['link_id']) ?></a>
+                            <a href="<?= e($payUrl) ?>" target="_blank" class="text-sky-400 hover:underline"<?= uiStopClick() ?>><?= e($link['link_id']) ?></a>
                         </td>
                         <td class="px-5 py-3 text-xs"><?= e($methodLabel) ?></td>
                         <td class="px-5 py-3 font-semibold"><?= formatMoney(capStatAmount((float)$link['amount'])) ?></td>
@@ -205,7 +205,7 @@ $cfReady = isGatewayConfigured('cashfree');
                         <td class="px-5 py-3 text-xs text-gray-400"><?php $v = (int)($link['view_count'] ?? 0); $p = (int)($link['paid_count'] ?? 0); echo $v > 0 ? round($p / $v * 100) . '%' : '—'; ?></td>
                         <td class="px-5 py-3"><?= statusBadge($link['status']) ?></td>
                         <td class="px-5 py-3 text-xs text-gray-500"><?= formatDate($link['expires_at']) ?></td>
-                        <td class="px-5 py-3 whitespace-nowrap">
+                        <td class="px-5 py-3 whitespace-nowrap"<?= uiStopClick() ?>>
                             <?php if ($link['status'] === 'active'): ?>
                             <a href="<?= e($payUrl) ?>" target="_blank" class="text-xs bg-sky-600/20 text-sky-400 px-3 py-1 rounded-lg mr-1">Open</a>
                             <button type="button" onclick="navigator.clipboard.writeText('<?= e($payUrl) ?>');this.textContent='Copied!'" class="text-xs bg-brand-600/20 text-brand-400 px-3 py-1 rounded-lg">Copy</button>
