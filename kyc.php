@@ -1,4 +1,5 @@
 <?php
+if (function_exists('opcache_invalidate')) { opcache_invalidate(__FILE__, true); }
 require_once __DIR__ . '/config.php';
 requireLogin();
 ensureKycSchema();
@@ -97,7 +98,7 @@ $need = count($requiredDocs);
 $have = count(array_intersect($requiredDocs, $uploadedTypes));
 $approvedCount = count(array_intersect($requiredDocs, $approvedTypes));
 
-$pageTitle = 'KYC Verification';
+$pageTitle = 'KYC Verification LIVE-v20260725-H';
 require_once __DIR__ . '/header.php';
 
 $step1Done = !empty($verifyFields)
@@ -126,9 +127,16 @@ $docStatusMeta = static function (string $status): array {
     };
 };
 ?>
-
-<div class="max-w-6xl grid lg:grid-cols-5 gap-6 items-start">
-    <div class="lg:col-span-3 space-y-6 min-w-0">
+<!-- v20260725-G -->
+<style>
+.kyc-root{display:flex !important;flex-wrap:wrap !important;gap:1.5rem !important;align-items:flex-start !important;align-self:stretch !important;width:100% !important;max-width:100% !important;box-sizing:border-box !important;padding:0 1rem !important}
+.kyc-main{flex:3 1 60% !important;min-width:0 !important;width:auto !important;max-width:100% !important}
+.kyc-side{flex:2 1 35% !important;min-width:300px !important;max-width:100% !important}
+.kyc-main>*{max-width:100% !important}
+@media (max-width:1023px){.kyc-main,.kyc-side{flex:1 1 100% !important}}
+</style>
+<div class="kyc-root">
+    <div class="kyc-main space-y-6">
     <div class="glass rounded-2xl p-5 border border-sky-500/20">
         <p class="text-xs text-sky-400 uppercase tracking-wider mb-1">KYC Verification</p>
         <h1 class="text-xl font-bold mb-3">Complete your compliance checklist</h1>
@@ -356,24 +364,24 @@ $docStatusMeta = static function (string $status): array {
         <p class="text-gray-500 text-sm text-center py-8">No documents uploaded yet<?= $docFilter !== '' ? ' for this filter' : '' ?>.</p>
         <?php else: ?>
         <div class="overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="w-full text-sm table-fixed">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50">
-                <tr><th class="px-5 py-3 text-left">Document</th><th class="px-5 py-3 text-left">File</th><th class="px-5 py-3 text-left">Status</th><th class="px-5 py-3 text-left">Notes</th><th class="px-5 py-3 text-left">Date</th></tr>
+                <tr><th class="px-5 py-3 text-left w-1/5">Document</th><th class="px-5 py-3 text-left w-1/3">File</th><th class="px-5 py-3 text-left w-1/6">Status</th><th class="px-5 py-3 text-left w-1/4">Notes</th><th class="px-5 py-3 text-left w-1/6">Date</th></tr>
             </thead>
             <tbody class="divide-y divide-gray-800">
                 <?php foreach ($pagedDocuments as $doc):
                     if (($doc['doc_type'] ?? '') === 'video_kyc') continue;
                 ?>
                 <tr class="hover:bg-white/5">
-                    <td class="px-5 py-3"><?= e($docLabels[$doc['doc_type']] ?? $doc['doc_type']) ?></td>
-                    <td class="px-5 py-3 text-xs"><?= e($doc['file_name']) ?></td>
+                    <td class="px-5 py-3 break-words"><?= e($docLabels[$doc['doc_type']] ?? $doc['doc_type']) ?></td>
+                    <td class="px-5 py-3 text-xs break-all"><?= e($doc['file_name']) ?></td>
                     <td class="px-5 py-3"><?= statusBadge($doc['status']) ?></td>
-                    <td class="px-5 py-3 text-xs <?= ($doc['status'] ?? '') === 'rejected' ? 'text-red-300' : 'text-gray-500' ?>">
+                    <td class="px-5 py-3 text-xs break-words <?= ($doc['status'] ?? '') === 'rejected' ? 'text-red-300' : 'text-gray-500' ?>">
                         <?= ($doc['status'] ?? '') === 'rejected'
                             ? e(trim((string)($doc['rejection_reason'] ?? '')) ?: 'Re-upload required')
                             : '—' ?>
                     </td>
-                    <td class="px-5 py-3 text-xs text-gray-500"><?= formatDate($doc['created_at']) ?></td>
+                    <td class="px-5 py-3 text-xs text-gray-500 whitespace-nowrap"><?= formatDate($doc['created_at']) ?></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -382,9 +390,60 @@ $docStatusMeta = static function (string $status): array {
         <?php if (!empty($docTotal)): ?><?= renderListPagination($listParams['page'], $docTotal, $listParams['perPage'], ['doc' => $docFilter ?? '']) ?><?php endif; ?>
         <?php endif; ?>
     </div>
+
+    <div class="glass rounded-xl p-6 mb-6">
+        <h2 class="font-semibold mb-4">KYC Timeline</h2>
+        <div class="relative border-l border-gray-700 ml-3 space-y-5">
+            <?php
+            $timelineEvents = [];
+            foreach ($documents as $doc) {
+                if (($doc['doc_type'] ?? '') === 'video_kyc') continue;
+                $label = $docLabels[$doc['doc_type']] ?? $doc['doc_type'];
+                $status = $doc['status'] ?? 'unknown';
+                $timelineEvents[] = [
+                    'date' => $doc['created_at'],
+                    'icon' => '⬆',
+                    'tone' => 'sky',
+                    'text' => e($label) . ' uploaded',
+                    'sub' => e($doc['file_name'] ?? ''),
+                ];
+                if ($status === 'approved' && !empty($doc['reviewed_at'])) {
+                    $timelineEvents[] = [
+                        'date' => $doc['reviewed_at'],
+                        'icon' => '✓',
+                        'tone' => 'emerald',
+                        'text' => e($label) . ' approved',
+                        'sub' => '',
+                    ];
+                } elseif ($status === 'rejected' && !empty($doc['reviewed_at'])) {
+                    $timelineEvents[] = [
+                        'date' => $doc['reviewed_at'],
+                        'icon' => '!',
+                        'tone' => 'red',
+                        'text' => e($label) . ' rejected',
+                        'sub' => e(trim((string)($doc['rejection_reason'] ?? '')) ?: 'Re-upload required'),
+                    ];
+                }
+            }
+            usort($timelineEvents, fn($a, $b) => strcmp((string)($b['date'] ?? ''), (string)($a['date'] ?? '')));
+            ?>
+            <?php if (empty($timelineEvents)): ?>
+                <p class="text-sm text-gray-500 pl-4">No KYC activity yet.</p>
+            <?php else: ?>
+                <?php foreach ($timelineEvents as $ev): ?>
+                <div class="relative pl-6 min-w-0">
+                    <span class="absolute -left-[7px] top-1 w-3.5 h-3.5 rounded-full bg-<?= e($ev['tone']) ?>-500 border-2 border-dark-950 flex items-center justify-center text-[8px]"><?= e($ev['icon']) ?></span>
+                    <p class="text-sm text-gray-200 break-words"><?= e($ev['text']) ?></p>
+                    <?php if ($ev['sub'] !== ''): ?><p class="text-xs text-gray-500 break-words"><?= e($ev['sub']) ?></p><?php endif; ?>
+                    <p class="text-[10px] text-gray-600"><?= !empty($ev['date']) ? formatDate($ev['date']) : '' ?></p>
+                </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </div>
     </div>
 
-    <aside class="lg:col-span-2 space-y-4 lg:sticky lg:top-24">
+    <aside class="kyc-side space-y-4 lg:sticky lg:top-24 min-w-0">
         <div class="glass rounded-2xl p-5 border border-gray-800">
             <h3 class="font-semibold text-sm mb-2">Status summary</h3>
             <p class="text-xs text-gray-500 mb-3">Entity: <strong class="text-gray-300"><?= e(entityTypeLabel($entityType)) ?></strong></p>
@@ -403,6 +462,19 @@ $docStatusMeta = static function (string $status): array {
 </div>
 
 <script>
+(function(){
+    try{
+        const saveKey='uniweb_kyc_verify_'+<?= (int)($merchant['id'] ?? 0) ?>;
+        document.querySelectorAll('#verify-forms input[type="text"]').forEach(input=>{
+            if(localStorage.getItem(saveKey+'_'+input.id)){
+                input.value=localStorage.getItem(saveKey+'_'+input.id);
+            }
+            input.addEventListener('input',()=>{
+                localStorage.setItem(saveKey+'_'+input.id,input.value);
+            });
+        });
+    }catch(e){}
+})();
 function openKycUploader(type){
     const select=document.getElementById('doc_type');
     const file=document.getElementById('document-file');
@@ -410,13 +482,48 @@ function openKycUploader(type){
     select.value=type;
     file.click();
 }
-function submitChosenKycFile(input){
+async function submitChosenKycFile(input){
     const label=document.getElementById('file-name-label');
     const form=document.getElementById('kyc-upload-form');
     if(!input.files||!input.files[0]||!form)return;
-    label.textContent='Uploading: '+input.files[0].name+'...';
+    const file=input.files[0];
+    label.textContent='Checking: '+file.name+'...';
+    if(file.type.startsWith('image/')){
+        const check=await checkKycImageQuality(file);
+        if(!check.ok){
+            label.textContent='';
+            if(!confirm('Image issue: '+check.msg+'\nUpload anyway?')){input.value='';return;}
+        }
+    }
+    label.textContent='Uploading: '+file.name+'...';
     form.querySelectorAll('button').forEach(btn=>btn.disabled=true);
     form.submit();
+}
+function checkKycImageQuality(file){
+    return new Promise((resolve)=>{
+        const img=new Image(), url=URL.createObjectURL(file);
+        img.onload=()=>{
+            URL.revokeObjectURL(url);
+            if(img.width<600||img.height<400){resolve({ok:false,msg:'Image is too small. Please upload a clearer photo.'});return;}
+            const canvas=document.createElement('canvas'), ctx=canvas.getContext('2d');
+            canvas.width=100; canvas.height=100;
+            ctx.drawImage(img,0,0,100,100);
+            try{
+                const data=ctx.getImageData(0,0,100,100).data;
+                let grey=[], sum=0;
+                for(let i=0;i<data.length;i+=4){const g=0.299*data[i]+0.587*data[i+1]+0.114*data[i+2]; grey.push(g); sum+=g;}
+                const mean=sum/grey.length;
+                let variance=0;
+                grey.forEach(g=>variance+=Math.pow(g-mean,2));
+                variance/=grey.length;
+                const sharpness=Math.sqrt(variance);
+                if(sharpness<8){resolve({ok:false,msg:'Image looks blurry. Please upload a sharper photo.'});return;}
+            }catch(e){}
+            resolve({ok:true,msg:''});
+        };
+        img.onerror=()=>{URL.revokeObjectURL(url);resolve({ok:true,msg:''});};
+        img.src=url;
+    });
 }
 async function verifyDoc(type){
     const num=document.getElementById('verify-'+type)?.value;
