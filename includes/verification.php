@@ -202,7 +202,16 @@ function lookupIfsc(string $ifsc): ?array
 function verifyBankAccount(string $accountNumber, string $ifsc, int $merchantId): array
 {
     $result = verifyDocument('bank', $accountNumber . '|' . $ifsc, $merchantId);
-    if (($result['status'] ?? '') === 'verified') return $result;
+    if (($result['status'] ?? '') === 'verified') {
+        $result['account_holder'] = trim((string)(
+            $result['data']['data']['beneficiary_name']
+            ?? $result['data']['data']['name']
+            ?? $result['data']['beneficiary_name']
+            ?? $result['data']['name']
+            ?? ''
+        ));
+        return $result;
+    }
 
     // Penny drop simulation / manual review
     saveVerification($merchantId, 'bank', $accountNumber, 'submitted', json_encode(['ifsc' => $ifsc, 'message' => 'Bank verification submitted']));
