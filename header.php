@@ -166,13 +166,13 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
 <?php if ($isMerchant): $merchant = getMerchant(); ?>
 <div id="sidebar-overlay" class="overlay fixed inset-0 bg-black/60 z-40 lg:hidden"></div>
 <div class="portal-shell flex flex-1 min-h-screen">
-    <aside id="sidebar-panel" class="sidebar-shell w-64 bg-dark-900 border-r border-gray-800 fixed inset-y-0 left-0 z-50 lg:z-30 mobile-drawer lg:translate-x-0 lg:!transform-none">
+    <aside id="sidebar-panel" class="sidebar-shell w-64 bg-dark-900 border-r border-gray-800 fixed inset-y-0 left-0 z-50 lg:z-30 mobile-drawer lg:translate-x-0 lg:!transform-none flex flex-col">
         <div class="p-5 border-b border-gray-800 shrink-0">
             <?php $logoHref = 'dashboard.php'; $logoSize = 'sm'; $merchantPanel = true; $merchantInitial = strtoupper(substr($merchant['business_name'] ?? $merchant['name'] ?? 'M', 0, 1)); require __DIR__ . '/includes/brand_logo.php'; ?>
             <p class="text-sm font-semibold text-white mt-3 truncate"><?= e($merchant['business_name'] ?? $merchant['name'] ?? 'Merchant') ?></p>
             <p class="text-[10px] text-gray-500 font-mono mt-0.5"><?= e($merchant['merchant_code'] ?? '') ?></p>
         </div>
-        <nav class="sidebar-nav p-3 space-y-0.5 text-sm">
+        <nav class="sidebar-nav p-3 space-y-0.5 text-sm flex-1 overflow-y-auto">
             <?php
             $nav = [
                 ['dashboard.php',__('dashboard'),'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'],
@@ -264,12 +264,12 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
 <?php if ($isSuperAdminPanel): ?>
 <div id="admin-overlay" class="overlay fixed inset-0 bg-black/60 z-40 lg:hidden"></div>
 <div class="portal-shell flex flex-1 min-h-screen">
-    <aside id="admin-sidebar" class="sidebar-shell w-64 bg-dark-900 border-r border-gray-800 fixed inset-y-0 left-0 z-50 lg:z-30 mobile-drawer lg:translate-x-0 lg:!transform-none">
+    <aside id="admin-sidebar" class="sidebar-shell w-64 bg-dark-900 border-r border-gray-800 fixed inset-y-0 left-0 z-50 lg:z-30 mobile-drawer lg:translate-x-0 lg:!transform-none flex flex-col">
         <div class="p-5 border-b border-gray-800 shrink-0">
             <span class="font-bold text-red-400 text-lg">Admin Panel</span>
             <p class="text-xs text-gray-500 mt-1"><?= APP_NAME ?> Control</p>
         </div>
-        <nav class="sidebar-nav p-3 space-y-0.5 text-sm">
+        <nav class="sidebar-nav p-3 space-y-0.5 text-sm flex-1 overflow-y-auto">
             <?php
             $adminNav = [
                 ['admin_dashboard.php','Dashboard'],['manage_merchant.php','All Merchants'],
@@ -319,12 +319,12 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
 <?php if ($isStaffPortal): $staffAdmin = getAdmin(); ?>
 <div id="admin-overlay" class="overlay fixed inset-0 bg-black/60 z-40 lg:hidden"></div>
 <div class="portal-shell flex flex-1 min-h-screen">
-    <aside id="admin-sidebar" class="sidebar-shell w-64 bg-dark-900 border-r border-gray-800 fixed inset-y-0 left-0 z-50 lg:z-30 mobile-drawer lg:translate-x-0 lg:!transform-none">
+    <aside id="admin-sidebar" class="sidebar-shell w-64 bg-dark-900 border-r border-gray-800 fixed inset-y-0 left-0 z-50 lg:z-30 mobile-drawer lg:translate-x-0 lg:!transform-none flex flex-col">
         <div class="p-5 border-b border-gray-800 shrink-0">
             <span class="font-bold text-sky-400 text-lg">Operations Portal</span>
             <p class="text-xs text-gray-500 mt-1"><?= e(staffRoleLabel(adminRole($staffAdmin))) ?> · <?= e($staffAdmin['name'] ?? 'Staff') ?></p>
         </div>
-        <nav class="sidebar-nav p-3 space-y-0.5 text-sm">
+        <nav class="sidebar-nav p-3 space-y-0.5 text-sm flex-1 overflow-y-auto">
             <?php
             $cur = basename($_SERVER['PHP_SELF']);
             foreach (staffNavForRole(adminRole($staffAdmin)) as [$url,$label]):
