@@ -332,6 +332,11 @@ function partnerTestConnection(string $partnerKey): array
         partnerLogApi('cashfree', 'config_check', 'GET', null, $msg, $ok ? 200 : 0, $ok ? 'ok' : 'pending');
         return ['ok' => $ok, 'message' => $msg];
     }
+    if ($partnerKey === 'decentro') {
+        $test = testDecentroConnection();
+        partnerLogApi('decentro', 'test_connection', 'POST', 'v3/payments/upi/qr', $test['message'] ?? '', ($test['ok'] ?? false) ? 200 : 0, ($test['ok'] ?? false) ? 'ok' : 'failed');
+        return $test;
+    }
 
     $configured = partnerIsConfigured($partnerKey);
     $msg = $configured
