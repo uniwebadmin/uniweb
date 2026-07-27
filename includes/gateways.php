@@ -676,6 +676,9 @@ function testDecentroConnection(): array
     }
 
     $base = decentroV3ApiBase();
+    if (getSetting('decentro_environment', 'sandbox') !== 'sandbox') {
+        return ['ok' => false, 'message' => 'Production Dynamic QR test is disabled to prevent creating a live payment request. Test the same credentials in sandbox first.'];
+    }
     $referenceId = 'UWTEST' . date('YmdHis') . random_int(1000, 9999);
     $result = createDecentroDynamicQr(10.00, 'Payment', $referenceId, 5);
 
