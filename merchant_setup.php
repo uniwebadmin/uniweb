@@ -146,25 +146,32 @@ require_once __DIR__ . '/header.php';
 
         <p class="text-xs text-brand-400 font-medium uppercase tracking-wide pt-2"><?= __('payment_setup') ?></p>
         <p class="text-xs text-gray-500"><?= __('payment_setup_note') ?></p>
-        <div class="space-y-4 bg-dark-900/40 rounded-xl p-4 border border-gray-800">
+        <div class="space-y-5 bg-dark-900/40 rounded-xl p-4 sm:p-5 border border-gray-800">
             <div>
-                <label class="text-sm text-gray-400"><?= __('collection_mode') ?> *</label>
-                <select name="collection_mode" required class="input-field mt-1">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <label class="text-sm font-semibold text-white"><?= __('collection_mode') ?> *</label>
+                    <span class="text-[10px] uppercase tracking-wider text-brand-400">Choose your primary flow</span>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Your available payment setup follows partner approval and account verification.</p>
+                <select name="collection_mode" required class="input-field mt-3">
                     <?php foreach ($collectionModes as $k => $label): ?>
                     <option value="<?= e($k) ?>" <?= ($_POST['collection_mode'] ?? getMerchantCollectionMode($merchant)) === $k ? 'selected' : '' ?>><?= e($label) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div>
-                <label class="text-sm text-gray-400 block mb-2"><?= __('payment_methods') ?></label>
-                <div class="grid sm:grid-cols-2 gap-2 max-h-44 overflow-y-auto">
+            <div class="pt-4 border-t border-gray-800">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <label class="text-sm font-semibold text-white"><?= __('payment_methods') ?></label>
+                    <span class="text-xs text-gray-500">Select what you need</span>
+                </div>
+                <div class="grid sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1">
                     <?php
                     $postedMethods = $_POST['enabled_methods'] ?? $enabledMethods;
                     foreach ($methodCatalog as $mk => $cat):
                     ?>
-                    <label class="flex items-center gap-2 text-xs cursor-pointer">
-                        <input type="checkbox" name="enabled_methods[]" value="<?= e($mk) ?>" <?= in_array($mk, $postedMethods, true) ? 'checked' : '' ?> class="rounded border-gray-600">
-                        <span><?= e(($cat['icon'] ?? '') . ' ' . $cat['label']) ?></span>
+                    <label class="flex items-center gap-3 text-sm cursor-pointer rounded-lg border border-gray-800 px-3 py-2.5 hover:border-brand-500/40 hover:bg-brand-500/5 transition">
+                        <input type="checkbox" name="enabled_methods[]" value="<?= e($mk) ?>" <?= in_array($mk, $postedMethods, true) ? 'checked' : '' ?> class="rounded border-gray-600 accent-emerald-500">
+                        <span class="text-gray-200"><?= e(($cat['icon'] ?? '') . ' ' . $cat['label']) ?></span>
                     </label>
                     <?php endforeach; ?>
                 </div>

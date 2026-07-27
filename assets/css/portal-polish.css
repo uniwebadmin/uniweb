@@ -73,6 +73,25 @@ body:not(.auth-portal-shell):not(.customer-portal-shell) .portal-main {
   background: #f8fafc;
 }
 
+.dash-quick-card {
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.dash-quick-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 28px rgba(2, 6, 23, 0.2);
+}
+
+.dash-quick-card .dash-quick-icon {
+  transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.dash-quick-card:hover .dash-quick-icon {
+  transform: scale(1.08);
+  background: rgba(16, 185, 129, 0.2);
+  box-shadow: 0 8px 18px rgba(16, 185, 129, 0.16);
+}
+
 @media (max-width: 640px) {
   .portal-main > header {
     padding-top: 0.8rem;
