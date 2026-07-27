@@ -16,6 +16,13 @@ $defaultMethods = ['upi_p2m', 'debit_card', 'credit_card', 'netbanking'];
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    $action = (string)($_POST['action'] ?? 'complete');
+    if ($action === 'save_draft') {
+        $result = saveMerchantOnboardingDraft((int)$merchant['id'], $_POST);
+        flash($result['ok'] ? 'success' : 'error', $result['message']);
+        redirect('merchant_setup.php');
+    }
+
     $name = trim($_POST['name'] ?? '');
     $business = trim($_POST['business_name'] ?? '');
     $country = trim($_POST['country'] ?? 'India');
@@ -47,41 +54,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     }
 
     if (empty($errors)) {
+        $alreadyCompleted = (string)($merchant['provision_profile'] ?? '') === 'signup_custom';
         $db->prepare('UPDATE merchants SET name=?, business_name=?, business_type=?, business_entity_type=?, pan_number=?, address=?, country=?, state=?, district=?, city=?, pincode=? WHERE id=?')
             ->execute([$name, $business, $category, $entity, $pan ?: null, $address, $country, $state, $district, $city, $pincode, $merchant['id']]);
 
         applyMerchantSignupPreferences((int)$merchant['id'], $collectionMode, $enabledMethods);
 
-        try {
-            $db->prepare("UPDATE merchants SET kyc_status='submitted' WHERE id=? AND kyc_status IN ('pending','')")->execute([(int)$merchant['id']]);
-        } catch (Throwable $e) { /* ok */ }
+        if (!$alreadyCompleted) {
+            try {
+                $db->prepare("UPDATE merchants SET kyc_status='submitted' WHERE id=? AND kyc_status IN ('pending','')")->execute([(int)$merchant['id']]);
+            } catch (Throwable $e) { /* ok */ }
 
-        try {
-            $db->prepare('UPDATE merchants SET provision_profile=? WHERE id=?')->execute(['signup_custom', $merchant['id']]);
-        } catch (Throwable $e) { /* ok */ }
+            try {
+                $db->prepare('UPDATE merchants SET provision_profile=? WHERE id=?')->execute(['signup_custom', $merchant['id']]);
+            } catch (Throwable $e) { /* ok */ }
 
-        notifyAdminNewMerchantSignup((int)$merchant['id']);
+            notifyAdminNewMerchantSignup((int)$merchant['id']);
+            createNotification((int)$merchant['id'], __('setup_title'), __('notif_profile_saved'));
+            createNotification((int)$merchant['id'], 'Payment Pack Ready', 'Your test payment links are ready. Open Payment Pack to try ₹1 test payments.');
+        }
 
-        createNotification((int)$merchant['id'], __('setup_title'), __('notif_profile_saved'));
-        createNotification((int)$merchant['id'], 'Payment Pack Ready', 'Your test payment links are ready. Open Payment Pack to try ₹1 test payments.');
-
-        flash('success', __('flash_profile_saved') . ' Payment Pack created — check your dashboard.');
+        clearMerchantOnboardingDraft((int)$merchant['id']);
+        flash('success', $alreadyCompleted ? 'Profile updated. Your launch setup remains unchanged.' : __('flash_profile_saved') . ' Payment Pack created — check your dashboard.');
         redirect('dashboard.php');
     }
 }
 
 $merchant = getMerchant();
+$draft = getMerchantOnboardingDraft((int)$merchant['id']);
+$formData = !empty($_POST) ? $_POST : $draft;
 $enabledMethods = getMerchantEnabledMethods($merchant);
 if (empty($enabledMethods)) {
     $enabledMethods = $defaultMethods;
 }
 $addressValues = [
-    'address' => $_POST['address'] ?? ($merchant['address'] ?? ''),
-    'country' => $_POST['country'] ?? ($merchant['country'] ?? 'India'),
-    'state' => $_POST['state'] ?? ($merchant['state'] ?? ''),
-    'district' => $_POST['district'] ?? ($merchant['district'] ?? ''),
-    'city' => $_POST['city'] ?? ($merchant['city'] ?? ''),
-    'pincode' => $_POST['pincode'] ?? ($merchant['pincode'] ?? ''),
+    'address' => $formData['address'] ?? ($merchant['address'] ?? ''),
+    'country' => $formData['country'] ?? ($merchant['country'] ?? 'India'),
+    'state' => $formData['state'] ?? ($merchant['state'] ?? ''),
+    'district' => $formData['district'] ?? ($merchant['district'] ?? ''),
+    'city' => $formData['city'] ?? ($merchant['city'] ?? ''),
+    'pincode' => $formData['pincode'] ?? ($merchant['pincode'] ?? ''),
 ];
 
 $pageTitle = __('setup_title');
@@ -110,17 +122,17 @@ require_once __DIR__ . '/header.php';
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="sm:col-span-2">
                 <label class="text-sm text-gray-400"><?= __('full_name') ?> *</label>
-                <input type="text" name="name" required class="input-field mt-1" value="<?= e($_POST['name'] ?? $merchant['name'] ?? '') ?>">
+                <input type="text" name="name" required class="input-field mt-1" value="<?= e($formData['name'] ?? $merchant['name'] ?? '') ?>">
             </div>
             <div class="sm:col-span-2">
                 <label class="text-sm text-gray-400"><?= __('shop_name') ?> *</label>
-                <input type="text" name="business_name" required class="input-field mt-1" value="<?= e($_POST['business_name'] ?? (($merchant['business_name'] ?? '') === 'My Business' ? '' : ($merchant['business_name'] ?? ''))) ?>">
+                <input type="text" name="business_name" required class="input-field mt-1" value="<?= e($formData['business_name'] ?? (($merchant['business_name'] ?? '') === 'My Business' ? '' : ($merchant['business_name'] ?? ''))) ?>">
             </div>
             <div class="sm:col-span-2">
                 <label class="text-sm text-gray-400"><?= __('account_type') ?> *</label>
                 <select name="business_entity_type" required class="input-field mt-1">
                     <?php foreach ($entities as $k => $v): ?>
-                    <option value="<?= $k ?>" <?= ($_POST['business_entity_type'] ?? $merchant['business_entity_type'] ?? 'individual') === $k ? 'selected' : '' ?>><?= e($v) ?></option>
+                    <option value="<?= $k ?>" <?= ($formData['business_entity_type'] ?? $merchant['business_entity_type'] ?? 'individual') === $k ? 'selected' : '' ?>><?= e($v) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -128,13 +140,13 @@ require_once __DIR__ . '/header.php';
                 <label class="text-sm text-gray-400"><?= __('business_category') ?></label>
                 <select name="business_type" class="input-field mt-1">
                     <?php foreach ($categories as $k => $v): ?>
-                    <option value="<?= $k ?>" <?= ($_POST['business_type'] ?? $merchant['business_type'] ?? 'retail') === $k ? 'selected' : '' ?>><?= e($v) ?></option>
+                    <option value="<?= $k ?>" <?= ($formData['business_type'] ?? $merchant['business_type'] ?? 'retail') === $k ? 'selected' : '' ?>><?= e($v) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
             <div>
                 <label class="text-sm text-gray-400"><?= __('pan_optional') ?></label>
-                <input type="text" name="pan_number" maxlength="10" class="input-field mt-1 uppercase" value="<?= e($_POST['pan_number'] ?? $merchant['pan_number'] ?? '') ?>">
+                <input type="text" name="pan_number" maxlength="10" class="input-field mt-1 uppercase" value="<?= e($formData['pan_number'] ?? $merchant['pan_number'] ?? '') ?>">
             </div>
         </div>
 
@@ -155,7 +167,7 @@ require_once __DIR__ . '/header.php';
                 <p class="text-xs text-gray-500 mt-1">Your available payment setup follows partner approval and account verification.</p>
                 <select name="collection_mode" required class="input-field mt-3">
                     <?php foreach ($collectionModes as $k => $label): ?>
-                    <option value="<?= e($k) ?>" <?= ($_POST['collection_mode'] ?? getMerchantCollectionMode($merchant)) === $k ? 'selected' : '' ?>><?= e($label) ?></option>
+                    <option value="<?= e($k) ?>" <?= ($formData['collection_mode'] ?? getMerchantCollectionMode($merchant)) === $k ? 'selected' : '' ?>><?= e($label) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -166,7 +178,7 @@ require_once __DIR__ . '/header.php';
                 </div>
                 <div class="grid sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1">
                     <?php
-                    $postedMethods = $_POST['enabled_methods'] ?? $enabledMethods;
+                    $postedMethods = $formData['enabled_methods'] ?? $enabledMethods;
                     foreach ($methodCatalog as $mk => $cat):
                     ?>
                     <label class="flex items-center gap-3 text-sm cursor-pointer rounded-lg border border-gray-800 px-3 py-2.5 hover:border-brand-500/40 hover:bg-brand-500/5 transition">
@@ -179,7 +191,8 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <div class="flex flex-wrap gap-3 pt-2">
-            <button type="submit" class="btn-primary px-6 py-3"><?= __('save_dashboard') ?></button>
+            <button type="submit" name="action" value="complete" class="btn-primary px-6 py-3"><?= __('save_dashboard') ?></button>
+            <button type="submit" name="action" value="save_draft" formnovalidate class="px-5 py-3 rounded-xl border border-sky-500/40 text-sm text-sky-300 hover:bg-sky-500/10">Save &amp; Resume Later</button>
             <?php if (merchantProfileComplete($merchant)): ?>
             <a href="dashboard.php" class="text-sm text-gray-400 hover:text-white px-4 py-3"><?= __('skip_for_now') ?></a>
             <?php endif; ?>

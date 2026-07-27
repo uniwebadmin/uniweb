@@ -101,6 +101,66 @@ function getMerchantOnboardingSteps(array $merchant): array
     ];
 }
 
+function ensureMerchantOnboardingDraftSchema(): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    getDB()->exec('CREATE TABLE IF NOT EXISTS merchant_onboarding_drafts (
+        merchant_id INT NOT NULL PRIMARY KEY,
+        draft_json JSON NOT NULL,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_merchant_onboarding_draft_merchant FOREIGN KEY (merchant_id) REFERENCES merchants(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+}
+
+function merchantOnboardingDraftData(array $input): array
+{
+    $fields = ['name', 'business_name', 'country', 'state', 'district', 'city', 'pincode', 'address', 'business_entity_type', 'business_type', 'pan_number', 'collection_mode'];
+    $draft = [];
+    foreach ($fields as $field) {
+        $value = trim((string)($input[$field] ?? ''));
+        $draft[$field] = mb_substr($value, 0, $field === 'address' ? 1000 : 255);
+    }
+    $allowedMethods = array_keys(getPaymentMethodCatalog());
+    $draft['enabled_methods'] = array_values(array_intersect(
+        $allowedMethods,
+        array_map('strval', (array)($input['enabled_methods'] ?? []))
+    ));
+    return $draft;
+}
+
+function getMerchantOnboardingDraft(int $merchantId): array
+{
+    ensureMerchantOnboardingDraftSchema();
+    $stmt = getDB()->prepare('SELECT draft_json FROM merchant_onboarding_drafts WHERE merchant_id=?');
+    $stmt->execute([$merchantId]);
+    $raw = $stmt->fetchColumn();
+    $draft = is_string($raw) ? json_decode($raw, true) : null;
+    return is_array($draft) ? merchantOnboardingDraftData($draft) : [];
+}
+
+function saveMerchantOnboardingDraft(int $merchantId, array $input): array
+{
+    ensureMerchantOnboardingDraftSchema();
+    $draft = merchantOnboardingDraftData($input);
+    $json = json_encode($draft, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($json === false) {
+        return ['ok' => false, 'message' => 'Could not save your draft.'];
+    }
+    getDB()->prepare('INSERT INTO merchant_onboarding_drafts (merchant_id, draft_json) VALUES (?,?) ON DUPLICATE KEY UPDATE draft_json=VALUES(draft_json)')
+        ->execute([$merchantId, $json]);
+    return ['ok' => true, 'message' => 'Draft saved. You can continue from any device.'];
+}
+
+function clearMerchantOnboardingDraft(int $merchantId): void
+{
+    ensureMerchantOnboardingDraftSchema();
+    getDB()->prepare('DELETE FROM merchant_onboarding_drafts WHERE merchant_id=?')->execute([$merchantId]);
+}
+
 function getMerchantLaunchCenter(array $merchant): array
 {
     $steps = getMerchantOnboardingSteps($merchant);
