@@ -254,10 +254,38 @@ $docStatusMeta = static function (string $status): array {
                     <p class="font-semibold text-violet-200 group-hover:text-white">Video KYC</p>
                     <?= statusBadge($vkStatus) ?>
                 </div>
-                <p class="text-xs text-gray-500 mt-0.5">Short selfie video holding your Aadhaar or PAN</p>
+                <p class="text-xs text-gray-500 mt-0.5">Live camera recording with your name, shop name and address</p>
                 <?php if ($vkRejected): ?>
-                <p class="text-xs text-red-300 mt-2">Reason: <?= e(trim((string)($vkLatest['rejection_reason'] ?? '')) ?: 'Please record again with clearer face and document.') ?></p>
+                <p class="text-xs text-red-300 mt-2">Reason: <?= e(trim((string)($vkLatest['rejection_reason'] ?? '')) ?: 'Please record again with clearer face and voice.') ?></p>
                 <?php endif; ?>
+            </div>
+            <span class="text-violet-400">→</span>
+        </div>
+    </a>
+
+    <?php
+    $shopPhotoTypes = ['shop_signboard', 'shop_outside', 'shop_inside_1', 'shop_inside_2'];
+    $shopUploadedCount = count(array_intersect($shopPhotoTypes, $uploadedTypes));
+    $shopApprovedCount = count(array_intersect($shopPhotoTypes, $approvedTypes));
+    $shopStatus = 'pending';
+    if ($shopApprovedCount >= 4) {
+        $shopStatus = 'approved';
+    } elseif ($shopUploadedCount >= 4) {
+        $shopStatus = 'submitted';
+    }
+    $shopBorder = $shopStatus === 'approved' ? 'border-emerald-500/30 bg-emerald-500/5' : ($shopStatus === 'submitted' ? 'border-amber-500/30 bg-amber-500/5' : 'border-violet-500/30 bg-violet-500/5');
+    ?>
+    <a href="merchant_shop_photos.php" class="block glass rounded-xl p-5 mb-6 border <?= $shopBorder ?> hover:opacity-95 transition group">
+        <div class="flex items-center gap-4">
+            <span class="w-12 h-12 rounded-xl bg-violet-500/15 text-violet-400 flex items-center justify-center shrink-0">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </span>
+            <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                    <p class="font-semibold text-violet-200 group-hover:text-white">Shop Photos</p>
+                    <?= statusBadge($shopStatus) ?>
+                </div>
+                <p class="text-xs text-gray-500 mt-0.5">4 live photos: signboard, outside shop, 2 inside views</p>
             </div>
             <span class="text-violet-400">→</span>
         </div>
