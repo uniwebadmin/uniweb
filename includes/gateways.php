@@ -340,6 +340,12 @@ function submitMerchantToGateway(int $merchantId, string $gateway, int $adminId,
     $m = $merchant->fetch();
     if (!$m) return false;
 
+    $existing = $db->prepare("SELECT id FROM gateway_submissions WHERE merchant_id=? AND gateway=? AND status IN ('submitted','pending_review','approved') ORDER BY id DESC LIMIT 1");
+    $existing->execute([$merchantId, $gateway]);
+    if ($existing->fetchColumn()) {
+        return true;
+    }
+
     $docs = $db->prepare('SELECT * FROM kyc_documents WHERE merchant_id = ?');
     $docs->execute([$merchantId]);
     $documents = $docs->fetchAll();
