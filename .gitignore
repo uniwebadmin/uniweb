@@ -6,6 +6,7 @@ config.php
 config.private.php
 config.live.local.bak.php
 dev_local/mariadb_error.log
+dev_local/chat_inbox_watcher_state.json
 db.local.php
 
 # One-time setup, diagnostics, and deployment scripts
