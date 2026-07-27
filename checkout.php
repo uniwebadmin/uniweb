@@ -149,6 +149,7 @@ $razorpayOrder = null;
 $cashfreeSession = null;
 $payuForms = [];
 $axisVa = null;
+$decentroQr = null;
 $withPayuSplit = $handler === 'payu_split';
 
 if ($handler === 'axis_va') {
@@ -160,6 +161,9 @@ if ($handler === 'axis_va') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    if ($selectedPay === 'upi' && decentroSandboxCheckoutAvailable($link)) {
+        $decentroQr = createDecentroSandboxCheckoutQr($link);
+    }
     if (isGatewayConfigured('payu')) {
         foreach ($paymentMethods as $m) {
             if (($m['type'] ?? '') === 'payu' && !empty($m['pg'])) {
@@ -318,6 +322,14 @@ require_once __DIR__ . '/header.php';
                     <?php endif; ?>
 
                     <?php if ($selectedPay === 'upi'): ?>
+                    <?php if (!empty($decentroQr['ok'])): ?>
+                    <div class="bg-white rounded-2xl p-5 text-center mb-4 border-2 border-violet-200 shadow-lg shadow-violet-900/10">
+                        <p class="text-[10px] text-violet-600 uppercase tracking-widest mb-2">Decentro Sandbox Dynamic QR</p>
+                        <img src="<?= e($decentroQr['image_url']) ?>" alt="Decentro payment QR" class="mx-auto rounded-lg" width="220" height="220">
+                        <p class="text-dark-900 text-xs mt-3">Scan with any UPI app to complete this sandbox payment.</p>
+                    </div>
+                    <p class="text-xs text-center text-violet-300 mb-4" id="upi-poll-status">Waiting for Decentro payment confirmation. Do not close this page.</p>
+                    <?php else: ?>
                     <?php if ($allowInstantPay): ?>
                     <form method="POST" class="mb-4">
                         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -364,6 +376,7 @@ require_once __DIR__ . '/header.php';
                     <div class="bg-sky-500/10 border border-sky-500/30 text-sky-200 text-xs px-4 py-3 rounded-xl">For your safety, manually entered UTRs cannot confirm a Live payment. UniWeb will update this page only after a signed bank or payment-partner event.</div>
                     <?php endif; ?>
                     <?php if ($allowInstantPay): ?></details><?php endif; ?>
+                    <?php endif; ?>
 
                     <?php elseif (($currentMethod['type'] ?? '') === 'payu' && !empty($payuForms[$selectedPay])): ?>
                     <?php $pf = $payuForms[$selectedPay]; ?>

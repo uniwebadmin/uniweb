@@ -552,10 +552,11 @@ function captureVerifiedPaymentOrder(array $verification): array
         $txnRef = generateId('TXN');
         $txnInsert = $db->prepare(
             'INSERT INTO transactions
-             (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)'
+             (txn_id,transaction_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)'
         );
         $txnInsert->execute([
+            $txnRef,
             $txnRef,
             (int)$order['merchant_id'],
             $amount,
