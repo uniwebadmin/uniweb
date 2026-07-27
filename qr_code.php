@@ -193,6 +193,7 @@ require_once __DIR__ . '/header.php';
                 <button type="submit" class="btn-primary text-sm px-3 py-1.5">Search</button>
             </form>
             <?= renderExportCsvLink('export_qr_codes.php?q=' . rawurlencode($qrQ)) ?>
+            <a href="qr_download_zip.php" class="glass px-3 py-2 rounded-lg text-xs text-emerald-400 hover:text-emerald-300 no-print">Download ZIP</a>
         </div>
         <?php if (empty($qrCodes)): ?>
         <div class="glass rounded-xl p-10 text-center h-full flex flex-col items-center justify-center">
@@ -260,7 +261,21 @@ require_once __DIR__ . '/header.php';
                         data-label="<?= e($qr['label']) ?>"
                         data-business="<?= e($businessName) ?>"
                         data-amount="<?= $isFixed ? e(formatMoney((float)$qr['amount'])) : 'Open Amount' ?>"
+                        data-template="<?= e($qr['print_template'] ?? 'default') ?>"
                         class="text-center border border-gray-700 py-2 rounded-lg text-amber-300">Print</button>
+                </div>
+                <div class="grid grid-cols-4 gap-2 text-xs mb-2">
+                    <?php
+                    $shareText = rawurlencode('Pay ' . ($isFixed ? formatMoney((float)$qr['amount']) . ' to ' : '') . $businessName . " via UniWeb QR\n" . $scanUrl);
+                    $wa = 'https://wa.me/?text=' . $shareText;
+                    $tg = 'https://t.me/share/url?url=' . rawurlencode($scanUrl) . '&text=' . rawurlencode('Pay ' . $businessName);
+                    $mailto = 'mailto:?subject=' . rawurlencode('QR Payment — ' . $businessName) . '&body=' . $shareText;
+                    $sms = 'sms:?body=' . $shareText;
+                    ?>
+                    <a href="<?= e($wa) ?>" target="_blank" class="text-center border border-gray-800 py-1.5 rounded-lg text-emerald-400 hover:bg-white/5">WhatsApp</a>
+                    <a href="<?= e($tg) ?>" target="_blank" class="text-center border border-gray-800 py-1.5 rounded-lg text-sky-400 hover:bg-white/5">Telegram</a>
+                    <a href="<?= e($mailto) ?>" class="text-center border border-gray-800 py-1.5 rounded-lg text-amber-400 hover:bg-white/5">Email</a>
+                    <a href="<?= e($sms) ?>" class="text-center border border-gray-800 py-1.5 rounded-lg text-violet-400 hover:bg-white/5">SMS</a>
                 </div>
                 <div class="grid grid-cols-2 gap-2 text-xs">
                     <a href="transactions.php?qr_id=<?= (int)$qr['id'] ?>" class="text-center border border-violet-500/30 py-2 rounded-lg text-violet-300">View payments</a>
@@ -308,21 +323,44 @@ function printQr(btn) {
     const label = btn.getAttribute('data-label') || '';
     const business = btn.getAttribute('data-business') || '';
     const amount = btn.getAttribute('data-amount') || '';
+    const template = btn.getAttribute('data-template') || 'default';
     const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
     const w = window.open('', '_blank', 'width=420,height=640');
     if (!w) return;
+
+    const styles = {
+        default: '.poster{width:340px;text-align:center;border:1px solid #d1d5db;border-radius:16px;padding:28px 24px}' +
+                 '.hint{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9ca3af}' +
+                 '.biz{font-size:20px;font-weight:800;margin:6px 0 0}' +
+                 '.amt{font-size:26px;font-weight:800;color:#059669;margin:6px 0 0}' +
+                 '.lbl{font-size:13px;color:#6b7280;margin:2px 0 0}' +
+                 '.qrbox{border:2px solid #d1fae5;border-radius:16px;padding:14px;margin:16px auto 0;display:inline-block}' +
+                 '.qrbox img{display:block;width:240px;height:240px}' +
+                 '.foot{font-size:10px;color:#9ca3af;margin-top:14px}',
+        compact: '.poster{width:260px;text-align:center;border:1px solid #d1d5db;border-radius:12px;padding:18px 16px}' +
+                 '.hint{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#9ca3af}' +
+                 '.biz{font-size:16px;font-weight:800;margin:4px 0 0}' +
+                 '.amt{font-size:20px;font-weight:800;color:#059669;margin:4px 0 0}' +
+                 '.lbl{font-size:11px;color:#6b7280;margin:2px 0 0}' +
+                 '.qrbox{border:1px solid #d1fae5;border-radius:12px;padding:10px;margin:10px auto 0;display:inline-block}' +
+                 '.qrbox img{display:block;width:180px;height:180px}' +
+                 '.foot{font-size:8px;color:#9ca3af;margin-top:8px}',
+        poster: '.poster{width:380px;text-align:center;border:2px solid #059669;border-radius:20px;padding:36px 28px}' +
+                '.hint{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:#059669}' +
+                '.biz{font-size:26px;font-weight:900;margin:10px 0 0}' +
+                '.amt{font-size:34px;font-weight:900;color:#059669;margin:8px 0 0}' +
+                '.lbl{font-size:15px;color:#374151;margin:4px 0 0}' +
+                '.qrbox{border:3px solid #d1fae5;border-radius:20px;padding:18px;margin:20px auto 0;display:inline-block}' +
+                '.qrbox img{display:block;width:280px;height:280px}' +
+                '.foot{font-size:12px;color:#9ca3af;margin-top:18px}'
+    };
+    const style = styles[template] || styles.default;
+
     w.document.write(
         '<!doctype html><html><head><meta charset="utf-8"><title>' + esc(label) + ' QR</title>' +
         '<style>*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}' +
         'body{margin:0;padding:24px;display:flex;justify-content:center;background:#fff;color:#111827}' +
-        '.poster{width:340px;text-align:center;border:1px solid #d1d5db;border-radius:16px;padding:28px 24px}' +
-        '.hint{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9ca3af}' +
-        '.biz{font-size:20px;font-weight:800;margin:6px 0 0}' +
-        '.amt{font-size:26px;font-weight:800;color:#059669;margin:6px 0 0}' +
-        '.lbl{font-size:13px;color:#6b7280;margin:2px 0 0}' +
-        '.qrbox{border:2px solid #d1fae5;border-radius:16px;padding:14px;margin:16px auto 0;display:inline-block}' +
-        '.qrbox img{display:block;width:240px;height:240px}' +
-        '.foot{font-size:10px;color:#9ca3af;margin-top:14px}</style></head><body>' +
+        style + '</style></head><body>' +
         '<div class="poster">' +
         '<p class="hint">Scan &amp; Pay</p>' +
         '<p class="biz">' + esc(business) + '</p>' +

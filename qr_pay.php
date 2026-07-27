@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/qr_events.php';
 ensureMerchantQrCodes();
 
 /**
@@ -46,7 +47,30 @@ $stmt = $db->prepare("SELECT q.*, pl.link_id, pl.status AS link_status, pl.expir
 $stmt->execute([$code]);
 $qr = $stmt->fetch();
 
-if (!$qr || $qr['status'] !== 'active' || $qr['merchant_status'] !== 'active') {
+$now = time();
+$notYetValid = !empty($qr['valid_from']) && strtotime($qr['valid_from']) > $now;
+$expired = !empty($qr['expires_at']) && strtotime($qr['expires_at']) < $now;
+
+// Log scan event for analytics/audit if QR exists and is scannable
+if ($qr && function_exists('logQrEvent')) {
+    logQrEvent($db, (int)$qr['id'], (int)$qr['merchant_id'], 'scan', ['ip' => $_SERVER['REMOTE_ADDR'] ?? null, 'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null]);
+}
+
+if (!$qr || $qr['status'] !== 'active' || $qr['merchant_status'] !== 'active' || $notYetValid || $expired) {
+    if ($qr && $notYetValid) {
+        renderQrUnavailable(
+            'QR not active yet',
+            'This payment QR will be active from ' . date('d M Y H:i', strtotime($qr['valid_from'])) . '. Please try again later.',
+            403
+        );
+    }
+    if ($qr && $expired) {
+        renderQrUnavailable(
+            'This QR code has expired',
+            'This payment QR is no longer valid. Please ask the merchant for a current QR code to complete your payment.',
+            410
+        );
+    }
     renderQrUnavailable(
         'This QR code is inactive',
         'This payment QR is no longer active. Please ask the merchant for a current QR code to complete your payment.',

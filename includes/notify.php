@@ -55,6 +55,43 @@ function sendWhatsAppReminder(string $phone, string $message): bool
     return $result['ok'];
 }
 
+/** Send a plain text message via a Telegram bot when TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID are configured in gateway_settings. */
+function sendTelegramMessage(string $message, ?string $botToken = null, ?string $chatId = null): array
+{
+    $token = trim($botToken ?: getSetting('telegram_bot_token', ''));
+    $chat = trim($chatId ?: getSetting('telegram_chat_id', ''));
+    if ($token === '' || $chat === '' || !function_exists('curl_init')) {
+        return ['ok' => false, 'channel' => 'none', 'http' => 0, 'message' => 'Telegram not configured'];
+    }
+    $url = 'https://api.telegram.org/bot' . rawurlencode($token) . '/sendMessage';
+    $payload = json_encode([
+        'chat_id' => $chat,
+        'text' => mb_substr($message, 0, 4000),
+        'parse_mode' => 'HTML',
+    ], JSON_UNESCAPED_UNICODE);
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_TIMEOUT => 15,
+    ]);
+    $body = (string)curl_exec($ch);
+    $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err = curl_error($ch);
+    curl_close($ch);
+    if ($err) {
+        return ['ok' => false, 'channel' => 'telegram', 'http' => $http, 'message' => $err];
+    }
+    $data = json_decode($body, true);
+    if ($http >= 200 && $http < 300 && !empty($data['ok'])) {
+        return ['ok' => true, 'channel' => 'telegram', 'http' => $http, 'message' => 'sent'];
+    }
+    return ['ok' => false, 'channel' => 'telegram', 'http' => $http, 'message' => $data['description'] ?? ('HTTP ' . $http)];
+}
+
 function whatsappMessagesApiUrl(): string
 {
     $custom = trim(getSetting('whatsapp_api_url', ''));

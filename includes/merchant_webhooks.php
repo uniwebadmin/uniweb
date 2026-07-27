@@ -250,6 +250,75 @@ function notifyMerchantPaymentSuccess(int $merchantId, array $txn, ?string $link
         "A payment of {$amt} was successful.\nTransaction ID: {$txnId}\nUTR: " . ($txn['utr'] ?? '—') . ($linkId ? "\nLink: {$linkId}" : ''),
         'payment_success'
     );
+
+    // QR-level notification + analytics event
+    notifyQrPaymentSuccess($merchantId, $txn, $linkId);
+}
+
+/** Notify merchant on a payment that came through a specific QR code, and log the event. */
+function notifyQrPaymentSuccess(int $merchantId, array $txn, ?string $linkId = null): void
+{
+    $db = getDB();
+    $paymentLinkId = (int)($txn['payment_link_id'] ?? 0);
+    if ($paymentLinkId <= 0) {
+        return;
+    }
+    $qr = $db->prepare('SELECT q.*, m.business_name, m.phone, m.email
+        FROM merchant_qr_codes q
+        JOIN merchants m ON m.id=q.merchant_id
+        JOIN payment_links pl ON pl.qr_code_id=q.id
+        WHERE pl.id=? AND q.merchant_id=? LIMIT 1');
+    $qr->execute([$paymentLinkId, $merchantId]);
+    $row = $qr->fetch();
+    if (!$row) {
+        return;
+    }
+
+    $qrId = (int)$row['id'];
+    $amt = formatMoney((float)($txn['amount'] ?? 0));
+    $message = 'QR payment received: ' . $amt . ' on ' . ($row['label'] ?: $row['qr_code'])
+        . "\nTxn: " . ($txn['txn_id'] ?? '—') . " | UTR: " . ($txn['utr'] ?? '—');
+
+    // Always log the payment event for analytics/audit
+    try {
+        $db->prepare('INSERT INTO qr_code_events (qr_code_id, merchant_id, event_type, event_data) VALUES (?,?,?,?)')
+            ->execute([
+                $qrId,
+                $merchantId,
+                'payment',
+                json_encode([
+                    'txn_id' => $txn['txn_id'] ?? null,
+                    'amount' => (float)($txn['amount'] ?? 0),
+                    'payment_method' => $txn['payment_method'] ?? null,
+                    'utr' => $txn['utr'] ?? null,
+                    'link_id' => $linkId,
+                ], JSON_UNESCAPED_UNICODE),
+            ]);
+    } catch (Throwable $e) {
+        logPlatformError('warning', 'qr_payment_event_log_failed: ' . $e->getMessage());
+    }
+
+    if (empty($row['notify_on_pay'])) {
+        return;
+    }
+
+    $channels = array_filter(explode(',', (string)($row['notify_channels'] ?? '')));
+    $phone = trim((string)($row['phone'] ?? ''));
+    $email = trim((string)($row['email'] ?? ''));
+    foreach ($channels as $channel) {
+        if ($channel === 'email' && $email !== '') {
+            notifyMerchantEmail($merchantId, 'QR Payment — ' . $amt, $message, 'payment_success');
+        }
+        if ($channel === 'sms' && $phone !== '' && function_exists('sendSMS')) {
+            sendSMS($phone, str_replace("\n", ' ', $message));
+        }
+        if ($channel === 'whatsapp' && $phone !== '' && function_exists('sendWhatsAppTextMessage')) {
+            sendWhatsAppTextMessage($phone, $message);
+        }
+        if ($channel === 'telegram' && function_exists('sendTelegramMessage')) {
+            sendTelegramMessage($message);
+        }
+    }
 }
 
 /** @return array{total:int,failed:int,last_at:?string,url:?string,configured:bool} */
