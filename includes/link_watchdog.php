@@ -225,7 +225,7 @@ function getWatchdogPageRegistry(): array
 function watchdogDiscoverPhpFiles(): array
 {
     $root = watchdogRoot();
-    $skip = ['update_', 'wallet_fix', 'wallet_diagnose', 'debug_', 'night_setup', 'my_secret', 'diag', 'fix_demo', 'refresh_demo', 'platform_wallet_fix', 'axis_probe'];
+    $skip = ['update_', 'wallet_fix', 'wallet_diagnose', 'debug_', 'night_setup', 'my_secret', 'diag', 'fix_demo', 'refresh_demo', 'platform_wallet_fix', 'axis_probe', 'db_wizard'];
     $files = [];
     foreach (glob($root . '/*.php') ?: [] as $path) {
         if (!is_file($path) || is_dir($path)) {
@@ -328,7 +328,7 @@ function watchdogNormalizeInternalTarget(string $href): ?string
     if (watchdogIsIgnorableHref($href)) {
         return null;
     }
-    if ($href === '' || str_starts_with($href, '#') || str_starts_with($href, 'javascript:') || str_starts_with($href, 'mailto:') || str_starts_with($href, 'tel:') || str_starts_with($href, 'data:')) {
+    if ($href === '' || str_starts_with($href, '#') || str_starts_with($href, 'javascript:') || str_starts_with($href, 'mailto:') || str_starts_with($href, 'tel:') || str_starts_with($href, 'sms:') || str_starts_with($href, 'data:')) {
         return null;
     }
     if (preg_match('#^https?://#i', $href)) {
