@@ -58,12 +58,22 @@ $rejected = $vkStatus === 'rejected';
     <div class="glass rounded-xl p-6 mb-6">
         <h2 class="font-semibold mb-1">Recording checklist</h2>
         <p class="text-xs text-gray-500 mb-4">Record yourself live on camera. Automated face-match runs only via a certified partner (Digio) when keys are configured — UniWeb never stores biometric templates.</p>
+        <?php
+        $merchantAddress = trim(implode(', ', array_filter([
+            trim((string)($merchant['address'] ?? '')),
+            trim((string)($merchant['city'] ?? '')),
+            trim((string)($merchant['state'] ?? '')),
+            trim((string)($merchant['pincode'] ?? '')),
+        ])));
+        if ($merchantAddress === '') {
+            $merchantAddress = 'your complete address';
+        }
+        ?>
         <div class="space-y-3">
             <?php foreach ([
-                'Hold your Aadhaar or PAN card clearly next to your face',
-                'State your full name as per the document',
-                'State your business name: "' . ($merchant['business_name'] ?? 'your business') . '"',
-                'Say today\'s date and "I am recording this for UniWeb KYC verification"',
+                'Say: "My name is ' . ($merchant['name'] ?? 'your full name') . ' and I am applying for a UniWeb merchant account."',
+                'Say your shop/business name: "' . ($merchant['business_name'] ?? 'your business name') . '"',
+                'Say your complete address: ' . $merchantAddress,
                 'Keep your face well-lit and clearly visible throughout',
             ] as $i => $step): ?>
             <div class="flex items-start gap-3">
