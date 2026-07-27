@@ -422,53 +422,55 @@ $docStatusMeta = static function (string $status): array {
 
     <div class="glass rounded-xl p-6 mb-6">
         <h2 class="font-semibold mb-4">KYC Timeline</h2>
-        <div class="relative border-l border-gray-700 ml-3 space-y-5">
-            <?php
-            $timelineEvents = [];
-            foreach ($documents as $doc) {
-                if (($doc['doc_type'] ?? '') === 'video_kyc') continue;
-                $label = $docLabels[$doc['doc_type']] ?? $doc['doc_type'];
-                $status = $doc['status'] ?? 'unknown';
+        <?php
+        $timelineEvents = [];
+        foreach ($documents as $doc) {
+            if (($doc['doc_type'] ?? '') === 'video_kyc') continue;
+            $label = $docLabels[$doc['doc_type']] ?? $doc['doc_type'];
+            $status = $doc['status'] ?? 'unknown';
+            $timelineEvents[] = [
+                'date' => $doc['created_at'],
+                'icon' => '⬆',
+                'tone' => 'sky',
+                'text' => e($label) . ' uploaded',
+                'sub' => e($doc['file_name'] ?? ''),
+            ];
+            if ($status === 'approved' && !empty($doc['reviewed_at'])) {
                 $timelineEvents[] = [
-                    'date' => $doc['created_at'],
-                    'icon' => '⬆',
-                    'tone' => 'sky',
-                    'text' => e($label) . ' uploaded',
-                    'sub' => e($doc['file_name'] ?? ''),
+                    'date' => $doc['reviewed_at'],
+                    'icon' => '✓',
+                    'tone' => 'emerald',
+                    'text' => e($label) . ' approved',
+                    'sub' => '',
                 ];
-                if ($status === 'approved' && !empty($doc['reviewed_at'])) {
-                    $timelineEvents[] = [
-                        'date' => $doc['reviewed_at'],
-                        'icon' => '✓',
-                        'tone' => 'emerald',
-                        'text' => e($label) . ' approved',
-                        'sub' => '',
-                    ];
-                } elseif ($status === 'rejected' && !empty($doc['reviewed_at'])) {
-                    $timelineEvents[] = [
-                        'date' => $doc['reviewed_at'],
-                        'icon' => '!',
-                        'tone' => 'red',
-                        'text' => e($label) . ' rejected',
-                        'sub' => e(trim((string)($doc['rejection_reason'] ?? '')) ?: 'Re-upload required'),
-                    ];
-                }
+            } elseif ($status === 'rejected' && !empty($doc['reviewed_at'])) {
+                $timelineEvents[] = [
+                    'date' => $doc['reviewed_at'],
+                    'icon' => '!',
+                    'tone' => 'red',
+                    'text' => e($label) . ' rejected',
+                    'sub' => e(trim((string)($doc['rejection_reason'] ?? '')) ?: 'Re-upload required'),
+                ];
             }
-            usort($timelineEvents, fn($a, $b) => strcmp((string)($b['date'] ?? ''), (string)($a['date'] ?? '')));
-            ?>
-            <?php if (empty($timelineEvents)): ?>
-                <p class="text-sm text-gray-500 pl-4">No KYC activity yet.</p>
-            <?php else: ?>
-                <?php foreach ($timelineEvents as $ev): ?>
-                <div class="relative pl-6 min-w-0">
-                    <span class="absolute -left-[7px] top-1 w-3.5 h-3.5 rounded-full bg-<?= e($ev['tone']) ?>-500 border-2 border-dark-950 flex items-center justify-center text-[8px]"><?= e($ev['icon']) ?></span>
+        }
+        usort($timelineEvents, fn($a, $b) => strcmp((string)($b['date'] ?? ''), (string)($a['date'] ?? '')));
+        ?>
+        <?php if (empty($timelineEvents)): ?>
+            <p class="text-sm text-gray-500">No KYC activity yet.</p>
+        <?php else: ?>
+        <div class="space-y-4">
+            <?php foreach ($timelineEvents as $ev): ?>
+            <div class="flex items-start gap-3">
+                <span class="w-6 h-6 rounded-full bg-<?= e($ev['tone']) ?>-500/15 text-<?= e($ev['tone']) ?>-400 border border-<?= e($ev['tone']) ?>-500/40 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5"><?= e($ev['icon']) ?></span>
+                <div class="min-w-0">
                     <p class="text-sm text-gray-200 break-words"><?= e($ev['text']) ?></p>
                     <?php if ($ev['sub'] !== ''): ?><p class="text-xs text-gray-500 break-words"><?= e($ev['sub']) ?></p><?php endif; ?>
                     <p class="text-[10px] text-gray-600"><?= !empty($ev['date']) ? formatDate($ev['date']) : '' ?></p>
                 </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
+            </div>
+            <?php endforeach; ?>
         </div>
+        <?php endif; ?>
     </div>
     </div>
 
