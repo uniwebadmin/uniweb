@@ -97,14 +97,9 @@ $rejected = $vkStatus === 'rejected';
         <div id="camera-error" class="hidden bg-red-500/10 border border-red-500/30 text-red-300 text-sm px-4 py-3 rounded-xl mb-4"></div>
 
         <div class="relative bg-black rounded-xl overflow-hidden mb-4 aspect-[3/4] sm:aspect-video">
-            <video id="video-preview" class="w-full h-full object-cover" autoplay playsinline muted></video>
+            <video id="video-source" class="hidden" autoplay playsinline muted></video>
+            <canvas id="video-canvas" class="w-full h-full object-cover bg-black"></canvas>
             <div id="recording-badge" class="hidden absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">REC <span id="recording-timer">00:00</span></div>
-            <div id="video-overlay" class="absolute top-3 right-3 text-right text-[10px] leading-tight text-white/90 bg-black/60 backdrop-blur-sm px-2 py-1.5 rounded-lg border border-white/10 select-none z-10 font-mono">
-                <div>IP: <?= e($clientIp) ?></div>
-                <div id="overlay-loc">Loc: --</div>
-                <div id="overlay-date">Date: --</div>
-                <div id="overlay-time">Time: --</div>
-            </div>
         </div>
 
         <div id="playback-wrap" class="hidden mb-4">
@@ -134,7 +129,9 @@ $rejected = $vkStatus === 'rejected';
 </div>
 <script>
 (function(){
-    const preview = document.getElementById('video-preview');
+    const videoSource = document.getElementById('video-source');
+    const canvas = document.getElementById('video-canvas');
+    const ctx = canvas.getContext('2d');
     const playbackWrap = document.getElementById('playback-wrap');
     const playback = document.getElementById('playback');
     const badge = document.getElementById('recording-badge');
@@ -149,11 +146,12 @@ $rejected = $vkStatus === 'rejected';
     const errorBox = document.getElementById('upload-error');
     const errorBanner = document.getElementById('camera-error');
     const btnRetryCamera = document.getElementById('btn-retry-camera');
-    const overlayLoc = document.getElementById('overlay-loc');
-    const overlayDate = document.getElementById('overlay-date');
-    const overlayTime = document.getElementById('overlay-time');
+    const overlayIp = <?= json_encode($clientIp) ?>;
+    let overlayLoc = '--';
+    let audioTrack = null;
+    let canvasDrawReq = null;
 
-    if (!navigator.mediaDevices || !window.MediaRecorder) {
+    if (!navigator.mediaDevices || !window.MediaRecorder || !canvas.captureStream) {
         showCameraError('Your browser does not support live camera recording. Please use a modern browser (Chrome, Firefox, Safari, Edge).');
         btnStart.disabled = true;
         return;
@@ -185,9 +183,11 @@ $rejected = $vkStatus === 'rejected';
         btnRetryCamera.classList.add('hidden');
         try{
             if (stream) { stream.getTracks().forEach(t=>t.stop()); }
+            stopCanvasDraw();
             stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}, audio:true});
-            preview.srcObject = stream;
-            preview.classList.remove('hidden');
+            videoSource.srcObject = stream;
+            audioTrack = stream.getAudioTracks()[0] || null;
+            canvas.classList.remove('hidden');
             playbackWrap.classList.add('hidden');
             playback.src = '';
             btnStart.classList.remove('hidden');
@@ -195,6 +195,15 @@ $rejected = $vkStatus === 'rejected';
             btnRetake.classList.add('hidden');
             btnUpload.classList.add('hidden');
             btnRetryCamera.classList.add('hidden');
+            videoSource.onloadedmetadata = function() {
+                fitCanvasToVideo();
+                startCanvasDraw();
+            };
+            await videoSource.play();
+            if (videoSource.readyState >= 2) {
+                fitCanvasToVideo();
+                startCanvasDraw();
+            }
         }catch(err){
             let msg = 'Camera/microphone could not be started. ';
             if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -213,6 +222,76 @@ $rejected = $vkStatus === 'rejected';
         }
     }
 
+    function fitCanvasToVideo(){
+        const track = stream ? stream.getVideoTracks()[0] : null;
+        const settings = track ? track.getSettings() : {};
+        let w = settings.width || videoSource.videoWidth || 1280;
+        let h = settings.height || videoSource.videoHeight || 720;
+        if (w < 320) { w = 640; }
+        if (h < 240) { h = 480; }
+        canvas.width = w;
+        canvas.height = h;
+    }
+
+    function drawCover(){
+        if (!videoSource.videoWidth || !videoSource.videoHeight || !canvas.width || !canvas.height) return;
+        const cw = canvas.width;
+        const ch = canvas.height;
+        const vw = videoSource.videoWidth;
+        const vh = videoSource.videoHeight;
+        const scale = Math.max(cw / vw, ch / vh);
+        const dw = vw * scale;
+        const dh = vh * scale;
+        const x = (cw - dw) / 2;
+        const y = (ch - dh) / 2;
+        ctx.drawImage(videoSource, x, y, dw, dh);
+    }
+
+    function drawOverlay(){
+        const pad = 10;
+        const fontSize = Math.max(14, Math.round(Math.min(canvas.width, canvas.height) * 0.025));
+        ctx.font = 'bold ' + fontSize + 'px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        const now = new Date();
+        const lines = ['IP: ' + overlayIp, 'Loc: ' + overlayLoc, 'Date: ' + now.toLocaleDateString('en-IN'), 'Time: ' + now.toLocaleTimeString('en-IN')];
+        let maxW = 0;
+        lines.forEach(function(l){ maxW = Math.max(maxW, ctx.measureText(l).width); });
+        const boxW = maxW + pad * 2;
+        const lineH = fontSize + 4;
+        const boxH = lines.length * lineH + pad * 2;
+        const boxX = canvas.width - pad - boxW;
+        const boxY = pad;
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(boxX, boxY, boxW, boxH);
+        ctx.fillStyle = 'white';
+        ctx.shadowColor = 'black';
+        ctx.shadowBlur = 3;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
+        lines.forEach(function(l, i){ ctx.fillText(l, canvas.width - pad, boxY + pad + i * lineH); });
+        ctx.shadowColor = 'transparent';
+    }
+
+    function drawFrame(){
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawCover();
+        drawOverlay();
+        canvasDrawReq = requestAnimationFrame(drawFrame);
+    }
+
+    function startCanvasDraw(){
+        stopCanvasDraw();
+        drawFrame();
+    }
+
+    function stopCanvasDraw(){
+        if (canvasDrawReq) {
+            cancelAnimationFrame(canvasDrawReq);
+            canvasDrawReq = null;
+        }
+    }
+
     function selectMimeType(){
         const types = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'];
         for (const t of types){ if (MediaRecorder.isTypeSupported(t)) return t; }
@@ -220,17 +299,29 @@ $rejected = $vkStatus === 'rejected';
     }
 
     function startRecording(){
-        if (!stream) return;
+        if (!stream || !canvas.width) return;
         recordedChunks = [];
         recordedBlob = null;
         recordedSeconds = 0;
         recordingStartedAt = new Date().toISOString();
-        const mimeType = selectMimeType();
-        try{
-            mediaRecorder = new MediaRecorder(stream, mimeType ? {mimeType} : undefined);
-        }catch(e){
-            showCameraError('Your device does not support live video recording.');
+        let canvasStream;
+        try {
+            canvasStream = canvas.captureStream(25);
+            if (audioTrack) { canvasStream.addTrack(audioTrack); }
+        } catch (e) {
+            showCameraError('Your device does not support live video recording with overlay.');
             return;
+        }
+        const mimeType = selectMimeType();
+        try {
+            mediaRecorder = new MediaRecorder(canvasStream, mimeType ? {mimeType} : undefined);
+        } catch (e) {
+            try {
+                mediaRecorder = new MediaRecorder(canvasStream);
+            } catch (e2) {
+                showCameraError('Your device does not support live video recording.');
+                return;
+            }
         }
         mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) recordedChunks.push(e.data); };
         mediaRecorder.onstop = () => {
@@ -253,13 +344,14 @@ $rejected = $vkStatus === 'rejected';
         if (timerInterval){ clearInterval(timerInterval); timerInterval = null; }
         badge.classList.add('hidden');
         btnStop.classList.add('hidden');
+        stopCanvasDraw();
         if (stream) { stream.getTracks().forEach(t=>t.stop()); stream = null; }
+        audioTrack = null;
     }
 
     function showPlayback(){
         if (!recordedBlob) return;
-        preview.srcObject = null;
-        preview.classList.add('hidden');
+        canvas.classList.add('hidden');
         playbackWrap.classList.remove('hidden');
         playback.src = URL.createObjectURL(recordedBlob);
         btnRetake.classList.remove('hidden');
@@ -281,6 +373,7 @@ $rejected = $vkStatus === 'rejected';
         btnUpload.classList.add('hidden');
         errorBox.classList.add('hidden');
         playbackWrap.classList.add('hidden');
+        canvas.classList.remove('hidden');
         recordedBlob = null;
         recordedChunks = [];
         recordedSeconds = 0;
@@ -341,20 +434,12 @@ $rejected = $vkStatus === 'rejected';
     btnUpload.addEventListener('click', uploadRecording);
     btnRetryCamera.addEventListener('click', startCamera);
 
-    function updateOverlayDateTime(){
-        const now = new Date();
-        overlayDate.textContent = 'Date: ' + now.toLocaleDateString('en-IN');
-        overlayTime.textContent = 'Time: ' + now.toLocaleTimeString('en-IN');
-    }
-    updateOverlayDateTime();
-    setInterval(updateOverlayDateTime, 1000);
-
     async function updateOverlayLocation(){
-        overlayLoc.textContent = 'Loc: --';
+        overlayLoc = '--';
         if (navigator.geolocation) {
             try {
                 const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, {timeout: 10000}));
-                overlayLoc.textContent = 'Loc: ' + pos.coords.latitude.toFixed(4) + ', ' + pos.coords.longitude.toFixed(4);
+                overlayLoc = pos.coords.latitude.toFixed(4) + ', ' + pos.coords.longitude.toFixed(4);
                 return;
             } catch (e) { /* fall through */ }
         }
@@ -362,13 +447,12 @@ $rejected = $vkStatus === 'rejected';
             const res = await fetch('https://ipapi.co/json/');
             if (res.ok) {
                 const data = await res.json();
-                const city = [data.city, data.region, data.country_name].filter(Boolean).join(', ');
-                overlayLoc.textContent = 'Loc: ' + (city || 'unavailable');
+                overlayLoc = [data.city, data.region, data.country_name].filter(Boolean).join(', ') || 'unavailable';
             } else {
-                overlayLoc.textContent = 'Loc: unavailable';
+                overlayLoc = 'unavailable';
             }
         } catch (e) {
-            overlayLoc.textContent = 'Loc: unavailable';
+            overlayLoc = 'unavailable';
         }
     }
     updateOverlayLocation();
