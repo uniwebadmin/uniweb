@@ -113,6 +113,13 @@ function pendingMigrations(string $directory): array
     return $pending;
 }
 
+function canSkipMigrationDuplicateColumn(PDOException $exception, string $statement): bool
+{
+    return (string)$exception->getCode() === '42S21'
+        && str_contains($exception->getMessage(), 'Duplicate column name')
+        && (bool)preg_match('/^\s*ALTER\s+TABLE\s+[`a-zA-Z0-9_]+\s+ADD\s+COLUMN\s+/i', $statement);
+}
+
 function applyPendingMigrations(string $directory): array
 {
     $db = getDB();
@@ -131,7 +138,14 @@ function applyPendingMigrations(string $directory): array
                 throw new RuntimeException('Could not read migration ' . $migration['version']);
             }
             foreach (migrationStatements($sql) as $statement) {
-                $db->exec($statement);
+                try {
+                    $db->exec($statement);
+                } catch (PDOException $e) {
+                    if (!canSkipMigrationDuplicateColumn($e, $statement)) {
+                        throw $e;
+                    }
+                    error_log('UniWeb migration duplicate column skipped: ' . $migration['version']);
+                }
             }
             $record = $db->prepare('INSERT INTO schema_migrations (version, checksum) VALUES (?, ?)');
             $record->execute([$migration['version'], $migration['checksum']]);
