@@ -206,9 +206,42 @@ $cfReady = isGatewayConfigured('cashfree');
                         <td class="px-5 py-3"><?= statusBadge($link['status']) ?></td>
                         <td class="px-5 py-3 text-xs text-gray-500"><?= formatDate($link['expires_at']) ?></td>
                         <td class="px-5 py-3 whitespace-nowrap"<?= uiStopClick() ?>>
-                            <?php if ($link['status'] === 'active'): ?>
+                            <?php if ($link['status'] === 'active'):
+                                $shareText = rawurlencode("Pay " . formatMoney((float)$link['amount']) . " via " . ($merchant['business_name'] ?? APP_NAME) . "\n" . $payUrl);
+                                $qrImgUrl = APP_URL . '/qr_image.php?d=' . rawurlencode(base64_encode(strtr($payUrl, '+/', '-_'))) . '&s=400&logo=1';
+                                $embedHtml = '<a href="' . e($payUrl) . '" target="_blank" style="display:inline-block;padding:12px 20px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">Pay Now</a>';
+                            ?>
                             <a href="<?= e($payUrl) ?>" target="_blank" class="text-xs bg-sky-600/20 text-sky-400 px-3 py-1 rounded-lg mr-1">Open</a>
-                            <button type="button" onclick="navigator.clipboard.writeText('<?= e($payUrl) ?>');this.textContent='Copied!'" class="text-xs bg-brand-600/20 text-brand-400 px-3 py-1 rounded-lg">Copy</button>
+                            <button type="button" onclick="navigator.clipboard.writeText('<?= e($payUrl) ?>');this.textContent='Copied!'" class="text-xs bg-brand-600/20 text-brand-400 px-3 py-1 rounded-lg mr-1">Copy</button>
+                            <button type="button" onclick="openLinkShareModal(<?= (int)$link['id'] ?>)" class="text-xs bg-emerald-600/20 text-emerald-400 px-3 py-1 rounded-lg mr-1">Share</button>
+                            <button type="button" onclick="openLinkWebsiteModal(<?= (int)$link['id'] ?>)" class="text-xs bg-violet-600/20 text-violet-400 px-3 py-1 rounded-lg">Website</button>
+
+                            <div id="link-share-<?= (int)$link['id'] ?>" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onclick="if(event.target===this) this.classList.add('hidden')">
+                                <div class="glass rounded-xl p-5 max-w-sm w-full">
+                                    <h3 class="font-semibold mb-3">Share <?= e($link['link_id']) ?></h3>
+                                    <div class="grid grid-cols-2 gap-2 text-xs">
+                                        <a href="https://wa.me/?text=<?= e($shareText) ?>" target="_blank" class="text-center py-2 rounded-lg border border-emerald-500/30 text-emerald-400">WhatsApp</a>
+                                        <a href="https://t.me/share/url?url=<?= rawurlencode($payUrl) ?>&text=<?= rawurlencode('Payment link') ?>" target="_blank" class="text-center py-2 rounded-lg border border-sky-500/30 text-sky-400">Telegram</a>
+                                        <a href="mailto:?subject=<?= rawurlencode('Payment link — ' . ($merchant['business_name'] ?? APP_NAME)) ?>&body=<?= e($shareText) ?>" class="text-center py-2 rounded-lg border border-amber-500/30 text-amber-400">Email</a>
+                                        <a href="sms:?body=<?= e($shareText) ?>" class="text-center py-2 rounded-lg border border-violet-500/30 text-violet-400">SMS</a>
+                                    </div>
+                                    <button type="button" onclick="this.closest('.fixed').classList.add('hidden')" class="mt-4 w-full py-2 rounded-lg border border-gray-700 text-gray-400">Close</button>
+                                </div>
+                            </div>
+
+                            <div id="link-website-<?= (int)$link['id'] ?>" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onclick="if(event.target===this) this.classList.add('hidden')">
+                                <div class="glass rounded-xl p-5 max-w-md w-full">
+                                    <h3 class="font-semibold mb-3">Add to Website — <?= e($link['link_id']) ?></h3>
+                                    <label class="text-[11px] text-gray-500 uppercase">Direct Link</label>
+                                    <input type="text" value="<?= e($payUrl) ?>" readonly class="input-field text-xs w-full mb-3" onclick="this.select()">
+                                    <label class="text-[11px] text-gray-500 uppercase">HTML Button</label>
+                                    <textarea readonly rows="3" class="input-field text-xs w-full mb-3 font-mono" onclick="this.select()"><?= e($embedHtml) ?></textarea>
+                                    <label class="text-[11px] text-gray-500 uppercase">QR Image URL</label>
+                                    <input type="text" value="<?= e($qrImgUrl) ?>" readonly class="input-field text-xs w-full mb-3" onclick="this.select()">
+                                    <p class="text-[11px] text-gray-500">Paste the link or button code on your website, blog or invoice.</p>
+                                    <button type="button" onclick="this.closest('.fixed').classList.add('hidden')" class="mt-4 w-full py-2 rounded-lg border border-gray-700 text-gray-400">Close</button>
+                                </div>
+                            </div>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -219,4 +252,12 @@ $cfReady = isGatewayConfigured('cashfree');
         <?= renderListPagination($listParams['page'], $linkTotal, $listParams['perPage'], ['q' => $q, 'status' => $linkStatus]) ?>
     </div>
 </div>
+<script>
+function openLinkShareModal(id) {
+    document.getElementById('link-share-' + id).classList.remove('hidden');
+}
+function openLinkWebsiteModal(id) {
+    document.getElementById('link-website-' + id).classList.remove('hidden');
+}
+</script>
 <?php require_once __DIR__ . '/footer.php'; ?>

@@ -137,8 +137,31 @@ $status = merchantWebsiteStatus($merchant);
     </div>
 
     <?php if ($status === 'verified'): ?>
-    <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 text-sm text-emerald-300">
+    <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 text-sm text-emerald-300 mb-6">
         ✓ Your website is verified. You can quote this URL in PayU/Razorpay/Cashfree onboarding emails.
+    </div>
+
+    <div class="glass rounded-xl p-6 border border-violet-500/20">
+        <h3 class="font-semibold text-violet-400 mb-2">Add a Pay Button to Your Website</h3>
+        <p class="text-xs text-gray-500 mb-4">Copy a UniWeb payment link / QR and paste it on your verified website.</p>
+        <?php
+        $firstLink = $db->prepare("SELECT link_id, amount, status FROM payment_links WHERE merchant_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1");
+        $firstLink->execute([$merchant['id']]);
+        $payLink = $firstLink->fetch();
+        if ($payLink):
+            $payUrl = buildPaymentLinkUrl($payLink['link_id']);
+            $qrImg = APP_URL . '/qr_image.php?d=' . rawurlencode(base64_encode(strtr($payUrl, '+/', '-_'))) . '&s=400&logo=1';
+            $buttonHtml = '<a href="' . e($payUrl) . '" target="_blank" style="display:inline-block;padding:12px 24px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">Pay Now</a>';
+        ?>
+        <div class="space-y-3 text-xs">
+            <div><label class="text-[10px] text-gray-500 uppercase">Payment Link</label><input type="text" value="<?= e($payUrl) ?>" readonly class="input-field w-full text-xs" onclick="this.select()"></div>
+            <div><label class="text-[10px] text-gray-500 uppercase">HTML Button</label><textarea readonly rows="3" class="input-field w-full text-xs font-mono" onclick="this.select()"><?= e($buttonHtml) ?></textarea></div>
+            <div><label class="text-[10px] text-gray-500 uppercase">QR Image URL</label><input type="text" value="<?= e($qrImg) ?>" readonly class="input-field w-full text-xs" onclick="this.select()"></div>
+            <a href="payment_links.php" class="text-sky-400 hover:underline">Manage more payment links →</a>
+        </div>
+        <?php else: ?>
+        <p class="text-xs text-gray-400">No active payment link yet. <a href="payment_links.php" class="text-sky-400 hover:underline">Create a payment link →</a></p>
+        <?php endif; ?>
     </div>
     <?php elseif ($status === 'pending'): ?>
     <div class="bg-sky-500/10 border border-sky-500/30 rounded-xl p-4 text-sm text-sky-300">

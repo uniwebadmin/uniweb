@@ -180,6 +180,7 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['platform_name', 'Platform Name', 'text'],
             ['support_email', 'Support Email', 'email'],
             ['support_phone', 'Support Phone', 'text'],
+            ['support_whatsapp', 'Support WhatsApp Number (with country code)', 'text'],
             ['min_settlement_amount', 'Min Settlement (₹)', 'number'],
             ['settlement_cycle', 'Settlement Cycle', 'text'],
             ['upi_mdr', 'UPI MDR (%)', 'number'],
@@ -204,6 +205,16 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['smtp_host','SMTP Host','text'],['smtp_port','SMTP Port','number'],
             ['smtp_user','SMTP Username','text'],['smtp_pass','SMTP Password','password'],
             ['smtp_from_email','From Email','email'],['smtp_from_name','From Name','text'],
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
+        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">Support & Social Channels</h3>
+        <p class="text-xs text-gray-500">Links shown to merchants on Support → Connect with Admin.</p>
+        <?php foreach ([
+            ['support_instagram', 'Instagram URL', 'text'],
+            ['support_telegram', 'Telegram URL', 'text'],
+            ['support_facebook', 'Facebook URL', 'text'],
+            ['support_twitter', 'Twitter / X URL', 'text'],
+            ['support_linkedin', 'LinkedIn URL', 'text'],
+            ['support_youtube', 'YouTube URL', 'text'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">B2B Collection Engine</h3>
         <div><label class="text-sm text-gray-400">Default Collection Mode (new merchants)</label>
