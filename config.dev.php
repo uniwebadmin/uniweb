@@ -27,6 +27,15 @@ define('COMPANY_LEGAL_NAME', 'UniWeb Fintech Private Limited');
 define('COMPANY_SUPPORT_EMAIL', 'support@uniweb.co.in');
 define('COMPANY_ADMIN_EMAIL', 'admin@uniweb.co.in');
 define('COMPANY_PHONE', '+911140000000');
+// Admin support / social channel links (replace with real values before going live)
+if (!defined('SUPPORT_WHATSAPP')) define('SUPPORT_WHATSAPP', '919900000000');
+if (!defined('SUPPORT_EMAIL')) define('SUPPORT_EMAIL', 'support@uniweb.co.in');
+if (!defined('SUPPORT_INSTAGRAM')) define('SUPPORT_INSTAGRAM', 'https://instagram.com/uniweb');
+if (!defined('SUPPORT_TELEGRAM')) define('SUPPORT_TELEGRAM', 'https://t.me/uniweb');
+if (!defined('SUPPORT_FACEBOOK')) define('SUPPORT_FACEBOOK', 'https://facebook.com/uniweb');
+if (!defined('SUPPORT_TWITTER')) define('SUPPORT_TWITTER', 'https://x.com/uniweb');
+if (!defined('SUPPORT_LINKEDIN')) define('SUPPORT_LINKEDIN', 'https://linkedin.com/company/uniweb');
+if (!defined('SUPPORT_YOUTUBE')) define('SUPPORT_YOUTUBE', 'https://youtube.com/@uniweb');
 define('COMPANY_ADDRESS', 'Bengaluru, Karnataka, India');
 define('COMPANY_GST', '29ABCDE1234F1Z5');
 define('COMPANY_CIN', 'U72900KA2024PTC000000');
