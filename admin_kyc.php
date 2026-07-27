@@ -179,7 +179,7 @@ $videoQueue = [];
 try {
     $videoQueue = $db->query(
         "SELECT m.id, m.business_name, m.merchant_code, m.video_kyc_status, m.kyc_status,
-                k.id AS doc_id, k.created_at AS video_uploaded_at
+                k.id AS doc_id, k.created_at AS video_uploaded_at, k.ip_address AS video_ip, k.recorded_at AS video_recorded_at
          FROM merchants m
          INNER JOIN kyc_documents k ON k.id = (
              SELECT k2.id FROM kyc_documents k2
@@ -196,7 +196,7 @@ try {
     try {
         $videoQueue = $db->query(
             "SELECT m.id, m.business_name, m.merchant_code, m.video_kyc_status, m.kyc_status,
-                    k.id AS doc_id, k.created_at AS video_uploaded_at
+                    k.id AS doc_id, k.created_at AS video_uploaded_at, k.ip_address AS video_ip, k.recorded_at AS video_recorded_at
              FROM merchants m
              INNER JOIN kyc_documents k ON k.id = (
                  SELECT k2.id FROM kyc_documents k2
@@ -263,7 +263,7 @@ require_once __DIR__ . '/header.php';
     <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-between gap-3">
         <div class="min-w-0">
             <p class="text-sm font-medium break-words"><?= e($videoRow['business_name']) ?> · <?= e($videoRow['merchant_code']) ?></p>
-            <p class="text-xs text-gray-500">Video status: <?= e((string)($videoRow['video_kyc_status'] ?? 'pending')) ?> · KYC: <?= e((string)($videoRow['kyc_status'] ?? '')) ?><?php if (!empty($videoRow['video_uploaded_at'])): ?> · Uploaded <?= e(formatDate($videoRow['video_uploaded_at'])) ?><?php endif; ?></p>
+            <p class="text-xs text-gray-500">Video status: <?= e((string)($videoRow['video_kyc_status'] ?? 'pending')) ?> · KYC: <?= e((string)($videoRow['kyc_status'] ?? '')) ?><?php if (!empty($videoRow['video_uploaded_at'])): ?> · Uploaded <?= e(formatDate($videoRow['video_uploaded_at'])) ?><?php endif; ?><?php if (!empty($videoRow['video_ip'])): ?> · IP <?= e($videoRow['video_ip']) ?><?php endif; ?><?php if (!empty($videoRow['video_recorded_at'])): ?> · Recorded <?= e(formatDate($videoRow['video_recorded_at'])) ?><?php endif; ?></p>
         </div>
         <div class="flex flex-col sm:flex-row gap-2 flex-wrap w-full sm:w-auto">
             <?php if (!empty($videoRow['doc_id'])): ?>

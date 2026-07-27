@@ -28,6 +28,8 @@ function ensureKycSchema(): void
     schemaExecQuiet("ALTER TABLE merchants ADD COLUMN deleted_at DATETIME DEFAULT NULL");
     schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN rejection_reason VARCHAR(500) DEFAULT NULL");
     schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN reviewed_at DATETIME DEFAULT NULL");
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN ip_address VARCHAR(45) DEFAULT NULL");
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN recorded_at DATETIME DEFAULT NULL");
 }
 
 function ensurePasswordResetsTable(): void

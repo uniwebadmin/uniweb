@@ -23,6 +23,24 @@ $index = (int)($_GET['index'] ?? -1);
 $total = (int)($_GET['total'] ?? 0);
 $allowed = ['mp4', 'webm', 'mov'];
 
+$clientIp = (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+if (str_contains($clientIp, ',')) {
+    $clientIp = trim((string)explode(',', $clientIp)[0]);
+}
+$clientIp = substr($clientIp, 0, 45);
+
+$recordedAtRaw = (string)($_GET['recorded_at'] ?? $_SERVER['HTTP_X_RECORDED_AT'] ?? '');
+$recordedAt = null;
+if ($recordedAtRaw !== '') {
+    $ts = strtotime($recordedAtRaw);
+    if ($ts !== false) {
+        $recordedAt = date('Y-m-d H:i:s', $ts);
+    }
+}
+if ($recordedAt === null) {
+    $recordedAt = date('Y-m-d H:i:s');
+}
+
 if (!preg_match('/^[a-z0-9]{20,64}$/', $uploadId) || !in_array($extension, $allowed, true) || $total < 1 || $total > 60) {
     http_response_code(400);
     echo json_encode(['ok' => false, 'error' => 'Invalid upload request.']);
@@ -120,9 +138,9 @@ try {
     }
     getDB()->prepare(
         'INSERT INTO kyc_documents
-         (merchant_id,doc_type,file_name,file_path,storage_key,sha256,mime_type,file_size,scan_status,retention_until)
-         VALUES (?,?,?,?,?,?,?,?,?,DATE_ADD(CURDATE(),INTERVAL 8 YEAR))'
-    )->execute([$merchantId, 'video_kyc', $fileName, $target, $merchantId . '/' . $fileName, $sha256, $mime, $size, $scanStatus]);
+         (merchant_id,doc_type,file_name,file_path,storage_key,sha256,mime_type,file_size,ip_address,recorded_at,scan_status,retention_until)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(CURDATE(),INTERVAL 8 YEAR))'
+    )->execute([$merchantId, 'video_kyc', $fileName, $target, $merchantId . '/' . $fileName, $sha256, $mime, $size, $clientIp, $recordedAt, $scanStatus]);
     try {
         getDB()->prepare("UPDATE merchants SET video_kyc_status='submitted',kyc_status='submitted',onboarding_state='submitted',onboarding_submitted_at=COALESCE(onboarding_submitted_at,NOW()),account_mode='test' WHERE id=?")->execute([$merchantId]);
     } catch (Throwable $e) {
