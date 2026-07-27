@@ -92,6 +92,7 @@ $rejected = $vkStatus === 'rejected';
 
         <div class="flex flex-wrap gap-3 mb-4">
             <button id="btn-start" type="button" class="btn-primary px-6 py-2.5 rounded-lg text-sm">Start Recording</button>
+            <button id="btn-retry-camera" type="button" class="hidden bg-amber-600 hover:bg-amber-500 text-white px-6 py-2.5 rounded-lg text-sm">Retry Camera</button>
             <button id="btn-stop" type="button" class="hidden bg-red-600 hover:bg-red-500 text-white px-6 py-2.5 rounded-lg text-sm">Stop Recording</button>
             <button id="btn-retake" type="button" class="hidden bg-gray-700 hover:bg-gray-600 text-white px-6 py-2.5 rounded-lg text-sm">Retake</button>
             <button id="btn-upload" type="button" class="hidden btn-primary px-6 py-2.5 rounded-lg text-sm">Upload Video KYC</button>
@@ -125,6 +126,7 @@ $rejected = $vkStatus === 'rejected';
     const statusEl = document.getElementById('upload-status');
     const errorBox = document.getElementById('upload-error');
     const errorBanner = document.getElementById('camera-error');
+    const btnRetryCamera = document.getElementById('btn-retry-camera');
 
     if (!navigator.mediaDevices || !window.MediaRecorder) {
         showCameraError('Your browser does not support live camera recording. Please use a modern browser (Chrome, Firefox, Safari, Edge).');
@@ -146,9 +148,16 @@ $rejected = $vkStatus === 'rejected';
 
     function formatTime(sec){ const m=Math.floor(sec/60).toString().padStart(2,'0'); const s=(sec%60).toString().padStart(2,'0'); return m+':'+s; }
 
-    function showCameraError(msg){ errorBanner.textContent = msg; errorBanner.classList.remove('hidden'); }
+    function showCameraError(msg){
+        errorBanner.textContent = msg;
+        errorBanner.classList.remove('hidden');
+        btnStart.classList.add('hidden');
+        btnRetryCamera.classList.remove('hidden');
+    }
 
     async function startCamera(){
+        errorBanner.classList.add('hidden');
+        btnRetryCamera.classList.add('hidden');
         try{
             if (stream) { stream.getTracks().forEach(t=>t.stop()); }
             stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}, audio:true});
@@ -160,8 +169,21 @@ $rejected = $vkStatus === 'rejected';
             btnStop.classList.add('hidden');
             btnRetake.classList.add('hidden');
             btnUpload.classList.add('hidden');
+            btnRetryCamera.classList.add('hidden');
         }catch(err){
-            showCameraError('Could not access camera/microphone. Please allow permission and use HTTPS or localhost.');
+            let msg = 'Camera/microphone could not be started. ';
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                msg = 'Camera permission was denied. Allow camera and microphone in the browser address-bar/site settings, then click Retry Camera.';
+            } else if (err.name === 'NotFoundError') {
+                msg = 'No camera found. Please connect a camera or use a device with a front camera.';
+            } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+                msg = 'Camera is already in use by another app or tab. Close that app/tab and click Retry Camera.';
+            } else if (err.name === 'OverconstrainedError') {
+                msg = 'Camera does not support the requested settings. Click Retry Camera.';
+            } else {
+                msg += 'Error: ' + (err.name || err.message) + '. Please use HTTPS or localhost and allow permissions.';
+            }
+            showCameraError(msg);
             console.error(err);
         }
     }
@@ -292,6 +314,7 @@ $rejected = $vkStatus === 'rejected';
     btnStop.addEventListener('click', stopRecording);
     btnRetake.addEventListener('click', retake);
     btnUpload.addEventListener('click', uploadRecording);
+    btnRetryCamera.addEventListener('click', startCamera);
 
     startCamera();
 })();
