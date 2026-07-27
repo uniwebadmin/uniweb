@@ -14,7 +14,7 @@ if (str_contains($clientIp, ',')) {
 }
 $clientIp = substr($clientIp, 0, 45);
 
-$validDocTypes = ['shop_signboard', 'shop_outside', 'shop_inside_1', 'shop_inside_2'];
+$validDocTypes = ['merchant_photo', 'shop_signboard', 'shop_outside', 'shop_inside_1', 'shop_inside_2'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Content-Type: application/json; charset=utf-8');
@@ -115,6 +115,7 @@ $pageTitle = 'Shop Photos KYC';
 require_once __DIR__ . '/header.php';
 
 $steps = [
+    ['type' => 'merchant_photo', 'title' => 'Merchant Photo', 'desc' => 'Take a live selfie of the merchant.'],
     ['type' => 'shop_signboard', 'title' => 'Signboard', 'desc' => 'Capture a clear photo of your shop signboard.'],
     ['type' => 'shop_outside', 'title' => 'Outside shop', 'desc' => 'Capture the full shop from outside so the signboard and entrance are clearly visible.'],
     ['type' => 'shop_inside_1', 'title' => 'Inside shop 1', 'desc' => 'Capture the inside of your shop.'],
@@ -130,17 +131,17 @@ $steps = [
             <div class="flex-1 min-w-0">
                 <p class="text-xs text-violet-400 uppercase tracking-wider mb-1">Shop verification</p>
                 <h1 class="text-lg font-bold">Shop Photos KYC</h1>
-                <p class="text-xs text-gray-500 mt-0.5">Live camera capture with IP, location and timestamp watermark</p>
+                <p class="text-xs text-gray-500 mt-0.5">5 live photos with IP, location and timestamp watermark</p>
             </div>
         </div>
     </div>
 
     <div class="glass rounded-xl p-6 mb-6">
         <div class="flex justify-between items-center mb-4">
-            <h2 id="step-title" class="font-semibold text-sm sm:text-base">Step 1 of 4: Signboard</h2>
-            <span id="step-counter" class="text-xs text-gray-500">1 / 4</span>
+            <h2 id="step-title" class="font-semibold text-sm sm:text-base">Step 1 of 5: Merchant Photo</h2>
+            <span id="step-counter" class="text-xs text-gray-500">1 / 5</span>
         </div>
-        <p id="step-desc" class="text-sm text-gray-400 mb-4">Capture a clear photo of your shop signboard.</p>
+        <p id="step-desc" class="text-sm text-gray-400 mb-4">Take a live selfie of the merchant.</p>
 
         <div id="camera-error" class="hidden bg-red-500/10 border border-red-500/30 text-red-300 text-sm px-4 py-3 rounded-xl mb-4"></div>
 
@@ -309,7 +310,8 @@ $steps = [
         try {
             if (stream) { stream.getTracks().forEach(t => t.stop()); }
             stopCanvasDraw();
-            let constraints = { video: { facingMode: { ideal: 'environment' } }, audio: false };
+            const isSelfie = steps[currentStep] && steps[currentStep].type === 'merchant_photo';
+            let constraints = { video: { facingMode: { ideal: isSelfie ? 'user' : 'environment' } }, audio: false };
             try {
                 stream = await navigator.mediaDevices.getUserMedia(constraints);
             } catch (err) {

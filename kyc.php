@@ -130,9 +130,10 @@ $docStatusMeta = static function (string $status): array {
 <!-- v20260725-G -->
 <style>
 .kyc-root{display:flex !important;flex-wrap:wrap !important;gap:1.5rem !important;align-items:flex-start !important;align-self:stretch !important;width:100% !important;max-width:100% !important;box-sizing:border-box !important;padding:0 1rem !important}
-.kyc-main{flex:3 1 60% !important;min-width:0 !important;width:auto !important;max-width:100% !important}
-.kyc-side{flex:2 1 35% !important;min-width:300px !important;max-width:100% !important}
+.kyc-main{flex:1 1 100% !important;min-width:0 !important;width:100% !important;max-width:100% !important}
+.kyc-side{flex:1 1 100% !important;min-width:0 !important;width:100% !important;max-width:100% !important}
 .kyc-main>*{max-width:100% !important}
+.kyc-side>*{max-width:100% !important}
 @media (max-width:1023px){.kyc-main,.kyc-side{flex:1 1 100% !important}}
 </style>
 <div class="kyc-root">
@@ -264,13 +265,13 @@ $docStatusMeta = static function (string $status): array {
     </a>
 
     <?php
-    $shopPhotoTypes = ['shop_signboard', 'shop_outside', 'shop_inside_1', 'shop_inside_2'];
-    $shopUploadedCount = count(array_intersect($shopPhotoTypes, $uploadedTypes));
-    $shopApprovedCount = count(array_intersect($shopPhotoTypes, $approvedTypes));
+    $livePhotoTypes = ['merchant_photo', 'shop_signboard', 'shop_outside', 'shop_inside_1', 'shop_inside_2'];
+    $shopUploadedCount = count(array_intersect($livePhotoTypes, $uploadedTypes));
+    $shopApprovedCount = count(array_intersect($livePhotoTypes, $approvedTypes));
     $shopStatus = 'pending';
-    if ($shopApprovedCount >= 4) {
+    if ($shopApprovedCount >= 5) {
         $shopStatus = 'approved';
-    } elseif ($shopUploadedCount >= 4) {
+    } elseif ($shopUploadedCount >= 5) {
         $shopStatus = 'submitted';
     }
     $shopBorder = $shopStatus === 'approved' ? 'border-emerald-500/30 bg-emerald-500/5' : ($shopStatus === 'submitted' ? 'border-amber-500/30 bg-amber-500/5' : 'border-violet-500/30 bg-violet-500/5');
@@ -285,7 +286,7 @@ $docStatusMeta = static function (string $status): array {
                     <p class="font-semibold text-violet-200 group-hover:text-white">Shop Photos</p>
                     <?= statusBadge($shopStatus) ?>
                 </div>
-                <p class="text-xs text-gray-500 mt-0.5">4 live photos: signboard, outside shop, 2 inside views</p>
+                <p class="text-xs text-gray-500 mt-0.5">5 live photos: merchant selfie, signboard, outside shop, 2 inside views</p>
             </div>
             <span class="text-violet-400">→</span>
         </div>

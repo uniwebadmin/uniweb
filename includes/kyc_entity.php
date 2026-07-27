@@ -52,6 +52,7 @@ if (!function_exists('getKycDocLabels')) {
             'iec' => 'IEC (Import Export Code)',
             'udyam' => 'Udyam Registration Certificate',
             'video_kyc' => 'Video KYC Recording',
+            'merchant_photo' => 'Merchant Photo / Selfie',
             'shop_signboard' => 'Shop Signboard Photo',
             'shop_outside' => 'Outside Shop Photo',
             'shop_inside_1' => 'Inside Shop Photo 1',
