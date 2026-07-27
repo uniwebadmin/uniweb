@@ -32,6 +32,7 @@ function getMerchantOnboardingSteps(array $merchant): array
             'hint' => merchantProfileComplete($merchant) ? 'Done' : 'Name, address, category',
         ],
         [
+            'id' => 'payment_pack',
             'label' => 'Set up Payment Pack',
             'done' => count($packLinks) > 0,
             'url' => 'merchant_payment_pack.php',
@@ -97,6 +98,52 @@ function getMerchantOnboardingSteps(array $merchant): array
             'url' => 'collection_settings.php',
             'hint' => collectionModeLabel($preview['collection_mode']),
         ],
+    ];
+}
+
+function getMerchantLaunchCenter(array $merchant): array
+{
+    $steps = getMerchantOnboardingSteps($merchant);
+    $requiredIds = ['profile', 'payment_pack', 'test_pay', 'website', 'bank', 'kyc', 'video_kyc', 'agreement', 'methods'];
+    $launchSteps = [];
+    $completed = 0;
+
+    foreach ($steps as $step) {
+        if (!in_array((string)($step['id'] ?? ''), $requiredIds, true)) {
+            continue;
+        }
+        $done = !empty($step['done']);
+        $launchSteps[] = [
+            'id' => (string)$step['id'],
+            'label' => (string)$step['label'],
+            'hint' => (string)$step['hint'],
+            'url' => (string)$step['url'],
+            'state' => $done ? 'completed' : 'needs_action',
+            'done' => $done,
+        ];
+        if ($done) {
+            $completed++;
+        }
+    }
+
+    $next = null;
+    foreach ($launchSteps as $step) {
+        if (!$step['done']) {
+            $next = $step;
+            break;
+        }
+    }
+
+    $total = count($launchSteps);
+    $score = (int)round(($completed / max(1, $total)) * 100);
+    return [
+        'steps' => $launchSteps,
+        'completed' => $completed,
+        'total' => $total,
+        'score' => $score,
+        'next' => $next,
+        'test_ready' => $next === null || !empty($launchSteps[2]['done']),
+        'live_ready' => function_exists('merchantCanGoLive') && merchantCanGoLive($merchant),
     ];
 }
 

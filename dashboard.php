@@ -55,7 +55,7 @@ echo renderMerchantMfaSetupPrompt($merchant, 'dashboard');
             </div>
             <p class="text-[10px] text-gray-600 mt-1"><?= $onboardPct ?>% complete — finish all steps to go live faster</p>
         </div>
-        <a href="merchant_payment_pack.php" class="btn-primary text-xs px-4 py-2"><?= __('nav_payment_pack') ?> →</a>
+        <a href="merchant_launch.php" class="btn-primary text-xs px-4 py-2">Open Launch Center →</a>
     </div>
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
         <?php foreach ($onboarding as $step): ?>
