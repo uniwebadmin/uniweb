@@ -135,6 +135,11 @@ $docStatusMeta = static function (string $status): array {
 .kyc-main>*{max-width:100% !important}
 .kyc-side>*{max-width:100% !important}
 @media (max-width:1023px){.kyc-main,.kyc-side{flex:1 1 100% !important}}
+@media (max-width:640px){
+    .kyc-root{padding:0 0.75rem !important}
+    .kyc-main .glass.p-6{padding:1rem !important}
+    .kyc-main .glass.p-5{padding:0.875rem !important}
+}
 </style>
 <div class="kyc-root">
     <div class="kyc-main space-y-6">
@@ -260,7 +265,7 @@ $docStatusMeta = static function (string $status): array {
                 <p class="text-xs text-red-300 mt-2">Reason: <?= e(trim((string)($vkLatest['rejection_reason'] ?? '')) ?: 'Please record again with clearer face and voice.') ?></p>
                 <?php endif; ?>
             </div>
-            <span class="text-violet-400">→</span>
+            <span class="text-violet-400 shrink-0">→</span>
         </div>
     </a>
 
@@ -288,7 +293,7 @@ $docStatusMeta = static function (string $status): array {
                 </div>
                 <p class="text-xs text-gray-500 mt-0.5">5 live photos: merchant selfie, signboard, outside shop, 2 inside views</p>
             </div>
-            <span class="text-violet-400">→</span>
+            <span class="text-violet-400 shrink-0">→</span>
         </div>
     </a>
 
@@ -393,9 +398,9 @@ $docStatusMeta = static function (string $status): array {
         <p class="text-gray-500 text-sm text-center py-8">No documents uploaded yet<?= $docFilter !== '' ? ' for this filter' : '' ?>.</p>
         <?php else: ?>
         <div class="overflow-x-auto">
-        <table class="w-full text-sm table-fixed">
+        <table class="w-full text-sm table-auto">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50">
-                <tr><th class="px-5 py-3 text-left w-1/5">Document</th><th class="px-5 py-3 text-left w-1/3">File</th><th class="px-5 py-3 text-left w-1/6">Status</th><th class="px-5 py-3 text-left w-1/4">Notes</th><th class="px-5 py-3 text-left w-1/6">Date</th></tr>
+                <tr><th class="px-5 py-3 text-left min-w-[140px]">Document</th><th class="px-5 py-3 text-left min-w-[180px]">File</th><th class="px-5 py-3 text-left min-w-[100px]">Status</th><th class="px-5 py-3 text-left min-w-[160px]">Notes</th><th class="px-5 py-3 text-left min-w-[120px]">Date</th></tr>
             </thead>
             <tbody class="divide-y divide-gray-800">
                 <?php foreach ($pagedDocuments as $doc):
@@ -464,7 +469,7 @@ $docStatusMeta = static function (string $status): array {
                 <span class="w-6 h-6 rounded-full bg-<?= e($ev['tone']) ?>-500/15 text-<?= e($ev['tone']) ?>-400 border border-<?= e($ev['tone']) ?>-500/40 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5"><?= e($ev['icon']) ?></span>
                 <div class="min-w-0">
                     <p class="text-sm text-gray-200 break-words"><?= e($ev['text']) ?></p>
-                    <?php if ($ev['sub'] !== ''): ?><p class="text-xs text-gray-500 break-words"><?= e($ev['sub']) ?></p><?php endif; ?>
+                    <?php if ($ev['sub'] !== ''): ?><p class="text-xs text-gray-500 break-all"><?= e($ev['sub']) ?></p><?php endif; ?>
                     <p class="text-[10px] text-gray-600"><?= !empty($ev['date']) ? formatDate($ev['date']) : '' ?></p>
                 </div>
             </div>
