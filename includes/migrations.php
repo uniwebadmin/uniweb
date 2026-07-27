@@ -120,6 +120,13 @@ function canSkipMigrationDuplicateColumn(PDOException $exception, string $statem
         && (bool)preg_match('/^\s*ALTER\s+TABLE\s+[`a-zA-Z0-9_]+\s+ADD\s+COLUMN\s+/i', $statement);
 }
 
+function canSkipMigrationLegacyTransactionBackfill(PDOException $exception, string $statement): bool
+{
+    return (string)$exception->getCode() === '42S22'
+        && str_contains($exception->getMessage(), "Unknown column 'transaction_id'")
+        && (bool)preg_match('/^\s*UPDATE\s+transactions\s+SET\s+txn_id\s*=\s*transaction_id\s+WHERE\s+txn_id\s+IS\s+NULL\s+AND\s+transaction_id\s+IS\s+NOT\s+NULL\s*$/i', $statement);
+}
+
 function applyPendingMigrations(string $directory): array
 {
     $db = getDB();
@@ -141,10 +148,15 @@ function applyPendingMigrations(string $directory): array
                 try {
                     $db->exec($statement);
                 } catch (PDOException $e) {
-                    if (!canSkipMigrationDuplicateColumn($e, $statement)) {
-                        throw $e;
+                    if (canSkipMigrationDuplicateColumn($e, $statement)) {
+                        error_log('UniWeb migration duplicate column skipped: ' . $migration['version']);
+                        continue;
                     }
-                    error_log('UniWeb migration duplicate column skipped: ' . $migration['version']);
+                    if (canSkipMigrationLegacyTransactionBackfill($e, $statement)) {
+                        error_log('UniWeb migration legacy transaction backfill skipped: ' . $migration['version']);
+                        continue;
+                    }
+                    throw $e;
                 }
             }
             $record = $db->prepare('INSERT INTO schema_migrations (version, checksum) VALUES (?, ?)');
