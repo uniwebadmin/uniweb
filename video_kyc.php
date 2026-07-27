@@ -22,6 +22,12 @@ try {
     $latestVideo = null;
 }
 
+$clientIp = (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+if (str_contains($clientIp, ',')) {
+    $clientIp = trim((string)explode(',', $clientIp)[0]);
+}
+$clientIp = substr($clientIp, 0, 45);
+
 $pageTitle = 'Video KYC';
 require_once __DIR__ . '/header.php';
 $verified = in_array($vkStatus, ['verified', 'approved'], true);
@@ -36,7 +42,7 @@ $rejected = $vkStatus === 'rejected';
             <div class="flex-1 min-w-0">
                 <p class="text-xs text-violet-400 uppercase tracking-wider mb-1">Identity check</p>
                 <h1 class="text-lg font-bold">Video KYC</h1>
-                <p class="text-xs text-gray-500 mt-0.5">Live camera recording with your Aadhaar or PAN visible</p>
+                <p class="text-xs text-gray-500 mt-0.5">Live camera recording with IP, location and timestamp overlay</p>
             </div>
             <?= statusBadge($vkStatus) ?>
         </div>
@@ -92,7 +98,13 @@ $rejected = $vkStatus === 'rejected';
 
         <div class="relative bg-black rounded-xl overflow-hidden mb-4 aspect-[3/4] sm:aspect-video">
             <video id="video-preview" class="w-full h-full object-cover" autoplay playsinline muted></video>
-            <div id="recording-badge" class="hidden absolute top-3 right-3 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">REC <span id="recording-timer">00:00</span></div>
+            <div id="recording-badge" class="hidden absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">REC <span id="recording-timer">00:00</span></div>
+            <div id="video-overlay" class="absolute top-3 right-3 text-right text-[10px] leading-tight text-white/90 bg-black/60 backdrop-blur-sm px-2 py-1.5 rounded-lg border border-white/10 select-none z-10 font-mono">
+                <div>IP: <?= e($clientIp) ?></div>
+                <div id="overlay-loc">Loc: --</div>
+                <div id="overlay-date">Date: --</div>
+                <div id="overlay-time">Time: --</div>
+            </div>
         </div>
 
         <div id="playback-wrap" class="hidden mb-4">
@@ -137,6 +149,9 @@ $rejected = $vkStatus === 'rejected';
     const errorBox = document.getElementById('upload-error');
     const errorBanner = document.getElementById('camera-error');
     const btnRetryCamera = document.getElementById('btn-retry-camera');
+    const overlayLoc = document.getElementById('overlay-loc');
+    const overlayDate = document.getElementById('overlay-date');
+    const overlayTime = document.getElementById('overlay-time');
 
     if (!navigator.mediaDevices || !window.MediaRecorder) {
         showCameraError('Your browser does not support live camera recording. Please use a modern browser (Chrome, Firefox, Safari, Edge).');
@@ -325,6 +340,38 @@ $rejected = $vkStatus === 'rejected';
     btnRetake.addEventListener('click', retake);
     btnUpload.addEventListener('click', uploadRecording);
     btnRetryCamera.addEventListener('click', startCamera);
+
+    function updateOverlayDateTime(){
+        const now = new Date();
+        overlayDate.textContent = 'Date: ' + now.toLocaleDateString('en-IN');
+        overlayTime.textContent = 'Time: ' + now.toLocaleTimeString('en-IN');
+    }
+    updateOverlayDateTime();
+    setInterval(updateOverlayDateTime, 1000);
+
+    async function updateOverlayLocation(){
+        overlayLoc.textContent = 'Loc: --';
+        if (navigator.geolocation) {
+            try {
+                const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, {timeout: 10000}));
+                overlayLoc.textContent = 'Loc: ' + pos.coords.latitude.toFixed(4) + ', ' + pos.coords.longitude.toFixed(4);
+                return;
+            } catch (e) { /* fall through */ }
+        }
+        try {
+            const res = await fetch('https://ipapi.co/json/');
+            if (res.ok) {
+                const data = await res.json();
+                const city = [data.city, data.region, data.country_name].filter(Boolean).join(', ');
+                overlayLoc.textContent = 'Loc: ' + (city || 'unavailable');
+            } else {
+                overlayLoc.textContent = 'Loc: unavailable';
+            }
+        } catch (e) {
+            overlayLoc.textContent = 'Loc: unavailable';
+        }
+    }
+    updateOverlayLocation();
 
     startCamera();
 })();
