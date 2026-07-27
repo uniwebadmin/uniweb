@@ -69,6 +69,19 @@ function migrationStatements(string $sql): array
     return $statements;
 }
 
+function migrationEolChecksumVariants(string $file): array
+{
+    $contents = file_get_contents($file);
+    if ($contents === false) {
+        throw new RuntimeException('Could not read migration file: ' . basename($file));
+    }
+    $lf = preg_replace("/\r\n|\r/", "\n", $contents) ?? $contents;
+    return array_values(array_unique([
+        hash('sha256', $lf),
+        hash('sha256', str_replace("\n", "\r\n", $lf)),
+    ]));
+}
+
 function pendingMigrations(string $directory): array
 {
     $db = getDB();
@@ -86,7 +99,12 @@ function pendingMigrations(string $directory): array
         $checksum = hash_file('sha256', $file);
         if (isset($applied[$version])) {
             if (!hash_equals($applied[$version], $checksum)) {
-                throw new RuntimeException('Applied migration checksum mismatch: ' . $version);
+                if (!in_array($applied[$version], migrationEolChecksumVariants($file), true)) {
+                    throw new RuntimeException('Applied migration checksum mismatch: ' . $version);
+                }
+                $db->prepare('UPDATE schema_migrations SET checksum=? WHERE version=? AND checksum=?')
+                    ->execute([$checksum, $version, $applied[$version]]);
+                error_log('UniWeb migration checksum rebased for line-ending-only difference: ' . $version);
             }
             continue;
         }
