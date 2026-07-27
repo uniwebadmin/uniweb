@@ -164,7 +164,7 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
                     <?php endif; ?>
                 </div>
                 <?php if ($card['test']): ?>
-                <a href="gateway_settings.php?test_gateway=<?= e($card['id']) ?>&csrf=<?= e(csrfToken()) ?>" class="shrink-0 px-2.5 py-1 rounded-lg text-[11px] bg-brand-600/20 text-brand-400 hover:bg-brand-600/30">Test</a>
+                <a href="gateway_settings.php?test_gateway=<?= e($card['id']) ?>&csrf=<?= e(csrfToken()) ?>" class="shrink-0 px-3 py-2 rounded-lg text-xs font-medium bg-brand-600/20 text-brand-400 hover:bg-brand-600/30">Test Connection</a>
                 <?php endif; ?>
             </div>
         </div>
