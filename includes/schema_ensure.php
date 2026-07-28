@@ -128,6 +128,10 @@ function ensureMerchantQrCodes(): void
         INDEX idx_qr_event_merchant (merchant_id, event_type, created_at),
         INDEX idx_qr_event_type (event_type, created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    // Widen ENUM -> VARCHAR so new alert event types (expiry_alert, low_scan_alert)
+    // can be logged without another migration; logQrEvent()'s PHP whitelist still
+    // guards what actually gets inserted.
+    schemaExecQuiet("ALTER TABLE qr_code_events MODIFY COLUMN event_type VARCHAR(32) NOT NULL");
 }
 
 function ensureMerchantAgentColumns(): void

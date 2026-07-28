@@ -42,6 +42,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('qr_code.php');
     }
 
+    if ($action === 'bulk_create') {
+        $qrType = (string)($_POST['qr_type'] ?? 'fixed');
+        if (!in_array($qrType, ['all_methods', 'upi_dynamic', 'fixed'], true)) {
+            $qrType = 'fixed';
+        }
+        $description = trim((string)($_POST['description'] ?? ''));
+        $amount = $qrType === 'fixed'
+            ? sanitizePaymentAmount((float)($_POST['amount'] ?? 0), $isTest)
+            : 0.0;
+        $names = array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', (string)($_POST['bulk_names'] ?? ''))), static fn($n) => $n !== ''));
+        $names = array_slice($names, 0, 50);
+
+        if (empty($names)) {
+            flash('error', 'Enter at least one QR name (one per line).');
+        } elseif (count(array_filter($names, static fn($n) => mb_strlen($n) > 120)) > 0) {
+            flash('error', 'Each QR name must be 120 characters or less.');
+        } elseif ($qrType === 'fixed' && $amount < 1) {
+            flash('error', 'Amount must be at least ₹1.');
+        } elseif ($qrType === 'fixed' && $isTest && $amount > 100) {
+            flash('error', 'Test Mode QR amount must be ₹1–₹100.');
+        } elseif (!$isTest && ($merchant['kyc_status'] ?? '') !== 'verified') {
+            flash('error', 'Live QR needs verified KYC.');
+        } elseif (!$isTest && $qrType === 'upi_dynamic' && $upiId === '') {
+            flash('error', 'UPI QR needs a real UPI ID in My Account.');
+        } else {
+            $created = 0;
+            try {
+                $db->beginTransaction();
+                $insert = $db->prepare('INSERT INTO merchant_qr_codes
+                    (qr_code, merchant_id, payment_link_id, qr_type, label, amount, description, is_test)
+                    VALUES (?,?,NULL,?,?,?,?,?)');
+                foreach ($names as $name) {
+                    $qrCode = 'QR' . strtoupper(bin2hex(random_bytes(8)));
+                    $insert->execute([$qrCode, $merchantId, $qrType, $name, $amount, $description !== '' ? $description : null, $isTest ? 1 : 0]);
+                    $created++;
+                }
+                $db->commit();
+                flash('success', $created . ' QR code(s) created. Download them as a ZIP or scroll down to print each one.');
+            } catch (Throwable $e) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                logPlatformError('error', 'Bulk QR create failed: ' . $e->getMessage());
+                flash('error', 'Could not create QR codes. Try again.');
+            }
+        }
+        redirect('qr_code.php');
+    }
+
     $qrType = (string)($_POST['qr_type'] ?? 'fixed');
     if (!in_array($qrType, ['all_methods', 'upi_dynamic', 'fixed'], true)) {
         $qrType = 'fixed';
@@ -139,6 +188,7 @@ require_once __DIR__ . '/header.php';
         <span class="inline-block mt-1 px-2 py-0.5 rounded-full <?= $isTest ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400' ?>">
             <?= $isTest ? 'Test QR' : 'Live QR' ?>
         </span>
+        <a href="qr_analytics.php" class="block mt-2 text-sky-400 hover:underline">View Analytics →</a>
     </div>
 </div>
 
@@ -183,6 +233,35 @@ require_once __DIR__ . '/header.php';
         <?php if (!$isTest && $upiId === ''): ?>
         <p class="text-xs text-amber-400 mt-4">Add a real UPI ID in <a href="my_account.php" class="underline">My Account</a> before creating Live QR.</p>
         <?php endif; ?>
+
+        <details class="mt-6 border-t border-gray-800 pt-4">
+            <summary class="cursor-pointer text-sm font-semibold text-brand-400">Bulk generate (multiple counters/branches)</summary>
+            <form method="POST" class="space-y-4 mt-4">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="bulk_create">
+                <div>
+                    <label class="text-sm text-gray-400">QR Type *</label>
+                    <select name="qr_type" id="bulk-qr-type" class="input-field mt-1" onchange="toggleBulkAmount()">
+                        <option value="all_methods">All Payment Methods — customer enters amount</option>
+                        <option value="upi_dynamic">Dynamic UPI — customer enters amount</option>
+                        <option value="fixed">Fixed Amount QR</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">QR Names * — one per line (max 50)</label>
+                    <textarea name="bulk_names" rows="5" required class="input-field mt-1 font-mono text-xs" placeholder="Counter 1&#10;Counter 2&#10;Counter 3&#10;Branch A&#10;Branch B"></textarea>
+                </div>
+                <div id="bulk-amount-wrap" class="hidden">
+                    <label class="text-sm text-gray-400">Fixed Amount (₹) — applies to all *</label>
+                    <input type="number" id="bulk-amount" name="amount" min="1" max="<?= $isTest ? 100 : (int)livePaymentAmountCap() ?>" step="0.01" value="1" class="input-field mt-1">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Description — applies to all</label>
+                    <input type="text" name="description" maxlength="255" class="input-field mt-1" placeholder="Optional payment note">
+                </div>
+                <button type="submit" class="w-full border border-brand-500/40 text-brand-300 hover:bg-brand-500/10 py-3 rounded-xl font-semibold">Generate All QR Codes</button>
+            </form>
+        </details>
     </div>
 
     <div class="lg:col-span-2">
@@ -267,7 +346,7 @@ require_once __DIR__ . '/header.php';
                 <div class="grid grid-cols-4 gap-2 text-xs mb-2">
                     <?php
                     $shareText = rawurlencode('Pay ' . ($isFixed ? formatMoney((float)$qr['amount']) . ' to ' : '') . $businessName . " via UniWeb QR\n" . $scanUrl);
-                    $wa = 'https://wa.me/?text=' . $shareText;
+                    $wa = 'https://api.whatsapp.com/send?text=' . $shareText;
                     $tg = 'https://t.me/share/url?url=' . rawurlencode($scanUrl) . '&text=' . rawurlencode('Pay ' . $businessName);
                     $mailto = 'mailto:?subject=' . rawurlencode('QR Payment — ' . $businessName) . '&body=' . $shareText;
                     $sms = 'sms:?body=' . $shareText;
@@ -317,6 +396,15 @@ function toggleQrAmount() {
             : 'Amount is locked by merchant; customer scans and pays that exact amount.');
 }
 toggleQrAmount();
+
+function toggleBulkAmount() {
+    const type = document.getElementById('bulk-qr-type').value;
+    const wrap = document.getElementById('bulk-amount-wrap');
+    const amount = document.getElementById('bulk-amount');
+    const fixed = type === 'fixed';
+    wrap.classList.toggle('hidden', !fixed);
+    amount.required = fixed;
+}
 
 function printQr(btn) {
     const img = btn.getAttribute('data-img');

@@ -655,7 +655,7 @@ function shareQr(code, encodedUrl, phone, email) {
     const title = document.getElementById('share-title');
     title.textContent = 'Share ' + code;
     let html = '';
-    html += '<a href="https://wa.me/' + (cleanPhone.length >= 10 ? cleanPhone : '') + '?text=' + encodeURIComponent(text) + '" target="_blank" class="block px-2 py-1.5 rounded hover:bg-white/5 text-sm text-emerald-400">WhatsApp</a>';
+    html += '<a href="' + (cleanPhone.length >= 10 ? ('https://wa.me/' + cleanPhone) : 'https://api.whatsapp.com/send') + '?text=' + encodeURIComponent(text) + '" target="_blank" class="block px-2 py-1.5 rounded hover:bg-white/5 text-sm text-emerald-400">WhatsApp</a>';
     html += '<a href="https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent('Pay via QR') + '" target="_blank" class="block px-2 py-1.5 rounded hover:bg-white/5 text-sm text-sky-400">Telegram</a>';
     html += cleanEmail ? '<a href="mailto:' + cleanEmail + '?subject=' + encodeURIComponent('QR Payment Link') + '&body=' + encodeURIComponent(text) + '" class="block px-2 py-1.5 rounded hover:bg-white/5 text-sm text-amber-400">Email</a>' : '';
     html += cleanPhone.length >= 10 ? '<a href="sms:' + cleanPhone + '?body=' + encodeURIComponent(text) + '" class="block px-2 py-1.5 rounded hover:bg-white/5 text-sm text-violet-400">SMS</a>' : '';

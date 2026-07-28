@@ -192,7 +192,7 @@ $status = merchantWebsiteStatus($merchant);
             <div class="flex flex-wrap gap-2 mt-1">
                 <input id="storefront-url" type="text" readonly value="<?= e($storefrontUrl) ?>" class="input-field flex-1 min-w-[220px] text-xs" onclick="this.select()">
                 <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('storefront-url').value);this.textContent='Copied!'" class="px-4 py-2 rounded-xl border border-gray-700 text-sm text-gray-300 hover:text-white">Copy</button>
-                <a href="https://wa.me/?text=<?= e($storefrontShareText) ?>" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl border border-emerald-500/40 text-sm text-emerald-300 hover:bg-emerald-500/10">WhatsApp</a>
+                <a href="https://api.whatsapp.com/send?text=<?= e($storefrontShareText) ?>" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl border border-emerald-500/40 text-sm text-emerald-300 hover:bg-emerald-500/10">WhatsApp</a>
             </div>
             <p class="text-[11px] text-gray-600 mt-2">This link stays the same while your sales page is published.</p>
         </div>

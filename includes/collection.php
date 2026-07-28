@@ -249,7 +249,7 @@ function buildWhatsAppPaymentLink(array $link): string
     $upi = buildMerchantUpiIntent($link);
     $text = rawurlencode('Pay ' . formatMoney((float)$link['amount']) . ' to ' . ($link['business_name'] ?? 'Merchant') . ' via UPI: ' . $upi);
     $phone = preg_replace('/\D/', '', $link['customer_phone'] ?? '');
-    return $phone ? "https://wa.me/{$phone}?text={$text}" : "https://wa.me/?text={$text}";
+    return $phone ? "https://wa.me/{$phone}?text={$text}" : "https://api.whatsapp.com/send?text={$text}";
 }
 
 function ensureAxisVirtualAccount(int $merchantId): ?array

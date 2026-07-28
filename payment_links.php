@@ -220,7 +220,7 @@ $cfReady = isGatewayConfigured('cashfree');
                                 <div class="glass rounded-xl p-5 max-w-sm w-full">
                                     <h3 class="font-semibold mb-3">Share <?= e($link['link_id']) ?></h3>
                                     <div class="grid grid-cols-2 gap-2 text-xs">
-                                        <a href="https://wa.me/?text=<?= e($shareText) ?>" target="_blank" class="text-center py-2 rounded-lg border border-emerald-500/30 text-emerald-400">WhatsApp</a>
+                                        <a href="https://api.whatsapp.com/send?text=<?= e($shareText) ?>" target="_blank" class="text-center py-2 rounded-lg border border-emerald-500/30 text-emerald-400">WhatsApp</a>
                                         <a href="https://t.me/share/url?url=<?= rawurlencode($payUrl) ?>&text=<?= rawurlencode('Payment link') ?>" target="_blank" class="text-center py-2 rounded-lg border border-sky-500/30 text-sky-400">Telegram</a>
                                         <a href="mailto:?subject=<?= rawurlencode('Payment link — ' . ($merchant['business_name'] ?? APP_NAME)) ?>&body=<?= e($shareText) ?>" class="text-center py-2 rounded-lg border border-amber-500/30 text-amber-400">Email</a>
                                         <a href="sms:?body=<?= e($shareText) ?>" class="text-center py-2 rounded-lg border border-violet-500/30 text-violet-400">SMS</a>
