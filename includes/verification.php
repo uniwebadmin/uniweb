@@ -218,6 +218,56 @@ function verifyBankAccount(string $accountNumber, string $ifsc, int $merchantId)
     return ['success' => true, 'status' => 'submitted', 'message' => 'Bank account submitted for penny-drop verification'];
 }
 
+/**
+ * Fast-track KYC: when a document is authoritatively verified against the
+ * government registry (Decentro), skip manual file upload + admin queue and
+ * auto-approve the matching kyc_documents row. Only fires for types that map
+ * 1:1 to a KYC requirement key (pan/aadhaar/gst) — CIN/bank stay manual since
+ * they don't map to a single certificate type. Merchant-level KYC verification
+ * (maker-checker) is untouched; this only clears the document-level step.
+ */
+function autoApproveVerifiedKycDoc(int $merchantId, string $type, string $number): void
+{
+    if (!in_array($type, ['pan', 'aadhaar', 'gst'], true)) {
+        return;
+    }
+    try {
+        $db = getDB();
+        $existing = $db->prepare("SELECT id FROM kyc_documents WHERE merchant_id=? AND doc_type=? AND status='approved' LIMIT 1");
+        $existing->execute([$merchantId, $type]);
+        if ($existing->fetch()) {
+            return;
+        }
+        $db->prepare(
+            "INSERT INTO kyc_documents (merchant_id,doc_type,file_name,file_path,storage_key,sha256,mime_type,file_size,scan_status,status,reviewed_at,retention_until)
+             VALUES (?,?,?,?,?,?,?,?,?,?,NOW(),DATE_ADD(CURDATE(),INTERVAL 8 YEAR))"
+        )->execute([
+            $merchantId,
+            $type,
+            'registry_ekyc_' . $type,
+            '',
+            '',
+            hash('sha256', $type . ':' . $number . ':' . $merchantId),
+            'application/json',
+            0,
+            'clean',
+            'approved',
+        ]);
+        $db->prepare("UPDATE merchants SET kyc_status=IF(kyc_status='pending','submitted',kyc_status), onboarding_state=IF(onboarding_state='pending','submitted',onboarding_state), onboarding_submitted_at=COALESCE(onboarding_submitted_at,NOW()) WHERE id=?")
+            ->execute([$merchantId]);
+        if (function_exists('recordImmutableAudit')) {
+            recordImmutableAudit('kyc_doc_auto_approved_registry', $merchantId, 'merchant', (string)$merchantId, ucfirst($type) . ' auto-approved via registry e-KYC (DigiLocker/Decentro)');
+        }
+        if (function_exists('createNotification')) {
+            createNotification($merchantId, 'Fast KYC Verified', ucfirst($type) . ' verified instantly via DigiLocker/Aadhaar e-KYC — no document upload needed.');
+        }
+    } catch (Throwable $e) {
+        if (function_exists('logPlatformError')) {
+            logPlatformError('error', 'autoApproveVerifiedKycDoc failed: ' . $e->getMessage(), ['merchant_id' => $merchantId, 'type' => $type]);
+        }
+    }
+}
+
 function saveVerification(int $merchantId, string $type, string $number, string $status, string $response): void
 {
     $db = getDB();

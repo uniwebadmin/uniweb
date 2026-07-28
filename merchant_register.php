@@ -1,108 +1,176 @@
 <?php
 require_once __DIR__ . '/config.php';
 if (isLoggedIn()) redirect('dashboard.php');
+ensureSignupVerificationSchema();
 
 $errors = [];
-$signupMode = ($_POST['signup_mode'] ?? $_GET['mode'] ?? 'email') === 'mobile' ? 'mobile' : 'email';
+$pending = $_SESSION['pending_signup'] ?? null;
+$signupMode = $pending['signup_mode'] ?? ((($_POST['signup_mode'] ?? $_GET['mode'] ?? 'email') === 'mobile') ? 'mobile' : 'email');
+$showOtpStep = $pending !== null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
-    $signupMode = ($_POST['signup_mode'] ?? 'email') === 'mobile' ? 'mobile' : 'email';
-    $password = $_POST['password'] ?? '';
-    $confirm = $_POST['confirm_password'] ?? '';
-    $email = '';
-    $phone = '';
-    $name = 'Merchant';
+    $step = (string)($_POST['step'] ?? 'details');
 
-    if (function_exists('checkVelocityBlock')) {
+    if ($step === 'change_details') {
+        unset($_SESSION['pending_signup']);
+        redirect('merchant_register.php?mode=' . ($pending['signup_mode'] ?? 'email'));
+    }
+
+    if ($step === 'resend_otp' && $pending) {
+        $v = checkVelocityBlock('merchant_signup_otp');
+        if (!empty($v['blocked'])) {
+            $errors[] = velocityBlockMessage('merchant_signup_otp');
+        } else {
+            $otp = generateOTP($pending['otp_identifier'], 'merchant_signup');
+            $delivery = deliverContactChangeOtp(
+                $otp,
+                $pending['signup_mode'] === 'email' ? 'email' : 'mobile',
+                $pending['signup_mode'] === 'email' ? $pending['email'] : $pending['phone'],
+                'account signup'
+            );
+            $pending['demo_otp'] = $delivery['demo_otp'];
+            $_SESSION['pending_signup'] = $pending;
+            flash('success', $pending['signup_mode'] === 'email' ? __('flash_otp_sent_email') : __('flash_otp_sent_mobile'));
+        }
+        $showOtpStep = true;
+    } elseif ($step === 'verify' && $pending) {
+        $otpCode = trim((string)($_POST['otp_code'] ?? ''));
+        $v = checkVelocityBlock('merchant_signup_otp');
+        if (!empty($v['blocked'])) {
+            $errors[] = velocityBlockMessage('merchant_signup_otp');
+        } elseif (!verifyOTP($pending['otp_identifier'], $otpCode, 'merchant_signup')) {
+            recordVelocityEvent('otp_fail', 'merchant_signup:' . $pending['otp_identifier']);
+            $errors[] = __('err_invalid_otp');
+        } else {
+            $db = getDB();
+            $email = $pending['email'];
+            $phone = $pending['phone'];
+            $name = $pending['name'];
+            $check = $db->prepare('SELECT id FROM merchants WHERE email=? OR phone=?');
+            $check->execute([$email, $phone]);
+            if ($check->fetch()) {
+                unset($_SESSION['pending_signup']);
+                $errors[] = __('err_already_registered');
+                $showOtpStep = false;
+            } else {
+                $code = 'UW' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
+                $business = 'My Business';
+                $db->prepare('INSERT INTO merchants (merchant_code,name,email,phone,password,business_name,business_type,business_entity_type,pan_number,address,country,state,district,city,pincode,api_key,api_secret,upi_id,email_verified_at,phone_verified_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+                    ->execute([
+                        $code, $name, $email, $phone, $pending['password_hash'],
+                        $business, 'retail', 'individual', null, '',
+                        'India', '', '', '', '',
+                        'uk_' . bin2hex(random_bytes(16)), 'us_' . bin2hex(random_bytes(24)),
+                        'merchant' . strtolower(substr($code, 2)) . '@uniweb',
+                        $signupMode === 'email' ? date('Y-m-d H:i:s') : null,
+                        $signupMode === 'mobile' ? date('Y-m-d H:i:s') : null,
+                    ]);
+                $id = (int)$db->lastInsertId();
+                if ($pending['signup_mode'] === 'email') {
+                    // Synthetic unique phone so email-only signups do not collide on phone UNIQUE.
+                    // Pattern +9199 + zero-padded id (e.g. id 7 → +919900000007) — NOT a real mobile.
+                    $uniquePhone = '+9199' . str_pad((string)$id, 8, '0', STR_PAD_LEFT);
+                    $db->prepare('UPDATE merchants SET phone=? WHERE id=?')->execute([$uniquePhone, $id]);
+                }
+                recordVelocityEvent('merchant_signup', 'merchant:' . $id);
+                try {
+                    $db->prepare('UPDATE merchants SET test_api_key=?, test_api_secret=?, account_mode=?, provision_profile=?, enabled_methods=?, collection_mode=?, auto_provisioned=1 WHERE id=?')
+                        ->execute(['test_' . bin2hex(random_bytes(16)), 'testsec_' . bin2hex(random_bytes(24)), 'test', 'auto_p2m', json_encode(['upi_p2m']), 'direct_upi', $id]);
+                } catch (Throwable $e) {
+                    try {
+                        $db->prepare('UPDATE merchants SET test_api_key=?, test_api_secret=?, account_mode=?, enabled_methods=? WHERE id=?')
+                            ->execute(['test_' . bin2hex(random_bytes(16)), 'testsec_' . bin2hex(random_bytes(24)), 'test', json_encode(['upi_p2m']), $id]);
+                    } catch (Throwable $e2) { /* ok */ }
+                }
+
+                if (function_exists('bootstrapMerchantMethodAutomation') === false) {
+                    require_once __DIR__ . '/includes/method_requests.php';
+                }
+                if (function_exists('bootstrapMerchantMethodAutomation')) {
+                    bootstrapMerchantMethodAutomation($id, 'Auto-queued on merchant signup');
+                }
+
+                createNotification($id, __('notif_welcome_title'), __('notif_welcome_body'));
+
+                unset($_SESSION['pending_signup']);
+                $_SESSION['merchant_id'] = $id;
+                $_SESSION['merchant_code'] = $code;
+
+                flash('success', __('flash_account_created'));
+                redirect('merchant_setup.php');
+            }
+        }
+    } else {
+        $signupMode = ($_POST['signup_mode'] ?? 'email') === 'mobile' ? 'mobile' : 'email';
+        $password = $_POST['password'] ?? '';
+        $confirm = $_POST['confirm_password'] ?? '';
+        $email = '';
+        $phone = '';
+        $name = 'Merchant';
+
         $v = checkVelocityBlock('merchant_signup');
         if (!empty($v['blocked'])) {
-            $errors[] = function_exists('velocityBlockMessage')
-                ? velocityBlockMessage('merchant_signup')
-                : 'Too many signup attempts. Please try again later.';
+            $errors[] = velocityBlockMessage('merchant_signup');
         }
-    }
 
-    if (empty($errors) && $signupMode === 'email') {
-        $email = strtolower(trim($_POST['email'] ?? ''));
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $errors[] = __('err_valid_email');
-        }
-        $local = strstr($email, '@', true) ?: 'merchant';
-        $name = ucfirst(preg_replace('/[^a-zA-Z0-9]/', ' ', $local));
-        $phone = '+919900000000';
-    } else {
-        $phoneCode = trim($_POST['phone_code'] ?? '+91');
-        $phoneNum = preg_replace('/\D/', '', $_POST['phone'] ?? '');
-        $phone = $phoneCode . $phoneNum;
-        if ($phoneCode === '+91' && !preg_match('/^[6-9]\d{9}$/', $phoneNum)) {
-            $errors[] = __('err_valid_mobile');
-        } elseif (strlen($phoneNum) < 6 || strlen($phoneNum) > 15) {
-            $errors[] = __('err_valid_mobile_generic');
-        }
-        $email = 'm' . $phoneNum . '@signup.uniweb.co.in';
-        $name = 'Merchant';
-    }
-
-    if (strlen($password) < 8) {
-        $errors[] = __('err_password_min');
-    }
-    if ($password !== $confirm) {
-        $errors[] = __('err_password_match');
-    }
-
-    if (empty($errors)) {
-        $db = getDB();
-        $check = $db->prepare('SELECT id FROM merchants WHERE email=? OR phone=?');
-        $check->execute([$email, $phone]);
-        if ($check->fetch()) {
-            $errors[] = __('err_already_registered');
+        if (empty($errors) && $signupMode === 'email') {
+            $email = strtolower(trim($_POST['email'] ?? ''));
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = __('err_valid_email');
+            }
+            $local = strstr($email, '@', true) ?: 'merchant';
+            $name = ucfirst(preg_replace('/[^a-zA-Z0-9]/', ' ', $local));
+            $phone = '+919900000000';
         } else {
-            $code = 'UW' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
-            $business = 'My Business';
-            $db->prepare('INSERT INTO merchants (merchant_code,name,email,phone,password,business_name,business_type,business_entity_type,pan_number,address,country,state,district,city,pincode,api_key,api_secret,upi_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-                ->execute([
-                    $code, $name, $email, $phone, password_hash($password, PASSWORD_BCRYPT),
-                    $business, 'retail', 'individual', null, '',
-                    'India', '', '', '', '',
-                    'uk_' . bin2hex(random_bytes(16)), 'us_' . bin2hex(random_bytes(24)),
-                    'merchant' . strtolower(substr($code, 2)) . '@uniweb',
-                ]);
-            $id = (int)$db->lastInsertId();
-            if ($signupMode === 'email') {
-                // Synthetic unique phone so email-only signups do not collide on phone UNIQUE.
-                // Pattern +9199 + zero-padded id (e.g. id 7 → +919900000007) — NOT a real mobile.
-                $uniquePhone = '+9199' . str_pad((string)$id, 8, '0', STR_PAD_LEFT);
-                $db->prepare('UPDATE merchants SET phone=? WHERE id=?')->execute([$uniquePhone, $id]);
+            $phoneCode = trim($_POST['phone_code'] ?? '+91');
+            $phoneNum = preg_replace('/\D/', '', $_POST['phone'] ?? '');
+            $phone = $phoneCode . $phoneNum;
+            if ($phoneCode === '+91' && !preg_match('/^[6-9]\d{9}$/', $phoneNum)) {
+                $errors[] = __('err_valid_mobile');
+            } elseif (strlen($phoneNum) < 6 || strlen($phoneNum) > 15) {
+                $errors[] = __('err_valid_mobile_generic');
             }
-            if (function_exists('recordVelocityEvent')) {
-                recordVelocityEvent('merchant_signup', 'merchant:' . $id);
-            }
-            try {
-                $db->prepare('UPDATE merchants SET test_api_key=?, test_api_secret=?, account_mode=?, provision_profile=?, enabled_methods=?, collection_mode=?, auto_provisioned=1 WHERE id=?')
-                    ->execute(['test_' . bin2hex(random_bytes(16)), 'testsec_' . bin2hex(random_bytes(24)), 'test', 'auto_p2m', json_encode(['upi_p2m']), 'direct_upi', $id]);
-            } catch (Throwable $e) {
-                try {
-                    $db->prepare('UPDATE merchants SET test_api_key=?, test_api_secret=?, account_mode=?, enabled_methods=? WHERE id=?')
-                        ->execute(['test_' . bin2hex(random_bytes(16)), 'testsec_' . bin2hex(random_bytes(24)), 'test', json_encode(['upi_p2m']), $id]);
-                } catch (Throwable $e2) { /* ok */ }
-            }
+            $email = 'm' . $phoneNum . '@signup.uniweb.co.in';
+            $name = 'Merchant';
+        }
 
-            if (function_exists('bootstrapMerchantMethodAutomation') === false) {
-                require_once __DIR__ . '/includes/method_requests.php';
+        if (strlen($password) < 8) {
+            $errors[] = __('err_password_min');
+        }
+        if ($password !== $confirm) {
+            $errors[] = __('err_password_match');
+        }
+
+        if (empty($errors)) {
+            $db = getDB();
+            $check = $db->prepare('SELECT id FROM merchants WHERE email=? OR phone=?');
+            $check->execute([$email, $phone]);
+            if ($check->fetch()) {
+                $errors[] = __('err_already_registered');
+            } else {
+                $otpTarget = $signupMode === 'email' ? $email : preg_replace('/\D/', '', $phone);
+                $otp = generateOTP($otpTarget, 'merchant_signup');
+                $delivery = deliverContactChangeOtp(
+                    $otp,
+                    $signupMode === 'email' ? 'email' : 'mobile',
+                    $signupMode === 'email' ? $email : $phone,
+                    'account signup'
+                );
+                $_SESSION['pending_signup'] = [
+                    'email' => $email,
+                    'phone' => $phone,
+                    'name' => $name,
+                    'password_hash' => password_hash($password, PASSWORD_BCRYPT),
+                    'signup_mode' => $signupMode,
+                    'otp_identifier' => $otpTarget,
+                    'demo_otp' => $delivery['demo_otp'],
+                ];
+                flash('success', $signupMode === 'email' ? __('flash_otp_sent_email') : __('flash_otp_sent_mobile'));
+                $showOtpStep = true;
             }
-            if (function_exists('bootstrapMerchantMethodAutomation')) {
-                bootstrapMerchantMethodAutomation($id, 'Auto-queued on merchant signup');
-            }
-
-            createNotification($id, __('notif_welcome_title'), __('notif_welcome_body'));
-
-            $_SESSION['merchant_id'] = $id;
-            $_SESSION['merchant_code'] = $code;
-
-            flash('success', __('flash_account_created'));
-            redirect('merchant_setup.php');
         }
     }
+    $pending = $_SESSION['pending_signup'] ?? null;
 }
 
 $pageTitle = __('signup_title');
@@ -116,8 +184,8 @@ require_once __DIR__ . '/header.php';
 
         <div class="text-center mb-6">
             <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
-            <h1 class="text-2xl font-bold"><?= __('signup_title') ?></h1>
-            <p class="text-gray-500 text-sm mt-2"><?= __('signup_sub') ?></p>
+            <h1 class="text-2xl font-bold"><?= $showOtpStep ? __('signup_otp_title') : __('signup_title') ?></h1>
+            <p class="text-gray-500 text-sm mt-2"><?= $showOtpStep ? __('signup_otp_sub') : __('signup_sub') ?></p>
         </div>
 
         <div class="glass rounded-2xl p-8">
@@ -126,6 +194,29 @@ require_once __DIR__ . '/header.php';
                 <?php foreach ($errors as $e): ?><p><?= e($e) ?></p><?php endforeach; ?>
             </div>
             <?php endif; ?>
+
+            <?php if ($showOtpStep && $pending): ?>
+            <p class="text-sm text-gray-400 mb-4">
+                <?= $pending['signup_mode'] === 'email' ? __('email_id') : __('mobile_number') ?>:
+                <span class="text-white font-medium"><?= e($pending['signup_mode'] === 'email' ? $pending['email'] : $pending['phone']) ?></span>
+            </p>
+            <?php if (!empty($pending['demo_otp'])): ?>
+            <div class="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm px-4 py-3 rounded-lg mb-4">Demo mode — your code is <strong><?= e($pending['demo_otp']) ?></strong> (email/SMS provider not configured yet).</div>
+            <?php endif; ?>
+            <form method="POST" class="space-y-5">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="step" value="verify">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1.5"><?= __('otp_code_label') ?> *</label>
+                    <input type="text" name="otp_code" required maxlength="6" inputmode="numeric" autofocus class="input-field tracking-widest text-center text-lg" placeholder="••••••">
+                </div>
+                <button type="submit" class="w-full btn-primary py-3"><?= __('verify_and_create_account_btn') ?></button>
+            </form>
+            <div class="flex items-center justify-between mt-4 text-sm">
+                <form method="POST"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="step" value="resend_otp"><button type="submit" class="text-brand-400 hover:underline"><?= __('resend_otp') ?></button></form>
+                <form method="POST"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="step" value="change_details"><button type="submit" class="text-gray-500 hover:underline"><?= __('change_details') ?></button></form>
+            </div>
+            <?php else: ?>
 
             <div class="flex rounded-lg bg-dark-900/60 p-1 mb-6 border border-gray-800">
                 <a href="?mode=email" class="flex-1 text-center py-2.5 text-sm rounded-md transition <?= $signupMode === 'email' ? 'bg-brand-600 text-white font-semibold' : 'text-gray-400 hover:text-white' ?>"><?= __('signup_via_email') ?></a>
@@ -179,6 +270,7 @@ require_once __DIR__ . '/header.php';
                     <a href="refund_policy.php" target="_blank" class="text-brand-400 hover:underline">Refund Policy</a>.
                 </p>
             </form>
+            <?php endif; ?>
 
             <p class="text-center text-sm text-gray-500 mt-6"><?= __('already_have_account') ?> <a href="login.php" class="text-brand-400"><?= __('login') ?></a></p>
         </div>

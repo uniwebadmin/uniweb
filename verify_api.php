@@ -16,6 +16,9 @@ if ($action === 'aadhaar_otp') {
     $otp = trim((string)($_POST['otp'] ?? ''));
     $referenceId = trim((string)($_POST['reference_id'] ?? ''));
     $result = confirmAadhaarOtp((int)$merchant['id'], $number, $otp, $referenceId);
+    if (($result['status'] ?? '') === 'verified') {
+        autoApproveVerifiedKycDoc((int)$merchant['id'], 'aadhaar', $number);
+    }
     jsonResponse($result);
 }
 
@@ -40,6 +43,7 @@ if ($type === 'bank') {
         };
         if ($col && ($result['status'] ?? '') === 'verified') {
             getDB()->prepare("UPDATE merchants SET $col = ? WHERE id = ?")->execute([$number, $merchant['id']]);
+            autoApproveVerifiedKycDoc((int)$merchant['id'], $type, $number);
         }
     }
 }

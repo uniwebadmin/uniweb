@@ -32,6 +32,17 @@ function ensureKycSchema(): void
     schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN recorded_at DATETIME DEFAULT NULL");
 }
 
+function ensureSignupVerificationSchema(): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    schemaExecQuiet("ALTER TABLE merchants ADD COLUMN email_verified_at DATETIME DEFAULT NULL");
+    schemaExecQuiet("ALTER TABLE merchants ADD COLUMN phone_verified_at DATETIME DEFAULT NULL");
+}
+
 function ensurePasswordResetsTable(): void
 {
     static $ready = false;

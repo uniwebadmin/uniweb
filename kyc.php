@@ -296,16 +296,17 @@ $docStatusMeta = static function (string $status): array {
     </a>
 
     <?php if (!empty($verifyFields)): ?>
-    <div class="glass rounded-xl p-6 mb-6">
-        <h2 class="font-semibold mb-2">Document Numbers</h2>
-        <p class="text-xs text-gray-500 mb-4">Auto-filled from your profile. Edit if needed — letters stay CAPITAL by default.</p>
+    <div class="glass rounded-xl p-6 mb-6 border border-emerald-500/20">
+        <h2 class="font-semibold mb-1">⚡ Fast KYC — DigiLocker / Registry e-KYC</h2>
+        <p class="text-xs text-gray-500 mb-4">Verify PAN/Aadhaar/GST instantly against the government registry — <strong class="text-emerald-400">no document upload or admin wait needed</strong> once verified. Auto-filled from your profile; edit if needed.</p>
         <div class="grid sm:grid-cols-2 gap-4" id="verify-forms">
             <?php foreach ($verifyFields as $type => $label):
                 $val = $prefills[$type] ?? '';
                 $isAadhaar = $type === 'aadhaar';
+                $displayLabel = $isAadhaar ? $label . ' (DigiLocker e-KYC)' : $label;
             ?>
             <div class="bg-dark-900/50 rounded-lg p-4">
-                <label class="text-xs text-gray-400"><?= e($label) ?></label>
+                <label class="text-xs text-gray-400"><?= e($displayLabel) ?></label>
                 <div class="flex gap-2 mt-1">
                     <input type="text" id="verify-<?= e($type) ?>" value="<?= e($val) ?>"
                         class="input-field text-sm flex-1 <?= $isAadhaar ? '' : 'uppercase' ?>" <?= $isAadhaar ? '' : 'style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"' ?>
@@ -573,6 +574,10 @@ async function verifyDoc(type){
         const ref=document.getElementById('aadhaar-reference-id');
         if(ref) ref.value=d.reference_id;
     }
+    if(d.status==='verified'){
+        res.textContent='Verified! Reloading to show your fast-tracked KYC status...';
+        setTimeout(()=>location.reload(),1200);
+    }
 }
 async function confirmAadhaarOtp(){
     const num=document.getElementById('verify-aadhaar')?.value;
@@ -588,6 +593,10 @@ async function confirmAadhaarOtp(){
     const d=await r.json();
     res.textContent=d.message||d.status||'Done';
     res.className='text-xs mt-2 '+(d.success?'text-brand-400':'text-red-400');
+    if(d.status==='verified'){
+        res.textContent='Verified! Reloading to show your fast-tracked KYC status...';
+        setTimeout(()=>location.reload(),1200);
+    }
 }
 </script>
 <?php require_once __DIR__ . '/footer.php'; ?>
