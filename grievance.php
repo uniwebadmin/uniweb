@@ -2,11 +2,11 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/public_legal_page.php';
 
-// Placeholder officer details — owner should replace with the real named Grievance/Nodal
+// Placeholder/demo officer details — owner should replace with the real named Grievance/Nodal
 // Officer before going fully live (RBI Payment Aggregator/Payment Gateway guidelines
 // require a NAMED officer, not just a generic support inbox).
 if (!defined('GRIEVANCE_OFFICER_NAME')) {
-    define('GRIEVANCE_OFFICER_NAME', COMPANY_CEO);
+    define('GRIEVANCE_OFFICER_NAME', 'Rohan Sharma');
 }
 if (!defined('GRIEVANCE_OFFICER_DESIGNATION')) {
     define('GRIEVANCE_OFFICER_DESIGNATION', 'Grievance / Nodal Officer');
@@ -15,7 +15,7 @@ if (!defined('GRIEVANCE_OFFICER_EMAIL')) {
     define('GRIEVANCE_OFFICER_EMAIL', 'grievance@uniweb.co.in');
 }
 if (!defined('GRIEVANCE_OFFICER_PHONE')) {
-    define('GRIEVANCE_OFFICER_PHONE', COMPANY_PHONE);
+    define('GRIEVANCE_OFFICER_PHONE', '+919900000002');
 }
 
 $pageTitle = 'Grievance Redressal';
