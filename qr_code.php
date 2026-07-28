@@ -91,11 +91,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('qr_code.php');
 }
 
-$stmt = $db->prepare('SELECT q.*, pl.link_id, pl.status AS link_status
+$stmt = $db->prepare("SELECT q.*, pl.link_id, pl.status AS link_status
     FROM merchant_qr_codes q
     LEFT JOIN payment_links pl ON pl.id=q.payment_link_id
-    WHERE q.merchant_id=? AND q.is_test=?
-    ORDER BY q.created_at DESC');
+    WHERE q.merchant_id=? AND q.is_test=? AND q.qr_type != 'instant_upi'
+    ORDER BY q.created_at DESC");
 $stmt->execute([$merchantId, $isTest ? 1 : 0]);
 $allQrCodes = $stmt->fetchAll();
 $qrQ = mb_substr(trim($_GET['q'] ?? ''), 0, 100);

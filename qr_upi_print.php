@@ -4,10 +4,14 @@ require_once __DIR__ . '/config.php';
 if (!function_exists('qrImageUrl')) {
     require_once __DIR__ . '/includes/qr_svg.php';
 }
+require_once __DIR__ . '/includes/qr_events.php';
 requireLogin();
+ensureMerchantQrCodes();
 
 $merchant = getMerchant();
+$merchantId = (int)$merchant['id'];
 $db = getDB();
+$isTest = isMerchantPaymentTest($merchant);
 
 $businessName = trim((string)($merchant['business_name'] ?? '')) ?: 'Merchant';
 $collectionMode = (string)($merchant['collection_mode'] ?? '');
@@ -20,7 +24,6 @@ if ($collectionMode === 'axis_va' && !empty($merchant['axis_va_upi'])) {
     $vpa = trim((string)$merchant['axis_va_upi']);
 }
 
-$amount = null; // Instant UPI QR is always open-amount (customer types amount in UPI app).
 $note = trim((string)($_GET['note'] ?? ''));
 if (mb_strlen($note) > 60) {
     $note = mb_substr($note, 0, 60);
@@ -28,7 +31,38 @@ if (mb_strlen($note) > 60) {
 
 $hasVpa = $vpa !== '' && str_contains($vpa, '@');
 $intent = $hasVpa ? buildUpiPayIntent($vpa, $businessName, null, $note) : '';
-$qrImage = $hasVpa ? qrImageUrl($intent, 480) : '';
+
+// One persistent "instant_upi" QR row per merchant so scans/collections can be
+// tracked, even though the money itself flows straight to the bank (not through
+// UniWeb checkout). The QR image encodes a UniWeb redirect URL (qr_upi_redirect.php)
+// instead of the raw upi:// intent, so every scan is logged before bouncing the
+// customer straight into their UPI app.
+$scanUrl = '';
+$scanCount = 0;
+if ($hasVpa) {
+    $qrRow = $db->prepare("SELECT id, qr_code, scan_count FROM merchant_qr_codes WHERE merchant_id=? AND qr_type='instant_upi' LIMIT 1");
+    $qrRow->execute([$merchantId]);
+    $qr = $qrRow->fetch();
+    if (!$qr) {
+        $qrCode = 'QR' . strtoupper(bin2hex(random_bytes(8)));
+        try {
+            $db->prepare("INSERT INTO merchant_qr_codes (qr_code, merchant_id, payment_link_id, qr_type, label, amount, description, is_test)
+                VALUES (?,?,NULL,'instant_upi',?,0,?,?)")
+                ->execute([$qrCode, $merchantId, 'Instant UPI QR', 'Direct-to-bank UPI QR (not routed through UniWeb checkout)', $isTest ? 1 : 0]);
+            $scanCount = 0;
+        } catch (Throwable $e) {
+            $qrCode = '';
+            logPlatformError('warning', 'Instant UPI QR create failed: ' . $e->getMessage(), ['merchant_id' => $merchantId]);
+        }
+    } else {
+        $qrCode = (string)$qr['qr_code'];
+        $scanCount = (int)$qr['scan_count'];
+    }
+    if ($qrCode !== '') {
+        $scanUrl = APP_URL . '/qr_upi_redirect.php?code=' . rawurlencode($qrCode) . ($note !== '' ? '&note=' . rawurlencode($note) : '');
+    }
+}
+$qrImage = $scanUrl !== '' ? qrImageUrl($scanUrl, 480) : ($hasVpa ? qrImageUrl($intent, 480) : '');
 
 $pageTitle = 'Instant UPI QR';
 require_once __DIR__ . '/header.php';
@@ -87,6 +121,11 @@ require_once __DIR__ . '/header.php';
                 <a href="<?= e($qrImage) ?>&s=600" download="uniweb-upi-<?= e(preg_replace('/[^a-z0-9]+/i', '-', $businessName)) ?>.png" class="block w-full text-center border border-gray-700 py-2.5 rounded-xl text-sm text-emerald-400 hover:bg-white/5">&#11015; Download PNG</a>
                 <button type="button" id="copy-intent" data-intent="<?= e($intent) ?>" class="w-full border border-gray-700 py-2.5 rounded-xl text-sm text-violet-300 hover:bg-white/5">&#128203; Copy UPI link</button>
             </div>
+            <div class="mt-5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 no-print">
+                <p class="text-[10px] text-emerald-300/80 uppercase tracking-wide">Total scans (tracked)</p>
+                <p class="text-2xl font-bold text-emerald-300 mt-0.5"><?= (int)$scanCount ?></p>
+                <p class="text-[11px] text-gray-500 mt-1">Money still goes straight to your bank UPI — UniWeb only logs the scan for your records.</p>
+            </div>
         </div>
 
         <div class="lg:col-span-2">
@@ -107,7 +146,8 @@ require_once __DIR__ . '/header.php';
                 <p class="text-[10px] text-gray-400 mt-2">Powered by <?= e(APP_NAME) ?></p>
             </div>
             <p class="text-xs text-gray-500 mt-4 text-center no-print">
-                This is a direct UPI QR. For UniWeb-tracked checkout QRs (cards, netbanking, wallets &amp; history),
+                Scans are logged by UniWeb, but the money always goes straight to your bank UPI — not through UniWeb checkout.
+                For fully UniWeb-routed QRs (cards, netbanking, wallets &amp; payment history),
                 use the <a href="qr_code.php" class="text-sky-400 hover:underline">QR Code Generator</a>.
             </p>
         </div>

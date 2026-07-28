@@ -51,6 +51,12 @@ $now = time();
 $notYetValid = !empty($qr['valid_from']) && strtotime($qr['valid_from']) > $now;
 $expired = !empty($qr['expires_at']) && strtotime($qr['expires_at']) < $now;
 
+// Instant UPI QRs are tracked/redirected by qr_upi_redirect.php, not this checkout-link flow.
+if ($qr && ($qr['qr_type'] ?? '') === 'instant_upi') {
+    header('Cache-Control: no-store');
+    redirect('qr_upi_redirect.php?code=' . rawurlencode($code));
+}
+
 // Log scan event for analytics/audit if QR exists and is scannable
 if ($qr && function_exists('logQrEvent')) {
     logQrEvent($db, (int)$qr['id'], (int)$qr['merchant_id'], 'scan', ['ip' => $_SERVER['REMOTE_ADDR'] ?? null, 'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null]);

@@ -13,7 +13,7 @@ if ($isAdmin && isset($_GET['merchant_id']) && is_numeric($_GET['merchant_id']))
     $targetMerchantId = (int)$_GET['merchant_id'];
 }
 
-$filterSql = 'merchant_id = ?';
+$filterSql = "merchant_id = ? AND qr_type != 'instant_upi'";
 $params = [$targetMerchantId];
 $status = trim((string)($_GET['status'] ?? ''));
 if (in_array($status, ['active', 'inactive'], true)) {

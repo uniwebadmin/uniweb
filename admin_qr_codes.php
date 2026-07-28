@@ -223,7 +223,7 @@ $to = trim($_GET['to'] ?? '');
 $page = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 25;
 
-$where = ['1=1'];
+$where = ["q.qr_type != 'instant_upi'"];
 $params = [];
 if ($q !== '') {
     $like = '%' . strtolower($q) . '%';
