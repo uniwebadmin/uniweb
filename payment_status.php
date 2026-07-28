@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $txnId = trim($_POST['txn_id'] ?? '');
         $phone = trim($_POST['phone'] ?? '');
         if ($txnId) {
-            $stmt = getDB()->prepare('SELECT t.*, m.business_name FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE t.txn_id = ?');
+            $stmt = getDB()->prepare('SELECT t.*, m.business_name, pl.link_id AS recovery_link_id, pl.status AS recovery_link_status, pl.expires_at AS recovery_link_expires_at FROM transactions t JOIN merchants m ON t.merchant_id = m.id LEFT JOIN payment_links pl ON pl.id = t.payment_link_id WHERE t.txn_id = ?');
             $stmt->execute([$txnId]);
             $txn = $stmt->fetch();
             if (!$txn) {
@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 } elseif ($prefillTxn !== '') {
-    $stmt = getDB()->prepare('SELECT t.*, m.business_name FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE t.txn_id = ?');
+    $stmt = getDB()->prepare('SELECT t.*, m.business_name, pl.link_id AS recovery_link_id, pl.status AS recovery_link_status, pl.expires_at AS recovery_link_expires_at FROM transactions t JOIN merchants m ON t.merchant_id = m.id LEFT JOIN payment_links pl ON pl.id = t.payment_link_id WHERE t.txn_id = ?');
     $stmt->execute([$prefillTxn]);
     $txn = $stmt->fetch();
     if (!$txn) {
@@ -131,6 +131,19 @@ require_once __DIR__ . '/header.php';
         <script>
         setTimeout(function () { window.location.reload(); }, 15000);
         </script>
+        <?php endif; ?>
+        <?php
+        $canRetry = in_array($txnStatus, ['failed', 'error', 'cancelled', 'canceled'], true)
+            && !empty($txn['recovery_link_id'])
+            && ($txn['recovery_link_status'] ?? '') === 'active'
+            && (empty($txn['recovery_link_expires_at']) || strtotime((string)$txn['recovery_link_expires_at']) > time());
+        ?>
+        <?php if ($canRetry): ?>
+        <div class="mt-5 rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 text-sm">
+            <p class="font-semibold text-sky-200">Try payment again</p>
+            <p class="text-sky-100/80 text-xs mt-1">This payment was not completed. You can return to checkout and choose any supported payment method. Only retry if your bank has not already debited you.</p>
+            <a href="checkout.php?link=<?= rawurlencode((string)$txn['recovery_link_id']) ?>" class="inline-block mt-3 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg text-xs font-semibold">Retry payment →</a>
+        </div>
         <?php endif; ?>
     </div>
     <?php elseif (!empty($txnList)): ?>
