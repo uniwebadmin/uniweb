@@ -151,6 +151,21 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <div class="glass rounded-xl p-6">
+            <h2 class="font-semibold mb-4">Money Timeline</h2>
+            <ol class="space-y-4 text-sm">
+                <li class="flex gap-3"><span class="mt-1.5 w-2.5 h-2.5 rounded-full <?= in_array(strtolower((string)$txn['status']), ['success','paid','captured','refunded'], true) ? 'bg-emerald-400' : 'bg-amber-400' ?>"></span><div><p class="font-medium">Payment <?= e(strtolower((string)$txn['status'])) ?></p><p class="text-xs text-gray-500 mt-0.5"><?= formatMoney((float)$txn['amount']) ?> · <?= formatDate($txn['created_at']) ?></p></div></li>
+                <?php if (!empty($txn['wallet_entry'])): ?>
+                <li class="flex gap-3"><span class="mt-1.5 w-2.5 h-2.5 rounded-full bg-sky-400"></span><div><p class="font-medium">Credited to merchant wallet</p><p class="text-xs text-gray-500 mt-0.5"><?= formatMoney((float)$txn['wallet_entry']['amount']) ?> · <?= formatDate($txn['wallet_entry']['created_at']) ?></p></div></li>
+                <?php elseif (in_array(strtolower((string)$txn['status']), ['success','paid','captured'], true)): ?>
+                <li class="flex gap-3"><span class="mt-1.5 w-2.5 h-2.5 rounded-full bg-gray-600"></span><div><p class="font-medium text-gray-300">Wallet credit processing</p><p class="text-xs text-gray-500 mt-0.5">The confirmed payment has not appeared in a wallet entry yet.</p></div></li>
+                <?php endif; ?>
+                <?php foreach (($txn['refunds'] ?? []) as $refund): ?>
+                <li class="flex gap-3"><span class="mt-1.5 w-2.5 h-2.5 rounded-full <?= ($refund['status'] ?? '') === 'completed' ? 'bg-violet-400' : 'bg-amber-400' ?>"></span><div><p class="font-medium">Refund <?= e((string)($refund['status'] ?? 'requested')) ?></p><p class="text-xs text-gray-500 mt-0.5"><?= formatMoney((float)$refund['amount']) ?> · <?= formatDate($refund['processed_at'] ?: $refund['created_at']) ?> · <?= e((string)$refund['refund_id']) ?></p></div></li>
+                <?php endforeach; ?>
+            </ol>
+        </div>
+
+        <div class="glass rounded-xl p-6">
             <h2 class="font-semibold mb-4">Payment Source</h2>
             <div class="space-y-3 text-sm">
                 <?php if ($txn['link_id']): ?>

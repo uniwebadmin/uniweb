@@ -31,6 +31,14 @@ function fetchTransactionDetail(string $txnId, ?int $merchantId = null, bool $ad
     $splits->execute([(int)$row['id']]);
     $row['splits'] = $splits->fetchAll();
 
+    try {
+        $refunds = $db->prepare('SELECT refund_id, amount, status, created_at, processed_at FROM refunds WHERE transaction_id=? ORDER BY created_at ASC');
+        $refunds->execute([(int)$row['id']]);
+        $row['refunds'] = $refunds->fetchAll();
+    } catch (Throwable $e) {
+        $row['refunds'] = [];
+    }
+
     return $row;
 }
 
