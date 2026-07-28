@@ -219,7 +219,7 @@ $status = merchantWebsiteStatus($merchant);
         <h3 class="font-semibold text-violet-400 mb-2">Add a Pay Button to Your Website</h3>
         <p class="text-xs text-gray-500 mb-4">Copy a UniWeb payment link / QR and paste it on your verified website.</p>
         <?php
-        $firstLink = $db->prepare("SELECT link_id, amount, status FROM payment_links WHERE merchant_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1");
+        $firstLink = getDB()->prepare("SELECT link_id, amount, status FROM payment_links WHERE merchant_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1");
         $firstLink->execute([$merchant['id']]);
         $payLink = $firstLink->fetch();
         if ($payLink):
