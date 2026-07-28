@@ -76,6 +76,9 @@ require_once __DIR__ . '/header.php';
     <?php if (empty($tickets)): ?>
     <?= uxEmptyState('No support tickets yet', 'Merchant support requests from the portal appear here for your team to reply.') ?>
     <?php else: foreach ($tickets as $t):
+        $ticketAgeSeconds = max(0, time() - (strtotime((string)($t['created_at'] ?? '')) ?: time()));
+        $ticketAgeHours = (int)floor($ticketAgeSeconds / 3600);
+        $ticketOverdue = in_array($t['status'] ?? '', ['open', 'in_progress'], true) && $ticketAgeSeconds >= 86400;
         $threadStmt = $db->prepare('SELECT * FROM support_ticket_messages WHERE ticket_id=? ORDER BY created_at ASC, id ASC');
         $threadStmt->execute([(int)$t['id']]);
         $thread = $threadStmt->fetchAll();
@@ -92,6 +95,7 @@ require_once __DIR__ . '/header.php';
                 <a href="<?= e(adminMerchantUrl((int)$t['merchant_id'])) ?>" class="text-xs text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-lg">View Merchant</a>
                 <?= statusBadge($t['priority']) ?>
                 <?= statusBadge($t['status']) ?>
+                <span class="text-xs <?= $ticketOverdue ? 'text-red-400 font-semibold' : 'text-gray-500' ?>"><?= $ticketAgeHours < 1 ? '< 1h' : $ticketAgeHours . 'h' ?><?= $ticketOverdue ? ' · SLA overdue' : '' ?></span>
             </div>
         </div>
         <p class="text-sm text-gray-400 mb-4"><?= e($t['message']) ?></p>
