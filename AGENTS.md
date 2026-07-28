@@ -131,3 +131,15 @@ Recommended immediate build order:
 - All changes committed and deployed to Hostinger via GitHub Actions (run 30259994533, success).
 - Local MariaDB running on `localhost:8000`.
 - Next pending items: paste Decentro staging keys into Gateway Settings, build one-click multi-gateway forward + status matrix, build first real partner adapter (Decentro UPI P2M / dynamic QR).
+
+## Latest Status (2026-07-28)
+
+- Fixed broken phone-less WhatsApp share links (`wa.me/?text=` → `api.whatsapp.com/send?text=`) across qr_code.php, payment_links.php, merchant_website.php, includes/collection.php, admin_qr_codes.php.
+- QR bulk-create (qr_code.php, action=bulk_create — one name per line, max 50).
+- New `qr_analytics.php`: scan/payment KPIs, trend charts, top-performing QR table.
+- QR expiry + low-scan merchant alerts: `includes/qr_events.php::runQrHealthAlerts()`, wired into the 10-min cron (`includes/auto_audit.php`). `qr_code_events.event_type` widened ENUM→VARCHAR(32) for new alert event types.
+- `.gitignore` hardened: `_inbox/*.zip`, `_inbox/_tmp_*`, `_inbox/UniWeb_Master_Status_*`, `_inbox/_gen_points.*`, `_inbox/config_READY_TO_PASTE.php`, `dev_local/inbox_view/`, `Jump to Content*` — these are owner's personal notes/screenshots, never website content, never commit.
+- Payment Links: added "No Expiry" option (`payment_links.php`, `expiry_hours=never` → `expires_at=NULL`). QR codes already default to no-expiry; admin edit form now clarifies "leave blank = no expiry".
+- All committed + pushed + deployed via GitHub Actions (commits 6f61789, fe69bfc, 896603b, ee382db — all success).
+- Conversational market research done: NPCI UPI caps are per-payer (₹1 lakh/day, 10-20 txn/day), not per-merchant-QR — merchant aggregate collection via one QR is NOT capped. Owner may ask for a full RazorpayX/Cashfree/PayU/SBI/ICICI vs UniWeb comparison table next — not built yet.
+- **Session continuity**: if a new agent picks up this repo (e.g. after a "Permission denied / model unavailable" error forces a session switch), check Cascade memory tagged `session_continuity` + `qr_code` for full context, in addition to this file.
