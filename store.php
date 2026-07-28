@@ -23,10 +23,9 @@ if (!$store) {
     exit;
 }
 
-$linkStmt = getDB()->prepare("SELECT link_id, amount, description FROM payment_links WHERE merchant_id=? AND status='active' AND is_test=0 AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY created_at DESC LIMIT 1");
+$linkStmt = getDB()->prepare("SELECT link_id, amount, description FROM payment_links WHERE merchant_id=? AND status='active' AND is_test=0 AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY created_at DESC LIMIT 6");
 $linkStmt->execute([(int)$store['merchant_id']]);
-$link = $linkStmt->fetch() ?: null;
-$payUrl = $link ? buildPaymentLinkUrl((string)$link['link_id']) : '';
+$products = $linkStmt->fetchAll() ?: [];
 $template = (string)($store['template_key'] ?? 'services');
 $theme = match ($template) {
     'retail' => ['accent' => 'from-orange-500 via-amber-400 to-yellow-300', 'border' => 'border-orange-400/30', 'label' => 'Shop online'],
@@ -51,14 +50,24 @@ require_once __DIR__ . '/header.php';
                 <?php if (!empty($store['contact_text'])): ?><p class="text-sm text-gray-400 mt-2"><?= e($store['contact_text']) ?></p><?php endif; ?>
             </div>
 
-            <?php if ($link): ?>
-            <div class="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-emerald-400/25 bg-emerald-500/5 p-5 sm:p-6">
-                <div>
-                    <p class="text-sm font-semibold text-white"><?= e($link['description'] ?: 'Pay securely') ?></p>
-                    <p class="text-2xl font-bold text-emerald-300 mt-1"><?= formatMoney((float)$link['amount']) ?></p>
+            <?php if ($products): ?>
+            <section class="mt-8">
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-400"><?= $template === 'services' ? 'Choose a service' : ($template === 'invoice' ? 'Pay an invoice or booking' : 'Choose an item') ?></h2>
+                    <span class="text-xs text-gray-600">Secure checkout</span>
                 </div>
-                <a href="<?= e($payUrl) ?>" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-6 py-3 rounded-xl text-center whitespace-nowrap">Pay securely →</a>
-            </div>
+                <div class="grid sm:grid-cols-2 gap-3">
+                    <?php foreach ($products as $product): $productUrl = buildPaymentLinkUrl((string)$product['link_id']); ?>
+                    <article class="rounded-2xl border border-gray-800 bg-black/20 p-4 flex flex-col gap-4">
+                        <div class="flex-1">
+                            <h3 class="font-semibold text-white leading-snug"><?= e($product['description'] ?: 'Pay securely') ?></h3>
+                            <p class="text-xl font-bold text-emerald-300 mt-2"><?= formatMoney((float)$product['amount']) ?></p>
+                        </div>
+                        <a href="<?= e($productUrl) ?>" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2.5 rounded-xl text-center text-sm">Pay securely →</a>
+                    </article>
+                    <?php endforeach; ?>
+                </div>
+            </section>
             <?php else: ?>
             <div class="mt-6 rounded-2xl border border-amber-400/25 bg-amber-500/5 p-5 text-sm text-amber-200">Online payment is temporarily unavailable. Please contact the business directly.</div>
             <?php endif; ?>
