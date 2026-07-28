@@ -11,6 +11,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'run_c
     redirect('merchant_website.php');
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_storefront' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    requireMerchantTeamCapability('settings');
+    $result = saveMerchantStorefront($merchant, $_POST);
+    flash($result['ok'] ? 'success' : 'error', $result['message']);
+    redirect('merchant_website.php');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     requireMerchantTeamCapability('settings');
     $result = saveMerchantWebsite(
@@ -24,6 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 }
 
 $merchant = getMerchant();
+$storefront = getMerchantStorefront((int)$merchant['id']);
+$storefrontTemplates = merchantStorefrontTemplates();
 $pageTitle = 'Website & App';
 $compliance = $_SESSION['website_compliance'] ?? null;
 unset($_SESSION['website_compliance']);
@@ -125,6 +134,53 @@ $status = merchantWebsiteStatus($merchant);
         <?php endif; ?>
     </div>
     <?php endif; ?>
+
+    <div class="glass rounded-xl p-6 border border-violet-500/25">
+        <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
+            <div>
+                <p class="text-xs uppercase tracking-wider text-violet-400 font-semibold">UniWeb Sales Page</p>
+                <h3 class="font-semibold text-white mt-1">Publish a simple branded sales page</h3>
+                <p class="text-xs text-gray-500 mt-1">No developer or external website needed. Buyers see your business and an active payment action.</p>
+            </div>
+            <?php if (!empty($storefront['is_published'])): ?>
+            <a href="<?= e(merchantStorefrontUrl($storefront)) ?>" target="_blank" rel="noopener" class="text-sm text-sky-400 hover:text-sky-300">Open sales page ↗</a>
+            <?php endif; ?>
+        </div>
+        <?php if (!merchantStorefrontTableAvailable()): ?>
+        <p class="text-sm text-amber-300">Sales page setup is preparing. Refresh shortly.</p>
+        <?php else: ?>
+        <form method="POST" class="space-y-5">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="action" value="save_storefront">
+            <div class="grid sm:grid-cols-3 gap-3">
+                <?php foreach ($storefrontTemplates as $key => $template): ?>
+                <label class="cursor-pointer rounded-xl border p-3 transition <?= (($storefront['template_key'] ?? 'services') === $key) ? 'border-violet-500/60 bg-violet-500/10' : 'border-gray-800 hover:border-violet-500/40' ?>">
+                    <input type="radio" name="template_key" value="<?= e($key) ?>" <?= (($storefront['template_key'] ?? 'services') === $key) ? 'checked' : '' ?> class="sr-only">
+                    <span class="block text-sm font-semibold text-gray-200"><?= e($template['label']) ?></span>
+                    <span class="block text-xs text-gray-500 mt-1"><?= e($template['description']) ?></span>
+                </label>
+                <?php endforeach; ?>
+            </div>
+            <div>
+                <label class="text-sm text-gray-400">Headline</label>
+                <input name="headline" maxlength="160" class="input-field mt-1" value="<?= e($storefront['headline'] ?? ($merchant['business_name'] ?? '')) ?>" placeholder="What do you sell or offer?" required>
+            </div>
+            <div>
+                <label class="text-sm text-gray-400">Business description</label>
+                <textarea name="description" rows="4" maxlength="2000" class="input-field mt-1" placeholder="Describe your products or services for buyers." required><?= e($storefront['description'] ?? '') ?></textarea>
+            </div>
+            <div>
+                <label class="text-sm text-gray-400">Buyer contact line</label>
+                <input name="contact_text" maxlength="255" class="input-field mt-1" value="<?= e($storefront['contact_text'] ?? ($merchant['phone'] ?? '')) ?>" placeholder="Call or WhatsApp us for help">
+            </div>
+            <label class="flex items-start gap-3 text-sm cursor-pointer rounded-xl border border-gray-800 p-4">
+                <input type="checkbox" name="is_published" value="1" <?= !empty($storefront['is_published']) ? 'checked' : '' ?> class="mt-0.5 rounded border-gray-600 accent-emerald-500">
+                <span><span class="font-medium text-gray-200">Publish sales page</span><span class="block text-xs text-gray-500 mt-1">Only published pages are public. You can unpublish any time without deleting your content.</span></span>
+            </label>
+            <button type="submit" class="btn-primary px-6 py-2.5">Save Sales Page</button>
+        </form>
+        <?php endif; ?>
+    </div>
 
     <div class="glass rounded-xl p-6 border border-brand-500/20">
         <h3 class="font-semibold text-brand-400 mb-2">Why this is needed</h3>

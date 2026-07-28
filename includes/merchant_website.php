@@ -25,6 +25,75 @@ function ensureMerchantWebsiteEngine(): void
     }
 }
 
+function merchantStorefrontTemplates(): array
+{
+    return [
+        'services' => ['label' => 'Services', 'description' => 'Best for consultants, agencies, tutors and local services.'],
+        'retail' => ['label' => 'Retail', 'description' => 'Best for products, stores and catalogue businesses.'],
+        'invoice' => ['label' => 'Invoice & appointments', 'description' => 'Best for bookings, deposits and invoice collections.'],
+    ];
+}
+
+function merchantStorefrontTableAvailable(): bool
+{
+    static $available = null;
+    if ($available !== null) {
+        return $available;
+    }
+    try {
+        getDB()->query('SELECT 1 FROM merchant_storefronts LIMIT 1');
+        $available = true;
+    } catch (Throwable $e) {
+        $available = false;
+    }
+    return $available;
+}
+
+function getMerchantStorefront(int $merchantId): ?array
+{
+    if (!merchantStorefrontTableAvailable()) {
+        return null;
+    }
+    $stmt = getDB()->prepare('SELECT * FROM merchant_storefronts WHERE merchant_id=?');
+    $stmt->execute([$merchantId]);
+    return $stmt->fetch() ?: null;
+}
+
+function merchantStorefrontUrl(?array $storefront): string
+{
+    $slug = trim((string)($storefront['storefront_slug'] ?? ''));
+    return $slug === '' ? '' : APP_URL . '/store.php?s=' . rawurlencode($slug);
+}
+
+function saveMerchantStorefront(array $merchant, array $input): array
+{
+    if (!merchantStorefrontTableAvailable()) {
+        return ['ok' => false, 'message' => 'Storefront setup is preparing. Please try again shortly.'];
+    }
+    $templates = merchantStorefrontTemplates();
+    $template = (string)($input['template_key'] ?? 'services');
+    if (!isset($templates[$template])) {
+        return ['ok' => false, 'message' => 'Choose a valid storefront template.'];
+    }
+    $headline = mb_substr(trim((string)($input['headline'] ?? '')), 0, 160);
+    $description = mb_substr(trim((string)($input['description'] ?? '')), 0, 2000);
+    $contact = mb_substr(trim((string)($input['contact_text'] ?? '')), 0, 255);
+    if ($headline === '' || $description === '') {
+        return ['ok' => false, 'message' => 'Add a headline and a short business description.'];
+    }
+    $merchantId = (int)$merchant['id'];
+    $existing = getMerchantStorefront($merchantId);
+    $slug = (string)($existing['storefront_slug'] ?? '');
+    if ($slug === '') {
+        $base = strtolower(preg_replace('/[^a-z0-9]+/i', '-', (string)($merchant['merchant_code'] ?? 'merchant-' . $merchantId)) ?? 'merchant-' . $merchantId);
+        $slug = trim($base, '-') . '-shop';
+    }
+    $published = !empty($input['is_published']) ? 1 : 0;
+    getDB()->prepare('INSERT INTO merchant_storefronts (merchant_id, storefront_slug, template_key, headline, description, contact_text, is_published, published_at) VALUES (?,?,?,?,?,?,?,IF(?=1,NOW(),NULL)) ON DUPLICATE KEY UPDATE template_key=VALUES(template_key), headline=VALUES(headline), description=VALUES(description), contact_text=VALUES(contact_text), is_published=VALUES(is_published), published_at=IF(VALUES(is_published)=1,COALESCE(published_at,NOW()),NULL)')
+        ->execute([$merchantId, $slug, $template, $headline, $description, $contact, $published, $published]);
+    return ['ok' => true, 'message' => $published ? 'Your sales page is published.' : 'Sales page saved as draft.'];
+}
+
 function normalizeWebsiteUrl(string $url): string
 {
     $url = trim($url);
