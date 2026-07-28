@@ -226,6 +226,7 @@ require_once __DIR__ . '/header.php';
             <?php if (!isOTPEnabled()): ?>
             <p class="text-center text-[11px] text-slate-500 mt-1">Password login active · WhatsApp OTP when Meta template is approved</p>
             <?php endif; ?>
+            <p class="text-center text-xs mt-4"><a href="admin_login.php" class="text-slate-500 hover:text-teal-700">Admin Login →</a></p>
         </div>
     </div>
 </div>

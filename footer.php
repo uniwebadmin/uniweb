@@ -62,6 +62,7 @@
                     <li><a href="faq.php" class="hover:text-brand-400 transition">FAQ</a></li>
                     <li><a href="payment_status.php" class="hover:text-brand-400 transition">Track Payment</a></li>
                     <li><a href="customer_login.php" class="hover:text-brand-400 transition">Customer Login</a></li>
+                    <li><a href="admin_login.php" class="hover:text-brand-400 transition">Admin Login</a></li>
                 </ul>
             </div>
             <div class="site-footer-card">
