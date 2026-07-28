@@ -77,7 +77,7 @@ foreach ($documents as $doc) {
         $latestByType[$t] = $doc;
     }
 }
-$rejectedDocs = array_values(array_filter($latestByType, static fn(array $d): bool => ($d['status'] ?? '') === 'rejected'));
+$rejectedDocs = array_values(array_filter($latestByType, static fn(array $d): bool => ($d['status'] ?? '') === 'rejected' && ($d['doc_type'] ?? '') !== 'video_kyc'));
 
 // Number fields shown only if that doc type is required for this entity
 $verifyFields = [];
@@ -166,9 +166,7 @@ $docStatusMeta = static function (string $status): array {
     <div class="rounded-xl border border-red-500/40 bg-red-500/10 p-4 mb-6">
         <p class="text-sm font-semibold text-red-300 mb-2">Action needed — <?= count($rejectedDocs) ?> document<?= count($rejectedDocs) === 1 ? '' : 's' ?> rejected</p>
         <ul class="space-y-2">
-            <?php foreach ($rejectedDocs as $rej):
-                if (($rej['doc_type'] ?? '') === 'video_kyc') continue;
-            ?>
+            <?php foreach ($rejectedDocs as $rej): ?>
             <li class="text-sm text-red-200/90">
                 <span class="font-medium"><?= e($docLabels[$rej['doc_type']] ?? $rej['doc_type']) ?>:</span>
                 <?= e(trim((string)($rej['rejection_reason'] ?? '')) ?: 'Please re-upload a clearer copy.') ?>
