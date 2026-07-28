@@ -71,6 +71,7 @@
                     <li><a href="terms.php" class="hover:text-brand-400 transition">Terms</a></li>
                     <li><a href="privacy.php" class="hover:text-brand-400 transition">Privacy</a></li>
                     <li><a href="refund_policy.php" class="hover:text-brand-400 transition">Refund Policy</a></li>
+                    <li><a href="grievance.php" class="hover:text-brand-400 transition">Grievance Redressal</a></li>
                     <li><a href="business_agreement.php" class="hover:text-brand-400 transition">Merchant Agreement</a></li>
                     <li><a href="compliance.php" class="hover:text-brand-400 transition">Compliance</a></li>
                     <li><a href="trust.php" class="hover:text-brand-400 transition">Trust &amp; Security</a></li>

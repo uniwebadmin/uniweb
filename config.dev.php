@@ -41,6 +41,11 @@ define('COMPANY_GST', '29ABCDE1234F1Z5');
 define('COMPANY_CIN', 'U72900KA2024PTC000000');
 define('COMPANY_CEO', 'UniWeb Management');
 define('COMPANY_MAP_URL', 'https://maps.google.com/?q=Bengaluru');
+// RBI PA-PG grievance-redressal requires a NAMED officer — replace before going fully live.
+define('GRIEVANCE_OFFICER_NAME', COMPANY_CEO);
+define('GRIEVANCE_OFFICER_DESIGNATION', 'Grievance / Nodal Officer');
+define('GRIEVANCE_OFFICER_EMAIL', 'grievance@uniweb.co.in');
+define('GRIEVANCE_OFFICER_PHONE', COMPANY_PHONE);
 define('ACTIVE_MERCHANT_AGREEMENT_VERSION', date('Y') . '.07.19');
 define('MIN_SETTLEMENT', 100);
 

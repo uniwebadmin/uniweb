@@ -28,7 +28,7 @@ renderPublicLegalPage([
         ['Staff access and accountability', '<p>Administrative and staff access is limited by role and merchant scope. Sensitive actions may be recorded with actor, timestamp and context. Personnel should access merchant information only for assigned operational, support, compliance or security work.</p>'],
         ['Audit records and retention', '<p>KYC decisions, agreement acceptance, account changes, payment events, settlement actions and support communication may be retained for contractual, audit, fraud, tax and legal needs. Retention follows applicable obligations and the Privacy Policy.</p>'],
         ['Regulatory and law-enforcement requests', '<p>We respond to valid requests from courts, regulators, government bodies, banks and payment partners after appropriate review. We may preserve records or restrict activity where legally required and cannot notify an affected user when notice is prohibited.</p>'],
-        ['Reporting a concern', '<p>Security concerns, suspected misuse, customer complaints and privacy grievances can be reported through the <a href="contact.php">Contact page</a>. Include relevant IDs and dates but never include passwords, OTPs, CVV, PINs or complete card credentials.</p>'],
+        ['Reporting a concern', '<p>Security concerns, suspected misuse, customer complaints and privacy grievances can be reported through the <a href="contact.php">Contact page</a> or escalated using the structured process on our <a href="grievance.php">Grievance Redressal</a> page. Include relevant IDs and dates but never include passwords, OTPs, CVV, PINs or complete card credentials.</p>'],
     ],
 ]);
 require_once __DIR__ . '/footer.php';
