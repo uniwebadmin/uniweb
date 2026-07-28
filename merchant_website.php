@@ -32,6 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
 $merchant = getMerchant();
 $storefront = getMerchantStorefront((int)$merchant['id']);
+$storefrontUrl = merchantStorefrontUrl($storefront);
+$storefrontShareText = rawurlencode('Browse ' . ($merchant['business_name'] ?? APP_NAME) . " online\n" . $storefrontUrl);
 $storefrontTemplates = merchantStorefrontTemplates();
 $pageTitle = 'Website & App';
 $compliance = $_SESSION['website_compliance'] ?? null;
@@ -142,8 +144,8 @@ $status = merchantWebsiteStatus($merchant);
                 <h3 class="font-semibold text-white mt-1">Publish a simple branded sales page</h3>
                 <p class="text-xs text-gray-500 mt-1">No developer or external website needed. Buyers see your business and an active payment action.</p>
             </div>
-            <?php if (!empty($storefront['is_published'])): ?>
-            <a href="<?= e(merchantStorefrontUrl($storefront)) ?>" target="_blank" rel="noopener" class="text-sm text-sky-400 hover:text-sky-300">Open sales page ↗</a>
+            <?php if (!empty($storefront['is_published']) && $storefrontUrl !== ''): ?>
+            <a href="<?= e($storefrontUrl) ?>" target="_blank" rel="noopener" class="text-sm text-sky-400 hover:text-sky-300">Open sales page ↗</a>
             <?php endif; ?>
         </div>
         <?php if (!merchantStorefrontTableAvailable()): ?>
@@ -179,6 +181,17 @@ $status = merchantWebsiteStatus($merchant);
             </label>
             <button type="submit" class="btn-primary px-6 py-2.5">Save Sales Page</button>
         </form>
+        <?php if (!empty($storefront['is_published']) && $storefrontUrl !== ''): ?>
+        <div class="mt-5 pt-5 border-t border-gray-800">
+            <label class="text-[11px] text-gray-500 uppercase">Your stable sales page URL</label>
+            <div class="flex flex-wrap gap-2 mt-1">
+                <input id="storefront-url" type="text" readonly value="<?= e($storefrontUrl) ?>" class="input-field flex-1 min-w-[220px] text-xs" onclick="this.select()">
+                <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('storefront-url').value);this.textContent='Copied!'" class="px-4 py-2 rounded-xl border border-gray-700 text-sm text-gray-300 hover:text-white">Copy</button>
+                <a href="https://wa.me/?text=<?= e($storefrontShareText) ?>" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl border border-emerald-500/40 text-sm text-emerald-300 hover:bg-emerald-500/10">WhatsApp</a>
+            </div>
+            <p class="text-[11px] text-gray-600 mt-2">This link stays the same while your sales page is published.</p>
+        </div>
+        <?php endif; ?>
         <?php endif; ?>
     </div>
 
