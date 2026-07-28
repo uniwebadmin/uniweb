@@ -121,6 +121,17 @@ require_once __DIR__ . '/header.php';
             <div class="flex justify-between"><span class="text-gray-500">Date</span><span><?= formatDate($txn['created_at']) ?></span></div>
             <?php if ($txn['utr']): ?><div class="flex justify-between"><span class="text-gray-500">UTR</span><span class="font-mono"><?= e($txn['utr']) ?></span></div><?php endif; ?>
         </div>
+        <?php $txnStatus = strtolower((string)($txn['status'] ?? '')); ?>
+        <?php if (in_array($txnStatus, ['pending', 'processing', 'initiated'], true)): ?>
+        <div class="mt-5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
+            <p class="font-semibold text-amber-200">Payment is still being confirmed</p>
+            <p class="text-amber-100/80 text-xs mt-1">Your bank or payment provider has not sent final confirmation yet. Do not pay again. This page refreshes automatically while we wait.</p>
+            <button type="button" onclick="window.location.reload()" class="mt-3 text-xs text-sky-300 hover:text-sky-200">Refresh status now ↻</button>
+        </div>
+        <script>
+        setTimeout(function () { window.location.reload(); }, 15000);
+        </script>
+        <?php endif; ?>
     </div>
     <?php elseif (!empty($txnList)): ?>
     <div class="glass rounded-2xl overflow-hidden">
