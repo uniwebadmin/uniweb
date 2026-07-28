@@ -54,6 +54,15 @@ _inbox/chat/*
 !_inbox/chat/THREAD.md
 !_inbox/chat/_TEMPLATE.txt
 
+# Personal owner<->agent inbox channel — reports/scratch/backups, never ship or commit
+_inbox/*.zip
+_inbox/_tmp_*
+_inbox/UniWeb_Master_Status_*
+_inbox/_gen_points.*
+_inbox/config_READY_TO_PASTE.php
+dev_local/inbox_view/
+Jump to Content*
+
 # Locally downloaded build tools
 tools/*.exe
 
