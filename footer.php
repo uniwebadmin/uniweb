@@ -75,6 +75,7 @@
                     <li><a href="business_agreement.php" class="hover:text-brand-400 transition">Merchant Agreement</a></li>
                     <li><a href="compliance.php" class="hover:text-brand-400 transition">Compliance</a></li>
                     <li><a href="trust.php" class="hover:text-brand-400 transition">Trust &amp; Security</a></li>
+                    <li><a href="case_studies.php" class="hover:text-brand-400 transition">By the Numbers</a></li>
                 </ul>
             </div>
         </div>

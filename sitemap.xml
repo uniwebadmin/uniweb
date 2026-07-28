@@ -22,4 +22,5 @@
   <url><loc>https://uniweb.co.in/compliance.php</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://uniweb.co.in/refund_policy.php</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://uniweb.co.in/grievance.php</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://uniweb.co.in/case_studies.php</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
 </urlset>
