@@ -42,7 +42,7 @@ function getMerchantOnboardingSteps(array $merchant): array
             'id' => 'test_pay',
             'label' => 'Run a ₹1 test payment',
             'done' => $wallet['success_txns'] > 0,
-            'url' => count($packLinks) > 0 ? ('checkout.php?link=' . rawurlencode($packLinks[0]['link_id'])) : 'demo.php',
+            'url' => 'merchant_launch_test.php',
             'hint' => $wallet['success_txns'] . ' success payment(s)',
         ],
         [
@@ -159,6 +159,39 @@ function clearMerchantOnboardingDraft(int $merchantId): void
 {
     ensureMerchantOnboardingDraftSchema();
     getDB()->prepare('DELETE FROM merchant_onboarding_drafts WHERE merchant_id=?')->execute([$merchantId]);
+}
+
+function getMerchantLaunchTestData(int $merchantId): array
+{
+    $db = getDB();
+    $linkStmt = $db->prepare("SELECT * FROM payment_links WHERE merchant_id=? AND is_test=1 AND status='active' AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY created_at DESC LIMIT 1");
+    $linkStmt->execute([$merchantId]);
+    $link = $linkStmt->fetch() ?: null;
+    $successStmt = $db->prepare("SELECT txn_id, amount, payment_method, created_at FROM transactions WHERE merchant_id=? AND is_test=1 AND status='success' ORDER BY created_at DESC LIMIT 1");
+    $successStmt->execute([$merchantId]);
+    $success = $successStmt->fetch() ?: null;
+
+    $url = null;
+    if ($link) {
+        $catalog = getPaymentMethodCatalog();
+        $method = $catalog[(string)($link['payment_method'] ?? '')] ?? [];
+        $url = buildPaymentLinkUrl((string)$link['link_id'], $method['pay_key'] ?? null);
+    }
+    return ['link' => $link, 'url' => $url, 'success' => $success];
+}
+
+function ensureMerchantLaunchTestPack(int $merchantId): array
+{
+    $existing = getMerchantLaunchTestData($merchantId);
+    if (!empty($existing['link'])) {
+        return ['ok' => true, 'created' => false, 'message' => 'Your test checkout is ready.'];
+    }
+    $pack = generateMerchantPaymentPack($merchantId, 1.0, true);
+    return [
+        'ok' => !empty($pack['ok']),
+        'created' => !empty($pack['ok']),
+        'message' => !empty($pack['ok']) ? 'Your ₹1 test checkout is ready.' : 'Could not prepare a test checkout. Add a payment method first.',
+    ];
 }
 
 function getMerchantLaunchCenter(array $merchant): array
