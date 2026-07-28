@@ -53,8 +53,10 @@ if (in_array($event, ['refund.processed', 'refund.failed'], true) && $refundProv
         if ($event === 'refund.processed' && $providerStatus === 'processed') {
             $result = completeProviderRefund((string)$refund['refund_id'], $refundProviderId);
         } elseif ($event === 'refund.failed' || $providerStatus === 'failed') {
+            $failureReason = mb_substr((string)($providerRefund['error_description'] ?? 'Razorpay marked the refund failed.'), 0, 500);
             getDB()->prepare("UPDATE refunds SET status='failed',provider_status='failed',failure_reason=?,processed_at=NOW() WHERE id=? AND status='pending'")
-                ->execute([mb_substr((string)($providerRefund['error_description'] ?? 'Razorpay marked the refund failed.'), 0, 500), (int)$refund['id']]);
+                ->execute([$failureReason, (int)$refund['id']]);
+            createNotification((int)$refund['merchant_id'], 'Refund Failed', formatMoney((float)$refund['amount']) . ' refund for ' . $refund['refund_id'] . ' could not be completed. ' . $failureReason);
             $result = ['ok' => true, 'status' => 'failed'];
         } else {
             $result = ['ok' => true, 'status' => $providerStatus ?: 'pending'];
@@ -124,6 +126,7 @@ if (in_array($event, ['payout.processed', 'payout.failed', 'payout.reversed'], t
                 'batch:' . $batch['batch_code'],
                 'Provider payout failed or reversed'
             );
+            createNotification((int)$batch['merchant_id'], 'Settlement Failed', formatMoney((float)$batch['net_amount']) . ' payout for batch ' . $batch['batch_code'] . ' failed or was reversed. ' . $mappedReason);
             $result = ['ok' => true, 'status' => 'failed', 'failure_reason' => $mappedReason];
         } else {
             getDB()->prepare("UPDATE settlement_batches SET provider_status=?,api_status='submitted' WHERE id=?")
