@@ -33,33 +33,33 @@ $initial = mb_strtoupper(mb_substr($businessName !== '' ? $businessName : 'U', 0
 
 $themes = [
     'retail' => [
-        'accent' => 'from-orange-500 via-amber-400 to-yellow-300',
-        'border' => 'border-orange-400/30',
-        'chip' => 'bg-orange-500/15 text-orange-300 border-orange-400/30',
+        'accent' => 'from-orange-600 to-amber-500',
+        'accent_soft' => 'from-orange-500/15 to-amber-500/5',
+        'chip' => 'bg-orange-500/10 text-orange-300 border-orange-500/20',
         'btn' => 'bg-orange-500 hover:bg-orange-400',
-        'ring' => 'ring-orange-400/40',
-        'label' => 'Shop online',
-        'section_label' => 'Choose an item',
+        'ring' => 'ring-orange-500/25',
+        'label' => 'Retail Store',
+        'section_label' => 'Products',
         'layout' => 'grid',
     ],
     'invoice' => [
-        'accent' => 'from-cyan-500 via-sky-400 to-indigo-400',
-        'border' => 'border-cyan-400/30',
-        'chip' => 'bg-sky-500/15 text-sky-300 border-sky-400/30',
+        'accent' => 'from-sky-600 to-indigo-500',
+        'accent_soft' => 'from-sky-500/15 to-indigo-500/5',
+        'chip' => 'bg-sky-500/10 text-sky-300 border-sky-500/20',
         'btn' => 'bg-sky-500 hover:bg-sky-400',
-        'ring' => 'ring-sky-400/40',
-        'label' => 'Book or pay securely',
+        'ring' => 'ring-sky-500/25',
+        'label' => 'Bookings & Invoices',
         'section_label' => 'Pay an invoice or booking',
         'layout' => 'list',
     ],
     'services' => [
-        'accent' => 'from-violet-600 via-fuchsia-500 to-pink-400',
-        'border' => 'border-violet-400/30',
-        'chip' => 'bg-violet-500/15 text-violet-300 border-violet-400/30',
+        'accent' => 'from-violet-600 to-fuchsia-500',
+        'accent_soft' => 'from-violet-500/15 to-fuchsia-500/5',
+        'chip' => 'bg-violet-500/10 text-violet-300 border-violet-500/20',
         'btn' => 'bg-violet-600 hover:bg-violet-500',
-        'ring' => 'ring-violet-400/40',
+        'ring' => 'ring-violet-500/25',
         'label' => 'Services',
-        'section_label' => 'Choose a service',
+        'section_label' => 'Our services',
         'layout' => 'list',
     ],
 ];
@@ -75,69 +75,102 @@ $pageTitle = $businessName . ' — Pay online';
 require_once __DIR__ . '/header.php';
 ?>
 
-<main class="min-h-[75vh] px-4 py-10 sm:py-16 bg-dark-950">
-    <section class="max-w-3xl mx-auto overflow-hidden rounded-3xl border <?= $theme['border'] ?> bg-dark-900/75 shadow-2xl shadow-black/30">
-        <div class="h-2 bg-gradient-to-r <?= $theme['accent'] ?>"></div>
-        <div class="p-6 sm:p-10">
-            <div class="flex items-center gap-4">
-                <?php if ($logoUrl !== ''): ?>
-                <img src="<?= e($logoUrl) ?>" alt="<?= e($businessName) ?>" class="w-16 h-16 rounded-2xl object-cover border border-gray-800 ring-2 <?= $theme['ring'] ?> shrink-0" loading="lazy">
-                <?php else: ?>
-                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br <?= $theme['accent'] ?> flex items-center justify-center text-2xl font-bold text-white shrink-0 ring-2 <?= $theme['ring'] ?>"><?= e($initial) ?></div>
-                <?php endif; ?>
-                <div>
-                    <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] px-2.5 py-1 rounded-full border <?= $theme['chip'] ?>"><?= e($theme['label']) ?></span>
-                    <p class="text-sm text-gray-400 mt-1.5">Sold by <span class="text-gray-200 font-medium"><?= e($businessName) ?></span></p>
-                </div>
-            </div>
+<main class="min-h-[75vh] bg-dark-950">
+    <!-- Cover -->
+    <div class="h-36 sm:h-48 bg-gradient-to-br <?= $theme['accent'] ?> relative overflow-hidden">
+        <div class="absolute inset-0 opacity-[0.07]" style="background-image:radial-gradient(circle at 20% 30%,#fff 0,transparent 45%),radial-gradient(circle at 80% 70%,#fff 0,transparent 45%);"></div>
+    </div>
 
-            <h1 class="text-3xl sm:text-4xl font-bold text-white mt-6 leading-tight"><?= e($store['headline']) ?></h1>
-            <p class="text-lg text-gray-300 mt-4 leading-relaxed whitespace-pre-line"><?= e($store['description']) ?></p>
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 -mt-14 sm:-mt-16 pb-16">
+        <div class="bg-dark-900 border border-gray-800 rounded-2xl shadow-xl shadow-black/40">
+            <div class="p-6 sm:p-9">
 
-            <?php if ($contactText !== '' || $whatsappUrl): ?>
-            <div class="mt-6 flex flex-wrap items-center gap-3">
-                <?php if ($contactText !== ''): ?>
-                <span class="text-sm text-gray-400">📞 <?= e($contactText) ?></span>
-                <?php endif; ?>
-                <?php if ($whatsappUrl): ?>
-                <a href="<?= e($whatsappUrl) ?>" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10">WhatsApp us</a>
-                <?php endif; ?>
-            </div>
-            <?php endif; ?>
-
-            <?php if ($products): ?>
-            <section class="mt-8">
-                <div class="flex items-center justify-between gap-3 mb-3">
-                    <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-400"><?= e($theme['section_label']) ?></h2>
-                    <span class="text-xs text-gray-600">🔒 Secure checkout</span>
-                </div>
-                <div class="grid <?= $theme['layout'] === 'grid' ? 'sm:grid-cols-3' : 'sm:grid-cols-2' ?> gap-3">
-                    <?php foreach ($products as $product): $productUrl = buildPaymentLinkUrl((string)$product['link_id']); ?>
-                    <article class="group rounded-2xl border border-gray-800 bg-black/20 hover:border-gray-700 transition p-4 flex flex-col gap-4">
-                        <div class="flex-1">
-                            <?php if ($theme['layout'] === 'grid'): ?>
-                            <div class="w-full aspect-square rounded-xl bg-gradient-to-br <?= $theme['accent'] ?> opacity-20 mb-3 flex items-center justify-center text-3xl">🛍️</div>
-                            <?php endif; ?>
-                            <h3 class="font-semibold text-white leading-snug"><?= e($product['description'] ?: 'Pay securely') ?></h3>
-                            <p class="text-xl font-bold text-emerald-300 mt-2"><?= formatMoney((float)$product['amount']) ?></p>
+                <!-- Identity -->
+                <div class="flex items-end gap-4">
+                    <?php if ($logoUrl !== ''): ?>
+                    <img src="<?= e($logoUrl) ?>" alt="<?= e($businessName) ?>" class="w-20 h-20 rounded-2xl object-cover bg-dark-900 border-4 border-dark-900 ring-1 ring-gray-800 shrink-0 -mt-16 shadow-lg" loading="lazy">
+                    <?php else: ?>
+                    <div class="w-20 h-20 rounded-2xl bg-gradient-to-br <?= $theme['accent'] ?> border-4 border-dark-900 flex items-center justify-center text-3xl font-bold text-white shrink-0 -mt-16 shadow-lg"><?= e($initial) ?></div>
+                    <?php endif; ?>
+                    <div class="pb-0.5 min-w-0">
+                        <div class="flex items-center gap-1.5">
+                            <h1 class="text-xl sm:text-2xl font-bold text-white truncate"><?= e($businessName) ?></h1>
+                            <svg class="w-[18px] h-[18px] text-sky-400 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-label="Verified on UniWeb"><path d="M12 1.5l2.6 1.3 2.9-.3 1.3 2.6 2.6 1.3-.3 2.9 1.3 2.6-1.9 2.2.3 2.9-2.9.3-1.9 2.2-2.6-1.3-2.9.3-1.3-2.6-2.6-1.3.3-2.9-1.3-2.6 1.9-2.2-.3-2.9 2.9-.3z"/><path d="M9.5 12.5l1.8 1.8 3.2-4" stroke="#0f172a" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         </div>
-                        <a href="<?= e($productUrl) ?>" class="<?= $theme['btn'] ?> text-white font-semibold px-4 py-2.5 rounded-xl text-center text-sm transition">Pay securely →</a>
+                        <span class="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md border <?= $theme['chip'] ?>"><?= e($theme['label']) ?></span>
+                    </div>
+                </div>
+
+                <h2 class="text-2xl sm:text-[28px] font-bold text-white mt-6 leading-snug tracking-tight"><?= e($store['headline']) ?></h2>
+                <p class="text-[15px] text-gray-400 mt-3 leading-relaxed whitespace-pre-line max-w-2xl"><?= e($store['description']) ?></p>
+
+                <?php if ($contactText !== '' || $whatsappUrl): ?>
+                <div class="mt-5 flex flex-wrap items-center gap-2.5">
+                    <?php if ($contactText !== ''): ?>
+                    <span class="inline-flex items-center gap-1.5 text-xs text-gray-400 bg-dark-800/70 border border-gray-800 rounded-lg px-3 py-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h2.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                        <?= e($contactText) ?>
+                    </span>
+                    <?php endif; ?>
+                    <?php if ($whatsappUrl): ?>
+                    <a href="<?= e($whatsappUrl) ?>" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/15 rounded-lg px-3 py-1.5 transition">
+                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.97L2 22l5.28-1.39a9.9 9.9 0 004.76 1.21h.005c5.46 0 9.9-4.45 9.9-9.91C21.96 6.45 17.5 2 12.04 2z"/></svg>
+                        WhatsApp
+                    </a>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
+
+                <div class="my-7 border-t border-gray-800"></div>
+
+                <!-- Products -->
+                <?php if ($products): ?>
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <h3 class="text-[13px] font-semibold uppercase tracking-wider text-gray-500"><?= e($theme['section_label']) ?></h3>
+                    <span class="text-[11px] text-gray-600"><?= count($products) ?> <?= count($products) === 1 ? 'item' : 'items' ?></span>
+                </div>
+                <div class="grid <?= $theme['layout'] === 'grid' ? 'sm:grid-cols-2' : 'sm:grid-cols-1' ?> gap-3">
+                    <?php foreach ($products as $product): $productUrl = buildPaymentLinkUrl((string)$product['link_id']); ?>
+                    <article class="group flex items-center gap-4 rounded-xl border border-gray-800 bg-gradient-to-br <?= $theme['accent_soft'] ?> hover:border-gray-700 transition p-4">
+                        <div class="w-11 h-11 rounded-lg bg-dark-900/60 border border-gray-800 flex items-center justify-center shrink-0">
+                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-semibold text-white text-sm leading-snug truncate"><?= e($product['description'] ?: 'Pay securely') ?></h4>
+                            <p class="text-lg font-bold text-white mt-0.5"><?= formatMoney((float)$product['amount']) ?></p>
+                        </div>
+                        <a href="<?= e($productUrl) ?>" class="<?= $theme['btn'] ?> text-white font-semibold px-4 py-2 rounded-lg text-center text-sm shrink-0 transition">Pay</a>
                     </article>
                     <?php endforeach; ?>
                 </div>
-            </section>
-            <?php else: ?>
-            <div class="mt-6 rounded-2xl border border-amber-400/25 bg-amber-500/5 p-5 text-sm text-amber-200">Online payment is temporarily unavailable. Please contact the business directly.</div>
-            <?php endif; ?>
+                <?php else: ?>
+                <div class="rounded-xl border border-amber-500/20 bg-amber-500/5 p-5 text-sm text-amber-200/90">Online payment is temporarily unavailable. Please contact the business directly.</div>
+                <?php endif; ?>
 
-            <div class="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-gray-500 border-t border-gray-800 pt-5">
-                <span>🔒 Secured by UniWeb</span>
-                <span>💳 UPI · Cards · Netbanking</span>
-                <span>⚡ Instant confirmation</span>
+                <!-- Trust bar -->
+                <div class="mt-8 pt-6 border-t border-gray-800 grid grid-cols-3 gap-2 text-center">
+                    <div class="flex flex-col items-center gap-1.5">
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        <span class="text-[10.5px] text-gray-500 leading-tight">Secured by<br>UniWeb</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-1.5">
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M3 10h18M3 6h18v12H3V6z"/></svg>
+                        <span class="text-[10.5px] text-gray-500 leading-tight">UPI, Cards<br>&amp; Netbanking</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-1.5">
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M13 2L4.5 13H11l-1 9L19.5 11H13l1-9z"/></svg>
+                        <span class="text-[10.5px] text-gray-500 leading-tight">Instant<br>Confirmation</span>
+                    </div>
+                </div>
+                <p class="text-[11px] text-gray-600 mt-6 text-center">Never share your OTP or UPI PIN with anyone, including the seller.</p>
             </div>
-            <p class="text-[11px] text-gray-600 mt-3">Payments are processed securely by UniWeb. Never share your OTP or UPI PIN.</p>
         </div>
-    </section>
+
+        <a href="<?= APP_URL ?>/index.php" class="flex items-center justify-center gap-1.5 mt-6 text-[11px] text-gray-600 hover:text-gray-400 transition">
+            <span>Powered by</span>
+            <span class="font-semibold text-gray-500"><?= APP_NAME ?></span>
+        </a>
+    </div>
 </main>
 
 <?php require_once __DIR__ . '/footer.php';
