@@ -11,6 +11,13 @@ $todayTxn = $db->query("SELECT COALESCE(SUM(amount),0) as t, COUNT(*) as c FROM 
 $monthTxn = $db->query("SELECT COALESCE(SUM(amount),0) as t, COUNT(*) as c FROM transactions WHERE status='success' AND MONTH(created_at)=MONTH(CURDATE())")->fetch();
 $pendingSettlements = (int)$db->query("SELECT COUNT(*) as c FROM settlements WHERE status='pending'")->fetch()['c'];
 $openDisputes = (int)$db->query("SELECT COUNT(*) as c FROM disputes WHERE status='open'")->fetch()['c'];
+$agedSettlements = (int)$db->query("SELECT COUNT(*) FROM settlements WHERE status IN ('pending','processing') AND created_at < DATE_SUB(NOW(), INTERVAL 1 DAY)")->fetchColumn();
+try {
+    ensureRefundsEngine();
+    $agedRefunds = (int)$db->query("SELECT COUNT(*) FROM refunds WHERE status IN ('pending','processing') AND created_at < DATE_SUB(NOW(), INTERVAL 3 DAY)")->fetchColumn();
+} catch (Throwable $e) {
+    $agedRefunds = 0;
+}
 $unresolvedErrors = countUnresolvedPlatformErrors();
 $lastAutoAudit = getLastAutoAuditRun();
 $gatewayGaps = getGatewaySetupGaps();
@@ -45,6 +52,16 @@ require_once __DIR__ . '/header.php';
     <a href="gateway_settings.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-gray-300 hover:text-white">Gateway Keys</a>
     <a href="demo.php" target="_blank" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-brand-400">Live Demo ↗</a>
     <a href="<?= APP_URL ?>/demo" target="_blank" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-gray-400">/demo</a>
+</div>
+
+<div class="glass rounded-xl p-5 mb-8 border border-sky-500/30">
+    <div class="flex flex-wrap justify-between items-center gap-3 mb-4"><div><p class="font-semibold text-white">Decision Center</p><p class="text-xs text-gray-500 mt-1">Prioritize by risk, money impact and age. Review queues before routine work.</p></div><a href="admin_reconciliation.php" class="text-xs text-sky-400">Reconciliation queue →</a></div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+        <a href="admin_kyc.php" class="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 hover:border-amber-500/50"><p class="text-xs text-gray-500">Risk · KYC review</p><p class="text-2xl font-bold text-amber-400 mt-1"><?= $pendingKyc ?></p><p class="text-xs text-gray-500 mt-1">merchant(s) waiting</p></a>
+        <a href="admin_disputes.php" class="rounded-xl border border-red-500/30 bg-red-500/5 p-4 hover:border-red-500/50"><p class="text-xs text-gray-500">Risk · Open disputes</p><p class="text-2xl font-bold text-red-400 mt-1"><?= $openDisputes ?></p><p class="text-xs text-gray-500 mt-1">needs evidence / decision</p></a>
+        <a href="admin_settlements.php?status=pending" class="rounded-xl border border-violet-500/30 bg-violet-500/5 p-4 hover:border-violet-500/50"><p class="text-xs text-gray-500">Money · Payout 24h+</p><p class="text-2xl font-bold text-violet-400 mt-1"><?= $agedSettlements ?></p><p class="text-xs text-gray-500 mt-1">aged bank transfer(s)</p></a>
+        <a href="admin_refunds.php?status=pending" class="rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/5 p-4 hover:border-fuchsia-500/50"><p class="text-xs text-gray-500">Money · Refund 3d+</p><p class="text-2xl font-bold text-fuchsia-400 mt-1"><?= $agedRefunds ?></p><p class="text-xs text-gray-500 mt-1">aged customer refund(s)</p></a>
+    </div>
 </div>
 
 <?php if ($opsAllClear): ?>
