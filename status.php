@@ -6,10 +6,16 @@ if (!function_exists('renderPagePrintStyles')) {
 }
 
 $health = getPlatformHealth();
+if (!function_exists('computeUptimeStats')) {
+    require_once __DIR__ . '/includes/ops_security.php';
+}
+$uptime = computeUptimeStats(90);
+$incidents = listIncidents(10, true);
+$openIncidents = array_filter($incidents, static fn($i) => $i['status'] !== 'resolved');
 $pageTitle = 'System Status';
 require_once __DIR__ . '/header.php';
 
-$overall = $health['operational'] && !$health['maintenance'];
+$overall = $health['operational'] && !$health['maintenance'] && empty($openIncidents);
 ?>
 <?= renderPagePrintStyles() ?>
 <section class="pt-28 pb-16 px-4 max-w-3xl mx-auto">
@@ -17,13 +23,18 @@ $overall = $health['operational'] && !$health['maintenance'];
         <div class="no-print flex justify-center mb-4"><?= renderPrintButton('Print status') ?></div>
         <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold mb-4 <?= $overall ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30' ?>">
             <span class="w-2 h-2 rounded-full <?= $overall ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400' ?>"></span>
-            <?= $health['maintenance'] ? 'Maintenance Mode' : ($overall ? 'Core Platform Available' : 'Partial Service') ?>
+            <?= $health['maintenance'] ? 'Maintenance Mode' : ($overall ? 'Core Platform Available' : (!empty($openIncidents) ? 'Active Incident' : 'Partial Service')) ?>
         </div>
         <h1 class="text-3xl font-bold mb-2"><?= e(APP_NAME) ?> Platform Status</h1>
         <p class="text-gray-500 text-sm">Configuration and availability status. Partner configuration does not prove transaction or settlement health.</p>
     </div>
 
-    <div class="grid sm:grid-cols-2 gap-4 mb-8">
+    <div class="grid sm:grid-cols-3 gap-4 mb-8">
+        <div class="glass rounded-xl p-5">
+            <p class="text-xs text-gray-500 uppercase">Uptime (90 days)</p>
+            <p class="text-3xl font-bold text-emerald-400 mt-1"><?= e((string)$uptime['uptime_pct']) ?>%</p>
+            <p class="text-[11px] text-gray-600 mt-1">Tracking since <?= e($uptime['tracking_since']) ?></p>
+        </div>
         <div class="glass rounded-xl p-5">
             <p class="text-xs text-gray-500 uppercase">Successful payments (24h)</p>
             <p class="text-3xl font-bold text-emerald-400 mt-1"><?= (int)$health['success_24h'] ?></p>
@@ -32,6 +43,25 @@ $overall = $health['operational'] && !$health['maintenance'];
             <p class="text-xs text-gray-500 uppercase">Failed payments (24h)</p>
             <p class="text-3xl font-bold text-red-400 mt-1"><?= (int)$health['failed_24h'] ?></p>
         </div>
+    </div>
+
+    <div class="glass rounded-xl overflow-hidden mb-8">
+        <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Incident History</h2></div>
+        <?php if (empty($incidents)): ?>
+        <div class="px-6 py-8 text-center text-gray-500 text-sm">No incidents recorded. This page will list any real incident, open or resolved.</div>
+        <?php else: ?>
+        <div class="divide-y divide-gray-800">
+            <?php foreach ($incidents as $inc): ?>
+            <div class="px-6 py-4 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <p class="text-sm text-gray-200"><?= e($inc['title']) ?></p>
+                    <p class="text-xs text-gray-600 mt-1"><?= e(date('d M Y, H:i', strtotime($inc['opened_at']))) ?><?= $inc['resolved_at'] ? ' — resolved ' . e(date('d M Y, H:i', strtotime($inc['resolved_at']))) : '' ?></p>
+                </div>
+                <span class="text-xs font-medium px-2.5 py-1 rounded-full <?= $inc['status'] === 'resolved' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400' ?>"><?= e(ucfirst($inc['status'])) ?></span>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
     </div>
 
     <div class="glass rounded-xl overflow-hidden mb-8">

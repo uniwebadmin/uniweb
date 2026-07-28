@@ -64,6 +64,8 @@ require_once __DIR__ . '/header.php';
 
     <a href="admin_watchdog.php" class="glass px-4 py-2.5 rounded-xl text-sm text-amber-400 hover:text-amber-300">Link Watchdog</a>
 
+    <a href="admin_incidents.php" class="glass px-4 py-2.5 rounded-xl text-sm text-amber-400 hover:text-amber-300">⭐ Incidents &amp; Uptime</a>
+
     <a href="admin_link_audit.php" class="glass px-4 py-2.5 rounded-xl text-sm text-emerald-400 hover:text-emerald-300">Link Audit</a>
 
     <a href="admin_bank_reconciliation.php" class="glass px-4 py-2.5 rounded-xl text-sm text-emerald-400 hover:text-emerald-300">⭐ Bank Reconciliation</a>

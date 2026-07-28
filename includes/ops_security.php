@@ -63,6 +63,93 @@ function openIncident(string $title, string $details, string $severity = 'medium
     return $ref;
 }
 
+function updateIncidentStatus(string $ref, string $status): bool
+{
+    if (!in_array($status, ['open', 'mitigating', 'resolved'], true)) {
+        return false;
+    }
+    $db = getDB();
+    if ($status === 'resolved') {
+        $stmt = $db->prepare(
+            "UPDATE incident_log SET status = 'resolved', resolved_at = NOW(), resolved_by = ? WHERE incident_ref = ? AND status != 'resolved'"
+        );
+        $stmt->execute([(int)($_SESSION['admin_id'] ?? 0) ?: null, $ref]);
+    } else {
+        $stmt = $db->prepare('UPDATE incident_log SET status = ? WHERE incident_ref = ?');
+        $stmt->execute([$status, $ref]);
+    }
+    if ($stmt->rowCount() > 0) {
+        recordImmutableAudit('incident_' . $status, null, 'incident', $ref);
+        return true;
+    }
+    return false;
+}
+
+function listIncidents(int $limit = 50, bool $publicOnly = false): array
+{
+    try {
+        $rows = getDB()->query(
+            'SELECT incident_ref, severity, title, details, status, opened_at, resolved_at FROM incident_log ORDER BY opened_at DESC LIMIT ' . max(1, min(200, $limit))
+        )->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+    if (!$publicOnly) {
+        return $rows;
+    }
+    // Public view: drop internal free-text details, keep only the status timeline.
+    return array_map(static fn($r) => [
+        'incident_ref' => $r['incident_ref'],
+        'severity' => $r['severity'],
+        'title' => $r['title'],
+        'status' => $r['status'],
+        'opened_at' => $r['opened_at'],
+        'resolved_at' => $r['resolved_at'],
+    ], $rows);
+}
+
+/**
+ * Real, honest uptime % over a trailing window: 100% minus the share of time
+ * spent inside logged incident windows (open->resolved, or open->now if still open).
+ * If no incidents exist yet, returns 100% with a note that tracking just started.
+ */
+function computeUptimeStats(int $days = 90): array
+{
+    $windowStart = new DateTimeImmutable("-{$days} days");
+    $now = new DateTimeImmutable();
+    $windowSeconds = max(1, $now->getTimestamp() - $windowStart->getTimestamp());
+
+    try {
+        $rows = getDB()->prepare(
+            'SELECT opened_at, resolved_at FROM incident_log WHERE opened_at >= ? OR resolved_at >= ? OR resolved_at IS NULL'
+        );
+        $rows->execute([$windowStart->format('Y-m-d H:i:s'), $windowStart->format('Y-m-d H:i:s')]);
+        $incidents = $rows->fetchAll();
+    } catch (Throwable $e) {
+        $incidents = [];
+    }
+
+    $downtimeSeconds = 0;
+    foreach ($incidents as $inc) {
+        $opened = new DateTimeImmutable($inc['opened_at']);
+        $resolved = $inc['resolved_at'] ? new DateTimeImmutable($inc['resolved_at']) : $now;
+        $start = max($opened, $windowStart);
+        $end = min($resolved, $now);
+        if ($end > $start) {
+            $downtimeSeconds += $end->getTimestamp() - $start->getTimestamp();
+        }
+    }
+
+    $uptimePct = round((1 - ($downtimeSeconds / $windowSeconds)) * 100, 2);
+    return [
+        'days' => $days,
+        'uptime_pct' => max(0, min(100, $uptimePct)),
+        'downtime_minutes' => (int)round($downtimeSeconds / 60),
+        'incident_count' => count($incidents),
+        'tracking_since' => $windowStart->format('Y-m-d'),
+    ];
+}
+
 function adminHasMfaEnabled(?array $admin): bool
 {
     return !empty($admin['totp_enabled']) && !empty($admin['totp_secret']);
