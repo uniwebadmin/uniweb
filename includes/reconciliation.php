@@ -27,9 +27,15 @@ function getPgReconciliationReport(int $days = 7): array
         ORDER BY t.created_at DESC LIMIT 50")->fetchAll();
 
     $refunds = 0;
+    $delayedRefunds = 0;
     try {
         ensureRefundsEngine();
         $refunds = (int)$db->query("SELECT COUNT(*) FROM refunds WHERE created_at >= DATE_SUB(NOW(), INTERVAL {$days} DAY)")->fetchColumn();
+        $delayedRefunds = (int)$db->query("SELECT COUNT(*) FROM refunds WHERE status IN ('pending','processing') AND created_at < DATE_SUB(NOW(), INTERVAL 3 DAY)")->fetchColumn();
+    } catch (Throwable $e) { /* ok */ }
+    $delayedSettlements = 0;
+    try {
+        $delayedSettlements = (int)$db->query("SELECT COUNT(*) FROM settlements WHERE status IN ('pending','processing') AND created_at < DATE_SUB(NOW(), INTERVAL 1 DAY)")->fetchColumn();
     } catch (Throwable $e) { /* ok */ }
 
     return [
@@ -38,6 +44,8 @@ function getPgReconciliationReport(int $days = 7): array
         'transactions_success' => $txnSuccess,
         'transactions_pending' => $txnPending,
         'refunds' => $refunds,
+        'delayed_refunds' => $delayedRefunds,
+        'delayed_settlements' => $delayedSettlements,
         'unmatched_webhooks' => $unmatched,
         'txns_without_webhook' => $missingWebhooks,
     ];

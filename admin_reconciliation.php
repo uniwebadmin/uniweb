@@ -64,11 +64,13 @@ require_once __DIR__ . '/header.php';
         </div>
     </div>
 
-    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Successful Txns</p><p class="text-2xl font-bold text-brand-400 mt-1"><?= number_format($report['transactions_success']) ?></p></div>
         <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Pending Txns</p><p class="text-2xl font-bold text-amber-400 mt-1"><?= number_format($report['transactions_pending']) ?></p></div>
         <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Refunds</p><p class="text-2xl font-bold text-gray-300 mt-1"><?= number_format($report['refunds']) ?></p></div>
         <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Unmatched Webhooks</p><p class="text-2xl font-bold text-red-400 mt-1"><?= count($report['unmatched_webhooks']) ?></p></div>
+        <a href="admin_settlements.php?status=pending" class="glass rounded-xl p-5 stat-card border border-amber-500/20 hover:border-amber-500/50"><p class="text-xs text-gray-500">Settlement pending 24h+</p><p class="text-2xl font-bold text-amber-400 mt-1"><?= number_format((int)($report['delayed_settlements'] ?? 0)) ?></p></a>
+        <a href="admin_refunds.php?status=pending" class="glass rounded-xl p-5 stat-card border border-violet-500/20 hover:border-violet-500/50"><p class="text-xs text-gray-500">Refund pending 3d+</p><p class="text-2xl font-bold text-violet-400 mt-1"><?= number_format((int)($report['delayed_refunds'] ?? 0)) ?></p></a>
     </div>
 
     <div class="glass rounded-xl overflow-hidden">
