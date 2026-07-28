@@ -599,6 +599,7 @@ require_once __DIR__ . '/header.php';
                     <div>
                         <label class="text-sm text-gray-400">Expires At</label>
                         <input type="datetime-local" name="expires_at" value="<?= e($editQr['expires_at'] ? date('Y-m-d\TH:i', strtotime($editQr['expires_at'])) : '') ?>" class="input-field mt-1">
+                        <p class="text-[10px] text-gray-600 mt-1">Leave blank for No Expiry (QR stays active forever).</p>
                     </div>
                 </div>
                 <div>

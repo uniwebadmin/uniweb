@@ -36,7 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         }
         $isTestFlag = $isTest ? 1 : 0;
         $linkId = generateId('LNK');
-        $expiresAt = date('Y-m-d H:i:s', time() + (int)($_POST['expiry_hours'] ?? 24) * 3600);
+        $expiryHours = trim((string)($_POST['expiry_hours'] ?? '24'));
+        $expiresAt = $expiryHours === 'never' ? null : date('Y-m-d H:i:s', time() + (int)$expiryHours * 3600);
         $description = trim($_POST['description'] ?? '');
         $customerName = trim($_POST['customer_name'] ?? '');
         $customerPhone = trim($_POST['customer_phone'] ?? '');
@@ -160,6 +161,7 @@ $cfReady = isGatewayConfigured('cashfree');
                     <option value="24" selected>24 Hours</option>
                     <option value="72">3 Days</option>
                     <option value="168">7 Days</option>
+                    <option value="never">No Expiry</option>
                 </select>
             </div>
             <button type="submit" formnovalidate class="w-full btn-primary py-3">Generate Link</button>
