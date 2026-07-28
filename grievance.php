@@ -22,20 +22,19 @@ $pageTitle = 'Grievance Redressal';
 require_once __DIR__ . '/header.php';
 renderPublicLegalPage([
     'eyebrow' => 'Customer & Merchant Protection',
-    'title' => 'Grievance Redressal Mechanism',
-    'summary' => 'A structured, time-bound escalation path for merchants and customers to raise and resolve complaints, in line with RBI Payment Aggregator / Payment Gateway grievance-redressal expectations.',
+    'title' => 'Grievance Redressal',
+    'summary' => 'A simple, time-bound way to raise and resolve complaints.',
     'effective' => '19 July 2026',
     'version' => '2026.07',
-    'notice' => '<strong>Named officer:</strong> ' . e(GRIEVANCE_OFFICER_NAME) . ', ' . e(GRIEVANCE_OFFICER_DESIGNATION) . ' — <a href="mailto:' . e(GRIEVANCE_OFFICER_EMAIL) . '">' . e(GRIEVANCE_OFFICER_EMAIL) . '</a> · ' . e(GRIEVANCE_OFFICER_PHONE) . '. Never share OTP, UPI PIN, card PIN or CVV in any grievance communication — no genuine officer will ask for these.',
+    'notice' => '<strong>Grievance Officer:</strong> ' . e(GRIEVANCE_OFFICER_NAME) . ' (' . e(GRIEVANCE_OFFICER_DESIGNATION) . ') — <a href="mailto:' . e(GRIEVANCE_OFFICER_EMAIL) . '">' . e(GRIEVANCE_OFFICER_EMAIL) . '</a> · ' . e(GRIEVANCE_OFFICER_PHONE) . '. Never share your OTP, PIN or CVV with anyone — even someone claiming to be from UniWeb.',
     'sections' => [
-        ['Who can raise a grievance', '<p>Any merchant, customer, partner or user of the Platform may raise a complaint about a transaction, service failure, unauthorized activity, data concern, staff conduct or any other issue connected to UniWeb\'s services.</p>'],
-        ['Level 1 — Support Ticket (first contact)', '<p>Raise the issue through the Merchant Portal support ticket, or via the <a href="contact.php">Contact page</a> for customers, with the transaction ID, date, amount and a clear description. <strong>Target first response: within 24 business hours.</strong> Most transaction-status and technical queries are resolved at this level.</p>'],
-        ['Level 2 — Grievance / Nodal Officer', '<p>If Level 1 does not resolve the issue within <strong>5 working days</strong>, or the matter concerns fraud, unauthorized transactions, data protection or a policy dispute, escalate directly to the named Grievance Officer above. <strong>Target acknowledgement: within 2 working days. Target resolution: within 7 working days</strong> of acknowledgement, depending on complexity and any dependency on a banking or payment partner\'s response.</p>'],
-        ['Level 3 — Payment partner / bank escalation', '<p>Where the underlying issue depends on the acquiring bank, UPI switch, card network or payment partner (for example, delayed bank-side credit reversal), UniWeb will forward the complaint with reference details to the relevant partner and communicate the partner\'s timeline to the complainant.</p>'],
-        ['Level 4 — RBI Ombudsman for Digital Transactions', '<p>If a complaint relating to a digital payment transaction is not resolved within <strong>30 days</strong>, or the resolution is unsatisfactory, the complainant may approach the <strong>Reserve Bank of India — Ombudsman for Digital Transactions</strong> under the RBI Integrated Ombudsman Scheme via <a href="https://cms.rbi.org.in" target="_blank" rel="noopener">cms.rbi.org.in</a>, subject to the scheme\'s eligibility conditions.</p>'],
-        ['What to include', '<p>Transaction ID / UTR, date and amount, merchant or order name, registered mobile/email, and a concise description of the issue. Do not include full card numbers, CVV, PINs, passwords or OTPs in any written communication.</p>'],
-        ['Fraud and unauthorized transactions', '<p>For a suspected unauthorized transaction, contact your bank immediately to secure your account, then notify UniWeb using the channels above so records can be preserved and the matter reviewed alongside the bank\'s process.</p>'],
-        ['Record-keeping', '<p>Grievance records, correspondence and resolution notes are retained in line with the <a href="privacy.php">Privacy Policy</a> and applicable regulatory retention requirements.</p>'],
+        ['Who can complain', '<p>Any merchant or customer using UniWeb can raise a complaint — about a payment, a technical issue, or anything else.</p>'],
+        ['Step 1: Support ticket', '<p>Raise a ticket on the <a href="contact.php">Contact page</a> with your transaction ID, date, amount and a short description.<br><strong>Response time: 24 hours.</strong></p>'],
+        ['Step 2: Grievance Officer', '<p>Not resolved in 5 working days? Email the Grievance Officer above directly.<br><strong>Acknowledged in 2 working days. Resolved in 7 working days.</strong></p>'],
+        ['Step 3: Bank / partner', '<p>If the issue depends on your bank or payment partner (e.g. a delayed refund), we forward it to them and share their timeline with you.</p>'],
+        ['Step 4: RBI Ombudsman', '<p>Still unresolved after 30 days? You can approach the RBI Ombudsman for Digital Transactions at <a href="https://cms.rbi.org.in" target="_blank" rel="noopener">cms.rbi.org.in</a>.</p>'],
+        ['What to send us', '<p>Transaction ID, date, amount, and a short description. Never send your card number, CVV, PIN, password or OTP.</p>'],
+        ['Suspicious activity?', '<p>Contact your bank immediately to secure your account, then let us know so we can help investigate.</p>'],
     ],
 ]);
 require_once __DIR__ . '/footer.php';
