@@ -3,6 +3,7 @@ require_once __DIR__ . '/config.php';
 requireLogin();
 $merchant = getMerchant();
 $db = getDB();
+ensurePaymentLinkAnalytics();
 $mid = $merchant['id'];
 
 $from = trim($_GET['from'] ?? '');
@@ -41,6 +42,38 @@ if ($to !== '') { $monthlyWhere .= ' AND DATE(created_at) <= ?'; $monthlyParams[
 $monthly = $db->prepare("SELECT DATE_FORMAT(created_at,'%Y-%m') as m, COALESCE(SUM(amount),0) as total FROM transactions WHERE $monthlyWhere GROUP BY m ORDER BY m");
 $monthly->execute($monthlyParams); $monthlyData = $monthly->fetchAll();
 
+$linkWhere = 'pl.merchant_id = ?';
+$linkParams = [$mid];
+if ($from !== '') { $linkWhere .= ' AND DATE(pl.created_at) >= ?'; $linkParams[] = $from; }
+if ($to !== '') { $linkWhere .= ' AND DATE(pl.created_at) <= ?'; $linkParams[] = $to; }
+if ($method !== 'all') {
+    $linkMethodMap = [
+        'upi' => ['upi_p2m', 'payu_upi'],
+        'card' => ['debit_card', 'credit_card'],
+        'netbanking' => ['netbanking'],
+        'wallet' => ['wallet'],
+        'razorpay' => ['razorpay'],
+        'cashfree' => ['cashfree'],
+        'payu' => ['payu_upi'],
+    ];
+    $linkMethods = $linkMethodMap[$method] ?? [$method];
+    $linkWhere .= ' AND pl.payment_method IN (' . implode(',', array_fill(0, count($linkMethods), '?')) . ')';
+    array_push($linkParams, ...$linkMethods);
+}
+$checkout = $db->prepare("SELECT COUNT(*) AS links, COALESCE(SUM(pl.view_count),0) AS views, COALESCE(SUM((SELECT COUNT(*) FROM transactions t WHERE t.payment_link_id=pl.id AND t.status='success')),0) AS paid FROM payment_links pl WHERE {$linkWhere}");
+$checkout->execute($linkParams);
+$checkoutData = $checkout->fetch() ?: ['links' => 0, 'views' => 0, 'paid' => 0];
+$failureWhere = $dateWhere . " AND status IN ('failed','error')";
+$failureParams = $dateParams;
+if ($method !== 'all') { $failureWhere .= ' AND payment_method = ?'; $failureParams[] = $method; }
+try {
+    $failureReasons = $db->prepare("SELECT COALESCE(NULLIF(TRIM(failure_reason),''),'No partner reason received') AS reason, COUNT(*) AS cnt FROM transactions WHERE {$failureWhere} GROUP BY reason ORDER BY cnt DESC LIMIT 3");
+    $failureReasons->execute($failureParams);
+    $failureReasonData = $failureReasons->fetchAll();
+} catch (Throwable $e) {
+    $failureReasonData = [];
+}
+
 $pageTitle = __('reports');
 require_once __DIR__ . '/header.php';
 echo renderPrintStylesheet();
@@ -68,6 +101,21 @@ $hasData = !empty($dailyData) || !empty($methodData) || !empty($statusData) || !
     <a href="reports.php" class="text-sm text-gray-500 hover:text-white px-2 py-2.5">Reset</a>
     <?= renderExportCsvLink('export_reports.php?' . http_build_query(['from' => $from, 'to' => $to, 'method' => $method])) ?>
 </form>
+<?php
+$checkoutViews = (int)($checkoutData['views'] ?? 0);
+$checkoutPaid = (int)($checkoutData['paid'] ?? 0);
+$checkoutConversion = $checkoutViews > 0 ? round($checkoutPaid / $checkoutViews * 100, 1) : null;
+?>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="glass rounded-xl p-4 border border-gray-800"><p class="text-xs text-gray-500">Checkout links</p><p class="text-2xl font-bold mt-1"><?= (int)($checkoutData['links'] ?? 0) ?></p></div>
+    <div class="glass rounded-xl p-4 border border-violet-500/20"><p class="text-xs text-gray-500">Checkout views</p><p class="text-2xl font-bold text-violet-400 mt-1"><?= $checkoutViews ?></p></div>
+    <div class="glass rounded-xl p-4 border border-emerald-500/20"><p class="text-xs text-gray-500">Successful payments</p><p class="text-2xl font-bold text-emerald-400 mt-1"><?= $checkoutPaid ?></p></div>
+    <div class="glass rounded-xl p-4 border border-sky-500/20"><p class="text-xs text-gray-500">View-to-paid</p><p class="text-2xl font-bold text-sky-400 mt-1"><?= $checkoutConversion === null ? '—' : $checkoutConversion . '%' ?></p></div>
+</div>
+<div class="glass rounded-xl p-5 mb-6 border border-gray-800">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3"><h2 class="font-semibold">Top payment failure reasons</h2><a href="transactions.php?status=failed" class="text-xs text-sky-400 hover:underline">View failed payments →</a></div>
+    <?php if ($failureReasonData): ?><ul class="space-y-2 text-sm"><?php foreach ($failureReasonData as $reason): ?><li class="flex gap-3"><span class="text-red-400 font-semibold"><?= (int)$reason['cnt'] ?>×</span><span class="text-gray-300"><?= e($reason['reason']) ?></span></li><?php endforeach; ?></ul><?php else: ?><p class="text-sm text-gray-500">No failed payments in this period.</p><?php endif; ?>
+</div>
 <?php if (!$hasData): ?>
 <div class="mb-6">
     <?= renderMerchantEmptyState(
