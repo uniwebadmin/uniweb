@@ -362,6 +362,8 @@ require_once __DIR__ . '/header.php';
                     <?php endif; ?>
                     <p class="text-xs text-center text-gray-500 mb-3" id="upi-poll-status"><?= $allowInstantPay ? 'Sandbox — Instant Test Pay above marks this link paid.' : 'Waiting for verified bank or gateway confirmation. Do not close this page.' ?></p>
                     <?php if ($upiPa !== ''): ?>
+                    <a href="<?= e($upiData) ?>" class="block text-center bg-sky-600 hover:bg-sky-500 text-white py-3 rounded-xl font-semibold text-sm mb-2">Open UPI App →</a>
+                    <p class="text-[11px] text-center text-gray-600 mb-3">Opens Google Pay, PhonePe, Paytm or another UPI app on your phone.</p>
                     <a href="<?= e($whatsappLink) ?>" target="_blank" rel="noopener" class="block text-center bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 py-2 rounded-xl text-sm mb-4">WhatsApp Pay Link</a>
                     <?php endif; ?>
                     <?php if ($allowInstantPay): ?>
