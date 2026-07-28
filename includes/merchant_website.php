@@ -43,6 +43,11 @@ function merchantStorefrontTableAvailable(): bool
     try {
         getDB()->query('SELECT 1 FROM merchant_storefronts LIMIT 1');
         $available = true;
+        try {
+            getDB()->exec("ALTER TABLE merchant_storefronts ADD COLUMN logo_url VARCHAR(500) DEFAULT NULL AFTER template_key");
+        } catch (Throwable $e) {
+            /* column exists */
+        }
     } catch (Throwable $e) {
         $available = false;
     }
@@ -78,6 +83,10 @@ function saveMerchantStorefront(array $merchant, array $input): array
     $headline = mb_substr(trim((string)($input['headline'] ?? '')), 0, 160);
     $description = mb_substr(trim((string)($input['description'] ?? '')), 0, 2000);
     $contact = mb_substr(trim((string)($input['contact_text'] ?? '')), 0, 255);
+    $logoUrl = mb_substr(trim((string)($input['logo_url'] ?? '')), 0, 500);
+    if ($logoUrl !== '' && !filter_var($logoUrl, FILTER_VALIDATE_URL)) {
+        return ['ok' => false, 'message' => 'Enter a valid logo image URL (https://...).'];
+    }
     if ($headline === '' || $description === '') {
         return ['ok' => false, 'message' => 'Add a headline and a short business description.'];
     }
@@ -89,8 +98,8 @@ function saveMerchantStorefront(array $merchant, array $input): array
         $slug = trim($base, '-') . '-shop';
     }
     $published = !empty($input['is_published']) ? 1 : 0;
-    getDB()->prepare('INSERT INTO merchant_storefronts (merchant_id, storefront_slug, template_key, headline, description, contact_text, is_published, published_at) VALUES (?,?,?,?,?,?,?,IF(?=1,NOW(),NULL)) ON DUPLICATE KEY UPDATE template_key=VALUES(template_key), headline=VALUES(headline), description=VALUES(description), contact_text=VALUES(contact_text), is_published=VALUES(is_published), published_at=IF(VALUES(is_published)=1,COALESCE(published_at,NOW()),NULL)')
-        ->execute([$merchantId, $slug, $template, $headline, $description, $contact, $published, $published]);
+    getDB()->prepare('INSERT INTO merchant_storefronts (merchant_id, storefront_slug, template_key, headline, description, contact_text, logo_url, is_published, published_at) VALUES (?,?,?,?,?,?,?,?,IF(?=1,NOW(),NULL)) ON DUPLICATE KEY UPDATE template_key=VALUES(template_key), headline=VALUES(headline), description=VALUES(description), contact_text=VALUES(contact_text), logo_url=VALUES(logo_url), is_published=VALUES(is_published), published_at=IF(VALUES(is_published)=1,COALESCE(published_at,NOW()),NULL)')
+        ->execute([$merchantId, $slug, $template, $headline, $description, $contact, $logoUrl ?: null, $published, $published]);
     return ['ok' => true, 'message' => $published ? 'Your sales page is published.' : 'Sales page saved as draft.'];
 }
 

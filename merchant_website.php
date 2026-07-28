@@ -164,6 +164,11 @@ $status = merchantWebsiteStatus($merchant);
                 <?php endforeach; ?>
             </div>
             <div>
+                <label class="text-sm text-gray-400">Logo image URL (optional)</label>
+                <input name="logo_url" type="url" class="input-field mt-1" value="<?= e($storefront['logo_url'] ?? '') ?>" placeholder="https://yourbusiness.com/logo.png">
+                <p class="text-[11px] text-gray-600 mt-1">Square image works best. Leave blank to show your business initial instead.</p>
+            </div>
+            <div>
                 <label class="text-sm text-gray-400">Headline</label>
                 <input name="headline" maxlength="160" class="input-field mt-1" value="<?= e($storefront['headline'] ?? ($merchant['business_name'] ?? '')) ?>" placeholder="What do you sell or offer?" required>
             </div>
