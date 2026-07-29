@@ -108,6 +108,7 @@ function getPartnerRegistry(): array
                 'rbl_app_name' => ['label' => 'App Name', 'type' => 'text'],
                 'rbl_corp_id' => ['label' => 'Corp ID', 'type' => 'text'],
                 'rbl_master_account' => ['label' => 'Master Account No', 'type' => 'text'],
+                'rbl_base_url' => ['label' => 'API Base URL (optional)', 'type' => 'text'],
             ],
             'checklist' => [
                 'Create app on RBL sandbox portal',
@@ -287,33 +288,6 @@ function getPartnerRegistry(): array
                 'Easebuzz merchant onboarding',
                 'PG + Payout product activation',
                 'Paste test keys',
-            ],
-        ],
-        'rbl' => [
-            'name' => 'RBL Bank',
-            'type' => 'banking',
-            'icon' => '🏦',
-            'color' => 'rose',
-            'use' => $banking['rbl']['use'] ?? 'Current account + corporate API',
-            'signup' => $banking['rbl']['signup'] ?? '',
-            'docs' => $banking['rbl']['docs'] ?? '',
-            'dashboard' => $banking['rbl']['signup'] ?? '',
-            'email' => $banking['rbl']['email'] ?? '',
-            'admin_page' => 'admin_partner.php?p=rbl',
-            'webhook' => '',
-            'env_key' => 'rbl_environment',
-            'config_keys' => [
-                'rbl_environment' => ['label' => 'Environment', 'type' => 'select', 'options' => ['uat' => 'UAT', 'production' => 'Production']],
-                'rbl_client_id' => ['label' => 'Client ID', 'type' => 'text'],
-                'rbl_client_secret' => ['label' => 'Client Secret', 'type' => 'password'],
-                'rbl_corporate_id' => ['label' => 'Corporate ID', 'type' => 'text'],
-                'rbl_base_url' => ['label' => 'API Base URL (optional)', 'type' => 'text'],
-            ],
-            'checklist' => [
-                'Open RBL corporate current account',
-                'Subscribe to API banking package',
-                'Whitelist server IP',
-                'Paste Client ID + Secret',
             ],
         ],
         'yesbank' => [
@@ -625,6 +599,11 @@ function partnerTestConnection(string $partnerKey): array
     if ($partnerKey === 'decentro') {
         $test = testDecentroConnection();
         partnerLogApi('decentro', 'test_connection', 'POST', 'v3/payments/upi/qr', $test['message'] ?? '', ($test['ok'] ?? false) ? 200 : 0, ($test['ok'] ?? false) ? 'ok' : 'failed');
+        return $test;
+    }
+    if ($partnerKey === 'rbl') {
+        $test = testRblConnection();
+        partnerLogApi('rbl', 'test_connection', 'POST', '/virtual/account', $test['message'] ?? '', ($test['ok'] ?? false) ? 200 : 0, ($test['ok'] ?? false) ? 'ok' : 'failed');
         return $test;
     }
 
