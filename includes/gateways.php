@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/rbl.php';
+
 function createRazorpayOrder(float $amount, string $receipt, array $notes = []): ?array
 {
     if (!isGatewayConfigured('razorpay')) {
@@ -314,7 +316,7 @@ function ensureGatewaySubmissionsTable(): void
         getDB()->exec("CREATE TABLE IF NOT EXISTS gateway_submissions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             merchant_id INT NOT NULL,
-            gateway ENUM('razorpay','cashfree','payu','decentro','phonepe','axis') NOT NULL,
+            gateway ENUM('razorpay','cashfree','payu','decentro','phonepe','axis','rbl') NOT NULL,
             status ENUM('draft','submitted','approved','rejected','pending_review') DEFAULT 'submitted',
             payload LONGTEXT,
             admin_id INT,
@@ -327,7 +329,7 @@ function ensureGatewaySubmissionsTable(): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     } catch (Throwable $e) { /* ok */ }
     try {
-        getDB()->exec("ALTER TABLE gateway_submissions MODIFY gateway ENUM('razorpay','cashfree','payu','decentro','phonepe','axis') NOT NULL");
+        getDB()->exec("ALTER TABLE gateway_submissions MODIFY gateway ENUM('razorpay','cashfree','payu','decentro','phonepe','axis','rbl') NOT NULL");
     } catch (Throwable $e) { /* ok if already expanded */ }
 }
 
@@ -362,7 +364,7 @@ function submitMerchantToGateway(int $merchantId, string $gateway, int $adminId,
 /** Gateways a merchant can be forwarded to (matches gateway_submissions ENUM). */
 function gatewaySubmissionAllowedGateways(): array
 {
-    return ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe', 'axis'];
+    return ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe', 'axis', 'rbl'];
 }
 
 /** One-click forward to several gateways at once. Returns count forwarded. */
@@ -560,6 +562,7 @@ function isGatewayConfigured(string $gateway): bool
         'decentro' => (bool)getSetting('decentro_client_id', '') && (bool)getSetting('decentro_client_secret', ''),
         'pinelabs' => (bool)getSetting('pinelabs_merchant_id', '') && (bool)getSetting('pinelabs_access_code', '') && (bool)getSetting('pinelabs_secure_key', ''),
         'worldline' => (bool)getSetting('worldline_merchant_id', '') && (bool)getSetting('worldline_access_key', '') && (bool)getSetting('worldline_secret_key', ''),
+        'rbl' => isRblConfigured(),
         default => false,
     };
 }
@@ -719,6 +722,7 @@ function testGatewayConnection(string $gateway): array
         'phonepe' => testPhonePeConnection(),
         'decentro' => testDecentroConnection(),
         'pinelabs' => testPineLabsConnection(),
+        'rbl' => testRblConnection(),
         default => ['ok' => false, 'message' => 'Unknown gateway: ' . $gateway],
     };
 }

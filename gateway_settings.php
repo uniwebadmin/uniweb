@@ -10,7 +10,7 @@ if (isset($_GET['test_gateway']) && verifyCsrf($_GET['csrf'] ?? '')) {
     if ($gw === 'axis') {
         $axis = axisTestConnection();
         flash(!empty($axis['token_ok']) ? 'success' : 'error', (string)($axis['message'] ?? 'Axis test finished.'));
-    } elseif (in_array($gw, ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe', 'pinelabs'], true)) {
+    } elseif (in_array($gw, ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe', 'pinelabs', 'rbl'], true)) {
         $result = testGatewayConnection($gw);
         flash($result['ok'] ? 'success' : 'error', $result['message']);
     } else {
@@ -72,6 +72,7 @@ $gatewayCards = [
     ['id' => 'pinelabs', 'label' => 'Pine Labs Plural', 'test' => true, 'checkout' => false, 'note' => 'Paste keys when received · sandbox stub only · checkout stays on roadmap'],
     ['id' => 'worldline', 'label' => 'Worldline', 'test' => false, 'checkout' => false, 'note' => 'Paste keys when received · checkout stays on roadmap'],
     ['id' => 'axis', 'label' => 'Axis Bank', 'test' => true],
+    ['id' => 'rbl', 'label' => 'RBL Bank', 'test' => true, 'checkout' => false, 'note' => 'Paste sandbox keys · VA + UPI Collection + Payouts'],
     ['id' => 'decentro', 'label' => 'Decentro KYC', 'test' => true],
 ];
 $settleCronKey = function_exists('getSettlementCronKey') ? getSettlementCronKey() : 'uniweb-settle';
@@ -288,6 +289,23 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['axis_master_account','Axis Master Collection Account','text'],
             ['axis_va_ifsc','Axis VA IFSC','text'],
             ['axis_allow_mock','Allow Mock VA (0=real API only)','number'],
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
+        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800 text-xl">RBL Bank</h3>
+        <p class="text-xs text-gray-500">Sandbox keys for RBL Open Banking: Virtual Account, UPI Collection, Account Balance, Blob VA Statement, Corporate Payments.</p>
+        <?php foreach ([
+            ['rbl_app_name','RBL App Name','text'],
+            ['rbl_client_id','RBL Client ID (API Key)','text'],
+            ['rbl_client_secret','RBL Client Secret (API Secret)','password'],
+            ['rbl_environment','RBL Env (sandbox/production)','text'],
+            ['rbl_base_url','RBL Base URL (optional override)','text'],
+            ['rbl_master_account','RBL Master / Corporate Account No','text'],
+            ['rbl_corp_id','RBL Corp ID','text'],
+            ['rbl_maker_id','RBL Maker ID','text'],
+            ['rbl_checker_id','RBL Checker ID','text'],
+            ['rbl_approver_id','RBL Approver ID','text'],
+            ['rbl_va_enabled','Enable RBL VA (0/1)','number'],
+            ['rbl_upi_collection_enabled','Enable RBL UPI Collection (0/1)','number'],
+            ['rbl_payout_enabled','Enable RBL Payouts (0/1)','number'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">KYC Verification (Decentro)</h3>
         <p class="text-xs text-gray-500">Auto-verify PAN, Aadhaar, GST, CIN, Udyam, IEC, Bank via Decentro API (staging/production).</p>

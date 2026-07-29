@@ -100,11 +100,12 @@ function getBankingPartners(): array
         ],
         'rbl' => [
             'name' => 'RBL Bank',
-            'use' => 'Current account, corporate collections + payouts API',
-            'signup' => 'https://www.rblbank.com/',
-            'docs' => 'https://www.rblbank.com/',
-            'email' => 'corporate.care@rblbank.com',
-            'payout_note' => 'RBL corporate API banking — current account + IMPS/NEFT collections.',
+            'use' => 'Open Banking: Virtual Account, UPI Collection, Account Balance, Blob VA Statement, Corporate & Bulk Payments',
+            'signup' => 'https://sandbox.rbl.bank.in/',
+            'docs' => 'https://sandbox.rbl.bank.in/faq',
+            'sandbox' => 'https://apisandbox.rbl.bank.in/sandbox/api/v1',
+            'email' => 'api_upi@rblbank.com',
+            'payout_note' => 'RBL Open Banking sandbox — virtual account creation, UPI collections, statements, single/bulk payouts.',
         ],
         'yesbank' => [
             'name' => 'Yes Bank',
