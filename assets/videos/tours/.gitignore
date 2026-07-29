@@ -1,0 +1,4 @@
+# Ignore uploaded MP4/video files; commit only this file and README.md.
+*
+!.gitignore
+!README.md

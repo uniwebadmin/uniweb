@@ -8,6 +8,7 @@ Allow: /blog.php
 Allow: /api_docs.php
 Allow: /demo.php
 Allow: /platform_demo.php
+Allow: /tour_videos.php
 Allow: /merchant_register.php
 Allow: /signup.php
 Allow: /login.php

@@ -43,7 +43,7 @@
             <div class="site-footer-card">
                 <p class="site-footer-heading text-sm font-semibold text-gray-300 mb-3">Product</p>
                 <ul class="space-y-2 text-sm text-gray-400">
-                    <li><a href="platform_demo.php" class="hover:text-brand-400 transition">Platform Tour</a></li>
+                    <li><a href="tour_videos.php" class="hover:text-brand-400 transition">Platform Tour</a></li>
                     <li><a href="demo.php" class="hover:text-brand-400 transition">Live Demo</a></li>
                     <li><a href="solutions.php" class="hover:text-brand-400 transition">Solutions</a></li>
                     <li><a href="pricing.php" class="hover:text-brand-400 transition">Pricing</a></li>

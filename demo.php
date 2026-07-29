@@ -20,7 +20,7 @@ require_once __DIR__ . '/header.php';
                 <a href="<?= e($demo['pay_url']) ?>" class="inline-block w-full bg-sky-600 hover:bg-sky-500 text-white py-4 rounded-xl font-bold text-lg transition">
                     Pay ₹1 Now — Test Checkout →
                 </a>
-                <a href="platform_demo.php?autoplay=1" class="inline-block w-full mt-3 glass text-violet-300 hover:text-white py-3 rounded-xl font-semibold text-sm transition">▶ Watch Guided Tour</a>
+                <a href="tour_videos.php" class="inline-block w-full mt-3 glass text-violet-300 hover:text-white py-3 rounded-xl font-semibold text-sm transition">▶ Watch Platform Tour</a>
                 <button type="button" onclick="navigator.clipboard.writeText('<?= e($demo['pay_url']) ?>');this.textContent='Copied!'" class="mt-3 text-sm text-sky-400">Copy Payment Link</button>
             </div>
 

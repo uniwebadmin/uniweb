@@ -29,7 +29,7 @@ $products = [
         'title' => 'QR code payments',
         'body' => 'Fixed-amount, dynamic UPI and all-method QR journeys for shops, counters and field teams. Designed for high volume — up to 10 lakh small payments per day without UniWeb high-frequency account locks.',
         'points' => ['Reusable counter QR', 'Amount-entry dynamic QR', 'Scan analytics on the QR record'],
-        'cta' => ['platform_demo.php', 'See platform tour'],
+        'cta' => ['tour_videos.php', 'See platform tour'],
     ],
     [
         'id' => 'api',
@@ -107,7 +107,7 @@ $products = [
         <h2>Integrate in Test Mode today.</h2>
         <p>Go Live only after KYC, agreement and partner activation — the same discipline serious Indian aggregators use.</p>
         <div class="flex flex-wrap gap-3">
-            <a href="platform_demo.php" class="btn-primary px-6 py-3">Platform tour</a>
+            <a href="tour_videos.php" class="btn-primary px-6 py-3">Platform tour</a>
             <a href="contact.php" class="px-6 py-3 rounded-lg border border-gray-700">Talk to sales</a>
         </div>
     </div></div></section>

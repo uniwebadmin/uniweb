@@ -29,6 +29,7 @@ function getWatchdogPageRegistry(): array
         ['blog.php', 'Blog', 'public'],
         ['api_docs.php', 'API Docs', 'public'],
         ['platform_demo.php', 'Platform Tour', 'public'],
+        ['tour_videos.php', 'Video Tour', 'public'],
         ['demo.php', 'Live Demo Payment', 'public'],
         ['merchant_register.php', 'Merchant Signup', 'public'],
         ['signup.php', 'Signup', 'public'],
