@@ -50,78 +50,15 @@ require_once __DIR__ . '/header.php';
             <p class="text-gray-400 text-sm sm:text-base max-w-xl mx-auto">Multi-gateway checkout, merchant dashboard, settlements, and KYC — built for Indian businesses.</p>
         </div>
 
-        <div id="home-tour" class="glass rounded-2xl overflow-hidden border border-gray-800 mb-6">
-            <div class="relative bg-dark-900">
-                <?php
-                $homeSlides = [
-                    ['checkout', 'Multi-Method Checkout', 'A hosted checkout for payment methods enabled by approved partners', ['UPI', 'Cards', 'NB']],
-                    ['dashboard', 'Merchant Dashboard', 'Real-time volume, wallet balance, and transaction feed', ['Today', 'Month', 'Wallet']],
-                    ['pack', 'Payment Pack', 'Six ready-made ₹1 test links — Razorpay, Cashfree, PayU', ['UPI', 'RZP', 'CF']],
-                    ['kyc', 'KYC & Compliance', 'PAN, GST, bank verification with admin review workflow', ['PAN', 'GST', 'Bank']],
-                    ['wallet', 'Wallet & Settlement', 'Batch tracking and reconciliation; bank payout requires rail activation', ['Wallet', 'Bank', 'Batch']],
-                ];
-                foreach ($homeSlides as $i => [$type, $t, $s, $tags]): ?>
-                <div class="home-slide <?= $i === 0 ? '' : 'hidden' ?>" data-i="<?= $i ?>">
-                    <div class="min-h-[240px] sm:min-h-[320px] bg-gradient-to-br from-dark-950 via-slate-900 to-sky-950/40 p-5 sm:p-8 flex items-center justify-center">
-                        <div class="w-full max-w-md glass rounded-xl border border-gray-700/80 p-4 shadow-2xl shrink-0">
-                            <div class="flex items-center gap-2 mb-3">
-                                <div class="w-8 h-8 rounded-lg bg-brand-600/30 flex items-center justify-center text-xs font-bold text-brand-300">UW</div>
-                                <div>
-                                    <p class="text-[10px] text-gray-500 uppercase tracking-wider"><?= e(APP_NAME) ?></p>
-                                    <p class="text-sm font-semibold text-white"><?= e($t) ?></p>
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-3 gap-2 mb-3">
-                                <?php foreach ($tags as $tag): ?>
-                                <div class="rounded-lg bg-dark-950/80 border border-gray-800 py-2 text-center text-[10px] text-sky-300 font-medium"><?= e($tag) ?></div>
-                                <?php endforeach; ?>
-                            </div>
-                            <div class="h-2 rounded-full bg-gray-800 overflow-hidden"><div class="h-full w-2/3 bg-gradient-to-r from-brand-500 to-cyan-400"></div></div>
-                            <p class="text-[11px] text-gray-500 mt-2"><?= e($s) ?></p>
-                        </div>
-                    </div>
-                    <div class="px-5 py-4 border-t border-gray-800">
-                        <h3 class="font-bold text-base sm:text-lg text-white"><?= e($t) ?></h3>
-                        <p class="text-sm sm:text-base text-gray-400 mt-1.5 leading-snug"><?= e($s) ?></p>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-            </div>
-            <div class="flex items-center justify-between px-4 py-3 bg-dark-900/80 border-t border-gray-800 gap-2">
-                <button type="button" id="home-prev" class="text-xs text-gray-400 hover:text-white px-2">←</button>
-                <div class="flex gap-1.5" id="home-dots">
-                    <?php foreach ($homeSlides as $i => $_): ?>
-                    <button type="button" class="home-dot w-2 h-2 rounded-full <?= $i === 0 ? 'bg-sky-500' : 'bg-gray-600' ?>" data-i="<?= $i ?>"></button>
-                    <?php endforeach; ?>
-                </div>
-                <button type="button" id="home-next" class="text-xs text-gray-400 hover:text-white px-2">→</button>
-            </div>
-        </div>
 
         <div class="flex flex-wrap justify-center gap-3">
-            <a href="platform_demo.php?autoplay=1" class="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-6 py-3 rounded-xl font-semibold text-sm sm:text-base">
-                <span>▶</span> Play Full Tour (Voice)
+            <a href="tour_videos.php" class="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-6 py-3 rounded-xl font-semibold text-sm sm:text-base">
+                <span>▶</span> Play Full Tour
             </a>
             <a href="demo.php" class="inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white px-6 py-3 rounded-xl font-semibold text-sm sm:text-base">₹1 Test Payment</a>
         </div>
     </div>
 </section>
-<script>
-(function(){
-    const slides = document.querySelectorAll('.home-slide');
-    const dots = document.querySelectorAll('.home-dot');
-    let i = 0;
-    function go(n) {
-        i = (n + slides.length) % slides.length;
-        slides.forEach((s, j) => s.classList.toggle('hidden', j !== i));
-        dots.forEach((d, j) => { d.classList.toggle('bg-sky-500', j === i); d.classList.toggle('bg-gray-600', j !== i); });
-    }
-    document.getElementById('home-prev')?.addEventListener('click', () => go(i - 1));
-    document.getElementById('home-next')?.addEventListener('click', () => go(i + 1));
-    dots.forEach(d => d.addEventListener('click', () => go(+d.dataset.i)));
-    setInterval(() => go(i + 1), 5000);
-})();
-</script>
 
 <section id="features" class="py-20 bg-dark-900/50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
