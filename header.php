@@ -346,9 +346,9 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
             <div class="admin-sidebar-group mb-1" data-group-id="<?= e($group['id']) ?>" data-open="<?= $isOpen ? '1' : '0' ?>">
                 <button type="button" class="admin-group-toggle w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition" aria-expanded="<?= $isOpen ? 'true' : 'false' ?>">
                     <span><?= e($group['title']) ?></span>
-                    <svg class="admin-group-chevron w-4 h-4 flex-shrink-0 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transform: rotate(<?= $isOpen ? '90' : '0' ?>deg);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    <svg class="admin-group-chevron flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:1rem;height:1rem;pointer-events:none;transition:transform .3s;transform:rotate(<?= $isOpen ? '90' : '0' ?>deg);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </button>
-                <div class="admin-group-panel overflow-hidden transition-all duration-300" style="max-height: <?= $isOpen ? '1200' : '0' ?>px;">
+                <div class="admin-group-panel" style="overflow:hidden;transition:max-height .3s;max-height:<?= $isOpen ? '1200' : '0' ?>px;">
                     <div class="py-1 pl-4 space-y-0.5">
                         <?php foreach ($group['items'] as [$url, $label]): ?>
                         <a href="<?= $url ?>" class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition <?= $cur===$url?'bg-red-500/10 text-red-400':'' ?>"><?= e($label) ?></a>
@@ -492,33 +492,5 @@ function toggleUniwebTheme(){
         updateSession();
         setInterval(updateSession,1000);
     }
-    // Admin sidebar collapsible groups
-    document.querySelectorAll('.admin-sidebar-group').forEach(function(group){
-        const panel=group.querySelector('.admin-group-panel');
-        const toggle=group.querySelector('.admin-group-toggle');
-        const chevron=group.querySelector('.admin-group-chevron');
-        if(!panel||!toggle)return;
-        if(group.dataset.open==='1'){
-            panel.style.transitionProperty='none';
-            panel.style.maxHeight=panel.scrollHeight+'px';
-            panel.offsetHeight;
-            panel.style.removeProperty('transition-property');
-            if(chevron)chevron.style.transform='rotate(90deg)';
-        }
-        toggle.addEventListener('click',function(){
-            const isOpen=group.dataset.open==='1';
-            if(isOpen){
-                panel.style.maxHeight='0px';
-                group.dataset.open='0';
-                toggle.setAttribute('aria-expanded','false');
-                if(chevron)chevron.style.transform='rotate(0deg)';
-            }else{
-                panel.style.maxHeight=panel.scrollHeight+'px';
-                group.dataset.open='1';
-                toggle.setAttribute('aria-expanded','true');
-                if(chevron)chevron.style.transform='rotate(90deg)';
-            }
-        });
-    });
 })();
 </script>
