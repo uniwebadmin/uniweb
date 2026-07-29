@@ -175,20 +175,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
 $pageTitle = __('signup_title');
 $hideNav = true;
+$hideFooter = true;
 $footerVariant = 'auth';
+$authPortalUi = true;
+$bodyClass = trim(($bodyClass ?? '') . ' auth-portal-shell auth-portal--merchant');
 require_once __DIR__ . '/header.php';
 ?>
 
-<div class="min-h-screen flex items-center justify-center px-4 py-12">
+<div class="ap-panel min-h-screen">
     <div class="relative w-full max-w-md">
 
         <div class="text-center mb-6">
             <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
-            <h1 class="text-2xl font-bold"><?= $showOtpStep ? __('signup_otp_title') : __('signup_title') ?></h1>
-            <p class="text-gray-500 text-sm mt-2"><?= $showOtpStep ? __('signup_otp_sub') : __('signup_sub') ?></p>
+            <h1 class="ap-display text-2xl font-bold"><?= $showOtpStep ? __('signup_otp_title') : __('signup_title') ?></h1>
+            <p class="ap-sub text-sm mt-2"><?= $showOtpStep ? __('signup_otp_sub') : __('signup_sub') ?></p>
         </div>
 
-        <div class="glass rounded-2xl p-8">
+        <div class="ap-card max-w-md mx-auto">
             <?php if ($errors): ?>
             <div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg mb-6">
                 <?php foreach ($errors as $e): ?><p><?= e($e) ?></p><?php endforeach; ?>
@@ -210,7 +213,7 @@ require_once __DIR__ . '/header.php';
                     <label class="block text-sm text-gray-400 mb-1.5"><?= __('otp_code_label') ?> *</label>
                     <input type="text" name="otp_code" required maxlength="6" inputmode="numeric" autofocus class="input-field tracking-widest text-center text-lg" placeholder="••••••">
                 </div>
-                <button type="submit" class="w-full btn-primary py-3"><?= __('verify_and_create_account_btn') ?></button>
+                <button type="submit" class="ap-btn"><?= __('verify_and_create_account_btn') ?></button>
             </form>
             <div class="flex items-center justify-between mt-4 text-sm">
                 <form method="POST"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="step" value="resend_otp"><button type="submit" class="text-brand-400 hover:underline"><?= __('resend_otp') ?></button></form>
@@ -260,7 +263,7 @@ require_once __DIR__ . '/header.php';
 
                 <p class="text-xs text-gray-600"><?= __('signup_portal_note') ?></p>
 
-                <button type="submit" class="w-full btn-primary py-3"><?= __('create_account_btn') ?></button>
+                <button type="submit" class="ap-btn"><?= __('create_account_btn') ?></button>
 
                 <p class="text-xs text-gray-600 text-center leading-relaxed">
                     <?= __('signup_terms') ?>
