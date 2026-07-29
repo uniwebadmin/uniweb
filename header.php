@@ -207,6 +207,14 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                 ['notifications.php',__('nav_notifications'),'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'],
                 ['support.php',__('support'),'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M5.636 5.636l3.536 3.536m0 5.656l-3.536 3.536M12 2.944l7.07 7.07a10 10 0 010 14.142L12 22.93l-7.07-7.07a10 10 0 010-14.142L12 2.944z'],
             ];
+            $nbfcLive = getSetting('nbfc_live_enabled','0') === '1';
+            $nav = array_values(array_filter($nav, function($item) use ($nbfcLive) {
+                $url = $item[0] ?? '';
+                if (in_array($url, ['merchant_nbfc.php','merchant_nbfc_loan.php'], true)) {
+                    return $nbfcLive;
+                }
+                return true;
+            }));
             $cur = basename($_SERVER['PHP_SELF']);
             foreach ($nav as [$url,$label,$icon]):
             ?>

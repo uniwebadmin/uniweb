@@ -114,7 +114,10 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl p-6">
         <h3 class="font-semibold mb-1">Method status (auto-queued)</h3>
         <p class="text-xs text-gray-500 mb-4">UPI P2M turns ON at signup. Cards, wallets, EMI, VA, NBFC, payout and instant settlement are sent to admin → partner automatically when you sign up or upload KYC. No need to click Request for each one.</p>
-        <p class="text-xs mb-3"><a href="merchant_nbfc.php" class="text-sky-400">NBFC status</a> · <a href="merchant_instant_settlement.php" class="text-sky-400">Instant Settlement</a> · <a href="merchant_payout.php" class="text-sky-400">Payouts</a></p>
+        <p class="text-xs mb-3">
+            <?php if (getSetting('nbfc_live_enabled','0') === '1'): ?><a href="merchant_nbfc.php" class="text-sky-400">NBFC status</a> · <?php endif; ?>
+            <a href="merchant_instant_settlement.php" class="text-sky-400">Instant Settlement</a> · <a href="merchant_payout.php" class="text-sky-400">Payouts</a>
+        </p>
         <?php if (empty($lockedMethods)): ?>
         <p class="text-sm text-emerald-400">✓ All available payment methods are already enabled for your account.</p>
         <?php else: ?>

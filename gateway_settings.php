@@ -334,7 +334,7 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
         <?php foreach ([
             ['method_partner_webhook_secret','Method Partner Webhook Secret','password'],
             ['nbfc_partner_gateway','NBFC Partner Gateway (payu/razorpay/…)','text'],
-            ['nbfc_live_enabled','NBFC live disbursement switch (0/1)','number'],
+            ['nbfc_live_enabled','NBFC live + show merchant menu (0=hidden, 1=visible)','number'],
             ['instant_settlement_gateway','Instant Settlement Gateway','text'],
             ['payout_live_enabled','Payout live money switch (0/1)','number'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>

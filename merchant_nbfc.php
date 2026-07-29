@@ -5,6 +5,11 @@ require_once __DIR__ . '/includes/nbfc.php';
 requireLogin();
 requireMerchantTeamCapability('settings');
 
+if (getSetting('nbfc_live_enabled','0') !== '1') {
+    flash('info','NBFC is not enabled yet.');
+    redirect('dashboard.php');
+}
+
 $merchant = getMerchant();
 $merchantId = (int)$merchant['id'];
 ensureMethodRequestSchema();
