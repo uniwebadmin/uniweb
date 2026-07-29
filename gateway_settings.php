@@ -57,6 +57,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
 $settings = $db->query('SELECT * FROM gateway_settings ORDER BY setting_key')->fetchAll();
 $settingsMap = array_column($settings, 'setting_value', 'setting_key');
+
+function settingsSectionColorClass(string $color): string
+{
+    return match ($color) {
+        'sky' => 'text-sky-400 border-sky-500/40',
+        'emerald' => 'text-emerald-400 border-emerald-500/40',
+        'green' => 'text-green-400 border-green-500/40',
+        'amber' => 'text-amber-400 border-amber-500/40',
+        'rose' => 'text-rose-400 border-rose-500/40',
+        'violet' => 'text-violet-400 border-violet-500/40',
+        'teal' => 'text-teal-400 border-teal-500/40',
+        'cyan' => 'text-cyan-400 border-cyan-500/40',
+        'indigo' => 'text-indigo-400 border-indigo-500/40',
+        'fuchsia' => 'text-fuchsia-400 border-fuchsia-500/40',
+        'slate' => 'text-slate-300 border-slate-500/40',
+        default => 'text-brand-400 border-brand-500/40',
+    };
+}
+
+function settingsMainHeading(string $title, string $color = 'brand'): string
+{
+    $c = settingsSectionColorClass($color);
+    return '<h2 class="text-center text-2xl font-bold ' . $c . ' mb-4 pb-3 border-b ' . $c . '">' . e($title) . '</h2>';
+}
+
+function settingsSectionHeading(string $title, string $color = 'brand', string $size = 'text-lg'): string
+{
+    $c = settingsSectionColorClass($color);
+    return '<h3 class="text-center ' . $size . ' font-bold ' . $c . ' pt-5 pb-3 mb-5 border-t-4 ' . $c . '">' . e($title) . '</h3>';
+}
+
 $cronHealth = getCronHealthStatus();
 $cronKey = autoAuditWatchdogKey();
 $cronKeyMasked = strlen($cronKey) > 12 ? substr($cronKey, 0, 14) . '…' . substr($cronKey, -4) : $cronKey;
@@ -138,7 +169,7 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
     </div>
 </div>
 <div class="glass rounded-xl p-6">
-    <h2 class="font-semibold mb-2">Gateway Status</h2>
+    <?= settingsMainHeading('Gateway Status') ?>
     <p class="text-xs text-gray-500 mb-4">Save keys below, then run Test Connection. Primary gateway: <span class="text-brand-400 font-medium"><?= e(ucfirst($activePg)) ?></span></p>
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <?php foreach ($gatewayCards as $card):
@@ -173,7 +204,7 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
     </div>
 </div>
 <div class="glass rounded-xl p-6">
-    <h2 class="font-semibold mb-6">Platform Settings</h2>
+    <?= settingsMainHeading('Platform Settings') ?>
     <form method="POST" class="space-y-5">
         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
         <?php
@@ -200,14 +231,14 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             <input type="<?= e($attrs['type']) ?>" name="settings[<?= $key ?>]" value="<?= e($attrs['value']) ?>" placeholder="<?= e($attrs['placeholder']) ?>" class="input-field mt-1" <?= $attrs['autocomplete'] ? 'autocomplete="' . e($attrs['autocomplete']) . '"' : '' ?> <?= $type==='number' ? 'step="0.01"' : '' ?>>
         </div>
         <?php endforeach; ?>
-        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">SMTP Email Settings</h3>
+        <?= settingsSectionHeading('SMTP Email Settings', 'amber') ?>
         <p class="text-xs text-gray-500">Leave SMTP host empty to use PHP mail(). For Hostinger use smtp.hostinger.com</p>
         <?php foreach ([
             ['smtp_host','SMTP Host','text'],['smtp_port','SMTP Port','number'],
             ['smtp_user','SMTP Username','text'],['smtp_pass','SMTP Password','password'],
             ['smtp_from_email','From Email','email'],['smtp_from_name','From Name','text'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">Support & Social Channels</h3>
+        <?= settingsSectionHeading('Support & Social Channels', 'fuchsia') ?>
         <p class="text-xs text-gray-500">Links shown to merchants on Support → Connect with Admin.</p>
         <?php foreach ([
             ['support_instagram', 'Instagram URL', 'text'],
@@ -217,7 +248,7 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['support_linkedin', 'LinkedIn URL', 'text'],
             ['support_youtube', 'YouTube URL', 'text'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">B2B Collection Engine</h3>
+        <?= settingsSectionHeading('B2B Collection Engine', 'teal') ?>
         <div><label class="text-sm text-gray-400">Default Collection Mode (new merchants)</label>
             <select name="settings[default_collection_mode]" class="input-field mt-1">
                 <?php foreach (getCollectionModes() as $k => $label): ?>
@@ -228,7 +259,7 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
         <div><label class="text-sm text-gray-400">Platform Margin (%)</label>
             <input type="number" step="0.01" name="settings[platform_margin_pct]" value="<?= e($settingsMap['platform_margin_pct'] ?? '0.10') ?>" class="input-field mt-1">
         </div>
-        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">Payment Gateways</h3>
+        <?= settingsSectionHeading('Payment Gateways', 'slate') ?>
         <p class="text-xs text-gray-500">Add API keys to enable real-time UPI, cards & international payments.</p>
         <div><label class="text-sm text-gray-400">Primary Payment Gateway</label>
             <select name="settings[active_payment_gateway]" class="input-field mt-1">
@@ -237,27 +268,49 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
                 <?php endforeach; ?>
             </select>
         </div>
+
+        <?= settingsSectionHeading('Razorpay', 'sky') ?>
         <?php foreach ([
             ['razorpay_key_id','Razorpay Key ID','text'],['razorpay_key_secret','Razorpay Key Secret','password'],
             ['razorpay_webhook_secret','Razorpay Webhook Secret','password'],
             ['razorpay_environment','Razorpay Env (test/live)','text'],
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
+
+        <?= settingsSectionHeading('Cashfree', 'emerald') ?>
+        <?php foreach ([
             ['cashfree_app_id','Cashfree App ID','text'],['cashfree_secret_key','Cashfree Secret','password'],
             ['cashfree_environment','Cashfree Env (production/sandbox)','text'],
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
+
+        <?= settingsSectionHeading('PayU', 'amber') ?>
+        <?php foreach ([
             ['payu_merchant_key','PayU Merchant Key','text'],['payu_merchant_salt','PayU Salt','password'],
             ['payu_environment','PayU Env (test/production)','text'],
-            ['decentro_client_id','Decentro Client ID','text'],['decentro_client_secret','Decentro Client Secret','password'],
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
+
+        <?= settingsSectionHeading('PhonePe', 'indigo') ?>
+        <?php foreach ([
             ['phonepe_merchant_id','PhonePe Merchant ID','text'],['phonepe_salt_key','PhonePe Salt Key','password'],
             ['phonepe_salt_index','PhonePe Salt Index','text'],
             ['phonepe_environment','PhonePe Env (sandbox/production)','text'],
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
+
+        <?= settingsSectionHeading('Pine Labs Plural', 'violet') ?>
+        <?php foreach ([
             ['pinelabs_merchant_id','Pine Labs Merchant ID','text'],
             ['pinelabs_access_code','Pine Labs Access Code','text'],
             ['pinelabs_secure_key','Pine Labs Secure Key','password'],
             ['pinelabs_environment','Pine Labs Env (sandbox/production)','text'],
+        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
+
+        <?= settingsSectionHeading('Worldline', 'teal') ?>
+        <?php foreach ([
             ['worldline_merchant_id','Worldline Merchant ID','text'],
             ['worldline_access_key','Worldline Access Key','text'],
             ['worldline_secret_key','Worldline Secret Key','password'],
             ['worldline_environment','Worldline Env (sandbox/production)','text'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
+
         <div class="rounded-xl border border-gray-800 bg-dark-900/50 p-4 text-xs text-gray-500 space-y-2">
             <p class="text-gray-400 font-medium text-sm mb-2">Webhook URLs (configure in PG dashboard)</p>
             <?php foreach (['razorpay' => pgWebhookUrl('razorpay'), 'cashfree' => pgWebhookUrl('cashfree'), 'payu' => pgWebhookUrl('payu')] as $gw => $url): ?>
@@ -268,14 +321,14 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             </div>
             <?php endforeach; ?>
         </div>
-        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">Payout Partner Keys (licensed rail)</h3>
+        <?= settingsSectionHeading('Payout Partner Keys (licensed rail)', 'rose') ?>
         <p class="text-xs text-gray-500 mb-2">Paste keys when a licensed payout partner is signed. Until then the payout module stays gated — no live money movement. Set <code class="text-gray-400">payout_live_enabled=1</code> only after compliance review.</p>
         <?php foreach ([
             ['razorpayx_key_id','RazorpayX Key ID','text'],['razorpayx_key_secret','RazorpayX Key Secret','password'],
             ['cashfree_payout_client_id','Cashfree Payouts Client ID','text'],['cashfree_payout_client_secret','Cashfree Payouts Client Secret','password'],
             ['payout_live_enabled','Enable live payout money movement (0/1)','number'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">Axis Bank (Virtual Account / Collections)</h3>
+        <?= settingsSectionHeading('Axis Bank (Virtual Account / Collections)', 'violet') ?>
         <p class="text-xs text-gray-500"><a href="admin_axis.php" class="text-sky-400">Axis UAT Dashboard →</a> · Webhook: <?= e(axisWebhookUrl()) ?></p>
         <?php foreach ([
             ['axis_app_name','Axis App Name (Portal)','text'],
@@ -290,7 +343,7 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['axis_va_ifsc','Axis VA IFSC','text'],
             ['axis_allow_mock','Allow Mock VA (0=real API only)','number'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800 text-xl">RBL Bank</h3>
+        <?= settingsSectionHeading('RBL Bank', 'rose', 'text-xl') ?>
         <p class="text-xs text-gray-500">Sandbox keys for RBL Open Banking: Virtual Account, UPI Collection, Account Balance, Blob VA Statement, Corporate Payments.</p>
         <?php foreach ([
             ['rbl_app_name','RBL App Name','text'],
@@ -307,7 +360,7 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['rbl_upi_collection_enabled','Enable RBL UPI Collection (0/1)','number'],
             ['rbl_payout_enabled','Enable RBL Payouts (0/1)','number'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">KYC Verification (Decentro)</h3>
+        <?= settingsSectionHeading('KYC Verification (Decentro)', 'teal') ?>
         <p class="text-xs text-gray-500">Auto-verify PAN, Aadhaar, GST, CIN, Udyam, IEC, Bank via Decentro API (staging/production).</p>
         <?php foreach ([
             ['decentro_client_id','Decentro Client ID','text'],['decentro_client_secret','Decentro Client Secret','password'],
@@ -316,7 +369,7 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['decentro_provider_secret','Decentro Provider Secret','password'],
             ['decentro_base_url','Decentro Base URL','text'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">Video KYC face-match partner (Digio)</h3>
+        <?= settingsSectionHeading('Video KYC face-match partner (Digio)', 'cyan') ?>
         <p class="text-xs text-gray-500 mb-2">Owner-confirmed: UniWeb does <strong>not</strong> store Aadhaar/face biometrics. Paste Digio (or equivalent certified partner) keys when contracted. Until then Video KYC is manual review only.</p>
         <?php foreach ([
             ['digio_client_id','Digio Client ID','text'],
@@ -324,7 +377,7 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['digio_environment','Digio Env (sandbox/production)','text'],
             ['digio_face_match_enabled','Enable Digio face-match (0/1)','number'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">Method Partner Automation</h3>
+        <?= settingsSectionHeading('Method Partner Automation', 'amber') ?>
         <p class="text-xs text-gray-500 mb-2">Partner approve/reject hits this URL and turns merchant methods ON/OFF automatically.</p>
         <div class="rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 mb-3 text-xs space-y-2">
             <p class="text-[10px] text-gray-600 uppercase tracking-wide">Method partner webhook URL</p>
@@ -338,12 +391,12 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
             ['instant_settlement_gateway','Instant Settlement Gateway','text'],
             ['payout_live_enabled','Payout live money switch (0/1)','number'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">SEO — Google Search Console</h3>
+        <?= settingsSectionHeading('SEO — Google Search Console', 'emerald') ?>
         <p class="text-xs text-gray-500 mb-2">Paste the HTML-tag verification token from Google Search Console (the <code class="text-gray-400">content</code> value only). It is rendered as <code class="text-gray-400">&lt;meta name="google-site-verification"&gt;</code> on every page via <code class="text-gray-400">header.php</code>. Setting key: <code class="text-gray-400">google_site_verification</code>.</p>
         <?php foreach ([
             ['google_site_verification','Google Search Console verification token','text'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-        <h3 class="font-semibold text-brand-400 pt-4 border-t border-gray-800">WhatsApp & OTP</h3>
+        <?= settingsSectionHeading('WhatsApp & OTP', 'green') ?>
         <p class="text-xs text-gray-500 mb-2">SMS disabled — use WhatsApp for OTP login and merchant alerts.</p>
         <div class="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 mb-4 text-xs text-amber-200/90">
             <p class="font-medium text-amber-300 mb-1">Meta business verification pending?</p>
