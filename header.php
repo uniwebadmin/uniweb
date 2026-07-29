@@ -283,18 +283,67 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
         <nav class="sidebar-nav p-3 space-y-0.5 text-sm flex-1 overflow-y-auto">
             <?php
             $adminNav = [
-                ['admin_dashboard.php','Dashboard'],['manage_merchant.php','All Merchants'],
-                ['add_merchant.php','Add Merchant'],['admin_manage_staff.php','Staff / Employees'],
+                ['heading' => 'Merchants & Staff'],
+                ['admin_dashboard.php','Dashboard'],
+                ['manage_merchant.php','All Merchants'],
+                ['add_merchant.php','Add Merchant'],
+                ['admin_manage_staff.php','Staff / Employees'],
+                ['admin_staff_activity.php','Staff Activity Log'],
+
+                ['heading' => 'Payments & Transactions'],
+                ['admin_transactions.php','Transactions'],
+                ['admin_refunds.php','Refunds'],
+                ['admin_disputes.php','Disputes'],
+                ['admin_chargebacks.php','Chargebacks'],
+                ['admin_payment_links.php','Payment Links'],
+                ['admin_financial_reports.php','Financial Reports'],
+                ['admin_pg_webhooks.php','PG Webhooks'],
+                ['admin_reconciliation.php','PG Reconciliation'],
+
+                ['heading' => 'Settlements & Payouts'],
+                ['admin_settlements.php','Settlements'],
+                ['admin_settlement_settings.php','Settlement Engine'],
+                ['admin_settlement_batches.php','Settlement Batches'],
+                ['admin_wallet.php','Platform Wallet'],
+                ['admin_payout.php','Payout Requests'],
+
+                ['heading' => 'KYC & Onboarding'],
+                ['admin_kyc.php','KYC Review'],
+                ['admin_method_requests.php','Method Requests'],
+                ['admin_nbfc.php','NBFC Applications'],
+                ['admin_qr_codes.php','QR Codes'],
+
+                ['heading' => 'Risk & Support'],
+                ['admin_aml.php','AML Compliance'],
+                ['admin_support.php','Support Tickets'],
+                ['admin_customer_tickets.php','Customer Complaints'],
+                ['admin_website_reviews.php','Website Reviews'],
+
+                ['heading' => 'Partners & Integrations'],
                 ['admin_gateway_submit.php','Gateway Submit'],
-                ['admin_transactions.php','Transactions'],['admin_refunds.php','Refunds'],['admin_disputes.php','Disputes'],['admin_chargebacks.php','Chargebacks'],['admin_financial_reports.php','Financial Reports'],['admin_payment_links.php','Payment Links'],['admin_staff_activity.php','Staff Activity Log'],['admin_pg_webhooks.php','PG Webhooks'],['admin_reconciliation.php','PG Reconciliation'],
-                ['admin_settlements.php','Settlements'],['admin_settlement_settings.php','Settlement Engine'],['admin_settlement_batches.php','Settlement Batches'],['admin_wallet.php','Platform Wallet'],['admin_payout.php','Payout Requests'],['admin_nbfc.php','NBFC Applications'],['admin_kyc.php','KYC Review'],['admin_method_requests.php','Method Requests'],['admin_qr_codes.php','QR Codes'],
-                ['admin_aml.php','AML Compliance'],['admin_support.php','Support Tickets'],['admin_customer_tickets.php','Customer Complaints'],['admin_website_reviews.php','Website Reviews'],
-                ['admin_partner_requests.php','Partner Requests'],['admin_partners.php','All Partners'],['admin_partner_decentro.php','Decentro Checklist'],['admin_platform_status.php','Platform Status'],['admin_website.php','Website & API Keys'],['admin_watchdog.php','Link Watchdog'],['admin_link_audit.php','Link Audit'],['admin_error_log.php','Error Log'],['admin_axis.php','Axis UAT'],['gateway_settings.php','Gateway Settings'],['admin_security.php','Security & Password'],
+                ['admin_partner_requests.php','Partner Requests'],
+                ['admin_partners.php','All Partners'],
+                ['admin_partner_decentro.php','Decentro Checklist'],
+                ['admin_axis.php','Axis UAT'],
+
+                ['heading' => 'Platform & Settings'],
+                ['admin_platform_status.php','Platform Status'],
+                ['admin_website.php','Website & API Keys'],
+                ['gateway_settings.php','Gateway Settings'],
+                ['admin_security.php','Security & Password'],
+                ['admin_error_log.php','Error Log'],
+                ['admin_watchdog.php','Link Watchdog'],
+                ['admin_link_audit.php','Link Audit'],
             ];
             $cur = basename($_SERVER['PHP_SELF']);
-            foreach ($adminNav as [$url,$label]):
-            ?>
-            <a href="<?= $url ?>" class="block px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition <?= $cur===$url?'bg-red-500/10 text-red-400':'' ?>"><?= $label ?></a>
+            foreach ($adminNav as $item):
+                if (isset($item['heading'])): ?>
+            <div class="px-3 pt-4 pb-1 text-[11px] font-bold text-gray-500 uppercase tracking-wider"><?= e($item['heading']) ?></div>
+                <?php else:
+                    [$url,$label] = $item;
+                ?>
+            <a href="<?= $url ?>" class="block px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition <?= $cur===$url?'bg-red-500/10 text-red-400':'' ?>"><?= $label ?></a>
+                <?php endif; ?>
             <?php endforeach; ?>
         </nav>
         <div class="sidebar-footer p-4">
