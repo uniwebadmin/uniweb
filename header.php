@@ -283,67 +283,79 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
         <nav class="sidebar-nav p-3 space-y-0.5 text-sm flex-1 overflow-y-auto">
             <?php
             $adminNav = [
-                ['heading' => 'Merchants & Staff'],
-                ['admin_dashboard.php','Dashboard'],
-                ['manage_merchant.php','All Merchants'],
-                ['add_merchant.php','Add Merchant'],
-                ['admin_manage_staff.php','Staff / Employees'],
-                ['admin_staff_activity.php','Staff Activity Log'],
-
-                ['heading' => 'Payments & Transactions'],
-                ['admin_transactions.php','Transactions'],
-                ['admin_refunds.php','Refunds'],
-                ['admin_disputes.php','Disputes'],
-                ['admin_chargebacks.php','Chargebacks'],
-                ['admin_payment_links.php','Payment Links'],
-                ['admin_financial_reports.php','Financial Reports'],
-                ['admin_pg_webhooks.php','PG Webhooks'],
-                ['admin_reconciliation.php','PG Reconciliation'],
-
-                ['heading' => 'Settlements & Payouts'],
-                ['admin_settlements.php','Settlements'],
-                ['admin_settlement_settings.php','Settlement Engine'],
-                ['admin_settlement_batches.php','Settlement Batches'],
-                ['admin_wallet.php','Platform Wallet'],
-                ['admin_payout.php','Payout Requests'],
-
-                ['heading' => 'KYC & Onboarding'],
-                ['admin_kyc.php','KYC Review'],
-                ['admin_method_requests.php','Method Requests'],
-                ['admin_nbfc.php','NBFC Applications'],
-                ['admin_qr_codes.php','QR Codes'],
-
-                ['heading' => 'Risk & Support'],
-                ['admin_aml.php','AML Compliance'],
-                ['admin_support.php','Support Tickets'],
-                ['admin_customer_tickets.php','Customer Complaints'],
-                ['admin_website_reviews.php','Website Reviews'],
-
-                ['heading' => 'Partners & Integrations'],
-                ['admin_gateway_submit.php','Gateway Submit'],
-                ['admin_partner_requests.php','Partner Requests'],
-                ['admin_partners.php','All Partners'],
-                ['admin_partner_decentro.php','Decentro Checklist'],
-                ['admin_axis.php','Axis UAT'],
-
-                ['heading' => 'Platform & Settings'],
-                ['admin_platform_status.php','Platform Status'],
-                ['admin_website.php','Website & API Keys'],
-                ['gateway_settings.php','Gateway Settings'],
-                ['admin_security.php','Security & Password'],
-                ['admin_error_log.php','Error Log'],
-                ['admin_watchdog.php','Link Watchdog'],
-                ['admin_link_audit.php','Link Audit'],
+                ['id' => 'merchant', 'title' => 'Merchant', 'items' => [
+                    ['admin_dashboard.php','Dashboard'],
+                    ['manage_merchant.php','All Merchants'],
+                    ['add_merchant.php','Add Merchant'],
+                    ['admin_kyc.php','KYC Review'],
+                    ['admin_nbfc.php','NBFC Applications'],
+                    ['admin_payment_links.php','Payment Links'],
+                    ['admin_qr_codes.php','QR Codes'],
+                ]],
+                ['id' => 'staff', 'title' => 'Staff', 'items' => [
+                    ['admin_manage_staff.php','Staff / Employees'],
+                    ['admin_staff_activity.php','Staff Activity Log'],
+                ]],
+                ['id' => 'payments', 'title' => 'Payments', 'items' => [
+                    ['admin_transactions.php','Transactions'],
+                    ['admin_refunds.php','Refunds'],
+                    ['admin_disputes.php','Disputes'],
+                    ['admin_chargebacks.php','Chargebacks'],
+                    ['admin_financial_reports.php','Financial Reports'],
+                    ['admin_pg_webhooks.php','PG Webhooks'],
+                    ['admin_reconciliation.php','PG Reconciliation'],
+                ]],
+                ['id' => 'settlements', 'title' => 'Settlements', 'items' => [
+                    ['admin_settlements.php','Settlements'],
+                    ['admin_settlement_settings.php','Settlement Engine'],
+                    ['admin_settlement_batches.php','Settlement Batches'],
+                    ['admin_wallet.php','Platform Wallet'],
+                    ['admin_payout.php','Payout Requests'],
+                ]],
+                ['id' => 'partners', 'title' => 'Partners & Integrations', 'items' => [
+                    ['admin_gateway_submit.php','Gateway Submit'],
+                    ['admin_partner_requests.php','Partner Requests'],
+                    ['admin_partners.php','All Partners'],
+                    ['admin_partner_decentro.php','Decentro Checklist'],
+                    ['admin_axis.php','Axis UAT'],
+                    ['admin_method_requests.php','Method Requests'],
+                ]],
+                ['id' => 'support', 'title' => 'Support & Risk', 'items' => [
+                    ['admin_support.php','Support Tickets'],
+                    ['admin_customer_tickets.php','Customer Complaints'],
+                    ['admin_website_reviews.php','Website Reviews'],
+                    ['admin_aml.php','AML Compliance'],
+                ]],
+                ['id' => 'platform', 'title' => 'Platform & Settings', 'items' => [
+                    ['admin_platform_status.php','Platform Status'],
+                    ['admin_website.php','Website & API Keys'],
+                    ['gateway_settings.php','Gateway Settings'],
+                    ['admin_security.php','Security & Password'],
+                    ['admin_error_log.php','Error Log'],
+                    ['admin_watchdog.php','Link Watchdog'],
+                    ['admin_link_audit.php','Link Audit'],
+                ]],
             ];
             $cur = basename($_SERVER['PHP_SELF']);
-            foreach ($adminNav as $item):
-                if (isset($item['heading'])): ?>
-            <div class="px-3 pt-4 pb-1 text-[11px] font-bold text-gray-500 uppercase tracking-wider"><?= e($item['heading']) ?></div>
-                <?php else:
-                    [$url,$label] = $item;
-                ?>
-            <a href="<?= $url ?>" class="block px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition <?= $cur===$url?'bg-red-500/10 text-red-400':'' ?>"><?= $label ?></a>
-                <?php endif; ?>
+            foreach ($adminNav as $group):
+                $isOpen = false;
+                foreach ($group['items'] as $item) {
+                    if (isset($item[0]) && $cur === $item[0]) { $isOpen = true; break; }
+                }
+            ?>
+            <div class="admin-sidebar-group mb-1" data-group-id="<?= e($group['id']) ?>" data-open="<?= $isOpen ? '1' : '0' ?>">
+                <button type="button" class="admin-group-toggle w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition" aria-expanded="<?= $isOpen ? 'true' : 'false' ?>">
+                    <span><?= e($group['title']) ?></span>
+                    <svg class="admin-group-chevron w-4 h-4 flex-shrink-0 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transform: rotate(<?= $isOpen ? '90' : '0' ?>deg);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+                <div class="admin-group-panel overflow-hidden transition-all duration-300" style="max-height: <?= $isOpen ? '1200' : '0' ?>px;">
+                    <div class="py-1 pl-4 space-y-0.5">
+                        <?php foreach ($group['items'] as [$url, $label]): ?>
+                        <a href="<?= $url ?>" class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition <?= $cur===$url?'bg-red-500/10 text-red-400':'' ?>"><?= e($label) ?></a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
             <?php endforeach; ?>
         </nav>
         <div class="sidebar-footer p-4">
@@ -434,6 +446,25 @@ function toggleUniwebTheme(){
     }
     bind('sidebar-toggle','sidebar-panel','sidebar-overlay');
     bind('admin-sidebar-toggle','admin-sidebar','admin-overlay');
+    document.querySelectorAll('.admin-group-toggle').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+            const group=btn.closest('.admin-sidebar-group');
+            const panel=group.querySelector('.admin-group-panel');
+            const chevron=group.querySelector('.admin-group-chevron');
+            const open=group.getAttribute('data-open')==='1';
+            if(panel){
+                if(open){
+                    panel.style.maxHeight=panel.scrollHeight+'px';
+                    requestAnimationFrame(()=>{panel.style.maxHeight='0px';});
+                }else{
+                    panel.style.maxHeight=panel.scrollHeight+'px';
+                }
+            }
+            if(chevron){chevron.style.transform=open?'rotate(0deg)':'rotate(90deg)';}
+            btn.setAttribute('aria-expanded',open?'false':'true');
+            group.setAttribute('data-open',open?'0':'1');
+        });
+    });
     const pbtn=document.getElementById('profile-menu-btn'),pmenu=document.getElementById('profile-menu'),pwrap=document.getElementById('profile-menu-wrap');
     if(pbtn&&pmenu){
         pbtn.addEventListener('click',e=>{e.stopPropagation();pmenu.classList.toggle('hidden');});
@@ -461,5 +492,33 @@ function toggleUniwebTheme(){
         updateSession();
         setInterval(updateSession,1000);
     }
+    // Admin sidebar collapsible groups
+    document.querySelectorAll('.admin-sidebar-group').forEach(function(group){
+        const panel=group.querySelector('.admin-group-panel');
+        const toggle=group.querySelector('.admin-group-toggle');
+        const chevron=group.querySelector('.admin-group-chevron');
+        if(!panel||!toggle)return;
+        if(group.dataset.open==='1'){
+            panel.style.transitionProperty='none';
+            panel.style.maxHeight=panel.scrollHeight+'px';
+            panel.offsetHeight;
+            panel.style.removeProperty('transition-property');
+            if(chevron)chevron.style.transform='rotate(90deg)';
+        }
+        toggle.addEventListener('click',function(){
+            const isOpen=group.dataset.open==='1';
+            if(isOpen){
+                panel.style.maxHeight='0px';
+                group.dataset.open='0';
+                toggle.setAttribute('aria-expanded','false');
+                if(chevron)chevron.style.transform='rotate(0deg)';
+            }else{
+                panel.style.maxHeight=panel.scrollHeight+'px';
+                group.dataset.open='1';
+                toggle.setAttribute('aria-expanded','true');
+                if(chevron)chevron.style.transform='rotate(90deg)';
+            }
+        });
+    });
 })();
 </script>
