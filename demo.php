@@ -1,8 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
-$demo = ensureDemoMerchant();
-$pageTitle = 'Try Demo Payment';
-require_once __DIR__ . '/header.php';
+header('Location: ' . APP_URL . '/index.php');
+exit;
 ?>
 
 <section class="pt-28 pb-20 px-4">

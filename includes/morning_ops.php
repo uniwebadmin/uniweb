@@ -8,27 +8,6 @@ function runMorningPlatformOps(): array
     $results = [];
 
     try {
-        $demo = ensureDemoMerchant();
-        $demoRow = getDB()->prepare('SELECT * FROM merchants WHERE email = ?');
-        $demoRow->execute(['demo@uniweb.co.in']);
-        $demoM = $demoRow->fetch();
-        $sandboxOnly = $demoM
-            && ($demoM['account_mode'] ?? '') === 'test'
-            && ($demoM['kyc_status'] ?? '') === 'submitted'
-            && !isMerchantLive($demoM);
-        $results[] = [
-            'id' => 'demo_merchant',
-            'ok' => (bool)$sandboxOnly,
-            'label' => 'Demo merchant ready',
-            'detail' => $demoM
-                ? (($demoM['merchant_code'] ?? '') . ' · permanently Test Mode (sandbox-only)')
-                : 'demo@uniweb.co.in missing',
-        ];
-    } catch (Throwable $e) {
-        $results[] = ['id' => 'demo_merchant', 'ok' => false, 'label' => 'Demo merchant', 'detail' => $e->getMessage()];
-    }
-
-    try {
         $fixed = fixVerifiedMerchantsNotLive();
         $results[] = [
             'id' => 'verified_live',

@@ -1,11 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
-$demo = ensureDemoMerchant();
-$slides = getDemoTourSlides($demo);
-$startSlide = max(0, min(count($slides) - 1, (int)($_GET['slide'] ?? 0)));
-$pageTitle = 'Platform Tour — Guided Demo';
-$bodyClass = 'bg-dark-950';
-require_once __DIR__ . '/header.php';
+header('Location: ' . APP_URL . '/tour_videos.php');
+exit;
 ?>
 
 <style>

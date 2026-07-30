@@ -248,12 +248,10 @@ $assert(str_contains($adminDash, 'Live mode is a separate activation gate'), 'da
 
 $individualDocs = getKycRequirements('individual');
 $assert($individualDocs === ['pan', 'aadhaar', 'bank_proof', 'photo'], 'kyc_individual_docs_only_identity_bank_photo');
-$assert(livePaymentAmountCap() >= 200000000.0, 'live_payment_cap_20_crore');
-$assert(liveQrDailyTxnSoftCapacity() >= 1000000, 'qr_daily_soft_capacity_10_lakh');
 $qrPay = (string)file_get_contents($root . '/qr_pay.php');
 $assert(!str_contains($qrPay, 'checkVelocityBlock'), 'qr_pay_no_scan_velocity_block');
-$assert(str_contains((string)file_get_contents($root . '/qr_code.php'), '10 lakh'), 'qr_code_mentions_high_throughput');
-$assert(str_contains((string)file_get_contents($root . '/qr_code.php'), 'high-frequency'), 'qr_code_no_high_frequency_lock_copy');
+$assert(!str_contains((string)file_get_contents($root . '/qr_code.php'), '10 lakh'), 'qr_code_no_fake_high_throughput');
+$assert(!str_contains((string)file_get_contents($root . '/qr_code.php'), 'high-frequency'), 'qr_code_no_high_frequency_claim');
 $checkoutSrc = (string)file_get_contents($root . '/checkout.php');
 $assert(str_contains($checkoutSrc, 'qr_code_id'), 'checkout_loads_qr_code_id');
 $assert(str_contains($checkoutSrc, '$fromQr'), 'checkout_skips_velocity_for_qr');

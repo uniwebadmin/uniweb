@@ -433,24 +433,19 @@ function getMerchantWalletBalance(?array $merchant): float
     return $bal > 1000 ? 0.0 : $bal;
 }
 
-/** Platform soft caps — test ₹100; live up to ₹20 crore (bank/UPI rails may still apply lower per-txn limits). */
+/** Platform amount safety cap. Real per-txn limits are enforced by the active bank / payment partner. */
 function livePaymentAmountCap(): float
 {
-    return 200000000.0;
+    return 999999999999.99;
 }
 
-function liveQrDailyTxnSoftCapacity(): int
-{
-    return 1000000; // 10 lakh payments per QR per day — soft capacity; UniWeb does not auto-block for volume
-}
-
-/** True when this checkout link was created from a merchant QR (high-throughput path). */
+/** True when this checkout link was created from a merchant QR. */
 function isQrOriginPaymentLink(array $link): bool
 {
     return (int)($link['qr_code_id'] ?? 0) > 0;
 }
 
-/** Cap payment / wallet amounts — test max ₹100, live max ₹20 crore */
+/** Cap payment / wallet amounts — test max ₹100, live uses the platform safety cap. */
 function sanitizePaymentAmount(float $amount, bool $isTest = true): float
 {
     if (!is_finite($amount) || $amount < 0) {

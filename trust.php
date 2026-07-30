@@ -19,7 +19,7 @@ require_once __DIR__ . '/header.php';
             <div class="company-card"><h3>KYC before Live Mode</h3><p>Live collections require verified documents, bank account, website review, video KYC where required, and signed merchant agreement.</p></div>
             <div class="company-card"><h3>Webhook &amp; API integrity</h3><p>Gateway webhooks are signature-checked. Merchant outbound webhooks use HMAC. API keys are separated for Test and Live.</p></div>
             <div class="company-card"><h3>Audit &amp; maker-checker</h3><p>Sensitive KYC and Live activation actions go through independent checker approval with immutable audit records.</p></div>
-            <div class="company-card"><h3>Velocity &amp; fraud signals</h3><p>Failed login and non-QR payment abuse are rate-limited. Merchant QR checkout is high-throughput — UniWeb does not lock accounts for high frequency of small successful payments (up to 10 lakh/day).</p></div>
+            <div class="company-card"><h3>Velocity &amp; fraud signals</h3><p>Failed login and non-QR payment abuse are rate-limited.</p></div>
             <div class="company-card"><h3>Private KYC storage</h3><p>New KYC uploads are stored outside the public web root with access limited to authorized staff viewers.</p></div>
         </div>
     </div></section>

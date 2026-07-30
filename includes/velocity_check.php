@@ -51,7 +51,6 @@ function velocityPolicy(string $type): array
         'merchant_signup' => ['window_minutes' => 60, 'max_attempts' => 8, 'cooldown_minutes' => 60],
         'qr_link' => ['window_minutes' => 1, 'max_attempts' => 1000000, 'cooldown_minutes' => 0],
         // QR path no longer uses this policy for blocks (see qr_pay.php / checkout.php).
-        // Kept extremely high so any legacy caller cannot throttle ₹100 × 10 lakh traffic.
     ];
     return $policies[$type] ?? ['window_minutes' => 5, 'max_attempts' => 10, 'cooldown_minutes' => 15];
 }

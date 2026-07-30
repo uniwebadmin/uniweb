@@ -83,32 +83,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         if ($m && password_verify($password, $m['password'])) {
-            if (strcasecmp((string)$m['email'], 'demo@uniweb.co.in') === 0) {
-                try {
-                    ensureDemoMerchant();
-                    $stmt = getDB()->prepare('SELECT * FROM merchants WHERE id = ?');
-                    $stmt->execute([(int)$m['id']]);
-                    $refreshed = $stmt->fetch();
-                    if ($refreshed) {
-                        $m = $refreshed;
-                    }
-                } catch (Throwable $e) {
-                    logPlatformError('warning', 'Demo merchant refresh failed: ' . $e->getMessage());
-                }
-            }
-            $isDemoLogin = strcasecmp((string)$m['email'], 'demo@uniweb.co.in') === 0;
-            if ($isDemoLogin) {
-                // Demo store always opens in Test Mode for Instant Pay / instant bank transfer demos
-                $_SESSION['dashboard_view_mode'] = 'test';
-            }
             ensureMerchant2FA();
-            if (!$isDemoLogin && !empty($m['totp_enabled']) && !empty($m['totp_secret'])) {
+            if (!empty($m['totp_enabled']) && !empty($m['totp_secret'])) {
                 unset($_SESSION['admin_id'], $_SESSION['admin_name']);
                 $_SESSION['pending_2fa_merchant_id'] = $m['id'];
                 $totpStep = true;
-            }
-            // Demo store + broken WhatsApp Meta: password login (OTP must not block bank/PG demos)
-            elseif (!$isDemoLogin && isOTPEnabled()) {
+            } elseif (isOTPEnabled()) {
                 $otp = generateOTP($m['email'], 'login');
                 $otpDelivery = sendLoginOtpViaWhatsAppAndEmail($m, $otp);
                 if (!empty($otpDelivery['whatsapp_sent']) || !empty($otpDelivery['email_sent'])) {

@@ -181,7 +181,7 @@ require_once __DIR__ . '/header.php';
 <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
     <div>
         <h1 class="text-2xl font-bold">QR Code Generator</h1>
-        <p class="text-sm text-gray-500 mt-1">High-throughput QR — up to <strong class="text-gray-300">10 lakh payments/day</strong>. Small amounts (e.g. ₹100 × 10 lakh) are <strong class="text-gray-300">not</strong> blocked as high-frequency. Amounts up to ₹20 crore (bank/UPI per-txn limits may still apply).</p>
+        <p class="text-sm text-gray-500 mt-1">Generate QR codes for in-store and online payments. Transaction limits follow your bank / UPI rail.</p>
     </div>
     <div class="text-right text-xs">
         <p class="font-mono text-gray-400">MID <?= e($merchant['merchant_code'] ?? '') ?></p>
@@ -203,7 +203,7 @@ require_once __DIR__ . '/header.php';
 <div class="grid lg:grid-cols-3 gap-6 mb-8">
     <div class="glass rounded-xl p-6 lg:col-span-1">
         <h2 class="font-semibold mb-1">Create New QR</h2>
-        <p class="text-xs text-gray-500 mb-5"><?= $isTest ? 'Sandbox QR — Instant Test Pay, no real money.' : 'Live QR — 10 lakh payments/day · no high-frequency account lock · amounts up to ₹20 crore (UPI/bank rails may cap each txn lower).' ?></p>
+        <p class="text-xs text-gray-500 mb-5"><?= $isTest ? 'Sandbox QR — Instant Test Pay, no real money.' : 'Live QR — share once, receive UPI / card / wallet payments directly to your account.' ?></p>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="create">
@@ -222,7 +222,7 @@ require_once __DIR__ . '/header.php';
             </div>
             <div id="qr-amount-wrap" class="hidden">
                 <label class="text-sm text-gray-400">Fixed Amount (₹) *</label>
-                <input type="number" id="qr-amount" name="amount" min="1" max="<?= $isTest ? 100 : (int)livePaymentAmountCap() ?>" step="0.01" value="1" class="input-field mt-1">
+                <input type="number" id="qr-amount" name="amount" min="1" step="0.01" value="1" class="input-field mt-1">
             </div>
             <div>
                 <label class="text-sm text-gray-400">Description</label>
@@ -253,7 +253,7 @@ require_once __DIR__ . '/header.php';
                 </div>
                 <div id="bulk-amount-wrap" class="hidden">
                     <label class="text-sm text-gray-400">Fixed Amount (₹) — applies to all *</label>
-                    <input type="number" id="bulk-amount" name="amount" min="1" max="<?= $isTest ? 100 : (int)livePaymentAmountCap() ?>" step="0.01" value="1" class="input-field mt-1">
+                    <input type="number" id="bulk-amount" name="amount" min="1" step="0.01" value="1" class="input-field mt-1">
                 </div>
                 <div>
                     <label class="text-sm text-gray-400">Description — applies to all</label>

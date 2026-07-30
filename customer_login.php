@@ -14,7 +14,6 @@ if (isset($_GET['change'])) {
 $error = '';
 $notice = '';
 $otpStep = !empty($_SESSION['customer_pending_phone']);
-$demoOtp = $_SESSION['customer_demo_otp'] ?? null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
@@ -40,13 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $res = requestCustomerOtp($phone);
             if ($res['ok']) {
                 $_SESSION['customer_pending_phone'] = $phone;
-                if (!empty($res['demo_otp'])) {
-                    $_SESSION['customer_demo_otp'] = $res['demo_otp'];
-                    $demoOtp = $res['demo_otp'];
-                } else {
-                    unset($_SESSION['customer_demo_otp']);
-                    $demoOtp = null;
-                }
+                unset($_SESSION['customer_demo_otp']);
                 $notice = $res['message'];
                 $otpStep = true;
             } else {
@@ -91,12 +84,6 @@ require_once __DIR__ . '/header.php';
             <?php if ($notice): ?><div class="ap-alert ap-alert-ok mt-5"><?= e($notice) ?></div><?php endif; ?>
 
             <?php if ($otpStep): ?>
-            <?php if (!empty($demoOtp)): ?>
-            <div class="ap-alert ap-alert-demo mt-5">
-                Demo mode (SMS/WhatsApp not configured). Your OTP is
-                <strong class="font-mono text-lg tracking-widest block mt-1"><?= e($demoOtp) ?></strong>
-            </div>
-            <?php endif; ?>
             <form method="POST" class="space-y-5 mt-6">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <p class="text-sm text-center text-slate-600">Code sent to <strong>+91 <?= e($pendingPhone) ?></strong></p>

@@ -7,19 +7,6 @@ if (!merchantProfileComplete($merchant)) {
     redirect('merchant_setup.php');
 }
 
-if (strcasecmp((string)($merchant['email'] ?? ''), 'demo@uniweb.co.in') === 0) {
-    try {
-        ensureDemoMerchant();
-        $ref = getDB()->prepare('SELECT * FROM merchants WHERE id = ?');
-        $ref->execute([(int)$merchant['id']]);
-        if ($fresh = $ref->fetch()) {
-            $merchant = $fresh;
-        }
-    } catch (Throwable $e) {
-        logPlatformError('warning', 'Demo refresh on dashboard: ' . $e->getMessage());
-    }
-}
-
 ensureWalletEngine();
 $wallet = ensureMerchantWalletReady((int)$merchant['id']);
 $viewTest = isDashboardTestMode($merchant);

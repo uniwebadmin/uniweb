@@ -20,8 +20,7 @@ function renderCheckoutUnavailable(string $heading, string $detail, int $status 
     echo '<section class="pt-28 pb-20 px-4"><div class="max-w-lg mx-auto glass rounded-2xl p-8 text-center">'
         . '<h1 class="text-xl font-semibold mb-2">' . e($heading) . '</h1>'
         . '<p class="text-sm text-gray-400 mb-6">' . e($detail) . '</p>'
-        . '<a href="demo.php" class="inline-block btn-primary px-5 py-2.5 text-sm">Try Demo Payment</a>'
-        . ' <a href="index.php" class="inline-block ml-2 text-sm text-gray-400 hover:text-white">Home</a>'
+        . '<a href="index.php" class="inline-block btn-primary px-5 py-2.5 text-sm">Home</a>'
         . '</div></section>';
     require_once __DIR__ . '/footer.php';
     exit;
@@ -31,7 +30,7 @@ $linkId = $_GET['link'] ?? $_POST['udf1'] ?? '';
 if (!$linkId) {
     renderCheckoutUnavailable(
         'Payment link not found',
-        'This checkout URL is missing a valid payment link. Open a link from your merchant dashboard, or try the demo.'
+        'This checkout URL is missing a valid payment link. Please open a link from your merchant dashboard.'
     );
 }
 header('Cache-Control: no-store, no-cache, must-revalidate');
@@ -47,23 +46,22 @@ $link = $stmt->fetch();
 if (!$link) {
     renderCheckoutUnavailable(
         'Payment link not found',
-        'This payment link has expired or does not exist. Ask the merchant for a fresh link, or try the demo.'
+        'This payment link has expired or does not exist. Please ask the merchant for a fresh link.'
     );
 }
 $amtOnly = $db->prepare('SELECT amount, status FROM payment_links WHERE link_id = ?');
 $amtOnly->execute([$linkId]);
 $plRow = $amtOnly->fetch();
 $isTestCheckout = !empty($link['is_test']) || merchantAccountMode($link) === 'test';
-$isDemoMerchant = strcasecmp((string)($link['merchant_email'] ?? ''), 'demo@uniweb.co.in') === 0;
-$payAmount = sanitizePaymentAmount(round((float)($plRow['amount'] ?? 0), 2), $isTestCheckout || $isDemoMerchant);
+$payAmount = sanitizePaymentAmount(round((float)($plRow['amount'] ?? 0), 2), $isTestCheckout);
 $link['amount'] = $payAmount;
 $link['status'] = $plRow['status'] ?? 'active';
-// Instant Test Pay: Test Mode links, OR demo store (approval walkthrough)
-$allowInstantPay = $isTestCheckout || ($isDemoMerchant && $payAmount <= 100);
+// Instant Test Pay: Test Mode links only
+$allowInstantPay = $isTestCheckout;
 if ($link['status'] !== 'active') {
     renderCheckoutUnavailable(
         'Payment link no longer active',
-        'This payment link is no longer active. Please ask the merchant for a new link, or try the demo.',
+        'This payment link is no longer active. Please ask the merchant for a new link.',
         410
     );
 }
@@ -71,7 +69,7 @@ if ($link['expires_at'] && strtotime($link['expires_at']) < time()) {
     $db->prepare("UPDATE payment_links SET status = 'expired' WHERE id = ?")->execute([$link['id']]);
     renderCheckoutUnavailable(
         'Payment link expired',
-        'This payment link has expired. Please ask the merchant for a fresh link, or try the demo.',
+        'This payment link has expired. Please ask the merchant for a fresh link.',
         410
     );
 }
@@ -211,8 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && $selectedPay === 'upi' && in_array($handler, ['direct_upi', 'axis_va'], true) && !$success) {
     $utr = trim($_POST['utr'] ?? '');
-    // High-throughput QR: never block busy counters for "high frequency" (₹100 × 10 lakh, etc.).
-    // payment_fail velocity stays for non-QR checkout only (bot UTR spray).
+    // QR payments are not throttled by UniWeb; payment_fail velocity stays for non-QR checkout only.
     $fromQr = !empty($link['qr_code_id']);
     $velocity = $fromQr ? ['blocked' => false, 'retry_after_minutes' => 0] : checkVelocityBlock('payment_fail');
     if ($checkoutCustomerError !== '' && $utr !== '') {
@@ -337,7 +334,7 @@ require_once __DIR__ . '/header.php';
                         <input type="hidden" name="pay" value="upi">
                         <?php renderCheckoutCustomerFields($link); ?>
                         <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-dark-900 py-4 rounded-xl font-semibold text-lg">⚡ Instant Test Pay <?= formatMoney($payAmount) ?> — UPI</button>
-                        <p class="text-xs text-amber-400/80 text-center mt-2">Recommended for demos / bank approval — completes instantly (no real UPI transfer).</p>
+                        <p class="text-xs text-amber-400/80 text-center mt-2">Sandbox only — completes instantly without a real UPI transfer.</p>
                     </form>
                     <details class="mb-4">
                         <summary class="cursor-pointer text-xs text-gray-500 mb-2">Optional: scan QR / enter UTR (sandbox)</summary>

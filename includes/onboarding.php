@@ -276,7 +276,7 @@ function capStatAmount(float $amount, int $count = -1): float
     if ($count === 0) {
         return 0.0;
     }
-    if ($amount < 0 || !is_finite($amount) || $amount > livePaymentAmountCap() * (float)liveQrDailyTxnSoftCapacity()) {
+    if ($amount < 0 || !is_finite($amount) || $amount > livePaymentAmountCap()) {
         return 0.0;
     }
     return round($amount, 2);

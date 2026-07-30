@@ -28,7 +28,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 $pending['signup_mode'] === 'email' ? $pending['email'] : $pending['phone'],
                 'account signup'
             );
-            $pending['demo_otp'] = $delivery['demo_otp'];
             $_SESSION['pending_signup'] = $pending;
             flash('success', $pending['signup_mode'] === 'email' ? __('flash_otp_sent_email') : __('flash_otp_sent_mobile'));
         }
@@ -203,9 +202,6 @@ require_once __DIR__ . '/header.php';
                 <?= $pending['signup_mode'] === 'email' ? __('email_id') : __('mobile_number') ?>:
                 <span class="text-white font-medium"><?= e($pending['signup_mode'] === 'email' ? $pending['email'] : $pending['phone']) ?></span>
             </p>
-            <?php if (!empty($pending['demo_otp'])): ?>
-            <div class="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm px-4 py-3 rounded-lg mb-4">Demo mode — your code is <strong><?= e($pending['demo_otp']) ?></strong> (email/SMS provider not configured yet).</div>
-            <?php endif; ?>
             <form method="POST" class="space-y-5">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="step" value="verify">

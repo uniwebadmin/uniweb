@@ -54,9 +54,6 @@ assertTrue(function_exists('claimApiIdempotency'), 'api_idempotency_exists');
 $webhook = file_get_contents($root . '/webhook.php') ?: '';
 assertTrue(str_contains($webhook, '410') || str_contains($webhook, 'Gone'), 'generic_webhook_disabled');
 
-// Demo isolation helper
-assertTrue(function_exists('ensureDemoMerchant') || file_exists($root . '/includes/demo.php'), 'demo_module_present');
-
 $contactChangeLib = (string)file_get_contents($root . '/includes/contact_change.php');
 assertTrue(is_file($root . '/includes/contact_change.php'), 'contact_change_module_present');
 assertTrue(str_contains($contactChangeLib, 'function requestMerchantEmailChange'), 'contact_change_email_request');

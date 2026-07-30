@@ -28,9 +28,7 @@ function getWatchdogPageRegistry(): array
         ['faq.php', 'FAQ', 'public'],
         ['blog.php', 'Blog', 'public'],
         ['api_docs.php', 'API Docs', 'public'],
-        ['platform_demo.php', 'Platform Tour', 'public'],
         ['tour_videos.php', 'Video Tour', 'public'],
-        ['demo.php', 'Live Demo Payment', 'public'],
         ['merchant_register.php', 'Merchant Signup', 'public'],
         ['signup.php', 'Signup', 'public'],
         ['login.php', 'Merchant Login', 'public'],
@@ -226,7 +224,7 @@ function getWatchdogPageRegistry(): array
 function watchdogDiscoverPhpFiles(): array
 {
     $root = watchdogRoot();
-    $skip = ['update_', 'wallet_fix', 'wallet_diagnose', 'debug_', 'night_setup', 'my_secret', 'diag', 'fix_demo', 'refresh_demo', 'platform_wallet_fix', 'axis_probe', 'db_wizard'];
+    $skip = ['update_', 'wallet_fix', 'wallet_diagnose', 'debug_', 'night_setup', 'my_secret', 'diag', 'platform_wallet_fix', 'axis_probe', 'db_wizard'];
     $files = [];
     foreach (glob($root . '/*.php') ?: [] as $path) {
         if (!is_file($path) || is_dir($path)) {
@@ -316,7 +314,6 @@ function watchdogIsIgnorableHref(string $href): bool
 function watchdogCleanUrlRoutes(): array
 {
     return [
-        'demo' => 'demo.php',
         'register' => 'merchant_register.php',
         'login' => 'login.php',
         'admin' => 'admin_login.php',

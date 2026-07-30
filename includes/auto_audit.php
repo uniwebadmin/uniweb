@@ -99,22 +99,6 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
             $report['steps']['verified_live'] = ['ok' => false, 'error' => $e->getMessage()];
         }
 
-        try {
-            ensureDemoMerchant();
-            $report['steps']['demo'] = ['ok' => true];
-        } catch (Throwable $e) {
-            $report['steps']['demo'] = ['ok' => false, 'error' => $e->getMessage()];
-        }
-
-        try {
-            if (function_exists('ensureDemoStaff')) {
-                ensureDemoStaff();
-                $report['steps']['demo_staff'] = ['ok' => true];
-            }
-        } catch (Throwable $e) {
-            $report['steps']['demo_staff'] = ['ok' => false, 'error' => $e->getMessage()];
-        }
-
         if (function_exists('runPlatformWatchdog')) {
             $watch = runPlatformWatchdog();
             $report['steps']['watchdog'] = $watch;

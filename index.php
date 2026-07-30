@@ -30,7 +30,7 @@ require_once __DIR__ . '/header.php';
         </p>
         <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
             <a href="merchant_register.php" class="w-full sm:w-auto bg-brand-600 hover:bg-brand-500 text-white px-10 py-4 rounded-xl font-semibold text-lg transition shadow-lg shadow-brand-600/25">Start Accepting Payments →</a>
-            <a href="demo.php" class="w-full sm:w-auto glass text-gray-200 hover:text-white px-8 py-4 rounded-xl font-semibold text-lg transition border border-gray-700">Try ₹1 Demo Payment</a>
+            <a href="tour_videos.php" class="w-full sm:w-auto glass text-gray-200 hover:text-white px-8 py-4 rounded-xl font-semibold text-lg transition border border-gray-700">Watch Platform Tour</a>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-3xl mx-auto">
             <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= formatPublicVolume($publicStats['volume']) ?></div><div class="text-xs text-gray-500 mt-1">Verified Live Volume</div></div>
@@ -55,7 +55,7 @@ require_once __DIR__ . '/header.php';
             <a href="tour_videos.php" class="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-6 py-3 rounded-xl font-semibold text-sm sm:text-base">
                 <span>▶</span> Play Full Tour
             </a>
-            <a href="demo.php" class="inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white px-6 py-3 rounded-xl font-semibold text-sm sm:text-base">₹1 Test Payment</a>
+            <a href="merchant_register.php" class="inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white px-6 py-3 rounded-xl font-semibold text-sm sm:text-base">Get Started Free</a>
         </div>
     </div>
 </section>

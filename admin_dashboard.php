@@ -163,8 +163,6 @@ require_once __DIR__ . '/header.php';
     </div>
 </div>
 
-<?php require_once __DIR__ . '/includes/admin_demo_table.php'; ?>
-
 <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8">
     <?php foreach ([
         ['Total Merchants', $totalMerchants, 'text-brand-400', 'manage_merchant.php'],
