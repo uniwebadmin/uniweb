@@ -231,6 +231,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     return true;
                 }));
             }
+            unset($group);
             $cur = basename($_SERVER['PHP_SELF']);
             foreach ($merchantNav as $group):
                 $isOpen = false;
