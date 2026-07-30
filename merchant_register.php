@@ -181,97 +181,97 @@ $bodyClass = trim(($bodyClass ?? '') . ' auth-portal-shell auth-portal--merchant
 require_once __DIR__ . '/header.php';
 ?>
 
-<div class="ap-panel min-h-screen">
-    <div class="relative w-full max-w-md">
+<div class="ap-wrap">
+    <?php require __DIR__ . '/includes/auth_theme_toggle.php'; ?>
+    <div class="ap-panel">
+        <div class="ap-card">
+            <div class="ap-logo">
+                <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
+            </div>
+            <p class="ap-title"><?= $showOtpStep ? __('signup_otp_title') : __('signup_title') ?></p>
+            <p class="ap-sub"><?= $showOtpStep ? __('signup_otp_sub') : __('signup_sub') ?></p>
 
-        <div class="text-center mb-6">
-            <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
-            <h1 class="ap-display text-2xl font-bold"><?= $showOtpStep ? __('signup_otp_title') : __('signup_title') ?></h1>
-            <p class="ap-sub text-sm mt-2"><?= $showOtpStep ? __('signup_otp_sub') : __('signup_sub') ?></p>
-        </div>
-
-        <div class="ap-card max-w-md mx-auto">
             <?php if ($errors): ?>
-            <div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg mb-6">
+            <div class="ap-alert ap-alert-error">
                 <?php foreach ($errors as $e): ?><p><?= e($e) ?></p><?php endforeach; ?>
             </div>
             <?php endif; ?>
 
             <?php if ($showOtpStep && $pending): ?>
-            <p class="text-sm text-gray-400 mb-4">
+            <p class="text-sm mb-4" style="color:var(--ap-muted);">
                 <?= $pending['signup_mode'] === 'email' ? __('email_id') : __('mobile_number') ?>:
-                <span class="text-white font-medium"><?= e($pending['signup_mode'] === 'email' ? $pending['email'] : $pending['phone']) ?></span>
+                <span style="color:var(--ap-ink);font-weight:500;"><?= e($pending['signup_mode'] === 'email' ? $pending['email'] : $pending['phone']) ?></span>
             </p>
-            <form method="POST" class="space-y-5">
+            <form method="POST" class="ap-form">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="step" value="verify">
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1.5"><?= __('otp_code_label') ?> *</label>
-                    <input type="text" name="otp_code" required maxlength="6" inputmode="numeric" autofocus class="input-field tracking-widest text-center text-lg" placeholder="••••••">
+                <div class="ap-field">
+                    <label class="ap-label"><?= __('otp_code_label') ?> *</label>
+                    <input type="text" name="otp_code" required maxlength="6" inputmode="numeric" autofocus class="ap-input ap-otp" placeholder="••••••">
                 </div>
                 <button type="submit" class="ap-btn"><?= __('verify_and_create_account_btn') ?></button>
             </form>
-            <div class="flex items-center justify-between mt-4 text-sm">
-                <form method="POST"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="step" value="resend_otp"><button type="submit" class="text-brand-400 hover:underline"><?= __('resend_otp') ?></button></form>
-                <form method="POST"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="step" value="change_details"><button type="submit" class="text-gray-500 hover:underline"><?= __('change_details') ?></button></form>
+            <div class="ap-row" style="margin-top:1rem;">
+                <form method="POST"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="step" value="resend_otp"><button type="submit" class="ap-link"><?= __('resend_otp') ?></button></form>
+                <form method="POST"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="step" value="change_details"><button type="submit" class="ap-text-link"><?= __('change_details') ?></button></form>
             </div>
             <?php else: ?>
 
-            <div class="flex rounded-lg bg-dark-900/60 p-1 mb-6 border border-gray-800">
-                <a href="?mode=email" class="flex-1 text-center py-2.5 text-sm rounded-md transition <?= $signupMode === 'email' ? 'bg-brand-600 text-white font-semibold' : 'text-gray-400 hover:text-white' ?>"><?= __('signup_via_email') ?></a>
-                <a href="?mode=mobile" class="flex-1 text-center py-2.5 text-sm rounded-md transition <?= $signupMode === 'mobile' ? 'bg-brand-600 text-white font-semibold' : 'text-gray-400 hover:text-white' ?>"><?= __('signup_via_mobile') ?></a>
+            <div class="ap-mode-tab">
+                <a href="?mode=email" class="<?= $signupMode === 'email' ? 'active' : '' ?>"><?= __('signup_via_email') ?></a>
+                <a href="?mode=mobile" class="<?= $signupMode === 'mobile' ? 'active' : '' ?>"><?= __('signup_via_mobile') ?></a>
             </div>
 
-            <form method="POST" class="space-y-5">
+            <form method="POST" class="ap-form">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="signup_mode" value="<?= e($signupMode) ?>">
 
                 <?php if ($signupMode === 'email'): ?>
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1.5"><?= __('email_id') ?> *</label>
-                    <input type="email" name="email" required class="input-field" placeholder="you@business.com" value="<?= e($_POST['email'] ?? '') ?>">
+                <div class="ap-field">
+                    <label class="ap-label"><?= __('email_id') ?> *</label>
+                    <input type="email" name="email" required class="ap-input" placeholder="you@business.com" value="<?= e($_POST['email'] ?? '') ?>">
                 </div>
                 <?php else: ?>
                 <div class="grid grid-cols-3 gap-3">
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1.5"><?= __('country_code') ?></label>
-                        <select name="phone_code" class="input-field">
+                    <div class="ap-field">
+                        <label class="ap-label"><?= __('country_code') ?></label>
+                        <select name="phone_code" class="ap-input">
                             <option value="+91" <?= ($_POST['phone_code'] ?? '+91') === '+91' ? 'selected' : '' ?>>+91</option>
                             <option value="+977">+977</option>
                             <option value="+880">+880</option>
                         </select>
                     </div>
-                    <div class="col-span-2">
-                        <label class="block text-sm text-gray-400 mb-1.5"><?= __('mobile_number') ?> *</label>
-                        <input type="tel" name="phone" required class="input-field" placeholder="9876543210" value="<?= e($_POST['phone'] ?? '') ?>">
+                    <div class="ap-field col-span-2">
+                        <label class="ap-label"><?= __('mobile_number') ?> *</label>
+                        <input type="tel" name="phone" required class="ap-input" placeholder="9876543210" value="<?= e($_POST['phone'] ?? '') ?>">
                     </div>
                 </div>
                 <?php endif; ?>
 
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1.5"><?= __('password') ?> *</label>
-                    <input type="password" name="password" required minlength="8" class="input-field" placeholder="<?= e(__('password_min_placeholder')) ?>">
+                <div class="ap-field">
+                    <label class="ap-label"><?= __('password') ?> *</label>
+                    <input type="password" name="password" required minlength="8" class="ap-input" placeholder="<?= e(__('password_min_placeholder')) ?>">
                 </div>
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1.5"><?= __('confirm_password') ?> *</label>
-                    <input type="password" name="confirm_password" required class="input-field" placeholder="<?= e(__('password_confirm_placeholder')) ?>">
+                <div class="ap-field">
+                    <label class="ap-label"><?= __('confirm_password') ?> *</label>
+                    <input type="password" name="confirm_password" required class="ap-input" placeholder="<?= e(__('password_confirm_placeholder')) ?>">
                 </div>
 
-                <p class="text-xs text-gray-600"><?= __('signup_portal_note') ?></p>
+                <p class="ap-hint"><?= __('signup_portal_note') ?></p>
 
                 <button type="submit" class="ap-btn"><?= __('create_account_btn') ?></button>
 
-                <p class="text-xs text-gray-600 text-center leading-relaxed">
+                <p class="ap-hint text-center leading-relaxed">
                     <?= __('signup_terms') ?>
-                    <a href="terms.php" target="_blank" class="text-brand-400 hover:underline"><?= __('terms') ?></a>
+                    <a href="terms.php" target="_blank"><?= __('terms') ?></a>
                     and
-                    <a href="privacy.php" target="_blank" class="text-brand-400 hover:underline"><?= __('privacy_policy') ?></a>,
-                    <a href="refund_policy.php" target="_blank" class="text-brand-400 hover:underline">Refund Policy</a>.
+                    <a href="privacy.php" target="_blank"><?= __('privacy_policy') ?></a>,
+                    <a href="refund_policy.php" target="_blank">Refund Policy</a>.
                 </p>
             </form>
             <?php endif; ?>
 
-            <p class="text-center text-sm text-gray-500 mt-6"><?= __('already_have_account') ?> <a href="login.php" class="text-brand-400"><?= __('login') ?></a></p>
+            <p class="ap-foot"><?= __('already_have_account') ?> <a href="login.php" class="ap-link"><?= __('login') ?></a></p>
         </div>
     </div>
 </div>

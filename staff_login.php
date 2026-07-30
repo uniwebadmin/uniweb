@@ -102,52 +102,43 @@ $bodyClass = trim(($bodyClass ?? '') . ' auth-portal-shell auth-portal--staff');
 require_once __DIR__ . '/header.php';
 ?>
 <div class="ap-wrap">
-    <aside class="ap-visual" aria-hidden="true">
-        <div>
-            <div class="w-14 h-14 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center font-bold text-xl">UW</div>
-            <h2 class="ap-display text-3xl font-bold mt-10 leading-tight">Operations.<br>KYC. Support. Settle.</h2>
-            <p class="mt-4 text-white/80 text-sm max-w-sm leading-relaxed">Employee portal for refunds, disputes, customer complaints, and merchant ops.</p>
-        </div>
-        <div class="relative z-10 space-y-3 text-sm text-white/85">
-            <p>✓ Staff MFA is mandatory</p>
-            <p>✓ Role-gated tools via requireStaffAccess()</p>
-            <p>✓ Super Admin uses Master Admin login</p>
-        </div>
-    </aside>
+    <?php require __DIR__ . '/includes/auth_theme_toggle.php'; ?>
     <div class="ap-panel">
         <div class="ap-card">
-            <p class="ap-eyebrow">Operations portal</p>
-            <h1 class="ap-display"><?= $mfaSetup ? 'Mandatory MFA enrollment' : ($mfaPending ? 'Authenticator challenge' : 'Staff sign in') ?></h1>
-            <p class="ap-sub">Policy: Staff MFA is mandatory. First login enrolls authenticator — no lockout without a setup prompt.</p>
-            <?php if ($error): ?><div class="ap-alert ap-alert-error mt-5"><?= e($error) ?></div><?php endif; ?>
+            <div class="ap-logo">
+                <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
+            </div>
+            <p class="ap-title"><?= $mfaSetup ? 'Mandatory MFA enrollment' : ($mfaPending ? 'Authenticator challenge' : 'Staff sign in') ?></p>
+            <p class="ap-sub">Policy: Staff MFA is mandatory. First login enrolls authenticator.</p>
+            <?php if ($error): ?><div class="ap-alert ap-alert-error"><?= e($error) ?></div><?php endif; ?>
             <?php if ($mfaSetup && $setupSecret !== ''): ?>
-            <p class="ap-sub mt-4 mb-3">Scan / enter this secret in your authenticator app:</p>
-            <p class="ap-mono mb-4"><?= e($setupSecret) ?></p>
-            <form method="POST" class="space-y-5">
+            <p class="ap-sub" style="margin-bottom:.5rem;">Scan / enter this secret in your authenticator app:</p>
+            <p class="ap-mono"><?= e($setupSecret) ?></p>
+            <form method="POST" class="ap-form">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="mfa_setup">
-                <div class="ap-field"><?= uxFormLabel(uxFieldId('totp_setup'), 'Authenticator Code') ?><input type="text" name="totp_code" id="<?= e(uxFieldId('totp_setup')) ?>" required maxlength="6" pattern="[0-9]{6}" class="ap-input ap-otp" autofocus inputmode="numeric" autocomplete="one-time-code"></div>
+                <div class="ap-field"><label for="<?= e(uxFieldId('totp_setup')) ?>">Authenticator Code</label><input type="text" name="totp_code" id="<?= e(uxFieldId('totp_setup')) ?>" required maxlength="6" pattern="[0-9]{6}" class="ap-input ap-otp" autofocus inputmode="numeric" autocomplete="one-time-code"></div>
                 <button type="submit" class="ap-btn">Enable MFA &amp; Continue</button>
             </form>
             <?php elseif ($mfaPending): ?>
-            <form method="POST" class="space-y-5 mt-6">
+            <form method="POST" class="ap-form">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="mfa_verify">
-                <div class="ap-field"><?= uxFormLabel(uxFieldId('totp_verify'), 'Authenticator Code') ?><input type="text" name="totp_code" id="<?= e(uxFieldId('totp_verify')) ?>" required maxlength="6" pattern="[0-9]{6}" class="ap-input ap-otp" autofocus inputmode="numeric" autocomplete="one-time-code"></div>
+                <div class="ap-field"><label for="<?= e(uxFieldId('totp_verify')) ?>">Authenticator Code</label><input type="text" name="totp_code" id="<?= e(uxFieldId('totp_verify')) ?>" required maxlength="6" pattern="[0-9]{6}" class="ap-input ap-otp" autofocus inputmode="numeric" autocomplete="one-time-code"></div>
                 <button type="submit" class="ap-btn">Verify &amp; Login</button>
             </form>
             <?php else: ?>
-            <form method="POST" class="space-y-5 mt-6" aria-label="Staff sign in">
+            <form method="POST" class="ap-form" aria-label="Staff sign in">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="password">
-                <div class="ap-field"><?= uxFormLabel(uxFieldId('username'), 'Staff ID') ?><input type="text" name="username" id="<?= e(uxFieldId('username')) ?>" required class="ap-input" placeholder="ops01" autocomplete="username"></div>
-                <div class="ap-field"><?= uxFormLabel(uxFieldId('password'), 'Password') ?><input type="password" name="password" id="<?= e(uxFieldId('password')) ?>" required class="ap-input" autocomplete="current-password"></div>
+                <div class="ap-field"><label for="<?= e(uxFieldId('username')) ?>">Staff ID</label><input type="text" name="username" id="<?= e(uxFieldId('username')) ?>" required class="ap-input" placeholder="ops01" autocomplete="username"></div>
+                <div class="ap-field"><label for="<?= e(uxFieldId('password')) ?>">Password</label><input type="password" name="password" id="<?= e(uxFieldId('password')) ?>" required class="ap-input" autocomplete="current-password"></div>
                 <button type="submit" class="ap-btn">Continue</button>
             </form>
             <?php endif; ?>
             <p class="ap-foot">
                 <a href="admin_login.php" class="ap-link">Super Admin login →</a> ·
-                <a href="index.php" class="text-slate-500 hover:text-slate-800">Website</a>
+                <a href="index.php" class="ap-text-link">Website</a>
             </p>
         </div>
     </div>

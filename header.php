@@ -60,7 +60,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/customer-portal.css?v=20260724b">
     <?php endif; ?>
     <?php if (!empty($authPortalUi)): ?>
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/auth-portal.css?v=20260724b">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/auth-portal.css?v=20260730a">
     <?php endif; ?>
     <script>
     (function(){

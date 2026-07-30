@@ -149,64 +149,48 @@ $bodyClass = trim(($bodyClass ?? '') . ' auth-portal-shell auth-portal--merchant
 require_once __DIR__ . '/header.php';
 ?>
 <div class="ap-wrap">
-    <aside class="ap-visual" aria-hidden="true">
-        <div>
-            <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
-            <h2 class="ap-display text-3xl font-bold mt-10 leading-tight">Accept payments.<br>Settle with clarity.</h2>
-            <p class="mt-4 text-white/80 text-sm max-w-sm leading-relaxed">Merchant portal for links, QR, settlements, KYC, and payouts — built for Indian businesses.</p>
-        </div>
-        <div class="relative z-10 space-y-3 text-sm text-white/85">
-            <p>✓ UPI, cards &amp; payment links</p>
-            <p>✓ Instant settlements &amp; reports</p>
-            <p>✓ Optional 2FA — enable anytime</p>
-        </div>
-    </aside>
+    <?php require __DIR__ . '/includes/auth_theme_toggle.php'; ?>
     <div class="ap-panel">
         <div class="ap-card">
-            <div class="sm:hidden mb-4"><?php $logoHref = 'index.php'; $logoSize = 'sm'; require __DIR__ . '/includes/brand_logo.php'; ?></div>
-            <p class="ap-eyebrow">Merchant portal</p>
-            <h1 class="ap-display"><?= $totpStep || $otpStep ? 'Verify to continue' : e(__('login_title')) ?></h1>
+            <div class="ap-logo">
+                <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
+            </div>
+            <p class="ap-title"><?= $totpStep || $otpStep ? 'Verify to continue' : e(__('login_title')) ?></p>
             <p class="ap-sub"><?= $totpStep ? 'Two-factor authentication is on for this account.' : ($otpStep ? 'Enter the one-time code we sent you.' : e(__('login_sub'))) ?></p>
 
-            <?php if ($error): ?><div class="ap-alert ap-alert-error mt-5"><?= e($error) ?></div><?php endif; ?>
+            <?php if ($error): ?><div class="ap-alert ap-alert-error"><?= e($error) ?></div><?php endif; ?>
 
             <?php if ($totpStep): ?>
-            <p class="ap-alert ap-alert-info mt-5">Enter the 6-digit code from your authenticator app.</p>
-            <form method="POST" class="space-y-5 mt-2">
+            <p class="ap-alert ap-alert-info">Enter the 6-digit code from your authenticator app.</p>
+            <form method="POST" class="ap-form">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <div class="ap-field"><label>Authenticator Code</label><input type="text" name="totp_code" required maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" class="ap-input ap-otp" placeholder="000000" autofocus></div>
                 <button type="submit" class="ap-btn">Verify &amp; Login</button>
-                <p class="text-center text-xs mt-4"><a href="login.php?cancel_2fa=1" class="text-slate-500 hover:text-teal-700">← Back to password login</a></p>
+                <div class="ap-row"><a href="login.php?cancel_2fa=1" class="ap-text-link">← Back to password login</a></div>
             </form>
             <?php elseif ($otpStep): ?>
             <?php if (!empty($otpWaUrl)): ?>
             <script>window.open(<?= json_encode($otpWaUrl) ?>, '_blank');</script>
-            <p class="ap-alert ap-alert-ok mt-5">OTP sent via WhatsApp (and email if on file). WhatsApp opened — check your chat.</p>
+            <p class="ap-alert ap-alert-ok">OTP sent via WhatsApp (and email if on file). WhatsApp opened — check your chat.</p>
             <?php else: ?>
-            <p class="ap-alert ap-alert-info mt-5">OTP sent to your registered WhatsApp / email.</p>
+            <p class="ap-alert ap-alert-info">OTP sent to your registered WhatsApp / email.</p>
             <?php endif; ?>
-            <form method="POST" class="space-y-5">
+            <form method="POST" class="ap-form">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                <p class="text-sm text-slate-600 text-center"><?= __('otp_enter') ?></p>
                 <div class="ap-field"><label><?= __('otp_code') ?></label><input type="text" name="otp_code" required maxlength="6" pattern="[0-9]{6}" class="ap-input ap-otp" placeholder="000000"></div>
                 <button type="submit" class="ap-btn"><?= __('otp_verify') ?></button>
-                <p class="text-center text-xs mt-4"><a href="login.php?cancel_otp=1" class="text-slate-500 hover:text-teal-700">← Back to password login</a></p>
+                <div class="ap-row"><a href="login.php?cancel_otp=1" class="ap-text-link">← Back to password login</a></div>
             </form>
             <?php else: ?>
-            <form method="POST" class="space-y-5 mt-6">
+            <form method="POST" class="ap-form">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <div class="ap-field"><label><?= __('email_or_mobile') ?></label><input type="text" name="email" required class="ap-input" placeholder="<?= e(__('email_or_mobile_ph')) ?>" value="<?= e($_POST['email']??'') ?>"></div>
                 <div class="ap-field"><label><?= __('password') ?></label><input type="password" name="password" required class="ap-input" placeholder="••••••••"></div>
-                <div class="flex justify-end"><a href="forgot_password.php" class="text-sm ap-link"><?= __('forgot_password') ?></a></div>
+                <div class="ap-row"><a href="forgot_password.php" class="ap-link"><?= __('forgot_password') ?></a></div>
                 <button type="submit" class="ap-btn"><?= __('login_btn') ?></button>
             </form>
             <?php endif; ?>
-            <p class="ap-foot"><?= __('no_account') ?> <a href="merchant_register.php" class="ap-link"><?= __('create_account') ?></a></p>
-            <p class="text-center text-[11px] text-slate-500 mt-3">Merchant 2FA is optional — enable anytime from Settings. Admin/staff MFA is mandatory.</p>
-            <?php if (!isOTPEnabled()): ?>
-            <p class="text-center text-[11px] text-slate-500 mt-1">Password login active · WhatsApp OTP when Meta template is approved</p>
-            <?php endif; ?>
-            <p class="text-center text-xs mt-4"><a href="admin_login.php" class="text-slate-500 hover:text-teal-700">Admin Login →</a></p>
+            <p class="ap-foot"><?= __('no_account') ?> <a href="merchant_register.php" class="ap-link"><?= __('create_account') ?></a> · <a href="admin_login.php" class="ap-text-link">Admin Login →</a></p>
         </div>
     </div>
 </div>

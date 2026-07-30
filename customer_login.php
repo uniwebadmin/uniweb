@@ -55,47 +55,37 @@ $hideNav = true;
 $hideFooter = true;
 $footerVariant = 'auth';
 $authPortalUi = true;
-$bodyClass = trim(($bodyClass ?? '') . ' auth-portal-shell');
+$bodyClass = trim(($bodyClass ?? '') . ' auth-portal-shell auth-portal--customer');
 require_once __DIR__ . '/header.php';
 ?>
 <div class="ap-wrap">
-    <aside class="ap-visual" aria-hidden="true">
-        <div>
-            <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
-            <h2 class="ap-display text-3xl font-bold mt-10 leading-tight">Payments you made,<br>in one calm place.</h2>
-            <p class="mt-4 text-white/80 text-sm max-w-sm leading-relaxed">Enter the mobile number used at checkout. We send a one-time OTP — no password, no account setup.</p>
-        </div>
-        <div class="relative z-10 space-y-3 text-sm text-white/85">
-            <p>✓ Full history across every UniWeb merchant</p>
-            <p>✓ Clear status + reason for each payment</p>
-            <p>✓ Raise a grievance on any transaction</p>
-        </div>
-    </aside>
+    <?php require __DIR__ . '/includes/auth_theme_toggle.php'; ?>
     <div class="ap-panel">
         <div class="ap-card">
-            <div class="sm:hidden mb-4"><?php $logoHref = 'index.php'; $logoSize = 'sm'; require __DIR__ . '/includes/brand_logo.php'; ?></div>
-            <p class="ap-eyebrow">Customer portal</p>
-            <h1 class="ap-display"><?= $otpStep ? 'Enter OTP' : 'Sign in with mobile' ?></h1>
+            <div class="ap-logo">
+                <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
+            </div>
+            <p class="ap-title"><?= $otpStep ? 'Enter OTP' : 'Sign in with mobile' ?></p>
             <p class="ap-sub"><?= $otpStep
                 ? 'We sent a 6-digit code to your phone. Valid for 10 minutes.'
                 : 'Use the same 10-digit number you paid with. No password needed.' ?></p>
 
-            <?php if ($error): ?><div class="ap-alert ap-alert-error mt-5"><?= e($error) ?></div><?php endif; ?>
-            <?php if ($notice): ?><div class="ap-alert ap-alert-ok mt-5"><?= e($notice) ?></div><?php endif; ?>
+            <?php if ($error): ?><div class="ap-alert ap-alert-error"><?= e($error) ?></div><?php endif; ?>
+            <?php if ($notice): ?><div class="ap-alert ap-alert-ok"><?= e($notice) ?></div><?php endif; ?>
 
             <?php if ($otpStep): ?>
-            <form method="POST" class="space-y-5 mt-6">
+            <form method="POST" class="ap-form">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                <p class="text-sm text-center text-slate-600">Code sent to <strong>+91 <?= e($pendingPhone) ?></strong></p>
+                <p class="text-sm text-center" style="color:var(--ap-muted);margin-bottom:.5rem;">Code sent to <strong>+91 <?= e($pendingPhone) ?></strong></p>
                 <div class="ap-field">
                     <label for="otp_code">One-time password</label>
                     <input id="otp_code" type="text" name="otp_code" required maxlength="6" pattern="[0-9]{6}" inputmode="numeric" autocomplete="one-time-code" class="ap-input ap-otp" placeholder="••••••" autofocus>
                 </div>
                 <button type="submit" class="ap-btn">Verify &amp; continue</button>
-                <p class="text-center text-xs"><a href="customer_login.php?change=1" class="text-slate-500 hover:text-teal-700">← Change mobile number</a></p>
+                <div class="ap-row"><a href="customer_login.php?change=1" class="ap-text-link">← Change mobile number</a></div>
             </form>
             <?php else: ?>
-            <form method="POST" class="space-y-5 mt-6">
+            <form method="POST" class="ap-form">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <div class="ap-field">
                     <label for="mobile">Mobile number</label>
@@ -103,7 +93,6 @@ require_once __DIR__ . '/header.php';
                         <span class="ap-phone-cc" aria-hidden="true">+91</span>
                         <input id="mobile" type="tel" name="mobile" required maxlength="10" pattern="[6-9][0-9]{9}" inputmode="numeric" autocomplete="tel-national" class="ap-phone-input" placeholder="98765 43210" value="<?= e($_POST['mobile'] ?? '') ?>" autofocus>
                     </div>
-                    <p class="text-xs text-slate-500 mt-2">India (+91) · enter your 10-digit mobile. We send an OTP by WhatsApp or SMS.</p>
                 </div>
                 <button type="submit" class="ap-btn">Send OTP →</button>
             </form>

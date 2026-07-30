@@ -113,54 +113,45 @@ $bodyClass = trim(($bodyClass ?? '') . ' auth-portal-shell auth-portal--admin');
 require_once __DIR__ . '/header.php';
 ?>
 <div class="ap-wrap">
-    <aside class="ap-visual" aria-hidden="true">
-        <div>
-            <div class="w-14 h-14 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center font-bold text-xl">UW</div>
-            <h2 class="ap-display text-3xl font-bold mt-10 leading-tight">Master control.<br>Mandatory MFA.</h2>
-            <p class="mt-4 text-white/80 text-sm max-w-sm leading-relaxed">Super Admin / CEO portal for merchants, gateways, settlements, and compliance.</p>
-        </div>
-        <div class="relative z-10 space-y-3 text-sm text-white/85">
-            <p>✓ First login enrolls authenticator — no lockout</p>
-            <p>✓ Staff must use Operations Portal</p>
-            <p>✓ Session timeout &amp; activity audit</p>
-        </div>
-    </aside>
+    <?php require __DIR__ . '/includes/auth_theme_toggle.php'; ?>
     <div class="ap-panel">
         <div class="ap-card">
-            <p class="ap-eyebrow">Master admin</p>
-            <h1 class="ap-display"><?= $mfaSetup ? 'Enroll authenticator' : ($mfaPending ? 'Authenticator challenge' : 'Admin sign in') ?></h1>
-            <p class="ap-sub">Policy: MFA is mandatory for admin &amp; staff. First login shows a setup prompt — you are not locked out.</p>
-            <?php if ($error): ?><div class="ap-alert ap-alert-error mt-5"><?= e($error) ?></div><?php endif; ?>
+            <div class="ap-logo">
+                <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
+            </div>
+            <p class="ap-title"><?= $mfaSetup ? 'Enroll authenticator' : ($mfaPending ? 'Authenticator challenge' : 'Admin sign in') ?></p>
+            <p class="ap-sub">Policy: MFA is mandatory for admin &amp; staff. First login shows a setup prompt.</p>
+            <?php if ($error): ?><div class="ap-alert ap-alert-error"><?= e($error) ?></div><?php endif; ?>
             <?php if ($mfaSetup && $setupSecret !== ''): ?>
-            <p class="ap-sub mt-4 mb-3">Scan this secret in Google Authenticator / Authy, then enter the 6-digit code.</p>
-            <p class="ap-mono mb-3"><?= e($setupSecret) ?></p>
-            <p class="text-[11px] text-slate-500 mb-4 break-all"><?= e($setupUrl) ?></p>
-            <form method="POST" class="space-y-5">
+            <p class="ap-sub" style="margin-bottom:.5rem;">Scan this secret in Google Authenticator / Authy, then enter the 6-digit code.</p>
+            <p class="ap-mono"><?= e($setupSecret) ?></p>
+            <p class="ap-hint break-all"><?= e($setupUrl) ?></p>
+            <form method="POST" class="ap-form">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="mfa_setup">
                 <div class="ap-field"><label>Authenticator Code</label><input type="text" name="totp_code" required maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" class="ap-input ap-otp" autofocus></div>
                 <button type="submit" class="ap-btn">Enable MFA &amp; Continue</button>
             </form>
             <?php elseif ($mfaPending): ?>
-            <form method="POST" class="space-y-5 mt-6">
+            <form method="POST" class="ap-form">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="mfa_verify">
                 <div class="ap-field"><label>Authenticator Code</label><input type="text" name="totp_code" required maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" class="ap-input ap-otp" autofocus></div>
                 <button type="submit" class="ap-btn">Verify &amp; Login</button>
             </form>
             <?php else: ?>
-            <form method="POST" class="space-y-5 mt-6">
+            <form method="POST" class="ap-form">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="password">
                 <div class="ap-field"><label>Admin ID</label><input type="text" name="username" required autocomplete="username" class="ap-input" placeholder="admin"></div>
                 <div class="ap-field"><label>Master Password</label><input type="password" name="password" required autocomplete="current-password" class="ap-input"></div>
-                <div class="flex justify-end"><a href="admin_forgot_password.php" class="text-xs ap-link">Forgot password?</a></div>
+                <div class="ap-row"><a href="admin_forgot_password.php" class="ap-link">Forgot password?</a></div>
                 <button type="submit" class="ap-btn">Continue</button>
             </form>
             <?php endif; ?>
             <p class="ap-foot">
                 <a href="staff_login.php" class="ap-link">Employee / Operations login →</a> ·
-                <a href="index.php" class="text-slate-500 hover:text-slate-800">Website</a>
+                <a href="index.php" class="ap-text-link">Website</a>
             </p>
         </div>
     </div>

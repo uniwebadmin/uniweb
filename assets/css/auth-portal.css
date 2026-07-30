@@ -1,196 +1,212 @@
-/**
- * UniWeb Auth Portals — shared premium login shell (merchant / admin / staff / customer).
- * Presentation only. Form field names, CSRF, and POST handlers stay in each *.php file.
+﻿/**
+ * UniWeb Auth Portals — clean professional login/signup shell
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap');
-
 body.auth-portal-shell {
-  --ap-bg: #060b14;
-  --ap-surface: rgba(15, 23, 42, 0.78);
-  --ap-ink: #f8fafc;
-  --ap-muted: #94a3b8;
-  --ap-line: rgba(255, 255, 255, 0.08);
-  --ap-brand: #2dd4bf;
-  --ap-brand-deep: #14b8a6;
-  --ap-accent: #38bdf8;
-  --ap-btn: linear-gradient(135deg, #2dd4bf 0%, #0d9488 50%, #0f766e 100%);
-  --ap-btn-shadow: 0 10px 32px rgba(45, 212, 191, 0.28);
-  --ap-panel: linear-gradient(155deg, rgba(13, 148, 136, 0.92), rgba(3, 105, 161, 0.88));
-  --ap-chip: rgba(45, 212, 191, 0.12);
-  --ap-chip-line: rgba(45, 212, 191, 0.25);
-  font-family: 'Manrope', system-ui, sans-serif;
+  --ap-bg: #f3f4f6;
+  --ap-grad: radial-gradient(ellipse at top right, rgba(14,165,233,.08), transparent 40%),
+             radial-gradient(ellipse at bottom left, rgba(99,102,241,.06), transparent 40%);
+  --ap-surface: #ffffff;
+  --ap-ink: #111827;
+  --ap-muted: #6b7280;
+  --ap-line: #e5e7eb;
+  --ap-input-bg: #ffffff;
+  --ap-input-border: #d1d5db;
+  --ap-input-focus: #2563eb;
+  --ap-card-shadow: 0 10px 40px -10px rgba(0,0,0,.1);
+  --ap-brand: #2563eb;
+  --ap-brand-hover: #1d4ed8;
+  --ap-error-bg: #fee2e2;
+  --ap-error-line: #fecaca;
+  --ap-error-text: #991b1b;
+  --ap-ok-bg: #dcfce7;
+  --ap-ok-line: #bbf7d0;
+  --ap-ok-text: #166534;
+  --ap-info-bg: #eff6ff;
+  --ap-info-line: #bfdbfe;
+  --ap-info-text: #1e40af;
+  --ap-toggle-bg: rgba(0,0,0,.05);
+  --ap-toggle-ink: #374151;
   color: var(--ap-ink);
-  background:
-    radial-gradient(1200px 600px at 10% -10%, rgba(45, 212, 191, 0.18), transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, rgba(56, 189, 248, 0.12), transparent 50%),
-    radial-gradient(800px 500px at 50% 120%, rgba(13, 148, 136, 0.12), transparent 50%),
-    linear-gradient(180deg, #060b14 0%, #0f172a 45%, #0b1220 100%);
+  background: var(--ap-grad), var(--ap-bg);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   min-height: 100vh;
 }
 
-body.auth-portal-shell.auth-portal--admin {
-  --ap-brand: #fb7185;
-  --ap-brand-deep: #f43f5e;
-  --ap-accent: #e11d48;
-  --ap-btn: linear-gradient(135deg, #fb7185 0%, #e11d48 50%, #9f1239 100%);
-  --ap-btn-shadow: 0 10px 32px rgba(251, 113, 133, 0.28);
-  --ap-panel: linear-gradient(155deg, rgba(190, 18, 60, 0.96), rgba(15, 23, 42, 0.98));
-  --ap-chip: rgba(251, 113, 133, 0.12);
-  --ap-chip-line: rgba(251, 113, 133, 0.25);
-}
+/* Per-portal brand color */
+body.auth-portal-shell.auth-portal--merchant { --ap-brand: #2563eb; --ap-brand-hover: #1d4ed8; --ap-input-focus: #2563eb; }
+body.auth-portal-shell.auth-portal--admin    { --ap-brand: #7c3aed; --ap-brand-hover: #6d28d9; --ap-input-focus: #7c3aed; }
+body.auth-portal-shell.auth-portal--staff    { --ap-brand: #10b981; --ap-brand-hover: #059669; --ap-input-focus: #10b981; }
+body.auth-portal-shell.auth-portal--customer { --ap-brand: #0ea5e9; --ap-brand-hover: #0284c7; --ap-input-focus: #0ea5e9; }
 
-body.auth-portal-shell.auth-portal--staff {
-  --ap-brand: #38bdf8;
-  --ap-brand-deep: #0ea5e9;
-  --ap-accent: #0284c7;
-  --ap-btn: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 50%, #0369a1 100%);
-  --ap-btn-shadow: 0 10px 32px rgba(56, 189, 248, 0.28);
-  --ap-panel: linear-gradient(155deg, rgba(2, 132, 199, 0.96), rgba(15, 23, 42, 0.98));
-  --ap-chip: rgba(56, 189, 248, 0.12);
-  --ap-chip-line: rgba(56, 189, 248, 0.25);
-}
-
-body.auth-portal-shell .ap-display {
-  font-family: 'Fraunces', Georgia, serif;
-  letter-spacing: -0.02em;
+/* Dark mode */
+body.auth-portal-shell[data-ap-theme="dark"] {
+  --ap-bg: #0b1120;
+  --ap-grad: radial-gradient(ellipse at top right, rgba(37,99,235,.08), transparent 40%),
+             radial-gradient(ellipse at bottom left, rgba(124,58,237,.06), transparent 40%);
+  --ap-surface: #111827;
+  --ap-ink: #f3f4f6;
+  --ap-muted: #9ca3af;
+  --ap-line: #374151;
+  --ap-input-bg: #1f2937;
+  --ap-input-border: #4b5563;
+  --ap-card-shadow: 0 10px 40px -10px rgba(0,0,0,.5);
+  --ap-toggle-bg: rgba(255,255,255,.1);
+  --ap-toggle-ink: #e5e7eb;
 }
 
 body.auth-portal-shell .ap-wrap {
-  display: grid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: 100vh;
-}
-
-@media (min-width: 960px) {
-  body.auth-portal-shell .ap-wrap {
-    grid-template-columns: 1.05fr 0.95fr;
-  }
+  padding: 1.5rem;
+  position: relative;
 }
 
 body.auth-portal-shell .ap-visual {
   display: none;
-  position: relative;
-  overflow: hidden;
-  background: var(--ap-panel);
-  color: #fff;
-  padding: 3rem;
 }
 
-@media (min-width: 960px) {
-  body.auth-portal-shell .ap-visual {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-  }
+body.auth-portal-shell .ap-theme-toggle {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  border: 1px solid var(--ap-line);
+  background: var(--ap-surface);
+  color: var(--ap-muted);
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: transform .15s ease, box-shadow .15s ease;
 }
 
-body.auth-portal-shell .ap-visual::after {
-  content: '';
-  position: absolute;
-  inset: auto -20% -30% 20%;
-  height: 70%;
-  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.22), transparent 65%);
-  pointer-events: none;
-  animation: apPulse 7s ease-in-out infinite;
-}
-
-@keyframes apPulse {
-  0%, 100% { transform: translateY(0) scale(1); opacity: 0.7; }
-  50% { transform: translateY(-18px) scale(1.08); opacity: 1; }
+body.auth-portal-shell .ap-theme-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+  color: var(--ap-brand);
 }
 
 body.auth-portal-shell .ap-panel {
+  width: 100%;
+  max-width: 420px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 2rem 1.25rem;
 }
 
 body.auth-portal-shell .ap-card {
   width: 100%;
-  max-width: 440px;
   background: var(--ap-surface);
   border: 1px solid var(--ap-line);
-  border-radius: 28px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  padding: 2.25rem 1.75rem;
-  animation: apRise 0.55s ease both;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  border-radius: 20px;
+  box-shadow: var(--ap-card-shadow);
+  padding: 2rem;
 }
 
-@keyframes apRise {
-  from { opacity: 0; transform: translateY(14px); }
-  to { opacity: 1; transform: translateY(0); }
+body.auth-portal-shell .ap-logo {
+  text-align: center;
+  margin-bottom: 1.25rem;
 }
 
-body.auth-portal-shell .ap-eyebrow {
-  font-size: 0.7rem;
+body.auth-portal-shell .ap-logo a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+}
+
+body.auth-portal-shell .ap-logo .text-white {
+  color: var(--ap-ink) !important;
+}
+
+body.auth-portal-shell .ap-logo .gradient-text {
+  color: var(--ap-brand) !important;
+  background: none !important;
+  -webkit-text-fill-color: unset !important;
+}
+
+body.auth-portal-shell .ap-title {
+  font-size: 1.25rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ap-brand-deep);
-}
-
-body.auth-portal-shell .ap-card h1 {
-  font-size: 1.65rem;
-  font-weight: 800;
-  margin-top: 0.55rem;
+  text-align: center;
+  margin-bottom: .25rem;
   color: var(--ap-ink);
+  letter-spacing: -.01em;
 }
 
 body.auth-portal-shell .ap-sub {
   color: var(--ap-muted);
-  font-size: 0.875rem;
-  margin-top: 0.4rem;
+  font-size: .875rem;
+  text-align: center;
+  margin-bottom: 1.25rem;
   line-height: 1.45;
 }
 
-body.auth-portal-shell .ap-field label {
+body.auth-portal-shell .ap-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+body.auth-portal-shell .ap-field label,
+body.auth-portal-shell .ap-field .ap-label {
   display: block;
-  font-size: 0.8rem;
+  font-size: .8rem;
   font-weight: 600;
   color: var(--ap-muted);
-  margin-bottom: 0.4rem;
+  margin-bottom: .35rem;
 }
 
 body.auth-portal-shell .ap-input,
 body.auth-portal-shell .input-field {
   width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  background: rgba(255, 255, 255, 0.06) !important;
-  color: var(--ap-ink) !important;
-  border-radius: 14px !important;
-  padding: 0.95rem 1.1rem !important;
+  appearance: none;
+  background: var(--ap-input-bg);
+  border: 1px solid var(--ap-input-border);
+  border-radius: 12px;
+  padding: .95rem 1rem;
   font-size: 1rem;
+  color: var(--ap-ink);
   outline: none;
-  box-shadow: none !important;
-  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: none;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+
+body.auth-portal-shell .ap-input::placeholder,
+body.auth-portal-shell .input-field::placeholder {
+  color: var(--ap-muted);
+  opacity: .75;
 }
 
 body.auth-portal-shell .ap-input:focus,
 body.auth-portal-shell .input-field:focus {
-  border-color: var(--ap-brand) !important;
-  background: rgba(255, 255, 255, 0.09) !important;
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ap-brand) 22%, transparent) !important;
+  border-color: var(--ap-input-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ap-input-focus) 15%, transparent);
 }
 
-/* Customer login: one large +91 | number control (mobile + laptop) */
 body.auth-portal-shell .ap-phone {
   display: flex;
   align-items: stretch;
   width: 100%;
-  min-height: 3.35rem;
-  border: 1.5px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 14px;
+  border: 1px solid var(--ap-input-border);
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  background: var(--ap-input-bg);
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
 
 body.auth-portal-shell .ap-phone:focus-within {
-  border-color: var(--ap-brand);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ap-brand) 22%, transparent);
+  border-color: var(--ap-input-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ap-input-focus) 15%, transparent);
 }
 
 body.auth-portal-shell .ap-phone-cc {
@@ -198,190 +214,219 @@ body.auth-portal-shell .ap-phone-cc {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 4.25rem;
-  padding: 0 0.85rem;
-  font-size: 1.05rem;
+  min-width: 4rem;
+  padding: 0 .85rem;
+  font-size: 1rem;
   font-weight: 700;
-  letter-spacing: 0.02em;
   color: var(--ap-brand);
-  background: rgba(45, 212, 191, 0.12);
-  border-right: 1.5px solid rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--ap-brand) 8%, transparent);
+  border-right: 1px solid var(--ap-input-border);
 }
 
 body.auth-portal-shell .ap-phone-input {
   flex: 1 1 auto;
   width: 100%;
   min-width: 0;
-  border: 0 !important;
-  background: transparent !important;
-  color: var(--ap-ink) !important;
-  border-radius: 0 !important;
-  padding: 1rem 1rem !important;
-  font-size: 1.2rem !important;
+  border: 0;
+  background: transparent;
+  color: var(--ap-ink);
+  padding: .95rem 1rem;
+  font-size: 1.1rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: .03em;
   outline: none;
-  box-shadow: none !important;
 }
 
 body.auth-portal-shell .ap-phone-input::placeholder {
-  color: #94a3b8;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-}
-
-@media (min-width: 640px) {
-  body.auth-portal-shell .ap-phone {
-    min-height: 3.6rem;
-  }
-  body.auth-portal-shell .ap-phone-input {
-    font-size: 1.35rem !important;
-    padding: 1.1rem 1.15rem !important;
-  }
-  body.auth-portal-shell .ap-phone-cc {
-    min-width: 4.75rem;
-    font-size: 1.15rem;
-  }
+  color: var(--ap-muted);
+  opacity: .7;
+  font-weight: 400;
 }
 
 body.auth-portal-shell .ap-otp {
-  letter-spacing: 0.35em;
   text-align: center;
-  font-size: 1.5rem;
+  letter-spacing: .35em;
+  font-size: 1.35rem;
   font-weight: 700;
 }
 
-body.auth-portal-shell .ap-btn {
-  display: inline-flex;
-  width: 100%;
+body.auth-portal-shell .ap-row {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 14px;
-  font-weight: 700;
-  font-size: 0.95rem;
-  padding: 0.95rem 1.15rem;
-  color: #fff !important;
-  background: var(--ap-btn) !important;
-  background-size: 200% 100% !important;
-  box-shadow: var(--ap-btn-shadow);
-  border: 0;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background-position 0.3s ease;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
-body.auth-portal-shell .ap-btn:hover {
-  box-shadow: 0 18px 38px color-mix(in srgb, var(--ap-brand) 45%, transparent);
-  background-position: 100% 0 !important;
-  transform: translateY(-2px);
-}
-
-body.auth-portal-shell .ap-btn:active {
-  transform: translateY(1px);
-}
-
-body.auth-portal-shell .ap-alert {
-  border-radius: 12px;
-  padding: 0.85rem 1rem;
-  font-size: 0.85rem;
-  margin-bottom: 1rem;
-}
-
-body.auth-portal-shell .ap-alert-error {
-  background: rgba(254, 202, 202, 0.1);
-  border: 1px solid rgba(248, 113, 113, 0.3);
-  color: #fca5a5;
-}
-
-body.auth-portal-shell .ap-alert-ok {
-  background: rgba(167, 243, 208, 0.1);
-  border: 1px solid rgba(52, 211, 153, 0.3);
-  color: #6ee7b7;
-}
-
-body.auth-portal-shell .ap-alert-demo {
-  background: rgba(253, 230, 138, 0.1);
-  border: 1px solid rgba(251, 191, 36, 0.3);
-  color: #fde68a;
-}
-
-body.auth-portal-shell .ap-alert-info {
-  background: rgba(248, 250, 252, 0.06);
-  border: 1px solid var(--ap-line);
-  color: var(--ap-muted);
-}
-
-body.auth-portal-shell .ap-link {
-  color: var(--ap-brand);
-  font-weight: 600;
-}
-
-body.auth-portal-shell .ap-link:hover {
-  color: var(--ap-brand-deep);
-  text-decoration: underline;
-}
-
-body.auth-portal-shell .ap-foot {
-  text-align: center;
-  font-size: 0.85rem;
-  color: var(--ap-muted);
-  margin-top: 1.75rem;
-}
-
-body.auth-portal-shell .ap-mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.75rem;
-  word-break: break-all;
-  background: rgba(248, 250, 252, 0.06);
-  border: 1px solid var(--ap-line);
-  border-radius: 10px;
-  padding: 0.75rem;
-}
-
-body.auth-portal-shell .glass {
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-}
-
+body.auth-portal-shell .ap-btn,
 body.auth-portal-shell .btn-primary {
   display: inline-flex;
   width: 100%;
   align-items: center;
   justify-content: center;
-  border-radius: 14px;
-  font-weight: 700;
-  font-size: 0.95rem;
-  padding: 0.95rem 1.15rem;
-  color: #fff !important;
-  background: var(--ap-btn) !important;
-  background-size: 200% 100% !important;
-  box-shadow: var(--ap-btn-shadow);
   border: 0;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background-position 0.3s ease;
+  border-radius: 12px;
+  padding: .95rem 1.1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--ap-brand);
+  cursor: pointer;
+  transition: background .15s ease, transform .1s ease, box-shadow .15s ease;
 }
 
+body.auth-portal-shell .ap-btn:hover,
 body.auth-portal-shell .btn-primary:hover {
-  box-shadow: 0 18px 38px color-mix(in srgb, var(--ap-brand) 45%, transparent);
-  background-position: 100% 0 !important;
-  transform: translateY(-2px);
+  background: var(--ap-brand-hover);
 }
 
+body.auth-portal-shell .ap-btn:active,
 body.auth-portal-shell .btn-primary:active {
   transform: translateY(1px);
 }
 
-body.auth-portal-shell .text-gray-500,
-body.auth-portal-shell .text-gray-600,
-body.auth-portal-shell .text-slate-500,
-body.auth-portal-shell .text-slate-600,
-body.auth-portal-shell .text-slate-700 {
-  color: #94a3b8 !important;
+body.auth-portal-shell .ap-link {
+  color: var(--ap-brand);
+  font-weight: 600;
+  font-size: .875rem;
+  text-decoration: none;
+}
+
+body.auth-portal-shell .ap-link:hover {
+  text-decoration: underline;
+}
+
+body.auth-portal-shell .ap-text-link {
+  color: var(--ap-muted);
+  font-size: .875rem;
+  text-decoration: none;
+  transition: color .15s ease;
+}
+
+body.auth-portal-shell .ap-text-link:hover {
+  color: var(--ap-ink);
+}
+
+/* Buttons used as inline text links inside ap-row */
+body.auth-portal-shell .ap-link button,
+body.auth-portal-shell .ap-text-link button,
+body.auth-portal-shell .ap-row button {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+body.auth-portal-shell .ap-foot {
+  text-align: center;
+  color: var(--ap-muted);
+  font-size: .85rem;
+  margin-top: 1.25rem;
+}
+
+body.auth-portal-shell .ap-alert {
+  border-radius: 12px;
+  padding: .8rem 1rem;
+  font-size: .875rem;
+  margin-bottom: 1rem;
+}
+
+body.auth-portal-shell .ap-alert-error {
+  background: var(--ap-error-bg);
+  border: 1px solid var(--ap-error-line);
+  color: var(--ap-error-text);
+}
+
+body.auth-portal-shell .ap-alert-ok {
+  background: var(--ap-ok-bg);
+  border: 1px solid var(--ap-ok-line);
+  color: var(--ap-ok-text);
+}
+
+body.auth-portal-shell .ap-alert-info {
+  background: var(--ap-info-bg);
+  border: 1px solid var(--ap-info-line);
+  color: var(--ap-info-text);
+}
+
+body.auth-portal-shell .ap-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: .75rem;
+  word-break: break-all;
+  background: rgba(0,0,0,.03);
+  border: 1px solid var(--ap-line);
+  border-radius: 10px;
+  padding: .75rem;
+  color: var(--ap-ink);
+}
+
+body.auth-portal-shell[data-ap-theme="dark"] .ap-mono {
+  background: rgba(255,255,255,.04);
+}
+
+body.auth-portal-shell .ap-mode-tab {
+  display: inline-flex;
+  width: 100%;
+  border: 1px solid var(--ap-line);
+  border-radius: 10px;
+  padding: .25rem;
+  background: rgba(0,0,0,.02);
+  margin-bottom: 1.25rem;
+}
+
+body.auth-portal-shell .ap-mode-tab a,
+body.auth-portal-shell .ap-mode-tab span {
+  flex: 1 1 0%;
+  text-align: center;
+  padding: .6rem .5rem;
+  border-radius: 8px;
+  font-size: .875rem;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--ap-muted);
+  transition: color .15s ease, background .15s ease;
+}
+
+body.auth-portal-shell .ap-mode-tab a.active,
+body.auth-portal-shell .ap-mode-tab a:hover.active,
+body.auth-portal-shell .ap-mode-tab span.active {
+  background: var(--ap-brand);
+  color: #fff;
+}
+
+body.auth-portal-shell .ap-mode-tab a:hover {
+  color: var(--ap-ink);
+}
+
+body.auth-portal-shell .ap-hint {
+  font-size: .75rem;
+  color: var(--ap-muted);
+  line-height: 1.4;
+}
+
+body.auth-portal-shell .ap-hint a {
+  color: var(--ap-brand);
+  text-decoration: none;
+}
+
+body.auth-portal-shell .ap-hint a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+  body.auth-portal-shell .ap-wrap { padding: 1rem; }
+  body.auth-portal-shell .ap-card { padding: 1.5rem; border-radius: 16px; }
+  body.auth-portal-shell .ap-title { font-size: 1.1rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body.auth-portal-shell .ap-card,
-  body.auth-portal-shell .ap-visual::after,
-  body.auth-portal-shell .ap-btn {
-    animation: none !important;
-    transition: none !important;
+  body.auth-portal-shell *,
+  body.auth-portal-shell *::before,
+  body.auth-portal-shell *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
   }
 }
