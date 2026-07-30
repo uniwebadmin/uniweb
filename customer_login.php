@@ -39,7 +39,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $res = requestCustomerOtp($phone);
             if ($res['ok']) {
                 $_SESSION['customer_pending_phone'] = $phone;
-                unset($_SESSION['customer_demo_otp']);
+                if (($res['channel'] ?? '') === 'demo' && !empty($res['demo_otp'])) {
+                    $_SESSION['customer_demo_otp'] = $res['demo_otp'];
+                } else {
+                    unset($_SESSION['customer_demo_otp']);
+                }
                 $notice = $res['message'];
                 $otpStep = true;
             } else {
@@ -77,6 +81,12 @@ require_once __DIR__ . '/header.php';
             <form method="POST" class="ap-form">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <p class="text-sm text-center" style="color:var(--ap-muted);margin-bottom:.5rem;">Code sent to <strong>+91 <?= e($pendingPhone) ?></strong></p>
+                <?php if (!empty($_SESSION['customer_demo_otp'])): ?>
+                <div class="ap-alert ap-alert-ok" style="text-align:center;font-size:1.1rem;letter-spacing:.15em;font-weight:700;">
+                    <?= e((string)$_SESSION['customer_demo_otp']) ?>
+                </div>
+                <p class="text-sm text-center" style="color:var(--ap-muted);margin-top:-.5rem;margin-bottom:.5rem;">SMS/WhatsApp gateway not connected yet — your code is shown above.</p>
+                <?php endif; ?>
                 <div class="ap-field">
                     <label for="otp_code">One-time password</label>
                     <input id="otp_code" type="text" name="otp_code" required maxlength="6" pattern="[0-9]{6}" inputmode="numeric" autocomplete="one-time-code" class="ap-input ap-otp" placeholder="••••••" autofocus>

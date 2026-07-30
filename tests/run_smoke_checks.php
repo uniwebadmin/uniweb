@@ -225,10 +225,11 @@ $assert(str_contains($kyc, 'verify_video'), 'kyc_verify_video_action');
 $assert(str_contains($kyc, 'reject_video') && str_contains($kyc, 'rejection_reason'), 'kyc_reject_stores_reason');
 $assert(str_contains($kyc, 'createNotification'), 'kyc_reject_notifies_merchant');
 
-$videoKycPage = (string)file_get_contents($root . '/video_kyc.php');
+$videoKycPage = (string)file_get_contents($root . '/includes/video_kyc_widget.php');
 $assert(str_contains($videoKycPage, "'verified', 'approved'"), 'video_kyc_accepts_verified_status');
 $assert(!str_contains($videoKycPage, 'Face Mapping'), 'video_kyc_no_face_mapping_copy');
 $assert(str_contains($videoKycPage, 'rejection_reason') || str_contains($videoKycPage, 'Reason:'), 'video_kyc_shows_rejection_reason');
+$assert(str_contains((string)file_get_contents($root . '/kyc.php'), "video_kyc_widget.php"), 'kyc_page_embeds_video_kyc_widget');
 $kycPage = (string)file_get_contents($root . '/kyc.php');
 $assert(!str_contains($kycPage, 'Face Mapping'), 'kyc_page_no_face_mapping_copy');
 $assert(str_contains($kycPage, 'rejection_reason') && str_contains($kycPage, 'latestByType'), 'kyc_page_per_doc_status_reason');

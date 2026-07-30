@@ -1,4 +1,5 @@
 <?php
+if (function_exists('opcache_invalidate')) { opcache_invalidate(__FILE__, false); }
 if (!defined('APP_NAME')) require_once __DIR__ . '/config.php';
 $pageTitle = $pageTitle ?? APP_NAME;
 $pageDescription = $pageDescription ?? "UniWeb — India's trusted B2B Fintech Payment Platform. UPI, Cards, Payment Links, QR codes, settlements and API for Indian merchants.";
@@ -53,7 +54,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     <?php endif; ?>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/uniweb.min.css?v=20260724b">
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/theme-light.css?v=20260730a">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/theme-light.css?v=20260730b">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/public-pages.css?v=20260724b">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/portal-polish.css?v=20260727a">
     <?php if (!empty($customerPortalUi)): ?>
@@ -212,7 +213,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                 ]],
                 ['id' => 'kyc', 'title' => 'KYC & Verify', 'items' => [
                     ['kyc.php',__('kyc'),'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'],
-                    ['merchant_video_verification.php',__('nav_video_kyc'),'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z'],
+                    ['kyc.php?section=video',__('nav_video_kyc'),'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z'],
                 ]],
                 ['id' => 'settings', 'title' => 'Settings & Support', 'items' => [
                     ['merchant_settings.php',__('nav_settings'),'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z'],
@@ -301,7 +302,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
             </div>
         </header>
         <?= renderMerchantTestStripe($merchant) ?>
-        <div class="p-6 flex-1">
+        <div class="p-6 flex-1 portal-content-frame">
 <?php endif; ?>
 
 <?php if ($isSuperAdminPanel): ?>
@@ -417,7 +418,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                 <button type="button" onclick="toggleUniwebTheme()" class="theme-toggle-btn" title="Toggle dark / light mode" aria-label="Toggle theme"><span data-theme-icon>🌙</span></button>
             </div>
         </header>
-        <div class="p-4 sm:p-6 flex-1">
+        <div class="p-4 sm:p-6 flex-1 portal-content-frame">
 <?php endif; ?>
 
 <?php if ($isStaffPortal): $staffAdmin = getAdmin(); ?>
@@ -454,7 +455,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                 <button type="button" onclick="toggleUniwebTheme()" class="theme-toggle-btn" title="Toggle dark / light mode" aria-label="Toggle theme"><span data-theme-icon>🌙</span></button>
             </div>
         </header>
-        <div class="p-4 sm:p-6 flex-1">
+        <div class="p-4 sm:p-6 flex-1 portal-content-frame">
 <?php endif; ?>
 <script>
 function toggleUniwebTheme(){

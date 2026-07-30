@@ -251,15 +251,16 @@ $docStatusMeta = static function (string $status): array {
     $vkRejected = $vkStatus === 'rejected' || (($vkLatest['status'] ?? '') === 'rejected');
     $vkOk = in_array($vkStatus, ['verified', 'approved'], true);
     $vkBorder = $vkOk ? 'border-emerald-500/30 bg-emerald-500/5' : ($vkRejected ? 'border-red-500/40 bg-red-500/5' : 'border-violet-500/30 bg-violet-500/5');
+    $vkOpenByDefault = $vkRejected || ($_GET['section'] ?? '') === 'video' || (!empty($_GET['video_uploaded']));
     ?>
-    <a href="merchant_video_verification.php" class="block glass rounded-xl p-5 mb-6 border <?= $vkBorder ?> hover:opacity-95 transition group">
-        <div class="flex items-center gap-4">
+    <details id="video-kyc" class="glass rounded-xl mb-6 border <?= $vkBorder ?>" <?= $vkOpenByDefault ? 'open' : '' ?>>
+        <summary class="flex items-center gap-4 p-5 cursor-pointer list-none select-none">
             <span class="w-12 h-12 rounded-xl bg-violet-500/15 text-violet-400 flex items-center justify-center shrink-0">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
             </span>
             <div class="flex-1 min-w-0">
                 <div class="flex flex-wrap items-center gap-2">
-                    <p class="font-semibold text-violet-200 group-hover:text-white">Video KYC</p>
+                    <p class="font-semibold text-violet-200">Video KYC</p>
                     <?= statusBadge($vkStatus) ?>
                 </div>
                 <p class="text-xs text-gray-500 mt-0.5">Live camera recording with your name, shop name and address</p>
@@ -267,9 +268,12 @@ $docStatusMeta = static function (string $status): array {
                 <p class="text-xs text-red-300 mt-2">Reason: <?= e(trim((string)($vkLatest['rejection_reason'] ?? '')) ?: 'Please record again with clearer face and voice.') ?></p>
                 <?php endif; ?>
             </div>
-            <span class="text-violet-400 shrink-0">→</span>
+            <span class="text-violet-400 shrink-0">▾</span>
+        </summary>
+        <div class="p-5 pt-0">
+            <?php $vkwRedirectTo = 'kyc.php'; require __DIR__ . '/includes/video_kyc_widget.php'; ?>
         </div>
-    </a>
+    </details>
 
     <?php
     $livePhotoTypes = ['merchant_photo', 'shop_signboard', 'shop_outside', 'shop_inside_1', 'shop_inside_2'];
