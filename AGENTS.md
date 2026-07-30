@@ -72,6 +72,7 @@ php -S localhost:8000
 - Email-signup placeholder phone `+919900000000` must differ from `COMPANY_PHONE`.
 - `demo.php` seeds demo merchant + ₹1 test link via `ensureDemoMerchant()`.
 - Hello-world path: `merchant_register.php` → `merchant_setup.php` → `dashboard.php`.
+- `config.dev.php` is the template; `config.php` is the gitignored runtime file. Adding a file to `config.dev.php`'s `$__includes` array does **not** auto-load it on production. For new includes needed at runtime, add an explicit `require_once` guard (see `includes/auto_audit.php`'s `qr_events.php` require pattern).
 
 ## Workspace Paths
 
@@ -92,7 +93,7 @@ Summary from `LAUNCH_MASTER_REVIEW.md`, `FEATURE_CHECKLIST.md`, and `MULTI_GATEW
 1. Apply pending DB migrations 011–018.
 2. Paste first partner gateway keys (Decentro staging credentials are in `_inbox` screenshots).
 3. Build one-click multi-gateway forward + per-merchant status matrix + merchant auto-notify.
-4. Build first real partner adapter (Decentro UPI P2M / dynamic QR) using staging keys.
+4. Build first real partner adapter (Decentro UPI P2M / dynamic QR) using staging keys. Gateway-agnostic architecture in `includes/gateways.php` is already ready, so there is no structural blocker.
 5. Payout live money only after licensed partner keys are configured.
 6. DB cleanup and diabetes settlement word fix only after owner confirm.
 
