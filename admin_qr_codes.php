@@ -505,10 +505,10 @@ require_once __DIR__ . '/header.php';
                         </td>
                         <td class="px-4 py-3">
                             <div class="flex items-center gap-3">
-                                <img src="<?= e($qrImage) ?>" alt="" width="48" height="48" class="rounded bg-white p-0.5">
-                                <div>
-                                    <p class="font-semibold"><?= e($qr['label']) ?></p>
-                                    <p class="font-mono text-xs text-gray-500"><?= e($qr['qr_code']) ?></p>
+                                <img src="<?= e($qrImage) ?>" alt="" width="48" height="48" class="rounded bg-white p-0.5 shrink-0">
+                                <div class="min-w-0">
+                                    <p class="font-semibold truncate"><?= e($qr['label']) ?></p>
+                                    <p class="font-mono text-xs text-gray-500 truncate"><?= e($qr['qr_code']) ?></p>
                                     <?php if ($qr['category']): ?><span class="text-[10px] bg-gray-800 px-1.5 py-0.5 rounded text-gray-400"><?= e($qr['category']) ?></span><?php endif; ?>
                                 </div>
                             </div>

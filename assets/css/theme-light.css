@@ -488,8 +488,21 @@ pre {
  * instead of wrapping ugly or overflowing.
  */
 h1, h2, h3, h4, h5, h6, p {
-  overflow-wrap: break-word;
-  word-break: break-word;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+/*
+ * IDs / codes / references (QR codes, ticket IDs, UTRs, txn refs, etc.) use
+ * .font-mono across admin, merchant, staff and customer pages. The old
+ * "word-break: break-word" rule above forced these into an ugly one-or-two-
+ * character-per-line stack whenever their container got squeezed narrow
+ * (e.g. a table column). "overflow-wrap: anywhere" only breaks when a line
+ * truly cannot fit, and prefers wider chunks — same fix, explicit here so it
+ * also covers <span>/<td>/<div> mono elements that aren't <p>/<h*>.
+ */
+.font-mono {
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 .uw-scroll-x {
   overflow-x: auto;
