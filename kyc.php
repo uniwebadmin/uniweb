@@ -60,12 +60,6 @@ try {
         $documents = [];
     }
 }
-$historyDocs = $documents;
-if ($docFilter !== '') {
-    $historyDocs = array_values(array_filter($historyDocs, static fn($d) => ($d['doc_type'] ?? '') === $docFilter));
-}
-$docTotal = count($historyDocs);
-$pagedDocuments = array_slice($historyDocs, $listParams['offset'], $listParams['perPage']);
 $uploadedTypes = array_unique(array_column($documents, 'doc_type'));
 $approvedTypes = array_unique(array_column(array_filter($documents, fn($d) => ($d['status'] ?? '') === 'approved'), 'doc_type'));
 
@@ -77,7 +71,17 @@ foreach ($documents as $doc) {
         $latestByType[$t] = $doc;
     }
 }
+
+/** Upload history shows only the latest upload per document type (no old re-upload rows). */
+$historyDocs = array_values(array_filter($latestByType, static fn(array $d): bool => ($d['doc_type'] ?? '') !== 'video_kyc'));
+if ($docFilter !== '') {
+    $historyDocs = array_values(array_filter($historyDocs, static fn($d) => ($d['doc_type'] ?? '') === $docFilter));
+}
+$docTotal = count($historyDocs);
+$pagedDocuments = array_slice($historyDocs, $listParams['offset'], $listParams['perPage']);
 $rejectedDocs = array_values(array_filter($latestByType, static fn(array $d): bool => ($d['status'] ?? '') === 'rejected' && ($d['doc_type'] ?? '') !== 'video_kyc'));
+usort($rejectedDocs, static fn(array $a, array $b): int => strcmp((string)($b['reviewed_at'] ?? $b['created_at'] ?? ''), (string)($a['reviewed_at'] ?? $a['created_at'] ?? '')));
+$rejectedDocs = array_slice($rejectedDocs, 0, 1);
 
 // Number fields shown only if that doc type is required for this entity
 $verifyFields = [];
@@ -458,6 +462,7 @@ $docStatusMeta = static function (string $status): array {
             }
         }
         usort($timelineEvents, fn($a, $b) => strcmp((string)($b['date'] ?? ''), (string)($a['date'] ?? '')));
+        $timelineEvents = array_slice($timelineEvents, 0, 1);
         ?>
         <?php if (empty($timelineEvents)): ?>
             <p class="text-sm text-gray-500">No KYC activity yet.</p>

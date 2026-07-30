@@ -476,6 +476,24 @@ pre {
   overflow-x: auto;
 }
 
+/*
+ * Page fit guard: every portal page must fit the viewport on laptop + mobile.
+ * Long headings/paragraphs wrap instead of stretching the layout wider than
+ * the screen. A dedicated .uw-scroll-x helper is available for genuinely
+ * unbreakable long strings (IDs, hashes, tokens) that should scroll locally
+ * instead of wrapping ugly or overflowing.
+ */
+h1, h2, h3, h4, h5, h6, p {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.uw-scroll-x {
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+  white-space: nowrap;
+}
+
 /* Light-mode accent text colors: force dark, readable variants on white/soft backgrounds. */
 html[data-theme="light"] .text-rose-300,
 html[data-theme="light"] .text-rose-400,

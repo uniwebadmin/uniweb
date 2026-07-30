@@ -85,14 +85,8 @@ $statsSql = "SELECT
     FROM payment_links pl" . ($merchantFilter ? " WHERE pl.merchant_id = {$merchantFilter}" : '');
 $stats = $db->query($statsSql)->fetch();
 
-$pageTitle = 'Admin Payment Links';
-require_once __DIR__ . '/header.php';
-
-$catalog = getPaymentMethodCatalog();
-$merchants = $db->query("SELECT id, business_name FROM merchants WHERE status != 'deleted' ORDER BY business_name LIMIT 200")->fetchAll();
-
 if (isset($_GET['export']) && $_GET['export'] === 'csv' && verifyCsrf($_GET['csrf_token'] ?? '')) {
-    // Export CSV
+    // Export CSV — must run before header.php sends any HTML output
     $exportStmt = $db->prepare("SELECT pl.*, m.business_name, {$paidCountSql} AS paid_count
         FROM payment_links pl
         JOIN merchants m ON m.id = pl.merchant_id
@@ -117,6 +111,12 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && verifyCsrf($_GET['csr
     sendCsvDownload(['Link ID', 'Merchant', 'Method', 'Amount', 'Status', 'Mode', 'Views', 'Paid', 'Expires', 'Created'], $rows, 'payment_links_' . date('Y-m-d') . '.csv');
     exit;
 }
+
+$pageTitle = 'Admin Payment Links';
+require_once __DIR__ . '/header.php';
+
+$catalog = getPaymentMethodCatalog();
+$merchants = $db->query("SELECT id, business_name FROM merchants WHERE status != 'deleted' ORDER BY business_name LIMIT 200")->fetchAll();
 ?>
 <div class="container mx-auto px-4 py-6">
     <div class="flex flex-wrap items-center justify-between mb-6 gap-4">
