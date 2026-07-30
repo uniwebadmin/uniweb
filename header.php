@@ -1,5 +1,5 @@
 <?php
-if (function_exists('opcache_invalidate')) { opcache_invalidate(__FILE__, false); }
+if (function_exists('opcache_invalidate')) { opcache_invalidate(__FILE__, true); }
 if (!defined('APP_NAME')) require_once __DIR__ . '/config.php';
 $pageTitle = $pageTitle ?? APP_NAME;
 $pageDescription = $pageDescription ?? "UniWeb — India's trusted B2B Fintech Payment Platform. UPI, Cards, Payment Links, QR codes, settlements and API for Indian merchants.";
