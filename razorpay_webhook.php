@@ -36,6 +36,10 @@ if (!empty($gatewayEvent['duplicate'])) {
     jsonResponse(['ok' => true, 'duplicate' => true]);
 }
 logPgWebhook('razorpay', 'received', $event, $eventReference, null, '');
+if (!function_exists('webhookFastAck')) {
+    require_once __DIR__ . '/includes/webhook_queue.php';
+}
+webhookFastAck(['ok' => true, 'received' => true]);
 
 if (in_array($event, ['refund.processed', 'refund.failed'], true) && $refundProviderId !== '') {
     try {

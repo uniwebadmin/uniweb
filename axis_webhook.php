@@ -54,6 +54,11 @@ if ($dup->fetch()) {
     jsonResponse(['status' => 'duplicate', 'app' => APP_NAME]);
 }
 
+if (!function_exists('webhookFastAck')) {
+    require_once __DIR__ . '/includes/webhook_queue.php';
+}
+webhookFastAck(['status' => 'received', 'app' => APP_NAME]);
+
 $link = [
     'merchant_id' => (int)$merch['id'],
     'amount' => $amount,

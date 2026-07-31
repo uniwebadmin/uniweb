@@ -21,6 +21,11 @@ if (!verifyPayUResponseHash($post)) {
     exit;
 }
 
+if (!function_exists('webhookFastAck')) {
+    require_once __DIR__ . '/includes/webhook_queue.php';
+}
+webhookFastAck(['ok' => true, 'received' => true]);
+
 $failureStatuses = ['failure', 'failed', 'f'];
 if (in_array($status, $failureStatuses, true) && $reference !== '') {
     $providerOrderId = (string)($post['txnid'] ?? $reference);

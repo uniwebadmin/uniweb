@@ -37,6 +37,10 @@ if (!empty($gatewayEvent['duplicate'])) {
 }
 
 logPgWebhook('cashfree', 'received', $event, $paymentId ?: $orderId, null, '');
+if (!function_exists('webhookFastAck')) {
+    require_once __DIR__ . '/includes/webhook_queue.php';
+}
+webhookFastAck(['ok' => true, 'received' => true]);
 
 $failureEvents = ['PAYMENT_FAILED_WEBHOOK', 'PAYMENT_FAILED', 'ORDER_FAILED'];
 $paymentStatus = strtoupper((string)($payment['payment_status'] ?? $data['payment_status'] ?? ''));

@@ -77,7 +77,7 @@ function axisServerPublicIp(): string
     return $_SERVER['SERVER_ADDR'] ?? 'unknown';
 }
 
-function axisHttpRequest(string $url, string $method, array $headers, ?string $body = null, int $timeout = 45): array
+function axisHttpRequestOnce(string $url, string $method, array $headers, ?string $body, int $timeout): array
 {
     $ch = curl_init($url);
     $opts = [
@@ -104,6 +104,31 @@ function axisHttpRequest(string $url, string $method, array $headers, ?string $b
         'error' => $error,
         'errno' => $errno,
     ];
+}
+
+/**
+ * Same as axisHttpRequestOnce() but retries transient failures (timeouts,
+ * connection errors, 5xx, 429 rate-limited) with exponential backoff.
+ * Client errors (4xx other than 429) are NOT retried — retrying those would
+ * just repeat the same bad request.
+ */
+function axisHttpRequest(string $url, string $method, array $headers, ?string $body = null, int $timeout = 45, int $maxAttempts = 3): array
+{
+    $delayMs = 200;
+    $result = ['body' => '', 'http_code' => 0, 'error' => '', 'errno' => 0];
+    for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+        $result = axisHttpRequestOnce($url, $method, $headers, $body, $timeout);
+        $transientNetworkError = $result['errno'] !== 0;
+        $transientHttpStatus = $result['http_code'] === 429 || $result['http_code'] >= 500;
+        if (!$transientNetworkError && !$transientHttpStatus) {
+            return $result;
+        }
+        if ($attempt < $maxAttempts) {
+            usleep($delayMs * 1000);
+            $delayMs *= 2;
+        }
+    }
+    return $result;
 }
 
 function axisClientHeaders(array $c): array
