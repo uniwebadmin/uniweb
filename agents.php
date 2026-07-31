@@ -42,8 +42,8 @@ require_once __DIR__ . '/header.php';
             <?php if (empty($agentList)): ?>
             <tr><td colspan="6" class="px-5 py-12 text-center text-gray-500">No agents yet. Add using the button above.</td></tr>
             <?php else: foreach ($agentList as $a): ?>
-            <tr class="hover:bg-white/5">
-                <td class="px-5 py-3 font-mono text-xs"><?= e($a['merchant_code']) ?></td>
+            <tr class="hover:bg-white/5 cursor-pointer" onclick="location.href='agent_detail.php?id=<?= (int)$a['id'] ?>'">
+                <td class="px-5 py-3 font-mono text-xs"><a href="agent_detail.php?id=<?= (int)$a['id'] ?>" class="text-sky-400 hover:underline"><?= e($a['merchant_code']) ?></a></td>
                 <td class="px-5 py-3"><?= e($a['business_name']) ?></td>
                 <td class="px-5 py-3 text-xs"><?= e($a['phone']) ?></td>
                 <td class="px-5 py-3"><?= statusBadge($a['kyc_status']) ?></td>

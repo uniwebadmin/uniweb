@@ -105,7 +105,7 @@ require_once __DIR__ . '/header.php';
                 ?>
                 <article class="cp-txn-row">
                     <div>
-                        <p class="cp-mono"><?= e($t['txn_id']) ?></p>
+                        <p class="cp-mono"><a href="receipt.php?txn=<?= rawurlencode((string)$t['txn_id']) ?>" target="_blank" class="hover:underline"><?= e($t['txn_id']) ?></a></p>
                         <p class="text-sm font-semibold text-slate-800 mt-1 sm:hidden"><?= formatMoney((float)$t['amount']) ?></p>
                         <p class="cp-muted uppercase mt-0.5"><?= e(paymentMethodLabel($t['payment_method'] ?? '')) ?></p>
                     </div>
