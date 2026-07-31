@@ -39,9 +39,10 @@ if (!$vaNumber || $amount <= 0 || $utr === '') {
 }
 
 $db = getDB();
-$m = $db->prepare('SELECT * FROM merchants WHERE axis_va_number = ? LIMIT 1');
-$m->execute([$vaNumber]);
-$merch = $m->fetch();
+if (!function_exists('findMerchantByVirtualAccountNumber')) {
+    require_once __DIR__ . '/includes/va_manager.php';
+}
+$merch = findMerchantByVirtualAccountNumber($vaNumber);
 if (!$merch) {
     axisLogApi('webhook', 'POST', '', 'merchant not found for VA', 404, null, 'webhook_skip');
     jsonResponse(['error' => 'Virtual account not found'], 404);
@@ -65,6 +66,9 @@ $link = [
 ];
 $txnId = createTransactionFromPayment($link, 'axis_va', 'success', $utr, merchantAccountMode($merch) === 'test');
 createNotification((int)$merch['id'], 'Axis VA Payment', formatMoney($amount) . ' received in Virtual Account.');
+if (!empty($merch['va_row_id'])) {
+    recordVirtualAccountUsage((int)$merch['va_row_id']);
+}
 
 axisLogApi('webhook', 'POST', '', 'credited txn ' . $txnId, 200, (int)$merch['id'], 'webhook_ok');
 jsonResponse(['status' => 'processed', 'transaction_id' => $txnId, 'app' => APP_NAME]);

@@ -1,0 +1,58 @@
+
+✅ आपके UniWeb सिस्टम में क्या-क्या बनाना है (High Volume UPI के लिए)
+Decentro सिर्फ APIs देगा। असली लोड और स्मार्टनेस आपके सिस्टम में होनी चाहिए। नीचे प्राथमिकता के हिसाब से काम बता रहा हूँ:
+1. Multiple Virtual Account + Multiple QR System (सबसे जरूरी)
+हर Merchant के लिए एक नहीं, कई Virtual Accounts बना सको।
+हर Virtual Account पर Dynamic QR generate हो।
+सिस्टम खुद decide करे कि नया ट्रांजैक्शन किस VA/QR पर भेजा जाए (Load Balancing)।
+क्यों?
+एक QR पर बहुत ज्यादा लोड आने से fail होने का खतरा रहता है। Multiple QR से लोड बंट जाता है।
+2. Smart QR / VA Assignment Logic
+जब कोई payment request आए तो:
+सबसे कम busy VA/QR चुनो
+या round-robin से बांटो
+या merchant के volume के हिसाब से VA allocate करो
+3. High-Speed Webhook Handler
+Decentro से आने वाले webhooks को बहुत तेज receive करो।
+Queue (Redis / RabbitMQ / Bull) का इस्तेमाल करो।
+Webhook आने पर तुरंत 200 OK दो, प्रोसेसिंग बाद में करो।
+Idempotency जरूर लगाओ (एक ही webhook दो बार आए तो duplicate entry न बने)।
+4. Real-time Ledger & Balance System
+हर successful payment पर merchant का wallet/balance तुरंत अपडेट हो।
+Platform commission auto-deduct हो।
+Available Balance, In-transit Balance, Settled Balance अलग-अलग रखो।
+5. Rate Limiting & Queue अपनी तरफ से
+अपने API पर rate limit लगाओ।
+बहुत ज्यादा requests एक साथ आएं तो queue में डालो।
+Decentro की तरफ से आने वाले limit को handle करने के लिए retry + exponential backoff लगाओ।
+6. Monitoring & Alert System
+Real-time dashboard: कितने TPS आ रहे हैं, कितने success/fail हो रहे हैं।
+अगर किसी QR/VA पर बहुत ज्यादा fail होने लगें तो alert + auto switch to another VA।
+Daily reconciliation report।
+7. Merchant-facing Features
+Merchant को Multiple QR download/print करने का option।
+QR की live status (आज कितने payment आए)।
+Instant Settlement / Withdraw button (आपके payout module से)।
+प्राथमिकता क्रम (क्या पहले बनाओ)
+Priority
+काम
+क्यों
+1
+Multiple VA + Multiple QR logic
+सबसे important
+2
+Fast Webhook + Queue system
+बिना इसके high volume crash होगा
+3
+Real-time Ledger
+पैसा सही-सही दिखना चाहिए
+4
+Load Balancing of QRs
+एक QR पर overload न हो
+5
+Monitoring + Alerts
+समस्या तुरंत पता चले
+संक्षेप में:
+Decentro से Multiple VA/QR की अनुमति लो।
+अपने सिस्टम में Load Balancing + Fast Webhook + Strong Ledger बनाओ।
+यही असली high-throughput setup है।

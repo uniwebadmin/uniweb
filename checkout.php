@@ -151,7 +151,18 @@ $decentroQr = null;
 $withPayuSplit = $handler === 'payu_split';
 
 if ($handler === 'axis_va') {
-    $axisVa = ensureAxisVirtualAccount((int)$link['merchant_id']);
+    if (!function_exists('pickLeastBusyVirtualAccount')) {
+        require_once __DIR__ . '/includes/va_manager.php';
+    }
+    $pickedVa = pickLeastBusyVirtualAccount((int)$link['merchant_id']);
+    if ($pickedVa) {
+        $axisVa = ['va_number' => $pickedVa['va_number'], 'va_ifsc' => $pickedVa['ifsc'], 'va_upi' => $pickedVa['upi_id'], 'axis_va_id' => $pickedVa['va_id']];
+        if ($_SERVER['REQUEST_METHOD'] === 'GET' && empty($success)) {
+            recordVirtualAccountUsage((int)$pickedVa['id']);
+        }
+    } else {
+        $axisVa = ensureAxisVirtualAccount((int)$link['merchant_id']);
+    }
     if ($axisVa) {
         $link['axis_va_upi'] = $axisVa['va_upi'] ?? $link['axis_va_upi'];
         $upiData = buildMerchantUpiIntent($link);

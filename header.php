@@ -351,6 +351,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     ['admin_partners.php','All Partners'],
                     ['admin_partner_decentro.php','Decentro Checklist'],
                     ['admin_axis.php','Axis UAT'],
+                    ['admin_virtual_accounts.php','Virtual Accounts'],
                     ['admin_method_requests.php','Method Requests'],
                 ]],
                 ['id' => 'support', 'title' => 'Support & Risk', 'items' => [

@@ -134,6 +134,17 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
             $report['steps']['qr_alerts'] = ['ok' => false, 'error' => $e->getMessage()];
         }
 
+        try {
+            // Defense in depth: live config.php is gitignored and may not include 'va_manager'.
+            if (!function_exists('resetVirtualAccountDailyCountersIfNeeded')) {
+                require_once __DIR__ . '/va_manager.php';
+            }
+            $vaReset = resetVirtualAccountDailyCountersIfNeeded();
+            $report['steps']['va_counters'] = ['ok' => true, 'reset' => $vaReset];
+        } catch (Throwable $e) {
+            $report['steps']['va_counters'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
         $brokenLinks = 0;
         $linkOk = true;
         if (function_exists('runFullLinkWatchdog')) {
