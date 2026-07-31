@@ -77,7 +77,7 @@ require_once __DIR__ . '/header.php';
         </tr></thead>
         <tbody class="divide-y divide-gray-800">
             <?php foreach ($items as $it): ?>
-            <tr><td class="px-4 py-3 font-mono text-xs"><?= e($it['txn_id']) ?></td>
+            <tr><td class="px-4 py-3 font-mono text-xs"><a href="<?= e(transactionDetailUrl($it['txn_id'])) ?>" class="text-sky-400 hover:underline"><?= e($it['txn_id']) ?></a></td>
                 <td class="px-4 py-3 uppercase text-xs"><?= e($it['payment_method']) ?></td>
                 <td class="px-4 py-3 text-right"><?= walletMoney((float)$it['amount']) ?></td>
                 <td class="px-4 py-3 text-xs text-gray-500"><?= formatDate($it['txn_at']) ?></td></tr>
