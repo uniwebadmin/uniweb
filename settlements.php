@@ -296,7 +296,7 @@ $exportQuery = http_build_query(['q' => $settlementQ, 'status' => $settlementSta
                     </td>
                     <td class="px-5 py-3 font-semibold text-brand-400"><?= walletMoney((float)$s['net_amount']) ?></td>
                     <td class="px-5 py-3 text-xs"><?= e($s['bank_name'] ?? '—') ?></td>
-                    <td class="px-5 py-3">
+                    <td class="px-5 py-3 can-wrap">
                         <div title="<?= e(settlementReasonText($s, $merchant)) ?>"><?= settlementStatusBadge($s['status']) ?></div>
                         <?php
                         $sKey = canonicalSettlementStatus($s['status'] ?? null)['key'];

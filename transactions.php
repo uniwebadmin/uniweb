@@ -171,7 +171,7 @@ require_once __DIR__ . '/header.php';
                         <?= statusBadge($t['status']) ?>
                         <?php endif; ?>
                     </td>
-                    <td class="px-5 py-3 text-xs text-gray-400 max-w-[220px]">
+                    <td class="px-5 py-3 text-xs text-gray-400 max-w-[220px] can-wrap">
                         <?php if ($rowReason && $rowReason['text'] !== ''): ?>
                         <span class="line-clamp-2" title="<?= e($rowReason['text']) ?>"><?= e($rowReason['text']) ?></span>
                         <?php else: ?>

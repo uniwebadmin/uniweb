@@ -92,6 +92,34 @@ body:not(.auth-portal-shell):not(.customer-portal-shell) .portal-main {
   box-shadow: 0 8px 18px rgba(16, 185, 129, 0.16);
 }
 
+/* Long IDs / codes / UTRs / reference numbers inside tables must never wrap
+   character-by-character. Keep them on one line and let the table's own
+   .overflow-x-auto wrapper provide horizontal scroll instead. */
+table td.font-mono,
+table th.font-mono,
+table td .font-mono,
+table th .font-mono {
+  white-space: nowrap;
+}
+
+/* Scrollable tables (wrapped in .overflow-x-auto) must size to their
+   content, not squish to the container width. This stops long headings,
+   Status pills, and Action buttons from stacking on top of each other on
+   small screens — the wrapper scrolls left/right instead. */
+.overflow-x-auto > table {
+  min-width: max-content;
+}
+
+.overflow-x-auto > table th,
+.overflow-x-auto > table td {
+  white-space: nowrap;
+}
+
+.overflow-x-auto > table th.can-wrap,
+.overflow-x-auto > table td.can-wrap {
+  white-space: normal;
+}
+
 @media (max-width: 640px) {
   .portal-main > header {
     padding-top: 0.8rem;
