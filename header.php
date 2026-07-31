@@ -362,6 +362,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                 ]],
                 ['id' => 'platform', 'title' => 'Platform & Settings', 'items' => [
                     ['admin_platform_status.php','Platform Status'],
+                    ['admin_transaction_monitor.php','Transaction Monitor'],
                     ['admin_website.php','Website & API Keys'],
                     ['gateway_settings.php','Gateway Settings'],
                     ['admin_security.php','Security & Password'],
