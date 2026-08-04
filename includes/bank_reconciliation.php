@@ -238,3 +238,192 @@ function confirmBankReconciliationMatch(int $matchId): void
         throw $e;
     }
 }
+
+/* ------------------------------------------------------------------ *
+ *  Automated bank-statement fetch (SFTP or local inbox)
+ * ------------------------------------------------------------------ */
+
+function bankStatementsDir(): string
+{
+    $d = __DIR__ . '/../bank_statements';
+    if (!is_dir($d)) {
+        mkdir($d, 0755, true);
+    }
+    foreach ([$d . '/inbox', $d . '/archive'] as $sub) {
+        if (!is_dir($sub)) {
+            mkdir($sub, 0755, true);
+        }
+    }
+    return $d;
+}
+
+function getBankReconciliationSftpSettings(): array
+{
+    $settings = [
+        'enabled' => (int)getSetting('bank_reconciliation_enabled', '0'),
+        'mode' => getSetting('bank_reconciliation_mode', 'sftp'),
+        'host' => getSetting('bank_sftp_host', ''),
+        'port' => (int)getSetting('bank_sftp_port', '22'),
+        'user' => getSetting('bank_sftp_user', ''),
+        'pass' => getSetting('bank_sftp_pass', ''),
+        'remote_path' => rtrim(getSetting('bank_sftp_remote_path', '/'), '/'),
+        'filename_pattern' => getSetting('bank_sftp_filename_pattern', '*.csv'),
+    ];
+    $settings['enabled'] = $settings['enabled'] && $settings['host'] !== '' && $settings['user'] !== '' && $settings['pass'] !== '';
+    return $settings;
+}
+
+function saveBankReconciliationSftpConfig(array $post): void
+{
+    $map = [
+        'bank_reconciliation_enabled' => !empty($post['bank_reconciliation_enabled']) ? '1' : '0',
+        'bank_reconciliation_mode' => in_array(($post['bank_reconciliation_mode'] ?? ''), ['sftp', 'local'], true) ? $post['bank_reconciliation_mode'] : 'sftp',
+        'bank_sftp_host' => trim($post['bank_sftp_host'] ?? ''),
+        'bank_sftp_port' => (string)(int)($post['bank_sftp_port'] ?? 22),
+        'bank_sftp_user' => trim($post['bank_sftp_user'] ?? ''),
+        'bank_sftp_pass' => trim($post['bank_sftp_pass'] ?? ''),
+        'bank_sftp_remote_path' => trim($post['bank_sftp_remote_path'] ?? ''),
+        'bank_sftp_filename_pattern' => trim($post['bank_sftp_filename_pattern'] ?? '*.csv'),
+    ];
+    foreach ($map as $k => $v) {
+        saveAutoAuditMeta($k, $v);
+    }
+}
+
+function bankReconciliationCronKey(): string
+{
+    $key = getSetting('bank_reconciliation_cron_key', '');
+    if ($key === '') {
+        $key = bin2hex(random_bytes(16));
+        saveAutoAuditMeta('bank_reconciliation_cron_key', $key);
+    }
+    return $key;
+}
+
+function isBankStatementProcessed(string $filename): bool
+{
+    $st = getDB()->prepare('SELECT id FROM bank_reconciliation_files WHERE filename = ? LIMIT 1');
+    $st->execute([$filename]);
+    return (bool)$st->fetch();
+}
+
+function processBankStatementFile(string $localPath, string $filename, ?int $adminId = null): array
+{
+    $rows = parseBankStatementCsv($localPath);
+    $res = reconcileBankStatementRows($rows, $adminId, $filename);
+    $archive = bankStatementsDir() . '/archive/' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename) . '_' . time() . '.csv';
+    rename($localPath, $archive);
+    return $res;
+}
+
+function sftpListRemoteFiles(array $settings): array
+{
+    if ($settings['host'] === '' || $settings['user'] === '' || $settings['pass'] === '') {
+        throw new RuntimeException('SFTP settings missing.');
+    }
+    $url = 'sftp://' . rawurlencode($settings['user']) . ':' . rawurlencode($settings['pass']) . '@' . $settings['host'] . ':' . $settings['port'] . $settings['remote_path'] . '/';
+    $ch = curl_init($url);
+    $list = '';
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
+    curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_SFTP);
+    curl_setopt($ch, CURLOPT_DIRLISTONLY, true);
+    curl_setopt($ch, CURLOPT_WRITEFUNCTION, function ($ch, $data) use (&$list) {
+        $list .= $data;
+        return strlen($data);
+    });
+    $ok = curl_exec($ch);
+    $err = curl_error($ch);
+    $info = curl_getinfo($ch);
+    curl_close($ch);
+    if ($ok === false || $info['http_code'] >= 400) {
+        throw new RuntimeException('SFTP list failed: ' . $err);
+    }
+    $pattern = $settings['filename_pattern'] ?: '*.csv';
+    $files = [];
+    foreach (explode("\n", $list) as $line) {
+        $line = trim($line);
+        if ($line === '') {
+            continue;
+        }
+        // Last token is usually the filename in SFTP/FTP listings.
+        $parts = preg_split('/\s+/', $line);
+        $name = end($parts);
+        if ($name === false) {
+            continue;
+        }
+        if (fnmatch($pattern, (string)$name)) {
+            $files[] = (string)$name;
+        }
+    }
+    return $files;
+}
+
+function sftpDownloadFile(array $settings, string $remoteFile): string
+{
+    $local = bankStatementsDir() . '/inbox/' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $remoteFile) . '_' . uniqid() . '.csv';
+    $url = 'sftp://' . rawurlencode($settings['user']) . ':' . rawurlencode($settings['pass']) . '@' . $settings['host'] . ':' . $settings['port'] . $settings['remote_path'] . '/' . rawurlencode($remoteFile);
+    $ch = curl_init($url);
+    $out = fopen($local, 'w+b');
+    curl_setopt($ch, CURLOPT_FILE, $out);
+    curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_SFTP);
+    curl_exec($ch);
+    $err = curl_error($ch);
+    $info = curl_getinfo($ch);
+    curl_close($ch);
+    fclose($out);
+    if ($info['http_code'] >= 400 || !file_exists($local) || filesize($local) === 0) {
+        if (file_exists($local)) {
+            unlink($local);
+        }
+        throw new RuntimeException('SFTP download failed: ' . $err);
+    }
+    return $local;
+}
+
+function runBankReconciliationSftpFetch(?int $adminId = null): array
+{
+    $settings = getBankReconciliationSftpSettings();
+    if (!$settings['enabled']) {
+        return ['ok' => true, 'skipped' => true, 'message' => 'Auto reconciliation disabled.'];
+    }
+    $files = sftpListRemoteFiles($settings);
+    $results = [];
+    foreach ($files as $remoteFile) {
+        $filename = 'sftp:' . $remoteFile;
+        if (isBankStatementProcessed($filename)) {
+            $results[] = ['file' => $remoteFile, 'ok' => true, 'skipped' => true];
+            continue;
+        }
+        $local = sftpDownloadFile($settings, $remoteFile);
+        $res = processBankStatementFile($local, $filename, $adminId);
+        $results[] = array_merge(['file' => $remoteFile, 'ok' => true], $res);
+    }
+    return ['ok' => true, 'files' => $results];
+}
+
+function runBankReconciliationLocalFetch(?int $adminId = null): array
+{
+    $dir = bankStatementsDir() . '/inbox';
+    $pattern = $dir . '/*.csv';
+    $results = [];
+    foreach (glob($pattern) as $local) {
+        $base = basename($local);
+        $filename = 'local:' . $base;
+        if (isBankStatementProcessed($filename)) {
+            $results[] = ['file' => $base, 'ok' => true, 'skipped' => true];
+            continue;
+        }
+        $res = processBankStatementFile($local, $filename, $adminId);
+        $results[] = array_merge(['file' => $base, 'ok' => true], $res);
+    }
+    return ['ok' => true, 'files' => $results];
+}
+
+function runBankReconciliationFetch(?int $adminId = null): array
+{
+    $settings = getBankReconciliationSftpSettings();
+    if (!$settings['enabled']) {
+        return ['ok' => true, 'skipped' => true, 'message' => 'Auto reconciliation disabled.'];
+    }
+    return $settings['mode'] === 'local' ? runBankReconciliationLocalFetch($adminId) : runBankReconciliationSftpFetch($adminId);
+}

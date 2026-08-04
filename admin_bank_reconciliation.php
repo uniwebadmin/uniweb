@@ -31,6 +31,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'uploa
     flash('success', "Processed {$result['total']} rows — {$result['confirmed']} confirmed, {$result['suggested']} review suggestion(s), " . count($result['unmatched']) . ' unmatched.');
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '') && ($_POST['action'] ?? '') === 'save_sftp') {
+    saveBankReconciliationSftpConfig($_POST);
+    flash('success', 'Auto-reconciliation settings saved.');
+    redirect('admin_bank_reconciliation.php');
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '') && ($_POST['action'] ?? '') === 'test_sftp') {
+    try {
+        $settings = getBankReconciliationSftpSettings();
+        if ($settings['mode'] === 'local') {
+            $files = count(glob(bankStatementsDir() . '/inbox/*.csv'));
+            flash('success', 'Local inbox connection OK. ' . $files . ' CSV file(s) waiting.');
+        } else {
+            $files = sftpListRemoteFiles($settings);
+            flash('success', 'SFTP connection OK. ' . count($files) . ' matching file(s) found.');
+        }
+    } catch (Throwable $e) {
+        flash('error', 'Connection failed: ' . $e->getMessage());
+    }
+    redirect('admin_bank_reconciliation.php');
+}
+
+if (isset($_GET['action']) && $_GET['action'] === 'run_sftp' && verifyCsrf($_GET['token'] ?? '')) {
+    try {
+        $adminId = (int)($_SESSION['admin_id'] ?? 0);
+        $sftpResult = runBankReconciliationFetch($adminId ?: null);
+        if (!empty($sftpResult['skipped'])) {
+            flash('info', $sftpResult['message'] ?? 'Auto-reconciliation skipped.');
+        } else {
+            $processed = count(array_filter($sftpResult['files'] ?? [], fn($r) => empty($r['skipped'])));
+            flash('success', 'Auto-fetch finished. ' . $processed . ' new file(s) processed.');
+        }
+    } catch (Throwable $e) {
+        flash('error', 'Auto-fetch failed: ' . $e->getMessage());
+    }
+    redirect('admin_bank_reconciliation.php');
+}
+
+$sftpSettings = getBankReconciliationSftpSettings();
+$reconCronKey = bankReconciliationCronKey();
 $history = getBankReconciliationHistory(20);
 $pageTitle = 'Bank Auto-Reconciliation';
 require_once __DIR__ . '/header.php';
@@ -55,6 +95,63 @@ require_once __DIR__ . '/header.php';
             </div>
             <button type="submit" class="btn-primary w-full sm:w-auto px-6 py-2.5 rounded-xl">Upload &amp; Reconcile</button>
         </form>
+    </div>
+
+    <div class="glass rounded-xl p-4 sm:p-6">
+        <h3 class="font-semibold mb-4">Auto-Fetch Settings</h3>
+        <form method="POST" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="action" value="save_sftp">
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="text-sm text-gray-400">Mode</label>
+                    <select name="bank_reconciliation_mode" class="input-field mt-1 w-full">
+                        <option value="sftp" <?= $sftpSettings['mode'] === 'sftp' ? 'selected' : '' ?>>SFTP (auto daily)</option>
+                        <option value="local" <?= $sftpSettings['mode'] === 'local' ? 'selected' : '' ?>>Local inbox (manual drop)</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <label class="flex items-center gap-2 text-sm text-gray-400">
+                        <input type="checkbox" name="bank_reconciliation_enabled" value="1" <?= $sftpSettings['enabled'] ? 'checked' : '' ?> class="rounded border-gray-600">
+                        Enable auto-fetch
+                    </label>
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">SFTP host</label>
+                    <input type="text" name="bank_sftp_host" value="<?= e($sftpSettings['host']) ?>" class="input-field mt-1 w-full">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">SFTP port</label>
+                    <input type="number" name="bank_sftp_port" value="<?= (int)$sftpSettings['port'] ?>" class="input-field mt-1 w-full">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Username</label>
+                    <input type="text" name="bank_sftp_user" value="<?= e($sftpSettings['user']) ?>" class="input-field mt-1 w-full">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Password</label>
+                    <input type="password" name="bank_sftp_pass" value="<?= e($sftpSettings['pass']) ?>" class="input-field mt-1 w-full" placeholder="Leave blank to keep current">
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="text-sm text-gray-400">Remote path</label>
+                    <input type="text" name="bank_sftp_remote_path" value="<?= e($sftpSettings['remote_path']) ?>" class="input-field mt-1 w-full" placeholder="/statements">
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="text-sm text-gray-400">Filename pattern</label>
+                    <input type="text" name="bank_sftp_filename_pattern" value="<?= e($sftpSettings['filename_pattern']) ?>" class="input-field mt-1 w-full" placeholder="*.csv">
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                <button type="submit" class="btn-primary px-6 py-2.5">Save</button>
+                <button type="submit" name="action" value="test_sftp" class="border border-gray-700 rounded-lg hover:bg-white/5 px-6 py-2.5">Test</button>
+                <a href="?action=run_sftp&token=<?= csrfToken() ?>" class="inline-block btn-primary text-sm px-5 py-2.5" onclick="return confirm('Run auto-fetch now?')">▶ Run Now</a>
+            </div>
+        </form>
+        <div class="mt-6 pt-4 border-t border-gray-800">
+            <p class="text-xs text-gray-500 mb-2">Daily cron URL</p>
+            <code class="block bg-dark-900 rounded-lg p-3 text-xs text-sky-400 font-mono break-all"><?= e(rtrim(defined('APP_URL') ? APP_URL : '', '/') . '/cron_bank_reconciliation.php?key=' . $reconCronKey) ?></code>
+            <p class="text-[11px] text-gray-600 mt-2">Hostinger cron example: once a day at 6 AM → <code class="text-gray-500">curl -s "<?= e(rtrim(defined('APP_URL') ? APP_URL : '', '/') . '/cron_bank_reconciliation.php?key=' . $reconCronKey) ?>"</code></p>
+        </div>
     </div>
 
     <?php if ($result): ?>
