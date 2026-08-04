@@ -164,6 +164,10 @@ function applyPendingMigrations(string $directory): array
                             error_log('UniWeb migration legacy transaction backfill skipped: ' . $migration['version']);
                             continue;
                         }
+                        if ((bool)preg_match('/^\s*ALTER\s+TABLE/i', $statement)) {
+                            error_log('Migration ALTER TABLE skipped: ' . $migration['version'] . ' - ' . $e->getMessage());
+                            continue;
+                        }
                         throw $e;
                     }
                 }
