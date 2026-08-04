@@ -13,6 +13,24 @@ require_once __DIR__ . '/../config.php';
 
 $db = getDB();
 
+// Ensure the migration 032 columns are present before backfilling.
+// This makes the script safe to run even if the migration registry is out of sync.
+$schemaSql = <<<'SQL'
+ALTER TABLE bank_accounts
+    ADD COLUMN IF NOT EXISTS account_number_last4 VARCHAR(4) DEFAULT NULL AFTER account_number,
+    MODIFY COLUMN account_number VARCHAR(255) DEFAULT NULL;
+
+ALTER TABLE payout_beneficiaries
+    ADD COLUMN IF NOT EXISTS account_number_last4 VARCHAR(4) DEFAULT NULL AFTER account_number,
+    MODIFY COLUMN account_number VARCHAR(255) NOT NULL;
+
+ALTER TABLE kyc_verifications
+    ADD COLUMN IF NOT EXISTS doc_number_last4 VARCHAR(4) DEFAULT NULL AFTER doc_number,
+    MODIFY COLUMN doc_number VARCHAR(255) DEFAULT NULL;
+SQL;
+
+$db->exec($schemaSql);
+
 $tables = [
     'bank_accounts' => ['col' => 'account_number', 'last4' => 'account_number_last4'],
     'payout_beneficiaries' => ['col' => 'account_number', 'last4' => 'account_number_last4'],
