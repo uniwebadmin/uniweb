@@ -116,6 +116,14 @@ require_once __DIR__ . '/header.php';
     </div>
 </div>
 
+<div class="bg-sky-500/10 border border-sky-500/30 rounded-xl p-4 mb-6 flex flex-wrap items-center justify-between gap-3 text-sm">
+    <div>
+        <p class="text-sky-200 font-medium">Nodal / Escrow Separation</p>
+        <p class="text-xs text-gray-500 mt-1">Customer funds ledger is separate from platform commission. Verify the real nodal/escrow bank account under Nodal Accounts.</p>
+    </div>
+    <a href="admin_nodal_accounts.php" class="btn-primary text-xs px-4 py-2">Manage Nodal Accounts</a>
+</div>
+
 <div class="grid lg:grid-cols-2 gap-6 mb-8">
     <div class="glass rounded-xl p-6">
         <h2 class="font-semibold mb-4">Withdraw to Bank</h2>

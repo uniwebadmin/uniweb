@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/nodal.php';
+
 /** Merchant + Platform wallet ledger */
 
 function refreshMerchantWalletBalance(int $merchantId): float
@@ -707,6 +709,8 @@ function processMerchantSettlement(int $merchantId, array $merchant, float $amou
     try {
         $db->prepare('INSERT INTO settlements (settlement_id, merchant_id, amount, fee, net_amount, bank_account_id, status) VALUES (?,?,?,?,?,?,?)')
             ->execute([$settlementId, $merchantId, $amount, 0, $amount, $bankAccount['id'], $isTest ? 'completed' : 'pending']);
+
+        recordNodalPayout($settlementId, $merchantId, $amount, 'Merchant settlement reserved');
 
         if ($isTest) {
             $db->prepare("UPDATE settlements SET utr=?, processed_at=NOW() WHERE settlement_id=?")

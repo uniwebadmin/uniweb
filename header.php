@@ -370,6 +370,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     ['admin_error_log.php','Error Log'],
                     ['admin_watchdog.php','Link Watchdog'],
                     ['admin_link_audit.php','Link Audit'],
+                    ['admin_nodal_accounts.php','Nodal Accounts'],
                 ]],
             ];
             $cur = basename($_SERVER['PHP_SELF']);

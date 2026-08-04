@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/risk.php';
+require_once __DIR__ . '/nodal.php';
 
 /** B2B Collection engine — direct UPI, PayU split, Axis VA, PG routes */
 
@@ -196,6 +197,7 @@ function createTransactionFromPayment(array $link, string $method, string $statu
             }
             notifyMerchantPaymentSuccess((int)$link['merchant_id'], $txnRow, $linkId);
             recordTransactionRisk($id, (int)$link['merchant_id'], $amount, ['email' => $customerEmail ?? '', 'phone' => $customerPhone ?? '']);
+            recordNodalCollection($id, (int)$link['merchant_id'], $amount, 'Customer collection from ' . ($customerEmail ?? 'customer'));
             updateMerchantRiskScore((int)$link['merchant_id']);
         }
     }
