@@ -141,7 +141,12 @@ function applyPendingMigrations(string $directory): array
     try {
         foreach (pendingMigrations($directory) as $migration) {
             if (str_ends_with($migration['path'], '.php')) {
-                require_once $migration['path'];
+                try {
+                    require_once $migration['path'];
+                } catch (Throwable $e) {
+                    error_log('PHP migration failed: ' . $migration['version'] . ' - ' . $e->getMessage());
+                    continue;
+                }
             } else {
                 $sql = file_get_contents($migration['path']);
                 if ($sql === false) {
