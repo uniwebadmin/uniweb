@@ -96,8 +96,12 @@ foreach (glob($backupsDir . '/*.sql.gz') as $f) {
     }
 }
 
-// Off-site copy by email.
-$backupEmail = getSetting('db_backup_email', getSetting('support_email', COMPANY_ADMIN_EMAIL));
+// Off-site copy by email. Hard-code address in config.php with DB_BACKUP_EMAIL.
+if (defined('DB_BACKUP_EMAIL') && filter_var(DB_BACKUP_EMAIL, FILTER_VALIDATE_EMAIL)) {
+    $backupEmail = DB_BACKUP_EMAIL;
+} else {
+    $backupEmail = getSetting('db_backup_email', getSetting('support_email', COMPANY_ADMIN_EMAIL));
+}
 $emailSent = false;
 if ($backupEmail && filter_var($backupEmail, FILTER_VALIDATE_EMAIL)) {
     $subject = '[' . APP_NAME . '] DB backup ' . date('Y-m-d H:i:s');
