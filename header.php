@@ -359,6 +359,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     ['admin_customer_tickets.php','Customer Complaints'],
                     ['admin_website_reviews.php','Website Reviews'],
                     ['admin_aml.php','AML Compliance'],
+                    ['admin_risk.php','Risk & AML'],
                 ]],
                 ['id' => 'platform', 'title' => 'Platform & Settings', 'items' => [
                     ['admin_platform_status.php','Platform Status'],

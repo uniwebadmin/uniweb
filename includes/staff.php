@@ -220,6 +220,7 @@ function staffNavForRole(string $role): array
         'admin_gateway_submit.php' => ['Gateway Submit', ['super', 'ceo', 'ops']],
         'admin_pg_webhooks.php' => ['PG Webhooks', ['super', 'ceo', 'ops']],
         'admin_reconciliation.php' => ['PG Reconciliation', ['super', 'ceo', 'finance', 'ops']],
+        'admin_risk.php' => ['Risk & AML', ['super', 'ceo', 'ops', 'finance']],
     ];
     if (staffCanManageStaff()) {
         $all['admin_manage_staff.php'] = ['Staff Control', ['super', 'ceo', 'regional_manager']];

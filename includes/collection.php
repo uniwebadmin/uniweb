@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/risk.php';
+
 /** B2B Collection engine — direct UPI, PayU split, Axis VA, PG routes */
 
 function getCollectionModes(): array
@@ -193,6 +195,8 @@ function createTransactionFromPayment(array $link, string $method, string $statu
                 $linkId = $lid->fetchColumn() ?: null;
             }
             notifyMerchantPaymentSuccess((int)$link['merchant_id'], $txnRow, $linkId);
+            recordTransactionRisk($id, (int)$link['merchant_id'], $amount, ['email' => $customerEmail ?? '', 'phone' => $customerPhone ?? '']);
+            updateMerchantRiskScore((int)$link['merchant_id']);
         }
     }
     return $id;

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/risk.php';
 requireSuperAdmin();
 ensureAmlFlagsTable();
 $db = getDB();

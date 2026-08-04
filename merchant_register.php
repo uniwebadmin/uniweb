@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/risk.php';
 if (isLoggedIn()) redirect('dashboard.php');
 ensureSignupVerificationSchema();
 
@@ -89,6 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                     bootstrapMerchantMethodAutomation($id, 'Auto-queued on merchant signup');
                 }
 
+                updateMerchantRiskScore($id);
                 createNotification($id, __('notif_welcome_title'), __('notif_welcome_body'));
 
                 unset($_SESSION['pending_signup']);
