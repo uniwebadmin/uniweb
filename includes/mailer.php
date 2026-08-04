@@ -170,3 +170,95 @@ function sendSmtpTestEmail(string $to): array
         ? ['ok' => true, 'message' => 'Test email sent to ' . $to . ' via ' . $mode]
         : ['ok' => false, 'message' => 'Could not send test email. Check SMTP host, port, username, and password.'];
 }
+
+/** Send a multipart/mixed email with a single file attachment over SMTP or mail(). */
+function sendPlatformEmailWithAttachment(string $to, string $subject, string $body, string $filePath, bool $isHtml = false): bool
+{
+    if (!is_file($filePath) || !is_readable($filePath)) {
+        return false;
+    }
+
+    $fromEmail = getSetting('smtp_from_email', getSetting('support_email', 'support@uniweb.co.in'));
+    $fromName = getSetting('smtp_from_name', APP_NAME);
+    $fileName = basename($filePath);
+    $fileContent = file_get_contents($filePath);
+    $attachment = chunk_split(base64_encode($fileContent));
+
+    $boundary = '----=_Part_' . md5(uniqid('', true));
+
+    $mailBody = "--{$boundary}\r\n";
+    $contentType = $isHtml ? 'text/html' : 'text/plain';
+    $mailBody .= "Content-Type: {$contentType}; charset=UTF-8\r\n";
+    $mailBody .= "Content-Transfer-Encoding: 7bit\r\n\r\n";
+    $mailBody .= $body . "\r\n\r\n";
+    $mailBody .= "--{$boundary}\r\n";
+    $mailBody .= "Content-Type: application/x-gzip; name=\"{$fileName}\"\r\n";
+    $mailBody .= "Content-Transfer-Encoding: base64\r\n";
+    $mailBody .= "Content-Disposition: attachment; filename=\"{$fileName}\"\r\n\r\n";
+    $mailBody .= $attachment . "\r\n";
+    $mailBody .= "--{$boundary}--\r\n";
+
+    $headers = "From: {$fromName} <{$fromEmail}>\r\n";
+    $headers .= "MIME-Version: 1.0\r\n";
+    $headers .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n";
+
+    $smtpHost = getSetting('smtp_host', '');
+    $smtpPort = (int)getSetting('smtp_port', '587');
+    $smtpUser = getSetting('smtp_user', '');
+    $smtpPass = getSetting('smtp_pass', '');
+
+    if ($smtpHost && $smtpUser && $smtpPass) {
+        $fullMessage = "From: {$fromName} <{$fromEmail}>\r\n";
+        $fullMessage .= "To: <{$to}>\r\n";
+        $fullMessage .= "Subject: {$subject}\r\n";
+        $fullMessage .= "MIME-Version: 1.0\r\n";
+        $fullMessage .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n\r\n";
+        $fullMessage .= $mailBody;
+        return smtpSendMailRaw($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromEmail, $to, $fullMessage);
+    }
+
+    return mail($to, $subject, $mailBody, $headers);
+}
+
+/** SMTP sender for a pre-built RFC 5322 message. */
+function smtpSendMailRaw(string $host, int $port, string $user, string $pass, string $fromEmail, string $to, string $message): bool
+{
+    $socket = @stream_socket_client("tcp://{$host}:{$port}", $errno, $errstr, 15);
+    if (!$socket) {
+        return false;
+    }
+
+    $read = function () use ($socket): string {
+        $data = '';
+        while ($line = fgets($socket, 515)) {
+            $data .= $line;
+            if (isset($line[3]) && $line[3] === ' ') {
+                break;
+            }
+        }
+        return $data;
+    };
+    $send = function (string $cmd) use ($socket, $read): void {
+        fwrite($socket, $cmd . "\r\n");
+        $read();
+    };
+
+    $read();
+    $send('EHLO ' . gethostname());
+    if ($port === 587) {
+        $send('STARTTLS');
+        stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+        $send('EHLO ' . gethostname());
+    }
+    $send('AUTH LOGIN');
+    $send(base64_encode($user));
+    $send(base64_encode($pass));
+    $send('MAIL FROM:<' . $fromEmail . '>');
+    $send('RCPT TO:<' . $to . '>');
+    $send('DATA');
+    fwrite($socket, $message . "\r\n.\r\n");
+    $read();
+    $send('QUIT');
+    fclose($socket);
+    return true;
+}
