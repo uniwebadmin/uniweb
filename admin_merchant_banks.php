@@ -65,8 +65,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         if (!$bankName || !$holder || !$number || !preg_match('/^[A-Z]{4}0[A-Z0-9]{6}$/', $ifsc)) {
             flash('error', 'Enter valid bank details and IFSC.');
         } else {
-            $db->prepare('UPDATE bank_accounts SET bank_name=?,account_holder=?,account_number=?,ifsc_code=?,account_type=? WHERE id=? AND merchant_id=?')
-                ->execute([$bankName, $holder, $number, $ifsc, $type, $accountId, $merchantId]);
+            $encNumber = sensitiveEncrypt($number);
+            $last4 = sensitiveLast4Raw($number);
+            $db->prepare('UPDATE bank_accounts SET bank_name=?,account_holder=?,account_number=?,account_number_last4=?,ifsc_code=?,account_type=? WHERE id=? AND merchant_id=?')
+                ->execute([$bankName, $holder, $encNumber, $last4, $ifsc, $type, $accountId, $merchantId]);
             logStaffActivity('bank_account_updated', 'Bank account #' . $accountId, $merchantId);
             flash('success', 'Bank account updated.');
         }
@@ -89,7 +91,7 @@ require_once __DIR__ . '/header.php';
     <?php foreach ($accounts as $account): ?>
     <div class="glass rounded-xl p-5">
         <div class="flex flex-wrap justify-between gap-3">
-            <div><p class="font-semibold"><?= e($account['bank_name']) ?></p><p class="text-sm text-gray-500"><?= e($account['account_holder']) ?> · ****<?= e(substr($account['account_number'], -4)) ?> · <?= e($account['ifsc_code']) ?></p></div>
+            <div><p class="font-semibold"><?= e($account['bank_name']) ?></p><p class="text-sm text-gray-500"><?= e($account['account_holder']) ?> · <?= e(sensitiveLast4($account['account_number'])) ?> · <?= e($account['ifsc_code']) ?></p></div>
             <?php if ($account['is_primary']): ?><span class="text-xs text-emerald-600 bg-emerald-500/10 px-3 py-1 rounded-full">Primary</span><?php endif; ?>
         </div>
         <div class="flex gap-3 mt-4">
@@ -99,7 +101,7 @@ require_once __DIR__ . '/header.php';
         <details class="mt-4 border-t border-gray-800 pt-3"><summary class="text-xs text-sky-500 cursor-pointer">Change details</summary>
             <form method="POST" class="grid sm:grid-cols-2 gap-3 mt-3"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="merchant_id" value="<?= $merchantId ?>"><input type="hidden" name="account_id" value="<?= (int)$account['id'] ?>"><input type="hidden" name="action" value="edit">
                 <input name="bank_name" value="<?= e($account['bank_name']) ?>" required class="input-field text-sm" placeholder="Bank name" aria-label="Bank name"><input name="account_holder" value="<?= e($account['account_holder']) ?>" required class="input-field text-sm" placeholder="Holder" aria-label="Account holder">
-                <input name="account_number" value="<?= e($account['account_number']) ?>" required class="input-field text-sm" placeholder="Account number" aria-label="Account number"><input name="ifsc_code" value="<?= e($account['ifsc_code']) ?>" required maxlength="11" class="input-field text-sm uppercase" placeholder="IFSC" aria-label="IFSC code">
+                <input name="account_number" value="<?= e(sensitiveDecrypt($account['account_number'])) ?>" required class="input-field text-sm" placeholder="Account number" aria-label="Account number"><input name="ifsc_code" value="<?= e($account['ifsc_code']) ?>" required maxlength="11" class="input-field text-sm uppercase" placeholder="IFSC" aria-label="IFSC code">
                 <select name="account_type" class="input-field text-sm" aria-label="Account type"><option value="savings" <?= ($account['account_type']??'')==='savings'?'selected':'' ?>>Savings</option><option value="current" <?= ($account['account_type']??'')==='current'?'selected':'' ?>>Current</option></select><button class="btn-primary text-sm">Save Changes</button>
             </form>
         </details>

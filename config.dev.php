@@ -50,6 +50,15 @@ define('ACTIVE_MERCHANT_AGREEMENT_VERSION', date('Y') . '.07.19');
 define('MIN_SETTLEMENT', 100);
 
 /* ------------------------------------------------------------------ *
+ *  Sensitive data encryption (AES-256-GCM)
+ *  Set ENCRYPTION_KEY in production config.php or as an env variable.
+ *  Must be 32 raw bytes or base64 of 32 bytes. Never commit the live key.
+ * ------------------------------------------------------------------ */
+if (!defined('ENCRYPTION_KEY')) {
+    define('ENCRYPTION_KEY', getenv('ENCRYPTION_KEY') ?: '');
+}
+
+/* ------------------------------------------------------------------ *
  *  Storage paths
  * ------------------------------------------------------------------ */
 define('PRIVATE_STORAGE_DIR', getenv('UNIWEB_PRIVATE_DIR') ?: (__DIR__ . '/storage'));
@@ -429,7 +438,7 @@ function formatPublicVolume(float $amount): string
  *  Load application engine includes (order matters: getDB first).
  * ------------------------------------------------------------------ */
 $__includes = [
-    'schema_ensure', 'migrations', 'financial_integrity', 'ops_security',
+    'crypto', 'schema_ensure', 'migrations', 'financial_integrity', 'ops_security',
     'kyc_entity', 'onboarding', 'onboarding_security', 'verification', 'totp', 'notify',
     'velocity_check', 'cron_guard', 'baas', 'gateways', 'smart_routing',
     'wallet', 'settlement_engine', 'reconciliation', 'refunds', 'chargebacks',

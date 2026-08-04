@@ -271,8 +271,10 @@ function autoApproveVerifiedKycDoc(int $merchantId, string $type, string $number
 function saveVerification(int $merchantId, string $type, string $number, string $status, string $response): void
 {
     $db = getDB();
-    $db->prepare('INSERT INTO kyc_verifications (merchant_id, doc_type, doc_number, status, api_response) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE status=VALUES(status), api_response=VALUES(api_response), updated_at=NOW()')
-        ->execute([$merchantId, $type, $number, $status, $response]);
+    $enc = sensitiveEncrypt($number);
+    $last4 = sensitiveLast4Raw($number);
+    $db->prepare('INSERT INTO kyc_verifications (merchant_id, doc_type, doc_number, doc_number_last4, status, api_response) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE doc_number=VALUES(doc_number), doc_number_last4=VALUES(doc_number_last4), status=VALUES(status), api_response=VALUES(api_response), updated_at=NOW()')
+        ->execute([$merchantId, $type, $enc, $last4, $status, $response]);
     if ($type === 'bank') {
         $db->prepare('UPDATE merchants SET bank_verification_status=? WHERE id=?')
             ->execute([$status === 'verified' ? 'verified' : 'submitted', $merchantId]);
@@ -295,10 +297,17 @@ function confirmAadhaarOtp(int $merchantId, string $aadhaar, string $otp, string
         return ['success' => false, 'status' => 'failed', 'message' => 'Enter valid Aadhaar number and OTP.'];
     }
     if ($referenceId === '') {
-        $st = getDB()->prepare("SELECT api_response FROM kyc_verifications WHERE merchant_id=? AND doc_type='aadhaar' AND doc_number=? ORDER BY updated_at DESC LIMIT 1");
-        $st->execute([$merchantId, $aadhaar]);
-        $row = json_decode((string)$st->fetchColumn(), true);
-        $referenceId = trim((string)($row['reference_id'] ?? ''));
+        $st = getDB()->prepare("SELECT api_response, doc_number FROM kyc_verifications WHERE merchant_id=? AND doc_type='aadhaar' ORDER BY updated_at DESC LIMIT 10");
+        $st->execute([$merchantId]);
+        foreach ($st->fetchAll() as $r) {
+            if (sensitiveDecrypt((string)$r['doc_number']) === $aadhaar) {
+                $row = json_decode((string)$r['api_response'], true);
+                $referenceId = trim((string)($row['reference_id'] ?? ''));
+                if ($referenceId !== '') {
+                    break;
+                }
+            }
+        }
     }
     if ($referenceId === '') {
         return ['success' => false, 'status' => 'failed', 'message' => 'Send OTP first using Verify, then enter OTP here.'];

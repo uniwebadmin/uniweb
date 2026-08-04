@@ -344,7 +344,7 @@ $docStatusMeta = static function (string $status): array {
         <div class="space-y-2 text-sm">
             <?php foreach ($verifications as $v): ?>
             <div class="flex justify-between py-1 border-b border-gray-800/50">
-                <span class="text-gray-400 uppercase text-xs"><?= e($v['doc_type']) ?>: <?= e($v['doc_number']) ?></span>
+                <span class="text-gray-400 uppercase text-xs"><?= e($v['doc_type']) ?>: <?= e(sensitiveMask($v['doc_number'], (string)$v['doc_type'])) ?></span>
                 <?= statusBadge($v['status']) ?>
             </div>
             <?php endforeach; ?>

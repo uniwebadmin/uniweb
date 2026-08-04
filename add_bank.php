@@ -65,8 +65,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit'
     if (!$bankName || !$accountNumber || !$holder || !preg_match('/^[A-Z]{4}0[A-Z0-9]{6}$/', $ifsc)) {
         flash('error', 'Enter valid bank details and IFSC.');
     } else {
-        $update = $db->prepare('UPDATE bank_accounts SET bank_name=?, account_number=?, ifsc_code=?, account_holder=?, account_type=? WHERE id=? AND merchant_id=?');
-        $update->execute([$bankName, $accountNumber, $ifsc, $holder, $type, $accId, $merchant['id']]);
+        $encNumber = sensitiveEncrypt($accountNumber);
+        $last4 = sensitiveLast4Raw($accountNumber);
+        $update = $db->prepare('UPDATE bank_accounts SET bank_name=?, account_number=?, account_number_last4=?, ifsc_code=?, account_holder=?, account_type=? WHERE id=? AND merchant_id=?');
+        $update->execute([$bankName, $encNumber, $last4, $ifsc, $holder, $type, $accId, $merchant['id']]);
         flash($update->rowCount() ? 'success' : 'error', $update->rowCount() ? 'Bank account updated.' : 'Account not found or unchanged.');
     }
     redirect('add_bank.php');
@@ -92,15 +94,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (empty($_POST['action']) || $_POST[
         $isLiveMerchant = merchantAccountMode($merchant) === 'live';
         $initialStatus = ($isLiveMerchant && !$ok) ? 'pending' : 'active';
 
-        $stmt = $db->prepare('INSERT INTO bank_accounts (merchant_id, bank_name, account_number, ifsc_code, account_holder, account_type, is_primary, status) VALUES (?,?,?,?,?,?,?,?)');
+        $encNumber = sensitiveEncrypt($accountNumber);
+        $last4 = sensitiveLast4Raw($accountNumber);
+
+        $stmt = $db->prepare('INSERT INTO bank_accounts (merchant_id, bank_name, account_number, account_number_last4, ifsc_code, account_holder, account_type, is_primary, status) VALUES (?,?,?,?,?,?,?,?,?)');
         try {
-            $stmt->execute([$merchant['id'], $bankName, $accountNumber, $ifsc, $holder, $type, $primary, $initialStatus]);
+            $stmt->execute([$merchant['id'], $bankName, $encNumber, $last4, $ifsc, $holder, $type, $primary, $initialStatus]);
         } catch (Throwable $e) {
-            $db->prepare('INSERT INTO bank_accounts (merchant_id, bank_name, account_number, ifsc_code, account_holder, account_type, is_primary) VALUES (?,?,?,?,?,?,?)')
-                ->execute([$merchant['id'], $bankName, $accountNumber, $ifsc, $holder, $type, $primary]);
+            $db->prepare('INSERT INTO bank_accounts (merchant_id, bank_name, account_number, account_number_last4, ifsc_code, account_holder, account_type, is_primary) VALUES (?,?,?,?,?,?,?,?)')
+                ->execute([$merchant['id'], $bankName, $encNumber, $last4, $ifsc, $holder, $type, $primary]);
             try {
-                $db->prepare("UPDATE bank_accounts SET status=? WHERE merchant_id=? AND account_number=? ORDER BY id DESC LIMIT 1")
-                    ->execute([$initialStatus, $merchant['id'], $accountNumber]);
+                $db->prepare("UPDATE bank_accounts SET status=? WHERE merchant_id=? ORDER BY id DESC LIMIT 1")
+                    ->execute([$initialStatus, $merchant['id']]);
             } catch (Throwable $e2) { /* column may not exist on very old schema */ }
         }
         $msg = $ok
@@ -183,7 +188,7 @@ require_once __DIR__ . '/header.php';
                 </div>
             </div>
             <p class="text-sm text-gray-400"><?= e($acc['account_holder']) ?></p>
-            <p class="text-sm font-mono text-gray-500 mt-1">****<?= substr($acc['account_number'], -4) ?> | <?= e($acc['ifsc_code']) ?></p>
+            <p class="text-sm font-mono text-gray-500 mt-1"><?= e(sensitiveLast4($acc['account_number'])) ?> | <?= e($acc['ifsc_code']) ?></p>
             <div class="flex items-center gap-3 mt-3">
                 <?php if (!$acc['is_primary']): ?>
                 <form method="POST" class="inline">
@@ -208,7 +213,7 @@ require_once __DIR__ . '/header.php';
                     <input type="hidden" name="account_id" value="<?= (int)$acc['id'] ?>">
                     <input name="bank_name" required value="<?= e($acc['bank_name']) ?>" class="input-field text-sm" placeholder="Bank name">
                     <input name="account_holder" required value="<?= e($acc['account_holder']) ?>" class="input-field text-sm" placeholder="Account holder">
-                    <input name="account_number" required value="<?= e($acc['account_number']) ?>" class="input-field text-sm" placeholder="Account number">
+                    <input name="account_number" required value="<?= e(sensitiveDecrypt($acc['account_number'])) ?>" class="input-field text-sm" placeholder="Account number">
                     <input name="ifsc_code" required maxlength="11" value="<?= e($acc['ifsc_code']) ?>" class="input-field text-sm uppercase" placeholder="IFSC">
                     <select name="account_type" class="input-field text-sm"><option value="savings" <?= ($acc['account_type']??'')==='savings'?'selected':'' ?>>Savings</option><option value="current" <?= ($acc['account_type']??'')==='current'?'selected':'' ?>>Current</option></select>
                     <button type="submit" class="btn-primary text-sm px-4 py-2">Save Changes</button>

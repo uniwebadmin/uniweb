@@ -157,7 +157,7 @@ require_once __DIR__ . '/header.php';
                 <td class="px-5 py-3"><?= adminMerchantLink((int)$s['merchant_id'], $s['business_name'], 'hover:text-sky-300') ?></td>
                 <td class="px-5 py-3"><?= formatMoney(capStatAmount((float)$s['amount'])) ?></td>
                 <td class="px-5 py-3 font-semibold text-brand-400"><?= formatMoney(capStatAmount((float)$s['net_amount'])) ?></td>
-                <td class="px-5 py-3 text-xs"><?= e($s['bank_name'] ?? '—') ?> ****<?= substr($s['account_number']??'', -4) ?></td>
+                <td class="px-5 py-3 text-xs"><?= e($s['bank_name'] ?? '—') ?> <?= e(sensitiveLast4($s['account_number'] ?? '')) ?></td>
                 <td class="px-5 py-3">
                     <div title="<?= e(settlementReasonText($s)) ?>"><?= settlementStatusBadge($s['status']) ?></div>
                     <?php if (!empty($s['utr'])): ?><p class="text-[10px] text-gray-500 font-mono mt-1"><?= e($s['utr']) ?></p><?php endif; ?>

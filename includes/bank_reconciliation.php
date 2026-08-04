@@ -101,7 +101,7 @@ function reconcileBankStatementRows(array $rows, ?int $adminId = null, string $f
 
         if ($utr !== '' && $accountLast4 !== '') {
             $st = $db->prepare(
-                "SELECT sb.id,sb.merchant_id,sb.net_amount,sb.status,RIGHT(b.account_number,4) AS account_last4
+                "SELECT sb.id,sb.merchant_id,sb.net_amount,sb.status,b.account_number_last4 AS account_last4
                  FROM settlement_batches sb
                  JOIN merchants m ON m.id=sb.merchant_id
                  JOIN bank_accounts b ON b.merchant_id=sb.merchant_id AND b.is_primary=1 AND b.status='active'
@@ -140,7 +140,7 @@ function reconcileBankStatementRows(array $rows, ?int $adminId = null, string $f
                     AND (sb.utr IS NULL OR sb.utr='')
                     AND sb.net_amount=?
                     AND m.merchant_code=?
-                    AND RIGHT(b.account_number,4)=?";
+                    AND b.account_number_last4=?";
             $params = [$amount, $merchantCode, $accountLast4];
             if ($parsedDate) {
                 $sql .= " AND ABS(DATEDIFF(COALESCE(scheduled_at, created_at), ?)) <= 3";

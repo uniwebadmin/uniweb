@@ -119,7 +119,7 @@ $backUrl = $adminView ? 'admin_settlements.php' : 'settlements.php';
                     <p class="text-gray-500 text-xs">Account Number</p>
                     <p class="font-mono text-xs mt-1">
                         <?php if (!empty($s['account_number'])): ?>
-                        ****<?= e(substr((string)$s['account_number'], -4)) ?>
+                        <?= e(sensitiveLast4($s['account_number'])) ?>
                         <?php else: ?>—<?php endif; ?>
                     </p>
                 </div>

@@ -1,0 +1,124 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * Sensitive data encryption helpers.
+ *
+ * Uses AES-256-GCM with a 256-bit key.
+ * Encrypted values are prefixed with `enc:v1:` so they can be distinguished
+ * from legacy plaintext values while the database is being migrated.
+ *
+ * The key is read from the ENCRYPTION_KEY constant or the ENCRYPTION_KEY
+ * environment variable. It must be 32 raw bytes or a base64-encoded 32-byte
+ * string.
+ */
+
+const SENSITIVE_ENC_PREFIX = 'enc:v1:';
+
+function _sensitiveKey(): string
+{
+    if (!defined('ENCRYPTION_KEY')) {
+        throw new RuntimeException('ENCRYPTION_KEY is not configured.');
+    }
+    $key = constant('ENCRYPTION_KEY') ?? '';
+    if ($key === '') {
+        throw new RuntimeException('ENCRYPTION_KEY is not configured.');
+    }
+    if (strlen($key) === 32) {
+        return $key;
+    }
+    $decoded = base64_decode($key, true);
+    if ($decoded !== false && strlen($decoded) === 32) {
+        return $decoded;
+    }
+    throw new RuntimeException('ENCRYPTION_KEY must be 32 bytes or base64 of 32 bytes.');
+}
+
+function sensitiveEncrypt(?string $plain): ?string
+{
+    if ($plain === null || $plain === '') {
+        return $plain;
+    }
+    // Idempotent: do not double-encrypt.
+    if (isSensitiveEncrypted($plain)) {
+        return $plain;
+    }
+    $key = _sensitiveKey();
+    $iv = random_bytes(12);
+    $ciphertext = openssl_encrypt($plain, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, '', 16);
+    if ($ciphertext === false) {
+        throw new RuntimeException('sensitiveEncrypt failed: ' . openssl_error_string());
+    }
+    return SENSITIVE_ENC_PREFIX . base64_encode($tag . $iv . $ciphertext);
+}
+
+function sensitiveDecrypt(?string $value): ?string
+{
+    if ($value === null || $value === '') {
+        return $value;
+    }
+    if (!isSensitiveEncrypted($value)) {
+        return $value;
+    }
+    $key = _sensitiveKey();
+    $raw = base64_decode(substr($value, strlen(SENSITIVE_ENC_PREFIX)), true);
+    if ($raw === false || strlen($raw) < 28) {
+        throw new RuntimeException('sensitiveDecrypt: malformed ciphertext.');
+    }
+    $tag = substr($raw, 0, 16);
+    $iv = substr($raw, 16, 12);
+    $ciphertext = substr($raw, 28);
+    $plain = openssl_decrypt($ciphertext, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
+    if ($plain === false) {
+        throw new RuntimeException('sensitiveDecrypt: invalid key or corrupt data.');
+    }
+    return $plain;
+}
+
+function isSensitiveEncrypted(?string $value): bool
+{
+    return $value !== null && $value !== '' && str_starts_with($value, SENSITIVE_ENC_PREFIX);
+}
+
+function sensitiveLast4(?string $value): string
+{
+    return '****' . sensitiveLast4Raw($value);
+}
+
+function sensitiveLast4Raw(?string $value): string
+{
+    if ($value === null || $value === '') {
+        return '';
+    }
+    $plain = isSensitiveEncrypted($value) ? sensitiveDecrypt($value) : $value;
+    $plain = preg_replace('/\D/', '', (string)$plain) ?: (string)$plain;
+    $len = strlen($plain);
+    if ($len === 0) {
+        return '';
+    }
+    return substr($plain, -min(4, $len));
+}
+
+function sensitiveMask(?string $value, string $type = ''): string
+{
+    if ($value === null || $value === '') {
+        return '—';
+    }
+    $plain = isSensitiveEncrypted($value) ? sensitiveDecrypt($value) : $value;
+    $plain = (string)$plain;
+    $len = strlen($plain);
+    if ($len <= 4) {
+        return '****' . $plain;
+    }
+    $type = strtolower($type);
+    if ($type === 'pan' || $type === 'gst') {
+        return str_repeat('*', max(0, $len - 4)) . substr($plain, -4);
+    }
+    if ($type === 'aadhaar') {
+        $clean = preg_replace('/\D/', '', $plain) ?: $plain;
+        if (strlen($clean) === 12) {
+            return 'XXXX-XXXX-' . substr($clean, -4);
+        }
+    }
+    return '****' . substr($plain, -4);
+}

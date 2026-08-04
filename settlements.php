@@ -194,7 +194,7 @@ $exportQuery = http_build_query(['q' => $settlementQ, 'status' => $settlementSta
                 : 'Live Mode — funds move from wallet to a pending settlement. Bank NEFT/IMPS is completed by ops.' ?>
         </p>
         <?php if ($bankInfo): ?>
-        <p class="text-xs text-gray-500 mb-4"><?= e($bankInfo['bank_name']) ?> · ****<?= substr($bankInfo['account_number'] ?? '', -4) ?></p>
+        <p class="text-xs text-gray-500 mb-4"><?= e($bankInfo['bank_name']) ?> · <?= e(sensitiveLast4($bankInfo['account_number'] ?? '')) ?></p>
         <?php else: ?>
         <p class="text-xs text-amber-400 mb-4"><a href="add_bank.php" class="underline">Add bank account →</a></p>
         <?php endif; ?>

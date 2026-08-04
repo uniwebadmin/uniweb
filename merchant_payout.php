@@ -243,7 +243,7 @@ require_once __DIR__ . '/header.php';
                 <label class="text-sm text-gray-400">Beneficiary *</label>
                 <select name="beneficiary_id" required class="input-field mt-1">
                     <?php foreach ($activeBens as $b): ?>
-                    <option value="<?= (int)$b['id'] ?>"><?= e($b['label']) ?> · ****<?= e(substr((string)$b['account_number'], -4)) ?></option>
+                    <option value="<?= (int)$b['id'] ?>"><?= e($b['label']) ?> · <?= e(sensitiveLast4($b['account_number'])) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -300,7 +300,7 @@ require_once __DIR__ . '/header.php';
                 <?php else: foreach ($beneficiaries as $b): ?>
                 <tr class="hover:bg-white/5">
                     <td class="px-4 py-3"><?= e($b['label']) ?><p class="text-xs text-gray-500"><?= e($b['account_holder']) ?></p></td>
-                    <td class="px-4 py-3 font-mono text-xs">****<?= e(substr((string)$b['account_number'], -4)) ?></td>
+                    <td class="px-4 py-3 font-mono text-xs"><?= e(sensitiveLast4($b['account_number'])) ?></td>
                     <td class="px-4 py-3 font-mono text-xs"><?= e($b['ifsc_code']) ?></td>
                     <td class="px-4 py-3 text-xs"><?= e($b['penny_drop_status'] ?? 'pending') ?></td>
                     <td class="px-4 py-3"><?= statusBadge($b['status']) ?></td>

@@ -176,7 +176,7 @@ function createRazorpayXPayout(array $merchant, array $bank, float $amount, stri
             'bank_account' => [
                 'name' => (string)$bank['account_holder'],
                 'ifsc' => strtoupper((string)$bank['ifsc_code']),
-                'account_number' => (string)$bank['account_number'],
+                'account_number' => sensitiveDecrypt((string)$bank['account_number']),
             ],
         ]);
         $fundAccountId = (string)($fund['id'] ?? '');

@@ -338,7 +338,13 @@ function listPayoutBeneficiaries(int $merchantId, bool $activeOnly = true): arra
         $sql .= ' ORDER BY id DESC LIMIT 100';
         $st = getDB()->prepare($sql);
         $st->execute([$merchantId]);
-        return $st->fetchAll();
+        $rows = $st->fetchAll();
+        foreach ($rows as &$row) {
+            $row['account_number_decrypted'] = sensitiveDecrypt((string)($row['account_number'] ?? ''));
+            $row['account_number_last4'] = (string)($row['account_number_last4'] ?? '');
+        }
+        unset($row);
+        return $rows;
     } catch (Throwable $e) {
         return [];
     }
@@ -360,12 +366,14 @@ function addPayoutBeneficiary(int $merchantId, array $data): array
     if (!in_array($type, ['savings', 'current'], true)) {
         $type = 'savings';
     }
+    $encAccount = sensitiveEncrypt($account);
+    $last4 = sensitiveLast4Raw($account);
     try {
         getDB()->prepare(
-            'INSERT INTO payout_beneficiaries (merchant_id, label, account_holder, account_number, ifsc_code, bank_name, account_type, upi_vpa, penny_drop_status)
-             VALUES (?,?,?,?,?,?,?,?,?)'
+            'INSERT INTO payout_beneficiaries (merchant_id, label, account_holder, account_number, account_number_last4, ifsc_code, bank_name, account_type, upi_vpa, penny_drop_status)
+             VALUES (?,?,?,?,?,?,?,?,?,?)'
         )->execute([
-            $merchantId, payoutStrLimit($label, 120), payoutStrLimit($holder, 190), $account, $ifsc,
+            $merchantId, payoutStrLimit($label, 120), payoutStrLimit($holder, 190), $encAccount, $last4, $ifsc,
             $bank !== '' ? payoutStrLimit($bank, 120) : null, $type,
             $upi !== '' ? payoutStrLimit($upi, 120) : null,
             'pending', // penny-drop needs live bank keys — stay pending
@@ -623,7 +631,7 @@ function processPayoutBulkCsv(int $merchantId, string $csvText, string $makerBy)
         // Find or create beneficiary by account+ifsc
         $benId = null;
         foreach ($active as $b) {
-            if ((string)$b['account_number'] === $row['account_number'] && strtoupper((string)$b['ifsc_code']) === $row['ifsc_code']) {
+            if ((string)($b['account_number_decrypted'] ?? '') === $row['account_number'] && strtoupper((string)$b['ifsc_code']) === $row['ifsc_code']) {
                 $benId = (int)$b['id'];
                 break;
             }
@@ -683,13 +691,15 @@ function updatePayoutBeneficiary(int $merchantId, int $beneficiaryId, array $dat
     if (!in_array($type, ['savings', 'current'], true)) {
         $type = 'savings';
     }
+    $encAccount = sensitiveEncrypt($account);
+    $last4 = sensitiveLast4Raw($account);
     try {
         $st = getDB()->prepare(
-            'UPDATE payout_beneficiaries SET label=?, account_holder=?, account_number=?, ifsc_code=?, bank_name=?, account_type=?, upi_vpa=?, penny_drop_status="pending", penny_drop_note=NULL
+            'UPDATE payout_beneficiaries SET label=?, account_holder=?, account_number=?, account_number_last4=?, ifsc_code=?, bank_name=?, account_type=?, upi_vpa=?, penny_drop_status="pending", penny_drop_note=NULL
              WHERE id=? AND merchant_id=? AND status="active"'
         );
         $st->execute([
-            payoutStrLimit($label, 120), payoutStrLimit($holder, 190), $account, $ifsc,
+            payoutStrLimit($label, 120), payoutStrLimit($holder, 190), $encAccount, $last4, $ifsc,
             $bank !== '' ? payoutStrLimit($bank, 120) : null, $type,
             $upi !== '' ? payoutStrLimit($upi, 120) : null,
             $beneficiaryId, $merchantId,
@@ -701,11 +711,11 @@ function updatePayoutBeneficiary(int $merchantId, int $beneficiaryId, array $dat
     } catch (Throwable $e) {
         try {
             $st = getDB()->prepare(
-                'UPDATE payout_beneficiaries SET label=?, account_holder=?, account_number=?, ifsc_code=?, bank_name=?, account_type=?, upi_vpa=?, penny_drop_status="pending"
+                'UPDATE payout_beneficiaries SET label=?, account_holder=?, account_number=?, account_number_last4=?, ifsc_code=?, bank_name=?, account_type=?, upi_vpa=?, penny_drop_status="pending"
                  WHERE id=? AND merchant_id=? AND status="active"'
             );
             $st->execute([
-                payoutStrLimit($label, 120), payoutStrLimit($holder, 190), $account, $ifsc,
+                payoutStrLimit($label, 120), payoutStrLimit($holder, 190), $encAccount, $last4, $ifsc,
                 $bank !== '' ? payoutStrLimit($bank, 120) : null, $type,
                 $upi !== '' ? payoutStrLimit($upi, 120) : null,
                 $beneficiaryId, $merchantId,
@@ -761,7 +771,7 @@ function requestPayoutBeneficiaryPennyDrop(int $merchantId, int $beneficiaryId):
         return ['ok' => true, 'gated' => true, 'message' => $note];
     }
     // Keys present: submit via existing bank verify scaffold (still may be pending until partner confirms).
-    $verify = verifyBankAccount((string)$ben['account_number'], (string)$ben['ifsc_code'], $merchantId);
+    $verify = verifyBankAccount(sensitiveDecrypt((string)$ben['account_number']), (string)$ben['ifsc_code'], $merchantId);
     $status = (($verify['status'] ?? '') === 'verified') ? 'verified' : 'submitted';
     $note = (string)($verify['message'] ?? 'Penny-drop submitted to partner.');
     try {
@@ -1012,7 +1022,7 @@ function dispatchQueuedPayouts(int $limit = 20): array
         $bank = [
             'id' => 0,
             'account_holder' => (string)($row['account_holder'] ?? $merchant['business_name'] ?? 'Merchant'),
-            'account_number' => (string)($row['account_number'] ?? ''),
+            'account_number' => sensitiveDecrypt((string)($row['account_number'] ?? '')),
             'ifsc_code' => (string)($row['ifsc_code'] ?? ''),
             'bank_name' => (string)($row['bank_name'] ?? ''),
             'razorpay_contact_id' => null,
@@ -1029,7 +1039,7 @@ function dispatchQueuedPayouts(int $limit = 20): array
             $bst = getDB()->prepare('SELECT * FROM bank_accounts WHERE merchant_id=? AND status="verified" ORDER BY id DESC LIMIT 1');
             $bst->execute([$merchantId]);
             $verified = $bst->fetch();
-            if ($verified && (string)$verified['account_number'] === $bank['account_number']) {
+            if ($verified && sensitiveDecrypt((string)$verified['account_number']) === $bank['account_number']) {
                 $bank = array_merge($bank, $verified);
             }
         } catch (Throwable $e) { /* ok */ }
