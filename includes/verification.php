@@ -355,7 +355,7 @@ function confirmAadhaarOtp(int $merchantId, string $aadhaar, string $otp, string
         $status = $verified ? 'verified' : 'failed';
         saveVerification($merchantId, 'aadhaar', $aadhaar, $status, json_encode(['reference_id' => $referenceId, 'confirm' => $data]));
         if ($verified) {
-            getDB()->prepare('UPDATE merchants SET aadhaar_number=? WHERE id=?')->execute([$aadhaar, $merchantId]);
+            getDB()->prepare('UPDATE merchants SET aadhaar_number=? WHERE id=?')->execute([sensitiveEncrypt($aadhaar), $merchantId]);
         }
         return [
             'success' => $verified,

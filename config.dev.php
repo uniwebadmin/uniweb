@@ -38,6 +38,7 @@ if (!defined('SUPPORT_LINKEDIN')) define('SUPPORT_LINKEDIN', 'https://linkedin.c
 if (!defined('SUPPORT_YOUTUBE')) define('SUPPORT_YOUTUBE', 'https://youtube.com/@uniweb');
 define('COMPANY_ADDRESS', 'Bengaluru, Karnataka, India');
 define('COMPANY_GST', '29ABCDE1234F1Z5');
+if (!defined('ENCRYPTION_KEY')) define('ENCRYPTION_KEY', (string)(getenv('ENCRYPTION_KEY') ?: ''));
 define('COMPANY_CIN', 'U72900KA2024PTC000000');
 define('COMPANY_CEO', 'UniWeb Management');
 define('COMPANY_MAP_URL', 'https://maps.google.com/?q=Bengaluru');

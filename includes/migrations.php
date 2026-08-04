@@ -91,7 +91,7 @@ function pendingMigrations(string $directory): array
         $applied[(string)$row['version']] = (string)$row['checksum'];
     }
 
-    $files = glob(rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . '*.sql') ?: [];
+    $files = glob(rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . '*.{sql,php}', GLOB_BRACE) ?: [];
     sort($files, SORT_STRING);
     $pending = [];
     foreach ($files as $file) {
@@ -140,23 +140,27 @@ function applyPendingMigrations(string $directory): array
     $applied = [];
     try {
         foreach (pendingMigrations($directory) as $migration) {
-            $sql = file_get_contents($migration['path']);
-            if ($sql === false) {
-                throw new RuntimeException('Could not read migration ' . $migration['version']);
-            }
-            foreach (migrationStatements($sql) as $statement) {
-                try {
-                    $db->exec($statement);
-                } catch (PDOException $e) {
-                    if (canSkipMigrationDuplicateColumn($e, $statement)) {
-                        error_log('UniWeb migration duplicate column skipped: ' . $migration['version']);
-                        continue;
+            if (str_ends_with($migration['path'], '.php')) {
+                require_once $migration['path'];
+            } else {
+                $sql = file_get_contents($migration['path']);
+                if ($sql === false) {
+                    throw new RuntimeException('Could not read migration ' . $migration['version']);
+                }
+                foreach (migrationStatements($sql) as $statement) {
+                    try {
+                        $db->exec($statement);
+                    } catch (PDOException $e) {
+                        if (canSkipMigrationDuplicateColumn($e, $statement)) {
+                            error_log('UniWeb migration duplicate column skipped: ' . $migration['version']);
+                            continue;
+                        }
+                        if (canSkipMigrationLegacyTransactionBackfill($e, $statement)) {
+                            error_log('UniWeb migration legacy transaction backfill skipped: ' . $migration['version']);
+                            continue;
+                        }
+                        throw $e;
                     }
-                    if (canSkipMigrationLegacyTransactionBackfill($e, $statement)) {
-                        error_log('UniWeb migration legacy transaction backfill skipped: ' . $migration['version']);
-                        continue;
-                    }
-                    throw $e;
                 }
             }
             $record = $db->prepare('INSERT INTO schema_migrations (version, checksum) VALUES (?, ?)');
