@@ -100,19 +100,19 @@ function getDB(): PDO
  * ------------------------------------------------------------------ */
 function getSetting(string $key, string $default = ''): string
 {
-    static $cache = [];
-    if (array_key_exists($key, $cache)) {
-        return $cache[$key];
+    global $settingsCache;
+    if (!is_array($settingsCache)) {
+        $settingsCache = [];
+        try {
+            $rows = getDB()->query('SELECT setting_key, setting_value FROM gateway_settings')->fetchAll(PDO::FETCH_KEY_PAIR);
+            foreach ($rows as $k => $v) {
+                $settingsCache[(string)$k] = (string)$v;
+            }
+        } catch (Throwable $e) {
+            // DB unavailable: fall through to default values
+        }
     }
-    try {
-        $stmt = getDB()->prepare('SELECT setting_value FROM gateway_settings WHERE setting_key = ? LIMIT 1');
-        $stmt->execute([$key]);
-        $val = $stmt->fetchColumn();
-        $cache[$key] = ($val === false || $val === null) ? $default : (string)$val;
-    } catch (Throwable $e) {
-        $cache[$key] = $default;
-    }
-    return $cache[$key];
+    return $settingsCache[$key] ?? $default;
 }
 
 function saveSetting(string $key, string $value): void
@@ -124,8 +124,8 @@ function saveSetting(string $key, string $value): void
 
 function clearSettingCache(?string $key = null): void
 {
-    // Cache is request-scoped static in getSetting; nothing persistent to clear.
-    // Kept for API compatibility with callers.
+    global $settingsCache;
+    $settingsCache = null;
 }
 
 /* ------------------------------------------------------------------ *
