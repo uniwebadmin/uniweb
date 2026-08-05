@@ -42,10 +42,23 @@ try {
     echo 'CATCH: ' . get_class($e) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n";
 }
 
-echo "\n=== recent platform errors ===\n";
-if (function_exists('getRecentPlatformErrors')) {
-    $errors = getRecentPlatformErrors(5, false);
-    echo json_encode($errors, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-} else {
-    echo 'getRecentPlatformErrors not available\n';
+// Override any error_catcher handlers so we can see the real index.php exception
+echo "\n=== index.php load ===\n";
+set_error_handler(function ($s, $m, $f, $l) {
+    echo "ERROR[$s]: $m in $f:$l\n";
+    return true;
+});
+set_exception_handler(function (Throwable $e) {
+    echo 'EXCEPTION: ' . get_class($e) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n";
+    echo $e->getTraceAsString() . "\n";
+});
+
+ob_start();
+try {
+    require_once __DIR__ . '/index.php';
+    echo 'index.php loaded OK\n';
+} catch (Throwable $e) {
+    ob_end_clean();
+    echo 'CATCH INDEX: ' . get_class($e) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n";
 }
+ob_end_clean();
