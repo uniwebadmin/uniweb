@@ -22,25 +22,20 @@ for ($i = 0; $i < $max; $i++) {
     }
 }
 
-$commonFromEnd = 0;
-for ($i = 1; $i <= $max; $i++) {
-    if ($liveC[$liveLen - $i] !== $devC[$devLen - $i]) {
-        break;
-    }
-    $commonFromEnd = $i;
-}
-
-$extraStart = $liveLen - ($liveLen - $devLen + $commonFromEnd); // approximate
+$marker = 'unset($__includes, $__inc, $__path, $__loaded);';
+$pos = strrpos($liveC, $marker);
+$realEnd = ($pos !== false) ? ($pos + strlen($marker)) : 'NOT FOUND';
 
 echo 'live size: ' . $liveLen . "\n";
 echo 'dev  size: ' . $devLen . "\n";
-echo 'diverge from start: ' . $divFromStart . "\n";
-echo 'common from end: ' . $commonFromEnd . "\n";
-echo 'extra bytes block starts around: ' . $extraStart . "\n";
+echo 'marker found at: ' . ($pos !== false ? $pos : 'not found') . "\n";
+echo 'real config ends at: ' . $realEnd . "\n";
 
-if ($extraStart < $liveLen && $extraStart >= 0) {
-    $extra = substr($liveC, $extraStart);
+if ($pos !== false) {
+    $extra = substr($liveC, $pos + strlen($marker));
     $masked = preg_replace('/(["\'])(?:\\\\\1|.)*?\1/s', '$1$1', $extra);
     $masked = preg_replace('/\b\d+\b/', '0', (string)$masked);
-    echo "\n--- live extra tail (masked) ---\n" . $masked . "\n--- end ---\n";
+    echo "\n--- live appended extra (masked) ---\n" . $masked . "\n--- end ---\n";
+} else {
+    echo "marker not found\n";
 }
