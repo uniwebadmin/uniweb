@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/schema_ensure.php';
+
 /**
  * Fraud / risk scoring + AML negative-list & PMLA-style screening.
  *
@@ -9,31 +11,6 @@ declare(strict_types=1);
  * - AML flags raised automatically for high-risk and high-value txns.
  * - Negative-list / sanctions screening against aml_watchlist and blacklists.
  */
-
-function ensureAmlFlagsTable(): void
-{
-    static $done = false;
-    if ($done) {
-        return;
-    }
-    $done = true;
-    try {
-        getDB()->exec("CREATE TABLE IF NOT EXISTS aml_flags (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            merchant_id INT NOT NULL,
-            transaction_id INT DEFAULT NULL,
-            flag_type VARCHAR(32) NOT NULL,
-            severity ENUM('low','medium','high') DEFAULT 'medium',
-            description VARCHAR(255) DEFAULT NULL,
-            status ENUM('open','reviewed','cleared') DEFAULT 'open',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX idx_merchant (merchant_id, status),
-            INDEX idx_txn (transaction_id),
-            INDEX idx_type (flag_type, status)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    } catch (Throwable $e) { /* ok */ }
-}
 
 function ensureAmlWatchlistTable(): void
 {
