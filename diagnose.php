@@ -1,18 +1,18 @@
 <?php
 declare(strict_types=1);
-header('Content-Type: text/plain; charset=utf-8');
 
-$root = __DIR__;
-$dirs = ['', 'includes', 'migrations', 'lang', 'lib', 'plugins'];
-$out = [];
-foreach ($dirs as $d) {
-    $p = $root . ($d ? '/' . $d : '');
-    if (!is_dir($p)) {
-        $out[$d] = ['missing' => true, 'files' => []];
-        continue;
+try {
+    require_once __DIR__ . '/config.php';
+    echo "config OK\n";
+    if (function_exists('getRecentPlatformErrors')) {
+        $errors = getRecentPlatformErrors(10, false);
+        echo json_encode($errors, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    } else {
+        echo "getRecentPlatformErrors missing\n";
     }
-    $files = array_values(array_filter(scandir($p), function ($f) { return $f[0] !== '.'; }));
-    $out[$d] = ['count' => count($files), 'files' => $files];
+} catch (Throwable $e) {
+    echo "ERROR: " . $e->getMessage() . "\n";
+    echo "FILE: " . $e->getFile() . "\n";
+    echo "LINE: " . $e->getLine() . "\n";
+    echo "TRACE: " . $e->getTraceAsString() . "\n";
 }
-
-echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
