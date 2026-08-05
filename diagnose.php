@@ -24,18 +24,10 @@ for ($i = 0; $i < $max; $i++) {
 
 $marker = 'unset($__includes, $__inc, $__path, $__loaded);';
 $pos = strrpos($liveC, $marker);
-$realEnd = ($pos !== false) ? ($pos + strlen($marker)) : 'NOT FOUND';
 
 echo 'live size: ' . $liveLen . "\n";
 echo 'dev  size: ' . $devLen . "\n";
 echo 'marker found at: ' . ($pos !== false ? $pos : 'not found') . "\n";
-echo 'real config ends at: ' . $realEnd . "\n";
 
-if ($pos !== false) {
-    $extra = substr($liveC, $pos + strlen($marker));
-    $masked = preg_replace('/(["\'])(?:\\\\\1|.)*?\1/s', '$1$1', $extra);
-    $masked = preg_replace('/\b\d+\b/', '0', (string)$masked);
-    echo "\n--- live appended extra (masked) ---\n" . $masked . "\n--- end ---\n";
-} else {
-    echo "marker not found\n";
-}
+$tail = substr($liveC, -5000);
+echo "\n--- last 5000 raw bytes (tail of config.php) ---\n" . $tail . "\n--- end ---\n";
