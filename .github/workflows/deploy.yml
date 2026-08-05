@@ -70,24 +70,10 @@ jobs:
           USER_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['USER'], safe=''))")
           PASS_ENC=$(python3 -c "import urllib.parse,os; print(urllib.parse.quote(os.environ['PASS'], safe=''))")
 
-          # Incremental deploy: on a normal push with a known previous commit,
-          # only upload files that actually changed (added/modified). This avoids
-          # hammering Hostinger's FTP with 300+ connections every time, which was
-          # tripping their anti-abuse/rate-limit and causing "Failed to connect
-          # ... port 21 ... Timeout" on nearly every file. Manual runs (or a push
-          # with no usable parent, e.g. first commit) fall back to a full sync.
-          BEFORE_SHA="${{ github.event.before || '' }}"
-          MODE="full"
-          if [ "${{ github.event_name }}" = "push" ] \
-             && [ -n "$BEFORE_SHA" ] \
-             && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ] \
-             && git cat-file -e "$BEFORE_SHA" 2>/dev/null; then
-            mapfile -t FILES < <(git diff --name-only --diff-filter=ACMR "$BEFORE_SHA" HEAD -- . \
-              | grep -vE '^(tests/|\.github/|\.vscode/|_inbox/|.*\.md$)' || true)
-            MODE="incremental (vs ${BEFORE_SHA:0:7})"
-          else
-            mapfile -t FILES < <(git ls-files | grep -vE '^(tests/|\.github/|\.vscode/|_inbox/|.*\.md$)' || true)
-          fi
+          # Temporary full sync: root files are missing on live, incremental skip was
+          # the cause. Sync the entire tracked tree this run, then revert to incremental.
+          mapfile -t FILES < <(git ls-files | grep -vE '^(tests/|\.github/|\.vscode/|_inbox/|.*\.md$)' || true)
+          MODE="full (temporary)"
           echo "Uploading ${#FILES[@]} files to ftp://${HOST}/${BASE}/ (mode=${MODE}, parallel=3 + retry)"
 
           upload_one() {
