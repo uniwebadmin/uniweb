@@ -42,11 +42,10 @@ try {
     echo 'CATCH: ' . get_class($e) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n";
 }
 
-echo "\n=== duplicate scan ===\n";
-$src = file_get_contents($live);
-$origLen = strlen($src);
-$needle = 'function getPublicStats';
-$first = strpos($src, $needle);
-$second = $first !== false ? strpos($src, $needle, $first + strlen($needle)) : false;
-echo 'count: ' . substr_count($src, $needle) . "\n";
-echo 'second at: ' . ($second !== false ? $second : 'n/a') . "\n";
+echo "\n=== recent platform errors ===\n";
+if (function_exists('getRecentPlatformErrors')) {
+    $errors = getRecentPlatformErrors(5, false);
+    echo json_encode($errors, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+} else {
+    echo 'getRecentPlatformErrors not available\n';
+}
