@@ -44,11 +44,6 @@ function getMerchantFacingCollectionModes(?array $merchant = null): array
     return $out;
 }
 
-function getAmlHighValueThreshold(): float
-{
-    return normalizedSettingAmount('aml_high_value_threshold', '200000', 500000.0);
-}
-
 function collectionModeLabel(string $mode): string
 {
     return getCollectionModes()[$mode] ?? ucfirst(str_replace('_', ' ', $mode));
