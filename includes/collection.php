@@ -423,3 +423,4 @@ function checkoutHandlerLabel(string $handler): string
         default => ucfirst(str_replace('_', ' ', $handler)),
     };
 }
+// End of collection.php
