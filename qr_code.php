@@ -262,6 +262,60 @@ require_once __DIR__ . '/header.php';
                 <button type="submit" class="w-full border border-brand-500/40 text-brand-300 hover:bg-brand-500/10 py-3 rounded-xl font-semibold">Generate All QR Codes</button>
             </form>
         </details>
+
+        <details class="mt-4 border-t border-gray-800 pt-4">
+            <summary class="cursor-pointer text-sm font-semibold text-violet-400">High-Volume Wizard (100+ QRs)</summary>
+            <div class="space-y-4 mt-4">
+                <p class="text-xs text-gray-500">Generate many QR codes with a naming pattern, or upload a CSV. Uses the fast QR API for bulk creation.</p>
+                <form method="POST" class="space-y-3">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="action" value="bulk_create">
+                    <div class="grid sm:grid-cols-2 gap-3">
+                        <div><label class="text-sm text-gray-400">QR Type</label>
+                            <select name="qr_type" class="input-field mt-1">
+                                <option value="all_methods">All Payment Methods</option>
+                                <option value="upi_dynamic">Dynamic UPI</option>
+                                <option value="fixed">Fixed Amount</option>
+                            </select>
+                        </div>
+                        <div><label class="text-sm text-gray-400">Fixed Amount (₹) — if Fixed type</label>
+                            <input type="number" name="amount" min="1" step="0.01" value="1" class="input-field mt-1">
+                        </div>
+                    </div>
+                    <div class="grid sm:grid-cols-3 gap-3">
+                        <div><label class="text-sm text-gray-400">Prefix</label>
+                            <input type="text" name="hv_prefix" maxlength="50" class="input-field mt-1" placeholder="Counter">
+                        </div>
+                        <div><label class="text-sm text-gray-400">Start Number</label>
+                            <input type="number" name="hv_start" min="1" value="1" class="input-field mt-1">
+                        </div>
+                        <div><label class="text-sm text-gray-400">Count (max 50)</label>
+                            <input type="number" name="hv_count" min="1" max="50" value="10" class="input-field mt-1">
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500">Generates: Counter 1, Counter 2, Counter 3, ...</p>
+                    <button type="button" class="w-full border border-violet-500/40 text-violet-300 hover:bg-violet-500/10 py-2.5 rounded-xl font-semibold text-sm" onclick="generateHvNames()">Generate Names →</button>
+                </form>
+                <div id="hv-preview" class="hidden">
+                    <p class="text-xs text-gray-400 mb-2">Preview (copy to bulk textarea above):</p>
+                    <textarea id="hv-names" rows="4" class="input-field font-mono text-xs" readonly></textarea>
+                </div>
+                <script>
+                function generateHvNames() {
+                    const prefix = document.querySelector('[name="hv_prefix"]').value || 'QR';
+                    const start = parseInt(document.querySelector('[name="hv_start"]').value) || 1;
+                    const count = Math.min(50, parseInt(document.querySelector('[name="hv_count"]').value) || 10);
+                    const names = [];
+                    for (let i = start; i < start + count; i++) names.push(prefix + ' ' + i);
+                    document.getElementById('hv-names').value = names.join('\n');
+                    document.getElementById('hv-preview').classList.remove('hidden');
+                    // Also populate the bulk textarea
+                    const bulkTa = document.querySelector('[name="bulk_names"]');
+                    if (bulkTa) bulkTa.value = names.join('\n');
+                }
+                </script>
+            </div>
+        </details>
     </div>
 
     <div class="lg:col-span-2">
