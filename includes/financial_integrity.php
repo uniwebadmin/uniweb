@@ -1138,3 +1138,128 @@ function enforceSufficientAvailableBalance(int $merchantId, float $amount, strin
         );
     }
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// B6: Test/Live Isolation — enforce test mode never mixes with live money
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Check if a merchant is in test mode.
+ */
+function isMerchantTestMode(int $merchantId): bool
+{
+    try {
+        $st = getDB()->prepare('SELECT account_mode, email FROM merchants WHERE id=?');
+        $st->execute([$merchantId]);
+        $m = $st->fetch();
+        if (!$m) return false;
+        if (strcasecmp((string)($m['account_mode'] ?? ''), 'test') === 0) return true;
+        if (strcasecmp((string)($m['email'] ?? ''), 'demo@uniweb.co.in') === 0) return true;
+        return false;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * B6: Enforce that a transaction's test/live flag matches the merchant's mode.
+ */
+function enforceTestLiveIsolation(int $merchantId, bool $isTestTransaction): void
+{
+    $merchantIsTest = isMerchantTestMode($merchantId);
+    if ($merchantIsTest && !$isTestTransaction) {
+        throw new RuntimeException(
+            'Test mode merchant cannot create live transactions. Merchant ID: ' . $merchantId
+        );
+    }
+    if (!$merchantIsTest && $isTestTransaction) {
+        throw new RuntimeException(
+            'Live mode merchant cannot create test transactions. Merchant ID: ' . $merchantId
+        );
+    }
+}
+
+/**
+ * B6: Verify that a settlement is in the correct mode.
+ */
+function enforceSettlementModeIsolation(int $merchantId, string $mode): void
+{
+    $merchantIsTest = isMerchantTestMode($merchantId);
+    $isTestMode = ($mode === 'test');
+    if ($merchantIsTest && !$isTestMode) {
+        throw new RuntimeException('Test merchant cannot perform live settlement.');
+    }
+    if (!$merchantIsTest && $isTestMode) {
+        throw new RuntimeException('Live merchant cannot perform test settlement.');
+    }
+}
+
+/**
+ * B6: Audit check — find any cross-contamination between test and live money.
+ */
+function auditTestLiveIsolation(): array
+{
+    $db = getDB();
+    $violations = [];
+
+    try {
+        $st = $db->query(
+            "SELECT t.id, t.merchant_id, t.txn_id, t.is_test, m.account_mode, m.email
+             FROM transactions t
+             JOIN merchants m ON m.id = t.merchant_id
+             WHERE t.is_test = 0
+             AND (m.account_mode = 'test' OR m.email = 'demo@uniweb.co.in')
+             LIMIT 100"
+        );
+        foreach ($st->fetchAll() as $row) {
+            $violations[] = [
+                'type' => 'test_merchant_live_txn',
+                'transaction_id' => (int)$row['id'],
+                'merchant_id' => (int)$row['merchant_id'],
+                'txn_id' => $row['txn_id'],
+                'detail' => 'Test merchant has live transaction',
+            ];
+        }
+    } catch (Throwable $e) {}
+
+    try {
+        $st = $db->query(
+            "SELECT t.id, t.merchant_id, t.txn_id, t.is_test, m.account_mode
+             FROM transactions t
+             JOIN merchants m ON m.id = t.merchant_id
+             WHERE t.is_test = 1
+             AND m.account_mode = 'live'
+             LIMIT 100"
+        );
+        foreach ($st->fetchAll() as $row) {
+            $violations[] = [
+                'type' => 'live_merchant_test_txn',
+                'transaction_id' => (int)$row['id'],
+                'merchant_id' => (int)$row['merchant_id'],
+                'txn_id' => $row['txn_id'],
+                'detail' => 'Live merchant has test transaction',
+            ];
+        }
+    } catch (Throwable $e) {}
+
+    try {
+        $st = $db->query(
+            "SELECT s.id, s.settlement_id, s.merchant_id, s.amount, m.account_mode
+             FROM settlements s
+             JOIN merchants m ON m.id = s.merchant_id
+             WHERE m.account_mode = 'test' AND s.amount > 100
+             LIMIT 50"
+        );
+        foreach ($st->fetchAll() as $row) {
+            $violations[] = [
+                'type' => 'test_merchant_large_settlement',
+                'settlement_id' => $row['settlement_id'],
+                'merchant_id' => (int)$row['merchant_id'],
+                'amount' => (float)$row['amount'],
+                'detail' => 'Test merchant has suspiciously large settlement',
+            ];
+        }
+    } catch (Throwable $e) {}
+
+    return $violations;
+}

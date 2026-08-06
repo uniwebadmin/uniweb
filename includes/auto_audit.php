@@ -165,6 +165,18 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
         }
 
         try {
+            if (function_exists('auditTestLiveIsolation')) {
+                $isolationViolations = auditTestLiveIsolation();
+                $report['steps']['test_live_isolation'] = ['ok' => true, 'violations' => count($isolationViolations)];
+                if (count($isolationViolations) > 0) {
+                    logPlatformError('warning', 'Test/Live isolation violations detected', json_encode($isolationViolations));
+                }
+            }
+        } catch (Throwable $e) {
+            $report['steps']['test_live_isolation'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        try {
             if (!function_exists('autoReleaseReserveHolds')) {
                 require_once __DIR__ . '/rolling_reserve.php';
             }
