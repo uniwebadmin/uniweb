@@ -201,6 +201,35 @@ function payoutLiveMoneyAllowed(): bool
     return trim((string)getSetting('payout_live_enabled', '0')) === '1';
 }
 
+/**
+ * C4: Get the maker-checker threshold — payouts at or above this amount require checker approval.
+ * Default: ₹50,000. Configurable via admin setting 'payout_maker_checker_threshold'.
+ */
+function getMakerCheckerThreshold(): float
+{
+    $val = (float)getSetting('payout_maker_checker_threshold', '50000');
+    return max(0, $val);
+}
+
+/**
+ * C4: Set the maker-checker threshold.
+ */
+function setMakerCheckerThreshold(float $amount): void
+{
+    $amount = max(0, round($amount, 2));
+    getDB()->prepare('INSERT INTO gateway_settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=?')
+        ->execute(['payout_maker_checker_threshold', (string)$amount, (string)$amount]);
+    clearSettingCache('payout_maker_checker_threshold');
+}
+
+/**
+ * C4: Check if a payout amount requires checker approval.
+ */
+function requiresCheckerApproval(float $amount): bool
+{
+    return $amount >= getMakerCheckerThreshold();
+}
+
 function payoutActivationMessage(): string
 {
     if (payoutLiveMoneyAllowed()) {
@@ -434,7 +463,7 @@ function createPayoutDraft(int $merchantId, int $beneficiaryId, float $amount, s
     }
 
     $payoutId = 'PO' . strtoupper(bin2hex(random_bytes(6)));
-    $needsChecker = $amount >= 50000; // high-value placeholder threshold
+    $needsChecker = $amount >= getMakerCheckerThreshold();
     $live = payoutLiveMoneyAllowed();
     // Without live rail: keep as draft (or pending_checker for high-value review). Never execute.
     if (!$live) {
