@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/kyc_upload.php';
+require_once __DIR__ . '/includes/client_context.php';
 requireLogin();
 ensureKycSchema();
 
@@ -23,11 +24,8 @@ $index = (int)($_GET['index'] ?? -1);
 $total = (int)($_GET['total'] ?? 0);
 $allowed = ['mp4', 'webm', 'mov'];
 
-$clientIp = (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
-if (str_contains($clientIp, ',')) {
-    $clientIp = trim((string)explode(',', $clientIp)[0]);
-}
-$clientIp = substr($clientIp, 0, 45);
+$clientIp = getRealClientIp();
+$geoData = parseGeoFromQuery();
 
 $recordedAtRaw = (string)($_GET['recorded_at'] ?? $_SERVER['HTTP_X_RECORDED_AT'] ?? '');
 $recordedAt = null;
@@ -136,11 +134,16 @@ try {
     if ($scanStatus === 'infected') {
         throw new InvalidArgumentException('The video failed security scanning and was rejected.');
     }
+    $userAgent = getClientUserAgent();
+    $geoLat = $geoData['lat'] ?? null;
+    $geoLng = $geoData['lng'] ?? null;
+    $geoAcc = $geoData['accuracy_m'] ?? null;
+    $geoSrc = $geoData['geo_source'] ?? null;
     getDB()->prepare(
         'INSERT INTO kyc_documents
-         (merchant_id,doc_type,file_name,file_path,storage_key,sha256,mime_type,file_size,ip_address,recorded_at,scan_status,retention_until)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(CURDATE(),INTERVAL 8 YEAR))'
-    )->execute([$merchantId, 'video_kyc', $fileName, $target, $merchantId . '/' . $fileName, $sha256, $mime, $size, $clientIp, $recordedAt, $scanStatus]);
+         (merchant_id,doc_type,file_name,file_path,storage_key,sha256,mime_type,file_size,ip_address,client_ip,user_agent,lat,lng,geo_accuracy_m,geo_source,recorded_at,scan_status,retention_until)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(CURDATE(),INTERVAL 8 YEAR))'
+    )->execute([$merchantId, 'video_kyc', $fileName, $target, $merchantId . '/' . $fileName, $sha256, $mime, $size, $clientIp, $clientIp, $userAgent, $geoLat, $geoLng, $geoAcc, $geoSrc, $recordedAt, $scanStatus]);
     try {
         getDB()->prepare("UPDATE merchants SET video_kyc_status='submitted',kyc_status='submitted',onboarding_state='submitted',onboarding_submitted_at=COALESCE(onboarding_submitted_at,NOW()),account_mode='test' WHERE id=?")->execute([$merchantId]);
     } catch (Throwable $e) {

@@ -23,7 +23,8 @@ function saveMerchantKycUpload(
     string $docType,
     array $file,
     array $allowedExtensions,
-    int $maxBytes
+    int $maxBytes,
+    ?array $geo = null
 ): array {
     $error = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
     if ($error !== UPLOAD_ERR_OK) {
@@ -95,11 +96,18 @@ function saveMerchantKycUpload(
     $storageKey = $merchantId . '/' . $fileName;
 
     try {
+        $realIp = function_exists('getRealClientIp') ? getRealClientIp() : ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+        $userAgent = function_exists('getClientUserAgent') ? getClientUserAgent() : '';
+        $geoLat = $geo['lat'] ?? null;
+        $geoLng = $geo['lng'] ?? null;
+        $geoAcc = $geo['accuracy_m'] ?? null;
+        $geoSrc = $geo['geo_source'] ?? null;
+
         getDB()->prepare(
             'INSERT INTO kyc_documents
-             (merchant_id,doc_type,file_name,file_path,storage_key,sha256,mime_type,file_size,scan_status,retention_until)
-             VALUES (?,?,?,?,?,?,?,?,?,DATE_ADD(CURDATE(),INTERVAL 8 YEAR))'
-        )->execute([$merchantId, $docType, $fileName, $target, $storageKey, $sha256, $mime, $size, $scanStatus]);
+             (merchant_id,doc_type,file_name,file_path,storage_key,sha256,mime_type,file_size,scan_status,ip_address,client_ip,user_agent,lat,lng,geo_accuracy_m,geo_source,retention_until)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(CURDATE(),INTERVAL 8 YEAR))'
+        )->execute([$merchantId, $docType, $fileName, $target, $storageKey, $sha256, $mime, $size, $scanStatus, $realIp, $realIp, $userAgent, $geoLat, $geoLng, $geoAcc, $geoSrc]);
     } catch (Throwable $e) {
         @unlink($target);
         logPlatformError('error', 'KYC database insert failed: ' . $e->getMessage(), [

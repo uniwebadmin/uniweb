@@ -4,6 +4,7 @@ require_once __DIR__ . '/config.php';
 requireLogin();
 ensureKycSchema();
 require_once __DIR__ . '/includes/kyc_upload.php';
+require_once __DIR__ . '/includes/client_context.php';
 $merchant = getMerchant();
 $db = getDB();
 
@@ -26,7 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $docType,
             $_FILES['document'] ?? [],
             ['jpg', 'jpeg', 'png', 'pdf'],
-            15 * 1024 * 1024
+            15 * 1024 * 1024,
+            parseGeoFromRequest()
         );
         if (empty($saved['ok'])) {
             flash('error', $saved['error'] ?? 'Upload failed. Please retry.');
@@ -356,6 +358,11 @@ $docStatusMeta = static function (string $status): array {
         <h2 class="font-semibold mb-4">Upload Document</h2>
         <form id="kyc-upload-form" method="POST" enctype="multipart/form-data" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="geo_lat" id="geo-lat" value="0">
+            <input type="hidden" name="geo_lng" id="geo-lng" value="0">
+            <input type="hidden" name="geo_accuracy" id="geo-accuracy" value="0">
+            <input type="hidden" name="geo_source" id="geo-source" value="">
+            <input type="hidden" name="geo_denied" id="geo-denied" value="0">
             <div>
                 <label class="text-sm text-gray-400 block mb-1">Document Type *</label>
                 <select name="doc_type" id="doc_type" required class="input-field">
@@ -506,6 +513,33 @@ $docStatusMeta = static function (string $status): array {
 </div>
 
 <script>
+// Point 1: Capture geolocation on page load
+(function(){
+    if(!navigator.geolocation) {
+        var gs=document.getElementById('geo-source');
+        if(gs) gs.value='ip_fallback';
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(
+        function(pos){
+            var lat=document.getElementById('geo-lat');
+            var lng=document.getElementById('geo-lng');
+            var acc=document.getElementById('geo-accuracy');
+            var src=document.getElementById('geo-source');
+            if(lat) lat.value=pos.coords.latitude;
+            if(lng) lng.value=pos.coords.longitude;
+            if(acc) acc.value=pos.coords.accuracy||0;
+            if(src) src.value='html5';
+        },
+        function(err){
+            var src=document.getElementById('geo-source');
+            var denied=document.getElementById('geo-denied');
+            if(src) src.value='denied';
+            if(denied) denied.value='1';
+        },
+        {enableHighAccuracy:true, timeout:10000, maximumAge:60000}
+    );
+})();
 (function(){
     try{
         const saveKey='uniweb_kyc_verify_'+<?= (int)($merchant['id'] ?? 0) ?>;

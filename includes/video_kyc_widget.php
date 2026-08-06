@@ -24,11 +24,7 @@ try {
     $vkwLatest = null;
 }
 
-$vkwClientIp = (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
-if (str_contains($vkwClientIp, ',')) {
-    $vkwClientIp = trim((string)explode(',', $vkwClientIp)[0]);
-}
-$vkwClientIp = substr($vkwClientIp, 0, 45);
+$vkwClientIp = function_exists('getRealClientIp') ? getRealClientIp() : (string)($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
 $vkwVerified = in_array($vkwStatus, ['verified', 'approved'], true);
 $vkwRejected = $vkwStatus === 'rejected';
 ?>
@@ -147,6 +143,20 @@ $vkwRejected = $vkwStatus === 'rejected';
     let overlayLoc = '--';
     let audioTrack = null;
     let canvasDrawReq = null;
+    let vkwGeoLat = 0, vkwGeoLng = 0, vkwGeoAcc = 0, vkwGeoSrc = '';
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(pos) {
+                vkwGeoLat = pos.coords.latitude;
+                vkwGeoLng = pos.coords.longitude;
+                vkwGeoAcc = pos.coords.accuracy || 0;
+                vkwGeoSrc = 'html5';
+            },
+            function() { vkwGeoSrc = 'denied'; },
+            {enableHighAccuracy: true, timeout: 10000, maximumAge: 60000}
+        );
+    }
 
     if (!navigator.mediaDevices || !window.MediaRecorder || !canvas.captureStream) {
         showCameraError('Your browser does not support live camera recording. Please use a modern browser (Chrome, Firefox, Safari, Edge).');
@@ -407,12 +417,14 @@ $vkwRejected = $vkwStatus === 'rejected';
                 statusEl.textContent = 'Uploading securely… '+(i+1)+' of '+total;
                 const start = i*chunkSize;
                 const end = Math.min(recordedBlob.size, start+chunkSize);
-                const url = 'kyc_media_receiver.php?action=part&upload_id='+encodeURIComponent(uploadId)+'&ext='+encodeURIComponent(ext)+'&index='+i+'&total='+total+'&recorded_at='+encodeURIComponent(recordedAt);
+                const geoParams = '&geo_lat='+vkwGeoLat+'&geo_lng='+vkwGeoLng+'&geo_accuracy='+vkwGeoAcc+'&geo_source='+encodeURIComponent(vkwGeoSrc);
+                const url = 'kyc_media_receiver.php?action=part&upload_id='+encodeURIComponent(uploadId)+'&ext='+encodeURIComponent(ext)+'&index='+i+'&total='+total+'&recorded_at='+encodeURIComponent(recordedAt)+geoParams;
                 await send(url, recordedBlob.slice(start, end));
                 progressBar.style.width = Math.round(((i+1)/total)*95)+'%';
             }
             statusEl.textContent = 'Finalizing your Video KYC…';
-            await send('kyc_media_receiver.php?action=finalize&upload_id='+encodeURIComponent(uploadId)+'&ext='+encodeURIComponent(ext)+'&index=0&total='+total+'&recorded_at='+encodeURIComponent(recordedAt), new Blob([]));
+            const geoParamsF = '&geo_lat='+vkwGeoLat+'&geo_lng='+vkwGeoLng+'&geo_accuracy='+vkwGeoAcc+'&geo_source='+encodeURIComponent(vkwGeoSrc);
+            await send('kyc_media_receiver.php?action=finalize&upload_id='+encodeURIComponent(uploadId)+'&ext='+encodeURIComponent(ext)+'&index=0&total='+total+'&recorded_at='+encodeURIComponent(recordedAt)+geoParamsF, new Blob([]));
             progressBar.style.width = '100%';
             statusEl.textContent = 'Upload complete.';
             location.href = redirectTo + (redirectTo.includes('?') ? '&' : '?') + 'video_uploaded=1&t=' + Date.now();

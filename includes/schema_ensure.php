@@ -30,6 +30,15 @@ function ensureKycSchema(): void
     schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN reviewed_at DATETIME DEFAULT NULL");
     schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN ip_address VARCHAR(45) DEFAULT NULL");
     schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN recorded_at DATETIME DEFAULT NULL");
+    // Point 1: Real Client IP + Live Geolocation
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN client_ip VARCHAR(45) DEFAULT NULL");
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN ip_country VARCHAR(60) DEFAULT NULL");
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN lat DECIMAL(10,6) DEFAULT NULL");
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN lng DECIMAL(10,6) DEFAULT NULL");
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN geo_accuracy_m INT DEFAULT NULL");
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN geo_source VARCHAR(20) DEFAULT NULL");
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN user_agent VARCHAR(255) DEFAULT NULL");
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN device_fingerprint VARCHAR(255) DEFAULT NULL");
 }
 
 function ensureSignupVerificationSchema(): void

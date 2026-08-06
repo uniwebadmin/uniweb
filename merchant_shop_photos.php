@@ -3,16 +3,13 @@ require_once __DIR__ . '/config.php';
 requireLogin();
 ensureKycSchema();
 require_once __DIR__ . '/includes/kyc_upload.php';
+require_once __DIR__ . '/includes/client_context.php';
 $merchant = getMerchant();
 if (!$merchant) {
     redirect('login.php');
 }
 
-$clientIp = (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
-if (str_contains($clientIp, ',')) {
-    $clientIp = trim((string)explode(',', $clientIp)[0]);
-}
-$clientIp = substr($clientIp, 0, 45);
+$clientIp = getRealClientIp();
 
 $validDocTypes = ['merchant_photo', 'shop_signboard', 'shop_outside', 'shop_inside_1', 'shop_inside_2'];
 
@@ -97,11 +94,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $storageKey = $merchant['id'] . '/' . $fileName;
     try {
+        $geoData = parseGeoFromRequest();
+        $userAgent = getClientUserAgent();
+        $geoLat = $geoData['lat'] ?? null;
+        $geoLng = $geoData['lng'] ?? null;
+        $geoAcc = $geoData['accuracy_m'] ?? null;
+        $geoSrc = $geoData['geo_source'] ?? null;
         getDB()->prepare(
             'INSERT INTO kyc_documents
-             (merchant_id, doc_type, file_name, file_path, storage_key, sha256, mime_type, file_size, ip_address, recorded_at, scan_status, retention_until)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?, DATE_ADD(CURDATE(), INTERVAL 8 YEAR))'
-        )->execute([(int)$merchant['id'], $docType, $fileName, $target, $storageKey, $sha256, $mime, $size, $clientIp, $recordedAt, $scanStatus]);
+             (merchant_id, doc_type, file_name, file_path, storage_key, sha256, mime_type, file_size, ip_address, client_ip, user_agent, lat, lng, geo_accuracy_m, geo_source, recorded_at, scan_status, retention_until)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, DATE_ADD(CURDATE(), INTERVAL 8 YEAR))'
+        )->execute([(int)$merchant['id'], $docType, $fileName, $target, $storageKey, $sha256, $mime, $size, $clientIp, $clientIp, $userAgent, $geoLat, $geoLng, $geoAcc, $geoSrc, $recordedAt, $scanStatus]);
     } catch (Throwable $e) {
         @unlink($target);
         echo json_encode(['ok' => false, 'error' => 'Could not register the photo. Please retry.']);
@@ -208,6 +211,23 @@ $steps = [
         showError('Your browser does not support live camera capture. Please use a modern browser.');
         btnCapture.disabled = true;
         return;
+    }
+
+    let geoLat = 0, geoLng = 0, geoAcc = 0, geoSrc = '';
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(pos) {
+                geoLat = pos.coords.latitude;
+                geoLng = pos.coords.longitude;
+                geoAcc = pos.coords.accuracy || 0;
+                geoSrc = 'html5';
+            },
+            function() {
+                geoSrc = 'denied';
+            },
+            {enableHighAccuracy: true, timeout: 10000, maximumAge: 60000}
+        );
     }
 
     const csrf = <?= json_encode(csrfToken()) ?>;
@@ -384,6 +404,10 @@ $steps = [
         formData.append('doc_type', step.type);
         formData.append('recorded_at', recordedAt || new Date().toISOString());
         formData.append('photo', capturedBlob, step.type + '.jpg');
+        formData.append('geo_lat', geoLat);
+        formData.append('geo_lng', geoLng);
+        formData.append('geo_accuracy', geoAcc);
+        formData.append('geo_source', geoSrc);
         try {
             progressBar.style.width = '50%';
             const res = await fetch('merchant_shop_photos.php', { method: 'POST', credentials: 'same-origin', body: formData });
