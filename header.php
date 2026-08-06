@@ -173,11 +173,6 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
             <?php $logoHref = 'dashboard.php'; $logoSize = 'sm'; $merchantPanel = true; $merchantInitial = strtoupper(substr($merchant['business_name'] ?? $merchant['name'] ?? 'M', 0, 1)); require __DIR__ . '/includes/brand_logo.php'; ?>
             <p class="text-sm font-semibold text-white mt-3 truncate"><?= e($merchant['business_name'] ?? $merchant['name'] ?? 'Merchant') ?></p>
             <p class="text-[10px] text-gray-500 font-mono mt-0.5"><?= e($merchant['merchant_code'] ?? '') ?></p>
-            <?php
-            $userBizCount = function_exists('getUserMerchants') ? count(getUserMerchants((string)$merchant['email'], (string)($merchant['phone'] ?? ''))) : 1;
-            if ($userBizCount > 1): ?>
-            <a href="switch_business.php" class="text-[10px] text-brand-400 hover:underline mt-1 inline-block">Switch business →</a>
-            <?php endif; ?>
         </div>
         <nav class="sidebar-nav p-3 space-y-0.5 text-sm flex-1 overflow-y-auto">
             <?php

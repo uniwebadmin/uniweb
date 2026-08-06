@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                     ]);
                 $id = (int)$db->lastInsertId();
                 if (function_exists('linkUserToMerchant')) {
-                    linkUserToMerchant($email, $phone, $id, 'owner');
+                    try { linkUserToMerchant($email, $phone, $id, 'owner'); } catch (Throwable $e) {}
                 }
                 if ($pending['signup_mode'] === 'email') {
                     // Synthetic unique phone so email-only signups do not collide on phone UNIQUE.

@@ -6,7 +6,7 @@ if (!$merchant) {
     redirect('login.php');
 }
 
-ensureMultiMerchantTables();
+try { ensureMultiMerchantTables(); } catch (Throwable $e) { /* ok — tables may not exist yet */ }
 
 // Handle switch
 $switchTo = (int)($_GET['id'] ?? 0);

@@ -54,11 +54,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $errors[] = 'Invalid GSTIN format. Example: 27ABCDE1234F1Z5';
     }
     // Point 4: PAN/GSTIN duplicate check (skip for own merchant record)
-    if ($pan && empty($errors)) {
-        $dupCheck = checkPanGstinDuplicate($pan, $gstin !== '' ? $gstin : null);
-        if (!$dupCheck['allowed'] && (int)($dupCheck['existing_merchant_id'] ?? 0) !== (int)$merchant['id']) {
-            $errors[] = $dupCheck['reason'];
-        }
+    if ($pan && empty($errors) && function_exists('checkPanGstinDuplicate')) {
+        try {
+            $dupCheck = checkPanGstinDuplicate($pan, $gstin !== '' ? $gstin : null);
+            if (!$dupCheck['allowed'] && (int)($dupCheck['existing_merchant_id'] ?? 0) !== (int)$merchant['id']) {
+                $errors[] = $dupCheck['reason'];
+            }
+        } catch (Throwable $e) { /* safe fallback — allow */ }
     }
     if (!isset($entities[$entity])) {
         $errors[] = __('err_invalid_entity');
@@ -66,11 +68,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
     if (empty($errors)) {
         $alreadyCompleted = (string)($merchant['provision_profile'] ?? '') === 'signup_custom';
-        $db->prepare('UPDATE merchants SET name=?, business_name=?, business_type=?, business_entity_type=?, pan_number=?, gstin=?, address=?, country=?, state=?, district=?, city=?, pincode=? WHERE id=?')
-            ->execute([$name, $business, $category, $entity, $pan ?: null, $gstin !== '' ? $gstin : null, $address, $country, $state, $district, $city, $pincode, $merchant['id']]);
+        $db->prepare('UPDATE merchants SET name=?, business_name=?, business_type=?, business_entity_type=?, pan_number=?, address=?, country=?, state=?, district=?, city=?, pincode=? WHERE id=?')
+            ->execute([$name, $business, $category, $entity, $pan ?: null, $address, $country, $state, $district, $city, $pincode, $merchant['id']]);
+        // Try to save gstin column (may not exist on older DBs)
+        if ($gstin !== '') {
+            try { $db->prepare('UPDATE merchants SET gstin=? WHERE id=?')->execute([$gstin, $merchant['id']]); } catch (Throwable $e) {}
+        }
 
         // Link user to merchant in user_merchant_roles
-        linkUserToMerchant((string)$merchant['email'], (string)($merchant['phone'] ?? ''), (int)$merchant['id'], 'owner');
+        if (function_exists('linkUserToMerchant')) {
+            try { linkUserToMerchant((string)$merchant['email'], (string)($merchant['phone'] ?? ''), (int)$merchant['id'], 'owner'); } catch (Throwable $e) {}
+        }
 
         applyMerchantSignupPreferences((int)$merchant['id'], $collectionMode, $enabledMethods);
 

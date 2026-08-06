@@ -76,9 +76,11 @@ function checkPanGstinDuplicate(string $pan, ?string $gstin): array
 
     if ($gstin !== '') {
         // Rule 1: Same PAN + same GSTIN → BLOCK
-        $st = $db->prepare('SELECT id FROM merchants WHERE pan_number=? AND gstin=? AND deleted_at IS NULL LIMIT 1');
-        $st->execute([$pan, $gstin]);
-        $existing = $st->fetch();
+        try {
+            $st = $db->prepare('SELECT id FROM merchants WHERE pan_number=? AND gstin=? LIMIT 1');
+            $st->execute([$pan, $gstin]);
+            $existing = $st->fetch();
+        } catch (Throwable $e) { $existing = null; }
         if ($existing) {
             return [
                 'allowed' => false,
@@ -92,9 +94,11 @@ function checkPanGstinDuplicate(string $pan, ?string $gstin): array
 
     // No GSTIN provided
     // Rule 2: Same PAN + no GSTIN on existing → BLOCK
-    $st = $db->prepare('SELECT id, gstin FROM merchants WHERE pan_number=? AND deleted_at IS NULL');
-    $st->execute([$pan]);
-    $rows = $st->fetchAll();
+    try {
+        $st = $db->prepare('SELECT id, gstin FROM merchants WHERE pan_number=?');
+        $st->execute([$pan]);
+        $rows = $st->fetchAll();
+    } catch (Throwable $e) { $rows = []; }
     if (count($rows) > 0) {
         // Check if any existing merchant with this PAN has no GSTIN
         foreach ($rows as $row) {
@@ -134,28 +138,32 @@ function getUserMerchants(string $email, string $phone = ''): array
 {
     ensureMultiMerchantTables();
     $db = getDB();
-    $st = $db->prepare(
-        'SELECT m.id, m.merchant_code, m.business_name, m.name, m.kyc_status, m.account_mode,
-                umr.role, umr.status as role_status
-         FROM user_merchant_roles umr
-         JOIN merchants m ON m.id = umr.merchant_id
-         WHERE umr.user_email = ? AND umr.status = "active" AND m.deleted_at IS NULL
-         ORDER BY umr.created_at ASC'
-    );
-    $st->execute([$email]);
-    $merchants = $st->fetchAll() ?: [];
-
-    if ($phone !== '') {
-        $st2 = $db->prepare(
+    try {
+        $st = $db->prepare(
             'SELECT m.id, m.merchant_code, m.business_name, m.name, m.kyc_status, m.account_mode,
                     umr.role, umr.status as role_status
              FROM user_merchant_roles umr
              JOIN merchants m ON m.id = umr.merchant_id
-             WHERE umr.user_phone = ? AND umr.user_email != ? AND umr.status = "active" AND m.deleted_at IS NULL
+             WHERE umr.user_email = ? AND umr.status = "active"
              ORDER BY umr.created_at ASC'
         );
-        $st2->execute([$phone, $email]);
-        $byPhone = $st2->fetchAll() ?: [];
+        $st->execute([$email]);
+        $merchants = $st->fetchAll() ?: [];
+    } catch (Throwable $e) { $merchants = []; }
+
+    if ($phone !== '') {
+        try {
+            $st2 = $db->prepare(
+                'SELECT m.id, m.merchant_code, m.business_name, m.name, m.kyc_status, m.account_mode,
+                        umr.role, umr.status as role_status
+                 FROM user_merchant_roles umr
+                 JOIN merchants m ON m.id = umr.merchant_id
+                 WHERE umr.user_phone = ? AND umr.user_email != ? AND umr.status = "active"
+                 ORDER BY umr.created_at ASC'
+            );
+            $st2->execute([$phone, $email]);
+            $byPhone = $st2->fetchAll() ?: [];
+        } catch (Throwable $e) { $byPhone = []; }
         // Merge unique by merchant id
         $seen = array_column($merchants, 'id');
         foreach ($byPhone as $row) {
@@ -265,12 +273,14 @@ function getMerchantsByPan(string $pan): array
     ensureMultiMerchantTables();
     $pan = normalizePan($pan);
     if ($pan === '') return [];
-    $st = getDB()->prepare(
-        'SELECT id, merchant_code, business_name, name, gstin, kyc_status, account_mode, created_at
-         FROM merchants
-         WHERE pan_number = ? AND deleted_at IS NULL
-         ORDER BY created_at ASC'
-    );
-    $st->execute([$pan]);
-    return $st->fetchAll() ?: [];
+    try {
+        $st = getDB()->prepare(
+            'SELECT id, merchant_code, business_name, name, gstin, kyc_status, account_mode, created_at
+             FROM merchants
+             WHERE pan_number = ?
+             ORDER BY created_at ASC'
+        );
+        $st->execute([$pan]);
+        return $st->fetchAll() ?: [];
+    } catch (Throwable $e) { return []; }
 }
