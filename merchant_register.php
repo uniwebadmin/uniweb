@@ -66,6 +66,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                         $signupMode === 'mobile' ? date('Y-m-d H:i:s') : null,
                     ]);
                 $id = (int)$db->lastInsertId();
+                if (function_exists('linkUserToMerchant')) {
+                    linkUserToMerchant($email, $phone, $id, 'owner');
+                }
                 if ($pending['signup_mode'] === 'email') {
                     // Synthetic unique phone so email-only signups do not collide on phone UNIQUE.
                     // Pattern +9199 + zero-padded id (e.g. id 7 → +919900000007) — NOT a real mobile.

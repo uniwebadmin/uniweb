@@ -267,12 +267,19 @@ function getMerchant(): ?array
         return null;
     }
     static $merchant = null;
+    static $cachedId = 0;
+    $currentId = (int)$_SESSION['merchant_id'];
+    // Clear cache if merchant ID changed (business switch)
+    if ($cachedId !== $currentId) {
+        $merchant = null;
+        $cachedId = $currentId;
+    }
     if ($merchant !== null) {
         return $merchant ?: null;
     }
     try {
         $stmt = getDB()->prepare('SELECT * FROM merchants WHERE id = ? LIMIT 1');
-        $stmt->execute([(int)$_SESSION['merchant_id']]);
+        $stmt->execute([$currentId]);
         $merchant = $stmt->fetch() ?: false;
     } catch (Throwable $e) {
         $merchant = false;
@@ -482,6 +489,7 @@ $__includes = [
     'payout_adapters',
     'payout_worker',
     'client_context',
+    'multi_merchant',
 ];
 $__loaded = [];
 foreach ($__includes as $__inc) {

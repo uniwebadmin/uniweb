@@ -34,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $entity = $_POST['business_entity_type'] ?? 'individual';
     $category = $_POST['business_type'] ?? 'retail';
     $pan = strtoupper(trim($_POST['pan_number'] ?? ''));
+    $gstin = strtoupper(trim($_POST['gstin'] ?? ''));
     $collectionMode = $_POST['collection_mode'] ?? getSetting('default_collection_mode', 'direct_upi');
     $enabledMethods = array_values(array_intersect(
         array_keys(getPaymentMethodCatalog()),
@@ -49,14 +50,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     if ($pan && !preg_match('/^[A-Z]{5}[0-9]{4}[A-Z]$/', $pan)) {
         $errors[] = __('err_invalid_pan');
     }
+    if ($gstin && !preg_match('/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]{3}$/', $gstin)) {
+        $errors[] = 'Invalid GSTIN format. Example: 27ABCDE1234F1Z5';
+    }
+    // Point 4: PAN/GSTIN duplicate check (skip for own merchant record)
+    if ($pan && empty($errors)) {
+        $dupCheck = checkPanGstinDuplicate($pan, $gstin !== '' ? $gstin : null);
+        if (!$dupCheck['allowed'] && (int)($dupCheck['existing_merchant_id'] ?? 0) !== (int)$merchant['id']) {
+            $errors[] = $dupCheck['reason'];
+        }
+    }
     if (!isset($entities[$entity])) {
         $errors[] = __('err_invalid_entity');
     }
 
     if (empty($errors)) {
         $alreadyCompleted = (string)($merchant['provision_profile'] ?? '') === 'signup_custom';
-        $db->prepare('UPDATE merchants SET name=?, business_name=?, business_type=?, business_entity_type=?, pan_number=?, address=?, country=?, state=?, district=?, city=?, pincode=? WHERE id=?')
-            ->execute([$name, $business, $category, $entity, $pan ?: null, $address, $country, $state, $district, $city, $pincode, $merchant['id']]);
+        $db->prepare('UPDATE merchants SET name=?, business_name=?, business_type=?, business_entity_type=?, pan_number=?, gstin=?, address=?, country=?, state=?, district=?, city=?, pincode=? WHERE id=?')
+            ->execute([$name, $business, $category, $entity, $pan ?: null, $gstin !== '' ? $gstin : null, $address, $country, $state, $district, $city, $pincode, $merchant['id']]);
+
+        // Link user to merchant in user_merchant_roles
+        linkUserToMerchant((string)$merchant['email'], (string)($merchant['phone'] ?? ''), (int)$merchant['id'], 'owner');
 
         applyMerchantSignupPreferences((int)$merchant['id'], $collectionMode, $enabledMethods);
 
@@ -147,6 +161,10 @@ require_once __DIR__ . '/header.php';
             <div>
                 <label class="text-sm text-gray-400"><?= __('pan_optional') ?></label>
                 <input type="text" name="pan_number" maxlength="10" class="input-field mt-1 uppercase" value="<?= e($formData['pan_number'] ?? $merchant['pan_number'] ?? '') ?>">
+            </div>
+            <div>
+                <label class="text-sm text-gray-400">GSTIN (optional)</label>
+                <input type="text" name="gstin" maxlength="15" class="input-field mt-1 uppercase" value="<?= e($formData['gstin'] ?? $merchant['gstin'] ?? '') ?>" placeholder="27ABCDE1234F1Z5">
             </div>
         </div>
 
