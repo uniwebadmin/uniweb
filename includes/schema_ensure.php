@@ -141,6 +141,9 @@ function ensureMerchantQrCodes(): void
     // can be logged without another migration; logQrEvent()'s PHP whitelist still
     // guards what actually gets inserted.
     schemaExecQuiet("ALTER TABLE qr_code_events MODIFY COLUMN event_type VARCHAR(32) NOT NULL");
+    // Point 5: Direct qr_code_id on transactions for webhook resolve + analytics
+    schemaExecQuiet("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS qr_code_id INT UNSIGNED DEFAULT NULL");
+    schemaExecQuiet("ALTER TABLE transactions ADD INDEX IF NOT EXISTS idx_txn_qr_code (qr_code_id)");
 }
 
 function ensureMerchantAgentColumns(): void

@@ -486,7 +486,7 @@ function captureVerifiedPaymentOrder(array $verification): array
     $link = null;
     try {
         $orderSt = $db->prepare(
-            'SELECT o.*, pl.link_id, pl.description AS link_description, pl.link_collection_mode,
+            'SELECT o.*, pl.link_id, pl.description AS link_description, pl.link_collection_mode, pl.qr_code_id,
                     m.commission_rate, m.collection_mode, m.business_name
              FROM payment_orders o
              JOIN payment_links pl ON pl.id=o.payment_link_id
@@ -552,8 +552,8 @@ function captureVerifiedPaymentOrder(array $verification): array
         $txnRef = generateId('TXN');
         $txnInsert = $db->prepare(
             'INSERT INTO transactions
-             (txn_id,transaction_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)'
+             (txn_id,transaction_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?)'
         );
         $txnInsert->execute([
             $txnRef,
@@ -572,6 +572,7 @@ function captureVerifiedPaymentOrder(array $verification): array
             mb_substr(trim((string)($order['customer_name'] ?? '')), 0, 160) ?: null,
             mb_substr(trim((string)($order['customer_email'] ?? '')), 0, 190) ?: null,
             mb_substr(trim((string)($order['customer_phone'] ?? '')), 0, 32) ?: null,
+            (int)($order['qr_code_id'] ?? 0) > 0 ? (int)$order['qr_code_id'] : null,
         ]);
         $transactionId = (int)$db->lastInsertId();
         $db->prepare('INSERT INTO payment_order_transactions (payment_order_id,transaction_id) VALUES (?,?)')
@@ -700,7 +701,7 @@ function recordPaymentOrderFailure(array $payload): array
     $transactionId = 0;
     try {
         $orderSt = $db->prepare(
-            'SELECT o.*, pl.link_id, pl.description AS link_description, pl.link_collection_mode,
+            'SELECT o.*, pl.link_id, pl.description AS link_description, pl.link_collection_mode, pl.qr_code_id,
                     m.commission_rate, m.collection_mode
              FROM payment_orders o
              JOIN payment_links pl ON pl.id=o.payment_link_id
@@ -765,8 +766,8 @@ function recordPaymentOrderFailure(array $payload): array
         $collectionMode = $order['link_collection_mode'] ?: $order['collection_mode'] ?: 'platform_pg';
         $txnInsert = $db->prepare(
             'INSERT INTO transactions
-             (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,failure_reason)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?)'
+             (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,failure_reason,qr_code_id)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?)'
         );
         try {
             $txnInsert->execute([
@@ -786,6 +787,7 @@ function recordPaymentOrderFailure(array $payload): array
                 mb_substr(trim((string)($order['customer_email'] ?? '')), 0, 190) ?: null,
                 mb_substr(trim((string)($order['customer_phone'] ?? '')), 0, 32) ?: null,
                 $reason,
+                (int)($order['qr_code_id'] ?? 0) > 0 ? (int)$order['qr_code_id'] : null,
             ]);
         } catch (Throwable $e) {
             // Older DBs without failure_reason column — insert without it, then best-effort UPDATE.

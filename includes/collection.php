@@ -159,13 +159,14 @@ function createTransactionFromPayment(array $link, string $method, string $statu
     $customerEmail = mb_substr(trim((string)($link['customer_email'] ?? '')), 0, 190) ?: null;
     $customerPhone = mb_substr(trim((string)($link['customer_phone'] ?? '')), 0, 32) ?: null;
     try {
-        $db->prepare('INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, utr, payment_link_id, platform_fee, split_amount, is_test, collection_mode, customer_name, customer_email, customer_phone) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+        $db->prepare('INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, utr, payment_link_id, platform_fee, split_amount, is_test, collection_mode, customer_name, customer_email, customer_phone, qr_code_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
             ->execute([
                 $txnId, $link['merchant_id'], $amount, $status, $methodStored,
                 $link['description'] ?? '', $ref, $link['id'],
                 $split['platform_fee'], $split['merchant_net'], $isTest ? 1 : 0,
                 getMerchantCollectionMode($link),
                 $customerName, $customerEmail, $customerPhone,
+                (int)($link['qr_code_id'] ?? 0) > 0 ? (int)$link['qr_code_id'] : null,
             ]);
     } catch (Throwable $e) {
         $db->prepare('INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, utr, payment_link_id) VALUES (?,?,?,?,?,?,?,?)')
