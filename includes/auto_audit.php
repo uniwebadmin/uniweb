@@ -165,6 +165,16 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
             $report['steps']['rolling_reserve'] = ['ok' => false, 'error' => $e->getMessage()];
         }
 
+        try {
+            if (!function_exists('autoEscalateSlaBreached')) {
+                require_once __DIR__ . '/grievance_engine.php';
+            }
+            $escalated = autoEscalateSlaBreached();
+            $report['steps']['grievance_escalation'] = ['ok' => true, 'escalated' => $escalated];
+        } catch (Throwable $e) {
+            $report['steps']['grievance_escalation'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
         $brokenLinks = 0;
         $linkOk = true;
         if (function_exists('runFullLinkWatchdog')) {
