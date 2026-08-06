@@ -177,6 +177,15 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
         }
 
         try {
+            if (function_exists('processPayoutJobs')) {
+                $payoutResult = processPayoutJobs(20);
+                $report['steps']['payout_worker'] = ['ok' => true, 'processed' => $payoutResult['processed'], 'success' => $payoutResult['success'], 'failed' => $payoutResult['failed'], 'retry' => $payoutResult['retry']];
+            }
+        } catch (Throwable $e) {
+            $report['steps']['payout_worker'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        try {
             if (!function_exists('autoReleaseReserveHolds')) {
                 require_once __DIR__ . '/rolling_reserve.php';
             }
