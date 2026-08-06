@@ -1,0 +1,94 @@
+# UniWeb Master Plan — Auto Mode
+## Based on PDF: 5 documents, 8 gaps + 3 roadmap phases + risk engine spec
+
+## Phase 1: Extra Gaps (8 points)
+1. [ ] Reconciliation Engine — auto-match gateway file vs system txns, mismatch resolution, daily report
+2. [ ] Risk Engine / Velocity Rules — velocity checks, txn-level risk scoring, auto-actions (Hold/Block)
+3. [ ] Rolling Reserve — hold % on new/high-risk merchants, release schedule
+4. [ ] Grievance Redressal — escalation levels, SLA timers, monthly grievance report
+5. [ ] PCI-DSS Readiness Path — documentation/policy page
+6. [ ] Partner Commercial Dashboard — pricing, success rate, settlement delay per partner
+7. [ ] Merchant Health Score — KYC quality + dispute rate + volume consistency
+8. [ ] Platform vs Partner Responsibility Matrix — agreement + website page
+
+## Phase 2: Final Readiness Checklist (11 areas)
+1. [ ] Security & Secrets hardening
+2. [ ] Real Money Flow — Payout & Settlement
+3. [ ] Multi-Gateway & Routing
+4. [ ] Virtual Accounts & QR management
+5. [ ] Risk Engine (full)
+6. [ ] Reliability & Webhooks
+7. [ ] KYC / Onboarding / Agreement
+8. [ ] Ledger, Nodal & Money Separation
+9. [ ] Compliance Feel
+10. [ ] Legal Positioning & Website Trust
+11. [ ] Reporting, Support & Ops Polish
+
+## Phase 3: High-Throughput QR Architecture
+1. [ ] Fast QR create API (minimal DB locks)
+2. [ ] Multi-QR/VA per merchant
+3. [ ] Webhook idempotency + queue
+4. [ ] Circuit breaker on partner 429/5xx
+5. [ ] Rate-limit awareness
+6. [ ] Risk: velocity on same QR/VA
+7. [ ] Admin alert: success rate drop
+8. [ ] Merchant UI: high-volume QR wizard
+9. [ ] Monitoring: payments/minute per QR/VA
+10. [ ] Batch reconciliation by VA + time window
+
+## Phase 4: Priority Product Roadmap
+### Phase 4A: Foundation to Live (Week 1-4)
+1. [ ] Move credentials to .env
+2. [ ] Payout API integration
+3. [ ] Webhook signature verification
+4. [ ] Failed reason mapping dictionary
+5. [ ] Beneficiary + Penny Drop
+6. [ ] Bulk payout
+7. [ ] Maker-Checker for high value
+8. [ ] Staff MFA mandatory
+9. [ ] Nodal account separation
+
+### Phase 4B: Scale + Multi-Gateway (Month 2-3)
+1. [ ] Smart Routing + Fallback
+2. [ ] Multi-Gateway Status Matrix
+3. [ ] One-click KYC Forward
+4. [ ] High TPS QR + Multi VA
+5. [ ] Split settlement at txn level
+6. [ ] Settlement schedule engine
+7. [ ] Webhook reliability (retry, dead letter)
+8. [ ] Rate limiting
+
+### Phase 4C: Professional + Compliance (Month 3-5)
+1. [ ] DigiLocker + Auto KYC
+2. [ ] eSign for Merchant Agreement
+3. [ ] Immutable Audit Trail
+4. [ ] Dispute/Chargeback workflow
+5. [ ] Advanced Reporting
+6. [ ] Risk Engine (full score)
+7. [ ] Reconciliation (auto-match)
+8. [ ] Grievance + Rolling Reserve
+9. [ ] Sub-merchant hierarchy
+10. [ ] White-label + Recurring + Reserve
+
+## Phase 5: Risk Engine Complete Spec
+1. [ ] DB tables: risk_rules, risk_events, risk_blacklist, risk_scores, risk_merchant_limits
+2. [ ] Velocity checks (same UPI/Card/Device/Phone)
+3. [ ] Amount spike detection
+4. [ ] New merchant monitoring
+5. [ ] Risk score algorithm (0-100)
+6. [ ] Auto actions: Allow/Flag/Hold/Block
+7. [ ] Admin panel: risk events list + filter
+8. [ ] Manual override + reason + audit
+9. [ ] Chargeback prevention strategy
+10. [ ] Fraud detection algorithms
+11. [ ] Merchant health score integration
+12. [ ] Webhook/alert on high-risk events
+13. [ ] Export risk reports
+
+## Rules
+- Work one point at a time
+- Test locally (php -l + localhost) before deploy
+- Fix errors before moving on
+- Deploy via git push (GitHub Actions FTP)
+- No asking owner for permission
+- Update this file after each point completion

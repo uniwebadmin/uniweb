@@ -145,6 +145,16 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
             $report['steps']['va_counters'] = ['ok' => false, 'error' => $e->getMessage()];
         }
 
+        try {
+            if (!function_exists('generateDailyReconciliationSummary')) {
+                require_once __DIR__ . '/reconciliation.php';
+            }
+            $reconMarked = autoMarkReconciledTransactions(1);
+            $report['steps']['reconciliation'] = ['ok' => true, 'auto_marked' => $reconMarked];
+        } catch (Throwable $e) {
+            $report['steps']['reconciliation'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
         $brokenLinks = 0;
         $linkOk = true;
         if (function_exists('runFullLinkWatchdog')) {
