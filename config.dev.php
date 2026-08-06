@@ -448,7 +448,7 @@ $__includes = [
     'gateway_reason_map', 'transaction_detail', 'ui_links', 'id_click', 'staff', 'partners', 'partner_engine',
     'provision', 'customer_messaging', 'customer_portal', 'mailer', 'qr_svg', 'qr_events',
     'platform_api', 'platform_health', 'link_watchdog', 'auto_audit',
-    'morning_ops', 'axis', 'va_manager', 'webhook_queue', 'notify', 'error_catcher', 'rolling_reserve', 'grievance_engine',
+    'morning_ops', 'axis', 'va_manager', 'webhook_queue', 'notify', 'error_catcher', 'rolling_reserve', 'grievance_engine', 'merchant_health',
 ];
 $__loaded = [];
 foreach ($__includes as $__inc) {
