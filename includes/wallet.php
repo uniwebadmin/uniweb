@@ -882,6 +882,98 @@ function countPlatformWalletTransactions(): int
     }
 }
 
+/**
+ * C5: Settle platform commission — wallet hold or bank transfer.
+ * Wallet mode: keep funds in platform wallet (just record the settlement entry).
+ * Bank mode: debit platform wallet and record bank transfer settlement.
+ */
+function settlePlatformCommission(float $amount, string $mode, ?string $bankAccount = null, string $adminBy = 'admin'): array
+{
+    ensureWalletEngine();
+    $db = getDB();
+    $amount = round($amount, 2);
+
+    if ($amount <= 0) {
+        return ['ok' => false, 'error' => 'Amount must be positive.'];
+    }
+
+    $balance = getPlatformWalletBalance();
+    if ($amount > $balance + 0.01) {
+        return ['ok' => false, 'error' => 'Insufficient platform wallet balance. Available: ' . formatMoney($balance) . '.'];
+    }
+
+    if (!in_array($mode, ['wallet', 'bank'], true)) {
+        return ['ok' => false, 'error' => 'Invalid settlement mode. Use wallet or bank.'];
+    }
+
+    $settlementId = generateId('PSTL');
+
+    try {
+        $db->beginTransaction();
+
+        if ($mode === 'wallet') {
+            // Wallet hold — just record, no balance change (funds stay in platform wallet)
+            $db->prepare(
+                'INSERT INTO platform_settlements (settlement_id, amount, mode, status, processed_at, processed_by)
+                 VALUES (?,?,?,?,NOW(),?)'
+            )->execute([$settlementId, $amount, 'wallet', 'completed', $adminBy]);
+        } else {
+            // Bank transfer — debit platform wallet
+            $db->prepare(
+                'INSERT INTO platform_settlements (settlement_id, amount, mode, bank_account, status, processed_at, processed_by)
+                 VALUES (?,?,?,?,?,NOW(),?)'
+            )->execute([$settlementId, $amount, 'bank', mb_substr((string)$bankAccount, 0, 200), 'completed', $adminBy]);
+
+            // Debit platform wallet
+            $db->prepare(
+                'INSERT INTO platform_wallet_transactions (amount, type, reference, description, balance_after)
+                 VALUES (?,?,?,?,?)'
+            )->execute([
+                -$amount,
+                'debit',
+                $settlementId,
+                'Platform commission settled to bank',
+                $balance - $amount,
+            ]);
+
+            setPlatformWalletBalance($balance - $amount);
+        }
+
+        recordAuditEvent('platform_commission_settle', [
+            'actor_type' => 'admin',
+            'actor_id' => $adminBy,
+            'resource_type' => 'platform_settlement',
+            'resource_id' => $settlementId,
+            'reason' => "Platform commission settled ({$mode})",
+            'after_state' => ['amount' => $amount, 'mode' => $mode, 'bank_account' => $bankAccount],
+        ]);
+
+        $db->commit();
+        return ['ok' => true, 'settlement_id' => $settlementId, 'message' => formatMoney($amount) . ' settled via ' . $mode . '.'];
+    } catch (Throwable $e) {
+        $db->rollBack();
+        error_log('settlePlatformCommission failed: ' . $e->getMessage());
+        return ['ok' => false, 'error' => 'Settlement failed: ' . $e->getMessage()];
+    }
+}
+
+/**
+ * C5: Get platform settlement history.
+ */
+function getPlatformSettlements(int $limit = 50, int $offset = 0): array
+{
+    ensureWalletEngine();
+    try {
+        $st = getDB()->prepare('SELECT * FROM platform_settlements ORDER BY created_at DESC LIMIT ? OFFSET ?');
+        $st->bindValue(1, $limit, PDO::PARAM_INT);
+        $st->bindValue(2, $offset, PDO::PARAM_INT);
+        $st->execute();
+        return $st->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
 function creditMerchantWallet(int $merchantId, float $amount, string $type, ?int $transactionId, string $reference, string $description, ?bool $isTest = null): bool
 {
     if ($amount <= 0) return true;
