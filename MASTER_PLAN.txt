@@ -1,28 +1,28 @@
 # UniWeb Master Plan — Auto Mode
 ## Based on PDF: 5 documents, 8 gaps + 3 roadmap phases + risk engine spec
 
-## Phase 1: Extra Gaps (8 points)
-1. [ ] Reconciliation Engine — auto-match gateway file vs system txns, mismatch resolution, daily report
-2. [ ] Risk Engine / Velocity Rules — velocity checks, txn-level risk scoring, auto-actions (Hold/Block)
-3. [ ] Rolling Reserve — hold % on new/high-risk merchants, release schedule
-4. [ ] Grievance Redressal — escalation levels, SLA timers, monthly grievance report
-5. [ ] PCI-DSS Readiness Path — documentation/policy page
-6. [ ] Partner Commercial Dashboard — pricing, success rate, settlement delay per partner
-7. [ ] Merchant Health Score — KYC quality + dispute rate + volume consistency
-8. [ ] Platform vs Partner Responsibility Matrix — agreement + website page
+## Phase 1: Extra Gaps (8 points) — ALL DONE
+1. [x] Reconciliation Engine — auto-match gateway file vs system txns, mismatch resolution, daily report
+2. [x] Risk Engine / Velocity Rules — velocity checks, txn-level risk scoring, auto-actions (Hold/Block)
+3. [x] Rolling Reserve — hold % on new/high-risk merchants, release schedule
+4. [x] Grievance Redressal — escalation levels, SLA timers, monthly grievance report
+5. [x] PCI-DSS Readiness Path — documentation/policy page
+6. [x] Partner Commercial Dashboard — pricing, success rate, settlement delay per partner
+7. [x] Merchant Health Score — KYC quality + dispute rate + volume consistency
+8. [x] Platform vs Partner Responsibility Matrix — agreement + website page
 
-## Phase 2: Final Readiness Checklist (11 areas)
-1. [ ] Security & Secrets hardening
-2. [ ] Real Money Flow — Payout & Settlement
-3. [ ] Multi-Gateway & Routing
-4. [ ] Virtual Accounts & QR management
-5. [ ] Risk Engine (full)
-6. [ ] Reliability & Webhooks
-7. [ ] KYC / Onboarding / Agreement
-8. [ ] Ledger, Nodal & Money Separation
-9. [ ] Compliance Feel
-10. [ ] Legal Positioning & Website Trust
-11. [ ] Reporting, Support & Ops Polish
+## Phase 2: Final Readiness Checklist (11 areas) — ALL DONE
+1. [x] Security & Secrets hardening — .env support, session hardening, security headers, admin dashboard
+2. [x] Real Money Flow — Payout & Settlement — scheduled batches wired to auto_audit cron
+3. [x] Multi-Gateway & Routing — smart routing + gateway status matrix + one-click forward
+4. [x] Virtual Accounts & QR management — verified existing (va_manager.php, qr_code.php, qr_events.php)
+5. [x] Risk Engine (full) — verified existing (risk.php: AML, blacklist, velocity, scoring, auto-actions)
+6. [x] Reliability & Webhooks — idempotency, retry queue, dead letter, replay, auto_audit cron
+7. [x] KYC / Onboarding / Agreement — verified existing (kyc_entity, onboarding, video_kyc, agreement_pdf)
+8. [x] Ledger, Nodal & Money Separation — verified existing (nodal.php, financial_integrity.php, wallet.php)
+9. [x] Compliance Feel — verified existing (compliance.php, pci_dss.php, responsibility_matrix.php)
+10. [x] Legal Positioning & Website Trust — verified existing (trust.php, legal pages, footer links)
+11. [x] Reporting, Support & Ops Polish — admin_reports.php consolidated dashboard
 
 ## Phase 3: High-Throughput QR Architecture
 1. [ ] Fast QR create API (minimal DB locks)
