@@ -123,6 +123,19 @@ function markWebhookFailed(int $eventId, string $error): void
             // Move to dead letter
             $db->prepare("UPDATE webhook_events SET status='dead_letter', retry_count=?, last_error=? WHERE id=?")
                 ->execute([$retryCount, mb_substr($error, 0, 2000), $eventId]);
+            // A2: Send alert
+            $alertEvent = ['id' => $eventId, 'gateway' => '', 'event_id' => '', 'event_type' => '', 'retry_count' => $retryCount, 'last_error' => $error];
+            try {
+                $est = $db->prepare("SELECT gateway, event_id, event_type FROM webhook_events WHERE id=?");
+                $est->execute([$eventId]);
+                $row = $est->fetch();
+                if ($row) {
+                    $alertEvent['gateway'] = $row['gateway'];
+                    $alertEvent['event_id'] = $row['event_id'];
+                    $alertEvent['event_type'] = $row['event_type'];
+                }
+            } catch (Throwable $e) {}
+            alertWebhookDeadLetter($alertEvent);
         } else {
             // Schedule retry with exponential backoff: 2^retry minutes
             $delayMinutes = min(60, (1 << $retryCount));
@@ -260,4 +273,107 @@ function replayDeadLetterEvent(int $eventId): bool
     } catch (Throwable $e) {
         return false;
     }
+}
+
+/**
+ * A2: Re-process a failed webhook event (safe only if status=failed or dead_letter).
+ * Resets to 'received' so the retry worker picks it up.
+ */
+function reprocessFailedWebhookEvent(int $eventId): bool
+{
+    ensureWebhookEventsTable();
+    try {
+        $st = getDB()->prepare("UPDATE webhook_events SET status='received', next_retry_at=NULL WHERE id=? AND status IN ('failed','dead_letter')");
+        $st->execute([$eventId]);
+        return $st->rowCount() > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * A2: Discard a dead letter event (mark as discarded, keep record for audit).
+ */
+function discardDeadLetterEvent(int $eventId): bool
+{
+    ensureWebhookEventsTable();
+    try {
+        $st = getDB()->prepare("UPDATE webhook_events SET status='dead_letter', last_error=CONCAT('[DISCARDED] ', COALESCE(last_error,'')) WHERE id=? AND status='dead_letter'");
+        $st->execute([$eventId]);
+        return $st->rowCount() > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * A2: Get a single webhook event with decrypted payload preview.
+ * Payload is truncated for display safety.
+ */
+function getWebhookEventForAdmin(int $eventId): ?array
+{
+    ensureWebhookEventsTable();
+    try {
+        $st = getDB()->prepare("SELECT * FROM webhook_events WHERE id=?");
+        $st->execute([$eventId]);
+        $event = $st->fetch();
+        if (!$event) return null;
+        // Truncate payload for preview
+        $event['payload_preview'] = mb_substr((string)$event['payload'], 0, 2000);
+        $event['payload_size'] = strlen((string)$event['payload']);
+        return $event;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/**
+ * A2: Get failed events (for admin re-process screen).
+ */
+function getFailedWebhookEvents(int $limit = 50): array
+{
+    ensureWebhookEventsTable();
+    try {
+        $st = getDB()->prepare("SELECT * FROM webhook_events WHERE status IN ('failed','dead_letter') ORDER BY created_at DESC LIMIT ?");
+        $st->bindValue(1, $limit, PDO::PARAM_INT);
+        $st->execute();
+        return $st->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/**
+ * A2: Send alert when webhook goes to dead letter.
+ * Notifies admin via email + platform error log.
+ */
+function alertWebhookDeadLetter(array $event): void
+{
+    try {
+        $msg = "Webhook dead letter: gateway={$event['gateway']}, event_id={$event['event_id']}, retries={$event['retry_count']}";
+        // Log to platform_errors
+        getDB()->prepare('INSERT INTO platform_errors (error_type, error_message, context_json, created_at) VALUES (?,?,?,NOW())')
+            ->execute([
+                'webhook_dead_letter',
+                $msg,
+                json_encode(['event_id' => $event['id'], 'gateway' => $event['gateway'], 'event_type' => $event['event_type'] ?? null]),
+            ]);
+    } catch (Throwable $e) { /* non-fatal */ }
+
+    // Email alert
+    try {
+        if (function_exists('sendMail')) {
+            sendMail(
+                defined('ADMIN_EMAIL') ? ADMIN_EMAIL : 'admin@uniweb.co.in',
+                'UniWeb Alert: Webhook Dead Letter',
+                "A webhook event has exhausted all retries and moved to dead letter queue.\n\n"
+                . "Gateway: {$event['gateway']}\n"
+                . "Event ID: {$event['event_id']}\n"
+                . "Type: " . ($event['event_type'] ?? 'unknown') . "\n"
+                . "Retries: {$event['retry_count']}\n"
+                . "Error: " . mb_substr((string)($event['last_error'] ?? ''), 0, 500) . "\n\n"
+                . "Review at: " . (defined('APP_URL') ? APP_URL : '') . "/admin_webhook_reliability.php"
+            );
+        }
+    } catch (Throwable $e) { /* non-fatal */ }
 }

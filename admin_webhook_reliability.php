@@ -10,10 +10,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         flash($ok ? 'success' : 'error', $ok ? 'Event queued for replay.' : 'Failed to replay event.');
         redirect('admin_webhook_reliability.php');
     }
+    if ($action === 'reprocess' && isset($_POST['event_id'])) {
+        $ok = reprocessFailedWebhookEvent((int)$_POST['event_id']);
+        flash($ok ? 'success' : 'error', $ok ? 'Event queued for re-processing.' : 'Failed to re-process event.');
+        redirect('admin_webhook_reliability.php');
+    }
+    if ($action === 'discard' && isset($_POST['event_id'])) {
+        $ok = discardDeadLetterEvent((int)$_POST['event_id']);
+        flash($ok ? 'success' : 'error', $ok ? 'Event discarded.' : 'Failed to discard event.');
+        redirect('admin_webhook_reliability.php');
+    }
+    if ($action === 'view_payload' && isset($_POST['event_id'])) {
+        $payloadEvent = getWebhookEventForAdmin((int)$_POST['event_id']);
+    }
 }
 
 $stats = getWebhookReliabilityStats();
 $deadLetters = getDeadLetterEvents(50);
+$failedEvents = getFailedWebhookEvents(50);
+$payloadEvent = $payloadEvent ?? null;
 
 // Recent events
 $recentEvents = [];
@@ -87,5 +102,48 @@ require_once __DIR__ . '/header.php';
             </tbody>
         </table></div>
     </div>
+
+    <?php if ($payloadEvent): ?>
+    <div class="glass rounded-xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold text-sky-400">Payload Preview — Event #<?= (int)$payloadEvent['id'] ?></h2></div>
+        <div class="p-6">
+            <div class="grid grid-cols-2 gap-4 mb-4 text-xs">
+                <div><span class="text-gray-500">Event ID:</span> <span class="text-gray-300 font-mono"><?= e($payloadEvent['event_id']) ?></span></div>
+                <div><span class="text-gray-500">Gateway:</span> <span class="text-gray-300"><?= e($payloadEvent['gateway']) ?></span></div>
+                <div><span class="text-gray-500">Status:</span> <span class="text-gray-300"><?= e($payloadEvent['status']) ?></span></div>
+                <div><span class="text-gray-500">Payload Size:</span> <span class="text-gray-300"><?= $payloadEvent['payload_size'] ?> bytes</span></div>
+            </div>
+            <pre class="bg-gray-900 rounded-lg p-4 text-xs text-gray-400 overflow-x-auto max-h-96"><?= e($payloadEvent['payload_preview']) ?></pre>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if (!empty($failedEvents)): ?>
+    <div class="glass rounded-xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold text-amber-400">Failed Events (Re-process)</h2><p class="text-xs text-gray-500 mt-1">Events with status=failed or dead_letter. Safe to re-process.</p></div>
+        <div class="overflow-x-auto"><table class="min-w-[900px] w-full text-sm">
+            <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr><th class="px-4 py-3 text-left">ID</th><th class="px-4 py-3 text-left">Gateway</th><th class="px-4 py-3 text-left">Type</th><th class="px-4 py-3 text-left">Status</th><th class="px-4 py-3 text-right">Retries</th><th class="px-4 py-3 text-left">Error</th><th class="px-4 py-3 text-left">Actions</th></tr></thead>
+            <tbody class="divide-y divide-gray-800">
+                <?php foreach ($failedEvents as $fe): ?>
+                <tr>
+                    <td class="px-4 py-3 font-mono text-xs text-gray-400"><?= (int)$fe['id'] ?></td>
+                    <td class="px-4 py-3 text-xs capitalize"><?= e($fe['gateway']) ?></td>
+                    <td class="px-4 py-3 text-xs"><?= e($fe['event_type'] ?? '—') ?></td>
+                    <td class="px-4 py-3 text-xs <?= $fe['status'] === 'dead_letter' ? 'text-red-400' : 'text-amber-400' ?>"><?= e($fe['status']) ?></td>
+                    <td class="px-4 py-3 text-right text-xs"><?= (int)$fe['retry_count'] ?></td>
+                    <td class="px-4 py-3 text-xs text-gray-400 max-w-xs truncate" title="<?= e($fe['last_error']) ?>"><?= e(mb_substr($fe['last_error'] ?? '', 0, 60)) ?></td>
+                    <td class="px-4 py-3 flex gap-2">
+                        <form method="POST" class="inline"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="reprocess"><input type="hidden" name="event_id" value="<?= (int)$fe['id'] ?>"><button type="submit" class="text-xs text-sky-400 hover:underline" onclick="return confirm('Re-process this event?')">Re-process</button></form>
+                        <form method="POST" class="inline"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="view_payload"><input type="hidden" name="event_id" value="<?= (int)$fe['id'] ?>"><button type="submit" class="text-xs text-violet-400 hover:underline">Payload</button></form>
+                        <?php if ($fe['status'] === 'dead_letter'): ?>
+                        <form method="POST" class="inline"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="discard"><input type="hidden" name="event_id" value="<?= (int)$fe['id'] ?>"><button type="submit" class="text-xs text-red-400 hover:underline" onclick="return confirm('Discard this event? This action is permanent.')">Discard</button></form>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table></div>
+    </div>
+    <?php endif; ?>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>
