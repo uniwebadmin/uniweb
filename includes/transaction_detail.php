@@ -70,9 +70,13 @@ function transactionStatusExplainer(array $txn): array
             break;
         }
     }
-    if (function_exists('mapGatewayFailureReason') && ($rawCode !== '' || $stored !== '')) {
-        // If stored text is already a mapped sentence, mapGatewayFailureReason keeps it;
-        // if it is a bare code, it becomes a clear one-liner.
+    if (function_exists('mapGatewayFailureReasonLocalized') && ($rawCode !== '' || $stored !== '')) {
+        // A8: Use DB-backed localized map (has Hindi), fall back to PHP dictionary
+        $mapped = mapGatewayFailureReasonLocalized($rawCode !== '' ? $rawCode : null, $stored !== '' ? $stored : null, 'en');
+        if ($mapped !== '') {
+            $stored = $mapped;
+        }
+    } elseif (function_exists('mapGatewayFailureReason') && ($rawCode !== '' || $stored !== '')) {
         $mapped = mapGatewayFailureReason($rawCode !== '' ? $rawCode : null, $stored !== '' ? $stored : null);
         if ($mapped !== '') {
             $stored = $mapped;

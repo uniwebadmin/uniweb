@@ -218,3 +218,120 @@ function mapGatewayFailureFromPayload(array $payload): string
     [$code, $message] = extractGatewayErrorFields($payload);
     return mapGatewayFailureReason($code, $message);
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// A8: DB-backed reason map with Hindi translations
+// ──────────────────────────────────────────────────────────────────────────────
+
+function ensureGatewayReasonMapTable(): void
+{
+    static $done = false;
+    if ($done) return;
+    $done = true;
+    try {
+        getDB()->exec("CREATE TABLE IF NOT EXISTS gateway_reason_maps (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            error_code VARCHAR(100) NOT NULL UNIQUE,
+            message_en VARCHAR(500) NOT NULL,
+            message_hi VARCHAR(500) DEFAULT NULL,
+            category ENUM('funds','timeout','risk','decline','limit','cancel','settlement','upi','other') NOT NULL DEFAULT 'other',
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_code (error_code),
+            INDEX idx_category (category, is_active)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) { /* ok */ }
+}
+
+/**
+ * Get reason map from DB (admin-editable). Falls back to PHP dictionary if DB empty.
+ */
+function getDbReasonMap(): array
+{
+    ensureGatewayReasonMapTable();
+    static $cache = null;
+    if ($cache !== null) return $cache;
+    $cache = [];
+    try {
+        $rows = getDB()->query("SELECT error_code, message_en, message_hi FROM gateway_reason_maps WHERE is_active=1")->fetchAll();
+        foreach ($rows as $row) {
+            $cache[$row['error_code']] = [
+                'en' => $row['message_en'],
+                'hi' => $row['message_hi'],
+            ];
+        }
+    } catch (Throwable $e) { /* ok */ }
+    return $cache;
+}
+
+/**
+ * Map a gateway failure reason with language support.
+ * Checks DB first (admin-editable, has Hindi), then falls back to PHP dictionary.
+ */
+function mapGatewayFailureReasonLocalized(?string $errorCode = null, ?string $rawMessage = null, string $lang = 'en'): string
+{
+    $code = normalizeGatewayErrorCode($errorCode);
+    $dbMap = getDbReasonMap();
+
+    // Check DB map first
+    if ($code !== '' && isset($dbMap[$code])) {
+        $msg = $lang === 'hi' && !empty($dbMap[$code]['hi']) ? $dbMap[$code]['hi'] : $dbMap[$code]['en'];
+        return $msg;
+    }
+
+    // Check message-derived code in DB
+    $msgCode = normalizeGatewayErrorCode($rawMessage);
+    if ($msgCode !== '' && isset($dbMap[$msgCode])) {
+        $msg = $lang === 'hi' && !empty($dbMap[$msgCode]['hi']) ? $dbMap[$msgCode]['hi'] : $dbMap[$msgCode]['en'];
+        return $msg;
+    }
+
+    // Fall back to PHP dictionary (English only)
+    return mapGatewayFailureReason($errorCode, $rawMessage);
+}
+
+/**
+ * Get all reason maps from DB (for admin UI).
+ */
+function getAllDbReasonMaps(): array
+{
+    ensureGatewayReasonMapTable();
+    try {
+        return getDB()->query("SELECT * FROM gateway_reason_maps ORDER BY category, error_code")->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/**
+ * Add or update a reason map in DB.
+ */
+function upsertDbReasonMap(string $errorCode, string $messageEn, ?string $messageHi, string $category = 'other'): bool
+{
+    ensureGatewayReasonMapTable();
+    try {
+        $st = getDB()->prepare(
+            'INSERT INTO gateway_reason_maps (error_code, message_en, message_hi, category) VALUES (?,?,?,?)
+             ON DUPLICATE KEY UPDATE message_en=VALUES(message_en), message_hi=VALUES(message_hi), category=VALUES(category), is_active=1'
+        );
+        $st->execute([strtoupper(trim($errorCode)), $messageEn, $messageHi, $category]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * Toggle active status of a reason map.
+ */
+function toggleDbReasonMap(int $id, bool $active): bool
+{
+    ensureGatewayReasonMapTable();
+    try {
+        getDB()->prepare('UPDATE gateway_reason_maps SET is_active=? WHERE id=?')->execute([$active ? 1 : 0, $id]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
