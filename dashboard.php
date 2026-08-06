@@ -88,6 +88,44 @@ echo renderMerchantMfaSetupPrompt($merchant, 'dashboard');
 
 <?php renderMerchantCommercialCard($merchant); ?>
 
+<?php
+$balanceMode = $viewTest ? 'test' : 'live';
+$balanceBreakdown = function_exists('getMerchantBalanceBreakdown') ? getMerchantBalanceBreakdown((int)$merchant['id'], $balanceMode) : null;
+if ($balanceBreakdown):
+?>
+<div class="glass rounded-xl p-6 mb-8 border border-sky-500/20">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+            <p class="text-sm font-semibold text-sky-300">Balance Breakdown</p>
+            <p class="text-xs text-gray-500 mt-1">Real-time ledger state · <?= $viewTest ? 'Test mode' : 'Live mode' ?></p>
+        </div>
+        <a href="wallet.php" class="text-xs text-sky-400 hover:underline">Full wallet →</a>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+            <p class="text-[10px] text-gray-600 uppercase">Available</p>
+            <p class="text-2xl font-bold text-emerald-400 mt-1"><?= formatMoney($balanceBreakdown['available']) ?></p>
+            <p class="text-[10px] text-gray-600 mt-1">Ready to settle</p>
+        </div>
+        <div class="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+            <p class="text-[10px] text-gray-600 uppercase">In Transit</p>
+            <p class="text-2xl font-bold text-amber-400 mt-1"><?= formatMoney($balanceBreakdown['in_transit']) ?></p>
+            <p class="text-[10px] text-gray-600 mt-1">Pending settlements</p>
+        </div>
+        <div class="rounded-xl border border-gray-700 bg-gray-800/30 p-4">
+            <p class="text-[10px] text-gray-600 uppercase">On Hold</p>
+            <p class="text-2xl font-bold text-gray-300 mt-1"><?= formatMoney($balanceBreakdown['hold']) ?></p>
+            <p class="text-[10px] text-gray-600 mt-1">Pending txns + reserve</p>
+        </div>
+        <div class="rounded-xl border border-violet-500/30 bg-violet-500/5 p-4">
+            <p class="text-[10px] text-gray-600 uppercase">Settled</p>
+            <p class="text-2xl font-bold text-violet-400 mt-1"><?= formatMoney($balanceBreakdown['settled']) ?></p>
+            <p class="text-[10px] text-gray-600 mt-1">Total settled to bank</p>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
     <div class="stat-card border border-sky-500/30 rounded-xl p-5 bg-sky-500/5 lg:col-span-1">
         <p class="text-xs text-gray-500">Wallet Available</p>

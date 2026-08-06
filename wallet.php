@@ -62,6 +62,19 @@ require_once __DIR__ . '/header.php';
         <p class="text-2xl font-bold text-gray-300 mt-1"><?= walletMoney($onHold, $isTest) ?></p>
         <p class="text-[10px] text-gray-600 mt-1">Pending transactions not yet success</p>
     </div>
+    <?php
+    $walletSettled = 0.0;
+    try {
+        $sst = $db->prepare("SELECT COALESCE(SUM(net_amount),0) FROM settlements WHERE merchant_id=? AND status='success' AND is_test=?");
+        $sst->execute([$merchantId, $isTest ? 1 : 0]);
+        $walletSettled = (float)$sst->fetchColumn();
+    } catch (Throwable $e) {}
+    ?>
+    <div class="stat-card border border-violet-500/30 rounded-xl p-5 bg-violet-500/5">
+        <p class="text-[10px] text-gray-600 uppercase">Total settled</p>
+        <p class="text-2xl font-bold text-violet-400 mt-1"><?= walletMoney($walletSettled, $isTest) ?></p>
+        <p class="text-[10px] text-gray-600 mt-1">Successfully transferred to bank</p>
+    </div>
 </div>
 
 <?php if ($available < 0.01 && (int)$wallet['success_txns'] < 1): ?>
