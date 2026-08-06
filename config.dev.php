@@ -476,6 +476,7 @@ $__includes = [
     'morning_ops', 'axis', 'va_manager', 'webhook_queue', 'notify', 'error_catcher', 'rolling_reserve', 'grievance_engine', 'merchant_health', 'webhook_reliability', 'fast_qr_api', 'circuit_breaker', 'rate_limiter', 'split_settlement', 'sub_merchant', 'recurring',
     'risk', 'nodal', 'payout', 'env_loader',
     'integration_matrix', 'settlement_delay_spec', 'kyc_timeline', 'cloud_modules',
+    'beneficiaries',
 ];
 $__loaded = [];
 foreach ($__includes as $__inc) {

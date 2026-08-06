@@ -110,6 +110,9 @@ $exportQuery = http_build_query(['q' => $settlementQ, 'status' => $settlementSta
         <a href="merchant_settlement_settings.php" class="glass px-4 py-2 rounded-xl text-sm text-violet-300 hover:text-violet-200 border border-violet-500/20">
             ⚙ Settlement Settings
         </a>
+        <a href="beneficiaries.php" class="glass px-4 py-2 rounded-xl text-sm text-emerald-300 hover:text-emerald-200 border border-emerald-500/20">
+            Beneficiaries
+        </a>
         <a href="add_bank.php" class="glass px-4 py-2 rounded-xl text-sm text-gray-400 hover:text-white"><?= __('bank_account') ?></a>
     </div>
     <span class="text-xs text-gray-500">Balances are reconciled from immutable payment records.</span>
