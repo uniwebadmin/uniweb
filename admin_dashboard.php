@@ -55,6 +55,7 @@ require_once __DIR__ . '/header.php';
     <a href="admin_partner_commercial.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-violet-400 hover:text-violet-300">Partner Stats</a>
     <a href="admin_merchant_health.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-emerald-400 hover:text-emerald-300">Health Scores</a>
     <a href="admin_security_hardening.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-red-400 hover:text-red-300">Security</a>
+    <a href="admin_gateway_matrix.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-sky-400 hover:text-sky-300">Gateway Matrix</a>
     <a href="gateway_settings.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-gray-300 hover:text-white">Gateway Keys</a>
     <a href="demo.php" target="_blank" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-brand-400">Live Demo ↗</a>
     <a href="<?= APP_URL ?>/demo" target="_blank" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-gray-400">/demo</a>
