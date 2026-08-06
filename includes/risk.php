@@ -1027,3 +1027,188 @@ function evaluateQrVaVelocity(string $qrCode, ?string $vaNumber, int $merchantId
 
     return ['score' => $score, 'action' => $action, 'reasons' => $reasons];
 }
+
+/**
+ * Manual override of a risk event — admin can resolve/override with reason.
+ */
+function overrideRiskEvent(int $eventId, string $newAction, int $adminId, string $reason): bool
+{
+    ensureRiskEngineTables();
+    if (!in_array($newAction, ['allow', 'flag', 'hold', 'block', 'dismiss'], true)) {
+        return false;
+    }
+    try {
+        getDB()->prepare(
+            "UPDATE risk_events SET resolved=1, resolved_action=?, resolved_by=?, resolved_reason=?, resolved_at=NOW() WHERE id=?"
+        )->execute([$newAction, $adminId, $reason, $eventId]);
+        if (function_exists('recordImmutableAudit')) {
+            recordImmutableAudit('risk_override', 0, 'risk_event', (string)$eventId, "Override to {$newAction}: {$reason}");
+        }
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * Fraud detection algorithms — pattern-based checks.
+ */
+function detectFraudPatterns(int $merchantId, int $days = 7): array
+{
+    $db = getDB();
+    $since = date('Y-m-d H:i:s', time() - ($days * 86400));
+    $alerts = [];
+
+    // 1. Rapid successive failures from same IP
+    try {
+        $st = $db->prepare(
+            "SELECT customer_ip, COUNT(*) as fail_count
+             FROM transactions
+             WHERE merchant_id=? AND status='failed' AND created_at >= ?
+             GROUP BY customer_ip HAVING fail_count >= 10
+             ORDER BY fail_count DESC LIMIT 10"
+        );
+        $st->execute([$merchantId, $since]);
+        foreach ($st->fetchAll() as $row) {
+            $alerts[] = ['type' => 'rapid_failures', 'ip' => $row['customer_ip'], 'count' => (int)$row['fail_count'], 'severity' => 'high'];
+        }
+    } catch (Throwable $e) {}
+
+    // 2. Unusual amount pattern (many txns just below a threshold)
+    try {
+        $st = $db->prepare(
+            "SELECT COUNT(*) as count FROM transactions
+             WHERE merchant_id=? AND status='success' AND amount BETWEEN 95000 AND 99999
+             AND created_at >= ?"
+        );
+        $st->execute([$merchantId, $since]);
+        $count = (int)$st->fetchColumn();
+        if ($count >= 5) {
+            $alerts[] = ['type' => 'threshold_avoidance', 'count' => $count, 'severity' => 'high', 'note' => 'Multiple txns just below ₹1L reporting threshold'];
+        }
+    } catch (Throwable $e) {}
+
+    // 3. Multiple txns from different IPs but same device
+    try {
+        $st = $db->prepare(
+            "SELECT device_id, COUNT(DISTINCT customer_ip) as ip_count, COUNT(*) as txn_count
+             FROM transactions
+             WHERE merchant_id=? AND status='success' AND device_id IS NOT NULL AND device_id != ''
+             AND created_at >= ?
+             GROUP BY device_id HAVING ip_count >= 3
+             ORDER BY ip_count DESC LIMIT 10"
+        );
+        $st->execute([$merchantId, $since]);
+        foreach ($st->fetchAll() as $row) {
+            $alerts[] = ['type' => 'multi_ip_device', 'device_id' => $row['device_id'], 'ip_count' => (int)$row['ip_count'], 'txn_count' => (int)$row['txn_count'], 'severity' => 'medium'];
+        }
+    } catch (Throwable $e) {}
+
+    // 4. Velocity spike — sudden increase in transaction volume
+    try {
+        $recent = $db->prepare("SELECT COUNT(*) FROM transactions WHERE merchant_id=? AND status='success' AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)");
+        $recent->execute([$merchantId]);
+        $recentCount = (int)$recent->fetchColumn();
+
+        $baseline = $db->prepare("SELECT COALESCE(AVG(cnt),0) FROM (
+            SELECT COUNT(*) as cnt FROM transactions
+            WHERE merchant_id=? AND status='success'
+            AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            AND created_at < DATE_SUB(NOW(), INTERVAL 1 HOUR)
+            GROUP BY FLOOR(UNIX_TIMESTAMP(created_at)/3600)
+        ) t");
+        $baseline->execute([$merchantId]);
+        $avgHourly = (float)$baseline->fetchColumn();
+
+        if ($avgHourly > 0 && $recentCount > ($avgHourly * 5)) {
+            $alerts[] = ['type' => 'volume_spike', 'recent' => $recentCount, 'average' => round($avgHourly, 1), 'multiplier' => round($recentCount / $avgHourly, 1), 'severity' => 'medium'];
+        }
+    } catch (Throwable $e) {}
+
+    return $alerts;
+}
+
+/**
+ * Send alert on high-risk events (called when a risk event is recorded).
+ */
+function alertHighRiskEvent(array $riskEvent): void
+{
+    if (!in_array($riskEvent['action'] ?? '', ['hold', 'block'], true)) {
+        return;
+    }
+
+    $merchantId = (int)($riskEvent['merchant_id'] ?? 0);
+    $action = $riskEvent['action'];
+    $reason = $riskEvent['reason'] ?? 'High risk event detected';
+
+    // Log to platform errors for admin visibility
+    if (function_exists('logPlatformError')) {
+        logPlatformError('warning', "High-risk event [{$action}] for merchant #{$merchantId}: {$reason}");
+    }
+
+    // Send webhook notification if configured
+    try {
+        $webhookUrl = getSetting('risk_alert_webhook_url', '');
+        if ($webhookUrl !== '') {
+            $payload = json_encode([
+                'event' => 'high_risk_alert',
+                'merchant_id' => $merchantId,
+                'action' => $action,
+                'reason' => $reason,
+                'timestamp' => date('c'),
+            ]);
+            $ch = curl_init($webhookUrl);
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => $payload,
+                CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 5,
+            ]);
+            curl_exec($ch);
+            curl_close($ch);
+        }
+    } catch (Throwable $e) { /* non-critical */ }
+}
+
+/**
+ * Export risk report as CSV data (returns CSV string).
+ */
+function exportRiskReport(int $days = 30): string
+{
+    ensureRiskEngineTables();
+    $since = date('Y-m-d H:i:s', time() - ($days * 86400));
+
+    try {
+        $st = getDB()->prepare(
+            "SELECT re.id, re.merchant_id, m.business_name, re.event_type, re.action_taken,
+                    re.score, re.reason, re.resolved, re.created_at
+             FROM risk_events re
+             LEFT JOIN merchants m ON m.id = re.merchant_id
+             WHERE re.created_at >= ?
+             ORDER BY re.created_at DESC LIMIT 5000"
+        );
+        $st->execute([$since]);
+        $rows = $st->fetchAll();
+    } catch (Throwable $e) {
+        $rows = [];
+    }
+
+    $csv = "ID,Merchant,Business,Event Type,Action,Score,Reason,Resolved,Created At\n";
+    foreach ($rows as $row) {
+        $csv .= sprintf(
+            "%d,%s,%s,%s,%s,%s,%s,%s,%s\n",
+            $row['id'],
+            $row['merchant_id'],
+            str_replace(',', '', $row['business_name'] ?? ''),
+            $row['event_type'] ?? '',
+            $row['action_taken'] ?? '',
+            $row['score'] ?? 0,
+            str_replace([',', "\n"], [' ', ' '], $row['reason'] ?? ''),
+            $row['resolved'] ? 'Yes' : 'No',
+            $row['created_at'] ?? ''
+        );
+    }
+
+    return $csv;
+}

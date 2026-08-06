@@ -220,6 +220,20 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
             $report['steps']['success_rate_alert'] = ['ok' => false, 'error' => $e->getMessage()];
         }
 
+        // Process due subscription charges
+        try {
+            if (function_exists('getSubscriptionsDueForCharge')) {
+                $dueSubs = getSubscriptionsDueForCharge(20);
+                $subResults = [];
+                foreach ($dueSubs as $sub) {
+                    $subResults[] = processSubscriptionCharge((int)$sub['id']);
+                }
+                $report['steps']['recurring_charges'] = ['ok' => true, 'processed' => count($subResults)];
+            }
+        } catch (Throwable $e) {
+            $report['steps']['recurring_charges'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
         $brokenLinks = 0;
         $linkOk = true;
         if (function_exists('runFullLinkWatchdog')) {
