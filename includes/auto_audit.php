@@ -196,6 +196,30 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
             $report['steps']['webhook_retries'] = ['ok' => false, 'error' => $e->getMessage()];
         }
 
+        // Success rate drop alert
+        try {
+            $db = getDB();
+            $st = $db->query("SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) as success
+                FROM transactions WHERE created_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)");
+            $row = $st->fetch();
+            $total10 = (int)($row['total'] ?? 0);
+            $success10 = (int)($row['success'] ?? 0);
+            $rate10 = $total10 > 0 ? ($success10 / $total10 * 100) : 100;
+
+            if ($total10 >= 10 && $rate10 < 80) {
+                $report['steps']['success_rate_alert'] = ['ok' => false, 'rate' => round($rate10, 1), 'total' => $total10, 'alert' => 'Success rate below 80% in last 10 minutes'];
+                if (function_exists('logPlatformError')) {
+                    logPlatformError('warning', "Success rate drop alert: {$rate10}% ({$success10}/{$total10} in 10min)");
+                }
+            } else {
+                $report['steps']['success_rate_alert'] = ['ok' => true, 'rate' => round($rate10, 1), 'total' => $total10];
+            }
+        } catch (Throwable $e) {
+            $report['steps']['success_rate_alert'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
         $brokenLinks = 0;
         $linkOk = true;
         if (function_exists('runFullLinkWatchdog')) {

@@ -935,3 +935,95 @@ function getRiskEngineStats(): array
     } catch (Throwable $e) {}
     return $stats;
 }
+
+/**
+ * Check velocity on a specific QR code — how many transactions in the last N minutes.
+ * High velocity on a single QR can indicate fraud or abuse.
+ */
+function checkQrVelocity(string $qrCode, int $merchantId, int $windowMinutes = 10): array
+{
+    $db = getDB();
+    try {
+        $st = $db->prepare(
+            "SELECT COUNT(*) as count, COALESCE(SUM(amount),0) as volume
+             FROM transactions t
+             JOIN merchant_qr_codes q ON q.id = t.qr_code_id
+             WHERE q.qr_code = ? AND t.merchant_id = ? AND t.created_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE)"
+        );
+        $st->execute([$qrCode, $merchantId, $windowMinutes]);
+        $row = $st->fetch();
+        return [
+            'count' => (int)($row['count'] ?? 0),
+            'volume' => (float)($row['volume'] ?? 0),
+            'window_minutes' => $windowMinutes,
+        ];
+    } catch (Throwable $e) {
+        return ['count' => 0, 'volume' => 0, 'window_minutes' => $windowMinutes];
+    }
+}
+
+/**
+ * Check velocity on a specific Virtual Account — how many payments in the last N minutes.
+ */
+function checkVaVelocity(string $vaNumber, int $merchantId, int $windowMinutes = 10): array
+{
+    $db = getDB();
+    try {
+        $st = $db->prepare(
+            "SELECT COUNT(*) as count, COALESCE(SUM(amount),0) as volume
+             FROM transactions t
+             WHERE t.va_number = ? AND t.merchant_id = ? AND t.created_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE)"
+        );
+        $st->execute([$vaNumber, $merchantId, $windowMinutes]);
+        $row = $st->fetch();
+        return [
+            'count' => (int)($row['count'] ?? 0),
+            'volume' => (float)($row['volume'] ?? 0),
+            'window_minutes' => $windowMinutes,
+        ];
+    } catch (Throwable $e) {
+        return ['count' => 0, 'volume' => 0, 'window_minutes' => $windowMinutes];
+    }
+}
+
+/**
+ * Evaluate QR/VA velocity risk — returns action and score.
+ * Thresholds: >20 txns/10min = high risk, >10 = medium, >5 = low
+ */
+function evaluateQrVaVelocity(string $qrCode, ?string $vaNumber, int $merchantId): array
+{
+    $score = 0;
+    $reasons = [];
+
+    $qrVel = checkQrVelocity($qrCode, $merchantId, 10);
+    if ($qrVel['count'] > 20) {
+        $score += 30;
+        $reasons[] = "High QR velocity: {$qrVel['count']} txns in 10min (+30)";
+    } elseif ($qrVel['count'] > 10) {
+        $score += 15;
+        $reasons[] = "Medium QR velocity: {$qrVel['count']} txns in 10min (+15)";
+    } elseif ($qrVel['count'] > 5) {
+        $score += 5;
+        $reasons[] = "Low QR velocity: {$qrVel['count']} txns in 10min (+5)";
+    }
+
+    if ($vaNumber) {
+        $vaVel = checkVaVelocity($vaNumber, $merchantId, 10);
+        if ($vaVel['count'] > 20) {
+            $score += 30;
+            $reasons[] = "High VA velocity: {$vaVel['count']} txns in 10min (+30)";
+        } elseif ($vaVel['count'] > 10) {
+            $score += 15;
+            $reasons[] = "Medium VA velocity: {$vaVel['count']} txns in 10min (+15)";
+        }
+    }
+
+    $action = match(true) {
+        $score >= 50 => 'block',
+        $score >= 30 => 'hold',
+        $score >= 15 => 'flag',
+        default => 'allow',
+    };
+
+    return ['score' => $score, 'action' => $action, 'reasons' => $reasons];
+}

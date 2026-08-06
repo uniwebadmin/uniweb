@@ -462,3 +462,109 @@ function autoMarkReconciledTransactions(int $days = 1): int
     );
     return (int)$count;
 }
+
+/**
+ * Batch reconciliation by Virtual Account + time window.
+ * Groups successful transactions by VA number and time window, then checks
+ * if the gateway settlement file has matching entries for that VA + window.
+ */
+function reconcileByVaAndTimeWindow(int $merchantId, string $windowStart, string $windowEnd): array
+{
+    ensureReconciliationTables();
+    $db = getDB();
+
+    // Get all successful transactions for this merchant in the window, grouped by VA
+    $vaGroups = [];
+    try {
+        $st = $db->prepare(
+            "SELECT va_number,
+                COUNT(*) as txn_count,
+                COALESCE(SUM(amount),0) as total_amount,
+                COALESCE(SUM(platform_fee),0) as total_fees,
+                MIN(created_at) as first_txn,
+                MAX(created_at) as last_txn
+             FROM transactions
+             WHERE merchant_id = ? AND status = 'success'
+               AND created_at >= ? AND created_at <= ?
+               AND va_number IS NOT NULL AND va_number != ''
+             GROUP BY va_number"
+        );
+        $st->execute([$merchantId, $windowStart, $windowEnd]);
+        $vaGroups = $st->fetchAll();
+    } catch (Throwable $e) {}
+
+    $results = [];
+    foreach ($vaGroups as $group) {
+        $vaNumber = $group['va_number'];
+        $matched = false;
+        $matchedAmount = 0;
+
+        // Check if gateway settlement rows exist for this VA in the window
+        try {
+            $st = $db->prepare(
+                "SELECT COUNT(*) as row_count, COALESCE(SUM(amount),0) as settled_amount
+                 FROM gateway_settlement_rows
+                 WHERE merchant_id = ? AND match_status = 'matched'
+                   AND settled_at >= ? AND settled_at <= ?
+                   AND (reference LIKE ? OR reference LIKE ?)"
+            );
+            $st->execute([$merchantId, $windowStart, $windowEnd, "%{$vaNumber}%", "%{$vaNumber}%"]);
+            $settleRow = $st->fetch();
+            if ($settleRow && (int)$settleRow['row_count'] > 0) {
+                $matched = true;
+                $matchedAmount = (float)$settleRow['settled_amount'];
+            }
+        } catch (Throwable $e) {}
+
+        $results[] = [
+            'va_number' => $vaNumber,
+            'txn_count' => (int)$group['txn_count'],
+            'total_amount' => (float)$group['total_amount'],
+            'total_fees' => (float)$group['total_fees'],
+            'first_txn' => $group['first_txn'],
+            'last_txn' => $group['last_txn'],
+            'matched' => $matched,
+            'matched_amount' => $matchedAmount,
+            'variance' => (float)$group['total_amount'] - $matchedAmount,
+        ];
+    }
+
+    return [
+        'merchant_id' => $merchantId,
+        'window_start' => $windowStart,
+        'window_end' => $windowEnd,
+        'va_groups' => $results,
+        'total_vas' => count($results),
+        'matched_vas' => count(array_filter($results, fn($r) => $r['matched'])),
+    ];
+}
+
+/**
+ * Get VA reconciliation summary across all merchants for a time window.
+ */
+function getVaReconciliationSummary(string $windowStart, string $windowEnd): array
+{
+    ensureReconciliationTables();
+    $db = getDB();
+
+    try {
+        $st = $db->prepare(
+            "SELECT m.id, m.business_name, m.merchant_code,
+                COUNT(DISTINCT t.va_number) as va_count,
+                COUNT(t.id) as txn_count,
+                COALESCE(SUM(t.amount),0) as total_volume
+             FROM transactions t
+             JOIN merchants m ON m.id = t.merchant_id
+             WHERE t.status = 'success'
+               AND t.created_at >= ? AND t.created_at <= ?
+               AND t.va_number IS NOT NULL AND t.va_number != ''
+             GROUP BY t.merchant_id
+             ORDER BY total_volume DESC
+             LIMIT 50"
+        );
+        $st->execute([$windowStart, $windowEnd]);
+        return $st->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
