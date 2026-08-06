@@ -47,6 +47,7 @@ _inbox/*.jpeg
 _inbox/*.png
 _inbox/*.webp
 _inbox/*.gif
+_inbox/Screenshot/
 _inbox/chat/*
 !_inbox/README.txt
 !_inbox/PHOTO_NOTES.md
