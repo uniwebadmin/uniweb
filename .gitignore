@@ -14,6 +14,21 @@ my_secret_setup_xyz.php
 *.ps1
 !scripts/release_deploy.ps1
 
+# Diagnostic / repair / cleanup scripts (never deploy to live)
+config_repair.php
+fix_config.php
+diagnose.php
+sync_collection.php
+cleanup.php
+diag.php
+wallet_diagnose.php
+morning_ops.php
+update_axis_keys.php
+update_mdr.php
+merchant_launch_test.php
+migrate_release.php
+platform_demo.php
+
 # Runtime and private data
 uploads/
 !uploads/kyc/
