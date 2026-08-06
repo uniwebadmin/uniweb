@@ -657,7 +657,7 @@ function isSettlementSandbox(?array $merchant): bool
     return isMerchantTest($merchant);
 }
 
-function processMerchantSettlement(int $merchantId, array $merchant, float $amount): array
+function processMerchantSettlement(int $merchantId, array $merchant, float $amount, string $settleMode = 'bank', int $bankAccountId = 0): array
 {
     $db = getDB();
     ensureWalletEngine();
@@ -682,9 +682,48 @@ function processMerchantSettlement(int $merchantId, array $merchant, float $amou
         return ['ok' => false, 'error' => 'Insufficient balance. Available: ' . formatMoney($available) . '.'];
     }
 
+    // A4: Wallet-hold mode — no bank move, just mark as settled in wallet
+    if ($settleMode === 'wallet') {
+        $settlementId = generateId('STL');
+        if (!debitMerchantWallet($merchantId, $amount, 'settlement', null, $settlementId, 'Wallet hold (no bank transfer)')) {
+            ensureMerchantWalletReady($merchantId);
+            return ['ok' => false, 'error' => 'Wallet debit failed. Balance synced — try again.'];
+        }
+        try {
+            $db->prepare('INSERT INTO settlements (settlement_id, merchant_id, amount, fee, net_amount, bank_account_id, status) VALUES (?,?,?,?,?,?,?)')
+                ->execute([$settlementId, $merchantId, $amount, 0, $amount, null, $isTest ? 'completed' : 'completed']);
+            if ($isTest) {
+                $db->prepare("UPDATE settlements SET utr=?, processed_at=NOW() WHERE settlement_id=?")
+                    ->execute(['WALLET' . time(), $settlementId]);
+            }
+        } catch (Throwable $e) {
+            creditMerchantWallet($merchantId, $amount, 'refund', null, $settlementId, 'Wallet hold failed — refunded');
+            return ['ok' => false, 'error' => 'Wallet hold failed: ' . $e->getMessage()];
+        }
+        createNotification($merchantId, 'Wallet Hold Complete', formatMoney($amount) . ' held in wallet — ' . $settlementId);
+        return [
+            'ok' => true,
+            'settlement_id' => $settlementId,
+            'test' => $isTest,
+            'mode' => 'wallet',
+            'message' => formatMoney($amount) . ' held in wallet (no bank transfer).',
+        ];
+    }
+
+    // Bank transfer mode
     $bank = $db->prepare('SELECT * FROM bank_accounts WHERE merchant_id = ? AND is_primary = 1 AND status = ?');
     $bank->execute([$merchantId, 'active']);
     $bankAccount = $bank->fetch();
+
+    // A4: If specific bank account selected, use it
+    if ($bankAccountId > 0) {
+        $bk = $db->prepare('SELECT * FROM bank_accounts WHERE id=? AND merchant_id=? AND status=?');
+        $bk->execute([$bankAccountId, $merchantId, 'active']);
+        $selected = $bk->fetch();
+        if ($selected) {
+            $bankAccount = $selected;
+        }
+    }
 
     if (!$bankAccount && $isTest) {
         try {
@@ -732,6 +771,7 @@ function processMerchantSettlement(int $merchantId, array $merchant, float $amou
         'ok' => true,
         'settlement_id' => $settlementId,
         'test' => $isTest,
+        'mode' => 'bank',
         'message' => $isTest
             ? '₹' . number_format($amount, 2) . ' transferred to bank (test mode — instant).'
             : 'Transfer request submitted. Processing within 24 hours.',

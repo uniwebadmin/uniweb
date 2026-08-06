@@ -39,7 +39,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         redirect('settlements.php');
     }
     $amount = (float)($_POST['amount'] ?? 0);
-    $result = processMerchantSettlement($merchantId, $merchant, $amount);
+    $settleMode = ($_POST['settle_mode'] ?? 'bank') === 'wallet' ? 'wallet' : 'bank';
+    $bankAccountId = (int)($_POST['bank_account_id'] ?? 0);
+    $result = processMerchantSettlement($merchantId, $merchant, $amount, $settleMode, $bankAccountId);
     flash($result['ok'] ? 'success' : 'error', $result['ok'] ? $result['message'] : $result['error']);
     if (!$result['ok'] && !empty($result['redirect'])) {
         redirect($result['redirect']);
@@ -89,6 +91,11 @@ $totalSettled = walletAmount((float)$st->fetchColumn());
 $bank = $db->prepare('SELECT bank_name, account_number, ifsc_code FROM bank_accounts WHERE merchant_id=? AND is_primary=1 AND status=? LIMIT 1');
 $bank->execute([$merchantId, 'active']);
 $bankInfo = $bank->fetch();
+
+// A4: Get all active bank accounts for beneficiary dropdown
+$allBankAccounts = $db->prepare('SELECT id, bank_name, account_holder, account_number, ifsc_code, is_primary FROM bank_accounts WHERE merchant_id=? AND status=? ORDER BY is_primary DESC, id ASC');
+$allBankAccounts->execute([$merchantId, 'active']);
+$bankAccountList = $allBankAccounts->fetchAll();
 
 $pageTitle = __('settlements_title');
 require_once __DIR__ . '/header.php';
@@ -224,6 +231,37 @@ $exportQuery = http_build_query(['q' => $settlementQ, 'status' => $settlementSta
             <input type="number" name="amount" min="<?= $minSettlement ?>" max="<?= max($minSettlement, $availableBalance) ?>" step="0.01"
                 value="<?= $canTransfer ? max($minSettlement, $availableBalance) : $minSettlement ?>"
                 class="input-field text-sm">
+
+            <!-- A4: Settlement mode radio -->
+            <div class="space-y-2 pt-2">
+                <p class="text-xs text-gray-500 font-medium">Settlement Mode</p>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="settle_mode" value="bank" checked class="accent-sky-500" onchange="toggleBeneficiary()">
+                    <span class="text-sm text-gray-300">Transfer to Bank</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="settle_mode" value="wallet" class="accent-violet-500" onchange="toggleBeneficiary()">
+                    <span class="text-sm text-gray-300">Hold in Wallet (no bank move)</span>
+                </label>
+            </div>
+
+            <!-- A4: Beneficiary dropdown -->
+            <div id="beneficiary-section" class="space-y-1">
+                <p class="text-xs text-gray-500 font-medium pt-1">Select Bank Account</p>
+                <?php if (empty($bankAccountList)): ?>
+                <p class="text-xs text-amber-400"><a href="add_bank.php" class="underline">Add bank account →</a></p>
+                <?php else: ?>
+                <select name="bank_account_id" class="input-field text-sm">
+                    <?php foreach ($bankAccountList as $ba): ?>
+                    <option value="<?= (int)$ba['id'] ?>" <?= $ba['is_primary'] ? 'selected' : '' ?>>
+                        <?= e($ba['bank_name']) ?> · <?= e(sensitiveLast4($ba['account_number'] ?? '')) ?> · <?= e($ba['ifsc_code'] ?? '') ?>
+                        <?= $ba['is_primary'] ? ' (Primary)' : '' ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+                <?php endif; ?>
+            </div>
+
             <button type="submit" class="w-full bg-brand-600 hover:bg-brand-500 text-white py-3 rounded-xl font-semibold">
                 Transfer →
             </button>
@@ -314,5 +352,13 @@ $exportQuery = http_build_query(['q' => $settlementQ, 'status' => $settlementSta
     </div>
     <?= renderPagination($settlementPage, $settlementPerPage, $settlementTotal, ['q' => $settlementQ, 'status' => $settlementStatus, 'from' => $settlementFrom, 'to' => $settlementTo]) ?>
 </div>
+
+<script>
+function toggleBeneficiary() {
+    const isWallet = document.querySelector('input[name="settle_mode"][value="wallet"]').checked;
+    const section = document.getElementById('beneficiary-section');
+    if (section) section.style.display = isWallet ? 'none' : 'block';
+}
+</script>
 
 <?php require_once __DIR__ . '/footer.php'; ?>
