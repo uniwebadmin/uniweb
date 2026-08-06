@@ -34,6 +34,24 @@ set_exception_handler(function (Throwable $e) {
     echo 'EXCEPTION: ' . get_class($e) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n";
 });
 
+$code = file_get_contents($live);
+
+// Remove a DB_PORT define that was accidentally inserted before declare(strict_types=1);
+$code = preg_replace('/^<\?php\s*\r?\n\s*define\\(\'DB_PORT\\',[^;]+;\s*\r?\n/', "<?php\n", $code, 1);
+
+// Insert DB_PORT define immediately after declare(strict_types=1); if not already present
+if (!preg_match("/define\\('DB_PORT',/s", $code)) {
+    $backup = __DIR__ . '/config.php.bak.' . date('YmdHis');
+    file_put_contents($backup, $code);
+    $code = preg_replace('/^(<\?php\s*\r?\n\s*declare\\(strict_types=1\\);)/s', "$1\ndefine('DB_PORT', getenv('DB_PORT') !== false ? getenv('DB_PORT') : '3306');", $code, 1);
+    file_put_contents($live, $code, LOCK_EX);
+    echo "patched config.php; backup at $backup\n";
+} else {
+    echo "DB_PORT define already present\n";
+}
+
+if (function_exists('opcache_reset')) { opcache_reset(); }
+
 echo "=== load test ===\n";
 try {
     require_once $live;
@@ -43,14 +61,6 @@ try {
 }
 
 if (!defined('DB_PORT')) {
-    echo "DB_PORT not defined at runtime; patching config.php\n";
-    $code = file_get_contents($live);
-    $backup = __DIR__ . '/config.php.bak.' . date('YmdHis');
-    file_put_contents($backup, $code);
-    $code = preg_replace('/^(<\?php\s*)/', "<?php\ndefine('DB_PORT', getenv('DB_PORT') !== false ? getenv('DB_PORT') : '3306');\n", $code, 1);
-    file_put_contents($live, $code, LOCK_EX);
-    if (function_exists('opcache_reset')) { opcache_reset(); }
-    echo "wrote backup to $backup\n";
     define('DB_PORT', getenv('DB_PORT') !== false ? getenv('DB_PORT') : '3306');
 }
 
