@@ -1,5 +1,6 @@
 <?php
 if (function_exists('opcache_invalidate')) { opcache_invalidate(__FILE__, true); }
+if (function_exists('opcache_invalidate')) { opcache_invalidate(__DIR__ . '/config.php', true); }
 require_once __DIR__ . '/config.php';
 $visitorRegion = detectVisitorCountry();
 $isIntl = $visitorRegion === 'International';
