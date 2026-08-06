@@ -175,6 +175,17 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
             $report['steps']['grievance_escalation'] = ['ok' => false, 'error' => $e->getMessage()];
         }
 
+        try {
+            if (!function_exists('runScheduledSettlementBatches')) {
+                require_once __DIR__ . '/settlement_engine.php';
+            }
+            $settleResults = runScheduledSettlementBatches();
+            $settleOk = count(array_filter($settleResults, fn($r) => !empty($r['ok'])));
+            $report['steps']['scheduled_settlements'] = ['ok' => true, 'processed' => count($settleResults), 'succeeded' => $settleOk];
+        } catch (Throwable $e) {
+            $report['steps']['scheduled_settlements'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
         $brokenLinks = 0;
         $linkOk = true;
         if (function_exists('runFullLinkWatchdog')) {
