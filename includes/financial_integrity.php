@@ -621,6 +621,16 @@ function captureVerifiedPaymentOrder(array $verification): array
         }
         $db->prepare("UPDATE payment_orders SET status='paid', paid_at=NOW() WHERE id=?")->execute([(int)$order['id']]);
         $db->prepare("UPDATE payment_links SET status='paid', paid_at=NOW() WHERE id=?")->execute([(int)$order['payment_link_id']]);
+
+        recordAuditEvent('payment_capture', [
+            'merchant_id' => (int)$order['merchant_id'],
+            'actor_type' => 'system',
+            'resource_type' => 'transaction',
+            'resource_id' => (string)$txnRef,
+            'reason' => 'Verified payment capture for ' . $order['order_ref'],
+            'after_state' => ['amount' => $amount, 'merchant_net' => $split['merchant_net'], 'platform_fee' => $split['platform_fee'], 'transaction_id' => $transactionId],
+        ]);
+
         $db->commit();
     } catch (Throwable $e) {
         if ($db->inTransaction()) {
@@ -962,6 +972,16 @@ function rebuildMerchantBalanceFromLedger(int $merchantId): array
                 json_encode(['merchant_id' => $merchantId, 'old' => $oldBalance, 'new' => $newBalance, 'mode' => $mode]),
             ]);
     } catch (Throwable $e) { /* ok */ }
+
+    recordAuditEvent('balance_rebuild', [
+        'merchant_id' => $merchantId,
+        'actor_type' => 'admin',
+        'resource_type' => 'merchant_balance',
+        'resource_id' => (string)$merchantId,
+        'reason' => 'Admin rebuilt balance from ledger',
+        'before_state' => ['wallet_balance' => $oldBalance],
+        'after_state' => ['wallet_balance' => $newBalance, 'mode' => $mode],
+    ]);
 
     return [
         'merchant_id'  => $merchantId,

@@ -477,6 +477,7 @@ $__includes = [
     'risk', 'nodal', 'payout', 'env_loader',
     'integration_matrix', 'settlement_delay_spec', 'kyc_timeline', 'cloud_modules',
     'beneficiaries',
+    'audit_log',
 ];
 $__loaded = [];
 foreach ($__includes as $__inc) {

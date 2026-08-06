@@ -701,6 +701,15 @@ function processMerchantSettlement(int $merchantId, array $merchant, float $amou
             return ['ok' => false, 'error' => 'Wallet hold failed: ' . $e->getMessage()];
         }
         createNotification($merchantId, 'Wallet Hold Complete', formatMoney($amount) . ' held in wallet — ' . $settlementId);
+        recordAuditEvent('settlement_wallet_hold', [
+            'merchant_id' => $merchantId,
+            'actor_type' => 'merchant',
+            'actor_id' => $merchantId,
+            'resource_type' => 'settlement',
+            'resource_id' => $settlementId,
+            'reason' => 'Wallet hold (no bank transfer)',
+            'after_state' => ['amount' => $amount, 'settlement_id' => $settlementId, 'mode' => 'wallet'],
+        ]);
         return [
             'ok' => true,
             'settlement_id' => $settlementId,
@@ -766,6 +775,16 @@ function processMerchantSettlement(int $merchantId, array $merchant, float $amou
         $isTest ? 'Test Bank Transfer Complete' : 'Bank Transfer Submitted',
         formatMoney($amount) . ($isTest ? ' transferred in sandbox — ' : ' reserved pending bank confirmation — ') . $settlementId
     );
+
+    recordAuditEvent('settlement_bank_transfer', [
+        'merchant_id' => $merchantId,
+        'actor_type' => 'merchant',
+        'actor_id' => $merchantId,
+        'resource_type' => 'settlement',
+        'resource_id' => $settlementId,
+        'reason' => $isTest ? 'Test bank transfer' : 'Bank transfer submitted',
+        'after_state' => ['amount' => $amount, 'settlement_id' => $settlementId, 'mode' => 'bank', 'bank_account_id' => $bankAccount['id']],
+    ]);
 
     return [
         'ok' => true,
