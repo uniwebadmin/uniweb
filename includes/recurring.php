@@ -226,7 +226,7 @@ function getMerchantSubscriptions(int $merchantId, int $limit = 100): array
 {
     ensureRecurringTables();
     try {
-        $st = $db->prepare ?? getDB()->prepare(
+        $st = getDB()->prepare(
             "SELECT s.*, p.plan_name, p.amount, p.interval_unit, p.interval_count
              FROM subscriptions s
              JOIN subscription_plans p ON p.id = s.plan_id
