@@ -195,6 +195,9 @@ function createTransactionFromPayment(array $link, string $method, string $statu
             evaluateTransactionRiskFull((int)$link['merchant_id'], $amount, ['email' => $customerEmail ?? '', 'phone' => $customerPhone ?? ''], $id);
             recordNodalCollection($id, (int)$link['merchant_id'], $amount, 'Customer collection from ' . ($customerEmail ?? 'customer'));
             updateMerchantRiskScore((int)$link['merchant_id']);
+            if (function_exists('applyRollingReserveHold')) {
+                applyRollingReserveHold((int)$link['merchant_id'], $id, $amount);
+            }
         }
     }
     return $id;

@@ -155,6 +155,16 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
             $report['steps']['reconciliation'] = ['ok' => false, 'error' => $e->getMessage()];
         }
 
+        try {
+            if (!function_exists('autoReleaseReserveHolds')) {
+                require_once __DIR__ . '/rolling_reserve.php';
+            }
+            $releasedHolds = autoReleaseReserveHolds();
+            $report['steps']['rolling_reserve'] = ['ok' => true, 'released' => $releasedHolds];
+        } catch (Throwable $e) {
+            $report['steps']['rolling_reserve'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
         $brokenLinks = 0;
         $linkOk = true;
         if (function_exists('runFullLinkWatchdog')) {
