@@ -1019,6 +1019,108 @@ function rebuildAllMerchantBalancesFromLedger(): array
     ];
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// B2: Payment Order Status Machine — Created → Pending → Paid/Failed/Expired
+// ──────────────────────────────────────────────────────────────────────────────
+
+function getAllowedPaymentOrderTransitions(): array
+{
+    return [
+        'created'  => ['pending', 'paid', 'failed', 'expired'],
+        'pending'  => ['paid', 'failed', 'expired', 'authorized'],
+        'authorized' => ['paid', 'failed', 'expired'],
+        'paid'     => [],  // terminal
+        'failed'   => ['pending'],  // allow retry
+        'expired'  => [],  // terminal
+    ];
+}
+
+function validatePaymentOrderTransition(string $fromStatus, string $toStatus): void
+{
+    $allowed = getAllowedPaymentOrderTransitions();
+    $from = strtolower(trim($fromStatus));
+    $to = strtolower(trim($toStatus));
+    if (!isset($allowed[$from])) {
+        throw new RuntimeException("Unknown payment order status: {$from}");
+    }
+    if (!in_array($to, $allowed[$from], true)) {
+        throw new RuntimeException("Invalid payment order transition: {$from} → {$to}");
+    }
+}
+
+/**
+ * Update payment order status with transition validation.
+ */
+function updatePaymentOrderStatus(int $orderId, string $newStatus, ?string $reason = null): void
+{
+    $db = getDB();
+    $st = $db->prepare('SELECT status FROM payment_orders WHERE id=?');
+    $st->execute([$orderId]);
+    $row = $st->fetch();
+    if (!$row) {
+        throw new RuntimeException("Payment order #{$orderId} not found.");
+    }
+    $currentStatus = strtolower(trim($row['status']));
+    $newStatus = strtolower(trim($newStatus));
+    if ($currentStatus === $newStatus) {
+        return; // no-op
+    }
+    validatePaymentOrderTransition($currentStatus, $newStatus);
+
+    $sql = "UPDATE payment_orders SET status=? WHERE id=?";
+    $params = [$newStatus, $orderId];
+    if ($newStatus === 'expired') {
+        $sql = "UPDATE payment_orders SET status=?, expired_at=NOW() WHERE id=?";
+    } elseif ($newStatus === 'paid') {
+        $sql = "UPDATE payment_orders SET status=?, paid_at=COALESCE(paid_at, NOW()) WHERE id=?";
+    }
+    $db->prepare($sql)->execute($params);
+
+    recordAuditEvent('order_status_change', [
+        'resource_type' => 'payment_order',
+        'resource_id' => (string)$orderId,
+        'reason' => $reason ?? "Status: {$currentStatus} → {$newStatus}",
+        'before_state' => ['status' => $currentStatus],
+        'after_state' => ['status' => $newStatus],
+    ]);
+}
+
+/**
+ * Auto-expire stale payment orders past their expires_at.
+ * Called from cron / auto_audit.
+ */
+function expireStalePaymentOrders(): array
+{
+    $db = getDB();
+    $expired = 0;
+    $errors = [];
+
+    try {
+        $st = $db->prepare(
+            "SELECT id, order_ref, status, expires_at FROM payment_orders
+             WHERE status IN ('created', 'pending', 'authorized')
+             AND expires_at IS NOT NULL
+             AND expires_at < NOW()
+             LIMIT 200"
+        );
+        $st->execute();
+        $staleOrders = $st->fetchAll();
+
+        foreach ($staleOrders as $order) {
+            try {
+                updatePaymentOrderStatus((int)$order['id'], 'expired', 'Auto-expired: past expires_at');
+                $expired++;
+            } catch (Throwable $e) {
+                $errors[] = ['order_id' => (int)$order['id'], 'error' => $e->getMessage()];
+            }
+        }
+    } catch (Throwable $e) {
+        $errors[] = ['error' => $e->getMessage()];
+    }
+
+    return ['expired' => $expired, 'errors' => $errors];
+}
+
 /**
  * Enforce non-negative available balance before any debit.
  * Call before settlement/payout/refund operations.

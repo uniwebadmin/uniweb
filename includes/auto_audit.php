@@ -156,6 +156,15 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
         }
 
         try {
+            if (function_exists('expireStalePaymentOrders')) {
+                $expiryResult = expireStalePaymentOrders();
+                $report['steps']['order_expiry'] = ['ok' => true, 'expired' => $expiryResult['expired'], 'errors' => count($expiryResult['errors'])];
+            }
+        } catch (Throwable $e) {
+            $report['steps']['order_expiry'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        try {
             if (!function_exists('autoReleaseReserveHolds')) {
                 require_once __DIR__ . '/rolling_reserve.php';
             }
