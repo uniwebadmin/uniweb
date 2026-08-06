@@ -1,0 +1,157 @@
+# UniWeb P2M Platform Readiness — Master Plan
+# Based on PDF: UniWeb_P2M_Platform_Readiness v2
+# Auto-mode: work one item at a time, remove when done, move to next.
+
+## Phase A — Foundation Lock (Week 1-2)
+
+### A1: Ledger State Machine [IN PROGRESS]
+- Enforce state transitions: capture→+available, settle→available→in_transit→settled, payout fail→in_transit→available
+- "Never update balance without ledger_entry" enforcement
+- Admin tool: rebuild balance from ledger entries
+- Already have: ledger_entries, ledger_journals, ledger_accounts tables, wallet.php with available/in_transit/on_hold
+- MISSING: strict state machine validation, admin rebuild tool, forbid negative available
+
+### A2: Idempotent Webhook + Ledger Credit [PENDING]
+- Admin screen: re-process failed webhook by id (safe only if status=failed)
+- Log raw payload (encrypted/restricted)
+- Unit test: same event_id twice → one credit only
+- Already have: registerGatewayEvent() with UNIQUE constraint, webhook_reliability.php with recordWebhookEvent(), idempotency check, claim-first pattern
+- MISSING: admin re-process UI, encrypted payload storage, unit test
+
+### A3: Merchant Balance UI [PENDING]
+- Show Available / In-transit / Hold prominently
+- Already have: wallet.php with available/pending_out/on_hold, shown in dashboard.php
+- MISSING: enhance UI display, make balances more prominent
+
+### A4: Settlement UI — Wallet vs Bank [PENDING]
+- Radio/select: (1) no bank move (2) bank transfer
+- Auto-populated beneficiary dropdown
+- settlement_request row: mode (wallet|bank)
+- Already have: settlements.php, processMerchantSettlement()
+- MISSING: wallet vs bank radio, beneficiary dropdown, mode field
+
+### A5: Keep Manual UTR path working [DONE]
+- ManualUTRAdapter already works — admin enters UTR → mark paid
+
+### A6: Beneficiary table + Unverified/Verified UI [PENDING]
+- Table merchant_beneficiaries: id, merchant_id, account_number (encrypted), ifsc, upi_id, status (unverified/pending/verified/failed), verify_name, verify_score, created_at
+- Merchant UI: Add bank / Add UPI → save as unverified
+- Admin/Merchant Verify button → calls Account Validation adapter (mock in dev)
+- Only verified beneficiaries selectable for auto payout
+- Soft-delete/disable beneficiary; never hard-delete if used in past payouts
+- MISSING: entire feature
+
+### A7: Audit log on all money actions [PENDING]
+- Immutable audit_log: actor, action, entity, before_json, after_json, ip, created_at
+- Already have: staff_activity_logs table, some audit logging
+- MISSING: expand for settle/payout/beneficiary actions, immutable audit_log table
+
+### A8: Reason map table + show mapped fail reason [PENDING]
+- Table reason_map: partner, error_code, merchant_message_en, merchant_message_hi, severity
+- Seed common codes: INSUFFICIENT_FUNDS, BANK_TIMEOUT, RISK_REJECTED, INVALID_VPA, DEEMED_SUCCESS
+- Merchant UI shows only mapped_message (Hindi/English)
+- Already have: gateway_reason_map.php with English messages
+- MISSING: DB table, Hindi messages, merchant UI integration, DEEMED_SUCCESS handling
+
+## Phase B — Collection Completeness (Week 2-3)
+
+### B1: Orders + Dynamic QR / Link bound to order_id [PENDING]
+- Internal orders table: order_id (UUID)
+- Create order → call partner create-order/create-qr (sandbox) → store partner ref + QR string/URL
+- Customer pay → webhook carries partner_order_ref → map to internal order_id → credit once
+- Expire job: mark expired orders
+- Already have: payment_orders table, QR generation
+- MISSING: order-bound QR flow, partner_order_ref mapping, expire job
+
+### B2: Payment status machine Created → Success/Failed/Expired [PENDING]
+- Already have: transactions with status field
+- MISSING: explicit state machine, Expired status handling
+
+### B3: Webhook retry + dead letter queue [PENDING]
+- Admin Dead Letter queue: list failed events, payload preview, Re-process / Discard
+- Alert (email/Telegram)
+- Already have: webhook_reliability.php with retry, exponential backoff, dead_letter status
+- MISSING: admin dead letter UI, alert notifications
+
+### B4: Commission at capture; platform fee wallet separate [PENDING]
+- Already have: split_settlement.php, settlement_engine.php
+- MISSING: real-time auto commission cut at capture, platform fee wallet separation
+
+### B5: Merchant reports by day/method + export [PENDING]
+- Already have: admin_reports.php, admin_financial_reports.php
+- MISSING: merchant-facing reports by day/method, export
+
+### B6: Test/Live isolation enforced [PENDING]
+- Every order/payment/payout row has environment flag: test|live
+- Test webhook keys only credit test ledger; live keys only live ledger
+- Merchant Test toggle cannot read/write live balances
+- Admin dashboard filter Test vs Live; never sum mixed
+- Already have: is_test flag on transactions, isMerchantTest()
+- MISSING: environment flag on all money rows, enforce isolation, admin filter
+
+## Phase C — Settlement Automation Ready (Week 3-4)
+
+### C1: payout_jobs table + status lifecycle [PENDING]
+- Table payout_jobs: id, settlement_request_id, merchant_id, amount, beneficiary_id, channel (IMPS/NEFT/UPI), status (queued/processing/success/failed/reversed), partner_ref, utr, created_at
+- MISSING: entire feature
+
+### C2: ManualUTRAdapter + ApiPayoutAdapter interface (mock API) [PENDING]
+- Interface PayoutAdapter: submit(job)→result; getStatus(partner_ref)→result
+- ManualUTRAdapter: admin enters UTR → mark success
+- ApiPayoutAdapter: HTTP to partner payout API (mock/sandbox first)
+- MISSING: adapter interface, ApiPayoutAdapter mock
+
+### C3: Success → UTR store + ledger settle; Fail → reverse + reason [PENDING]
+- Worker/cron: pick queued jobs → processing → adapter.submit → on success store UTR + settle ledger; on fail reverse to available + reason
+- Idempotency key on payout submit = payout_jobs.id
+- MISSING: entire feature
+
+### C4: Maker-checker threshold for large payouts [PENDING]
+- If amount >= threshold, status=awaiting_approval until admin approves → then queued
+- MISSING: entire feature
+
+### C5: Admin commission settle same 2 options [PENDING]
+- Same wallet vs bank pattern for platform fee wallet
+- MISSING: entire feature
+
+### C6: Recon upload + match stub [PENDING]
+- Already have: gateway_settlement_files, gateway_settlement_rows, reconciliation_daily_summary tables
+- Already have: bank_reconciliation.php with CSV parse
+- MISSING: auto-match logic, ops UI for mismatch resolution, daily job
+
+## Phase D — Partner Plug-in (after A-C)
+
+### D1: Live UPI Collect + Dynamic QR (one primary PA) [PENDING - needs partner keys]
+### D2: Production webhook signature + IP allowlist [PENDING - needs partner keys]
+### D3: Penny Drop API on beneficiary verify [PENDING - needs partner keys]
+### D4: Auto Payout IMPS/UPI for verified beneficiaries [PENDING - needs partner keys]
+### D5: Daily settlement report auto-match [PENDING - needs partner API]
+### D6: Manual UTR = emergency override only [PENDING - after D4 done]
+
+## Page 2 Status Matrix — Additional Items
+
+### Video KYC harden [PENDING]
+- Flow present; ops verification harden needed
+
+### Test↔Live toggle enforce [PENDING - same as B6]
+- Enforce at API/txn level
+
+### Webhook signature verification mandatory [PENDING]
+- Mandatory on all partners
+
+### Platform vs Merchant wallet separation [PENDING - same as B4]
+- Clear UI + DB separation
+
+### Invoice/GST PDF harden [PENDING]
+- GST fields harden
+
+### Rate limit payment + webhook endpoints [PENDING]
+- Already have: rate_limiter.php, consumeApiRateLimit()
+- MISSING: apply to payment + webhook endpoints specifically
+
+### 2FA step-up on money actions [PENDING - same as A7/5.11]
+- Force 2FA on: add beneficiary, settle, approve payout, export full ledger
+
+### CSRF + same-site cookies on POST money actions [PENDING]
+### Encrypt account_number / upi_id at rest [PENDING - have migration 032_pii_encryption]
+### Support + platform status page [PENDING - partial]

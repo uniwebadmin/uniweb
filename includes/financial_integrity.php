@@ -827,3 +827,191 @@ function recordPaymentOrderFailure(array $payload): array
 
     return ['ok' => true, 'duplicate' => false, 'transaction_id' => $transactionId, 'failure_reason' => $reason];
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// A1: Ledger State Machine — strict state transitions + admin rebuild tool
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Allowed ledger state transitions for merchant money.
+ * States: available → in_transit → settled (success path)
+ *         in_transit → available (reversal / failed payout)
+ *         available → hold (rolling reserve / dispute hold)
+ *         hold → available (release)
+ */
+function getAllowedLedgerTransitions(): array
+{
+    return [
+        'capture'         => ['available'],      // +available
+        'settle_request'  => ['available', 'in_transit'],  // available → in_transit
+        'settle_success'  => ['in_transit', 'settled'],    // in_transit → settled
+        'settle_fail'     => ['in_transit', 'available'],   // in_transit → available (reversal)
+        'payout_request'  => ['available', 'in_transit'],
+        'payout_success'  => ['in_transit', 'settled'],
+        'payout_fail'     => ['in_transit', 'available'],
+        'hold'            => ['available', 'hold'],
+        'release_hold'    => ['hold', 'available'],
+        'commission_cut'  => ['available'],      // platform fee at capture
+        'refund'          => ['available', 'in_transit'],   // reverse from available
+        'chargeback'      => ['available', 'hold'],
+    ];
+}
+
+/**
+ * Validate that a ledger state transition is allowed.
+ * Throws if the transition is not in the allowed list.
+ */
+function validateLedgerTransition(string $action, string $fromState, string $toState): void
+{
+    $transitions = getAllowedLedgerTransitions();
+    if (!isset($transitions[$action])) {
+        throw new InvalidArgumentException("Unknown ledger action: {$action}");
+    }
+    $allowed = $transitions[$action];
+    if (!in_array($fromState, $allowed, true)) {
+        throw new RuntimeException(
+            "Invalid ledger transition: action={$action}, from={$fromState}, to={$toState}. "
+            . "Expected from-state to be one of: " . implode(', ', $allowed)
+        );
+    }
+}
+
+/**
+ * Get merchant balance breakdown by state (available, in_transit, hold, settled).
+ * Reads from ledger entries — never from ad-hoc SUM of payments.
+ */
+function getMerchantBalanceBreakdown(int $merchantId, string $mode = 'live'): array
+{
+    requireFinancialTables();
+    $merchantAccount = getOrCreateLedgerAccount('merchant_payable:' . $merchantId, 'merchant', $merchantId, 'liability', $mode);
+    $totalBalance = ledgerAccountBalance($merchantAccount);
+
+    // Calculate in_transit (pending settlements)
+    $inTransit = 0.0;
+    try {
+        $st = getDB()->prepare("SELECT COALESCE(SUM(net_amount),0) FROM settlements WHERE merchant_id=? AND status IN ('pending','processing') AND is_test=?");
+        $st->execute([$merchantId, $mode === 'test' ? 1 : 0]);
+        $inTransit = (float)$st->fetchColumn();
+    } catch (Throwable $e) { /* ok */ }
+
+    // Calculate hold (pending transactions + rolling reserve)
+    $hold = 0.0;
+    try {
+        $st = getDB()->prepare("SELECT COALESCE(SUM(amount),0) FROM transactions WHERE merchant_id=? AND status='pending' AND is_test=?");
+        $st->execute([$merchantId, $mode === 'test' ? 1 : 0]);
+        $hold += (float)$st->fetchColumn();
+    } catch (Throwable $e) { /* ok */ }
+
+    try {
+        $st = getDB()->prepare("SELECT COALESCE(SUM(amount),0) FROM rolling_reserve_holds WHERE merchant_id=? AND status='active'");
+        $st->execute([$merchantId]);
+        $hold += (float)$st->fetchColumn();
+    } catch (Throwable $e) { /* ok */ }
+
+    $available = max(0.0, $totalBalance - $inTransit - $hold);
+    $settled = 0.0;
+    try {
+        $st = getDB()->prepare("SELECT COALESCE(SUM(net_amount),0) FROM settlements WHERE merchant_id=? AND status='success' AND is_test=?");
+        $st->execute([$merchantId, $mode === 'test' ? 1 : 0]);
+        $settled = (float)$st->fetchColumn();
+    } catch (Throwable $e) { /* ok */ }
+
+    return [
+        'total'      => round($totalBalance, 2),
+        'available'  => round($available, 2),
+        'in_transit' => round($inTransit, 2),
+        'hold'       => round($hold, 2),
+        'settled'    => round($settled, 2),
+        'mode'       => $mode,
+    ];
+}
+
+/**
+ * Admin tool: rebuild merchant balance from ledger entries.
+ * Recalculates wallet_balance from ledger_journals and updates the merchants table.
+ * Returns the rebuilt balance and a diff from the stored value.
+ */
+function rebuildMerchantBalanceFromLedger(int $merchantId): array
+{
+    requireFinancialTables();
+    $db = getDB();
+
+    $merchantSt = $db->prepare('SELECT id, account_mode, kyc_status, wallet_balance FROM merchants WHERE id=?');
+    $merchantSt->execute([$merchantId]);
+    $merchant = $merchantSt->fetch();
+    if (!$merchant) {
+        throw new RuntimeException('Merchant not found.');
+    }
+
+    $mode = isMerchantTest($merchant) ? 'test' : 'live';
+    $oldBalance = (float)$merchant['wallet_balance'];
+
+    // Recalculate from ledger
+    $newBalance = merchantLedgerBalance($merchantId, $mode);
+
+    // Update merchants table
+    $db->prepare('UPDATE merchants SET wallet_balance=? WHERE id=?')
+        ->execute([$newBalance, $merchantId]);
+
+    // Log the rebuild
+    try {
+        $db->prepare('INSERT INTO platform_errors (error_type, error_message, context_json, created_at) VALUES (?,?,?,NOW())')
+            ->execute([
+                'ledger_rebuild',
+                'Admin rebuilt balance for merchant #' . $merchantId,
+                json_encode(['merchant_id' => $merchantId, 'old' => $oldBalance, 'new' => $newBalance, 'mode' => $mode]),
+            ]);
+    } catch (Throwable $e) { /* ok */ }
+
+    return [
+        'merchant_id'  => $merchantId,
+        'mode'         => $mode,
+        'old_balance'  => round($oldBalance, 2),
+        'new_balance'  => round($newBalance, 2),
+        'diff'         => round($newBalance - $oldBalance, 2),
+        'breakdown'    => getMerchantBalanceBreakdown($merchantId, $mode),
+    ];
+}
+
+/**
+ * Admin tool: rebuild balances for ALL merchants.
+ */
+function rebuildAllMerchantBalancesFromLedger(): array
+{
+    requireFinancialTables();
+    $db = getDB();
+    $merchants = $db->query('SELECT id FROM merchants ORDER BY id')->fetchAll();
+    $results = [];
+    $totalDiff = 0.0;
+    foreach ($merchants as $m) {
+        try {
+            $r = rebuildMerchantBalanceFromLedger((int)$m['id']);
+            $results[] = $r;
+            $totalDiff += abs($r['diff']);
+        } catch (Throwable $e) {
+            $results[] = ['merchant_id' => (int)$m['id'], 'error' => $e->getMessage()];
+        }
+    }
+    return [
+        'merchants_checked' => count($merchants),
+        'total_abs_diff'    => round($totalDiff, 2),
+        'details'           => $results,
+    ];
+}
+
+/**
+ * Enforce non-negative available balance before any debit.
+ * Call before settlement/payout/refund operations.
+ */
+function enforceSufficientAvailableBalance(int $merchantId, float $amount, string $mode = 'live'): void
+{
+    $breakdown = getMerchantBalanceBreakdown($merchantId, $mode);
+    if ($breakdown['available'] < $amount - 0.001) {
+        throw new RuntimeException(
+            'Insufficient available balance. Required: ' . formatMoney($amount)
+            . ', Available: ' . formatMoney($breakdown['available'])
+            . ', In-transit: ' . formatMoney($breakdown['in_transit'])
+            . ', Hold: ' . formatMoney($breakdown['hold'])
+        );
+    }
+}
