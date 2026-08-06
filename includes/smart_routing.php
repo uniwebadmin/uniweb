@@ -77,21 +77,35 @@ function gatewayHealthSummary(): array
  */
 function createCardOrderWithSmartRouting(float $amount, array $link, string $returnUrl): array
 {
+    // Circuit breaker check — skip gateways with open circuits
+    $cbAvailable = function_exists('isCircuitBreakerAllowed');
     $preferred = isGatewayHealthy('razorpay') ? 'razorpay' : 'cashfree';
+    if ($cbAvailable && !isCircuitBreakerAllowed($preferred)) {
+        $preferred = $preferred === 'razorpay' ? 'cashfree' : 'razorpay';
+    }
     $order = ['razorpay' => null, 'cashfree' => null, 'routed_to' => null, 'diverted' => false];
 
-    $tryOrder = function (string $gw) use ($link, $returnUrl) {
+    $tryOrder = function (string $gw) use ($link, $returnUrl, $cbAvailable) {
         if (!isGatewayConfigured($gw)) {
+            return null;
+        }
+        // Circuit breaker: fail fast if open
+        if ($cbAvailable && !isCircuitBreakerAllowed($gw)) {
             return null;
         }
         try {
             $res = createBoundGatewayCheckoutOrder($link, $gw, $returnUrl);
         } catch (Throwable $e) {
             recordGatewayOutcome($gw, false, $e->getMessage());
+            if ($cbAvailable) recordCircuitBreakerFailure($gw);
             return null;
         }
         $ok = is_array($res) && ($gw === 'razorpay' ? !empty($res['id']) : !empty($res['payment_session_id']));
         recordGatewayOutcome($gw, $ok, $ok ? null : 'no_response');
+        if ($cbAvailable) {
+            if ($ok) recordCircuitBreakerSuccess($gw);
+            else recordCircuitBreakerFailure($gw);
+        }
         return $ok ? $res : null;
     };
 

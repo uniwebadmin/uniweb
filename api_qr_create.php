@@ -56,6 +56,19 @@ if (!$body || !is_array($body)) {
     exit;
 }
 
+// Rate limit check
+if (function_exists('checkRateLimit')) {
+    $rlConfig = getRateLimitConfig();
+    $isBatch = !empty($body['items']);
+    $scope = $isBatch ? 'qr_batch' : 'qr_create';
+    $limit = $rlConfig[$scope] ?? 60;
+    if (!checkRateLimit(sha1($apiKey), $scope, $limit)) {
+        http_response_code(429);
+        echo json_encode(['error' => 'Rate limit exceeded. Max ' . $limit . ' requests/minute for ' . $scope . '.']);
+        exit;
+    }
+}
+
 $merchantId = (int)$merchant['id'];
 $isTest = (string)($merchant['mode'] ?? 'test') === 'test' || isMerchantPaymentTest($merchant);
 $qrType = (string)($body['qr_type'] ?? 'fixed');
