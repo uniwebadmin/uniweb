@@ -431,3 +431,507 @@ function recalculateRiskScoresForAll(): int
     }
     return $count;
 }
+
+/* ------------------------------------------------------------------ *
+ *  Risk Engine — Velocity, Scoring, Auto-Actions
+ *  Based on PDF Risk Engine Complete Specification
+ * ------------------------------------------------------------------ */
+
+function ensureRiskEngineTables(): void
+{
+    static $done = false;
+    if ($done) return;
+    $done = true;
+    $db = getDB();
+    try {
+        $db->exec("CREATE TABLE IF NOT EXISTS risk_rules (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            rule_name VARCHAR(128) NOT NULL,
+            rule_type ENUM('velocity','amount','merchant','blacklist','time','custom') NOT NULL,
+            scope ENUM('transaction','merchant') NOT NULL DEFAULT 'transaction',
+            parameters JSON DEFAULT NULL,
+            action ENUM('allow','flag','hold','block') NOT NULL DEFAULT 'flag',
+            score_weight INT NOT NULL DEFAULT 0,
+            is_active TINYINT(1) DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_type_active (rule_type, is_active)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->exec("CREATE TABLE IF NOT EXISTS risk_events (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            transaction_id INT DEFAULT NULL,
+            merchant_id INT DEFAULT NULL,
+            rule_id INT DEFAULT NULL,
+            rule_name VARCHAR(128) NOT NULL,
+            risk_score INT NOT NULL DEFAULT 0,
+            action_taken ENUM('allow','flag','hold','block') NOT NULL DEFAULT 'allow',
+            details JSON DEFAULT NULL,
+            resolved TINYINT(1) DEFAULT 0,
+            resolved_by INT DEFAULT NULL,
+            resolved_at TIMESTAMP NULL DEFAULT NULL,
+            resolution_note VARCHAR(255) DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_txn (transaction_id),
+            INDEX idx_merchant (merchant_id),
+            INDEX idx_action (action_taken),
+            INDEX idx_resolved (resolved),
+            INDEX idx_created (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->exec("CREATE TABLE IF NOT EXISTS risk_merchant_limits (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            merchant_id INT NOT NULL,
+            max_txn_amount DECIMAL(14,2) DEFAULT NULL,
+            max_txn_count_hour INT DEFAULT NULL,
+            max_txn_count_day INT DEFAULT NULL,
+            max_volume_day DECIMAL(14,2) DEFAULT NULL,
+            auto_hold_threshold INT DEFAULT 70,
+            auto_block_threshold INT DEFAULT 85,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY idx_merchant (merchant_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->exec("CREATE TABLE IF NOT EXISTS risk_velocity_cache (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            fingerprint_type ENUM('upi','card','device','phone','email','ip') NOT NULL,
+            fingerprint_value VARCHAR(255) NOT NULL,
+            merchant_id INT DEFAULT NULL,
+            txn_count_1h INT DEFAULT 0,
+            txn_count_24h INT DEFAULT 0,
+            txn_amount_24h DECIMAL(14,2) DEFAULT 0,
+            last_txn_at TIMESTAMP NULL DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_fp_type_value (fingerprint_type, fingerprint_value),
+            INDEX idx_merchant (merchant_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // Seed default rules if empty
+        $count = (int)$db->query("SELECT COUNT(*) FROM risk_rules")->fetchColumn();
+        if ($count === 0) {
+            $defaults = [
+                ['Same UPI velocity >5 in 1h', 'velocity', 'transaction', 15, 'flag'],
+                ['Same UPI velocity >10 in 1h', 'velocity', 'transaction', 25, 'hold'],
+                ['Same Card velocity >3 in 1h', 'velocity', 'transaction', 20, 'hold'],
+                ['Same Device velocity >8 in 1h', 'velocity', 'transaction', 15, 'flag'],
+                ['Same Phone velocity >5 in 1h', 'velocity', 'transaction', 15, 'flag'],
+                ['Amount > ₹2 lakh single txn', 'amount', 'transaction', 25, 'hold'],
+                ['Amount > ₹5 lakh single txn', 'amount', 'transaction', 40, 'block'],
+                ['Amount spike >5x avg in 1h', 'amount', 'transaction', 20, 'flag'],
+                ['New merchant >₹1L in first 7d', 'merchant', 'merchant', 20, 'flag'],
+                ['New merchant >₹5L in first 7d', 'merchant', 'merchant', 35, 'hold'],
+                ['Chargeback ratio >3%', 'merchant', 'merchant', 30, 'hold'],
+                ['Chargeback ratio >5%', 'merchant', 'merchant', 50, 'block'],
+                ['Blacklist match', 'blacklist', 'transaction', 100, 'block'],
+                ['Night + high amount (11pm-5am)', 'time', 'transaction', 10, 'flag'],
+            ];
+            $st = $db->prepare("INSERT INTO risk_rules (rule_name, rule_type, scope, score_weight, action) VALUES (?,?,?,?,?)");
+            foreach ($defaults as $d) {
+                $st->execute($d);
+            }
+        }
+    } catch (Throwable $e) { /* ok */ }
+}
+
+/**
+ * Get active risk rules.
+ */
+function getActiveRiskRules(): array
+{
+    ensureRiskEngineTables();
+    $st = getDB()->prepare("SELECT * FROM risk_rules WHERE is_active=1 ORDER BY score_weight DESC");
+    $st->execute();
+    return $st->fetchAll();
+}
+
+/**
+ * Get or create merchant risk limits.
+ */
+function getMerchantRiskLimits(int $merchantId): array
+{
+    ensureRiskEngineTables();
+    $st = getDB()->prepare("SELECT * FROM risk_merchant_limits WHERE merchant_id=?");
+    $st->execute([$merchantId]);
+    $row = $st->fetch();
+    if ($row) return $row;
+    // Create default
+    getDB()->prepare("INSERT INTO risk_merchant_limits (merchant_id) VALUES (?) ON DUPLICATE KEY UPDATE merchant_id=merchant_id")
+        ->execute([$merchantId]);
+    $st->execute([$merchantId]);
+    return $st->fetch() ?: ['merchant_id' => $merchantId, 'max_txn_amount' => null, 'max_txn_count_hour' => null, 'max_txn_count_day' => null, 'max_volume_day' => null, 'auto_hold_threshold' => 70, 'auto_block_threshold' => 85];
+}
+
+/**
+ * Update merchant risk limits.
+ */
+function updateMerchantRiskLimits(int $merchantId, array $limits): void
+{
+    ensureRiskEngineTables();
+    getDB()->prepare(
+        "INSERT INTO risk_merchant_limits (merchant_id, max_txn_amount, max_txn_count_hour, max_txn_count_day, max_volume_day, auto_hold_threshold, auto_block_threshold)
+         VALUES (?,?,?,?,?,?,?)
+         ON DUPLICATE KEY UPDATE max_txn_amount=VALUES(max_txn_amount), max_txn_count_hour=VALUES(max_txn_count_hour),
+         max_txn_count_day=VALUES(max_txn_count_day), max_volume_day=VALUES(max_volume_day),
+         auto_hold_threshold=VALUES(auto_hold_threshold), auto_block_threshold=VALUES(auto_block_threshold)"
+    )->execute([
+        $merchantId,
+        $limits['max_txn_amount'] ?? null,
+        $limits['max_txn_count_hour'] ?? null,
+        $limits['max_txn_count_day'] ?? null,
+        $limits['max_volume_day'] ?? null,
+        $limits['auto_hold_threshold'] ?? 70,
+        $limits['auto_block_threshold'] ?? 85,
+    ]);
+}
+
+/**
+ * Build customer fingerprint for velocity checks.
+ */
+function buildCustomerFingerprint(array $customer): array
+{
+    $fp = [];
+    if (!empty($customer['upi'])) $fp['upi'] = strtolower(trim($customer['upi']));
+    if (!empty($customer['card_last4'])) $fp['card'] = strtolower(trim($customer['card_last4']));
+    if (!empty($customer['device_id'])) $fp['device'] = strtolower(trim($customer['device_id']));
+    if (!empty($customer['phone'])) $fp['phone'] = preg_replace('/\D/', '', $customer['phone']);
+    if (!empty($customer['email'])) $fp['email'] = strtolower(trim($customer['email']));
+    $fp['ip'] = function_exists('velocityClientIp') ? velocityClientIp() : ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+    return $fp;
+}
+
+/**
+ * Check velocity for a fingerprint (same UPI/Card/Device/Phone/Email/IP).
+ */
+function checkFingerprintVelocity(string $type, string $value, ?int $merchantId = null): array
+{
+    ensureRiskEngineTables();
+    $db = getDB();
+    $st = $db->prepare(
+        "SELECT txn_count_1h, txn_count_24h, txn_amount_24h, last_txn_at
+         FROM risk_velocity_cache
+         WHERE fingerprint_type=? AND fingerprint_value=? AND (?=0 OR merchant_id=?)"
+    );
+    $st->execute([$type, $value, $merchantId ?? 0, $merchantId ?? 0]);
+    $row = $st->fetch();
+    if (!$row) return ['count_1h' => 0, 'count_24h' => 0, 'amount_24h' => 0, 'last_txn' => null];
+
+    // Refresh counts from actual transactions if cache is stale
+    $lastTs = strtotime((string)($row['last_txn_at'] ?? ''));
+    if (!$lastTs || (time() - $lastTs) > 300) {
+        // Cache stale — recalculate from transactions
+        $col = match($type) {
+            'upi' => 'customer_upi',
+            'phone' => 'customer_phone',
+            'email' => 'customer_email',
+            'ip' => 'customer_ip',
+            'card' => 'card_last4',
+            'device' => 'device_id',
+            default => null,
+        };
+        if ($col) {
+            try {
+                $count1h = (int)$db->prepare("SELECT COUNT(*) FROM transactions WHERE {$col}=? AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)" . ($merchantId ? " AND merchant_id=?" : ""));
+                $count1h->execute($merchantId ? [$value, $merchantId] : [$value]);
+                $row['txn_count_1h'] = (int)$count1h->fetchColumn();
+            } catch (Throwable $e) {}
+        }
+    }
+    return [
+        'count_1h' => (int)($row['txn_count_1h'] ?? 0),
+        'count_24h' => (int)($row['txn_count_24h'] ?? 0),
+        'amount_24h' => (float)($row['txn_amount_24h'] ?? 0),
+        'last_txn' => $row['last_txn_at'] ?? null,
+    ];
+}
+
+/**
+ * Update velocity cache after a transaction.
+ */
+function updateVelocityCache(string $type, string $value, ?int $merchantId, float $amount): void
+{
+    ensureRiskEngineTables();
+    $db = getDB();
+    $db->prepare(
+        "INSERT INTO risk_velocity_cache (fingerprint_type, fingerprint_value, merchant_id, txn_count_1h, txn_count_24h, txn_amount_24h, last_txn_at)
+         VALUES (?,?,?,?,1,?,NOW())
+         ON DUPLICATE KEY UPDATE txn_count_1h=txn_count_1h+1, txn_count_24h=txn_count_24h+1, txn_amount_24h=txn_amount_24h+VALUES(txn_amount_24h), last_txn_at=NOW()"
+    )->execute([$type, $value, $merchantId, $amount]);
+}
+
+/**
+ * Calculate transaction risk score (0-100) based on PDF spec.
+ * Scoring:
+ *   New device +15, Large amount +10-25, Velocity +20,
+ *   Blacklist +50, Night + high amount +10, Good history -10
+ */
+function calculateTransactionRiskScore(int $merchantId, float $amount, array $customer = []): array
+{
+    ensureRiskEngineTables();
+    $score = 0;
+    $reasons = [];
+    $fingerprints = buildCustomerFingerprint($customer);
+
+    // 1. Blacklist check (+50 or +100)
+    if (isBlacklisted($merchantId, $customer)) {
+        $score += 100;
+        $reasons[] = 'Blacklist match (+100)';
+    }
+
+    // 2. Velocity checks
+    foreach ($fingerprints as $type => $value) {
+        if ($value === '' || $value === 'unknown') continue;
+        $vel = checkFingerprintVelocity($type, $value, $merchantId);
+        $thresholds = match($type) {
+            'upi' => [5 => 15, 10 => 25],
+            'card' => [3 => 20, 6 => 30],
+            'device' => [8 => 15, 15 => 25],
+            'phone' => [5 => 15, 10 => 20],
+            'email' => [5 => 10, 10 => 15],
+            'ip' => [10 => 10, 20 => 20],
+            default => [5 => 10, 10 => 20],
+        };
+        foreach ($thresholds as $threshold => $points) {
+            if ($vel['count_1h'] >= $threshold) {
+                $score += $points;
+                $reasons[] = ucfirst($type) . " velocity {$vel['count_1h']} in 1h (+{$points})";
+                break;
+            }
+        }
+    }
+
+    // 3. Amount rules
+    $threshold = getAmlHighValueThreshold();
+    if ($amount >= 500000) {
+        $score += 25;
+        $reasons[] = "Amount >= ₹5L (+25)";
+    } elseif ($amount >= 200000) {
+        $score += 15;
+        $reasons[] = "Amount >= ₹2L (+15)";
+    } elseif ($amount >= $threshold) {
+        $score += 10;
+        $reasons[] = "Amount >= threshold ₹{$threshold} (+10)";
+    }
+
+    // 4. New merchant with high volume
+    $mSt = getDB()->prepare("SELECT created_at FROM merchants WHERE id=?");
+    $mSt->execute([$merchantId]);
+    $merchant = $mSt->fetch();
+    if ($merchant) {
+        $ageDays = (int)floor((time() - strtotime((string)$merchant['created_at'])) / 86400);
+        if ($ageDays < 7 && $amount >= 100000) {
+            $score += 20;
+            $reasons[] = "New merchant (<7d) + high amount (+20)";
+        } elseif ($ageDays < 7 && $amount >= 500000) {
+            $score += 35;
+            $reasons[] = "New merchant (<7d) + very high amount (+35)";
+        }
+    }
+
+    // 5. Night time + high amount (11pm-5am IST)
+    $hour = (int)date('H');
+    if (($hour >= 23 || $hour < 5) && $amount >= $threshold) {
+        $score += 10;
+        $reasons[] = "Night time + high amount (+10)";
+    }
+
+    // 6. Chargeback ratio
+    $cbRatio = getChargebackRatio($merchantId, 90);
+    if ($cbRatio > 0.05) {
+        $score += 30;
+        $reasons[] = "Chargeback ratio >5% (+30)";
+    } elseif ($cbRatio > 0.03) {
+        $score += 15;
+        $reasons[] = "Chargeback ratio >3% (+15)";
+    }
+
+    // 7. Good history discount
+    $successCount = getSuccessTransactionCount($merchantId, 90);
+    if ($successCount > 100 && $cbRatio < 0.01) {
+        $score -= 10;
+        $reasons[] = "Good history (100+ txns, low chargeback) (-10)";
+    }
+
+    // 8. Merchant risk score contribution
+    $mScore = getMerchantRiskScore($merchantId);
+    if ($mScore >= 80) {
+        $score += 20;
+        $reasons[] = "Merchant risk score {$mScore} (+20)";
+    } elseif ($mScore >= 60) {
+        $score += 10;
+        $reasons[] = "Merchant risk score {$mScore} (+10)";
+    }
+
+    $score = min(100, max(0, $score));
+    return ['score' => $score, 'reasons' => $reasons, 'fingerprints' => $fingerprints];
+}
+
+/**
+ * Determine auto-action based on score and merchant limits.
+ * Score bands: 0-30 Allow, 31-60 Flag, 61-80 Hold, 81-100 Block
+ */
+function riskScoreToAction(int $score, int $merchantId): string
+{
+    $limits = getMerchantRiskLimits($merchantId);
+    $holdThreshold = (int)($limits['auto_hold_threshold'] ?? 70);
+    $blockThreshold = (int)($limits['auto_block_threshold'] ?? 85);
+
+    if ($score >= $blockThreshold) return 'block';
+    if ($score >= $holdThreshold) return 'hold';
+    if ($score >= 31) return 'flag';
+    return 'allow';
+}
+
+/**
+ * Full transaction risk evaluation — replaces evaluateTransactionRisk.
+ * Returns score, action, reasons, and logs a risk_event.
+ */
+function evaluateTransactionRiskFull(int $merchantId, float $amount, array $customer = [], ?int $transactionId = null): array
+{
+    ensureRiskEngineTables();
+    $calc = calculateTransactionRiskScore($merchantId, $amount, $customer);
+    $action = riskScoreToAction($calc['score'], $merchantId);
+
+    // Check merchant-specific limits
+    $limits = getMerchantRiskLimits($merchantId);
+    if ($limits['max_txn_amount'] && $amount > (float)$limits['max_txn_amount']) {
+        $action = 'hold';
+        $calc['score'] = max($calc['score'], 70);
+        $calc['reasons'][] = "Exceeds merchant max txn amount";
+    }
+
+    // Log risk event
+    if ($action !== 'allow' || $transactionId) {
+        try {
+            getDB()->prepare(
+                "INSERT INTO risk_events (transaction_id, merchant_id, rule_name, risk_score, action_taken, details)
+                 VALUES (?,?,?,?,?,?)"
+            )->execute([
+                $transactionId,
+                $merchantId,
+                'Transaction risk evaluation',
+                $calc['score'],
+                $action,
+                json_encode(['reasons' => $calc['reasons'], 'fingerprints' => $calc['fingerprints'] ?? []]),
+            ]);
+        } catch (Throwable $e) { /* ok */ }
+    }
+
+    // Update velocity cache
+    if (!empty($calc['fingerprints'])) {
+        foreach ($calc['fingerprints'] as $type => $value) {
+            if ($value !== '' && $value !== 'unknown') {
+                updateVelocityCache($type, $value, $merchantId, $amount);
+            }
+        }
+    }
+
+    // Record AML flag for high-risk
+    if ($action === 'block') {
+        recordAmlFlag($merchantId, $transactionId, 'risk_block', 'high', 'Blocked: ' . implode(', ', $calc['reasons']));
+    } elseif ($action === 'hold') {
+        recordAmlFlag($merchantId, $transactionId, 'risk_hold', 'high', 'Hold: ' . implode(', ', $calc['reasons']));
+    } elseif ($action === 'flag') {
+        recordAmlFlag($merchantId, $transactionId, 'risk_flag', 'medium', 'Flag: ' . implode(', ', $calc['reasons']));
+    }
+
+    return [
+        'action' => $action,
+        'score' => $calc['score'],
+        'reasons' => $calc['reasons'],
+        'fingerprints' => $calc['fingerprints'] ?? [],
+    ];
+}
+
+/**
+ * Get risk events with filters.
+ */
+function getRiskEvents(int $limit = 50, string $actionFilter = '', bool $unresolvedOnly = false): array
+{
+    ensureRiskEngineTables();
+    $sql = "SELECT re.*, m.business_name, m.merchant_code
+            FROM risk_events re
+            LEFT JOIN merchants m ON m.id=re.merchant_id
+            WHERE 1=1";
+    $params = [];
+    if ($actionFilter !== '') {
+        $sql .= " AND re.action_taken=?";
+        $params[] = $actionFilter;
+    }
+    if ($unresolvedOnly) {
+        $sql .= " AND re.resolved=0";
+    }
+    $sql .= " ORDER BY re.created_at DESC LIMIT ?";
+    $params[] = $limit;
+    $st = getDB()->prepare($sql);
+    foreach ($params as $i => $v) {
+        $st->bindValue($i + 1, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+    $st->execute();
+    return $st->fetchAll();
+}
+
+/**
+ * Resolve a risk event.
+ */
+function resolveRiskEvent(int $eventId, ?int $adminId, string $note = ''): bool
+{
+    ensureRiskEngineTables();
+    try {
+        getDB()->prepare("UPDATE risk_events SET resolved=1, resolved_by=?, resolved_at=NOW(), resolution_note=? WHERE id=?")
+            ->execute([$adminId, $note, $eventId]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * Get risk rules for admin management.
+ */
+function getAllRiskRules(): array
+{
+    ensureRiskEngineTables();
+    return getDB()->query("SELECT * FROM risk_rules ORDER BY is_active DESC, score_weight DESC")->fetchAll();
+}
+
+/**
+ * Toggle risk rule active state.
+ */
+function toggleRiskRule(int $ruleId, bool $active): bool
+{
+    ensureRiskEngineTables();
+    try {
+        getDB()->prepare("UPDATE risk_rules SET is_active=? WHERE id=?")->execute([$active ? 1 : 0, $ruleId]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * Get risk engine stats for dashboard.
+ */
+function getRiskEngineStats(): array
+{
+    ensureRiskEngineTables();
+    $db = getDB();
+    $stats = [
+        'total_events' => 0,
+        'blocked' => 0,
+        'held' => 0,
+        'flagged' => 0,
+        'unresolved' => 0,
+        'active_rules' => 0,
+    ];
+    try {
+        $stats['total_events'] = (int)$db->query("SELECT COUNT(*) FROM risk_events")->fetchColumn();
+        $stats['blocked'] = (int)$db->query("SELECT COUNT(*) FROM risk_events WHERE action_taken='block'")->fetchColumn();
+        $stats['held'] = (int)$db->query("SELECT COUNT(*) FROM risk_events WHERE action_taken='hold'")->fetchColumn();
+        $stats['flagged'] = (int)$db->query("SELECT COUNT(*) FROM risk_events WHERE action_taken='flag'")->fetchColumn();
+        $stats['unresolved'] = (int)$db->query("SELECT COUNT(*) FROM risk_events WHERE resolved=0")->fetchColumn();
+        $stats['active_rules'] = (int)$db->query("SELECT COUNT(*) FROM risk_rules WHERE is_active=1")->fetchColumn();
+    } catch (Throwable $e) {}
+    return $stats;
+}

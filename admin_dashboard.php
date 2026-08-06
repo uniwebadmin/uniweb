@@ -48,7 +48,8 @@ require_once __DIR__ . '/header.php';
     <a href="admin_link_audit.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-sky-400">Link Audit</a>
     <a href="admin_partner_decentro.php" class="bg-violet-600/20 border border-violet-500/30 text-violet-300 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium hover:bg-violet-600/30">Decentro Checklist</a>
     <a href="platform_demo.php" target="_blank" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-violet-400">Platform Tour ↗</a>
-    <a href="admin_axis.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-gray-300 hover:text-white">Axis UAT</a>
+    <a href="admin_reconciliation.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-sky-400 hover:text-sky-300">Reconciliation</a>
+    <a href="admin_risk_engine.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-red-400 hover:text-red-300">Risk Engine</a>
     <a href="gateway_settings.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-gray-300 hover:text-white">Gateway Keys</a>
     <a href="demo.php" target="_blank" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-brand-400">Live Demo ↗</a>
     <a href="<?= APP_URL ?>/demo" target="_blank" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-gray-400">/demo</a>

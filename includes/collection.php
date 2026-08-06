@@ -192,6 +192,7 @@ function createTransactionFromPayment(array $link, string $method, string $statu
             }
             notifyMerchantPaymentSuccess((int)$link['merchant_id'], $txnRow, $linkId);
             recordTransactionRisk($id, (int)$link['merchant_id'], $amount, ['email' => $customerEmail ?? '', 'phone' => $customerPhone ?? '']);
+            evaluateTransactionRiskFull((int)$link['merchant_id'], $amount, ['email' => $customerEmail ?? '', 'phone' => $customerPhone ?? ''], $id);
             recordNodalCollection($id, (int)$link['merchant_id'], $amount, 'Customer collection from ' . ($customerEmail ?? 'customer'));
             updateMerchantRiskScore((int)$link['merchant_id']);
         }
