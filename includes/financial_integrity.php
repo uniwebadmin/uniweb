@@ -618,6 +618,7 @@ function captureVerifiedPaymentOrder(array $verification): array
 
         if ((float)$split['platform_fee'] > 0) {
             recordSplitPayment($transactionId, (int)$order['merchant_id'], $split, (string)$verification['provider']);
+            creditPlatformFeeWallet((float)$split['platform_fee'], $transactionId, 'Commission from ' . $order['order_ref']);
         }
         $db->prepare("UPDATE payment_orders SET status='paid', paid_at=NOW() WHERE id=?")->execute([(int)$order['id']]);
         $db->prepare("UPDATE payment_links SET status='paid', paid_at=NOW() WHERE id=?")->execute([(int)$order['payment_link_id']]);

@@ -817,6 +817,71 @@ function setPlatformWalletBalance(float $balance): void
     clearSettingCache('platform_wallet_balance');
 }
 
+/**
+ * B4: Credit platform fee to platform wallet at capture time.
+ * Creates a platform_wallet_transactions entry and updates the balance.
+ */
+function creditPlatformFeeWallet(float $feeAmount, int $transactionId, string $description = 'Platform commission at capture'): void
+{
+    if ($feeAmount <= 0) return;
+    ensureWalletEngine();
+    $db = getDB();
+    try {
+        $ref = generateId('PFEE');
+        $db->prepare('INSERT INTO platform_wallet_transactions (amount, type, reference, description, transaction_id, balance_after) VALUES (?,?,?,?,?,?)')
+            ->execute([
+                round($feeAmount, 2),
+                'credit',
+                $ref,
+                mb_substr($description, 0, 190),
+                $transactionId,
+                getPlatformWalletBalance() + round($feeAmount, 2),
+            ]);
+        $newBalance = getPlatformWalletBalance() + round($feeAmount, 2);
+        setPlatformWalletBalance($newBalance);
+
+        recordAuditEvent('platform_fee_credit', [
+            'actor_type' => 'system',
+            'resource_type' => 'platform_wallet',
+            'resource_id' => $ref,
+            'reason' => $description,
+            'after_state' => ['amount' => $feeAmount, 'new_balance' => $newBalance, 'transaction_id' => $transactionId],
+        ]);
+    } catch (Throwable $e) {
+        error_log('creditPlatformFeeWallet failed: ' . $e->getMessage());
+    }
+}
+
+/**
+ * B4: Get platform wallet transaction history.
+ */
+function getPlatformWalletTransactions(int $limit = 100, int $offset = 0): array
+{
+    ensureWalletEngine();
+    try {
+        $st = getDB()->prepare("SELECT * FROM platform_wallet_transactions ORDER BY created_at DESC LIMIT ? OFFSET ?");
+        $st->bindValue(1, $limit, PDO::PARAM_INT);
+        $st->bindValue(2, $offset, PDO::PARAM_INT);
+        $st->execute();
+        return $st->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/**
+ * B4: Count platform wallet transactions for pagination.
+ */
+function countPlatformWalletTransactions(): int
+{
+    ensureWalletEngine();
+    try {
+        return (int)getDB()->query('SELECT COUNT(*) FROM platform_wallet_transactions')->fetchColumn();
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
 function creditMerchantWallet(int $merchantId, float $amount, string $type, ?int $transactionId, string $reference, string $description, ?bool $isTest = null): bool
 {
     if ($amount <= 0) return true;
