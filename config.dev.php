@@ -478,6 +478,7 @@ $__includes = [
     'integration_matrix', 'settlement_delay_spec', 'kyc_timeline', 'cloud_modules',
     'beneficiaries',
     'audit_log',
+    'payout_jobs',
 ];
 $__loaded = [];
 foreach ($__includes as $__inc) {
