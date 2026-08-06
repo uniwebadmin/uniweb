@@ -61,4 +61,4 @@ try {
     ob_end_clean();
     echo 'CATCH INDEX: ' . get_class($e) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n";
 }
-ob_end_clean();
+ob_end_flush();
