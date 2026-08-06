@@ -479,6 +479,7 @@ $__includes = [
     'beneficiaries',
     'audit_log',
     'payout_jobs',
+    'payout_adapters',
 ];
 $__loaded = [];
 foreach ($__includes as $__inc) {
