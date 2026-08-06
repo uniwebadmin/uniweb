@@ -34,24 +34,23 @@ set_exception_handler(function (Throwable $e) {
     echo 'EXCEPTION: ' . get_class($e) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n";
 });
 
-$code = file_get_contents($live);
-if (preg_match("/define\\('DB_HOST',[^;]+;/s", $code) && !preg_match("/define\\('DB_PORT',/s", $code)) {
-    echo "DB_PORT define missing; patching config.php\n";
-    $backup = __DIR__ . '/config.php.bak.' . date('YmdHis');
-    file_put_contents($backup, $code);
-    $code = preg_replace("/(define\\('DB_HOST',[^;]+;)/s", "$1\ndefine('DB_PORT', getenv('DB_PORT') !== false ? getenv('DB_PORT') : '3306');", $code, 1);
-    file_put_contents($live, $code, LOCK_EX);
-    echo "wrote backup to $backup\n";
-} else {
-    echo "DB_PORT define already present or DB_HOST missing\n";
-}
-
 echo "=== load test ===\n";
 try {
     require_once $live;
     echo "config.php loads OK\n";
 } catch (Throwable $e) {
     echo 'CATCH: ' . get_class($e) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n";
+}
+
+if (!defined('DB_PORT')) {
+    echo "DB_PORT not defined at runtime; patching config.php\n";
+    $code = file_get_contents($live);
+    $backup = __DIR__ . '/config.php.bak.' . date('YmdHis');
+    file_put_contents($backup, $code);
+    $code = preg_replace('/^(<\?php\s*)/', "<?php\ndefine('DB_PORT', getenv('DB_PORT') !== false ? getenv('DB_PORT') : '3306');\n", $code, 1);
+    file_put_contents($live, $code, LOCK_EX);
+    echo "wrote backup to $backup\n";
+    define('DB_PORT', getenv('DB_PORT') !== false ? getenv('DB_PORT') : '3306');
 }
 
 // Override any error_catcher handlers so we can see the real index.php exception
