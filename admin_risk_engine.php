@@ -40,6 +40,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         flash('success', "Recalculated risk scores for {$count} merchants.");
         redirect('admin_risk_engine.php');
     }
+
+    if ($action === 'override_event' && isset($_POST['event_id'])) {
+        $newAction = trim($_POST['new_action'] ?? 'dismiss');
+        $reason = trim($_POST['reason'] ?? '');
+        if (overrideRiskEvent((int)$_POST['event_id'], $newAction, $adminId, $reason)) {
+            flash('success', "Risk event overridden to {$newAction}.");
+        } else {
+            flash('error', 'Failed to override risk event.');
+        }
+        redirect('admin_risk_engine.php?tab=events');
+    }
+
+    if ($action === 'export_csv') {
+        $days = (int)($_POST['days'] ?? 30);
+        $csv = exportRiskReport($days);
+        header('Content-Type: text/csv');
+        header('Content-Disposition: attachment; filename="risk_report_' . date('Y-m-d') . '.csv"');
+        echo $csv;
+        exit;
+    }
 }
 
 $stats = getRiskEngineStats();
@@ -70,6 +90,7 @@ require_once __DIR__ . '/header.php';
             <a href="?tab=events" class="px-3 py-1.5 rounded-lg <?= $activeTab === 'events' ? 'bg-brand-600/20 text-brand-400' : 'text-gray-400 hover:text-white border border-gray-800' ?>">Risk Events</a>
             <a href="?tab=rules" class="px-3 py-1.5 rounded-lg <?= $activeTab === 'rules' ? 'bg-brand-600/20 text-brand-400' : 'text-gray-400 hover:text-white border border-gray-800' ?>">Rules</a>
             <a href="?tab=limits" class="px-3 py-1.5 rounded-lg <?= $activeTab === 'limits' ? 'bg-brand-600/20 text-brand-400' : 'text-gray-400 hover:text-white border border-gray-800' ?>">Merchant Limits</a>
+            <a href="?tab=fraud" class="px-3 py-1.5 rounded-lg <?= $activeTab === 'fraud' ? 'bg-brand-600/20 text-brand-400' : 'text-gray-400 hover:text-white border border-gray-800' ?>">Fraud Detection</a>
         </div>
     </div>
 
@@ -130,8 +151,9 @@ require_once __DIR__ . '/header.php';
                         <form method="POST" class="flex gap-1 items-center">
                             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                             <input type="hidden" name="event_id" value="<?= (int)$ev['id'] ?>">
-                            <input type="text" name="note" placeholder="Note" class="input-field text-xs w-24">
-                            <button type="submit" name="action" value="resolve_event" class="text-xs text-emerald-400 hover:underline">Resolve</button>
+                            <select name="new_action" class="input-field text-xs w-20"><option value="allow">Allow</option><option value="flag">Flag</option><option value="hold">Hold</option><option value="block">Block</option><option value="dismiss">Dismiss</option></select>
+                            <input type="text" name="reason" placeholder="Reason" class="input-field text-xs w-24" required>
+                            <button type="submit" name="action" value="override_event" class="text-xs text-sky-400 hover:underline">Override</button>
                         </form>
                     </td>
                 </tr>
@@ -167,6 +189,50 @@ require_once __DIR__ . '/header.php';
                 <?php endforeach; ?>
             </tbody>
         </table></div>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($activeTab === 'fraud'): ?>
+    <div class="glass rounded-xl p-4 sm:p-6">
+        <h3 class="font-semibold mb-4">Fraud Pattern Detection</h3>
+        <form method="GET" class="flex gap-3 items-end mb-6">
+            <div><label class="text-sm text-gray-400">Merchant ID</label>
+                <input type="number" name="merchant_id" value="<?= $selectedMerchantId ?: '' ?>" class="input-field mt-1 w-full" placeholder="Enter merchant ID">
+            </div>
+            <input type="hidden" name="tab" value="fraud">
+            <button type="submit" class="btn-primary px-4 py-2">Scan</button>
+        </form>
+        <?php if ($selectedMerchantId > 0): $fraudAlerts = detectFraudPatterns($selectedMerchantId, 7); ?>
+            <?php if (empty($fraudAlerts)): ?>
+            <p class="text-emerald-400 text-sm">No fraud patterns detected in the last 7 days.</p>
+            <?php else: ?>
+            <div class="space-y-3">
+                <?php foreach ($fraudAlerts as $fa): ?>
+                <div class="p-3 rounded-lg border <?= $fa['severity'] === 'high' ? 'border-red-500/30 bg-red-500/5' : 'border-amber-500/30 bg-amber-500/5' ?>">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs px-2 py-0.5 rounded-full <?= $fa['severity'] === 'high' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400' ?>"><?= ucfirst($fa['severity']) ?></span>
+                        <span class="text-sm font-medium"><?= e(str_replace('_', ' ', $fa['type'])) ?></span>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1"><?php foreach ($fa as $k => $v) { if (!in_array($k, ['type', 'severity'], true)) echo e($k) . ': ' . e((string)$v) . '  '; } ?></p>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+        <?php else: ?>
+            <p class="text-gray-500 text-sm">Enter a merchant ID to run fraud pattern detection.</p>
+        <?php endif; ?>
+    </div>
+
+    <div class="glass rounded-xl p-4 sm:p-6 mt-4">
+        <h3 class="font-semibold mb-4">Export Risk Report</h3>
+        <form method="POST" class="flex gap-3 items-end">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="action" value="export_csv">
+            <div><label class="text-sm text-gray-400">Days</label>
+                <input type="number" name="days" value="30" class="input-field mt-1 w-32">
+            </div>
+            <button type="submit" class="btn-primary px-4 py-2">Download CSV</button>
+        </form>
     </div>
     <?php endif; ?>
 

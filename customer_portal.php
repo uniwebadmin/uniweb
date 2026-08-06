@@ -151,6 +151,35 @@ require_once __DIR__ . '/header.php';
             </a>
             <?php endforeach; endif; ?>
         </section>
+
+        <?php
+        $customerChargebacks = [];
+        try {
+            $csSt = getDB()->prepare("SELECT * FROM chargebacks WHERE customer_phone=? ORDER BY created_at DESC LIMIT 10");
+            $csSt->execute([$phone]);
+            $customerChargebacks = $csSt->fetchAll();
+        } catch (Throwable $e) {}
+        ?>
+        <?php if (!empty($customerChargebacks)): ?>
+        <section id="chargebacks" class="cp-panel scroll-mt-24">
+            <div class="cp-panel-head">
+                <h2 class="font-bold text-slate-900">My disputes / chargebacks</h2>
+            </div>
+            <?php foreach ($customerChargebacks as $cb): ?>
+            <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 last:border-0">
+                <div class="min-w-0">
+                    <p class="cp-mono"><?= e($cb['chargeback_ref'] ?? '') ?></p>
+                    <p class="text-sm font-semibold text-slate-800 mt-0.5"><?= formatMoney((float)($cb['amount'] ?? 0)) ?></p>
+                    <p class="cp-muted mt-0.5"><?= e($cb['reason'] ?? '') ?></p>
+                </div>
+                <div class="text-right shrink-0">
+                    <?= statusBadge((string)($cb['status'] ?? '')) ?>
+                    <p class="cp-muted mt-1"><?= formatDate($cb['created_at'] ?? '') ?></p>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </section>
+        <?php endif; ?>
     </main>
 
     <footer class="cp-footer">

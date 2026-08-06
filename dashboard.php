@@ -108,6 +108,27 @@ echo renderMerchantMfaSetupPrompt($merchant, 'dashboard');
     <?php endforeach; ?>
 </div>
 
+<?php if (function_exists('getMerchantHealthScore')): $healthScore = getMerchantHealthScore((int)$merchant['id']); ?>
+<div class="glass rounded-xl p-5 mb-8 border border-emerald-500/20">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <p class="text-sm font-semibold text-emerald-300">Merchant Health Score</p>
+            <p class="text-xs text-gray-500 mt-1">Based on KYC, disputes, volume, settlements, support</p>
+        </div>
+        <div class="flex items-center gap-4">
+            <?php $hs = (int)($healthScore['score'] ?? 0); $hcls = $hs >= 80 ? 'text-emerald-400' : ($hs >= 60 ? 'text-amber-400' : ($hs >= 40 ? 'text-yellow-400' : 'text-red-400')); ?>
+            <div class="text-center">
+                <p class="text-3xl font-bold <?= $hcls ?>"><?= $hs ?></p>
+                <p class="text-[10px] text-gray-500">/ 100</p>
+            </div>
+            <div class="h-2 w-32 bg-gray-800 rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all <?= $hs >= 80 ? 'bg-emerald-500' : ($hs >= 60 ? 'bg-amber-500' : 'bg-red-500') ?>" style="width:<?= $hs ?>%"></div>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="mb-8">
     <h2 class="text-sm font-semibold text-gray-400 mb-3">Quick Actions</h2>
     <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3">
