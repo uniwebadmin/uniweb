@@ -49,6 +49,7 @@ if (!defined('DB_PORT')) {
     file_put_contents($backup, $code);
     $code = preg_replace('/^(<\?php\s*)/', "<?php\ndefine('DB_PORT', getenv('DB_PORT') !== false ? getenv('DB_PORT') : '3306');\n", $code, 1);
     file_put_contents($live, $code, LOCK_EX);
+    if (function_exists('opcache_reset')) { opcache_reset(); }
     echo "wrote backup to $backup\n";
     define('DB_PORT', getenv('DB_PORT') !== false ? getenv('DB_PORT') : '3306');
 }
