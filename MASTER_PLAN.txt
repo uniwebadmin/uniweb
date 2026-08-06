@@ -24,17 +24,17 @@
 10. [x] Legal Positioning & Website Trust — verified existing (trust.php, legal pages, footer links)
 11. [x] Reporting, Support & Ops Polish — admin_reports.php consolidated dashboard
 
-## Phase 3: High-Throughput QR Architecture
-1. [ ] Fast QR create API (minimal DB locks)
-2. [ ] Multi-QR/VA per merchant
-3. [ ] Webhook idempotency + queue
-4. [ ] Circuit breaker on partner 429/5xx
-5. [ ] Rate-limit awareness
-6. [ ] Risk: velocity on same QR/VA
-7. [ ] Admin alert: success rate drop
-8. [ ] Merchant UI: high-volume QR wizard
-9. [ ] Monitoring: payments/minute per QR/VA
-10. [ ] Batch reconciliation by VA + time window
+## Phase 3: High-Throughput QR Architecture — ALL DONE
+1. [x] Fast QR create API (minimal DB locks) — api_qr_create.php, batch INSERT, API key auth
+2. [x] Multi-QR/VA per merchant — verified existing (va_manager.php)
+3. [x] Webhook idempotency + queue — done in Phase 2.6 (webhook_reliability.php)
+4. [x] Circuit breaker on partner 429/5xx — closed/open/half-open states, auto-recovery, admin UI
+5. [x] Rate-limit awareness — DB-based per-scope rate limiter, integrated into QR API
+6. [x] Risk: velocity on same QR/VA — checkQrVelocity, checkVaVelocity, evaluateQrVaVelocity
+7. [x] Admin alert: success rate drop — auto_audit checks 80% threshold in 10-min window
+8. [x] Merchant UI: high-volume QR wizard — naming pattern generator in qr_code.php
+9. [x] Monitoring: payments/minute per QR/VA — admin_throughput.php dashboard
+10. [x] Batch reconciliation by VA + time window — reconcileByVaAndTimeWindow, getVaReconciliationSummary
 
 ## Phase 4: Priority Product Roadmap
 ### Phase 4A: Foundation to Live (Week 1-4)
