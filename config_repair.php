@@ -37,7 +37,7 @@ set_exception_handler(function (Throwable $e) {
 $code = file_get_contents($live);
 
 // Remove a DB_PORT define that was accidentally inserted before declare(strict_types=1);
-$code = preg_replace('/^<\?php\s*\r?\n\s*define\\(\'DB_PORT\\',[^;]+;\s*\r?\n/', "<?php\n", $code, 1);
+$code = preg_replace("/^<\?php\s*\\r?\\n\s*define\\('DB_PORT',[^;]+;\s*\\r?\\n/", "<?php\n", $code, 1);
 
 // Insert DB_PORT define immediately after declare(strict_types=1); if not already present
 if (!preg_match("/define\\('DB_PORT',/s", $code)) {
