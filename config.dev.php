@@ -17,6 +17,10 @@ error_reporting(E_ALL);
 ini_set('display_errors', getenv('UNIWEB_DISPLAY_ERRORS') === '0' ? '0' : '1');
 date_default_timezone_set('Asia/Kolkata');
 
+// Load .env file if present (secrets management)
+require_once __DIR__ . '/includes/env_loader.php';
+loadEnvFile(__DIR__ . '/.env');
+
 /* ------------------------------------------------------------------ *
  *  App / company constants
  * ------------------------------------------------------------------ */
@@ -177,7 +181,28 @@ function jsonResponse(array $data, int $code = 200): void
  * ------------------------------------------------------------------ */
 if (session_status() === PHP_SESSION_NONE) {
     if (PHP_SAPI !== 'cli') {
+        // Hardened session cookie settings
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path'     => '/',
+            'httponly' => true,
+            'secure'   => $isHttps,
+            'samesite' => 'Lax',
+        ]);
         session_start();
+
+        // Security headers (set once at bootstrap)
+        if (!headers_sent()) {
+            header('X-Content-Type-Options: nosniff');
+            header('X-Frame-Options: SAMEORIGIN');
+            header('Referrer-Policy: strict-origin-when-cross-origin');
+            header('X-XSS-Protection: 1; mode=block');
+            if ($isHttps) {
+                header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+            }
+        }
     }
 }
 

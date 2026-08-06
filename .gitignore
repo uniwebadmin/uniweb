@@ -1,6 +1,7 @@
 # Local credentials and machine-specific configuration
 .env
 .env.*
+!.env.example
 .vscode/
 config.php
 config.private.php
