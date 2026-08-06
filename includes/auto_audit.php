@@ -186,6 +186,16 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
             $report['steps']['scheduled_settlements'] = ['ok' => false, 'error' => $e->getMessage()];
         }
 
+        try {
+            if (!function_exists('processWebhookRetries')) {
+                require_once __DIR__ . '/webhook_reliability.php';
+            }
+            $retryResults = processWebhookRetries(20);
+            $report['steps']['webhook_retries'] = ['ok' => true, 'results' => $retryResults];
+        } catch (Throwable $e) {
+            $report['steps']['webhook_retries'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
         $brokenLinks = 0;
         $linkOk = true;
         if (function_exists('runFullLinkWatchdog')) {
