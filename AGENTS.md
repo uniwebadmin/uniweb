@@ -7,11 +7,13 @@ Do **not** use Cursor Cloud Agents (`cursor.com/agents`) unless the owner revers
 
 - Talk to the owner in **simple everyday Hindi / Urdu** (Delhi style). Short lines. No heavy tech jargon.
 - Website / product UI text stays **English**.
-- Rule file: `.cursor/rules/owner-simple-hindi.mdc`
+- For new proposals/research, use **explanation-first mode**: do not start implementation until the owner explicitly says "start karo"; answer owner questions one at a time in simple Hindi/Urdu covering **kya hai**, **kya fayda hai**, and **na kare to kya ho sakta hai**.
+- Rule file: `.devin/rules/owner-communication.md`
 
 ## Autonomous execution (permanent — 2026-07-24)
 
-- Owner authorizes autonomous continuation of the 20-day plan: implement, commit, push, and deploy without asking for per-step approval. Work one task at a time, retain safety checks, local-laptop-only workflow.
+- Owner authorizes autonomous continuation of the 20-day plan and approved phase-based work: implement, commit, push, and deploy without asking for per-step approval. Work one task at a time, retain safety checks, local-laptop-only workflow.
+- This includes standing instructions such as "continue every phase, every time, auto mode, no permission needed" for approved multi-phase items like the high-volume UPI infra work.
 - Independently pick up and continue pending work: run tests, migrations, deploys, live checks, and fix errors without asking for routine command confirmation.
 - Only prompt the owner for unavoidable actions requiring a human: private login/session steps, OTP, external approvals, or browser-only controls (e.g. clicking "Rotate key" in an authenticated live Gateway Settings page, then updating the Hostinger cron job URL with the new key).
 
@@ -143,4 +145,23 @@ Recommended immediate build order:
 - Payment Links: added "No Expiry" option (`payment_links.php`, `expiry_hours=never` → `expires_at=NULL`). QR codes already default to no-expiry; admin edit form now clarifies "leave blank = no expiry".
 - All committed + pushed + deployed via GitHub Actions (commits 6f61789, fe69bfc, 896603b, ee382db — all success).
 - Conversational market research done: NPCI UPI caps are per-payer (₹1 lakh/day, 10-20 txn/day), not per-merchant-QR — merchant aggregate collection via one QR is NOT capped. Owner may ask for a full RazorpayX/Cashfree/PayU/SBI/ICICI vs UniWeb comparison table next — not built yet.
+
+## Latest Status (2026-07-31)
+
+High-volume UPI infra — all 7 phases completed per owner note `_inbox/Screenshot/Read now.txt`:
+
+1. **Multiple VA + Multiple QR** — DONE. New `merchant_virtual_accounts` table (migration 031), `includes/va_manager.php` (create additional VAs, pick least-busy, usage/fail counters, auto-disable after 10 fails/day). `admin_virtual_accounts.php` UI. Backward compatible with old single-VA columns on `merchants`.
+2. **Smart QR/VA assignment** — DONE. Least-busy logic in `pickLeastBusyVirtualAccount()`, wired into `checkout.php` for `axis_va` handler.
+3. **Fast webhook + queue** — DONE within hosting constraints (no Redis/RabbitMQ on Hostinger shared PHP). Used `fastcgi_finish_request()` fast-ack pattern via `includes/webhook_queue.php::webhookFastAck()`, wired into razorpay/cashfree/payu/axis webhook files. Idempotency already solid pre-existing (`registerGatewayEvent()` atomic INSERT + unique constraint in `includes/financial_integrity.php`).
+4. **Real-time ledger** — ALREADY EXISTED. `ensureMerchantWalletReady()` in `includes/wallet.php` returns balance/available/pending_out/on_hold, shown in `wallet.php`, `settlements.php`, `dashboard.php`, `merchant_payout.php`.
+5. **Rate limiting + retry/backoff** — DONE. `consumeApiRateLimit()` (120 req/min per API credential) already existed in `includes/platform_api.php`. Added `axisHttpRequest()` retry with exponential backoff (3 attempts, transient 5xx/429/network errors only) in `includes/axis.php`.
+6. **Monitoring + alerts** — DONE. New `admin_transaction_monitor.php` (TPS, success/fail rate, per-minute buckets, VA health, per-collection-mode breakdown). VA auto-disable already alerts merchant + logs platform error.
+7. **Merchant-facing multi-QR download/print/live-status** — ALREADY EXISTED (`qr_code.php` per-QR download+print+share+stats, `qr_download_zip.php`, `export_qr_codes.php`, `qr_analytics.php`).
+
+All commits pushed to main: `0a689b8` (Phase 1), `514ded4` (Phase 2+4), `a1a9757` (Phase 5). All `php -l` clean, `tests/run_smoke_checks.php` 242/242 pass after each commit.
+
+**Migration 031** `multi_virtual_accounts.sql`: owner confirmed they ran "Apply pending migrations" on production via Gateway Settings — migration applied. `merchant_virtual_accounts` table should now exist live. Local MariaDB on this dev laptop was still down/unreachable as of this note (`dev_local/apply_migrations.php` connection refused) — apply locally too next time local DB is up, to keep dev/prod schema in sync for future local testing.
+
+Owner's explicit standing instruction: continue autonomously through phases without asking permission each time.
+
 - **Session continuity**: if a new agent picks up this repo (e.g. after a "Permission denied / model unavailable" error forces a session switch), check Cascade memory tagged `session_continuity` + `qr_code` for full context, in addition to this file.
