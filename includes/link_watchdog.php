@@ -225,6 +225,8 @@ function watchdogDiscoverPhpFiles(): array
 {
     $root = watchdogRoot();
     $skip = ['update_', 'wallet_fix', 'wallet_diagnose', 'debug_', 'night_setup', 'my_secret', 'diag', 'platform_wallet_fix', 'axis_probe', 'db_wizard'];
+    // Gitignored dev-only files — never deployed to production, don't flag as missing
+    $skipFiles = ['platform_demo.php', 'migrate_release.php', 'morning_ops.php', 'config.private.php'];
     $files = [];
     foreach (glob($root . '/*.php') ?: [] as $path) {
         if (!is_file($path) || is_dir($path)) {
@@ -232,10 +234,15 @@ function watchdogDiscoverPhpFiles(): array
         }
         $base = basename($path);
         $skipIt = false;
-        foreach ($skip as $prefix) {
-            if (str_starts_with($base, $prefix)) {
-                $skipIt = true;
-                break;
+        if (in_array($base, $skipFiles, true)) {
+            $skipIt = true;
+        }
+        if (!$skipIt) {
+            foreach ($skip as $prefix) {
+                if (str_starts_with($base, $prefix)) {
+                    $skipIt = true;
+                    break;
+                }
             }
         }
         if ($skipIt) {
@@ -421,6 +428,7 @@ function watchdogSkipHttpProbe(string $relFile): bool
 {
     return in_array($relFile, [
         'config.php',
+        'config.private.php',
         'header.php',
         'footer.php',
     ], true);
@@ -433,6 +441,12 @@ function watchdogExpectedHttpStatuses(string $relFile, string $auth): array
         'checkout.php' => [404],
         'blog_post.php' => [404],
         'qr_pay.php' => [404],
+        'store.php' => [404],
+        'qr_upi_redirect.php' => [404],
+        'api_qr_create.php' => [405, 401, 403],
+        'ifsc_lookup.php' => [401],
+        'cron_db_backup.php' => [403],
+        'cron_bank_reconciliation.php' => [403],
         'global_search.php' => [401],
         'webhook.php' => [410],
         'wallet_repair_once.php' => [403],
