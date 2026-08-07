@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireAdmin();
+if (!function_exists('getPlatformWalletBalance') && is_file(__DIR__ . '/includes/wallet.php')) {
+    require_once __DIR__ . '/includes/wallet.php';
+}
 
 $pageTitle = 'Platform Fee Wallet';
 $adminSection = 'financial';
@@ -42,7 +45,7 @@ try {
     $commissionToday = (float)$st->fetchColumn();
 } catch (Throwable $e) {}
 
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/header.php';
 ?>
 <div class="max-w-7xl mx-auto px-4 py-8">
     <h1 class="text-2xl font-bold text-white mb-2">Platform Fee Wallet</h1>
@@ -159,4 +162,4 @@ function toggleBankField() {
     document.getElementById('bank_field').style.display = mode === 'bank' ? '' : 'none';
 }
 </script>
-<?php require_once __DIR__ . '/includes/footer.php'; ?>
+<?php require_once __DIR__ . '/footer.php'; ?>

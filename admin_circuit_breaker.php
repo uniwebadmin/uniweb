@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireStaffAccess(['super', 'ceo', 'ops']);
+if (!function_exists('getCircuitBreakerStatus') && is_file(__DIR__ . '/includes/circuit_breaker.php')) {
+    require_once __DIR__ . '/includes/circuit_breaker.php';
+}
 
 // POST: reset circuit breaker
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {

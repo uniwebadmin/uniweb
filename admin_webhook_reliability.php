@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireStaffAccess(['super', 'ceo', 'ops']);
+if (!function_exists('getWebhookReliabilityStats') && is_file(__DIR__ . '/includes/webhook_reliability.php')) {
+    require_once __DIR__ . '/includes/webhook_reliability.php';
+}
 
 // POST: replay dead letter event
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {

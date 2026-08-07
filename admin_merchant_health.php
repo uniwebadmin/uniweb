@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireStaffAccess(['super', 'ceo', 'finance', 'ops', 'risk']);
+if (!function_exists('getMerchantHealthRanking') && is_file(__DIR__ . '/includes/merchant_health.php')) {
+    require_once __DIR__ . '/includes/merchant_health.php';
+}
 
 $adminId = (int)($_SESSION['admin_id'] ?? 0);
 

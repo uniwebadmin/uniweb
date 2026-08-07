@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireStaffAccess(['super', 'ceo', 'finance', 'ops', 'support']);
+if (!function_exists('getGrievanceStats') && is_file(__DIR__ . '/includes/grievance_engine.php')) {
+    require_once __DIR__ . '/includes/grievance_engine.php';
+}
 
 $adminId = (int)($_SESSION['admin_id'] ?? 0);
 $activeTab = $_GET['tab'] ?? 'list';

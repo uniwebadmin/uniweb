@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireStaffAccess(['super', 'ceo', 'finance', 'ops']);
+if (!function_exists('getRollingReserveStats') && is_file(__DIR__ . '/includes/rolling_reserve.php')) {
+    require_once __DIR__ . '/includes/rolling_reserve.php';
+}
 
 $adminId = (int)($_SESSION['admin_id'] ?? 0);
 $activeTab = $_GET['tab'] ?? 'dashboard';
