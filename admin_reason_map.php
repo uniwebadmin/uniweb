@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 $reasonMaps = getAllDbReasonMaps();
 $categories = ['funds', 'timeout', 'risk', 'decline', 'limit', 'cancel', 'settlement', 'upi', 'other'];
 
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/header.php';
 ?>
 <div class="max-w-5xl mx-auto px-4 py-8">
     <h1 class="text-2xl font-bold text-white mb-2">Reason Map Manager</h1>
@@ -117,4 +117,4 @@ require_once __DIR__ . '/includes/header.php';
         <?php endif; ?>
     </div>
 </div>
-<?php require_once __DIR__ . '/includes/footer.php'; ?>
+<?php require_once __DIR__ . '/footer.php'; ?>

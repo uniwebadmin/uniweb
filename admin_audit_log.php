@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireAdmin();
+if (!function_exists('getAllAuditLog') && is_file(__DIR__ . '/includes/audit_log.php')) {
+    require_once __DIR__ . '/includes/audit_log.php';
+}
 
 $pageTitle = 'Audit Log';
 $adminSection = 'financial';
@@ -21,7 +24,7 @@ try {
     $distinctActions = getDB()->query("SELECT DISTINCT action FROM immutable_audit_log ORDER BY action")->fetchAll();
 } catch (Throwable $e) {}
 
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/header.php';
 ?>
 <div class="max-w-7xl mx-auto px-4 py-8">
     <h1 class="text-2xl font-bold text-white mb-2">Immutable Audit Log</h1>
@@ -78,4 +81,4 @@ require_once __DIR__ . '/includes/header.php';
     </div>
     <?php endif; ?>
 </div>
-<?php require_once __DIR__ . '/includes/footer.php'; ?>
+<?php require_once __DIR__ . '/footer.php'; ?>

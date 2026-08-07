@@ -56,8 +56,24 @@ $gzPath = $dumpPath . '.gz';
 
 putenv('MYSQL_PWD=' . DB_PASS);
 
+$dbPort = defined('DB_PORT') ? DB_PORT : '3306';
+
+if (!function_exists('exec') || in_array('exec', array_map('trim', explode(',', ini_get('disable_functions'))), true)) {
+    $error = 'exec() is disabled on this hosting — cannot run mysqldump. Use Hostinger Backups or phpMyAdmin export instead.';
+    if (function_exists('logPlatformError')) {
+        logPlatformError('warning', $error);
+    } else {
+        error_log($error);
+    }
+    if (!$isCli) {
+        sendCronJsonResponse(['ok' => false, 'error' => $error], 200);
+    }
+    echo $error . "\n";
+    exit(0);
+}
+
 $cmd = 'mysqldump -h ' . escapeshellarg(DB_HOST)
-    . ' -P ' . escapeshellarg(DB_PORT)
+    . ' -P ' . escapeshellarg((string)$dbPort)
     . ' -u ' . escapeshellarg(DB_USER)
     . ' --single-transaction --quick --hex-blob --no-tablespaces '
     . escapeshellarg(DB_NAME)
