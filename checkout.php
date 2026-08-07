@@ -6,6 +6,7 @@ if (!function_exists('qrImageUrl')) {
 }
 
 require_once __DIR__ . '/includes/checkout_mode_banner.php';
+require_once __DIR__ . '/includes/checkout_customize.php';
 
 /**
  * Render a branded, navigable checkout error page instead of a bare white die() screen.
@@ -56,6 +57,8 @@ $isTestCheckout = !empty($link['is_test']) || merchantAccountMode($link) === 'te
 $payAmount = sanitizePaymentAmount(round((float)($plRow['amount'] ?? 0), 2), $isTestCheckout);
 $link['amount'] = $payAmount;
 $link['status'] = $plRow['status'] ?? 'active';
+// Checkout customization
+$wlBrand = resolveCheckoutCustomize($link);
 // Instant Test Pay: Test Mode links only
 $allowInstantPay = $isTestCheckout;
 if ($link['status'] !== 'active') {
@@ -247,19 +250,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && $selectedP
     }
 }
 
-$pageTitle = 'Secure Payment — ' . APP_NAME;
+$pageTitle = $wlBrand['active'] && !empty($wlBrand['checkout_title'])
+    ? $wlBrand['checkout_title']
+    : 'Secure Payment — ' . ($wlBrand['active'] ? $wlBrand['brand_name'] : APP_NAME);
 $hideNav = true;
 $hideFooter = true;
 $footerVariant = 'checkout';
 $bodyClass = 'bg-dark-950';
 require_once __DIR__ . '/header.php';
+if ($wlBrand['active'] && !empty($wlBrand['css'])):
+?>
+<style><?= $wlBrand['css'] ?></style>
+<?php
+endif;
 ?>
 
 <div class="min-h-screen flex flex-col">
     <header class="border-b border-gray-800 bg-dark-900/95 px-4 py-4">
         <div class="max-w-lg mx-auto flex items-center justify-between">
-            <?php $logoHref = 'index.php'; $logoSize = 'md'; require __DIR__ . '/includes/brand_logo.php'; ?>
-            <span class="text-xs text-sky-400 hidden sm:inline">Secure Checkout</span>
+            <?php
+            if ($wlBrand['active'] && !empty($wlBrand['logo_url'])):
+            ?>
+            <a href="index.php" class="flex items-center gap-2">
+                <img src="<?= e($wlBrand['logo_url']) ?>" alt="<?= e($wlBrand['brand_name']) ?>" class="h-8 w-auto max-w-[180px]" onerror="this.style.display='none'">
+            </a>
+            <?php
+            else:
+                $logoHref = 'index.php'; $logoSize = 'md'; require __DIR__ . '/includes/brand_logo.php';
+            endif;
+            ?>
+            <span class="text-xs text-sky-400 hidden sm:inline"><?= $wlBrand['active'] && !empty($wlBrand['checkout_subtitle']) ? e($wlBrand['checkout_subtitle']) : 'Secure Checkout' ?></span>
         </div>
     </header>
 

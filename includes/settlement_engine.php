@@ -306,8 +306,18 @@ function isMerchantDueForBatch(array $merchant): bool
 
 function scheduleNextBatch(int $merchantId, int $intervalMinutes): void
 {
+    $nextTs = time() + ($intervalMinutes * 60);
+
+    if (!function_exists('isBankHoliday')) {
+        require_once __DIR__ . '/bank_holidays.php';
+    }
+
+    while (isBankHoliday(date('Y-m-d', $nextTs))) {
+        $nextTs = strtotime('+1 day 09:00', $nextTs);
+    }
+
     getDB()->prepare('UPDATE merchants SET next_batch_at=?, last_batch_at=NOW() WHERE id=?')
-        ->execute([date('Y-m-d H:i:s', time() + ($intervalMinutes * 60)), $merchantId]);
+        ->execute([date('Y-m-d H:i:s', $nextTs), $merchantId]);
 }
 
 /**

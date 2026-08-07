@@ -2,8 +2,10 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/public_legal_page.php';
 require_once __DIR__ . '/includes/agreement_pdf.php';
+require_once __DIR__ . '/includes/esign.php';
 requireLogin();
 ensureMerchantAgreementSchema();
+ensureEsignTable();
 
 $merchant = getMerchant();
 $merchantId = (int)($merchant['id'] ?? 0);
@@ -13,11 +15,63 @@ $sections = merchantAgreementSections();
 $documentHash = hash('sha256', json_encode($sections, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 $db = getDB();
 
+$esignProvider = getEsignProvider();
+$esignAction = $_GET['esign_action'] ?? '';
+$esignRequestId = (int)($_GET['esign_request_id'] ?? 0);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
         flash('error', 'Your session token expired. Please review and submit again.');
         redirect('merchant_agreement.php');
     }
+
+    $postAction = $_POST['action'] ?? '';
+
+    if ($postAction === 'initiate_esign') {
+        if (!$canAccept) {
+            flash('error', 'eSign available after KYC verification.');
+            redirect('merchant_agreement.php');
+        }
+        $signerInfo = [
+            'name' => trim($_POST['signer_name'] ?? ''),
+            'aadhaar' => preg_replace('/\s+/', '', trim($_POST['signer_aadhaar'] ?? '')),
+            'email' => trim($merchant['email'] ?? ''),
+            'phone' => trim($merchant['phone'] ?? ''),
+        ];
+        if (strlen($signerInfo['name']) < 3) {
+            flash('error', 'Signer name is required (minimum 3 characters).');
+            redirect('merchant_agreement.php');
+        }
+        $res = initiateEsign($merchantId, $version, $documentHash, $signerInfo);
+        if (!empty($res['ok'])) {
+            flash('success', $res['message'] . ' eSign ID: ' . $res['esign_id']);
+            redirect('merchant_agreement.php?esign_action=otp&esign_request_id=' . $res['request_id']);
+        }
+        flash('error', $res['error'] ?? 'eSign initiation failed.');
+        redirect('merchant_agreement.php');
+    }
+
+    if ($postAction === 'verify_otp') {
+        $otp = trim($_POST['otp'] ?? '');
+        if (strlen($otp) < 4) {
+            flash('error', 'Enter a valid OTP.');
+            redirect('merchant_agreement.php?esign_action=otp&esign_request_id=' . (int)($_POST['esign_request_id'] ?? 0));
+        }
+        $res = verifyEsignOtp((int)($_POST['esign_request_id'] ?? 0), $otp);
+        if (!empty($res['ok'])) {
+            flash('success', $res['message']);
+            redirect('merchant_agreement.php');
+        }
+        flash('error', $res['error'] ?? 'OTP verification failed.');
+        redirect('merchant_agreement.php?esign_action=otp&esign_request_id=' . (int)($_POST['esign_request_id'] ?? 0));
+    }
+
+    if ($postAction === 'cancel_esign') {
+        $res = cancelEsign((int)($_POST['esign_request_id'] ?? 0));
+        flash($res['ok'] ? 'success' : 'error', $res['ok'] ? $res['message'] : ($res['error'] ?? 'Failed'));
+        redirect('merchant_agreement.php');
+    }
+
     if (empty($_POST['accept_agreement']) || empty($_POST['authority_confirmed'])) {
         flash('error', 'Both confirmations are required to accept the agreement.');
         redirect('merchant_agreement.php');
@@ -79,10 +133,40 @@ $stmt = $db->prepare('SELECT * FROM merchant_agreement_acceptances WHERE merchan
 $stmt->execute([$merchantId, $version]);
 $acceptance = $stmt->fetch();
 
+$esignRequests = getMerchantEsignRequests($merchantId, 5);
+$esignPending = null;
+if ($esignAction === 'otp' && $esignRequestId > 0) {
+    $esignPending = getEsignRequest($esignRequestId);
+}
+
 ob_start();
 ?>
 <section class="public-doc-company" style="margin-top:30px">
-    <?php if ($acceptance): ?>
+    <?php if ($esignAction === 'otp' && $esignPending && in_array($esignPending['status'], ['initiated', 'otp_sent'], true)): ?>
+    <div class="company-kicker">eSign — OTP Verification</div>
+    <h2>Enter OTP to complete Aadhaar eSign</h2>
+    <p>Provider: <strong><?= e($esignPending['provider']) ?></strong> | eSign ID: <strong><?= e($esignPending['esign_id']) ?></strong></p>
+    <p class="text-sm text-gray-500">An OTP has been sent to the Aadhaar-linked mobile number.</p>
+    <form method="POST" class="space-y-4 mt-5">
+        <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+        <input type="hidden" name="action" value="verify_otp">
+        <input type="hidden" name="esign_request_id" value="<?= (int)$esignPending['id'] ?>">
+        <div>
+            <label class="text-sm text-gray-400 block mb-1">Enter OTP *</label>
+            <input type="text" name="otp" required pattern="[0-9]{4,8}" maxlength="8" class="input-field" placeholder="6-digit OTP" inputmode="numeric">
+        </div>
+        <div class="flex gap-3">
+            <button type="submit" class="btn-primary px-6 py-3">Verify OTP & Sign</button>
+            <form method="POST" class="inline">
+                <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                <input type="hidden" name="action" value="cancel_esign">
+                <input type="hidden" name="esign_request_id" value="<?= (int)$esignPending['id'] ?>">
+                <button type="submit" class="px-6 py-3 text-sm text-red-400 border border-red-500/40 rounded-lg">Cancel</button>
+            </form>
+        </div>
+    </form>
+
+    <?php elseif ($acceptance): ?>
     <div class="company-kicker">Acceptance recorded</div>
     <h2>Agreement version <?= e($version) ?> is active</h2>
     <p>Accepted for <strong><?= e($acceptance['legal_name']) ?></strong> on <?= e(date('d M Y, h:i:s A', strtotime($acceptance['accepted_at']))) ?> IST. Audit reference: <strong>UWA-<?= (int)$acceptance['id'] ?></strong>.</p>
@@ -91,26 +175,79 @@ ob_start();
     <p class="mt-3"><a href="merchant_agreement_pdf.php?id=<?= (int)$acceptance['id'] ?>" class="btn-primary inline-block px-5 py-2.5 text-sm">Download signed PDF</a></p>
     <?php endif; ?>
     <p>This record remains available for compliance review. A materially updated agreement will require fresh acceptance.</p>
+
+    <?php if (!empty($esignRequests)): ?>
+    <div class="mt-6 pt-4 border-t border-gray-800">
+        <h3 class="text-sm font-bold text-gray-400 mb-2">eSign History</h3>
+        <table class="w-full text-sm">
+            <thead class="text-gray-500"><tr>
+                <th class="px-2 py-1 text-left">eSign ID</th>
+                <th class="px-2 py-1 text-left">Provider</th>
+                <th class="px-2 py-1 text-left">Status</th>
+                <th class="px-2 py-1 text-left">Date</th>
+            </tr></thead>
+            <tbody>
+                <?php foreach ($esignRequests as $er): ?>
+                <tr class="border-t border-gray-800">
+                    <td class="px-2 py-1 font-mono text-xs text-gray-400"><?= e($er['esign_id']) ?></td>
+                    <td class="px-2 py-1 text-gray-400"><?= e($er['provider']) ?></td>
+                    <td class="px-2 py-1">
+                        <?php if ($er['status'] === 'signed'): ?><span class="text-emerald-400">Signed</span>
+                        <?php elseif ($er['status'] === 'failed'): ?><span class="text-red-400">Failed</span>
+                        <?php elseif ($er['status'] === 'cancelled'): ?><span class="text-gray-500">Cancelled</span>
+                        <?php else: ?><span class="text-amber-400">Pending</span>
+                        <?php endif; ?>
+                    </td>
+                    <td class="px-2 py-1 text-gray-500 text-xs"><?= e($er['created_at']) ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php endif; ?>
+
     <?php elseif (!$canAccept): ?>
     <div class="company-kicker">Available after KYC</div>
     <h2>Agreement acceptance is not open yet</h2>
     <p>You may review the complete agreement now. The electronic acceptance action will be enabled after the merchant KYC status is Verified.</p>
     <a href="kyc.php" class="btn-primary inline-block px-6 py-3 mt-4">Open KYC verification</a>
     <?php else: ?>
-    <div class="company-kicker">Electronic signature</div>
-    <h2>Accept on behalf of <?= e($merchant['business_name'] ?? $merchant['name'] ?? 'your business') ?></h2>
-    <p>Read every section above before accepting. Acceptance records the current agreement version, merchant identity, timestamp, IP address and document fingerprint.</p>
+    <div class="company-kicker">Aadhaar eSign</div>
+    <h2>Digitally sign via Aadhaar eSign</h2>
+    <p>Sign your agreement using Aadhaar-based OTP authentication. Provider: <strong><?= e($esignProvider) ?></strong><?= $esignProvider === 'internal' ? ' (internal mode — typed signature with enhanced audit)' : '' ?></p>
     <form method="POST" class="space-y-4 mt-5">
         <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+        <input type="hidden" name="action" value="initiate_esign">
+        <div>
+            <label class="text-sm text-gray-400 block mb-1">Signer Full Legal Name *</label>
+            <input type="text" name="signer_name" required minlength="3" maxlength="190" class="input-field" placeholder="As on PAN / incorporation records" value="<?= e($merchant['business_name'] ?? $merchant['name'] ?? '') ?>">
+        </div>
+        <?php if ($esignProvider !== 'internal'): ?>
+        <div>
+            <label class="text-sm text-gray-400 block mb-1">Aadhaar Number (12-digit) *</label>
+            <input type="text" name="signer_aadhaar" required pattern="[0-9]{12}" maxlength="14" class="input-field" placeholder="XXXX XXXX XXXX" inputmode="numeric">
+            <p class="text-xs text-gray-600 mt-1">OTP will be sent to the mobile number linked with this Aadhaar.</p>
+        </div>
+        <?php endif; ?>
         <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="accept_agreement" value="1" required class="mt-1"><span>I have read and agree to the Merchant Services Agreement, Terms and Privacy Policy.</span></label>
         <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="authority_confirmed" value="1" required class="mt-1"><span>I confirm that I am authorized to accept this Agreement for the registered merchant entity.</span></label>
-        <div>
-            <label class="text-sm text-gray-400 block mb-1">Electronic signature — type your full legal name *</label>
-            <input type="text" name="signature_name" required minlength="3" maxlength="190" class="input-field" placeholder="As on PAN / incorporation records" value="<?= e($merchant['business_name'] ?? $merchant['name'] ?? '') ?>">
-            <p class="text-xs text-gray-600 mt-1">This typed name, your IP address and timestamp are stored as your electronic acceptance record.</p>
-        </div>
-        <button type="submit" class="btn-primary px-6 py-3">Accept, sign and download PDF</button>
+        <button type="submit" class="btn-primary px-6 py-3">Initiate Aadhaar eSign</button>
     </form>
+
+    <div class="mt-6 pt-4 border-t border-gray-800">
+        <h3 class="text-sm font-bold text-gray-400 mb-2">Or use typed electronic signature</h3>
+        <form method="POST" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+            <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="accept_agreement" value="1" required class="mt-1"><span>I have read and agree to the Merchant Services Agreement, Terms and Privacy Policy.</span></label>
+            <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="authority_confirmed" value="1" required class="mt-1"><span>I confirm that I am authorized to accept this Agreement for the registered merchant entity.</span></label>
+            <div>
+                <label class="text-sm text-gray-400 block mb-1">Electronic signature — type your full legal name *</label>
+                <input type="text" name="signature_name" required minlength="3" maxlength="190" class="input-field" placeholder="As on PAN / incorporation records" value="<?= e($merchant['business_name'] ?? $merchant['name'] ?? '') ?>">
+                <p class="text-xs text-gray-600 mt-1">This typed name, your IP address and timestamp are stored as your electronic acceptance record.</p>
+            </div>
+            <button type="submit" class="btn-primary px-6 py-3">Accept, sign and download PDF</button>
+        </form>
+    </div>
     <?php endif; ?>
 </section>
 <?php

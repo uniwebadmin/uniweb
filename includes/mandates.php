@@ -232,17 +232,240 @@ function processDueMandateDebits(): array
 
 /**
  * Attempt a single mandate debit via gateway.
- * Currently a placeholder — will be wired to actual gateway (Decentro/Razorpay) later.
+ * Routes to the correct partner adapter based on which gateway keys are configured.
+ * Supports: Razorpay Subscriptions, Cashfree Recurring, Decentro UPI Autopay.
  */
 function attemptMandateDebit(array $mandate, int $debitId): array
 {
-    // TODO: Wire to actual gateway when partner keys are configured
-    // For now, return a placeholder response
-    return [
-        'ok' => false,
-        'error' => 'Mandate debit gateway not yet configured. Partner adapter required.',
-        'debit_id' => $debitId,
-    ];
+    $db = getDB();
+
+    $st = $db->prepare('SELECT * FROM mandate_debits WHERE id=?');
+    $st->execute([$debitId]);
+    $debit = $st->fetch();
+    if (!$debit) {
+        return ['ok' => false, 'error' => 'Debit record not found.', 'debit_id' => $debitId];
+    }
+
+    $db->prepare("UPDATE mandate_debits SET status='processing', attempted_at=NOW() WHERE id=?")->execute([$debitId]);
+
+    $adapter = resolveMandateDebitAdapter($mandate);
+    if (!$adapter) {
+        $db->prepare("UPDATE mandate_debits SET status='failed', failure_reason='No mandate debit adapter configured' WHERE id=?")->execute([$debitId]);
+        return ['ok' => false, 'error' => 'No mandate debit adapter configured. Add partner gateway keys.', 'debit_id' => $debitId];
+    }
+
+    $result = $adapter($mandate, $debit);
+
+    if (!empty($result['ok'])) {
+        $db->prepare("UPDATE mandate_debits SET status='success', gateway_ref=?, gateway_response=?, processed_at=NOW() WHERE id=?")
+            ->execute([
+                substr((string)($result['gateway_ref'] ?? ''), 0, 120),
+                json_encode($result['raw'] ?? $result),
+                $debitId,
+            ]);
+        return ['ok' => true, 'gateway_ref' => $result['gateway_ref'] ?? null, 'debit_id' => $debitId];
+    }
+
+    $db->prepare("UPDATE mandate_debits SET status='failed', failure_reason=?, gateway_response=? WHERE id=?")
+        ->execute([
+            substr((string)($result['error'] ?? 'Unknown error'), 0, 500),
+            json_encode($result['raw'] ?? $result),
+            $debitId,
+        ]);
+    return ['ok' => false, 'error' => $result['error'] ?? 'Unknown error', 'debit_id' => $debitId];
+}
+
+function resolveMandateDebitAdapter(array $mandate): ?callable
+{
+    $mandateType = $mandate['mandate_type'] ?? 'upi_autopay';
+    $gatewayMandateId = $mandate['gateway_mandate_id'] ?? '';
+
+    if (!$gatewayMandateId) {
+        return null;
+    }
+
+    if ($mandateType === 'upi_autopay') {
+        if (trim((string)getSetting('razorpay_key_id', '')) !== '') {
+            return 'razorpayMandateDebitAdapter';
+        }
+        if (trim((string)getSetting('cashfree_app_id', '')) !== '') {
+            return 'cashfreeMandateDebitAdapter';
+        }
+        if (trim((string)getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', '')) !== '') {
+            return 'decentroMandateDebitAdapter';
+        }
+    }
+
+    if ($mandateType === 'enach') {
+        if (trim((string)getSetting('razorpay_key_id', '')) !== '') {
+            return 'razorpayMandateDebitAdapter';
+        }
+        if (trim((string)getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', '')) !== '') {
+            return 'decentroEnachDebitAdapter';
+        }
+    }
+
+    return null;
+}
+
+function razorpayMandateDebitAdapter(array $mandate, array $debit): array
+{
+    $keyId = trim((string)getSetting('razorpay_key_id', ''));
+    $keySecret = trim((string)getSetting('razorpay_key_secret', ''));
+    $gatewayMandateId = $mandate['gateway_mandate_id'] ?? '';
+    $amount = (float)$mandate['max_amount'];
+    $amountPaise = (int)round($amount * 100);
+
+    $payload = json_encode([
+        'amount' => $amountPaise,
+        'currency' => 'INR',
+        'mandate_id' => $gatewayMandateId,
+        'notes' => [
+            'merchant_mandate_ref' => $mandate['mandate_ref'] ?? '',
+            'debit_id' => (string)($debit['id'] ?? ''),
+        ],
+    ]);
+
+    $ch = curl_init('https://api.razorpay.com/v1/payments');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_USERPWD => $keyId . ':' . $keySecret,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_TIMEOUT => 20,
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlError) {
+        return ['ok' => false, 'error' => 'Network error: ' . $curlError, 'raw' => null];
+    }
+
+    $data = json_decode($response, true);
+    if ($httpCode === 200 && isset($data['id'])) {
+        return ['ok' => true, 'gateway_ref' => $data['id'], 'raw' => $data];
+    }
+
+    return ['ok' => false, 'error' => $data['error']['description'] ?? "HTTP {$httpCode}", 'raw' => $data];
+}
+
+function cashfreeMandateDebitAdapter(array $mandate, array $debit): array
+{
+    $appId = trim((string)getSetting('cashfree_app_id', ''));
+    $secretKey = trim((string)getSetting('cashfree_secret_key', ''));
+    $baseUrl = trim(getSetting('cashfree_base_url', 'https://api.cashfree.com'));
+    $gatewayMandateId = $mandate['gateway_mandate_id'] ?? '';
+    $amount = (float)$mandate['max_amount'];
+
+    $payload = json_encode([
+        'mandate_id' => $gatewayMandateId,
+        'amount' => $amount,
+        'reference_id' => $mandate['mandate_ref'] . '-' . ($debit['id'] ?? ''),
+    ]);
+
+    $ch = curl_init($baseUrl . '/v2/mandates/debit');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'x-api-version: 2022-09-01',
+            'x-client-id: ' . $appId,
+            'x-client-secret: ' . $secretKey,
+        ],
+        CURLOPT_TIMEOUT => 20,
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    $data = json_decode($response, true);
+    if ($httpCode === 200 && isset($data['cf_payment_id'])) {
+        return ['ok' => true, 'gateway_ref' => (string)$data['cf_payment_id'], 'raw' => $data];
+    }
+
+    return ['ok' => false, 'error' => $data['message'] ?? "HTTP {$httpCode}", 'raw' => $data];
+}
+
+function decentroMandateDebitAdapter(array $mandate, array $debit): array
+{
+    $clientId = trim((string)getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', ''));
+    $clientSecret = trim((string)getSetting('decentro_client_secret', '') ?: getSetting('decentro_api_secret', ''));
+    $base = decentroBaseUrl();
+    $gatewayMandateId = $mandate['gateway_mandate_id'] ?? '';
+    $amount = (float)$mandate['max_amount'];
+
+    $payload = json_encode([
+        'reference_id' => $mandate['mandate_ref'] . '-' . ($debit['id'] ?? ''),
+        'mandate_id' => $gatewayMandateId,
+        'amount' => $amount,
+        'purpose' => 'Recurring debit for ' . ($mandate['mandate_ref'] ?? ''),
+    ]);
+
+    $ch = curl_init($base . '/collections/upi/autopay/debit');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'client_id: ' . $clientId,
+            'client_secret: ' . $clientSecret,
+        ],
+        CURLOPT_TIMEOUT => 20,
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    $data = json_decode($response, true);
+    if ($httpCode === 200 && isset($data['data']['transaction_id'])) {
+        return ['ok' => true, 'gateway_ref' => $data['data']['transaction_id'], 'raw' => $data];
+    }
+
+    return ['ok' => false, 'error' => $data['message'] ?? "HTTP {$httpCode}", 'raw' => $data];
+}
+
+function decentroEnachDebitAdapter(array $mandate, array $debit): array
+{
+    $clientId = trim((string)getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', ''));
+    $clientSecret = trim((string)getSetting('decentro_client_secret', '') ?: getSetting('decentro_api_secret', ''));
+    $base = decentroBaseUrl();
+    $gatewayMandateId = $mandate['gateway_mandate_id'] ?? '';
+    $amount = (float)$mandate['max_amount'];
+
+    $payload = json_encode([
+        'reference_id' => $mandate['mandate_ref'] . '-' . ($debit['id'] ?? ''),
+        'mandate_id' => $gatewayMandateId,
+        'amount' => $amount,
+    ]);
+
+    $ch = curl_init($base . '/collections/enach/debit');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'client_id: ' . $clientId,
+            'client_secret: ' . $clientSecret,
+        ],
+        CURLOPT_TIMEOUT => 20,
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    $data = json_decode($response, true);
+    if ($httpCode === 200 && isset($data['data']['transaction_id'])) {
+        return ['ok' => true, 'gateway_ref' => $data['data']['transaction_id'], 'raw' => $data];
+    }
+
+    return ['ok' => false, 'error' => $data['message'] ?? "HTTP {$httpCode}", 'raw' => $data];
 }
 
 /**

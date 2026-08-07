@@ -86,8 +86,8 @@ function addMerchantBeneficiary(int $merchantId, string $type, string $accountHo
 }
 
 /**
- * Verify a beneficiary via Penny Drop (mock in dev; real API when keys).
- * Mock: returns success with name match if account_holder is not empty.
+ * Verify a beneficiary via Penny Drop.
+ * Uses real partner API (Decentro/Cashfree) when keys configured, mock otherwise.
  */
 function verifyBeneficiary(int $beneficiaryId, ?int $verifiedBy = null): array
 {
@@ -104,35 +104,222 @@ function verifyBeneficiary(int $beneficiaryId, ?int $verifiedBy = null): array
         return ['ok' => false, 'error' => 'Beneficiary is disabled.'];
     }
 
-    // Mock penny drop — in production, call partner API (Decentro/Cashfree)
-    // Mock logic: if account_holder has > 3 chars, verify as success
-    $nameMatchScore = strlen(trim($ben['account_holder'])) >= 3 ? 85.0 : 0.0;
-    $verifiedName = trim($ben['account_holder']);
+    // Mark as pending while verification in progress
+    $db->prepare("UPDATE merchant_beneficiaries SET status='pending' WHERE id=?")
+        ->execute([$beneficiaryId]);
+
+    // Try real partner API first
+    $apiResult = null;
+    $provider = null;
+
+    // Try Decentro penny drop if configured
+    $decentroKey = trim(getSetting('decentro_api_key', ''));
+    $decentroSecret = trim(getSetting('decentro_api_secret', ''));
+    if ($decentroKey !== '' && $decentroSecret !== '') {
+        $provider = 'decentro';
+        $apiResult = decentroPennyDrop(
+            $ben['account_number'],
+            $ben['ifsc_code'] ?? '',
+            $ben['account_holder']
+        );
+    }
+
+    // Try Cashfree beneficiary verification if configured
+    if (!$apiResult) {
+        $cfKey = trim(getSetting('cashfree_payout_client_id', ''));
+        $cfSecret = trim(getSetting('cashfree_payout_client_secret', ''));
+        if ($cfKey !== '' && $cfSecret !== '') {
+            $provider = 'cashfree';
+            $apiResult = cashfreePennyDrop(
+                $ben['account_number'],
+                $ben['ifsc_code'] ?? '',
+                $ben['account_holder']
+            );
+        }
+    }
+
+    // Fallback to mock if no partner keys configured
+    if (!$apiResult) {
+        $provider = 'mock';
+        $apiResult = mockPennyDrop(
+            $ben['account_number'],
+            $ben['ifsc_code'] ?? '',
+            $ben['account_holder']
+        );
+    }
+
+    $nameMatchScore = (float)($apiResult['match_score'] ?? 0);
+    $verifiedName = (string)($apiResult['name_from_bank'] ?? trim($ben['account_holder']));
+    $newStatus = $nameMatchScore >= 70.0 ? 'verified' : 'failed';
+
     $verifyResponse = json_encode([
-        'mock' => true,
+        'provider' => $provider,
         'name_from_bank' => $verifiedName,
         'match_score' => $nameMatchScore,
-        'penny_amount' => 1.00,
+        'penny_amount' => $apiResult['penny_amount'] ?? 1.00,
+        'raw_response' => $apiResult['raw'] ?? null,
         'timestamp' => date('c'),
     ]);
-
-    $newStatus = $nameMatchScore >= 70.0 ? 'verified' : 'failed';
 
     try {
         $db->prepare('UPDATE merchant_beneficiaries SET status=?, verify_name=?, verify_score=?, verify_response=?, verified_at=NOW(), verified_by=? WHERE id=?')
             ->execute([$newStatus, $verifiedName, $nameMatchScore, $verifyResponse, $verifiedBy, $beneficiaryId]);
+
+        if (function_exists('recordImmutableAudit')) {
+            recordImmutableAudit(
+                'beneficiary_verified',
+                (int)$ben['merchant_id'],
+                'beneficiary',
+                (string)$beneficiaryId,
+                "Penny drop via {$provider}: score={$nameMatchScore}%, status={$newStatus}"
+            );
+        }
+
         return [
             'ok' => true,
             'status' => $newStatus,
             'name' => $verifiedName,
             'score' => $nameMatchScore,
+            'provider' => $provider,
             'message' => $newStatus === 'verified'
-                ? "Beneficiary verified! Name match: {$verifiedName} (score: {$nameMatchScore}%)"
-                : "Verification failed. Name match score too low ({$nameMatchScore}%).",
+                ? "Beneficiary verified via {$provider}! Name match: {$verifiedName} (score: {$nameMatchScore}%)"
+                : "Verification failed via {$provider}. Name match score too low ({$nameMatchScore}%).",
         ];
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => 'Verification failed: ' . $e->getMessage()];
     }
+}
+
+/**
+ * Decentro Penny Drop API call.
+ */
+function decentroPennyDrop(string $accountNumber, string $ifsc, string $name): array
+{
+    $apiKey = trim(getSetting('decentro_api_key', ''));
+    $apiSecret = trim(getSetting('decentro_api_secret', ''));
+    $baseUrl = trim(getSetting('decentro_base_url', 'https://api.decentro.tech'));
+
+    $payload = json_encode([
+        'account_number' => $accountNumber,
+        'ifsc' => $ifsc,
+        'name' => $name,
+        'penny_amount' => 100,
+    ]);
+
+    $ch = curl_init($baseUrl . '/v2/banking/verification/penny_drop');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'client_id: ' . $apiKey,
+            'client_secret: ' . $apiSecret,
+            'provider: decentro',
+        ],
+        CURLOPT_TIMEOUT => 15,
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlError) {
+        return ['match_score' => 0, 'name_from_bank' => '', 'raw' => ['error' => $curlError]];
+    }
+
+    $data = json_decode($response, true);
+    if ($httpCode === 200 && isset($data['data']['name'])) {
+        $bankName = (string)$data['data']['name'];
+        $score = calculateNameMatchScore($name, $bankName);
+        return [
+            'match_score' => $score,
+            'name_from_bank' => $bankName,
+            'penny_amount' => 1.00,
+            'raw' => $data,
+        ];
+    }
+
+    return ['match_score' => 0, 'name_from_bank' => '', 'raw' => $data ?? ['http_code' => $httpCode]];
+}
+
+/**
+ * Cashfree Beneficiary Verification API call.
+ */
+function cashfreePennyDrop(string $accountNumber, string $ifsc, string $name): array
+{
+    $clientId = trim(getSetting('cashfree_payout_client_id', ''));
+    $clientSecret = trim(getSetting('cashfree_payout_client_secret', ''));
+    $baseUrl = trim(getSetting('cashfree_payout_base_url', 'https://payout-api.cashfree.com'));
+
+    $ch = curl_init($baseUrl . '/payout/v1/verifyBankAccount');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode([
+            'bankAccount' => $accountNumber,
+            'ifsc' => $ifsc,
+            'name' => $name,
+        ]),
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'X-Client-Id: ' . $clientId,
+            'X-Client-Secret: ' . $clientSecret,
+        ],
+        CURLOPT_TIMEOUT => 15,
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlError) {
+        return ['match_score' => 0, 'name_from_bank' => '', 'raw' => ['error' => $curlError]];
+    }
+
+    $data = json_decode($response, true);
+    if ($httpCode === 200 && isset($data['data']['nameAtBank'])) {
+        $bankName = (string)$data['data']['nameAtBank'];
+        $score = calculateNameMatchScore($name, $bankName);
+        return [
+            'match_score' => $score,
+            'name_from_bank' => $bankName,
+            'penny_amount' => 1.00,
+            'raw' => $data,
+        ];
+    }
+
+    return ['match_score' => 0, 'name_from_bank' => '', 'raw' => $data ?? ['http_code' => $httpCode]];
+}
+
+/**
+ * Mock Penny Drop — used when no partner keys are configured.
+ */
+function mockPennyDrop(string $accountNumber, string $ifsc, string $name): array
+{
+    $nameMatchScore = strlen(trim($name)) >= 3 ? 85.0 : 0.0;
+    return [
+        'match_score' => $nameMatchScore,
+        'name_from_bank' => trim($name),
+        'penny_amount' => 1.00,
+        'raw' => ['mock' => true, 'note' => 'Mock penny drop — no partner keys configured'],
+    ];
+}
+
+/**
+ * Calculate name match score between merchant-provided name and bank-returned name.
+ */
+function calculateNameMatchScore(string $inputName, string $bankName): float
+{
+    $input = strtolower(trim($inputName));
+    $bank = strtolower(trim($bankName));
+    if ($input === '' || $bank === '') return 0.0;
+    if ($input === $bank) return 100.0;
+
+    similar_text($input, $bank, $percent);
+    $levenshteinRatio = 1 - (levenshtein($input, $bank) / max(strlen($input), strlen($bank)));
+    $score = ($percent * 0.6 + $levenshteinRatio * 100 * 0.4);
+    return round(min(100, max(0, $score)), 2);
 }
 
 /**

@@ -1099,3 +1099,298 @@ function dispatchQueuedPayouts(int $limit = 20): array
         'message' => "Payout dispatch: {$ok} success, {$fail} failed.",
     ];
 }
+
+/**
+ * C2: Bulk Payout Batch — CSV upload with preview, individual status tracking,
+ * retry failed rows, summary report, background queue processing.
+ */
+function ensurePayoutBatchTable(): void
+{
+    static $done = false;
+    if ($done) return;
+    $done = true;
+    try {
+        getDB()->exec("CREATE TABLE IF NOT EXISTS payout_bulk_batches (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            batch_code VARCHAR(40) NOT NULL UNIQUE,
+            merchant_id INT NOT NULL,
+            uploaded_by VARCHAR(120) NOT NULL,
+            total_rows INT NOT NULL DEFAULT 0,
+            total_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+            success_count INT NOT NULL DEFAULT 0,
+            failed_count INT NOT NULL DEFAULT 0,
+            processing_count INT NOT NULL DEFAULT 0,
+            queued_count INT NOT NULL DEFAULT 0,
+            status ENUM('open','processing','completed','cancelled') NOT NULL DEFAULT 'open',
+            summary_report TEXT DEFAULT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_pbb_merchant (merchant_id),
+            INDEX idx_pbb_status (status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) { error_log('ensurePayoutBatchTable: ' . $e->getMessage()); }
+}
+
+function generateBatchCode(): string
+{
+    return 'PBB-' . date('ymd') . '-' . substr(bin2hex(random_bytes(3)), 0, 6);
+}
+
+function processPayoutBulkCsvWithBatch(int $merchantId, string $csvText, string $makerBy): array
+{
+    ensurePayoutBatchTable();
+    ensurePayoutSchema();
+    $parsed = parsePayoutBulkCsv($csvText);
+    if (empty($parsed['ok'])) {
+        return ['ok' => false, 'error' => $parsed['error'] ?? 'CSV parse failed'];
+    }
+
+    $db = getDB();
+    $batchCode = generateBatchCode();
+    $totalAmount = 0;
+    $totalRows = count($parsed['rows']);
+
+    foreach ($parsed['rows'] as $row) {
+        $totalAmount += (float)$row['amount'];
+    }
+
+    try {
+        $db->prepare('INSERT INTO payout_bulk_batches (batch_code, merchant_id, uploaded_by, total_rows, total_amount, queued_count, status) VALUES (?,?,?,?,?,?,?)')
+            ->execute([$batchCode, $merchantId, $makerBy, $totalRows, $totalAmount, $totalRows, 'open']);
+        $batchId = (int)$db->lastInsertId();
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Failed to create batch: ' . $e->getMessage()];
+    }
+
+    $created = 0;
+    $failed = 0;
+    $rowErrors = [];
+
+    foreach ($parsed['rows'] as $i => $row) {
+        $ben = findOrCreatePayoutBeneficiary($merchantId, $row);
+        if (!$ben['ok']) {
+            $failed++;
+            $rowErrors[] = ['row' => $i + 2, 'error' => $ben['error'] ?? 'Beneficiary error'];
+            continue;
+        }
+
+        $res = createPayoutDraft($merchantId, (int)$ben['beneficiary_id'], (float)$row['amount'], (string)($row['purpose'] ?? 'Bulk payout'), $makerBy, $batchId);
+        if (!empty($res['ok'])) {
+            $created++;
+        } else {
+            $failed++;
+            $rowErrors[] = ['row' => $i + 2, 'error' => $res['error'] ?? 'Draft creation failed'];
+        }
+    }
+
+    updateBatchCounts($batchId);
+
+    return [
+        'ok' => true,
+        'batch_id' => $batchId,
+        'batch_code' => $batchCode,
+        'created' => $created,
+        'failed' => $failed,
+        'row_errors' => $rowErrors,
+        'message' => "Batch {$batchCode}: {$created} payouts queued, {$failed} failed.",
+    ];
+}
+
+function findOrCreatePayoutBeneficiary(int $merchantId, array $row): array
+{
+    ensurePayoutSchema();
+    $db = getDB();
+    $acctNo = trim((string)($row['account_number'] ?? ''));
+    $ifsc = trim((string)($row['ifsc_code'] ?? ''));
+
+    $st = $db->prepare('SELECT id FROM payout_beneficiaries WHERE merchant_id=? AND account_number=? AND ifsc_code=? AND status="active" LIMIT 1');
+    $st->execute([$merchantId, $acctNo, $ifsc]);
+    $existing = $st->fetch();
+    if ($existing) {
+        return ['ok' => true, 'beneficiary_id' => (int)$existing['id']];
+    }
+
+    $res = addPayoutBeneficiary($merchantId, $row);
+    return $res['ok'] ? ['ok' => true, 'beneficiary_id' => (int)$res['id']] : $res;
+}
+
+function updateBatchCounts(int $batchId): void
+{
+    ensurePayoutBatchTable();
+    $db = getDB();
+    try {
+        $st = $db->prepare("SELECT
+            COUNT(*) AS total,
+            COALESCE(SUM(amount),0) AS total_amount,
+            SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) AS success_count,
+            SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) AS failed_count,
+            SUM(CASE WHEN status='processing' THEN 1 ELSE 0 END) AS processing_count,
+            SUM(CASE WHEN status IN ('draft','pending_maker','pending_checker','queued') THEN 1 ELSE 0 END) AS queued_count
+            FROM payout_orders WHERE batch_id=?");
+        $st->execute([$batchId]);
+        $counts = $st->fetch();
+
+        $status = 'open';
+        if ((int)$counts['queued_count'] === 0 && (int)$counts['processing_count'] === 0) {
+            $status = 'completed';
+        } elseif ((int)$counts['processing_count'] > 0) {
+            $status = 'processing';
+        }
+
+        $db->prepare('UPDATE payout_bulk_batches SET total_rows=?, total_amount=?, success_count=?, failed_count=?, processing_count=?, queued_count=?, status=? WHERE id=?')
+            ->execute([$counts['total'], $counts['total_amount'], $counts['success_count'], $counts['failed_count'], $counts['processing_count'], $counts['queued_count'], $status, $batchId]);
+    } catch (Throwable $e) { error_log('updateBatchCounts: ' . $e->getMessage()); }
+}
+
+function getPayoutBatchSummary(int $batchId): array
+{
+    ensurePayoutBatchTable();
+    try {
+        $st = getDB()->prepare('SELECT * FROM payout_bulk_batches WHERE id=?');
+        $st->execute([$batchId]);
+        return $st->fetch() ?: [];
+    } catch (Throwable $e) { return []; }
+}
+
+function getPayoutBatchRows(int $batchId): array
+{
+    ensurePayoutSchema();
+    try {
+        $st = getDB()->prepare('SELECT o.*, b.account_holder, b.account_number, b.ifsc_code FROM payout_orders o LEFT JOIN payout_beneficiaries b ON b.id=o.beneficiary_id WHERE o.batch_id=? ORDER BY o.id ASC');
+        $st->execute([$batchId]);
+        return $st->fetchAll();
+    } catch (Throwable $e) { return []; }
+}
+
+function getRecentPayoutBatches(int $limit = 20): array
+{
+    ensurePayoutBatchTable();
+    try {
+        $st = getDB()->prepare('SELECT b.*, m.business_name FROM payout_bulk_batches b LEFT JOIN merchants m ON m.id=b.merchant_id ORDER BY b.id DESC LIMIT ' . (int)$limit);
+        $st->execute();
+        return $st->fetchAll();
+    } catch (Throwable $e) { return []; }
+}
+
+function processPayoutBatchJobs(int $batchId): array
+{
+    ensurePayoutBatchTable();
+    ensurePayoutSchema();
+    $db = getDB();
+    try {
+        $db->prepare("UPDATE payout_bulk_batches SET status='processing' WHERE id=?")->execute([$batchId]);
+        $st = $db->prepare("SELECT * FROM payout_orders WHERE batch_id=? AND status IN ('queued','draft','pending_checker') ORDER BY id ASC");
+        $st->execute([$batchId]);
+        $orders = $st->fetchAll();
+
+        $ok = 0; $fail = 0;
+        foreach ($orders as $order) {
+            $res = dispatchPayoutOrder((int)$order['id']);
+            if (!empty($res['ok'])) $ok++; else $fail++;
+        }
+        updateBatchCounts($batchId);
+        return ['ok' => true, 'success' => $ok, 'failed' => $fail, 'message' => "Processed: {$ok} success, {$fail} failed."];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => $e->getMessage()];
+    }
+}
+
+function retryFailedBatchPayouts(int $batchId): array
+{
+    ensurePayoutSchema();
+    $db = getDB();
+    try {
+        $st = $db->prepare("SELECT * FROM payout_orders WHERE batch_id=? AND status='failed'");
+        $st->execute([$batchId]);
+        $orders = $st->fetchAll();
+        $retried = 0;
+        foreach ($orders as $order) {
+            $db->prepare("UPDATE payout_orders SET status='queued', failure_reason=NULL WHERE id=?")->execute([$order['id']]);
+            $retried++;
+        }
+        updateBatchCounts($batchId);
+        return ['ok' => true, 'retried' => $retried, 'message' => "{$retried} failed payouts re-queued for retry."];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => $e->getMessage()];
+    }
+}
+
+function cancelPayoutBatch(int $batchId): array
+{
+    ensurePayoutBatchTable();
+    ensurePayoutSchema();
+    $db = getDB();
+    try {
+        $db->prepare("UPDATE payout_orders SET status='cancelled' WHERE batch_id=? AND status IN ('queued','draft','pending_maker','pending_checker')")->execute([$batchId]);
+        $db->prepare("UPDATE payout_bulk_batches SET status='cancelled' WHERE id=?")->execute([$batchId]);
+        updateBatchCounts($batchId);
+        return ['ok' => true, 'message' => 'Batch cancelled. Queued payouts marked as cancelled.'];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => $e->getMessage()];
+    }
+}
+
+function dispatchPayoutOrder(int $orderId): array
+{
+    ensurePayoutSchema();
+    if (!payoutLiveMoneyAllowed()) {
+        return ['ok' => false, 'error' => 'Payout partner keys not configured.'];
+    }
+    $db = getDB();
+    try {
+        $st = $db->prepare('SELECT * FROM payout_orders WHERE id=?');
+        $st->execute([$orderId]);
+        $order = $st->fetch();
+        if (!$order) return ['ok' => false, 'error' => 'Order not found'];
+
+        $db->prepare("UPDATE payout_orders SET status='processing' WHERE id=?")->execute([$orderId]);
+
+        $adapter = resolvePayoutAdapter();
+        if (!$adapter) {
+            $db->prepare("UPDATE payout_orders SET status='failed', failure_reason='No payout adapter configured' WHERE id=?")->execute([$orderId]);
+            return ['ok' => false, 'error' => 'No payout adapter configured'];
+        }
+
+        $result = $adapter($order);
+        if (!empty($result['ok'])) {
+            $db->prepare("UPDATE payout_orders SET status='success', utr=?, processed_at=NOW() WHERE id=?")
+                ->execute([$result['utr'] ?? '', $orderId]);
+            return ['ok' => true, 'utr' => $result['utr'] ?? ''];
+        } else {
+            $db->prepare("UPDATE payout_orders SET status='failed', failure_reason=? WHERE id=?")
+                ->execute([substr($result['error'] ?? 'Unknown error', 0, 500), $orderId]);
+            return ['ok' => false, 'error' => $result['error'] ?? 'Unknown error'];
+        }
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => $e->getMessage()];
+    }
+}
+
+function resolvePayoutAdapter(): ?callable
+{
+    if (trim((string)getSetting('razorpayx_key_id', '')) !== '') {
+        return 'razorpayxPayoutAdapter';
+    }
+    if (trim((string)getSetting('cashfree_payout_client_id', '')) !== '') {
+        return 'cashfreePayoutAdapter';
+    }
+    if (trim((string)getSetting('decentro_api_key', '')) !== '') {
+        return 'decentroPayoutAdapter';
+    }
+    return null;
+}
+
+function razorpayxPayoutAdapter(array $order): array
+{
+    return ['ok' => false, 'error' => 'RazorpayX adapter not yet implemented — partner keys pending.'];
+}
+
+function cashfreePayoutAdapter(array $order): array
+{
+    return ['ok' => false, 'error' => 'Cashfree Payout adapter not yet implemented — partner keys pending.'];
+}
+
+function decentroPayoutAdapter(array $order): array
+{
+    return ['ok' => false, 'error' => 'Decentro Payout adapter not yet implemented — partner keys pending.'];
+}
