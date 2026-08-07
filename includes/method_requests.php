@@ -343,6 +343,7 @@ function recordMethodRequestPartnerDecision(int $requestId, bool $partnerApprove
     // Partner OK = merchant method ON automatically (less admin clicking).
     if ($partnerApproved) {
         $enabled = finalEnableMethodRequest($requestId, $actor, 'Auto-enabled after partner approval');
+        triggerAgreementResignCheck((int)$req['merchant_id'], (string)($req['partner_gateway'] ?? ''));
         if (!empty($enabled['ok'])) {
             return [
                 'ok' => true,
@@ -762,4 +763,100 @@ function verifyMethodPartnerWebhookSecret(string $provided): bool
         }
     }
     return false;
+}
+
+/**
+ * When a partner approves a merchant, check if the merchant's agreement
+ * includes this partner's name. If not, flag for re-sign and notify.
+ */
+function triggerAgreementResignCheck(int $merchantId, string $partnerGateway): void
+{
+    if ($partnerGateway === '') {
+        return;
+    }
+    $partnerLabel = partnerDisplayName($partnerGateway);
+    if ($partnerLabel === '') {
+        return;
+    }
+
+    try {
+        $db = getDB();
+        $st = $db->prepare('SELECT * FROM merchant_agreement_acceptances WHERE merchant_id=? ORDER BY id DESC LIMIT 1');
+        $st->execute([$merchantId]);
+        $acceptance = $st->fetch();
+
+        if (!$acceptance) {
+            if (function_exists('createNotification')) {
+                createNotification(
+                    $merchantId,
+                    'Agreement signature required',
+                    'A partner (' . $partnerLabel . ') has approved your account. Please sign your Merchant Services Agreement to activate services.'
+                );
+            }
+            return;
+        }
+
+        $currentPartners = trim((string)($acceptance['partner_names'] ?? ''));
+        $partnerList = array_filter(array_map('trim', explode(',', $currentPartners)));
+        if (in_array($partnerLabel, $partnerList, true)) {
+            return;
+        }
+
+        $partnerList[] = $partnerLabel;
+        $newPartnerNames = implode(', ', $partnerList);
+
+        $db->prepare('UPDATE merchant_agreement_acceptances SET requires_resign=1, partner_names=? WHERE id=?')
+            ->execute([$newPartnerNames, $acceptance['id']]);
+
+        if (function_exists('createNotification')) {
+            createNotification(
+                $merchantId,
+                'Agreement re-sign required',
+                'A new partner (' . $partnerLabel . ') has been added to your account. Please re-sign your Merchant Services Agreement to include all active partners. Current partners: ' . $newPartnerNames
+            );
+        }
+
+        if (function_exists('recordImmutableAudit')) {
+            recordImmutableAudit(
+                'agreement_resign_triggered',
+                $merchantId,
+                'agreement',
+                (string)$acceptance['id'],
+                'Re-sign triggered by partner approval: ' . $partnerLabel . '. Partners: ' . $newPartnerNames
+            );
+        }
+    } catch (Throwable $e) {
+        error_log('triggerAgreementResignCheck: ' . $e->getMessage());
+    }
+}
+
+function partnerDisplayName(string $gateway): string
+{
+    return match (strtolower($gateway)) {
+        'razorpay' => 'Razorpay',
+        'cashfree' => 'Cashfree',
+        'payu' => 'PayU',
+        'decentro' => 'Decentro',
+        'phonepe' => 'PhonePe',
+        'axis' => 'Axis Bank',
+        'icici' => 'ICICI Bank',
+        'sbi' => 'State Bank of India',
+        default => ucfirst($gateway),
+    };
+}
+
+/**
+ * Get all approved partner gateways for a merchant.
+ */
+function getMerchantApprovedPartners(int $merchantId): array
+{
+    ensureMethodRequestSchema();
+    try {
+        $st = getDB()->prepare('SELECT DISTINCT partner_gateway FROM merchant_method_requests WHERE merchant_id=? AND status="approved" AND partner_gateway IS NOT NULL AND partner_gateway != ""');
+        $st->execute([$merchantId]);
+        $gateways = $st->fetchAll(PDO::FETCH_COLUMN) ?: [];
+        return array_map('partnerDisplayName', $gateways);
+    } catch (Throwable $e) {
+        return [];
+    }
 }

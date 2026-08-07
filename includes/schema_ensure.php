@@ -221,6 +221,10 @@ function ensureMerchantAgreementSchema(): void
         INDEX idx_agreement_merchant (merchant_id),
         INDEX idx_agreement_accepted (accepted_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    schemaExecQuiet("ALTER TABLE merchant_agreement_acceptances ADD COLUMN signature_name VARCHAR(190) DEFAULT NULL AFTER legal_name");
+    schemaExecQuiet("ALTER TABLE merchant_agreement_acceptances ADD COLUMN pdf_filename VARCHAR(255) DEFAULT NULL AFTER signature_name");
+    schemaExecQuiet("ALTER TABLE merchant_agreement_acceptances ADD COLUMN partner_names VARCHAR(500) DEFAULT NULL AFTER pdf_filename");
+    schemaExecQuiet("ALTER TABLE merchant_agreement_acceptances ADD COLUMN requires_resign TINYINT(1) NOT NULL DEFAULT 0 AFTER partner_names");
 }
 
 /** Ensure invoices carry customer address for complete tax-invoice PDFs. */
