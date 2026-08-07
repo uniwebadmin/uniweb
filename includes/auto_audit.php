@@ -146,6 +146,16 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
         }
 
         try {
+            if (!function_exists('runAutoKycEngine')) {
+                require_once __DIR__ . '/auto_kyc.php';
+            }
+            $kycResult = runAutoKycEngine();
+            $report['steps']['auto_kyc'] = $kycResult;
+        } catch (Throwable $e) {
+            $report['steps']['auto_kyc'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        try {
             if (!function_exists('generateDailyReconciliationSummary')) {
                 require_once __DIR__ . '/reconciliation.php';
             }
@@ -153,6 +163,16 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
             $report['steps']['reconciliation'] = ['ok' => true, 'auto_marked' => $reconMarked];
         } catch (Throwable $e) {
             $report['steps']['reconciliation'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        try {
+            if (!function_exists('processDueMandateDebits')) {
+                require_once __DIR__ . '/mandates.php';
+            }
+            $mandateResult = processDueMandateDebits();
+            $report['steps']['mandates'] = $mandateResult;
+        } catch (Throwable $e) {
+            $report['steps']['mandates'] = ['ok' => false, 'error' => $e->getMessage()];
         }
 
         try {

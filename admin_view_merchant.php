@@ -60,6 +60,17 @@ if (isset($_GET['action']) && $_GET['action'] === 'auto_provision' && verifyCsrf
     redirect('admin_view_merchant.php?id=' . $id);
 }
 
+if (isset($_GET['action']) && $_GET['action'] === 'evidence_pack' && verifyCsrf($_GET['token'] ?? '')) {
+    if (!function_exists('downloadEvidencePack') && is_file(__DIR__ . '/includes/evidence_pack.php')) {
+        require_once __DIR__ . '/includes/evidence_pack.php';
+    }
+    if (function_exists('downloadEvidencePack')) {
+        downloadEvidencePack($id);
+    }
+    flash('error', 'Evidence Pack not available.');
+    redirect('admin_view_merchant.php?id=' . $id);
+}
+
 $waOpen = $_SESSION['open_wa_url'] ?? null;
 unset($_SESSION['open_wa_url']);
 
@@ -94,6 +105,7 @@ require_once __DIR__ . '/header.php';
         <a href="admin_edit_merchant.php?id=<?= $id ?>" class="text-sm bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg font-semibold">Edit Merchant</a>
         <a href="?id=<?= $id ?>&action=auto_provision&token=<?= csrfToken() ?>" class="text-sm text-emerald-400 border border-emerald-500/40 px-4 py-2 rounded-lg" onclick="return confirm('Auto setup payment pack?')">Re-Auto Setup</a>
         <?php endif; ?>
+        <a href="?id=<?= $id ?>&action=evidence_pack&token=<?= csrfToken() ?>" class="text-sm text-amber-400 border border-amber-500/40 px-4 py-2 rounded-lg" onclick="return confirm('Download Evidence Pack? This may take a few seconds.')">Evidence Pack</a>
     </div>
     <?= accountModeBadge($m) ?>
 </div>

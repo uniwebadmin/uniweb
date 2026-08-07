@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS gateway_reason_maps (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_code (error_code),
     INDEX idx_category (category, is_active)
-) ENGINE=InnoDB DEFAULT CHARSET=utf2mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Seed common reason maps from the existing PHP dictionary
 INSERT IGNORE INTO gateway_reason_maps (error_code, message_en, message_hi, category) VALUES

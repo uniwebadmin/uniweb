@@ -29,6 +29,13 @@ ALTER TABLE merchant_qr_codes
     ADD COLUMN IF NOT EXISTS virtual_account_id INT UNSIGNED DEFAULT NULL AFTER payment_link_id;
 ALTER TABLE merchant_qr_codes ADD INDEX IF NOT EXISTS idx_qr_va (virtual_account_id);
 
+-- Ensure merchants table has the legacy Axis VA columns (added by earlier
+-- migrations on production, but may be missing on fresh local DBs).
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS axis_va_id VARCHAR(64) DEFAULT NULL;
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS axis_va_number VARCHAR(64) DEFAULT NULL;
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS axis_va_ifsc VARCHAR(20) DEFAULT NULL;
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS axis_va_upi VARCHAR(120) DEFAULT NULL;
+
 -- Backfill: any merchant that already has a single Axis VA gets a matching
 -- primary row here so it shows up in the multi-VA admin UI immediately.
 INSERT INTO merchant_virtual_accounts (merchant_id, gateway, va_id, va_number, ifsc, upi_id, label, status, is_primary, counters_reset_on)
