@@ -40,7 +40,7 @@ if ($code === '' || !preg_match('/^QR[A-F0-9]{16}$/', $code)) {
 }
 
 $db = getDB();
-$stmt = $db->prepare("SELECT q.id, q.qr_code, q.merchant_id, q.status,
+$stmt = $db->prepare("SELECT q.id, q.qr_code, q.merchant_id, q.status, q.amount, q.label,
         m.business_name, m.status AS merchant_status, m.upi_id, m.collection_mode, m.axis_va_upi
     FROM merchant_qr_codes q
     JOIN merchants m ON m.id = q.merchant_id
@@ -80,7 +80,10 @@ logQrEvent($db, (int)$qr['id'], (int)$qr['merchant_id'], 'scan', [
 ]);
 
 $businessName = trim((string)($qr['business_name'] ?? '')) ?: 'Merchant';
-$intent = buildUpiPayIntent($vpa, $businessName, null, $note);
+$qrAmount = (float)($qr['amount'] ?? 0);
+$qrLabel = trim((string)($qr['label'] ?? ''));
+$effectiveNote = $note !== '' ? $note : ($qrLabel !== '' ? $qrLabel : null);
+$intent = buildUpiPayIntent($vpa, $businessName, $qrAmount > 0 ? $qrAmount : null, $effectiveNote);
 
 $pageTitle = 'Opening UPI App…';
 $hideNav = true;
@@ -92,7 +95,7 @@ require_once __DIR__ . '/header.php';
         <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
         <div class="glass rounded-2xl p-8 mt-5">
             <h1 class="text-lg font-semibold">Opening your UPI app…</h1>
-            <p class="text-sm text-gray-400 mt-2">Pay <span class="text-gray-200 font-medium"><?= e($businessName) ?></span> directly via UPI.</p>
+            <p class="text-sm text-gray-400 mt-2">Pay <span class="text-gray-200 font-medium"><?= e($businessName) ?></span> directly via UPI.<?= $qrAmount > 0 ? ' <span class="text-gray-300 font-semibold">Amount: ₹' . e(number_format($qrAmount, 2)) . '</span>' : '' ?></p>
             <a href="<?= e($intent) ?>" id="upi-open-link" class="inline-block mt-6 w-full bg-brand-600 hover:bg-brand-500 text-white py-3.5 rounded-xl font-semibold">Open UPI App →</a>
             <p class="text-[11px] text-gray-600 mt-4">If nothing happens, tap the button above. GPay, PhonePe, Paytm &amp; BHIM all support this link.</p>
         </div>

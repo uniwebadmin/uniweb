@@ -13,14 +13,18 @@ if ($isAdmin && isset($_GET['merchant_id']) && is_numeric($_GET['merchant_id']))
     $targetMerchantId = (int)$_GET['merchant_id'];
 }
 
-$filterSql = "merchant_id = ? AND qr_type != 'instant_upi'";
+$type = trim((string)($_GET['type'] ?? ''));
+if ($type === 'instant_upi') {
+    $filterSql = "merchant_id = ? AND qr_type = 'instant_upi'";
+} else {
+    $filterSql = "merchant_id = ? AND qr_type != 'instant_upi'";
+}
 $params = [$targetMerchantId];
 $status = trim((string)($_GET['status'] ?? ''));
 if (in_array($status, ['active', 'inactive'], true)) {
     $filterSql .= ' AND status = ?';
     $params[] = $status;
 }
-$type = trim((string)($_GET['type'] ?? ''));
 if (in_array($type, ['fixed', 'upi_dynamic', 'all_methods'], true)) {
     $filterSql .= ' AND qr_type = ?';
     $params[] = $type;
@@ -45,7 +49,11 @@ if ($zip->open($tmpPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
 
 $baseUrl = APP_URL . '/qr_image.php?d=';
 foreach ($rows as $row) {
-    $scanUrl = APP_URL . '/qr_pay.php?code=' . rawurlencode($row['qr_code']);
+    if ($row['qr_type'] === 'instant_upi') {
+        $scanUrl = APP_URL . '/qr_upi_redirect.php?code=' . rawurlencode($row['qr_code']);
+    } else {
+        $scanUrl = APP_URL . '/qr_pay.php?code=' . rawurlencode($row['qr_code']);
+    }
     $data = base64_encode(strtr($scanUrl, '+/', '-_'));
     $imageUrl = $baseUrl . rawurlencode($data) . '&s=600&logo=1';
     $image = @file_get_contents($imageUrl);

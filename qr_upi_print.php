@@ -29,7 +29,72 @@ if (mb_strlen($note) > 60) {
     $note = mb_substr($note, 0, 60);
 }
 
+// Multiple Instant UPI QR support — generate QRs with fixed or open amount
+$multiQrs = [];
 $hasVpa = $vpa !== '' && str_contains($vpa, '@');
+$bulkMessage = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    $bulkAction = (string)($_POST['action'] ?? '');
+    if ($bulkAction === 'bulk_instant_upi') {
+        $names = array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', (string)($_POST['bulk_upi_names'] ?? ''))), static fn($n) => $n !== ''));
+        $names = array_slice($names, 0, 50);
+        $upiAmountType = (string)($_POST['upi_amount_type'] ?? 'open');
+        $upiFixedAmount = $upiAmountType === 'fixed' ? sanitizePaymentAmount((float)($_POST['upi_fixed_amount'] ?? 0), $isTest) : 0.0;
+
+        if (empty($names)) {
+            flash('error', 'Enter at least one QR name (one per line).');
+        } elseif (count($names) > 50) {
+            flash('error', 'Maximum 50 QR codes at a time.');
+        } elseif ($upiAmountType === 'fixed' && $upiFixedAmount < 1) {
+            flash('error', 'Fixed amount must be at least ₹1.');
+        } elseif ($upiAmountType === 'fixed' && $isTest && $upiFixedAmount > 100) {
+            flash('error', 'Test Mode amount must be ₹1–₹100.');
+        } else {
+            $created = 0;
+            try {
+                $db->beginTransaction();
+                $insert = $db->prepare("INSERT INTO merchant_qr_codes
+                    (qr_code, merchant_id, payment_link_id, qr_type, label, amount, description, is_test)
+                    VALUES (?,?,NULL,'instant_upi',?,?,?,?)");
+                foreach ($names as $name) {
+                    $qrCode = 'QR' . strtoupper(bin2hex(random_bytes(8)));
+                    $desc = $upiAmountType === 'fixed'
+                        ? 'Instant UPI QR — Fixed ₹' . number_format($upiFixedAmount, 2)
+                        : 'Instant UPI QR — Open amount';
+                    $insert->execute([$qrCode, $merchantId, mb_substr($name, 0, 120), $upiFixedAmount, $desc, $isTest ? 1 : 0]);
+                    $created++;
+                }
+                $db->commit();
+                flash('success', $created . ' Instant UPI QR code(s) created. Scroll down to download/print.');
+            } catch (Throwable $e) {
+                if ($db->inTransaction()) $db->rollBack();
+                logPlatformError('error', 'Bulk Instant UPI QR create failed: ' . $e->getMessage());
+                flash('error', 'Could not create QR codes. Try again.');
+            }
+        }
+        redirect('qr_upi_print.php');
+    } elseif ($bulkAction === 'delete_instant_upi') {
+        $deleteId = (int)($_POST['delete_qr_id'] ?? 0);
+        if ($deleteId > 0) {
+            try {
+                $db->prepare("DELETE FROM merchant_qr_codes WHERE id=? AND merchant_id=? AND qr_type='instant_upi'")
+                    ->execute([$deleteId, $merchantId]);
+                flash('success', 'QR code deleted.');
+            } catch (Throwable $e) {
+                flash('error', 'Could not delete QR.');
+            }
+        }
+        redirect('qr_upi_print.php');
+    }
+}
+
+// Load all Instant UPI QRs for this merchant
+if ($hasVpa) {
+    $stQrs = $db->prepare("SELECT * FROM merchant_qr_codes WHERE merchant_id=? AND qr_type='instant_upi' ORDER BY id ASC");
+    $stQrs->execute([$merchantId]);
+    $multiQrs = $stQrs->fetchAll();
+}
+
 $intent = $hasVpa ? buildUpiPayIntent($vpa, $businessName, null, $note) : '';
 
 // One persistent "instant_upi" QR row per merchant so scans/collections can be
@@ -152,10 +217,85 @@ require_once __DIR__ . '/header.php';
             </p>
         </div>
     </div>
+
+    <!-- Multiple Instant UPI QR Generator -->
+    <div class="glass rounded-xl p-6 no-print">
+        <h2 class="font-semibold mb-1">Generate Multiple Instant UPI QRs</h2>
+        <p class="text-xs text-gray-500 mb-5">Bulk QR codes for counters, tables, branches. Fixed amount or open amount — customer enters amount in UPI app.</p>
+        <form method="POST" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="action" value="bulk_instant_upi">
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="text-sm text-gray-400">Amount Type *</label>
+                    <select name="upi_amount_type" id="upi-amount-type" class="input-field mt-1" onchange="toggleUpiFixedAmount()">
+                        <option value="open">Open Amount — customer enters amount</option>
+                        <option value="fixed">Fixed Amount — same amount on all QRs</option>
+                    </select>
+                </div>
+                <div id="upi-fixed-amount-wrap" class="hidden">
+                    <label class="text-sm text-gray-400">Fixed Amount (₹) *</label>
+                    <input type="number" name="upi_fixed_amount" id="upi-fixed-amount" min="1" step="0.01" value="1" class="input-field mt-1">
+                </div>
+            </div>
+            <div>
+                <label class="text-sm text-gray-400">QR Names — one per line (max 50) *</label>
+                <textarea name="bulk_upi_names" rows="5" required class="input-field mt-1 font-mono text-xs" placeholder="Counter 1&#10;Counter 2&#10;Counter 3&#10;Table A&#10;Table B"></textarea>
+            </div>
+            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-semibold">Generate Multiple QR Codes</button>
+        </form>
+    </div>
+
+    <!-- List of existing Instant UPI QRs -->
+    <?php if (!empty($multiQrs)): ?>
+    <div class="glass rounded-xl p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="font-semibold">Your Instant UPI QR Codes (<?= count($multiQrs) ?>)</h2>
+            <a href="qr_download_zip.php?type=instant_upi" class="text-sm text-emerald-400 border border-emerald-500/30 px-4 py-2 rounded-lg">Download All (ZIP)</a>
+        </div>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <?php foreach ($multiQrs as $qr):
+                $qrScanUrl = APP_URL . '/qr_upi_redirect.php?code=' . rawurlencode($qr['qr_code']);
+                $qrImg = qrImageUrl($qrScanUrl, 300);
+                $isFixed = !empty($qr['amount']) && (float)$qr['amount'] > 0;
+                $qrIntent = $isFixed
+                    ? buildUpiPayIntent($vpa, $businessName, (float)$qr['amount'], $qr['label'])
+                    : buildUpiPayIntent($vpa, $businessName, null, $qr['label']);
+            ?>
+            <div class="bg-white text-gray-900 rounded-xl p-4 text-center border border-gray-200">
+                <p class="text-xs text-gray-500 mb-1"><?= e($qr['label']) ?></p>
+                <p class="text-[10px] text-gray-400 mb-2"><?= $isFixed ? 'Fixed ₹' . number_format((float)$qr['amount'], 2) : 'Open Amount' ?> · <?= (int)$qr['scan_count'] ?> scans</p>
+                <div class="bg-white rounded-xl p-2 border border-gray-100 inline-block">
+                    <img src="<?= e($qrImg) ?>" alt="QR for <?= e($qr['label']) ?>" width="200" height="200" class="mx-auto">
+                </div>
+                <p class="font-mono text-xs text-emerald-700 mt-2 break-all"><?= e($vpa) ?></p>
+                <div class="flex gap-2 mt-3 justify-center">
+                    <button type="button" onclick="window.print()" class="text-xs text-sky-600 border border-sky-200 px-3 py-1.5 rounded-lg">Print</button>
+                    <a href="<?= e($qrImg) ?>&s=400" download="upi-qr-<?= e(preg_replace('/[^a-z0-9]+/i', '-', $qr['label'])) ?>.png" class="text-xs text-emerald-600 border border-emerald-200 px-3 py-1.5 rounded-lg">Download</a>
+                    <form method="POST" class="inline" onsubmit="return confirm('Delete this QR?')">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                        <input type="hidden" name="action" value="delete_instant_upi">
+                        <input type="hidden" name="delete_qr_id" value="<?= (int)$qr['id'] ?>">
+                        <button class="text-xs text-red-500 border border-red-200 px-3 py-1.5 rounded-lg">Delete</button>
+                    </form>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <?php endif; ?>
 </div>
 
 <script>
+function toggleUpiFixedAmount() {
+    var sel = document.getElementById('upi-amount-type');
+    var wrap = document.getElementById('upi-fixed-amount-wrap');
+    if (sel && wrap) {
+        wrap.classList.toggle('hidden', sel.value !== 'fixed');
+    }
+}
 document.getElementById('copy-intent')?.addEventListener('click', function () {
     var link = this.getAttribute('data-intent') || '';
     navigator.clipboard.writeText(link).then(function () {
