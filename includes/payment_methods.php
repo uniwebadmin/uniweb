@@ -98,7 +98,8 @@ function getAllPaymentMethods(): array
 
 /**
  * Get a merchant's payment method settings.
- * Returns all methods with their ON/OFF status.
+ * Returns only ACTIVE gateways with their ON/OFF status.
+ * Inactive gateways are hidden from merchants.
  */
 function getMerchantPaymentMethods(int $merchantId): array
 {
@@ -111,6 +112,7 @@ function getMerchantPaymentMethods(int $merchantId): array
                     COALESCE(m.is_enabled, 0) AS is_enabled, m.updated_by, m.updated_at
              FROM gateway_registry g
              LEFT JOIN merchant_payment_methods m ON m.method_key = g.gateway_key AND m.merchant_id = ?
+             WHERE g.is_active = 1
              ORDER BY g.id ASC"
         );
         $st->execute([$merchantId]);
@@ -411,4 +413,172 @@ function saveGatewayConfig(int $gatewayId, array $keys): array
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => $e->getMessage()];
     }
+}
+
+/**
+ * Ensure gateway_health table exists for tracking success rates and response times.
+ */
+function ensureGatewayHealthTable(): void
+{
+    static $done = false;
+    if ($done) return;
+    $done = true;
+    try {
+        getDB()->exec("CREATE TABLE IF NOT EXISTS gateway_health (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            gateway_key VARCHAR(40) NOT NULL UNIQUE,
+            total_attempts INT NOT NULL DEFAULT 0,
+            success_count INT NOT NULL DEFAULT 0,
+            fail_count INT NOT NULL DEFAULT 0,
+            total_response_ms INT NOT NULL DEFAULT 0,
+            last_success_at TIMESTAMP NULL DEFAULT NULL,
+            last_fail_at TIMESTAMP NULL DEFAULT NULL,
+            last_error VARCHAR(255) DEFAULT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'healthy',
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) { /* ok */ }
+}
+
+/**
+ * Record a gateway payment attempt result.
+ */
+function recordGatewayAttempt(string $gatewayKey, bool $success, int $responseMs = 0, string $error = ''): void
+{
+    ensureGatewayHealthTable();
+    $db = getDB();
+    try {
+        $st = $db->prepare("SELECT total_attempts, success_count FROM gateway_health WHERE gateway_key=?");
+        $st->execute([$gatewayKey]);
+        $row = $st->fetch();
+
+        if ($row) {
+            $newTotal = (int)$row['total_attempts'] + 1;
+            $newSuccess = (int)$row['success_count'] + ($success ? 1 : 0);
+            $newFail = $newTotal - $newSuccess;
+            $rate = $newTotal > 0 ? $newSuccess / $newTotal : 1.0;
+            $status = $rate < 0.5 ? 'down' : ($rate < 0.8 ? 'degraded' : 'healthy');
+
+            $db->prepare(
+                "UPDATE gateway_health SET total_attempts=?, success_count=?, fail_count=?,
+                    total_response_ms=total_response_ms+?,
+                    last_success_at=IF(?=1,NOW(),last_success_at),
+                    last_fail_at=IF(?=0,NOW(),last_fail_at),
+                    last_error=IF(?=0,?,last_error),
+                    status=?
+                WHERE gateway_key=?"
+            )->execute([
+                $newTotal, $newSuccess, $newFail, $responseMs,
+                $success ? 1 : 0,
+                $success ? 1 : 0,
+                $success ? 1 : 0,
+                $error,
+                $status,
+                $gatewayKey,
+            ]);
+        } else {
+            $status = $success ? 'healthy' : 'down';
+            $db->prepare(
+                "INSERT INTO gateway_health (gateway_key, total_attempts, success_count, fail_count, total_response_ms, last_success_at, last_fail_at, last_error, status)
+                 VALUES (?,1,?,?,?,IF(?=1,NOW(),NULL),IF(?=0,NOW(),NULL),?,?)"
+            )->execute([
+                $gatewayKey,
+                $success ? 1 : 0,
+                $success ? 0 : 1,
+                $responseMs,
+                $success ? 1 : 0,
+                $success ? 1 : 0,
+                $success ? '' : $error,
+                $status,
+            ]);
+        }
+    } catch (Throwable $e) { /* ok */ }
+}
+
+/**
+ * Get smart gateway priority order based on success rate + response time.
+ * Returns array of gateway keys sorted best-to-worst.
+ * Excludes 'down' gateways.
+ */
+function getSmartGatewayOrder(array $gatewayKeys = []): array
+{
+    ensureGatewayHealthTable();
+    ensurePaymentMethodsTable();
+    $db = getDB();
+
+    if (empty($gatewayKeys)) {
+        $st = $db->query("SELECT gateway_key FROM gateway_registry WHERE is_active=1 ORDER BY id ASC");
+        $gatewayKeys = array_column($st->fetchAll(), 'gateway_key');
+    }
+    if (empty($gatewayKeys)) return [];
+
+    try {
+        $placeholders = implode(',', array_fill(0, count($gatewayKeys), '?'));
+        $st = $db->prepare(
+            "SELECT g.gateway_key,
+                    COALESCE(h.total_attempts, 0) AS total_attempts,
+                    COALESCE(h.success_count, 0) AS success_count,
+                    COALESCE(h.fail_count, 0) AS fail_count,
+                    COALESCE(h.total_response_ms, 0) AS total_response_ms,
+                    COALESCE(h.status, 'healthy') AS status
+             FROM gateway_registry g
+             LEFT JOIN gateway_health h ON h.gateway_key = g.gateway_key
+             WHERE g.gateway_key IN ($placeholders) AND g.is_active = 1
+             ORDER BY
+                CASE WHEN COALESCE(h.status, 'healthy') = 'down' THEN 1 ELSE 0 END,
+                CASE WHEN COALESCE(h.status, 'healthy') = 'degraded' THEN 1 ELSE 0 END,
+                (COALESCE(h.success_count, 0) / NULLIF(COALESCE(h.total_attempts, 1), 0)) DESC,
+                (COALESCE(h.total_response_ms, 0) / NULLIF(COALESCE(h.total_attempts, 1), 0)) ASC,
+                g.id ASC"
+        );
+        $st->execute($gatewayKeys);
+        return array_column($st->fetchAll(), 'gateway_key');
+    } catch (Throwable $e) {
+        return $gatewayKeys;
+    }
+}
+
+/**
+ * Get gateway health summary for admin dashboard.
+ */
+function getGatewayHealthSummary(): array
+{
+    ensureGatewayHealthTable();
+    ensurePaymentMethodsTable();
+    try {
+        $st = getDB()->query(
+            "SELECT g.id, g.gateway_key, g.gateway_name, g.is_active,
+                    COALESCE(h.total_attempts, 0) AS total_attempts,
+                    COALESCE(h.success_count, 0) AS success_count,
+                    COALESCE(h.fail_count, 0) AS fail_count,
+                    COALESCE(h.total_response_ms, 0) AS total_response_ms,
+                    COALESCE(h.last_success_at, '') AS last_success_at,
+                    COALESCE(h.last_fail_at, '') AS last_fail_at,
+                    COALESCE(h.last_error, '') AS last_error,
+                    COALESCE(h.status, 'healthy') AS status
+             FROM gateway_registry g
+             LEFT JOIN gateway_health h ON h.gateway_key = g.gateway_key
+             ORDER BY g.is_active DESC, h.status ASC, g.id ASC"
+        );
+        return $st->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/**
+ * Get active collection gateways for a merchant (for checkout routing).
+ * Returns gateway keys in smart priority order.
+ */
+function getMerchantCheckoutGateways(int $merchantId): array
+{
+    $methods = getMerchantPaymentMethods($merchantId);
+    $enabledKeys = [];
+    foreach ($methods as $m) {
+        if ((int)$m['is_enabled'] === 1 && (int)$m['supports_collection'] === 1) {
+            $enabledKeys[] = $m['gateway_key'];
+        }
+    }
+    if (empty($enabledKeys)) return ['upi_p2m'];
+    return getSmartGatewayOrder($enabledKeys);
 }

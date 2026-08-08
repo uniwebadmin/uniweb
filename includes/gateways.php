@@ -1132,3 +1132,96 @@ function fetchDecentroTransactionStatus(string $decentroTxnId): ?array
 }
 
 // Axis VA — see includes/axis.php
+
+/**
+ * Check if a gateway is active in gateway_registry.
+ */
+function isGatewayActive(string $gatewayKey): bool
+{
+    if (!function_exists('getRegisteredGateways')) return true;
+    static $cache = null;
+    if ($cache === null) {
+        $cache = [];
+        foreach (getRegisteredGateways() as $g) {
+            $cache[$g['gateway_key']] = (int)$g['is_active'] === 1;
+        }
+    }
+    return $cache[$gatewayKey] ?? false;
+}
+
+/**
+ * Try payment across multiple gateways in smart priority order.
+ * If first gateway fails, automatically tries the next one.
+ *
+ * @param int $merchantId Merchant ID
+ * @param float $amount Payment amount
+ * @param array $link Payment link data
+ * @param array $extra Extra params (customer info, etc.)
+ * @return array ['ok'=>bool, 'gateway_key'=>string, 'order'=>array|null, 'error'=>string]
+ */
+function tryGatewaysInOrder(int $merchantId, float $amount, array $link, array $extra = []): array
+{
+    if (!function_exists('getMerchantCheckoutGateways')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+
+    $gatewayOrder = getMerchantCheckoutGateways($merchantId);
+    if (empty($gatewayOrder)) {
+        $gatewayOrder = ['upi_p2m'];
+    }
+
+    $lastError = '';
+    foreach ($gatewayOrder as $gwKey) {
+        $startMs = microtime(true);
+
+        // Try this gateway
+        $result = null;
+        switch ($gwKey) {
+            case 'razorpay':
+                if (isGatewayConfigured('razorpay')) {
+                    $order = createRazorpayOrder($amount, $extra['receipt'] ?? ('link_' . $link['id']), $extra['notes'] ?? []);
+                    $result = $order ? ['ok' => true, 'gateway_key' => 'razorpay', 'order' => $order] : ['ok' => false, 'error' => 'Razorpay order creation failed'];
+                }
+                break;
+            case 'payu':
+                if (isGatewayConfigured('payu')) {
+                    $order = createPayuOrder($amount, $extra['receipt'] ?? ('link_' . $link['id']), $link, $extra);
+                    $result = $order ? ['ok' => true, 'gateway_key' => 'payu', 'order' => $order] : ['ok' => false, 'error' => 'PayU order creation failed'];
+                }
+                break;
+            case 'cashfree':
+                if (isGatewayConfigured('cashfree')) {
+                    $order = createCashfreeOrder($amount, $extra['receipt'] ?? ('link_' . $link['id']), $link, $extra);
+                    $result = $order ? ['ok' => true, 'gateway_key' => 'cashfree', 'order' => $order] : ['ok' => false, 'error' => 'Cashfree order creation failed'];
+                }
+                break;
+            case 'upi_p2m':
+            case 'qr_code':
+            default:
+                // Direct UPI / QR — always works (no external gateway needed)
+                $result = ['ok' => true, 'gateway_key' => $gwKey, 'order' => null];
+                break;
+        }
+
+        $responseMs = (int)((microtime(true) - $startMs) * 1000);
+
+        // Skip if gateway not configured (result still null)
+        if ($result === null) {
+            continue;
+        }
+
+        // Record health
+        if (function_exists('recordGatewayAttempt')) {
+            recordGatewayAttempt($gwKey, $result['ok'], $responseMs, $result['error'] ?? '');
+        }
+
+        if ($result['ok']) {
+            return $result;
+        }
+
+        $lastError = $result['error'] ?? 'Unknown error';
+        // Try next gateway
+    }
+
+    return ['ok' => false, 'gateway_key' => '', 'order' => null, 'error' => $lastError ?: 'All gateways failed'];
+}

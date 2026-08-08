@@ -355,6 +355,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     ['admin_virtual_accounts.php','Virtual Accounts'],
                     ['admin_method_requests.php','Method Requests'],
                     ['admin_gateway_registry.php','Gateway Orchestrator'],
+                    ['admin_gateway_health.php','Gateway Health'],
                 ]],
                 ['id' => 'support', 'title' => 'Support & Risk', 'items' => [
                     ['admin_support.php','Support Tickets'],

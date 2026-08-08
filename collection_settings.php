@@ -108,42 +108,6 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <div class="glass rounded-xl p-6">
-        <h3 class="font-semibold mb-1">Method status (auto-queued)</h3>
-        <p class="text-xs text-gray-500 mb-4">UPI P2M turns ON at signup. Cards, wallets, EMI, VA, NBFC, payout and instant settlement are sent to admin → partner automatically when you sign up or upload KYC. No need to click Request for each one.</p>
-        <p class="text-xs mb-3">
-            <?php if (getSetting('nbfc_live_enabled','0') === '1'): ?><a href="merchant_nbfc.php" class="text-sky-400">NBFC status</a> · <?php endif; ?>
-            <a href="merchant_instant_settlement.php" class="text-sky-400">Instant Settlement</a> · <a href="merchant_payout.php" class="text-sky-400">Payouts</a>
-        </p>
-        <?php if (empty($lockedMethods)): ?>
-        <p class="text-sm text-emerald-400">✓ All available payment methods are already enabled for your account.</p>
-        <?php else: ?>
-        <div class="space-y-2">
-            <?php foreach ($lockedMethods as $mk): $cat = $methodCatalog[$mk]; $reqStatus = $methodRequestMap[$mk] ?? null; ?>
-            <div class="flex items-center justify-between gap-3 bg-dark-900/50 rounded-lg p-3 border border-gray-800">
-                <span class="text-sm"><?= e(($cat['icon'] ?? '') . ' ' . $cat['label']) ?></span>
-                <?php if ($reqStatus === 'pending'): ?>
-                <span class="text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300">Queued for admin</span>
-                <?php elseif ($reqStatus === 'sent_to_partner'): ?>
-                <span class="text-xs px-2.5 py-1 rounded-full bg-sky-500/15 text-sky-300">With partner</span>
-                <?php elseif ($reqStatus === 'partner_approved'): ?>
-                <span class="text-xs px-2.5 py-1 rounded-full bg-violet-500/15 text-violet-300">Partner OK — enabling</span>
-                <?php elseif ($reqStatus === 'partner_rejected' || $reqStatus === 'rejected'): ?>
-                <form method="POST" class="m-0">
-                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                    <input type="hidden" name="action" value="request_method">
-                    <input type="hidden" name="method_key" value="<?= e($mk) ?>">
-                    <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200">Request again</button>
-                </form>
-                <?php else: ?>
-                <span class="text-xs px-2.5 py-1 rounded-full bg-gray-700/50 text-gray-400">Will auto-queue on KYC upload</span>
-                <?php endif; ?>
-            </div>
-            <?php endforeach; ?>
-        </div>
-        <?php endif; ?>
-    </div>
-
-    <div class="glass rounded-xl p-6">
         <h3 class="font-semibold mb-3">Direct UPI (P2M)</h3>
         <p class="text-sm text-gray-400">Your UPI ID: <span class="font-mono text-sky-400"><?= e($merchant['upi_id']) ?></span></p>
         <p class="text-xs text-gray-500 mt-2">Customers pay directly to your VPA — money does not pass through UniWeb.</p>

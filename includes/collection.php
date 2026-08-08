@@ -336,24 +336,36 @@ function getCheckoutPaymentMethods(array $link): array
 {
     $handler = resolveCheckoutHandlerForLink($link);
     $isTest = !empty($link['is_test']) || merchantAccountMode($link) === 'test';
-    // Only advertise PG tabs when gateway is configured OR we are in test (Instant Test completes without redirect)
     $payuConfigured = isGatewayConfigured('payu');
     $rzpConfigured = isGatewayConfigured('razorpay');
     $cfConfigured = isGatewayConfigured('cashfree');
     $methods = [];
 
-    $enabled = getMerchantEnabledMethods($link);
+    // Use new merchant_payment_methods system if available
+    $merchantId = (int)($link['merchant_id'] ?? 0);
+    $newEnabledKeys = [];
+    if ($merchantId > 0 && function_exists('getMerchantEnabledMethodKeys')) {
+        $newEnabledKeys = getMerchantEnabledMethodKeys($merchantId);
+    }
+
+    // Fall back to old system if new system returns nothing
+    $enabled = !empty($newEnabledKeys) ? $newEnabledKeys : getMerchantEnabledMethods($link);
     $catalog = getPaymentMethodCatalog();
     $allow = function (string $methodKey) use ($enabled): bool {
         return in_array($methodKey, $enabled, true);
+    };
+
+    // Check if a gateway is active in gateway_registry
+    $gwActive = function(string $key): bool {
+        if (function_exists('isGatewayActive')) return isGatewayActive($key);
+        return true; // fallback if function not loaded
     };
 
     if ($allow('upi_p2m') || in_array($handler, ['direct_upi', 'axis_va'], true) || empty($link['payment_method'])) {
         $methods[] = ['key' => 'upi', 'label' => 'UPI / QR', 'sub' => 'Google Pay · PhonePe · Paytm', 'icon' => '📱', 'type' => 'p2m'];
     }
 
-    // Card / NB / Wallet: show if PayU configured, or Test Mode Instant Pay
-    if ($payuConfigured || $isTest) {
+    if (($payuConfigured || $isTest) && $gwActive('payu')) {
         if ($allow('debit_card')) {
             $methods[] = ['key' => 'dc', 'label' => 'Debit Card', 'sub' => $payuConfigured ? 'Visa · Mastercard · RuPay' : 'Test Mode — Instant Pay', 'icon' => '💳', 'type' => 'payu', 'pg' => 'DC'];
         }
@@ -373,10 +385,10 @@ function getCheckoutPaymentMethods(array $link): array
             $methods[] = ['key' => 'payu_upi', 'label' => 'UPI (Gateway)', 'sub' => $payuConfigured ? 'Pay via PayU' : 'Test Mode — Instant Pay', 'icon' => '⚡', 'type' => 'payu', 'pg' => 'UPI'];
         }
     }
-    if (($allow('razorpay') || $handler === 'razorpay_route') && ($rzpConfigured || $isTest) && ($handler === 'razorpay_route' || $handler === 'platform_pg' || $allow('razorpay'))) {
+    if (($allow('razorpay') || $handler === 'razorpay_route') && ($rzpConfigured || $isTest) && $gwActive('razorpay') && ($handler === 'razorpay_route' || $handler === 'platform_pg' || $allow('razorpay'))) {
         $methods[] = ['key' => 'razorpay', 'label' => 'Cards & UPI', 'sub' => $rzpConfigured ? 'Razorpay Checkout' : 'Test Mode — Instant Pay', 'icon' => '🔒', 'type' => 'razorpay'];
     }
-    if (($allow('cashfree') || $handler === 'cashfree_route') && ($cfConfigured || $isTest) && ($handler === 'cashfree_route' || $handler === 'platform_pg' || $allow('cashfree'))) {
+    if (($allow('cashfree') || $handler === 'cashfree_route') && ($cfConfigured || $isTest) && $gwActive('cashfree') && ($handler === 'cashfree_route' || $handler === 'platform_pg' || $allow('cashfree'))) {
         $methods[] = ['key' => 'cashfree', 'label' => 'Cashfree Pay', 'sub' => $cfConfigured ? 'Cards · UPI · NB' : 'Test Mode — Instant Pay', 'icon' => '💰', 'type' => 'cashfree'];
     }
 

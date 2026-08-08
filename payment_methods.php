@@ -40,9 +40,23 @@ require_once __DIR__ . '/header.php';
 ?>
 <div class="max-w-2xl space-y-6">
     <div class="glass rounded-xl p-6 border border-gray-800">
-        <h2 class="font-semibold mb-2">Payment Methods</h2>
-        <p class="text-xs text-gray-500 mb-6">Toggle ON/OFF which payment methods customers see at checkout. All methods are OFF by default — enable the ones you need.</p>
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <div>
+                <h2 class="font-semibold text-lg">Payment Methods</h2>
+                <p class="text-xs text-gray-500 mt-1">Toggle ON/OFF which payment methods customers see at checkout.</p>
+            </div>
+            <div class="text-center">
+                <p class="text-2xl font-bold text-emerald-400"><?= count(array_filter($methods, fn($m) => (int)$m['is_enabled'] === 1)) ?></p>
+                <p class="text-[10px] text-gray-500 uppercase">Enabled</p>
+            </div>
+        </div>
 
+        <?php if (empty($methods)): ?>
+        <div class="bg-dark-900/50 rounded-xl p-8 text-center border border-gray-800">
+            <p class="text-sm text-gray-400 mb-2">No payment methods available yet.</p>
+            <p class="text-xs text-gray-600">Admin needs to activate a payment gateway first. Once activated, methods will appear here for you to toggle ON/OFF.</p>
+        </div>
+        <?php else: ?>
         <form method="POST" id="bulkForm" class="space-y-3">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="bulk_save">
@@ -84,11 +98,12 @@ require_once __DIR__ . '/header.php';
             <?php endforeach; ?>
             <button type="submit" class="btn-primary px-6 py-2.5 w-full">Save Payment Methods</button>
         </form>
+        <?php endif; ?>
     </div>
 
     <div class="glass rounded-xl p-4 border border-gray-800">
         <p class="text-xs text-gray-500">
-            <strong class="text-gray-400">Note:</strong> Some methods (Cards, Net Banking, Wallet) require a configured payment gateway. If a gateway is not yet live, the method will show at checkout only after partner activation. UPI P2M and QR Code work immediately.
+            <strong class="text-gray-400">How it works:</strong> Admin activates payment gateways → methods appear here → you toggle ON the ones you want → customers see only enabled methods at checkout. If a gateway goes down, the system automatically routes to the next best available gateway.
         </p>
     </div>
 </div>
