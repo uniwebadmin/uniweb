@@ -88,11 +88,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         redirect('admin_edit_merchant.php?id=' . $id);
     }
 
-    $enabled = array_values(array_intersect(
-        array_keys(getPaymentMethodCatalog()),
-        array_map('strval', $_POST['enabled_methods'] ?? [])
-    ));
-    $enabledJson = json_encode($enabled);
+    // Payment methods now managed via ON/OFF toggles (sidebar) — keep existing JSON
+    $enabledJson = $merchant['enabled_methods'] ?? '["upi_p2m"]';
 
     $db->prepare('UPDATE merchants SET name=?, business_name=?, email=?, phone=?, business_type=?, business_entity_type=?, pan_number=?, gstin=?, cin_llpin=?, commission_rate=?, kyc_status=?, account_mode=?, subscription_plan=?, monthly_fee=?, status=?, collection_mode=?, payu_child_key=?, razorpay_linked_account_id=?, cashfree_vendor_id=?, enabled_methods=?, website_url=?, android_app_url=?, ios_app_url=? WHERE id=?')
         ->execute([
@@ -241,20 +238,10 @@ $methodCatalog = getPaymentMethodCatalog();
                     </select>
                 </div>
                 <div class="sm:col-span-2">
-                    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-                        <label class="text-sm text-gray-400">Payment Methods (enabled for merchant)</label>
-                        <div class="flex gap-2 text-xs">
-                            <button type="button" id="enable-all-methods" class="px-2.5 py-1 rounded-lg border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10">Enable all</button>
-                            <button type="button" id="disable-all-methods" class="px-2.5 py-1 rounded-lg border border-gray-700 text-gray-400 hover:bg-white/5">Clear</button>
-                        </div>
-                    </div>
-                    <div class="grid sm:grid-cols-2 gap-2 bg-dark-900/50 rounded-xl p-4 border border-gray-800 max-h-48 overflow-y-auto" id="enabled-methods-box">
-                        <?php foreach ($methodCatalog as $mk => $cat): ?>
-                        <label class="flex items-center gap-2 text-xs cursor-pointer">
-                            <input type="checkbox" name="enabled_methods[]" value="<?= e($mk) ?>" <?= in_array($mk, $enabledMethods, true) ? 'checked' : '' ?> class="rounded border-gray-600 method-toggle">
-                            <span><?= e(($cat['icon'] ?? '') . ' ' . $cat['label']) ?></span>
-                        </label>
-                        <?php endforeach; ?>
+                    <label class="text-sm text-gray-400 block mb-2">Payment Methods</label>
+                    <div class="bg-dark-900/50 rounded-xl p-4 border border-gray-800">
+                        <p class="text-xs text-gray-400 mb-2">Manage payment methods via the ON/OFF toggles in the sidebar →</p>
+                        <a href="#payment-methods" class="text-sm text-brand-400 hover:text-brand-300">Go to Payment Methods ON/OFF →</a>
                     </div>
                 </div>
                 <div><label class="text-sm text-gray-400">PayU Child Key</label><input type="text" name="payu_child_key" class="input-field mt-1 font-mono text-xs" value="<?= e($merchant['payu_child_key'] ?? '') ?>"></div>
@@ -395,10 +382,5 @@ $methodCatalog = getPaymentMethodCatalog();
             setTimeout(function(){ el.scrollIntoView({behavior:'smooth', block:'start'}); el.classList.add('ring-2','ring-brand-500/50'); }, 120);
         }
     }
-    function setAllMethods(on) {
-        document.querySelectorAll('#enabled-methods-box .method-toggle').forEach(function(cb){ cb.checked = !!on; });
-    }
-    document.getElementById('enable-all-methods')?.addEventListener('click', function(){ setAllMethods(true); });
-    document.getElementById('disable-all-methods')?.addEventListener('click', function(){ setAllMethods(false); });
 })();
 </script>
