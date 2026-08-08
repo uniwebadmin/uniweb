@@ -302,11 +302,17 @@ endif;
                     <svg class="w-8 h-8 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                 </div>
                 <h2 class="text-xl font-bold mb-2">Payment Successful</h2>
-                <p class="text-gray-400 text-sm">Your payment has been confirmed. A receipt will be sent to the merchant.</p>
+                <p class="text-gray-400 text-sm"><?= e($wlBrand['active'] && !empty($wlBrand['success_message']) ? $wlBrand['success_message'] : 'Your payment has been confirmed. A receipt will be sent to the merchant.') ?></p>
                 <?php if ($successTxnId): ?>
                 <p class="text-xs text-gray-500 mt-3 font-mono">Transaction ID: <?= e($successTxnId) ?></p>
                 <?php endif; ?>
+                <?php if ($wlBrand['active'] && !empty($wlBrand['redirect_url'])): ?>
+                <p class="text-xs text-gray-500 mt-4">You will be redirected shortly…</p>
+                <script>setTimeout(function(){ window.location.href = <?= json_encode($wlBrand['redirect_url']) ?>; }, 3000);</script>
+                <a href="<?= e($wlBrand['redirect_url']) ?>" class="inline-block mt-4 text-sm text-sky-400 hover:underline">Continue →</a>
+                <?php else: ?>
                 <a href="payment_status.php<?= $successTxnId ? '?txn_id=' . rawurlencode((string)$successTxnId) : '' ?>" class="inline-block mt-6 text-sm text-sky-400 hover:underline">Track payment status →</a>
+                <?php endif; ?>
             </div>
             <?php else: ?>
             <div class="glass rounded-2xl overflow-hidden border border-gray-800">
@@ -343,7 +349,7 @@ endif;
                 </div>
 
                 <div class="px-6 py-5">
-                    <?php if ($error): ?><div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg mb-4"><?= e($error) ?></div><?php endif; ?>
+                    <?php if ($error): ?><div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg mb-4"><?= e($wlBrand['active'] && !empty($wlBrand['failure_message']) ? $wlBrand['failure_message'] . ' — ' . $error : $error) ?></div><?php endif; ?>
                     <?php if ($currentMethod): ?>
                     <p class="text-sm font-medium text-gray-300 mb-1"><?= e((string)($currentMethod['label'] ?? '')) ?></p>
                     <p class="text-xs text-gray-500 mb-4"><?= e((string)($currentMethod['sub'] ?? '')) ?></p>

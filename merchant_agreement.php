@@ -92,13 +92,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ip = trim(explode(',', $ip)[0]);
     }
     $partnerNames = implode(', ', getMerchantApprovedPartners($merchantId));
+    $geoLat = null;
+    $geoLng = null;
+    if (!empty($_POST['geo_consent'])) {
+        $geoLat = (float)($_POST['geo_lat'] ?? 0) ?: null;
+        $geoLng = (float)($_POST['geo_lng'] ?? 0) ?: null;
+    }
     $stmt = $db->prepare("INSERT INTO merchant_agreement_acceptances
-        (merchant_id, agreement_version, legal_name, merchant_code, document_hash, accepted_ip, user_agent, signature_name, partner_names, requires_resign, accepted_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())
+        (merchant_id, agreement_version, legal_name, merchant_code, document_hash, accepted_ip, user_agent, signature_name, partner_names, requires_resign, geo_lat, geo_lng, accepted_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, NOW())
         ON DUPLICATE KEY UPDATE
         legal_name=VALUES(legal_name), document_hash=VALUES(document_hash), accepted_ip=VALUES(accepted_ip),
         user_agent=VALUES(user_agent), signature_name=VALUES(signature_name), partner_names=VALUES(partner_names),
-        requires_resign=0, accepted_at=NOW()");
+        requires_resign=0, geo_lat=VALUES(geo_lat), geo_lng=VALUES(geo_lng), accepted_at=NOW()");
     $stmt->execute([
         $merchantId,
         $version,
@@ -109,6 +115,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500),
         $signatureName,
         $partnerNames,
+        $geoLat,
+        $geoLng,
     ]);
     $acceptanceId = (int)$db->lastInsertId();
     if ($acceptanceId <= 0) {
@@ -127,6 +135,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'accepted_ip' => $ip,
             'document_hash' => $documentHash,
             'partner_names' => $partnerNames,
+            'geo_lat' => $geoLat,
+            'geo_lng' => $geoLng,
         ];
     }
     if ($acceptance) {
@@ -257,6 +267,8 @@ ob_start();
     <div class="company-kicker">Acceptance recorded</div>
     <h2>Agreement version <?= e($version) ?> is active</h2>
     <p>Accepted for <strong><?= e($acceptance['legal_name']) ?></strong> on <?= e(date('d M Y, h:i:s A', strtotime($acceptance['accepted_at']))) ?> IST. Audit reference: <strong>UWA-<?= (int)$acceptance['id'] ?></strong>.</p>
+    <?php if (!empty($acceptance['accepted_ip'])): ?><p class="text-xs text-gray-500 mt-1">IP address: <span class="font-mono"><?= e($acceptance['accepted_ip']) ?></span></p><?php endif; ?>
+    <?php if (!empty($acceptance['geo_lat']) && !empty($acceptance['geo_lng'])): ?><p class="text-xs text-gray-500 mt-1">Location: <span class="font-mono"><?= e($acceptance['geo_lat']) ?>, <?= e($acceptance['geo_lng']) ?></span> <a href="https://www.google.com/maps?q=<?= e($acceptance['geo_lat']) ?>,<?= e($acceptance['geo_lng']) ?>" target="_blank" class="text-sky-400 hover:underline">View on map</a></p><?php endif; ?>
     <?php if (!empty($acceptance['signature_name'])): ?><p class="text-sm text-gray-500">Electronic signature: <strong><?= e($acceptance['signature_name']) ?></strong></p><?php endif; ?>
     <?php if (!empty($acceptance['partner_names'])): ?><p class="text-sm text-gray-500">Partners covered: <strong><?= e($acceptance['partner_names']) ?></strong></p><?php endif; ?>
     <?php if (!empty($approvedPartners) && !empty($acceptance['partner_names'])): ?>
@@ -314,9 +326,11 @@ ob_start();
     <div class="company-kicker">Aadhaar eSign</div>
     <h2>Digitally sign via Aadhaar eSign</h2>
     <p>Sign your agreement using Aadhaar-based OTP authentication. Provider: <strong><?= e($esignProvider) ?></strong><?= $esignProvider === 'internal' ? ' (internal mode — typed signature with enhanced audit)' : '' ?></p>
-    <form method="POST" class="space-y-4 mt-5">
+    <form method="POST" class="space-y-4 mt-5" id="esign-form">
         <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
         <input type="hidden" name="action" value="initiate_esign">
+        <input type="hidden" name="geo_lat" id="geo_lat" value="">
+        <input type="hidden" name="geo_lng" id="geo_lng" value="">
         <div>
             <label class="text-sm text-gray-400 block mb-1">Signer Full Legal Name *</label>
             <input type="text" name="signer_name" required minlength="3" maxlength="190" class="input-field" placeholder="As on PAN / incorporation records" value="<?= e($merchant['business_name'] ?? $merchant['name'] ?? '') ?>">
@@ -330,15 +344,19 @@ ob_start();
         <?php endif; ?>
         <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="accept_agreement" value="1" required class="mt-1"><span>I have read and agree to the Merchant Services Agreement, Terms and Privacy Policy.</span></label>
         <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="authority_confirmed" value="1" required class="mt-1"><span>I confirm that I am authorized to accept this Agreement for the registered merchant entity.</span></label>
+        <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="geo_consent" value="1" class="mt-1" id="geo-consent-esign"><span>I consent to capturing my location (lat/long) for audit stamp on this agreement. Optional — skip if you prefer.</span></label>
         <button type="submit" class="btn-primary px-6 py-3">Initiate Aadhaar eSign</button>
     </form>
 
     <div class="mt-6 pt-4 border-t border-gray-800">
         <h3 class="text-sm font-bold text-gray-400 mb-2">Or use typed electronic signature</h3>
-        <form method="POST" class="space-y-4">
+        <form method="POST" class="space-y-4" id="typed-sig-form">
             <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+            <input type="hidden" name="geo_lat" id="geo_lat_typed" value="">
+            <input type="hidden" name="geo_lng" id="geo_lng_typed" value="">
             <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="accept_agreement" value="1" required class="mt-1"><span>I have read and agree to the Merchant Services Agreement, Terms and Privacy Policy.</span></label>
             <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="authority_confirmed" value="1" required class="mt-1"><span>I confirm that I am authorized to accept this Agreement for the registered merchant entity.</span></label>
+            <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="geo_consent" value="1" class="mt-1" id="geo-consent-typed"><span>I consent to capturing my location (lat/long) for audit stamp. Optional.</span></label>
             <div>
                 <label class="text-sm text-gray-400 block mb-1">Electronic signature — type your full legal name *</label>
                 <input type="text" name="signature_name" required minlength="3" maxlength="190" class="input-field" placeholder="As on PAN / incorporation records" value="<?= e($merchant['business_name'] ?? $merchant['name'] ?? '') ?>">
@@ -368,4 +386,25 @@ renderPublicLegalPage([
     'sections' => $sections,
     'after' => $acceptanceBlock,
 ]);
+?>
+<script>
+document.querySelectorAll('input[name="geo_consent"]').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+        if (!this.checked) return;
+        var form = this.closest('form');
+        var latField = form.querySelector('[name="geo_lat"]');
+        var lngField = form.querySelector('[name="geo_lng"]');
+        if (!latField || !lngField) return;
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(function(pos) {
+            latField.value = pos.coords.latitude.toFixed(7);
+            lngField.value = pos.coords.longitude.toFixed(7);
+        }, function() {
+            cb.checked = false;
+            alert('Location access denied or unavailable. You can still sign without location.');
+        }, { timeout: 10000, enableHighAccuracy: false });
+    });
+});
+</script>
+<?php
 require_once __DIR__ . '/footer.php';

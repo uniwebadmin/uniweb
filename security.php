@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     elseif (strlen($new) < 8) { flash('error', 'New password must be 8+ characters.'); }
     elseif ($new !== $confirm) { flash('error', 'Passwords do not match.'); }
     else {
-        getDB()->prepare('UPDATE merchants SET password = ? WHERE id = ?')->execute([password_hash($new, PASSWORD_BCRYPT), $merchant['id']]);
+        getDB()->prepare('UPDATE merchants SET password = ? WHERE id = ?')->execute([password_hash($new, PASSWORD_ARGON2ID), $merchant['id']]);
         flash('success', 'Password changed successfully.');
     }
     redirect('security.php');

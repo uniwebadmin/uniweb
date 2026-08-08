@@ -164,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                     'email' => $email,
                     'phone' => $phone,
                     'name' => $name,
-                    'password_hash' => password_hash($password, PASSWORD_BCRYPT),
+                    'password_hash' => password_hash($password, PASSWORD_ARGON2ID),
                     'signup_mode' => $signupMode,
                     'otp_identifier' => $otpTarget,
                     'demo_otp' => $delivery['demo_otp'],

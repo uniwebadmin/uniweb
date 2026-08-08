@@ -172,7 +172,7 @@ function acceptMerchantTeamInvite(string $token, string $password): array
         return ['ok' => false, 'error' => 'Password must be at least 8 characters.'];
     }
     getDB()->prepare("UPDATE merchant_team_members SET password_hash=?, status='active', invite_token=NULL, accepted_at=NOW() WHERE id=?")
-        ->execute([password_hash($password, PASSWORD_BCRYPT), (int)$invite['id']]);
+        ->execute([password_hash($password, PASSWORD_ARGON2ID), (int)$invite['id']]);
     return ['ok' => true, 'member' => $invite];
 }
 

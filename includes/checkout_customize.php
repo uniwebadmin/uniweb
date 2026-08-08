@@ -24,11 +24,17 @@ function ensureCheckoutCustomizeTable(): void
             button_color VARCHAR(20) DEFAULT NULL,
             checkout_title VARCHAR(200) DEFAULT NULL,
             checkout_subtitle VARCHAR(300) DEFAULT NULL,
+            success_message VARCHAR(300) DEFAULT NULL,
+            failure_message VARCHAR(300) DEFAULT NULL,
+            redirect_url VARCHAR(500) DEFAULT NULL,
             custom_css TEXT DEFAULT NULL,
             is_active TINYINT(1) NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        getDB()->exec("ALTER TABLE merchant_checkout_customize ADD COLUMN success_message VARCHAR(300) DEFAULT NULL AFTER checkout_subtitle");
+        getDB()->exec("ALTER TABLE merchant_checkout_customize ADD COLUMN failure_message VARCHAR(300) DEFAULT NULL AFTER success_message");
+        getDB()->exec("ALTER TABLE merchant_checkout_customize ADD COLUMN redirect_url VARCHAR(500) DEFAULT NULL AFTER failure_message");
     } catch (Throwable $e) { error_log('ensureCheckoutCustomizeTable: ' . $e->getMessage()); }
 }
 
@@ -67,6 +73,9 @@ function saveMerchantCheckoutCustomize(int $merchantId, array $data): array
     $buttonColor = trim((string)($data['button_color'] ?? '')) ?: null;
     $checkoutTitle = trim((string)($data['checkout_title'] ?? '')) ?: null;
     $checkoutSubtitle = trim((string)($data['checkout_subtitle'] ?? '')) ?: null;
+    $successMessage = trim((string)($data['success_message'] ?? '')) ?: null;
+    $failureMessage = trim((string)($data['failure_message'] ?? '')) ?: null;
+    $redirectUrl = trim((string)($data['redirect_url'] ?? '')) ?: null;
     $customCss = trim((string)($data['custom_css'] ?? '')) ?: null;
     $isActive = !empty($data['is_active']) ? 1 : 0;
 
@@ -80,17 +89,22 @@ function saveMerchantCheckoutCustomize(int $merchantId, array $data): array
         return ['ok' => false, 'error' => 'Logo URL must be a valid URL.'];
     }
 
+    if ($redirectUrl && !filter_var($redirectUrl, FILTER_VALIDATE_URL)) {
+        return ['ok' => false, 'error' => 'Redirect URL must be a valid URL.'];
+    }
+
     try {
         getDB()->prepare('INSERT INTO merchant_checkout_customize
-            (merchant_id, logo_url, primary_color, accent_color, button_color, checkout_title, checkout_subtitle, custom_css, is_active)
-            VALUES (?,?,?,?,?,?,?,?,?)
+            (merchant_id, logo_url, primary_color, accent_color, button_color, checkout_title, checkout_subtitle, success_message, failure_message, redirect_url, custom_css, is_active)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
             ON DUPLICATE KEY UPDATE
             logo_url=VALUES(logo_url), primary_color=VALUES(primary_color), accent_color=VALUES(accent_color),
             button_color=VALUES(button_color), checkout_title=VALUES(checkout_title), checkout_subtitle=VALUES(checkout_subtitle),
+            success_message=VALUES(success_message), failure_message=VALUES(failure_message), redirect_url=VALUES(redirect_url),
             custom_css=VALUES(custom_css), is_active=VALUES(is_active)')
             ->execute([
                 $merchantId, $logoUrl, $primaryColor, $accentColor, $buttonColor,
-                $checkoutTitle, $checkoutSubtitle, $customCss, $isActive,
+                $checkoutTitle, $checkoutSubtitle, $successMessage, $failureMessage, $redirectUrl, $customCss, $isActive,
             ]);
         return ['ok' => true, 'message' => 'Checkout customization saved.'];
     } catch (Throwable $e) {
@@ -158,5 +172,9 @@ function resolveCheckoutCustomize(array $merchant): array
         'css' => renderCheckoutCustomizeCss($cc),
         'checkout_title' => $cc['checkout_title'] ?? null,
         'checkout_subtitle' => $cc['checkout_subtitle'] ?? null,
+        'success_message' => $cc['success_message'] ?? null,
+        'failure_message' => $cc['failure_message'] ?? null,
+        'redirect_url' => $cc['redirect_url'] ?? null,
+        'brand_name' => trim((string)($merchant['business_name'] ?? '')) ?: APP_NAME,
     ];
 }

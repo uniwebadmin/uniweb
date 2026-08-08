@@ -55,7 +55,7 @@ function createMerchantApiCredential(int $merchantId, string $mode, ?array $scop
         $mode,
         $prefix,
         hash('sha256', $key),
-        password_hash($secret, PASSWORD_DEFAULT),
+        password_hash($secret, PASSWORD_ARGON2ID),
         json_encode($scopes),
         $normalizedOrigins ? json_encode(array_values(array_unique($normalizedOrigins))) : null,
     ]);

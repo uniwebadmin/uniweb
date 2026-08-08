@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         else {
             $code = 'UW' . strtoupper(substr(bin2hex(random_bytes(4)),0,8));
             $db->prepare('INSERT INTO merchants (merchant_code,name,email,phone,password,business_name,business_type,api_key,api_secret,upi_id,kyc_status) VALUES (?,?,?,?,?,?,?,?,?,?,"verified")')
-                ->execute([$code,$name,$email,$phone,password_hash($password,PASSWORD_BCRYPT),$business,$_POST['business_type']??'retail','uk_'.bin2hex(random_bytes(16)),'us_'.bin2hex(random_bytes(24)),strtolower(preg_replace('/\s+/','',$business)).'@uniweb']);
+                ->execute([$code,$name,$email,$phone,password_hash($password,PASSWORD_ARGON2ID),$business,$_POST['business_type']??'retail','uk_'.bin2hex(random_bytes(16)),'us_'.bin2hex(random_bytes(24)),strtolower(preg_replace('/\s+/','',$business)).'@uniweb']);
             flash('success', 'Merchant created: ' . $code);
             redirect('manage_merchant.php');
         }

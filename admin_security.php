@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             flash('error', 'New passwords do not match.');
         } else {
             $db->prepare('UPDATE admins SET password=?, auth_version=auth_version+1, password_changed_at=NOW() WHERE id=?')
-                ->execute([password_hash($new, PASSWORD_BCRYPT), $admin['id']]);
+                ->execute([password_hash($new, PASSWORD_ARGON2ID), $admin['id']]);
             recordImmutableAudit('admin_password_changed', null, 'admin', (string)$admin['id'], 'Password rotated');
             clearPortalSession('Password changed. Login again with MFA.');
             redirect(in_array(adminRole($admin), ['super', 'ceo'], true) ? 'admin_login.php' : 'staff_login.php');

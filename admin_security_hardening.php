@@ -24,9 +24,9 @@ $securityChecks = [
         'detail' => 'All DB queries use PDO prepared statements, no raw SQL injection',
     ],
     'password_hashing' => [
-        'label' => 'Password Hashing (bcrypt)',
+        'label' => 'Password Hashing (Argon2id)',
         'status' => true,
-        'detail' => 'Passwords hashed with PHP password_hash()',
+        'detail' => 'Passwords hashed with PHP password_hash(PASSWORD_ARGON2ID)',
     ],
     'totp_2fa' => [
         'label' => 'TOTP 2FA for Staff',

@@ -39,6 +39,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             $db->prepare('INSERT INTO admin_login_attempts (username, ip_address, succeeded) VALUES (?,?,?)')
                 ->execute([$username, $ipAddress, $valid ? 1 : 0]);
             if ($valid) {
+                if (defined('PASSWORD_ARGON2ID') && password_needs_rehash((string)$admin['password'], PASSWORD_ARGON2ID)) {
+                    try {
+                        $db->prepare('UPDATE admins SET password=? WHERE id=?')
+                            ->execute([password_hash($password, PASSWORD_ARGON2ID), (int)$admin['id']]);
+                    } catch (Throwable $e) { /* non-fatal */ }
+                }
                 $role = adminRole($admin);
                 if (in_array($role, ['super', 'ceo'], true)) {
                     $error = 'Admin accounts must use the Master Admin Portal login.';

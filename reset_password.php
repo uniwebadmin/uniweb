@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         if (!$reset) $error = 'Invalid or expired reset link.';
         else {
             getDB()->prepare('UPDATE merchants SET password = ? WHERE email = ?')
-                ->execute([password_hash($password, PASSWORD_BCRYPT), $reset['email']]);
+                ->execute([password_hash($password, PASSWORD_ARGON2ID), $reset['email']]);
             getDB()->prepare('DELETE FROM password_resets WHERE token = ?')->execute([$token]);
             $success = true;
         }

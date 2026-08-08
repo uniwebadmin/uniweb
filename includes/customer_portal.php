@@ -126,7 +126,7 @@ function requestCustomerOtp(string $phone): array
     }
 
     $otp = (string)random_int(100000, 999999);
-    $hash = password_hash($otp, PASSWORD_DEFAULT);
+    $hash = password_hash($otp, PASSWORD_ARGON2ID);
     try {
         $db->prepare("INSERT INTO customer_otps (phone, otp_hash, expires_at) VALUES (?,?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))")
             ->execute([$phone, $hash]);

@@ -13,7 +13,7 @@ function ensureDemoMerchant(): array
 
     if (!$merchant) {
         $code = 'UWDEMO01';
-        $pass = password_hash('Demo@1234', PASSWORD_BCRYPT);
+        $pass = password_hash('Demo@1234', PASSWORD_ARGON2ID);
         $db->prepare('INSERT INTO merchants (merchant_code,name,email,phone,password,business_name,business_type,business_entity_type,upi_id,kyc_status,account_mode,collection_mode,commission_rate,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
             ->execute([
                 $code, 'Demo Merchant', $email, COMPANY_PHONE, $pass,

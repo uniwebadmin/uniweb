@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         } else {
             $code = 'AG' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
             $db->prepare('INSERT INTO merchants (merchant_code,parent_merchant_id,name,email,phone,password,business_name,business_type,business_entity_type,agent_commission,api_key,api_secret,upi_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
-                ->execute([$code, $merchant['id'], $name, $email, $phone, password_hash($password, PASSWORD_BCRYPT), $business, 'retail', 'sole_proprietorship', $commission, 'uk_' . bin2hex(random_bytes(16)), 'us_' . bin2hex(random_bytes(24)), strtolower(preg_replace('/\s+/', '', $business)) . '@uniweb']);
+                ->execute([$code, $merchant['id'], $name, $email, $phone, password_hash($password, PASSWORD_ARGON2ID), $business, 'retail', 'sole_proprietorship', $commission, 'uk_' . bin2hex(random_bytes(16)), 'us_' . bin2hex(random_bytes(24)), strtolower(preg_replace('/\s+/', '', $business)) . '@uniweb']);
             $id = (int)$db->lastInsertId();
             createNotification($id, 'Agent Account Created', 'You have been added as an agent under ' . $merchant['business_name']);
             flash('success', 'Agent created: ' . $code);

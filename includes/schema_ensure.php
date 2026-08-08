@@ -225,6 +225,8 @@ function ensureMerchantAgreementSchema(): void
     schemaExecQuiet("ALTER TABLE merchant_agreement_acceptances ADD COLUMN pdf_filename VARCHAR(255) DEFAULT NULL AFTER signature_name");
     schemaExecQuiet("ALTER TABLE merchant_agreement_acceptances ADD COLUMN partner_names VARCHAR(500) DEFAULT NULL AFTER pdf_filename");
     schemaExecQuiet("ALTER TABLE merchant_agreement_acceptances ADD COLUMN requires_resign TINYINT(1) NOT NULL DEFAULT 0 AFTER partner_names");
+    schemaExecQuiet("ALTER TABLE merchant_agreement_acceptances ADD COLUMN geo_lat DECIMAL(10,7) DEFAULT NULL AFTER requires_resign");
+    schemaExecQuiet("ALTER TABLE merchant_agreement_acceptances ADD COLUMN geo_lng DECIMAL(10,7) DEFAULT NULL AFTER geo_lat");
 }
 
 /** Ensure invoices carry customer address for complete tax-invoice PDFs. */

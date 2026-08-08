@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->beginTransaction();
                 try {
                     $db->prepare('UPDATE admins SET password=?, auth_version=auth_version+1 WHERE id=?')
-                        ->execute([password_hash($password, PASSWORD_DEFAULT), (int)$admin['id']]);
+                        ->execute([password_hash($password, PASSWORD_ARGON2ID), (int)$admin['id']]);
                     $db->prepare("DELETE FROM password_resets WHERE email=? AND user_type='admin'")
                         ->execute([$reset['email']]);
                     $db->prepare('DELETE FROM admin_login_attempts WHERE username=?')

@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         } else {
             try {
                 $db->prepare('INSERT INTO admins (username, password, name, role, email, phone, reports_to) VALUES (?,?,?,?,?,?,?)')
-                    ->execute([$username, password_hash($password, PASSWORD_BCRYPT), $name, $role, trim($_POST['email'] ?? '') ?: null, preg_replace('/\D/', '', $_POST['phone'] ?? '') ?: null, $reportsTo]);
+                    ->execute([$username, password_hash($password, PASSWORD_ARGON2ID), $name, $role, trim($_POST['email'] ?? '') ?: null, preg_replace('/\D/', '', $_POST['phone'] ?? '') ?: null, $reportsTo]);
                 logStaffActivity('staff_created', "Created staff {$username} as {$role}");
                 flash('success', 'Staff account created: ' . $username);
             } catch (Throwable $e) {

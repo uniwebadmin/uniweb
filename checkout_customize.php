@@ -110,10 +110,27 @@ require_once __DIR__ . '/header.php';
                 <input type="text" name="checkout_title" value="<?= e($cc['checkout_title'] ?? '') ?>" placeholder="e.g. Pay to Acme Store" maxlength="200" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm">
                 <p class="text-xs text-gray-600 mt-1">Browser tab title aur header text. Leave blank for default.</p>
             </div>
-            <div>
+            <div class="mb-4">
                 <label class="block text-sm text-gray-400 mb-2">Checkout Subtitle (optional)</label>
                 <input type="text" name="checkout_subtitle" value="<?= e($cc['checkout_subtitle'] ?? '') ?>" placeholder="e.g. Secure Payment" maxlength="300" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm">
                 <p class="text-xs text-gray-600 mt-1">Header ke side mein chhota text. Leave blank for "Secure Checkout".</p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Success Message (optional)</label>
+                    <input type="text" name="success_message" value="<?= e($cc['success_message'] ?? '') ?>" placeholder="e.g. Payment successful! Thank you." maxlength="300" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm">
+                    <p class="text-xs text-gray-600 mt-1">Payment successful hone ke baad dikhne wala message.</p>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Failure Message (optional)</label>
+                    <input type="text" name="failure_message" value="<?= e($cc['failure_message'] ?? '') ?>" placeholder="e.g. Payment failed. Please try again." maxlength="300" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm">
+                    <p class="text-xs text-gray-600 mt-1">Payment fail hone par dikhne wala message.</p>
+                </div>
+            </div>
+            <div class="mt-4">
+                <label class="block text-sm text-gray-400 mb-2">Redirect URL after Payment (optional)</label>
+                <input type="url" name="redirect_url" value="<?= e($cc['redirect_url'] ?? '') ?>" placeholder="https://yourstore.com/thank-you" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm">
+                <p class="text-xs text-gray-600 mt-1">Payment complete hone ke baad customer is URL par redirect hoga. Leave blank for default.</p>
             </div>
         </div>
 

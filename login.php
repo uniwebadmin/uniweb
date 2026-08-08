@@ -83,6 +83,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         if ($m && password_verify($password, $m['password'])) {
+            if (defined('PASSWORD_ARGON2ID') && password_needs_rehash($m['password'], PASSWORD_ARGON2ID)) {
+                try {
+                    getDB()->prepare('UPDATE merchants SET password=? WHERE id=?')
+                        ->execute([password_hash($password, PASSWORD_ARGON2ID), $m['id']]);
+                } catch (Throwable $e) { /* non-fatal */ }
+            }
             ensureMerchant2FA();
             if (!empty($m['totp_enabled']) && !empty($m['totp_secret'])) {
                 unset($_SESSION['admin_id'], $_SESSION['admin_name']);
