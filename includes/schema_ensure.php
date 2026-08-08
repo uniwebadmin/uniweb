@@ -41,6 +41,9 @@ function ensureKycSchema(): void
     schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN device_fingerprint VARCHAR(255) DEFAULT NULL");
     schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN is_masked TINYINT(1) NOT NULL DEFAULT 0");
     schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN mask_method VARCHAR(50) DEFAULT NULL");
+    // Document versioning: track version number per doc_type per merchant
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN version_number INT NOT NULL DEFAULT 1");
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN replaced_by INT DEFAULT NULL");
 }
 
 function ensureSignupVerificationSchema(): void

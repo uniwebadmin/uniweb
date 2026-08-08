@@ -362,7 +362,7 @@ require_once __DIR__ . '/header.php';
             <div class="flex justify-between items-start mb-2 gap-2">
                 <div class="min-w-0">
                     <p class="font-medium text-sm"><?= adminMerchantLink((int)$doc['merchant_id'], $doc['business_name'], 'font-medium text-sm text-white hover:text-sky-300') ?></p>
-                    <p class="text-xs text-gray-500 capitalize break-words"><?= e(entityTypeLabel($doc['business_entity_type'] ?? '')) ?> — <?= str_replace('_', ' ', $doc['doc_type']) ?><?php if (!empty($doc['is_masked'])): ?> <span class="inline-block px-1.5 py-0.5 bg-emerald-600/20 text-emerald-400 rounded text-[10px] font-medium">Aadhaar Masked</span><?php endif; ?></p>
+                    <p class="text-xs text-gray-500 capitalize break-words"><?= e(entityTypeLabel($doc['business_entity_type'] ?? '')) ?> — <?= str_replace('_', ' ', $doc['doc_type']) ?><?php if (!empty($doc['is_masked'])): ?> <span class="inline-block px-1.5 py-0.5 bg-emerald-600/20 text-emerald-400 rounded text-[10px] font-medium">Aadhaar Masked</span><?php endif; ?><?php if ((int)($doc['version_number'] ?? 1) > 1): ?> <span class="inline-block px-1.5 py-0.5 bg-sky-600/20 text-sky-400 rounded text-[10px] font-medium">v<?= (int)$doc['version_number'] ?></span><?php endif; ?></p>
                 </div>
                 <?= statusBadge($doc['status']) ?>
             </div>

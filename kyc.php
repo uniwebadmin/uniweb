@@ -461,7 +461,7 @@ $docStatusMeta = static function (string $status): array {
                     if (($doc['doc_type'] ?? '') === 'video_kyc') continue;
                 ?>
                 <tr class="hover:bg-white/5">
-                    <td class="px-5 py-3 break-words"><?= e($docLabels[$doc['doc_type']] ?? $doc['doc_type']) ?><?php if (!empty($doc['is_masked'])): ?> <span class="inline-block px-1.5 py-0.5 bg-emerald-600/20 text-emerald-400 rounded text-[10px] font-medium">Masked</span><?php endif; ?></td>
+                    <td class="px-5 py-3 break-words"><?= e($docLabels[$doc['doc_type']] ?? $doc['doc_type']) ?><?php if (!empty($doc['is_masked'])): ?> <span class="inline-block px-1.5 py-0.5 bg-emerald-600/20 text-emerald-400 rounded text-[10px] font-medium">Masked</span><?php endif; ?><?php if ((int)($doc['version_number'] ?? 1) > 1): ?> <span class="inline-block px-1.5 py-0.5 bg-sky-600/20 text-sky-400 rounded text-[10px] font-medium">v<?= (int)$doc['version_number'] ?></span><?php endif; ?></td>
                     <td class="px-5 py-3 text-xs break-all"><?= e($doc['file_name']) ?></td>
                     <td class="px-5 py-3"><?= statusBadge($doc['status']) ?></td>
                     <td class="px-5 py-3 text-xs break-words <?= ($doc['status'] ?? '') === 'rejected' ? 'text-red-300' : 'text-gray-500' ?>">
@@ -478,6 +478,53 @@ $docStatusMeta = static function (string $status): array {
         <?php if (!empty($docTotal)): ?><?= renderListPagination($listParams['page'], $docTotal, $listParams['perPage'], ['doc' => $docFilter ?? '']) ?><?php endif; ?>
         <?php endif; ?>
     </div>
+
+    <?php
+    // Document version history — show all versions grouped by doc_type
+    $versionHistory = [];
+    foreach ($documents as $doc) {
+        $t = (string)($doc['doc_type'] ?? '');
+        if ($t === '' || $t === 'video_kyc') continue;
+        if (!isset($versionHistory[$t])) $versionHistory[$t] = [];
+        $versionHistory[$t][] = $doc;
+    }
+    $hasVersions = false;
+    foreach ($versionHistory as $versions) {
+        if (count($versions) > 1) { $hasVersions = true; break; }
+    }
+    ?>
+    <?php if ($hasVersions): ?>
+    <div class="glass rounded-xl p-6 mb-6">
+        <h2 class="font-semibold mb-1">Document Version History</h2>
+        <p class="text-xs text-gray-500 mb-4">All previous versions of your documents are preserved for compliance audit.</p>
+        <div class="space-y-4">
+            <?php foreach ($versionHistory as $docType => $versions):
+                if (count($versions) <= 1) continue;
+                usort($versions, fn($a, $b) => (int)($b['version_number'] ?? 1) - (int)($a['version_number'] ?? 1));
+            ?>
+            <div class="border border-gray-800 rounded-xl overflow-hidden">
+                <div class="px-4 py-2 bg-dark-900/50 border-b border-gray-800">
+                    <p class="text-sm font-medium text-gray-200"><?= e($docLabels[$docType] ?? $docType) ?> <span class="text-xs text-gray-500">(<?= count($versions) ?> versions)</span></p>
+                </div>
+                <div class="divide-y divide-gray-800">
+                    <?php foreach ($versions as $vDoc): ?>
+                    <div class="px-4 py-2.5 flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <span class="inline-block px-1.5 py-0.5 bg-sky-600/15 text-sky-400 rounded text-[10px] font-medium mr-2">v<?= (int)($vDoc['version_number'] ?? 1) ?></span>
+                            <span class="text-xs text-gray-400 break-all"><?= e($vDoc['file_name'] ?? '') ?></span>
+                        </div>
+                        <div class="flex items-center gap-3 flex-shrink-0">
+                            <?= statusBadge($vDoc['status'] ?? 'unknown') ?>
+                            <span class="text-[10px] text-gray-600 whitespace-nowrap"><?= formatDate($vDoc['created_at']) ?></span>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <div class="glass rounded-xl p-6 mb-6">
         <h2 class="font-semibold mb-4">KYC Timeline</h2>

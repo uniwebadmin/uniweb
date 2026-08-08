@@ -4,6 +4,17 @@ require_once __DIR__ . '/includes/risk.php';
 if (isLoggedIn()) redirect('dashboard.php');
 ensureSignupVerificationSchema();
 
+// Pre-filled onboarding invite
+$inviteData = null;
+$inviteToken = trim((string)($_GET['invite'] ?? ''));
+if ($inviteToken !== '' && preg_match('/^[a-f0-9]{20,64}$/', $inviteToken)) {
+    try {
+        $st = getDB()->prepare("SELECT * FROM onboarding_invites WHERE token=? AND used_by IS NULL AND expires_at > NOW() LIMIT 1");
+        $st->execute([$inviteToken]);
+        $inviteData = $st->fetch() ?: null;
+    } catch (Throwable $e) { $inviteData = null; }
+}
+
 $errors = [];
 $pending = $_SESSION['pending_signup'] ?? null;
 $signupMode = $pending['signup_mode'] ?? ((($_POST['signup_mode'] ?? $_GET['mode'] ?? 'email') === 'mobile') ? 'mobile' : 'email');
@@ -54,11 +65,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 $showOtpStep = false;
             } else {
                 $code = 'UW' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
-                $business = 'My Business';
+                $business = $invBusiness !== '' ? $invBusiness : 'My Business';
+                $bType = $inviteData['business_type'] ?? 'retail';
+                $bEntity = $inviteData['business_entity_type'] ?? 'individual';
                 $db->prepare('INSERT INTO merchants (merchant_code,name,email,phone,password,business_name,business_type,business_entity_type,pan_number,address,country,state,district,city,pincode,api_key,api_secret,upi_id,email_verified_at,phone_verified_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
                     ->execute([
                         $code, $name, $email, $phone, $pending['password_hash'],
-                        $business, 'retail', 'individual', null, '',
+                        $business, $bType, $bEntity, null, '',
                         'India', '', '', '', '',
                         'uk_' . bin2hex(random_bytes(16)), 'us_' . bin2hex(random_bytes(24)),
                         'merchant' . strtolower(substr($code, 2)) . '@uniweb',
@@ -96,6 +109,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 updateMerchantRiskScore($id);
                 createNotification($id, __('notif_welcome_title'), __('notif_welcome_body'));
 
+                // Mark invite as used
+                if ($inviteData && !empty($inviteData['token'])) {
+                    try { $db->prepare("UPDATE onboarding_invites SET used_by=? WHERE token=?")->execute([$id, $inviteData['token']]); } catch (Throwable $e) {}
+                }
+
                 unset($_SESSION['pending_signup']);
                 $_SESSION['merchant_id'] = $id;
                 $_SESSION['merchant_code'] = $code;
@@ -112,30 +130,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $phone = '';
         $name = 'Merchant';
 
+        // Use invite data if available
+        $invName = $inviteData['name'] ?? '';
+        $invEmail = $inviteData['email'] ?? '';
+        $invPhone = $inviteData['phone'] ?? '';
+        $invBusiness = $inviteData['business_name'] ?? '';
+
         $v = checkVelocityBlock('merchant_signup');
         if (!empty($v['blocked'])) {
             $errors[] = velocityBlockMessage('merchant_signup');
         }
 
         if (empty($errors) && $signupMode === 'email') {
-            $email = strtolower(trim($_POST['email'] ?? ''));
+            $email = strtolower(trim($_POST['email'] ?? $invEmail));
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 $errors[] = __('err_valid_email');
             }
             $local = strstr($email, '@', true) ?: 'merchant';
-            $name = ucfirst(preg_replace('/[^a-zA-Z0-9]/', ' ', $local));
-            $phone = '+919900000000';
+            $name = $invName !== '' ? $invName : ucfirst(preg_replace('/[^a-zA-Z0-9]/', ' ', $local));
+            $phone = $invPhone !== '' ? '+91' . preg_replace('/\D/', '', $invPhone) : '+919900000000';
         } else {
             $phoneCode = trim($_POST['phone_code'] ?? '+91');
-            $phoneNum = preg_replace('/\D/', '', $_POST['phone'] ?? '');
+            $phoneNum = preg_replace('/\D/', '', $_POST['phone'] ?? $invPhone);
             $phone = $phoneCode . $phoneNum;
             if ($phoneCode === '+91' && !preg_match('/^[6-9]\d{9}$/', $phoneNum)) {
                 $errors[] = __('err_valid_mobile');
             } elseif (strlen($phoneNum) < 6 || strlen($phoneNum) > 15) {
                 $errors[] = __('err_valid_mobile_generic');
             }
-            $email = 'm' . $phoneNum . '@signup.uniweb.co.in';
-            $name = 'Merchant';
+            $email = $invEmail !== '' ? $invEmail : 'm' . $phoneNum . '@signup.uniweb.co.in';
+            $name = $invName !== '' ? $invName : 'Merchant';
         }
 
         if (function_exists('validateStrongPassword')) {
@@ -239,7 +263,7 @@ require_once __DIR__ . '/header.php';
                 <?php if ($signupMode === 'email'): ?>
                 <div class="ap-field">
                     <label class="ap-label"><?= __('email_id') ?> *</label>
-                    <input type="email" name="email" required class="ap-input" placeholder="you@business.com" value="<?= e($_POST['email'] ?? '') ?>">
+                    <input type="email" name="email" required class="ap-input" placeholder="you@business.com" value="<?= e($_POST['email'] ?? $inviteData['email'] ?? '') ?>">
                 </div>
                 <?php else: ?>
                 <div class="grid grid-cols-3 gap-3">
@@ -253,7 +277,7 @@ require_once __DIR__ . '/header.php';
                     </div>
                     <div class="ap-field col-span-2">
                         <label class="ap-label"><?= __('mobile_number') ?> *</label>
-                        <input type="tel" name="phone" required class="ap-input" placeholder="9876543210" value="<?= e($_POST['phone'] ?? '') ?>">
+                        <input type="tel" name="phone" required class="ap-input" placeholder="9876543210" value="<?= e($_POST['phone'] ?? $inviteData['phone'] ?? '') ?>">
                     </div>
                 </div>
                 <?php endif; ?>

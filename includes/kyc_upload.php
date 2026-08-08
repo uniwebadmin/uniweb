@@ -104,6 +104,19 @@ function saveMerchantKycUpload(
     }
     $storageKey = $merchantId . '/' . $fileName;
 
+    // Document versioning: calculate next version number for this doc_type
+    $versionNumber = 1;
+    $previousDocId = null;
+    try {
+        $vSt = getDB()->prepare("SELECT id, version_number FROM kyc_documents WHERE merchant_id=? AND doc_type=? ORDER BY version_number DESC LIMIT 1");
+        $vSt->execute([$merchantId, $docType]);
+        $prevRow = $vSt->fetch();
+        if ($prevRow) {
+            $versionNumber = (int)$prevRow['version_number'] + 1;
+            $previousDocId = (int)$prevRow['id'];
+        }
+    } catch (Throwable $e) { /* version column may not exist yet — default to 1 */ }
+
     try {
         $realIp = function_exists('getRealClientIp') ? getRealClientIp() : ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
         $userAgent = function_exists('getClientUserAgent') ? getClientUserAgent() : '';
@@ -114,9 +127,15 @@ function saveMerchantKycUpload(
 
         getDB()->prepare(
             'INSERT INTO kyc_documents
-             (merchant_id,doc_type,file_name,file_path,storage_key,sha256,mime_type,file_size,scan_status,ip_address,client_ip,user_agent,lat,lng,geo_accuracy_m,geo_source,is_masked,mask_method,retention_until)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(CURDATE(),INTERVAL 8 YEAR))'
-        )->execute([$merchantId, $docType, $fileName, $target, $storageKey, $sha256, $mime, $size, $scanStatus, $realIp, $realIp, $userAgent, $geoLat, $geoLng, $geoAcc, $geoSrc, $maskResult['masked'] ? 1 : 0, $maskResult['method']]);
+             (merchant_id,doc_type,file_name,file_path,storage_key,sha256,mime_type,file_size,scan_status,ip_address,client_ip,user_agent,lat,lng,geo_accuracy_m,geo_source,is_masked,mask_method,version_number,retention_until)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(CURDATE(),INTERVAL 8 YEAR))'
+        )->execute([$merchantId, $docType, $fileName, $target, $storageKey, $sha256, $mime, $size, $scanStatus, $realIp, $realIp, $userAgent, $geoLat, $geoLng, $geoAcc, $geoSrc, $maskResult['masked'] ? 1 : 0, $maskResult['method'], $versionNumber]);
+        $newDocId = (int)getDB()->lastInsertId();
+
+        // Mark previous version as replaced
+        if ($previousDocId && $newDocId) {
+            try { getDB()->prepare("UPDATE kyc_documents SET replaced_by=? WHERE id=?")->execute([$newDocId, $previousDocId]); } catch (Throwable $e) {}
+        }
     } catch (Throwable $e) {
         @unlink($target);
         logPlatformError('error', 'KYC database insert failed: ' . $e->getMessage(), [
