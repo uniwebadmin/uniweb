@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('recordWebhookEvent')) {
+    require_once __DIR__ . '/includes/webhook_reliability.php';
+}
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && empty($_POST) && empty($_GET['status'])) {
     pgWebhookHealthResponse('payu');
@@ -20,6 +23,21 @@ if (!verifyPayUResponseHash($post)) {
     echo json_encode(['error' => 'Invalid hash']);
     exit;
 }
+
+$eventId = 'payu:' . ($reference ?: hash('sha256', $raw));
+$gatewayEvent = registerGatewayEvent('payu', $eventId, $status, $raw, true);
+if (!empty($gatewayEvent['duplicate'])) {
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => true, 'duplicate' => true]);
+    exit;
+}
+$webhookEv = recordWebhookEvent($eventId, 'payu', $status, $raw, '');
+if (!empty($webhookEv['is_duplicate'])) {
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => true, 'duplicate' => true]);
+    exit;
+}
+markWebhookProcessing((int)$webhookEv['id']);
 
 if (!function_exists('webhookFastAck')) {
     require_once __DIR__ . '/includes/webhook_queue.php';
@@ -53,11 +71,13 @@ if (in_array($status, $failureStatuses, true) && $reference !== '') {
             'reference' => $reference,
         ]);
         logPgWebhook('payu', 'processed_failure', $status, $reference, $linkId, json_encode($result));
+        markWebhookCompleted((int)$webhookEv['id']);
         header('Content-Type: application/json');
         echo json_encode(['ok' => true, 'result' => $result]);
         exit;
     } catch (Throwable $e) {
         logPgWebhook('payu', 'failed', $status, $reference, $linkId, json_encode(['error' => $e->getMessage()]));
+        markWebhookFailed((int)$webhookEv['id'], $e->getMessage());
         http_response_code(422);
         header('Content-Type: application/json');
         echo json_encode(['error' => 'Failure processing failed']);
@@ -66,6 +86,7 @@ if (in_array($status, $failureStatuses, true) && $reference !== '') {
 }
 
 if (!in_array($status, ['success', 'successful'], true) || $linkId === '' || $reference === '') {
+    markWebhookCompleted((int)$webhookEv['id']);
     header('Content-Type: application/json');
     echo json_encode(['ok' => true, 'ignored' => true]);
     exit;
@@ -73,6 +94,11 @@ if (!in_array($status, ['success', 'successful'], true) || $linkId === '' || $re
 
 $result = fulfillGatewayPayment('payu', $linkId, $reference, 'payu', $amount);
 logPgWebhook('payu', $result['ok'] ? 'processed' : 'failed', $status, $reference, $linkId, json_encode($result));
+if ($result['ok']) {
+    markWebhookCompleted((int)$webhookEv['id']);
+} else {
+    markWebhookFailed((int)$webhookEv['id'], $result['error'] ?? $result['message'] ?? 'fulfillment failed');
+}
 
 header('Content-Type: application/json');
 echo json_encode(['ok' => true, 'result' => $result]);

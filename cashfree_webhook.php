@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('recordWebhookEvent')) {
+    require_once __DIR__ . '/includes/webhook_reliability.php';
+}
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && empty($_POST)) {
     pgWebhookHealthResponse('cashfree');
@@ -35,7 +38,11 @@ $gatewayEvent = registerGatewayEvent('cashfree', $eventId, $event, $raw, true);
 if (!empty($gatewayEvent['duplicate'])) {
     jsonResponse(['ok' => true, 'duplicate' => true]);
 }
-
+$webhookEv = recordWebhookEvent($eventId, 'cashfree', $event, $raw, $signature);
+if (!empty($webhookEv['is_duplicate'])) {
+    jsonResponse(['ok' => true, 'duplicate' => true]);
+}
+markWebhookProcessing((int)$webhookEv['id']);
 logPgWebhook('cashfree', 'received', $event, $paymentId ?: $orderId, null, '');
 if (!function_exists('webhookFastAck')) {
     require_once __DIR__ . '/includes/webhook_queue.php';
@@ -66,10 +73,12 @@ if ($isFailure && $orderId !== '') {
             'reference' => $paymentId ?: $orderId,
         ]);
         setGatewayEventStatus((int)$gatewayEvent['id'], !empty($result['duplicate']) || !empty($result['ignored']) ? 'duplicate' : 'processed');
+        markWebhookCompleted((int)$webhookEv['id']);
         logPgWebhook('cashfree', 'processed_failure', $event, $paymentId ?: $orderId, null, json_encode($result));
         jsonResponse(['ok' => true, 'result' => $result]);
     } catch (Throwable $e) {
         setGatewayEventStatus((int)$gatewayEvent['id'], 'failed', null, $e->getMessage());
+        markWebhookFailed((int)$webhookEv['id'], $e->getMessage());
         logPgWebhook('cashfree', 'failed', $event, $paymentId ?: $orderId, null, json_encode(['error' => $e->getMessage()]));
         logPlatformError('error', 'Cashfree payment failure webhook processing failed.', ['event_id' => $eventId, 'error' => $e->getMessage()]);
         jsonResponse(['error' => 'Failure processing failed'], 422);
@@ -78,6 +87,7 @@ if ($isFailure && $orderId !== '') {
 
 if ($orderStatus !== 'PAID' || $orderId === '') {
     setGatewayEventStatus((int)$gatewayEvent['id'], 'processed');
+    markWebhookCompleted((int)$webhookEv['id']);
     jsonResponse(['ok' => true, 'ignored' => true]);
 }
 
@@ -117,9 +127,11 @@ try {
         'reference' => $verifiedPaymentId,
     ]);
     setGatewayEventStatus((int)$gatewayEvent['id'], !empty($result['duplicate']) ? 'duplicate' : 'processed');
+    markWebhookCompleted((int)$webhookEv['id']);
     logPgWebhook('cashfree', 'processed', $event, $verifiedPaymentId, null, json_encode(['transaction_id' => $result['transaction_id'] ?? null]));
 } catch (Throwable $e) {
     setGatewayEventStatus((int)$gatewayEvent['id'], 'failed', null, $e->getMessage());
+    markWebhookFailed((int)$webhookEv['id'], $e->getMessage());
     logPgWebhook('cashfree', 'failed', $event, $paymentId ?: $orderId, null, json_encode(['error' => $e->getMessage()]));
     logPlatformError('error', 'Cashfree webhook processing failed.', ['event_id' => $eventId, 'error' => $e->getMessage()]);
     jsonResponse(['error' => 'Processing failed'], 422);

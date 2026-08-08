@@ -202,19 +202,325 @@ function processWebhookRetries(int $limit = 20): array
 }
 
 /**
- * Retry a webhook event — calls the appropriate gateway handler.
+ * Retry a webhook event — dispatches to the appropriate gateway handler
+ * with the stored payload.  Each handler re-runs the business logic
+ * (capture, failure, refund, payout) against the provider API, exactly
+ * as if the gateway had just delivered the webhook again.
  */
 function retryWebhookEvent(array $event): bool
 {
-    // This is a simplified retry — in production, this would call the
-    // gateway-specific webhook handler with the stored payload.
-    // For now, we just mark it as completed if the payload is valid.
+    $gateway = strtolower((string)$event['gateway']);
     $payload = json_decode((string)$event['payload'], true);
-    if (!$payload) return false;
+    if (!$payload) {
+        return false;
+    }
 
-    // Gateway-specific processing would go here
-    // For now, return true to indicate the retry was processed
+    try {
+        $result = dispatchWebhookRetry($gateway, $payload, (string)$event['event_id'], (string)$event['event_type']);
+        return $result;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * Gateway-specific retry dispatch.
+ * Replays the stored payload through the same business logic used
+ * during the original webhook delivery.
+ */
+function dispatchWebhookRetry(string $gateway, array $payload, string $eventId, string $eventType): bool
+{
+    switch ($gateway) {
+        case 'razorpay':
+            return retryRazorpayWebhook($payload, $eventType);
+        case 'cashfree':
+            return retryCashfreeWebhook($payload, $eventType);
+        case 'payu':
+            return retryPayUWebhook($payload);
+        case 'decentro':
+            return retryDecentroWebhook($payload, $eventType);
+        default:
+            return false;
+    }
+}
+
+/**
+ * Retry Razorpay webhook: re-fetch payment from API and process capture/failure/refund/payout.
+ */
+function retryRazorpayWebhook(array $payload, string $eventType): bool
+{
+    $entity = $payload['payload']['payment']['entity'] ?? $payload['payload']['order']['entity'] ?? [];
+    $paymentId = (string)($entity['id'] ?? '');
+    $refundEntity = $payload['payload']['refund']['entity'] ?? [];
+    $refundProviderId = (string)($refundEntity['id'] ?? '');
+    $payoutEntity = $payload['payload']['payout']['entity'] ?? [];
+    $payoutProviderId = (string)($payoutEntity['id'] ?? '');
+
+    // Refund events
+    if (in_array($eventType, ['refund.processed', 'refund.failed'], true) && $refundProviderId !== '') {
+        $refundSt = getDB()->prepare("SELECT r.*,t.utr AS payment_id FROM refunds r JOIN transactions t ON t.id=r.transaction_id WHERE r.provider='razorpay' AND r.provider_refund_id=? LIMIT 1");
+        $refundSt->execute([$refundProviderId]);
+        $refund = $refundSt->fetch();
+        if (!$refund) return false;
+        $providerRefund = fetchRazorpayRefund((string)$refund['payment_id'], $refundProviderId);
+        if (!$providerRefund) return false;
+        $providerStatus = strtolower((string)($providerRefund['status'] ?? ''));
+        if ($eventType === 'refund.processed' && $providerStatus === 'processed') {
+            completeProviderRefund((string)$refund['refund_id'], $refundProviderId);
+        } elseif ($eventType === 'refund.failed' || $providerStatus === 'failed') {
+            $failureReason = mb_substr((string)($providerRefund['error_description'] ?? 'Razorpay marked the refund failed.'), 0, 500);
+            getDB()->prepare("UPDATE refunds SET status='failed',provider_status='failed',failure_reason=?,processed_at=NOW() WHERE id=? AND status='pending'")
+                ->execute([$failureReason, (int)$refund['id']]);
+        }
+        return true;
+    }
+
+    // Payout events
+    if (in_array($eventType, ['payout.processed', 'payout.failed', 'payout.reversed'], true) && $payoutProviderId !== '') {
+        $batchSt = getDB()->prepare('SELECT * FROM settlement_batches WHERE provider_payout_id=? LIMIT 1');
+        $batchSt->execute([$payoutProviderId]);
+        $batch = $batchSt->fetch();
+        if (!$batch) return false;
+        $providerPayout = fetchRazorpayXPayout($payoutProviderId);
+        if (!$providerPayout) return false;
+        $providerStatus = strtolower((string)($providerPayout['status'] ?? ''));
+        $utr = trim((string)($providerPayout['utr'] ?? ''));
+        if ($eventType === 'payout.processed' && $providerStatus === 'processed' && $utr !== '') {
+            getDB()->prepare("UPDATE settlement_batches SET status='settled',api_status='confirmed',provider_status=?,utr=?,processed_at=NOW(),failure_reason=NULL WHERE id=?")
+                ->execute([$providerStatus, $utr, (int)$batch['id']]);
+            if (!empty($batch['settlement_id'])) {
+                getDB()->prepare("UPDATE settlements SET status='completed',utr=?,processed_at=NOW() WHERE settlement_id=?")
+                    ->execute([$utr, $batch['settlement_id']]);
+            }
+        } elseif (in_array($eventType, ['payout.failed', 'payout.reversed'], true)) {
+            getDB()->prepare("UPDATE settlement_batches SET status='failed',api_status='failed',provider_status=?,processed_at=NOW() WHERE id=?")
+                ->execute([$providerStatus, (int)$batch['id']]);
+        }
+        return true;
+    }
+
+    // Payment capture/failure events
+    $successEvents = ['payment.captured', 'order.paid'];
+    $failureEvents = ['payment.failed'];
+
+    if (in_array($eventType, $failureEvents, true) && $paymentId !== '') {
+        $providerPayment = fetchRazorpayPayment($paymentId);
+        if (!$providerPayment) return false;
+        $orderId = (string)($providerPayment['order_id'] ?? $entity['order_id'] ?? '');
+        if ($orderId === '') return false;
+        $err = is_array($providerPayment['error'] ?? null) ? $providerPayment['error'] : [];
+        recordPaymentOrderFailure([
+            'provider' => 'razorpay',
+            'provider_order_id' => $orderId,
+            'provider_payment_id' => $paymentId,
+            'error_code' => (string)($err['code'] ?? ''),
+            'error_description' => (string)($err['description'] ?? ''),
+            'amount' => isset($providerPayment['amount']) ? ((float)$providerPayment['amount'] / 100) : null,
+            'currency' => (string)($providerPayment['currency'] ?? 'INR'),
+            'signature_verified' => true,
+            'provider_verified' => true,
+            'reference' => $paymentId,
+        ]);
+        return true;
+    }
+
+    if (in_array($eventType, $successEvents, true) && $paymentId !== '') {
+        $providerPayment = fetchRazorpayPayment($paymentId);
+        if (!$providerPayment || strtolower((string)($providerPayment['status'] ?? '')) !== 'captured') {
+            return false;
+        }
+        captureVerifiedPaymentOrder([
+            'provider' => 'razorpay',
+            'provider_order_id' => (string)$providerPayment['order_id'],
+            'provider_payment_id' => $paymentId,
+            'amount' => ((float)($providerPayment['amount'] ?? 0)) / 100,
+            'currency' => (string)($providerPayment['currency'] ?? ''),
+            'captured' => true,
+            'signature_verified' => true,
+            'provider_verified' => true,
+            'reference' => $paymentId,
+        ]);
+        return true;
+    }
+
+    // Unknown event type — mark as completed (nothing to retry)
     return true;
+}
+
+/**
+ * Retry Cashfree webhook: re-fetch order from API and process capture/failure.
+ */
+function retryCashfreeWebhook(array $payload, string $eventType): bool
+{
+    $data = $payload['data'] ?? $payload;
+    $order = $data['order'] ?? $data;
+    $payment = $data['payment'] ?? [];
+    $orderId = (string)($order['order_id'] ?? $data['order_id'] ?? '');
+    $orderStatus = strtoupper((string)($order['order_status'] ?? $data['order_status'] ?? ''));
+    $paymentId = (string)($payment['cf_payment_id'] ?? $data['cf_payment_id'] ?? '');
+
+    if ($orderId === '') return false;
+
+    $failureEvents = ['PAYMENT_FAILED_WEBHOOK', 'PAYMENT_FAILED', 'ORDER_FAILED'];
+    $paymentStatus = strtoupper((string)($payment['payment_status'] ?? $data['payment_status'] ?? ''));
+    $isFailure = in_array(strtoupper($eventType), $failureEvents, true)
+        || in_array($orderStatus, ['FAILED', 'CANCELLED', 'EXPIRED'], true)
+        || in_array($paymentStatus, ['FAILED', 'USER_DROPPED', 'CANCELLED', 'EXPIRED'], true);
+
+    if ($isFailure) {
+        recordPaymentOrderFailure([
+            'provider' => 'cashfree',
+            'provider_order_id' => $orderId,
+            'provider_payment_id' => $paymentId !== '' ? $paymentId : ('fail:' . $orderId),
+            'error_code' => (string)($payment['error_code'] ?? $orderStatus),
+            'error_description' => (string)($payment['payment_message'] ?? $payment['error_details'] ?? ''),
+            'amount' => (float)($payment['payment_amount'] ?? $order['order_amount'] ?? 0) ?: null,
+            'currency' => (string)($payment['payment_currency'] ?? $order['order_currency'] ?? 'INR'),
+            'signature_verified' => true,
+            'provider_verified' => true,
+            'reference' => $paymentId ?: $orderId,
+        ]);
+        return true;
+    }
+
+    if ($orderStatus === 'PAID') {
+        $providerOrder = fetchCashfreeOrder($orderId);
+        $providerPayments = fetchCashfreeOrderPayments($orderId);
+        $capturedPayment = null;
+        foreach ($providerPayments as $candidate) {
+            if (strtoupper((string)($candidate['payment_status'] ?? '')) !== 'SUCCESS') continue;
+            if ($paymentId === '' || (string)($candidate['cf_payment_id'] ?? '') === $paymentId) {
+                $capturedPayment = $candidate;
+                break;
+            }
+        }
+        if (!$providerOrder || !$capturedPayment) return false;
+        $verifiedPaymentId = (string)($capturedPayment['cf_payment_id'] ?? '');
+        if ($verifiedPaymentId === '') return false;
+        captureVerifiedPaymentOrder([
+            'provider' => 'cashfree',
+            'provider_order_id' => $orderId,
+            'provider_payment_id' => $verifiedPaymentId,
+            'amount' => (float)($capturedPayment['payment_amount'] ?? 0),
+            'currency' => (string)($capturedPayment['payment_currency'] ?? $providerOrder['order_currency'] ?? ''),
+            'captured' => true,
+            'signature_verified' => true,
+            'provider_verified' => true,
+            'reference' => $verifiedPaymentId,
+        ]);
+        return true;
+    }
+
+    return true;
+}
+
+/**
+ * Retry PayU webhook: process failure or success from stored POST data.
+ */
+function retryPayUWebhook(array $post): bool
+{
+    $status = strtolower((string)($post['status'] ?? ''));
+    $reference = (string)($post['mihpayid'] ?? $post['txnid'] ?? '');
+    $amount = (float)($post['amount'] ?? 0);
+    $providerOrderId = (string)($post['txtxnid'] ?? $reference);
+
+    if (in_array($status, ['failure', 'failed', 'f'], true) && $reference !== '') {
+        $orderLookup = getDB()->prepare("SELECT provider_order_id FROM payment_orders WHERE provider='payu' AND (provider_order_id=? OR order_ref=?) LIMIT 1");
+        $orderLookup->execute([$providerOrderId, $providerOrderId]);
+        $bound = $orderLookup->fetchColumn();
+        if (!$bound) return false;
+        recordPaymentOrderFailure([
+            'provider' => 'payu',
+            'provider_order_id' => (string)$bound,
+            'provider_payment_id' => $reference,
+            'error_code' => (string)($post['error'] ?? $post['error_code'] ?? $post['field9'] ?? $status),
+            'error_description' => (string)($post['error_Message'] ?? $post['error_message'] ?? $post['field9'] ?? $post['status'] ?? ''),
+            'amount' => $amount > 0 ? $amount : null,
+            'currency' => 'INR',
+            'signature_verified' => true,
+            'provider_verified' => true,
+            'reference' => $reference,
+        ]);
+        return true;
+    }
+
+    if (in_array($status, ['success', 'captured'], true) && $reference !== '') {
+        $orderLookup = getDB()->prepare("SELECT provider_order_id FROM payment_orders WHERE provider='payu' AND (provider_order_id=? OR order_ref=?) LIMIT 1");
+        $orderLookup->execute([$providerOrderId, $providerOrderId]);
+        $bound = $orderLookup->fetchColumn();
+        if (!$bound) return false;
+        captureVerifiedPaymentOrder([
+            'provider' => 'payu',
+            'provider_order_id' => (string)$bound,
+            'provider_payment_id' => $reference,
+            'amount' => $amount,
+            'currency' => 'INR',
+            'captured' => true,
+            'signature_verified' => true,
+            'provider_verified' => true,
+            'reference' => $reference,
+        ]);
+        return true;
+    }
+
+    return true;
+}
+
+/**
+ * Retry Decentro webhook: poll transaction status and process capture/failure.
+ */
+function retryDecentroWebhook(array $payload, string $eventType): bool
+{
+    $decentroTxnId = (string)($payload['decentro_txn_id'] ?? '');
+    if ($decentroTxnId === '') return false;
+
+    $status = fetchDecentroTransactionStatus($decentroTxnId);
+    if (!$status) return false;
+
+    $txnStatus = strtolower((string)($status['transaction_status'] ?? $status['data']['transaction_status'] ?? ''));
+    $referenceId = (string)($payload['reference_id'] ?? $status['reference_id'] ?? '');
+
+    if ($txnStatus === 'success' || $txnStatus === 'completed') {
+        $orderLookup = getDB()->prepare("SELECT provider_order_id FROM payment_orders WHERE provider='decentro' AND (provider_order_id=? OR order_ref=?) LIMIT 1");
+        $orderLookup->execute([$referenceId, $referenceId]);
+        $bound = $orderLookup->fetchColumn();
+        if (!$bound) return false;
+        captureVerifiedPaymentOrder([
+            'provider' => 'decentro',
+            'provider_order_id' => (string)$bound,
+            'provider_payment_id' => $decentroTxnId,
+            'amount' => (float)($payload['amount'] ?? 0),
+            'currency' => 'INR',
+            'captured' => true,
+            'signature_verified' => true,
+            'provider_verified' => true,
+            'reference' => $decentroTxnId,
+        ]);
+        return true;
+    }
+
+    if (in_array($txnStatus, ['failed', 'expired', 'cancelled'], true)) {
+        $orderLookup = getDB()->prepare("SELECT provider_order_id FROM payment_orders WHERE provider='decentro' AND (provider_order_id=? OR order_ref=?) LIMIT 1");
+        $orderLookup->execute([$referenceId, $referenceId]);
+        $bound = $orderLookup->fetchColumn();
+        if (!$bound) return false;
+        recordPaymentOrderFailure([
+            'provider' => 'decentro',
+            'provider_order_id' => (string)$bound,
+            'provider_payment_id' => $decentroTxnId,
+            'error_code' => $txnStatus,
+            'error_description' => (string)($status['message'] ?? 'Decentro transaction ' . $txnStatus),
+            'amount' => (float)($payload['amount'] ?? 0) ?: null,
+            'currency' => 'INR',
+            'signature_verified' => true,
+            'provider_verified' => true,
+            'reference' => $decentroTxnId,
+        ]);
+        return true;
+    }
+
+    // Still pending — not a failure, but not completed either
+    return false;
 }
 
 /**

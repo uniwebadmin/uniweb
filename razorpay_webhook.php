@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('recordWebhookEvent')) {
+    require_once __DIR__ . '/includes/webhook_reliability.php';
+}
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && empty($_POST)) {
     pgWebhookHealthResponse('razorpay');
@@ -35,6 +38,11 @@ $gatewayEvent = registerGatewayEvent('razorpay', $eventId, $event, $raw, true);
 if (!empty($gatewayEvent['duplicate'])) {
     jsonResponse(['ok' => true, 'duplicate' => true]);
 }
+$webhookEv = recordWebhookEvent($eventId, 'razorpay', $event, $raw, $signature);
+if (!empty($webhookEv['is_duplicate'])) {
+    jsonResponse(['ok' => true, 'duplicate' => true]);
+}
+markWebhookProcessing((int)$webhookEv['id']);
 logPgWebhook('razorpay', 'received', $event, $eventReference, null, '');
 if (!function_exists('webhookFastAck')) {
     require_once __DIR__ . '/includes/webhook_queue.php';
@@ -66,9 +74,11 @@ if (in_array($event, ['refund.processed', 'refund.failed'], true) && $refundProv
             $result = ['ok' => true, 'status' => $providerStatus ?: 'pending'];
         }
         setGatewayEventStatus((int)$gatewayEvent['id'], 'processed');
+        markWebhookCompleted((int)$webhookEv['id']);
         jsonResponse(['ok' => true, 'result' => $result]);
     } catch (Throwable $e) {
         setGatewayEventStatus((int)$gatewayEvent['id'], 'failed', null, $e->getMessage());
+        markWebhookFailed((int)$webhookEv['id'], $e->getMessage());
         logPlatformError('error', 'Razorpay refund webhook processing failed.', ['event_id' => $eventId, 'error' => $e->getMessage()]);
         jsonResponse(['error' => 'Refund processing failed'], 422);
     }
@@ -138,9 +148,11 @@ if (in_array($event, ['payout.processed', 'payout.failed', 'payout.reversed'], t
             $result = ['ok' => true, 'status' => $providerStatus ?: 'processing'];
         }
         setGatewayEventStatus((int)$gatewayEvent['id'], 'processed');
+        markWebhookCompleted((int)$webhookEv['id']);
         jsonResponse(['ok' => true, 'result' => $result]);
     } catch (Throwable $e) {
         setGatewayEventStatus((int)$gatewayEvent['id'], 'failed', null, $e->getMessage());
+        markWebhookFailed((int)$webhookEv['id'], $e->getMessage());
         logPlatformError('error', 'RazorpayX payout webhook processing failed.', ['event_id' => $eventId, 'error' => $e->getMessage()]);
         jsonResponse(['error' => 'Payout processing failed'], 422);
     }
@@ -174,10 +186,12 @@ if (in_array($event, $failureEvents, true) && $paymentId !== '') {
             'reference' => $paymentId,
         ]);
         setGatewayEventStatus((int)$gatewayEvent['id'], !empty($result['duplicate']) || !empty($result['ignored']) ? 'duplicate' : 'processed');
+        markWebhookCompleted((int)$webhookEv['id']);
         logPgWebhook('razorpay', 'processed_failure', $event, $paymentId, null, json_encode($result));
         jsonResponse(['ok' => true, 'result' => $result]);
     } catch (Throwable $e) {
         setGatewayEventStatus((int)$gatewayEvent['id'], 'failed', null, $e->getMessage());
+        markWebhookFailed((int)$webhookEv['id'], $e->getMessage());
         logPgWebhook('razorpay', 'failed', $event, $paymentId, null, json_encode(['error' => $e->getMessage()]));
         logPlatformError('error', 'Razorpay payment.failed webhook processing failed.', ['event_id' => $eventId, 'error' => $e->getMessage()]);
         jsonResponse(['error' => 'Failure processing failed'], 422);
@@ -196,6 +210,7 @@ if (!in_array($event, $successEvents, true) || $paymentId === '') {
         }
     }
     setGatewayEventStatus((int)$gatewayEvent['id'], 'processed');
+    markWebhookCompleted((int)$webhookEv['id']);
     jsonResponse(['ok' => true, 'ignored' => true]);
 }
 
@@ -221,9 +236,11 @@ try {
         'reference' => $paymentId,
     ]);
     setGatewayEventStatus((int)$gatewayEvent['id'], !empty($result['duplicate']) ? 'duplicate' : 'processed');
+    markWebhookCompleted((int)$webhookEv['id']);
     logPgWebhook('razorpay', 'processed', $event, $paymentId, null, json_encode(['transaction_id' => $result['transaction_id'] ?? null]));
 } catch (Throwable $e) {
     setGatewayEventStatus((int)$gatewayEvent['id'], 'failed', null, $e->getMessage());
+    markWebhookFailed((int)$webhookEv['id'], $e->getMessage());
     logPgWebhook('razorpay', 'failed', $event, $paymentId, null, json_encode(['error' => $e->getMessage()]));
     logPlatformError('error', 'Razorpay webhook processing failed.', ['event_id' => $eventId, 'error' => $e->getMessage()]);
     jsonResponse(['error' => 'Processing failed'], 422);
