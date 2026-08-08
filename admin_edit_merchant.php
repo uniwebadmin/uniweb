@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('getMerchantPaymentMethods')) {
+    require_once __DIR__ . '/includes/payment_methods.php';
+}
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'ops', 'kyc']);
 $db = getDB();
 
