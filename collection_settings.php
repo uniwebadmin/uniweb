@@ -18,10 +18,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $mode = $_POST['collection_mode'] ?? 'direct_upi';
     $modes = array_keys(getCollectionModes());
     if (!in_array($mode, $modes, true)) $mode = 'direct_upi';
-    // A merchant may only toggle methods they are entitled to (profile + admin-approved).
+    // Payment methods now managed on payment_methods.php — but still save if posted
+    $enabledKeys = array_map('strval', $_POST['enabled_methods'] ?? []);
     $enabled = array_values(array_intersect(
         merchantEntitledMethods($merchant),
-        array_map('strval', $_POST['enabled_methods'] ?? [])
+        $enabledKeys
     ));
     if (empty($enabled)) $enabled = ['upi_p2m'];
     try {
@@ -91,15 +92,10 @@ require_once __DIR__ . '/header.php';
             </div>
             <div>
                 <label class="text-sm text-gray-400 block mb-2">Payment Methods</label>
-                <div class="grid sm:grid-cols-2 gap-2 bg-dark-900/50 rounded-xl p-4 border border-gray-800 max-h-48 overflow-y-auto">
-                    <?php foreach ($entitledMethods as $mk): $cat = $methodCatalog[$mk]; ?>
-                    <label class="flex items-center gap-2 text-xs cursor-pointer">
-                        <input type="checkbox" name="enabled_methods[]" value="<?= e($mk) ?>" <?= in_array($mk, $enabledMethods, true) ? 'checked' : '' ?> class="rounded border-gray-600">
-                        <span><?= e(($cat['icon'] ?? '') . ' ' . $cat['label']) ?></span>
-                    </label>
-                    <?php endforeach; ?>
+                <div class="bg-dark-900/50 rounded-xl p-4 border border-gray-800">
+                    <p class="text-xs text-gray-400 mb-3">Manage your payment methods (ON/OFF toggles) on the dedicated Payment Methods page.</p>
+                    <a href="payment_methods.php" class="inline-block text-sm bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg font-semibold">Manage Payment Methods →</a>
                 </div>
-                <p class="text-[11px] text-gray-600 mt-2">Only methods enabled for your account are shown here. Need more? Request them below.</p>
             </div>
             <div><label class="text-sm text-gray-400">PayU Child Merchant Key (for split)</label>
                 <input type="text" name="payu_child_key" class="input-field mt-1 font-mono text-xs" value="<?= e($merchant['payu_child_key'] ?? '') ?>" placeholder="Optional — same as parent for test"></div>

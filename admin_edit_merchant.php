@@ -302,9 +302,9 @@ $methodCatalog = getPaymentMethodCatalog();
                             <?php endif; ?>
                         </div>
                     </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" name="methods[]" value="<?= e($pm['gateway_key']) ?>" <?= (int)$pm['is_enabled'] === 1 ? 'checked' : '' ?> class="sr-only peer">
-                        <div class="w-10 h-5 bg-gray-700 rounded-full peer peer-checked:bg-emerald-600 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+                    <label class="pm-toggle-label">
+                        <input type="checkbox" name="methods[]" value="<?= e($pm['gateway_key']) ?>" <?= (int)$pm['is_enabled'] === 1 ? 'checked' : '' ?> class="pm-toggle-checkbox">
+                        <span class="pm-toggle-slider"></span>
                     </label>
                 </div>
                 <?php endforeach; ?>
@@ -378,6 +378,14 @@ $methodCatalog = getPaymentMethodCatalog();
     </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>
+<style>
+.pm-toggle-label{position:relative;display:inline-flex;align-items:center;cursor:pointer;width:44px;height:24px;flex-shrink:0;}
+.pm-toggle-checkbox{opacity:0;width:0;height:0;position:absolute;}
+.pm-toggle-slider{position:absolute;inset:0;background:#374151;border-radius:9999px;transition:background .2s;}
+.pm-toggle-slider::before{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:9999px;transition:transform .2s;}
+.pm-toggle-checkbox:checked + .pm-toggle-slider{background:#059669;}
+.pm-toggle-checkbox:checked + .pm-toggle-slider::before{transform:translateX(20px);}
+</style>
 <script>
 (function(){
     var id = (location.hash || '').replace(/^#/, '');
