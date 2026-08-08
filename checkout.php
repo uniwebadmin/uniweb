@@ -325,6 +325,16 @@ endif;
                     <p class="text-sm text-gray-500 mb-1">Amount Payable</p>
                     <p class="text-4xl font-bold text-sky-400"><?= formatMoney($payAmount) ?></p>
                     <p class="text-xs text-gray-600 mt-1 font-mono">Ref: <?= e($link['link_id']) ?></p>
+                    <?php if (!$isTestCheckout && $split['platform_fee'] > 0): ?>
+                    <details class="mt-3">
+                        <summary class="text-xs text-gray-600 cursor-pointer hover:text-gray-400">Fee breakdown</summary>
+                        <div class="text-xs text-gray-500 mt-2 space-y-1 text-left max-w-[240px] mx-auto">
+                            <div class="flex justify-between"><span>Amount</span><span class="font-mono"><?= formatMoney($split['gross']) ?></span></div>
+                            <div class="flex justify-between"><span>Platform fee</span><span class="font-mono text-amber-400">-<?= formatMoney($split['platform_fee']) ?></span></div>
+                            <div class="flex justify-between border-t border-gray-800 pt-1"><span>Merchant receives</span><span class="font-mono text-emerald-400"><?= formatMoney($split['merchant_net']) ?></span></div>
+                        </div>
+                    </details>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Payment method tabs -->

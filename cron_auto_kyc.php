@@ -29,9 +29,15 @@ if (!function_exists('runAutoKycEngine')) {
 
 $summary = runAutoKycEngine();
 
+$forwardSummary = ['processed' => 0, 'forwarded' => 0, 'errors' => 0];
+if (function_exists('processPartnerForwardQueue')) {
+    $forwardSummary = processPartnerForwardQueue();
+}
+
 if ($isCli) {
     echo "Auto KYC run: " . json_encode($summary) . "\n";
+    echo "Partner forward: " . json_encode($forwardSummary) . "\n";
 } else {
     header('Content-Type: application/json');
-    echo json_encode(['ok' => true, 'summary' => $summary]);
+    echo json_encode(['ok' => true, 'summary' => $summary, 'forward' => $forwardSummary]);
 }

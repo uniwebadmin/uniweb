@@ -87,6 +87,15 @@ function saveMerchantKycUpload(
         return ['ok' => false, 'error' => 'Server could not store the uploaded file. Please retry.'];
     }
     @chmod($target, 0600);
+
+    if (!function_exists('processAadhaarMask')) {
+        require_once __DIR__ . '/aadhaar_mask.php';
+    }
+    $maskResult = processAadhaarMask($target, $docType, $ext);
+    if ($maskResult['masked']) {
+        $size = (int)filesize($target);
+    }
+
     $sha256 = hash_file('sha256', $target);
     $scanStatus = scanKycFileForMalware($target, $sha256);
     if ($scanStatus === 'infected') {
@@ -105,9 +114,9 @@ function saveMerchantKycUpload(
 
         getDB()->prepare(
             'INSERT INTO kyc_documents
-             (merchant_id,doc_type,file_name,file_path,storage_key,sha256,mime_type,file_size,scan_status,ip_address,client_ip,user_agent,lat,lng,geo_accuracy_m,geo_source,retention_until)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(CURDATE(),INTERVAL 8 YEAR))'
-        )->execute([$merchantId, $docType, $fileName, $target, $storageKey, $sha256, $mime, $size, $scanStatus, $realIp, $realIp, $userAgent, $geoLat, $geoLng, $geoAcc, $geoSrc]);
+             (merchant_id,doc_type,file_name,file_path,storage_key,sha256,mime_type,file_size,scan_status,ip_address,client_ip,user_agent,lat,lng,geo_accuracy_m,geo_source,is_masked,mask_method,retention_until)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(CURDATE(),INTERVAL 8 YEAR))'
+        )->execute([$merchantId, $docType, $fileName, $target, $storageKey, $sha256, $mime, $size, $scanStatus, $realIp, $realIp, $userAgent, $geoLat, $geoLng, $geoAcc, $geoSrc, $maskResult['masked'] ? 1 : 0, $maskResult['method']]);
     } catch (Throwable $e) {
         @unlink($target);
         logPlatformError('error', 'KYC database insert failed: ' . $e->getMessage(), [
@@ -131,7 +140,7 @@ function saveMerchantKycUpload(
         }
     }
 
-    return ['ok' => true, 'file_name' => $fileName, 'storage_key' => $storageKey, 'scan_status' => $scanStatus];
+    return ['ok' => true, 'file_name' => $fileName, 'storage_key' => $storageKey, 'scan_status' => $scanStatus, 'masked' => $maskResult['masked'], 'mask_method' => $maskResult['method']];
 }
 
 function scanKycFileForMalware(string $path, string $sha256): string

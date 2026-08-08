@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $new = $_POST['new_password'] ?? '';
     $confirm = $_POST['confirm_password'] ?? '';
     if (!password_verify($current, (string)($merchant['password'] ?? ''))) { flash('error', 'Current password is incorrect.'); }
-    elseif (strlen($new) < 8) { flash('error', 'New password must be 8+ characters.'); }
+    elseif (function_exists('validateStrongPassword') && ($policyError = validateStrongPassword($new, 10))) { flash('error', $policyError); }
     elseif ($new !== $confirm) { flash('error', 'Passwords do not match.'); }
     else {
         getDB()->prepare('UPDATE merchants SET password = ? WHERE id = ?')->execute([password_hash($new, PASSWORD_ARGON2ID), $merchant['id']]);
@@ -34,7 +34,8 @@ require_once __DIR__ . '/header.php';
             </div>
             <div>
                 <?= uxFormLabel(uxFieldId('new_password'), 'New Password', true) ?>
-                <input type="password" name="new_password" id="<?= e(uxFieldId('new_password')) ?>" required minlength="8" class="input-field mt-1" autocomplete="new-password">
+                <input type="password" name="new_password" id="<?= e(uxFieldId('new_password')) ?>" required minlength="10" class="input-field mt-1" autocomplete="new-password" aria-describedby="pwd-policy">
+                <p id="pwd-policy" class="text-xs text-gray-500 mt-1">Min 10 characters with upper, lower, number &amp; special character.</p>
             </div>
             <div>
                 <?= uxFormLabel(uxFieldId('confirm_password'), 'Confirm New Password', true) ?>

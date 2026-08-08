@@ -138,7 +138,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             $name = 'Merchant';
         }
 
-        if (strlen($password) < 8) {
+        if (function_exists('validateStrongPassword')) {
+            $policyError = validateStrongPassword($password, 10);
+            if ($policyError) {
+                $errors[] = $policyError;
+            }
+        } elseif (strlen($password) < 8) {
             $errors[] = __('err_password_min');
         }
         if ($password !== $confirm) {
@@ -255,7 +260,8 @@ require_once __DIR__ . '/header.php';
 
                 <div class="ap-field">
                     <label class="ap-label"><?= __('password') ?> *</label>
-                    <input type="password" name="password" required minlength="8" class="ap-input" placeholder="<?= e(__('password_min_placeholder')) ?>">
+                    <input type="password" name="password" required minlength="10" class="ap-input" placeholder="<?= e(__('password_min_placeholder')) ?>">
+                    <p class="ap-hint text-xs text-gray-500 mt-1">Min 10 characters with upper, lower, number &amp; special character.</p>
                 </div>
                 <div class="ap-field">
                     <label class="ap-label"><?= __('confirm_password') ?> *</label>

@@ -232,6 +232,8 @@ function autoVerifyMerchantKyc(int $merchantId): bool
         }
 
         logAutoKycRun($merchantId, 'merchant_verified', 'Auto-verified by Zero-Touch KYC engine');
+
+        queueMerchantForPartnerForward($merchantId);
         return true;
     } catch (Throwable $e) {
         logAutoKycRun($merchantId, 'verify_failed', $e->getMessage());
@@ -371,5 +373,241 @@ function getLastAutoKycRun(): ?array
         return is_array($decoded) ? $decoded : null;
     } catch (Throwable $e) {
         return null;
+    }
+}
+
+/**
+ * Ensure partner_forward_queue table exists.
+ */
+function ensurePartnerForwardQueueTable(): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    try {
+        getDB()->exec("CREATE TABLE IF NOT EXISTS partner_forward_queue (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            merchant_id INT UNSIGNED NOT NULL,
+            status VARCHAR(32) NOT NULL DEFAULT 'queued',
+            scheduled_at DATETIME NOT NULL,
+            forwarded_at DATETIME DEFAULT NULL,
+            gateways VARCHAR(500) DEFAULT NULL,
+            admin_note VARCHAR(500) DEFAULT NULL,
+            paused_by INT UNSIGNED DEFAULT NULL,
+            paused_at DATETIME DEFAULT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_merchant_forward (merchant_id),
+            INDEX idx_forward_status (status, scheduled_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) { /* ok */ }
+}
+
+/**
+ * Get the hold window in minutes (default 75, range 60-90).
+ */
+function getHoldWindowMinutes(): int
+{
+    return (int)getSetting('kyc_hold_window_minutes', '75');
+}
+
+/**
+ * Determine if a given time is in the "night" window (after 6 PM).
+ * If so, schedule for next day 11 AM. Otherwise schedule after hold window.
+ */
+function calculateForwardTime(string $verifiedAt = 'now'): string
+{
+    $ts = strtotime($verifiedAt);
+    if ($ts === false) {
+        $ts = time();
+    }
+    $hour = (int)date('G', $ts);
+
+    if ($hour >= 18) {
+        $nextDay = strtotime('next day 11:00', $ts);
+        return date('Y-m-d H:i:s', $nextDay);
+    }
+
+    $holdMinutes = getHoldWindowMinutes();
+    return date('Y-m-d H:i:s', $ts + ($holdMinutes * 60));
+}
+
+/**
+ * Queue a verified merchant for partner forward.
+ * Creates or updates the forward queue entry.
+ */
+function queueMerchantForPartnerForward(int $merchantId, ?string $gateways = null): bool
+{
+    ensurePartnerForwardQueueTable();
+    $scheduledAt = calculateForwardTime();
+
+    try {
+        getDB()->prepare("INSERT INTO partner_forward_queue
+            (merchant_id, status, scheduled_at, gateways, created_at)
+            VALUES (?, 'queued', ?, ?, NOW())
+            ON DUPLICATE KEY UPDATE
+            status = 'queued', scheduled_at = VALUES(scheduled_at),
+            gateways = VALUES(gateways), paused_by = NULL, paused_at = NULL,
+            forwarded_at = NULL")
+            ->execute([$merchantId, $scheduledAt, $gateways]);
+        logAutoKycRun($merchantId, 'forward_queued', 'Queued for partner forward at ' . $scheduledAt);
+        return true;
+    } catch (Throwable $e) {
+        logAutoKycRun($merchantId, 'forward_queue_failed', $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Process the partner forward queue — called from cron.
+ * Forwards merchants whose scheduled_at has passed and status='queued'.
+ */
+function processPartnerForwardQueue(): array
+{
+    ensurePartnerForwardQueueTable();
+    $db = getDB();
+    $summary = ['processed' => 0, 'forwarded' => 0, 'errors' => 0];
+
+    try {
+        $st = $db->prepare("SELECT q.*, m.business_name, m.kyc_status
+            FROM partner_forward_queue q
+            JOIN merchants m ON q.merchant_id = m.id
+            WHERE q.status = 'queued' AND q.scheduled_at <= NOW()
+            ORDER BY q.scheduled_at ASC LIMIT 20");
+        $st->execute();
+        $queue = $st->fetchAll();
+    } catch (Throwable $e) {
+        return $summary;
+    }
+
+    foreach ($queue as $item) {
+        $merchantId = (int)$item['merchant_id'];
+        $summary['processed']++;
+
+        if (($item['kyc_status'] ?? '') !== 'verified') {
+            $db->prepare("UPDATE partner_forward_queue SET status = 'cancelled' WHERE id = ?")
+                ->execute([$item['id']]);
+            logAutoKycRun($merchantId, 'forward_cancelled', 'KYC no longer verified');
+            continue;
+        }
+
+        $gateways = array_filter(array_map('trim', explode(',', (string)$item['gateways'])));
+        if (empty($gateways)) {
+            if (!function_exists('gatewaySubmissionAllowedGateways')) {
+                require_once __DIR__ . '/gateway_submit.php';
+            }
+            if (function_exists('gatewaySubmissionAllowedGateways')) {
+                $gateways = gatewaySubmissionAllowedGateways();
+            }
+        }
+
+        if (empty($gateways)) {
+            $db->prepare("UPDATE partner_forward_queue SET status = 'failed', admin_note = 'No gateways configured' WHERE id = ?")
+                ->execute([$item['id']]);
+            $summary['errors']++;
+            continue;
+        }
+
+        try {
+            if (!function_exists('submitMerchantToGateways')) {
+                require_once __DIR__ . '/gateway_submit.php';
+            }
+            if (function_exists('submitMerchantToGateways')) {
+                $count = submitMerchantToGateways($merchantId, $gateways, 0, 'Auto-forwarded by Zero-Touch KYC queue');
+                $db->prepare("UPDATE partner_forward_queue SET status = 'forwarded', forwarded_at = NOW() WHERE id = ?")
+                    ->execute([$item['id']]);
+                $summary['forwarded']++;
+                logAutoKycRun($merchantId, 'forwarded', 'Auto-forwarded to ' . $count . ' gateway(s)');
+            } else {
+                $db->prepare("UPDATE partner_forward_queue SET status = 'failed', admin_note = 'gateway_submit not available' WHERE id = ?")
+                    ->execute([$item['id']]);
+                $summary['errors']++;
+            }
+        } catch (Throwable $e) {
+            $db->prepare("UPDATE partner_forward_queue SET status = 'failed', admin_note = ? WHERE id = ?")
+                ->execute([mb_substr($e->getMessage(), 0, 500), $item['id']]);
+            $summary['errors']++;
+            logAutoKycRun($merchantId, 'forward_error', $e->getMessage());
+        }
+    }
+
+    if (function_exists('saveSetting')) {
+        try {
+            saveSetting('partner_forward_last_run', json_encode([
+                'ran_at' => date('Y-m-d H:i:s'),
+                'summary' => $summary,
+            ]));
+        } catch (Throwable $e) { /* ok */ }
+    }
+
+    return $summary;
+}
+
+/**
+ * Pause a queued partner forward (admin action).
+ */
+function pausePartnerForward(int $merchantId, int $adminId): bool
+{
+    ensurePartnerForwardQueueTable();
+    try {
+        getDB()->prepare("UPDATE partner_forward_queue SET status = 'paused', paused_by = ?, paused_at = NOW() WHERE merchant_id = ? AND status = 'queued'")
+            ->execute([$adminId, $merchantId]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * Resume a paused partner forward — reschedules with fresh hold window.
+ */
+function resumePartnerForward(int $merchantId): bool
+{
+    ensurePartnerForwardQueueTable();
+    $scheduledAt = calculateForwardTime();
+    try {
+        getDB()->prepare("UPDATE partner_forward_queue SET status = 'queued', scheduled_at = ?, paused_by = NULL, paused_at = NULL WHERE merchant_id = ? AND status = 'paused'")
+            ->execute([$scheduledAt, $merchantId]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * Cancel a queued/paused partner forward (admin reject).
+ */
+function cancelPartnerForward(int $merchantId, string $reason = ''): bool
+{
+    ensurePartnerForwardQueueTable();
+    try {
+        getDB()->prepare("UPDATE partner_forward_queue SET status = 'cancelled', admin_note = ? WHERE merchant_id = ? AND status IN ('queued','paused')")
+            ->execute([mb_substr($reason, 0, 500), $merchantId]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * Get the partner forward queue for admin dashboard.
+ */
+function getPartnerForwardQueue(int $limit = 50): array
+{
+    ensurePartnerForwardQueueTable();
+    try {
+        $st = getDB()->prepare("SELECT q.*, m.business_name, m.merchant_code, m.kyc_status
+            FROM partner_forward_queue q
+            JOIN merchants m ON q.merchant_id = m.id
+            WHERE q.status IN ('queued','paused','forwarded','failed')
+            ORDER BY
+                CASE q.status WHEN 'queued' THEN 0 WHEN 'paused' THEN 1 WHEN 'failed' THEN 2 ELSE 3 END,
+                q.scheduled_at DESC
+            LIMIT ?");
+        $st->execute([$limit]);
+        return $st->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        return [];
     }
 }

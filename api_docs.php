@@ -96,6 +96,25 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <div class="glass rounded-xl p-6">
+            <h2 class="font-semibold mb-3">Sandbox / Test Mode</h2>
+            <p class="text-sm text-gray-400 mb-3">Every merchant gets a Test Mode API key (<code class="text-gray-300">uw_test_…</code>) immediately after signup — no KYC needed. Test Mode lets you integrate and verify your code without real money.</p>
+            <div class="grid sm:grid-cols-2 gap-3 text-sm">
+                <div class="rounded-lg border border-gray-800 p-3"><span class="text-emerald-400 font-medium">Test Mode</span><p class="text-xs text-gray-500 mt-1">No real charges. Payment links return a test checkout page. Webhooks fire with test data. Rate limited at 120 req/min.</p></div>
+                <div class="rounded-lg border border-gray-800 p-3"><span class="text-amber-400 font-medium">Live Mode</span><p class="text-xs text-gray-500 mt-1">Requires completed KYC + Live activation. Real money flows. Use <code class="text-gray-400">uw_live_…</code> keys.</p></div>
+            </div>
+            <p class="text-xs text-gray-500 mt-3">Switch between Test and Live by using the respective API key. The mode is determined by the key prefix, not a separate header.</p>
+        </div>
+
+        <div class="glass rounded-xl p-6">
+            <h2 class="font-semibold mb-3">Rate Limits</h2>
+            <div class="grid sm:grid-cols-2 gap-3 text-sm">
+                <div class="rounded-lg border border-gray-800 p-3"><span class="text-brand-400 font-mono">120 req/min</span><p class="text-xs text-gray-500 mt-1">Per API credential. Burst up to 10 requests allowed.</p></div>
+                <div class="rounded-lg border border-gray-800 p-3"><span class="text-amber-400 font-mono">429 + Retry-After</span><p class="text-xs text-gray-500 mt-1">Returned when limit exceeded. <code class="text-gray-400">Retry-After</code> header gives wait time in seconds.</p></div>
+            </div>
+            <p class="text-xs text-gray-500 mt-3">Use exponential backoff on 429 responses. Idempotency-Key ensures retries never double-charge.</p>
+        </div>
+
+        <div class="glass rounded-xl p-6">
             <h2 class="font-semibold mb-3">Response Codes</h2>
             <div class="grid sm:grid-cols-2 gap-3 text-sm">
                 <div class="rounded-lg border border-gray-800 p-3"><span class="text-brand-400 font-mono">200</span> — Success (<code class="text-gray-400">success: true</code>)</div>

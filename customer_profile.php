@@ -7,6 +7,74 @@ $phone = currentCustomerPhone();
 $tickets = getCustomerTickets($phone);
 $txns = getCustomerTransactions($phone, 5);
 
+$phoneChangeOtp = $_SESSION['cust_phone_change_otp'] ?? null;
+$phoneChangeNew = $_SESSION['cust_phone_change_new'] ?? null;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    $action = (string)($_POST['action'] ?? '');
+
+    if ($action === 'request_phone_change') {
+        $newPhone = customerNormalizePhone((string)($_POST['new_phone'] ?? ''));
+        if ($newPhone === '') {
+            flash('error', 'Valid 10-digit mobile number daalein.');
+            redirect('customer_profile.php');
+        }
+        if ($newPhone === $phone) {
+            flash('error', 'Yeh number pehle se registered hai.');
+            redirect('customer_profile.php');
+        }
+        $res = requestCustomerOtp($newPhone);
+        if (!empty($res['ok'])) {
+            $_SESSION['cust_phone_change_new'] = $newPhone;
+            $_SESSION['cust_phone_change_otp'] = $res['demo_otp'] ?? null;
+            flash('info', $res['message'] . ' Naya number: +91 ' . $newPhone);
+        } else {
+            flash('error', $res['message']);
+        }
+        redirect('customer_profile.php');
+    }
+
+    if ($action === 'confirm_phone_change') {
+        $newPhone = (string)($_SESSION['cust_phone_change_new'] ?? '');
+        $otp = (string)($_POST['phone_change_otp'] ?? '');
+        if ($newPhone === '' || $otp === '') {
+            flash('error', 'OTP daalein.');
+            redirect('customer_profile.php');
+        }
+        $verify = verifyCustomerOtp($newPhone, $otp);
+        if (!empty($verify['ok'])) {
+            $oldPhone = $phone;
+            $_SESSION['customer_phone'] = $newPhone;
+            unset($_SESSION['cust_phone_change_new'], $_SESSION['cust_phone_change_otp']);
+            try {
+                getDB()->prepare("UPDATE transactions SET customer_phone=? WHERE customer_phone=?")
+                    ->execute([$newPhone, $oldPhone]);
+            } catch (Throwable $e) { /* ok */ }
+            try {
+                getDB()->prepare("UPDATE payment_links SET customer_phone=? WHERE customer_phone=?")
+                    ->execute([$newPhone, $oldPhone]);
+            } catch (Throwable $e) { /* ok */ }
+            try {
+                getDB()->prepare("UPDATE customer_tickets SET customer_phone=? WHERE customer_phone=?")
+                    ->execute([$newPhone, $oldPhone]);
+            } catch (Throwable $e) { /* ok */ }
+            flash('success', 'Phone number updated successfully. +91 ' . $newPhone);
+        } else {
+            flash('error', $verify['message']);
+        }
+        redirect('customer_profile.php');
+    }
+
+    if ($action === 'cancel_phone_change') {
+        unset($_SESSION['cust_phone_change_new'], $_SESSION['cust_phone_change_otp']);
+        flash('info', 'Phone change cancelled.');
+        redirect('customer_profile.php');
+    }
+}
+
+$phoneChangeOtp = $_SESSION['cust_phone_change_otp'] ?? null;
+$phoneChangeNew = $_SESSION['cust_phone_change_new'] ?? null;
+
 $pageTitle = 'My Profile';
 $hideNav = true;
 $hideFooter = true;
@@ -37,6 +105,39 @@ require_once __DIR__ . '/header.php';
                 <p class="text-[10px] uppercase text-slate-500 font-semibold">Mobile</p>
                 <p class="text-lg font-semibold text-slate-900 mt-1">+91 <?= e($phone) ?></p>
             </div>
+
+            <?php if ($phoneChangeNew): ?>
+            <div class="rounded-xl bg-amber-50 border border-amber-200 p-4 space-y-3">
+                <p class="text-sm font-semibold text-amber-800">Phone change verification</p>
+                <p class="text-xs text-amber-700">OTP sent to +91 <?= e($phoneChangeNew) ?>. Enter the 6-digit OTP to confirm.</p>
+                <?php if ($phoneChangeOtp): ?>
+                <p class="text-xs text-amber-600 bg-amber-100 rounded px-2 py-1">Demo OTP: <strong><?= e($phoneChangeOtp) ?></strong></p>
+                <?php endif; ?>
+                <form method="POST" class="flex gap-2 flex-wrap">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="action" value="confirm_phone_change">
+                    <input type="text" name="phone_change_otp" maxlength="6" inputmode="numeric" placeholder="6-digit OTP" class="cp-input flex-1 min-w-[120px] text-sm" required>
+                    <button type="submit" class="cp-btn cp-btn-primary text-sm">Confirm</button>
+                </form>
+                <form method="POST" class="inline">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="action" value="cancel_phone_change">
+                    <button type="submit" class="cp-btn cp-btn-ghost text-xs">Cancel</button>
+                </form>
+            </div>
+            <?php else: ?>
+            <details class="rounded-xl bg-slate-50 border border-slate-100 p-4">
+                <summary class="text-sm font-semibold text-slate-700 cursor-pointer">Change mobile number</summary>
+                <form method="POST" class="mt-3 flex gap-2 flex-wrap">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="action" value="request_phone_change">
+                    <input type="text" name="new_phone" maxlength="10" inputmode="numeric" placeholder="New 10-digit mobile" class="cp-input flex-1 min-w-[140px] text-sm" required>
+                    <button type="submit" class="cp-btn cp-btn-primary text-sm">Send OTP</button>
+                </form>
+                <p class="text-xs text-slate-500 mt-2">OTP will be sent to the new number. Your transactions and tickets will be linked to the new number.</p>
+            </details>
+            <?php endif; ?>
+
             <div class="grid sm:grid-cols-2 gap-4 text-sm">
                 <div class="rounded-xl bg-slate-50 border border-slate-100 p-4">
                     <p class="text-slate-500 text-xs">Recent payments shown</p>

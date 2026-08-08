@@ -5,6 +5,7 @@ requireLogin();
 ensureKycSchema();
 require_once __DIR__ . '/includes/kyc_upload.php';
 require_once __DIR__ . '/includes/client_context.php';
+require_once __DIR__ . '/includes/kyc_verify.php';
 $merchant = getMerchant();
 $db = getDB();
 
@@ -36,9 +37,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->prepare("UPDATE merchants SET kyc_status='submitted',onboarding_state='submitted',onboarding_submitted_at=COALESCE(onboarding_submitted_at,NOW()),account_mode='test' WHERE id=?")
                 ->execute([$merchant['id']]);
             notifyAdminKycDocumentUploaded((int)$merchant['id'], $docType);
-            flash('success', ($saved['scan_status'] ?? 'pending') === 'clean'
+            $msg = ($saved['scan_status'] ?? 'pending') === 'clean'
                 ? 'Document uploaded and security-scanned successfully.'
-                : 'Document uploaded. Security scan and compliance review are pending.');
+                : 'Document uploaded. Security scan and compliance review are pending.';
+            if (!empty($saved['masked'])) {
+                $msg .= ' Aadhaar number has been auto-masked (first 8 digits hidden) per UIDAI compliance.';
+            }
+            flash('success', $msg);
         }
     }
     redirect('kyc.php');
@@ -84,6 +89,15 @@ $pagedDocuments = array_slice($historyDocs, $listParams['offset'], $listParams['
 $rejectedDocs = array_values(array_filter($latestByType, static fn(array $d): bool => ($d['status'] ?? '') === 'rejected' && ($d['doc_type'] ?? '') !== 'video_kyc'));
 usort($rejectedDocs, static fn(array $a, array $b): int => strcmp((string)($b['reviewed_at'] ?? $b['created_at'] ?? ''), (string)($a['reviewed_at'] ?? $a['created_at'] ?? '')));
 $rejectedDocs = array_slice($rejectedDocs, 0, 1);
+
+$rejectionCounts = [];
+foreach ($documents as $doc) {
+    $t = (string)($doc['doc_type'] ?? '');
+    if (($doc['status'] ?? '') === 'rejected' && $t !== '' && $t !== 'video_kyc') {
+        $rejectionCounts[$t] = ($rejectionCounts[$t] ?? 0) + 1;
+    }
+}
+$maxRetries = 3;
 
 // Number fields shown only if that doc type is required for this entity
 $verifyFields = [];
@@ -171,14 +185,40 @@ $docStatusMeta = static function (string $status): array {
     <?php if (!empty($rejectedDocs)): ?>
     <div class="rounded-xl border border-red-500/40 bg-red-500/10 p-4 mb-6">
         <p class="text-sm font-semibold text-red-300 mb-2">Action needed — <?= count($rejectedDocs) ?> document<?= count($rejectedDocs) === 1 ? '' : 's' ?> rejected</p>
-        <ul class="space-y-2">
-            <?php foreach ($rejectedDocs as $rej): ?>
+        <ul class="space-y-3">
+            <?php foreach ($rejectedDocs as $rej):
+                $rejType = (string)($rej['doc_type'] ?? '');
+                $rejCount = $rejectionCounts[$rejType] ?? 0;
+                $retriesLeft = max(0, $maxRetries - $rejCount);
+            ?>
             <li class="text-sm text-red-200/90">
-                <span class="font-medium"><?= e($docLabels[$rej['doc_type']] ?? $rej['doc_type']) ?>:</span>
-                <?= e(trim((string)($rej['rejection_reason'] ?? '')) ?: 'Please re-upload a clearer copy.') ?>
+                <div class="flex items-start justify-between gap-2 flex-wrap">
+                    <div class="min-w-0">
+                        <span class="font-medium"><?= e($docLabels[$rejType] ?? $rejType) ?>:</span>
+                        <?= e(trim((string)($rej['rejection_reason'] ?? '')) ?: 'Please re-upload a clearer copy.') ?>
+                        <span class="block text-xs text-gray-400 mt-1">Attempt <?= $rejCount ?> of <?= $maxRetries ?> · <?= $retriesLeft > 0 ? $retriesLeft . ' retry left' : 'No retries left' ?></span>
+                    </div>
+                    <?php if ($retriesLeft <= 0): ?>
+                    <a href="mailto:<?= e(getSetting('support_email', 'support@uniweb.pay')) ?>?subject=KYC%20Help%20-%20<?= e($docLabels[$rejType] ?? $rejType) ?>&body=My%20<?= e($docLabels[$rejType] ?? $rejType) ?>%20was%20rejected%20<?= $rejCount ?>%20times.%20Merchant%20code:%20<?= e($merchant['merchant_code'] ?? '') ?>" class="text-xs bg-amber-600/20 text-amber-400 px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0">Need Help?</a>
+                    <?php endif; ?>
+                </div>
             </li>
             <?php endforeach; ?>
         </ul>
+        <?php
+        $anyExhausted = false;
+        foreach ($rejectedDocs as $rej) {
+            if (($rejectionCounts[$rej['doc_type'] ?? ''] ?? 0) >= $maxRetries) {
+                $anyExhausted = true;
+                break;
+            }
+        }
+        ?>
+        <?php if ($anyExhausted): ?>
+        <div class="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <p class="text-xs text-amber-300">Max retry limit reached for one or more documents. You can still upload again, but we recommend using "Need Help?" to contact support. Our team will manually review your documents within 24 hours.</p>
+        </div>
+        <?php endif; ?>
     </div>
     <?php endif; ?>
     <?php
@@ -421,7 +461,7 @@ $docStatusMeta = static function (string $status): array {
                     if (($doc['doc_type'] ?? '') === 'video_kyc') continue;
                 ?>
                 <tr class="hover:bg-white/5">
-                    <td class="px-5 py-3 break-words"><?= e($docLabels[$doc['doc_type']] ?? $doc['doc_type']) ?></td>
+                    <td class="px-5 py-3 break-words"><?= e($docLabels[$doc['doc_type']] ?? $doc['doc_type']) ?><?php if (!empty($doc['is_masked'])): ?> <span class="inline-block px-1.5 py-0.5 bg-emerald-600/20 text-emerald-400 rounded text-[10px] font-medium">Masked</span><?php endif; ?></td>
                     <td class="px-5 py-3 text-xs break-all"><?= e($doc['file_name']) ?></td>
                     <td class="px-5 py-3"><?= statusBadge($doc['status']) ?></td>
                     <td class="px-5 py-3 text-xs break-words <?= ($doc['status'] ?? '') === 'rejected' ? 'text-red-300' : 'text-gray-500' ?>">
@@ -641,5 +681,27 @@ async function confirmAadhaarOtp(){
         setTimeout(()=>location.reload(),1200);
     }
 }
+document.querySelectorAll('#verify-forms input[id^="verify-"]').forEach(function(inp){
+    inp.addEventListener('blur', function(){
+        var type=this.id.replace('verify-','');
+        if(type==='aadhaar') return;
+        var val=this.value.trim();
+        if(val==='') return;
+        var res=document.getElementById('result-'+type);
+        if(!res) return;
+        fetch('kyc_validate_ajax.php?field='+encodeURIComponent(type)+'&value='+encodeURIComponent(val)+'&token=<?= csrfToken() ?>')
+            .then(function(r){return r.json();})
+            .then(function(d){
+                if(d.valid){
+                    res.innerHTML='✓ Valid format';
+                    res.className='text-xs mt-2 text-emerald-400';
+                } else {
+                    res.innerHTML='✗ '+(d.reason||'Invalid');
+                    res.className='text-xs mt-2 text-red-400';
+                }
+            })
+            .catch(function(){});
+    });
+});
 </script>
 <?php require_once __DIR__ . '/footer.php'; ?>

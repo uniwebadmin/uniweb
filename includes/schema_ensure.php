@@ -39,6 +39,8 @@ function ensureKycSchema(): void
     schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN geo_source VARCHAR(20) DEFAULT NULL");
     schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN user_agent VARCHAR(255) DEFAULT NULL");
     schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN device_fingerprint VARCHAR(255) DEFAULT NULL");
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN is_masked TINYINT(1) NOT NULL DEFAULT 0");
+    schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN mask_method VARCHAR(50) DEFAULT NULL");
 }
 
 function ensureSignupVerificationSchema(): void

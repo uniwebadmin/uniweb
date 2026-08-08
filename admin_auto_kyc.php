@@ -6,6 +6,7 @@ if (!function_exists('runAutoKycEngine') && is_file(__DIR__ . '/includes/auto_ky
 }
 
 $lastRun = getLastAutoKycRun();
+$forwardQueue = [];
 
 // Manual trigger
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
@@ -15,6 +16,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         flash('success', "Auto KYC run complete: {$result['merchants_verified']} verified, {$result['docs_auto_approved']} docs approved, {$result['merchants_checked']} checked.");
         redirect('admin_auto_kyc.php');
     }
+    if ($action === 'process_forward' && function_exists('processPartnerForwardQueue')) {
+        $fwd = processPartnerForwardQueue();
+        flash('success', "Partner forward: {$fwd['forwarded']} forwarded, {$fwd['processed']} processed.");
+        redirect('admin_auto_kyc.php');
+    }
+    $merchantId = (int)($_POST['merchant_id'] ?? 0);
+    if ($merchantId && function_exists('pausePartnerForward')) {
+        if ($action === 'pause_forward') {
+            pausePartnerForward($merchantId, (int)($_SESSION['admin_id'] ?? 0));
+            flash('success', 'Partner forward paused.');
+        } elseif ($action === 'resume_forward') {
+            resumePartnerForward($merchantId);
+            flash('success', 'Partner forward resumed with fresh hold window.');
+        } elseif ($action === 'cancel_forward') {
+            cancelPartnerForward($merchantId, trim((string)($_POST['reason'] ?? '')));
+            flash('success', 'Partner forward cancelled.');
+        }
+        redirect('admin_auto_kyc.php');
+    }
+}
+
+if (function_exists('getPartnerForwardQueue')) {
+    $forwardQueue = getPartnerForwardQueue(50);
 }
 
 $pageTitle = 'Zero-Touch Auto KYC';
@@ -71,10 +95,70 @@ require_once __DIR__ . '/header.php';
     </div>
     <?php endif; ?>
 
+    <?php if (!empty($forwardQueue)): ?>
+    <div class="glass rounded-xl p-6 border border-violet-500/20 mb-8">
+        <h2 class="font-semibold text-lg mb-2">Partner Forward Queue</h2>
+        <p class="text-xs text-gray-500 mb-4">Auto-forwards verified merchants to partner gateways after hold window (75 min) or next day 11 AM if after 6 PM. Admin can Pause / Resume / Cancel.</p>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="text-xs text-gray-500 uppercase">
+                    <tr>
+                        <th class="px-3 py-2 text-left">Merchant</th>
+                        <th class="px-3 py-2 text-left">Status</th>
+                        <th class="px-3 py-2 text-left">Scheduled</th>
+                        <th class="px-3 py-2 text-left">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-800">
+                    <?php foreach ($forwardQueue as $q): $qStatus = $q['status'] ?? 'queued'; ?>
+                    <tr>
+                        <td class="px-3 py-2">
+                            <p class="font-medium text-sm"><?= e($q['business_name'] ?? '') ?></p>
+                            <p class="text-xs text-gray-500 font-mono"><?= e($q['merchant_code'] ?? '') ?> · KYC: <?= e($q['kyc_status'] ?? '') ?></p>
+                        </td>
+                        <td class="px-3 py-2">
+                            <?php if ($qStatus === 'queued'): ?><span class="text-xs px-2 py-1 bg-sky-600/20 text-sky-400 rounded">Queued</span>
+                            <?php elseif ($qStatus === 'paused'): ?><span class="text-xs px-2 py-1 bg-amber-600/20 text-amber-400 rounded">Paused</span>
+                            <?php elseif ($qStatus === 'forwarded'): ?><span class="text-xs px-2 py-1 bg-emerald-600/20 text-emerald-400 rounded">Forwarded</span>
+                            <?php elseif ($qStatus === 'failed'): ?><span class="text-xs px-2 py-1 bg-red-600/20 text-red-400 rounded">Failed</span>
+                            <?php else: ?><span class="text-xs px-2 py-1 bg-gray-700/40 text-gray-400 rounded"><?= e($qStatus) ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($q['admin_note'])): ?><p class="text-xs text-gray-500 mt-1"><?= e($q['admin_note']) ?></p><?php endif; ?>
+                        </td>
+                        <td class="px-3 py-2 text-xs text-gray-500">
+                            <?= e(formatDate($q['scheduled_at'] ?? '')) ?>
+                            <?php if (!empty($q['forwarded_at'])): ?><br><span class="text-emerald-400">Forwarded: <?= e(formatDate($q['forwarded_at'])) ?></span><?php endif; ?>
+                        </td>
+                        <td class="px-3 py-2">
+                            <div class="flex gap-1 flex-wrap">
+                                <?php if ($qStatus === 'queued'): ?>
+                                <form method="POST" class="inline"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="pause_forward"><input type="hidden" name="merchant_id" value="<?= (int)$q['merchant_id'] ?>"><button class="text-xs bg-amber-600/20 text-amber-400 px-2 py-1 rounded">Pause</button></form>
+                                <form method="POST" class="inline"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="cancel_forward"><input type="hidden" name="merchant_id" value="<?= (int)$q['merchant_id'] ?>"><input name="reason" placeholder="Reason" class="text-xs bg-gray-900 border border-gray-700 rounded px-1 py-0.5 w-20"><button class="text-xs bg-red-600/20 text-red-400 px-2 py-1 rounded">Cancel</button></form>
+                                <?php elseif ($qStatus === 'paused'): ?>
+                                <form method="POST" class="inline"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="resume_forward"><input type="hidden" name="merchant_id" value="<?= (int)$q['merchant_id'] ?>"><button class="text-xs bg-sky-600/20 text-sky-400 px-2 py-1 rounded">Resume</button></form>
+                                <form method="POST" class="inline"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="cancel_forward"><input type="hidden" name="merchant_id" value="<?= (int)$q['merchant_id'] ?>"><button class="text-xs bg-red-600/20 text-red-400 px-2 py-1 rounded">Cancel</button></form>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <form method="POST" class="mt-4 inline">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="action" value="process_forward">
+            <button type="submit" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium">Process Forward Queue Now</button>
+        </form>
+    </div>
+    <?php endif; ?>
+
+    <div class="flex gap-3 flex-wrap">
     <form method="POST" class="inline">
         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
         <input type="hidden" name="action" value="run_now">
-        <button type="submit" class="px-5 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium">Run Now</button>
+        <button type="submit" class="px-5 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium">Run KYC Engine Now</button>
     </form>
+    </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>
