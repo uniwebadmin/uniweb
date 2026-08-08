@@ -283,3 +283,132 @@ function getGatewayMethods(int $gatewayId): array
         return [];
     }
 }
+
+/**
+ * Sync all partners from getPartnerRegistry() into gateway_registry.
+ * New partners appear as INACTIVE. Existing ones keep their status.
+ */
+function syncPartnerGateways(): void
+{
+    ensurePaymentMethodsTable();
+    if (!function_exists('getPartnerRegistry')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $registry = getPartnerRegistry();
+    $db = getDB();
+    foreach ($registry as $key => $p) {
+        $supportsCollection = in_array('collection', $p['capabilities'] ?? ['collection'], true) || true;
+        $supportsPayout = str_contains($p['use'] ?? '', 'Payout') || str_contains($p['use'] ?? '', 'payout');
+        $supportsRefund = str_contains($p['type'] ?? '', 'gateway');
+        $supportsRecurring = str_contains($p['use'] ?? '', 'Recurring') || str_contains($p['use'] ?? '', 'recurring');
+
+        // Check if already exists
+        $st = $db->prepare("SELECT id, is_active FROM gateway_registry WHERE gateway_key=?");
+        $st->execute([$key]);
+        $existing = $st->fetch();
+        if ($existing) {
+            // Update name/capabilities but keep is_active as-is
+            $db->prepare("UPDATE gateway_registry SET gateway_name=?, supports_collection=?, supports_payout=?, supports_refund=?, supports_recurring=?, webhook_url=? WHERE id=?")
+                ->execute([$p['name'], 1, $supportsPayout ? 1 : 0, $supportsRefund ? 1 : 0, $supportsRecurring ? 1 : 0, $p['webhook'] ?? null, $existing['id']]);
+        } else {
+            // Insert as INACTIVE
+            $db->prepare("INSERT INTO gateway_registry (gateway_key, gateway_name, is_active, supports_collection, supports_payout, supports_refund, supports_recurring, webhook_url) VALUES (?,?,?,?,?,?,?,?)")
+                ->execute([$key, $p['name'], 0, 1, $supportsPayout ? 1 : 0, $supportsRefund ? 1 : 0, $supportsRecurring ? 1 : 0, $p['webhook'] ?? null]);
+            $gid = (int)$db->lastInsertId();
+            $db->prepare("INSERT INTO gateway_method_map (gateway_id, method_key, is_active) VALUES (?,?,0) ON DUPLICATE KEY UPDATE is_active=VALUES(is_active)")
+                ->execute([$gid, $key]);
+        }
+    }
+}
+
+/**
+ * Activate a gateway and auto-add its methods to all merchants (as OFF by default).
+ */
+function activateGatewayForAllMerchants(int $gatewayId): array
+{
+    ensurePaymentMethodsTable();
+    $db = getDB();
+    try {
+        $st = $db->prepare("SELECT * FROM gateway_registry WHERE id=?");
+        $st->execute([$gatewayId]);
+        $gw = $st->fetch();
+        if (!$gw) return ['ok' => false, 'error' => 'Gateway not found.'];
+
+        // Activate gateway
+        $db->prepare("UPDATE gateway_registry SET is_active=1 WHERE id=?")->execute([$gatewayId]);
+        $db->prepare("UPDATE gateway_method_map SET is_active=1 WHERE gateway_id=?")->execute([$gatewayId]);
+
+        // Auto-add to all merchants as OFF (is_enabled=0) — they can toggle ON
+        $merchants = $db->query("SELECT id FROM merchants WHERE status != 'deleted'")->fetchAll();
+        $stmt = $db->prepare("INSERT INTO merchant_payment_methods (merchant_id, method_key, method_label, is_enabled, updated_by) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE method_label=VALUES(method_label)");
+        foreach ($merchants as $m) {
+            $stmt->execute([$m['id'], $gw['gateway_key'], $gw['gateway_name'], 0, 'system']);
+        }
+
+        return ['ok' => true, 'gateway_name' => $gw['gateway_name'], 'merchants' => count($merchants)];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Deactivate a gateway — methods stay in merchant list but marked inactive.
+ */
+function deactivateGateway(int $gatewayId): array
+{
+    ensurePaymentMethodsTable();
+    $db = getDB();
+    try {
+        $db->prepare("UPDATE gateway_registry SET is_active=0 WHERE id=?")->execute([$gatewayId]);
+        $db->prepare("UPDATE gateway_method_map SET is_active=0 WHERE gateway_id=?")->execute([$gatewayId]);
+        return ['ok' => true];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Get gateway details by ID.
+ */
+function getGatewayById(int $gatewayId): ?array
+{
+    ensurePaymentMethodsTable();
+    try {
+        $st = getDB()->prepare("SELECT * FROM gateway_registry WHERE id=?");
+        $st->execute([$gatewayId]);
+        $row = $st->fetch();
+        return $row ?: null;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/**
+ * Save gateway config (API keys stored in gateway_settings table).
+ */
+function saveGatewayConfig(int $gatewayId, array $keys): array
+{
+    ensurePaymentMethodsTable();
+    $db = getDB();
+    try {
+        $gw = getGatewayById($gatewayId);
+        if (!$gw) return ['ok' => false, 'error' => 'Gateway not found.'];
+
+        foreach ($keys as $k => $v) {
+            $v = trim((string)$v);
+            $db->prepare('INSERT INTO gateway_settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=?')
+                ->execute([$k, $v, $v]);
+        }
+
+        // Store config metadata in config_json
+        $configMeta = json_decode($gw['config_json'] ?? '{}', true) ?: [];
+        $configMeta['keys_saved_at'] = date('Y-m-d H:i:s');
+        $configMeta['keys_count'] = count(array_filter($keys, fn($v) => trim($v) !== ''));
+        $db->prepare("UPDATE gateway_registry SET config_json=? WHERE id=?")
+            ->execute([json_encode($configMeta), $gatewayId]);
+
+        return ['ok' => true];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => $e->getMessage()];
+    }
+}

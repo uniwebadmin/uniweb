@@ -3,7 +3,12 @@ require_once __DIR__ . '/config.php';
 if (!function_exists('getMerchantPaymentMethods')) {
     require_once __DIR__ . '/includes/payment_methods.php';
 }
+if (!function_exists('getPartnerRegistry')) {
+    require_once __DIR__ . '/includes/partner_engine.php';
+}
 requireStaffAccess(['super', 'ceo', 'ops']);
+
+syncPartnerGateways();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     $action = (string)($_POST['action'] ?? '');
@@ -24,34 +29,127 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             'webhook_url' => trim((string)($_POST['webhook_url'] ?? '')) ?: null,
         ];
         $result = registerGateway($key, $name, $capabilities);
-        flash($result['ok'] ? 'success' : 'error', $result['ok'] ? "Gateway '{$name}' registered. All merchants can now use it." : ($result['error'] ?? 'Error'));
+        flash($result['ok'] ? 'success' : 'error', $result['ok'] ? "Gateway '{$name}' registered as INACTIVE. Click Activate to enable for merchants." : ($result['error'] ?? 'Error'));
         redirect('admin_gateway_registry.php');
     }
 
-    if ($action === 'toggle_gateway') {
+    if ($action === 'activate') {
         $gatewayId = (int)($_POST['gateway_id'] ?? 0);
-        $isActive = ($_POST['is_active'] ?? '') === '1';
         if ($gatewayId > 0) {
-            try {
-                getDB()->prepare("UPDATE gateway_registry SET is_active=? WHERE id=?")->execute([$isActive ? 1 : 0, $gatewayId]);
-                flash('success', 'Gateway ' . ($isActive ? 'activated' : 'deactivated'));
-            } catch (Throwable $e) {
-                flash('error', 'Could not update gateway.');
-            }
+            $result = activateGatewayForAllMerchants($gatewayId);
+            flash($result['ok'] ? 'success' : 'error', $result['ok'] ? $result['gateway_name'] . ' activated! Added to ' . $result['merchants'] . ' merchants.' : ($result['error'] ?? 'Error'));
+        }
+        redirect('admin_gateway_registry.php');
+    }
+
+    if ($action === 'deactivate') {
+        $gatewayId = (int)($_POST['gateway_id'] ?? 0);
+        if ($gatewayId > 0) {
+            $result = deactivateGateway($gatewayId);
+            flash($result['ok'] ? 'success' : 'error', $result['ok'] ? 'Gateway deactivated.' : ($result['error'] ?? 'Error'));
         }
         redirect('admin_gateway_registry.php');
     }
 }
 
 $gateways = getRegisteredGateways();
+$partnerRegistry = getPartnerRegistry();
+$activeCount = 0;
+$inactiveCount = 0;
+foreach ($gateways as $g) {
+    if ((int)$g['is_active']) $activeCount++;
+    else $inactiveCount++;
+}
 $pageTitle = 'Gateway Orchestrator';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="max-w-4xl space-y-6">
     <div class="glass rounded-xl p-6 border border-gray-800">
-        <h2 class="font-semibold mb-2">Gateway Orchestrator</h2>
-        <p class="text-xs text-gray-500 mb-6">Register a new payment partner. Once added, all merchants automatically get the new gateway's payment methods in their ON/OFF list. No manual code changes needed.</p>
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <div>
+                <h2 class="font-semibold text-lg">Gateway Orchestrator</h2>
+                <p class="text-xs text-gray-500 mt-1">All payment partners in one place. New partners auto-appear here as Inactive. Click a gateway to add API keys and activate.</p>
+            </div>
+            <div class="flex gap-3">
+                <div class="text-center">
+                    <p class="text-2xl font-bold text-emerald-400"><?= $activeCount ?></p>
+                    <p class="text-[10px] text-gray-500 uppercase">Active</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-2xl font-bold text-gray-400"><?= $inactiveCount ?></p>
+                    <p class="text-[10px] text-gray-500 uppercase">Inactive</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    <div class="glass rounded-xl overflow-hidden border border-gray-800">
+        <div class="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+            <h3 class="font-semibold">Registered Gateways</h3>
+            <span class="text-xs text-gray-500"><?= count($gateways) ?> total</span>
+        </div>
+        <?php if (empty($gateways)): ?>
+        <div class="p-8 text-center text-sm text-gray-500">No gateways registered yet.</div>
+        <?php else: ?>
+        <div class="divide-y divide-gray-800">
+            <?php foreach ($gateways as $g):
+                $partnerInfo = $partnerRegistry[$g['gateway_key']] ?? null;
+                $isActive = (int)$g['is_active'] === 1;
+                $hasKeys = $partnerInfo && partnerIsConfigured($g['gateway_key']);
+            ?>
+            <div class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-white/5 transition-colors">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-lg bg-dark-900/80 flex items-center justify-center text-xl flex-shrink-0">
+                        <?= e($partnerInfo['icon'] ?? '⚙️') ?>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <p class="text-sm font-medium text-gray-200"><?= e($g['gateway_name']) ?></p>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full <?= $isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700/50 text-gray-400' ?>">
+                                <?= $isActive ? '● Active' : '○ Inactive' ?>
+                            </span>
+                            <?php if ($hasKeys): ?>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400">Keys Saved</span>
+                            <?php elseif ($partnerInfo): ?>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">Awaiting Keys</span>
+                            <?php endif; ?>
+                        </div>
+                        <p class="text-xs text-gray-500 font-mono mt-0.5"><?= e($g['gateway_key']) ?></p>
+                        <div class="flex gap-1.5 mt-1">
+                            <?php if ((int)$g['supports_collection']): ?><span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Collection</span><?php endif; ?>
+                            <?php if ((int)$g['supports_payout']): ?><span class="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400">Payout</span><?php endif; ?>
+                            <?php if ((int)$g['supports_refund']): ?><span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400">Refund</span><?php endif; ?>
+                            <?php if ((int)$g['supports_recurring']): ?><span class="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400">Recurring</span><?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <a href="admin_gateway_detail.php?id=<?= (int)$g['id'] ?>" class="text-xs px-3 py-1.5 rounded-lg bg-dark-900/80 text-gray-300 border border-gray-700 hover:border-gray-500">Configure →</a>
+                    <?php if (!$isActive): ?>
+                    <form method="POST" class="inline">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                        <input type="hidden" name="action" value="activate">
+                        <input type="hidden" name="gateway_id" value="<?= (int)$g['id'] ?>">
+                        <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30" onclick="return confirm('Activate <?= e($g['gateway_name']) ?>? Payment method will be added to all merchants (OFF by default).')">Activate</button>
+                    </form>
+                    <?php else: ?>
+                    <form method="POST" class="inline">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                        <input type="hidden" name="action" value="deactivate">
+                        <input type="hidden" name="gateway_id" value="<?= (int)$g['id'] ?>">
+                        <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20">Deactivate</button>
+                    </form>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+    </div>
+
+    <div class="glass rounded-xl p-6 border border-gray-800">
+        <h3 class="font-semibold mb-2">Register Custom Gateway</h3>
+        <p class="text-xs text-gray-500 mb-4">Add a gateway not in the partner list. It will appear as Inactive — configure keys and activate from its detail page.</p>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="register_gateway">
@@ -81,43 +179,6 @@ require_once __DIR__ . '/header.php';
             </div>
             <button type="submit" class="btn-primary px-6 py-2.5">Register Gateway</button>
         </form>
-    </div>
-
-    <div class="glass rounded-xl overflow-hidden border border-gray-800">
-        <div class="px-6 py-4 border-b border-gray-800">
-            <h3 class="font-semibold">Registered Gateways</h3>
-        </div>
-        <?php if (empty($gateways)): ?>
-        <div class="p-6 text-sm text-gray-500">No gateways registered yet.</div>
-        <?php else: ?>
-        <div class="divide-y divide-gray-800">
-            <?php foreach ($gateways as $g): ?>
-            <div class="px-6 py-4 flex items-center justify-between gap-4">
-                <div>
-                    <p class="text-sm font-medium text-gray-200"><?= e($g['gateway_name']) ?></p>
-                    <p class="text-xs text-gray-500 font-mono"><?= e($g['gateway_key']) ?></p>
-                    <div class="flex gap-2 mt-1">
-                        <?php if ((int)$g['supports_collection']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Collection</span><?php endif; ?>
-                        <?php if ((int)$g['supports_payout']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-sky-500/10 text-sky-400">Payout</span><?php endif; ?>
-                        <?php if ((int)$g['supports_refund']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400">Refund</span><?php endif; ?>
-                        <?php if ((int)$g['supports_recurring']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-violet-500/10 text-violet-400">Recurring</span><?php endif; ?>
-                    </div>
-                </div>
-                <div class="flex items-center gap-3">
-                    <form method="POST" class="inline">
-                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                        <input type="hidden" name="action" value="toggle_gateway">
-                        <input type="hidden" name="gateway_id" value="<?= (int)$g['id'] ?>">
-                        <input type="hidden" name="is_active" value="<?= (int)$g['is_active'] ? '0' : '1' ?>">
-                        <button type="submit" class="text-xs px-3 py-1.5 rounded-lg <?= (int)$g['is_active'] ? 'bg-emerald-600/20 text-emerald-400' : 'bg-gray-700/50 text-gray-400' ?>">
-                            <?= (int)$g['is_active'] ? 'Active' : 'Inactive' ?>
-                        </button>
-                    </form>
-                </div>
-            </div>
-            <?php endforeach; ?>
-        </div>
-        <?php endif; ?>
     </div>
 </div>
 <?php require_once __DIR__ . '/footer.php';
