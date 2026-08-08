@@ -357,6 +357,11 @@ function closeBatchAndSettle(int $merchantId, string $batchType = 'scheduled'): 
   if (!$apiResult['ok']) {
         $db->prepare("UPDATE settlement_batches SET status='failed', api_status='failed', api_message=? WHERE id=?")
             ->execute([$apiResult['error'] ?? 'Payout failed', $batchId]);
+        sendTemplatedEmail($merchantId, 'payout_failed', [
+            'amount' => formatMoney($net),
+            'batch_code' => $batch['batch_code'],
+            'reason' => $apiResult['error'] ?? 'Payout failed',
+        ]);
         return $apiResult;
     }
 
@@ -384,6 +389,13 @@ function closeBatchAndSettle(int $merchantId, string $batchType = 'scheduled'): 
         $isFinal ? 'Settlement Batch Complete' : 'Settlement Batch Submitted',
         formatMoney($net) . ' — ' . (int)$batch['txn_count'] . ' transaction(s) in batch ' . $batch['batch_code']
     );
+    if ($isFinal) {
+        sendTemplatedEmail($merchantId, 'settlement_completed', [
+            'amount' => formatMoney($net),
+            'batch_code' => $batch['batch_code'],
+            'txn_count' => (int)$batch['txn_count'],
+        ]);
+    }
 
     return [
         'ok' => true,

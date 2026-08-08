@@ -53,4 +53,8 @@ ErrorDocument 500 /error.php
     RewriteRule ^cust/?$ /customer_login.php [L,QSA,R=302]
     RewriteRule ^customer/?$ /customer_login.php [L,QSA,R=302]
     RewriteRule ^payer/?$ /customer_login.php [L,QSA,R=302]
+
+    # API versioning: /api/v1/ -> api.php (backward compatible — api.php still works directly)
+    RewriteRule ^api/v1/?$ api.php [L,QSA]
+    RewriteRule ^api/v1/index\.php$ api.php [L,QSA]
 </IfModule>

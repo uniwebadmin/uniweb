@@ -7,9 +7,9 @@
   },
   "servers": [{ "url": "https://uniweb.co.in" }],
   "paths": {
-    "/api.php": {
+    "/api/v1/": {
       "post": {
-        "summary": "Merchant API",
+        "summary": "Merchant API v1",
         "parameters": [
           {
             "name": "X-API-Key",

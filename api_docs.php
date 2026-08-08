@@ -19,19 +19,19 @@ require_once __DIR__ . '/header.php';
             <ol class="text-sm text-gray-400 space-y-2 list-decimal list-inside mb-4">
                 <li>Sign up and complete KYC (or use Test Mode with test API keys).</li>
                 <li>Copy your API key (<code class="text-gray-300">uw_test_…</code> / <code class="text-gray-300">uw_live_…</code>) and secret (<code class="text-gray-300">uws_…</code>) from Dashboard → API Settings.</li>
-                <li>POST JSON to <code class="text-gray-300"><?= APP_URL ?>/api.php</code> with headers <code class="text-gray-300">X-API-Key</code> and <code class="text-gray-300">X-API-Secret</code>.</li>
+                <li>POST JSON to <code class="text-gray-300"><?= APP_URL ?>/api/v1/</code> with headers <code class="text-gray-300">X-API-Key</code> and <code class="text-gray-300">X-API-Secret</code>.</li>
                 <li>Add an <code class="text-gray-300">Idempotency-Key</code> header for write calls (<code class="text-gray-300">create_payment_link</code>, <code class="text-gray-300">create_refund</code>) so retries never double-charge.</li>
                 <li>Create a payment link and redirect customers to <code class="text-gray-300">payment_url</code>.</li>
                 <li>Configure your webhook URL to receive <code class="text-gray-300">payment.success</code> events.</li>
             </ol>
             <p class="text-xs text-gray-500 mb-2">Example — get wallet balance (read call, no idempotency key needed):</p>
-            <pre class="bg-dark-900 p-4 rounded-lg text-xs overflow-x-auto text-gray-300">curl -X POST '<?= APP_URL ?>/api.php' \
+            <pre class="bg-dark-900 p-4 rounded-lg text-xs overflow-x-auto text-gray-300">curl -X POST '<?= APP_URL ?>/api/v1/' \
   -H 'Content-Type: application/json' \
   -H 'X-API-Key: uw_test_your_key_here' \
   -H 'X-API-Secret: uws_your_secret_here' \
   -d '{"action":"get_balance"}'</pre>
             <p class="text-xs text-gray-500 mb-2 mt-4">Example — create payment link (write call, send a unique Idempotency-Key):</p>
-            <pre class="bg-dark-900 p-4 rounded-lg text-xs overflow-x-auto text-gray-300">curl -X POST '<?= APP_URL ?>/api.php' \
+            <pre class="bg-dark-900 p-4 rounded-lg text-xs overflow-x-auto text-gray-300">curl -X POST '<?= APP_URL ?>/api/v1/' \
   -H 'Content-Type: application/json' \
   -H 'X-API-Key: uw_test_your_key_here' \
   -H 'X-API-Secret: uws_your_secret_here' \
@@ -41,7 +41,8 @@ require_once __DIR__ . '/header.php';
 
         <div class="glass rounded-xl p-6">
             <h2 class="font-semibold text-brand-400 mb-3">Base URL &amp; Authentication</h2>
-            <code class="block bg-dark-900 p-4 rounded-lg text-sm font-mono">POST <?= APP_URL ?>/api.php</code>
+            <code class="block bg-dark-900 p-4 rounded-lg text-sm font-mono">POST <?= APP_URL ?>/api/v1/</code>
+            <p class="text-xs text-gray-500 mt-2">Backward compatible — <code class="text-gray-400"><?= APP_URL ?>/api.php</code> also works. Version <code class="text-gray-400">v1</code> is included in every response as <code class="text-gray-400">api_version</code>.</p>
             <ul class="text-sm text-gray-400 mt-3 space-y-1.5">
                 <li><code class="text-gray-300">X-API-Key</code> — your key, e.g. <code class="text-gray-400">uw_test_…</code> or <code class="text-gray-400">uw_live_…</code> <span class="text-gray-600">(required)</span></li>
                 <li><code class="text-gray-300">X-API-Secret</code> — your secret, e.g. <code class="text-gray-400">uws_…</code> <span class="text-gray-600">(required)</span></li>
@@ -55,11 +56,11 @@ require_once __DIR__ . '/header.php';
         $endpoints = [
             ['create_payment_link', 'Create Payment Link', '{"action":"create_payment_link","amount":500,"description":"Order #123","customer_phone":"9876543210"}', 'Write call — send a unique Idempotency-Key header. Returns payment_url on success'],
             ['check_status', 'Check Status', '{"action":"check_status","txn_id":"TXN..."}', 'Transaction status and UTR'],
-            ['list_transactions', 'List Transactions', '{"action":"list_transactions","limit":20}', 'Recent transactions (max 50)'],
+            ['list_transactions', 'List Transactions', '{"action":"list_transactions","limit":20,"offset":0}', 'Paginated — use limit (max 100) and offset. Response includes has_more, total_count.'],
             ['get_balance', 'Get Balance', '{"action":"get_balance"}', 'Collected, settled, available balance'],
             ['create_refund', 'Create Refund', '{"action":"create_refund","txn_id":"TXN...","amount":100,"reason":"Customer request"}', 'Write call — send a unique Idempotency-Key header. Amount optional — full refund if omitted'],
-            ['list_refunds', 'List Refunds', '{"action":"list_refunds","limit":20}', 'Refund history'],
-            ['list_payment_links', 'List Payment Links', '{"action":"list_payment_links","limit":20}', 'Includes view_count analytics'],
+            ['list_refunds', 'List Refunds', '{"action":"list_refunds","limit":20,"offset":0}', 'Paginated — use limit (max 100) and offset. Response includes has_more, total_count.'],
+            ['list_payment_links', 'List Payment Links', '{"action":"list_payment_links","limit":20,"offset":0}', 'Paginated — use limit (max 100) and offset. Includes view_count analytics. Response includes has_more, total_count.'],
             ['get_payment_link', 'Get Payment Link', '{"action":"get_payment_link","link_id":"LNK..."}', 'Single link with payment_url'],
         ];
         foreach ($endpoints as [$action,$title,$body,$desc]):

@@ -272,7 +272,10 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
 
         // Process due subscription charges
         try {
-            if (function_exists('getSubscriptionsDueForCharge')) {
+            if (function_exists('processDueSubscriptionCharges')) {
+                $subResult = processDueSubscriptionCharges(20);
+                $report['steps']['recurring_charges'] = ['ok' => true, 'processed' => $subResult['processed']];
+            } elseif (function_exists('getSubscriptionsDueForCharge')) {
                 $dueSubs = getSubscriptionsDueForCharge(20);
                 $subResults = [];
                 foreach ($dueSubs as $sub) {
@@ -282,6 +285,16 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
             }
         } catch (Throwable $e) {
             $report['steps']['recurring_charges'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        // Process due recurring mandate charges
+        try {
+            if (function_exists('processDueMandateCharges')) {
+                $mandateResult = processDueMandateCharges(20);
+                $report['steps']['recurring_mandate_charges'] = ['ok' => true, 'processed' => $mandateResult['processed']];
+            }
+        } catch (Throwable $e) {
+            $report['steps']['recurring_mandate_charges'] = ['ok' => false, 'error' => $e->getMessage()];
         }
 
         $brokenLinks = 0;

@@ -88,6 +88,7 @@ require_once __DIR__ . '/header.php';
     <div class="flex items-center gap-3">
         <span class="text-sm text-gray-500"><?= $total ?> <?= __('transactions') ?> · <?= $viewTest ? 'Test' : 'Live' ?></span>
         <a href="export_transactions.php?<?= http_build_query(['status'=>$filter,'qr_id'=>$qrId,'q'=>$q,'from'=>$from,'to'=>$to,'method'=>$method]) ?>" class="text-sm bg-brand-600/20 text-brand-400 px-4 py-1.5 rounded-lg hover:bg-brand-600/30 transition"><?= __('export_csv') ?></a>
+        <a href="statement_pdf.php?<?= http_build_query(['from'=>$from,'to'=>$to]) ?>" class="text-sm bg-emerald-600/20 text-emerald-400 px-4 py-1.5 rounded-lg hover:bg-emerald-600/30 transition">Statement PDF</a>
     </div>
 </div>
 <form method="GET" data-live-search-form data-results-target="transaction-results" class="glass rounded-xl p-4 mb-6 border border-gray-800 flex flex-wrap gap-3 items-end">

@@ -5,6 +5,33 @@ $merchant = getMerchant();
 $approved = getSetting('recurring_autopay_approved', '0') === '1';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    $action = (string)($_POST['action'] ?? 'create');
+    $mandateId = (int)($_POST['mandate_id'] ?? 0);
+
+    if ($action === 'pause' && $mandateId > 0) {
+        if (pauseRecurringMandate($mandateId, (int)$merchant['id'])) {
+            flash('success', 'Mandate paused.');
+        } else {
+            flash('error', 'Could not pause mandate.');
+        }
+        redirect('merchant_recurring.php');
+    } elseif ($action === 'resume' && $mandateId > 0) {
+        if (resumeRecurringMandate($mandateId, (int)$merchant['id'])) {
+            flash('success', 'Mandate resumed.');
+        } else {
+            flash('error', 'Could not resume mandate.');
+        }
+        redirect('merchant_recurring.php');
+    } elseif ($action === 'cancel' && $mandateId > 0) {
+        $reason = trim((string)($_POST['reason'] ?? ''));
+        if (cancelRecurringMandate($mandateId, (int)$merchant['id'], $reason)) {
+            flash('success', 'Mandate cancelled.');
+        } else {
+            flash('error', 'Could not cancel mandate.');
+        }
+        redirect('merchant_recurring.php');
+    }
+
     if (!$approved) {
         flash('error', 'Recurring / AutoPay is disabled until partner product approval is recorded.');
         redirect('merchant_recurring.php');
@@ -92,8 +119,37 @@ require_once __DIR__ . '/header.php';
         <?php if (!$rows): ?><div class="p-0"><?= renderMerchantEmptyState('No mandates yet', 'Create a mandate request when partner AutoPay is approved.', null, null) ?></div><?php endif; ?>
         <?php foreach ($rows as $row): ?>
         <div class="px-6 py-3 border-b border-gray-800 flex justify-between gap-3 text-sm">
-            <div><p class="font-mono text-xs text-sky-400"><?= e($row['mandate_ref']) ?></p><p><?= e($row['customer_name']) ?> · <?= formatMoney((float)$row['amount']) ?> / <?= e($row['frequency']) ?></p></div>
-            <?= statusBadge($row['status']) ?>
+            <div>
+                <p class="font-mono text-xs text-sky-400"><?= e($row['mandate_ref']) ?></p>
+                <p><?= e($row['customer_name']) ?> · <?= formatMoney((float)$row['amount']) ?> / <?= e($row['frequency']) ?></p>
+                <?php if (!empty($row['next_charge_at'])): ?><p class="text-xs text-gray-500">Next: <?= e(formatDate($row['next_charge_at'])) ?></p><?php endif; ?>
+            </div>
+            <div class="flex items-center gap-3">
+                <?= statusBadge($row['status']) ?>
+                <?php if ($row['status'] === 'active'): ?>
+                <form method="post" class="inline">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="action" value="pause">
+                    <input type="hidden" name="mandate_id" value="<?= (int)$row['id'] ?>">
+                    <button class="text-xs text-amber-400 hover:underline">Pause</button>
+                </form>
+                <?php elseif ($row['status'] === 'paused'): ?>
+                <form method="post" class="inline">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="action" value="resume">
+                    <input type="hidden" name="mandate_id" value="<?= (int)$row['id'] ?>">
+                    <button class="text-xs text-emerald-400 hover:underline">Resume</button>
+                </form>
+                <?php endif; ?>
+                <?php if (in_array($row['status'], ['active', 'paused', 'pending_partner'], true)): ?>
+                <form method="post" class="inline" onsubmit="return confirm('Cancel this mandate?')">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="action" value="cancel">
+                    <input type="hidden" name="mandate_id" value="<?= (int)$row['id'] ?>">
+                    <button class="text-xs text-red-400 hover:underline">Cancel</button>
+                </form>
+                <?php endif; ?>
+            </div>
         </div>
         <?php endforeach; ?>
         <?= renderListPagination($listParams['page'], $recTotal, $listParams['perPage'], ['q' => $recQ]) ?>

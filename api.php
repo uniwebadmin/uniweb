@@ -25,6 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { jsonResponse(['error' => 'Method not allowed'], 405); }
 
+define('API_VERSION', 'v1');
+
 $apiKey = $_SERVER['HTTP_X_API_KEY'] ?? '';
 $apiSecret = $_SERVER['HTTP_X_API_SECRET'] ?? '';
 $rawInput = file_get_contents('php://input') ?: '';
@@ -105,6 +107,7 @@ switch ($action) {
 
         $response = [
             'success' => true,
+            'api_version' => API_VERSION,
             'mode' => $isTest ? 'test' : 'live',
             'link_id' => $linkId,
             'payment_url' => APP_URL . '/checkout.php?link=' . $linkId,
@@ -124,14 +127,19 @@ switch ($action) {
         $txn = $stmt->fetch();
 
         if (!$txn) { jsonResponse(['error' => 'Transaction not found'], 404); }
-        jsonResponse(['success' => true, 'transaction' => $txn]);
+        jsonResponse(['success' => true, 'api_version' => API_VERSION, 'transaction' => $txn]);
         break;
 
     case 'list_transactions':
-        $limit = min(50, max(1, (int)($input['limit'] ?? 20)));
-        $stmt = $db->prepare("SELECT txn_id, amount, status, payment_method, created_at FROM transactions WHERE merchant_id = ? AND COALESCE(is_test,0)=? ORDER BY created_at DESC LIMIT $limit");
+        $limit = min(100, max(1, (int)($input['limit'] ?? 20)));
+        $offset = max(0, (int)($input['offset'] ?? 0));
+        $countStmt = $db->prepare("SELECT COUNT(*) FROM transactions WHERE merchant_id = ? AND COALESCE(is_test,0)=?");
+        $countStmt->execute([$merchant['id'], $modeFlag]);
+        $totalCount = (int)$countStmt->fetchColumn();
+        $stmt = $db->prepare("SELECT txn_id, amount, status, payment_method, created_at FROM transactions WHERE merchant_id = ? AND COALESCE(is_test,0)=? ORDER BY created_at DESC LIMIT $limit OFFSET $offset");
         $stmt->execute([$merchant['id'], $modeFlag]);
-        jsonResponse(['success' => true, 'transactions' => $stmt->fetchAll()]);
+        $rows = $stmt->fetchAll();
+        jsonResponse(['success' => true, 'api_version' => API_VERSION, 'transactions' => $rows, 'has_more' => ($offset + count($rows)) < $totalCount, 'total_count' => $totalCount, 'offset' => $offset, 'limit' => $limit]);
         break;
 
     case 'get_balance':
@@ -139,7 +147,7 @@ switch ($action) {
         $collected->execute([$merchant['id'], $modeFlag]);
         $total = (float)$collected->fetch()['total'];
         $available = merchantLedgerBalance((int)$merchant['id'], $apiMode);
-        jsonResponse(['success' => true, 'mode' => $apiMode, 'balance' => ['collected' => $total, 'available' => $available]]);
+        jsonResponse(['success' => true, 'api_version' => API_VERSION, 'mode' => $apiMode, 'balance' => ['collected' => $total, 'available' => $available]]);
         break;
 
     case 'create_refund':
@@ -170,24 +178,34 @@ switch ($action) {
             completeApiIdempotency((int)$idempotency['id'], 400, $response);
             jsonResponse($response, 400);
         }
-        $response = ['success' => true, 'refund_id' => $result['refund_id'], 'amount' => $result['amount'], 'status' => $result['status'] ?? 'pending'];
+        $response = ['success' => true, 'api_version' => API_VERSION, 'refund_id' => $result['refund_id'], 'amount' => $result['amount'], 'status' => $result['status'] ?? 'pending'];
         completeApiIdempotency((int)$idempotency['id'], 200, $response);
         jsonResponse($response);
         break;
 
     case 'list_refunds':
-        $limit = min(50, max(1, (int)($input['limit'] ?? 20)));
-        $st = $db->prepare("SELECT r.* FROM refunds r JOIN transactions t ON t.id=r.transaction_id WHERE r.merchant_id=? AND COALESCE(t.is_test,0)=? ORDER BY r.created_at DESC LIMIT $limit");
+        $limit = min(100, max(1, (int)($input['limit'] ?? 20)));
+        $offset = max(0, (int)($input['offset'] ?? 0));
+        $countSt = $db->prepare("SELECT COUNT(*) FROM refunds r JOIN transactions t ON t.id=r.transaction_id WHERE r.merchant_id=? AND COALESCE(t.is_test,0)=?");
+        $countSt->execute([(int)$merchant['id'], $modeFlag]);
+        $totalCount = (int)$countSt->fetchColumn();
+        $st = $db->prepare("SELECT r.* FROM refunds r JOIN transactions t ON t.id=r.transaction_id WHERE r.merchant_id=? AND COALESCE(t.is_test,0)=? ORDER BY r.created_at DESC LIMIT $limit OFFSET $offset");
         $st->execute([(int)$merchant['id'], $modeFlag]);
-        jsonResponse(['success' => true, 'refunds' => $st->fetchAll()]);
+        $rows = $st->fetchAll();
+        jsonResponse(['success' => true, 'api_version' => API_VERSION, 'refunds' => $rows, 'has_more' => ($offset + count($rows)) < $totalCount, 'total_count' => $totalCount, 'offset' => $offset, 'limit' => $limit]);
         break;
 
     case 'list_payment_links':
         ensurePaymentLinkAnalytics();
-        $limit = min(50, max(1, (int)($input['limit'] ?? 20)));
-        $st = $db->prepare('SELECT link_id, amount, status, view_count, expires_at, created_at FROM payment_links WHERE merchant_id = ? AND COALESCE(is_test,0)=? ORDER BY created_at DESC LIMIT ' . $limit);
+        $limit = min(100, max(1, (int)($input['limit'] ?? 20)));
+        $offset = max(0, (int)($input['offset'] ?? 0));
+        $countSt = $db->prepare('SELECT COUNT(*) FROM payment_links WHERE merchant_id = ? AND COALESCE(is_test,0)=?');
+        $countSt->execute([$merchant['id'], $modeFlag]);
+        $totalCount = (int)$countSt->fetchColumn();
+        $st = $db->prepare('SELECT link_id, amount, status, view_count, expires_at, created_at FROM payment_links WHERE merchant_id = ? AND COALESCE(is_test,0)=? ORDER BY created_at DESC LIMIT ' . $limit . ' OFFSET ' . $offset);
         $st->execute([$merchant['id'], $modeFlag]);
-        jsonResponse(['success' => true, 'payment_links' => $st->fetchAll()]);
+        $rows = $st->fetchAll();
+        jsonResponse(['success' => true, 'api_version' => API_VERSION, 'payment_links' => $rows, 'has_more' => ($offset + count($rows)) < $totalCount, 'total_count' => $totalCount, 'offset' => $offset, 'limit' => $limit]);
         break;
 
     case 'get_payment_link':
@@ -199,7 +217,7 @@ switch ($action) {
         $row = $st->fetch();
         if (!$row) { jsonResponse(['error' => 'Payment link not found'], 404); }
         $row['payment_url'] = APP_URL . '/checkout.php?link=' . $linkId;
-        jsonResponse(['success' => true, 'payment_link' => $row]);
+        jsonResponse(['success' => true, 'api_version' => API_VERSION, 'payment_link' => $row]);
         break;
 
     default:

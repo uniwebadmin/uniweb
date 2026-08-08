@@ -126,6 +126,12 @@ function completeProviderRefund(string $refundId, string $providerReference): ar
         throw $e;
     }
     createNotification((int)$refund['merchant_id'], 'Refund Processed', formatMoney((float)$refund['amount']) . ' refunded for ' . $refund['txn_id']);
+    sendTemplatedEmail((int)$refund['merchant_id'], 'refund_processed', [
+        'amount' => formatMoney((float)$refund['amount']),
+        'txn_id' => $refund['txn_id'],
+        'refund_id' => $refundId,
+        'reason' => $refund['reason'] ?? '',
+    ]);
     dispatchMerchantWebhook((int)$refund['merchant_id'], 'refund.completed', [
         'refund_id' => $refundId,
         'txn_id' => $refund['txn_id'],
