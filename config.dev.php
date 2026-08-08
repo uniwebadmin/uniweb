@@ -491,6 +491,7 @@ $__includes = [
     'client_context',
     'multi_merchant',
     'email_templates',
+    'payment_methods',
 ];
 $__loaded = [];
 foreach ($__includes as $__inc) {

@@ -232,6 +232,13 @@ function getMerchantEnabledMethods(array $merchant): array
             return array_values(array_unique(array_map('strval', $decoded)));
         }
     }
+    // Check new merchant_payment_methods table
+    if (function_exists('getMerchantEnabledMethodKeys')) {
+        $pmEnabled = getMerchantEnabledMethodKeys((int)$merchant['id']);
+        if (!empty($pmEnabled)) {
+            return $pmEnabled;
+        }
+    }
     // New merchants: only UPI P2M until partner/admin unlocks more.
     return ['upi_p2m'];
 }

@@ -48,6 +48,25 @@ if (isset($_GET['action']) && $_GET['action'] === 'regen_key' && verifyCsrf($_GE
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    $adminAction = (string)($_POST['admin_action'] ?? '');
+
+    if ($adminAction === 'toggle_method') {
+        $methodKey = trim((string)($_POST['method_key'] ?? ''));
+        $enabled = ($_POST['enabled'] ?? '') === '1';
+        if ($methodKey !== '') {
+            $result = toggleMerchantPaymentMethod($id, $methodKey, $enabled, 'admin');
+            flash($result['ok'] ? 'success' : 'error', $result['ok'] ? $methodKey . ' ' . ($enabled ? 'enabled' : 'disabled') : ($result['error'] ?? 'Error'));
+        }
+        redirect('admin_edit_merchant.php?id=' . $id . '#payment-methods');
+    }
+
+    if ($adminAction === 'bulk_methods') {
+        $enabledKeys = array_map('strval', $_POST['methods'] ?? []);
+        $result = setMerchantPaymentMethods($id, $enabledKeys, 'admin');
+        flash($result['ok'] ? 'success' : 'error', $result['ok'] ? 'Payment methods updated.' : ($result['error'] ?? 'Error'));
+        redirect('admin_edit_merchant.php?id=' . $id . '#payment-methods');
+    }
+
     $pan = strtoupper(trim($_POST['pan_number'] ?? ''));
     if ($pan && !preg_match('/^[A-Z]{5}[0-9]{4}[A-Z]$/', $pan)) {
         flash('error', 'Invalid PAN format.');
@@ -250,6 +269,45 @@ $methodCatalog = getPaymentMethodCatalog();
         </form>
     </div>
     <div class="space-y-4 min-w-0">
+        <div class="glass rounded-xl p-4 sm:p-5" id="payment-methods">
+            <h3 class="font-semibold text-sm mb-3">Payment Methods ON/OFF</h3>
+            <p class="text-xs text-gray-500 mb-4">Toggle which payment methods this merchant can use. All OFF by default.</p>
+            <form method="POST" class="space-y-2">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="admin_action" value="bulk_methods">
+                <?php
+                $pmMethods = getMerchantPaymentMethods($id);
+                foreach ($pmMethods as $pm):
+                ?>
+                <div class="flex items-center justify-between gap-3 bg-dark-900/50 rounded-lg p-3 border border-gray-800">
+                    <div class="flex items-center gap-2">
+                        <span class="text-base"><?= match($pm['gateway_key']) {
+                            'upi_p2m' => '📱',
+                            'qr_code' => '🔳',
+                            'credit_card' => '💳',
+                            'debit_card' => '💳',
+                            'net_banking' => '🏦',
+                            'wallet' => '👛',
+                            'payout' => '💸',
+                            'recurring' => '🔄',
+                            default => '⚙️',
+                        } ?></span>
+                        <div>
+                            <span class="text-xs font-medium text-gray-200"><?= e($pm['gateway_name']) ?></span>
+                            <?php if (!empty($pm['updated_by'])): ?>
+                            <span class="text-[10px] text-gray-600 ml-1">by <?= e($pm['updated_by']) ?></span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="methods[]" value="<?= e($pm['gateway_key']) ?>" <?= (int)$pm['is_enabled'] === 1 ? 'checked' : '' ?> class="sr-only peer">
+                        <div class="w-10 h-5 bg-gray-700 rounded-full peer peer-checked:bg-emerald-600 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+                    </label>
+                </div>
+                <?php endforeach; ?>
+                <button type="submit" class="btn-primary w-full text-sm py-2 mt-3">Save Methods</button>
+            </form>
+        </div>
         <div class="glass rounded-xl p-4 sm:p-5 text-sm" id="website">
             <h3 class="font-semibold mb-2">Website & App</h3>
             <?php if (!empty($merchant['website_url'])): ?>
