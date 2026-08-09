@@ -58,14 +58,84 @@ function calculatePlatformCommission(float $amount, array $merchant): float
     return round($amount * $rate / 100, 2);
 }
 
+/**
+ * F2: Calculate split breakdown using M (merchant MDR) and P (partner base MDR).
+ * Returns gross, mdr_m, mdr_p, platform_fee, merchant_net, partner_fee (informational),
+ * and pricing_snapshot JSON.
+ *
+ * If split_settlement functions are available, uses getMerchantMdr() + getPartnerBaseMdr().
+ * Falls back to legacy commission_rate for backward compat.
+ */
 function calculateSplitBreakdown(float $amount, array $merchant): array
 {
+    $merchantId = (int)($merchant['merchant_id'] ?? $merchant['id'] ?? 0);
+
+    // F2: Try new M/P pricing model
+    if ($merchantId > 0 && function_exists('getMerchantMdr')) {
+        $m = getMerchantMdr($merchantId);
+        // Determine partner key from merchant link or collection mode
+        $partnerKey = (string)($merchant['partner_key'] ?? '');
+        if ($partnerKey === '' && function_exists('getMerchantPartnerLinks')) {
+            $links = getMerchantPartnerLinks($merchantId);
+            foreach ($links as $link) {
+                if (($link['kyc_status'] ?? '') === 'live') {
+                    $partnerKey = (string)$link['partner_key'];
+                    break;
+                }
+            }
+        }
+        $p = $partnerKey !== '' ? getPartnerBaseMdr($partnerKey) : 0.0;
+
+        $merchantFee = round($amount * $m / 100, 2);
+        $platformFee = round($amount * ($m - $p) / 100, 2);
+        $partnerFee = round($amount * $p / 100, 2);
+        $merchantNet = round($amount - $merchantFee, 2);
+
+        // F7: Safety — merchant_net + platform_fee must not exceed gross (1-paise rule, remainder to platform)
+        $remainder = round($amount - $merchantNet - $platformFee, 2);
+        if (abs($remainder) > 0.001) {
+            $platformFee = round($platformFee + $remainder, 2);
+        }
+
+        return [
+            'gross' => $amount,
+            'mdr_m' => $m,
+            'mdr_p' => $p,
+            'platform_fee' => max(0, $platformFee),
+            'merchant_net' => max(0, $merchantNet),
+            'partner_fee' => $partnerFee,
+            'pricing_snapshot' => json_encode([
+                'gross' => $amount,
+                'mdr_m' => $m,
+                'mdr_p' => $p,
+                'merchant_fee' => $merchantFee,
+                'platform_fee' => max(0, $platformFee),
+                'merchant_net' => max(0, $merchantNet),
+                'partner_fee' => $partnerFee,
+                'partner_key' => $partnerKey,
+            ], JSON_UNESCAPED_SLASHES),
+        ];
+    }
+
+    // Legacy fallback
     $platformFee = calculatePlatformCommission($amount, $merchant);
     $merchantNet = round($amount - $platformFee, 2);
     return [
         'gross' => $amount,
+        'mdr_m' => 0.0,
+        'mdr_p' => 0.0,
         'platform_fee' => $platformFee,
         'merchant_net' => max(0, $merchantNet),
+        'partner_fee' => 0.0,
+        'pricing_snapshot' => json_encode([
+            'gross' => $amount,
+            'mdr_m' => 0,
+            'mdr_p' => 0,
+            'platform_fee' => $platformFee,
+            'merchant_net' => max(0, $merchantNet),
+            'partner_fee' => 0,
+            'legacy' => true,
+        ], JSON_UNESCAPED_SLASHES),
     ];
 }
 

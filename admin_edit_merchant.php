@@ -169,6 +169,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     if ($accountMode === 'live' && ($merchant['account_mode'] ?? 'test') !== 'live') {
         createNotification($id, 'Account Live!', 'Admin activated your LIVE mode. You can now accept real payments.');
     }
+
+    // F1: Save merchant MDR (M) via merchant_pricing table
+    $mdrInput = (float)($_POST['mdr_percent'] ?? 0);
+    if ($mdrInput > 0) {
+        if (!function_exists('setMerchantMdr')) {
+            require_once __DIR__ . '/includes/split_settlement.php';
+        }
+        $partnerKeyForMdr = trim($_POST['partner_key_for_mdr'] ?? '') ?: null;
+        $mdrResult = setMerchantMdr($id, $mdrInput, $partnerKeyForMdr, 'admin:' . ($admin['username'] ?? 'admin'));
+        if (!$mdrResult['ok']) {
+            flash('error', 'MDR not saved: ' . ($mdrResult['error'] ?? 'Unknown error'));
+        }
+    }
+
     logStaffActivity('merchant_edited', 'Profile updated — mode ' . $accountMode . ', KYC ' . $kycStatus, $id);
     flash('success', 'Merchant profile updated.');
     redirect('admin_edit_merchant.php?id=' . $id);
@@ -276,6 +290,30 @@ $methodCatalog = getPaymentMethodCatalog();
                 </div>
                 <div><label class="text-sm text-gray-400">Monthly Fee (₹)</label><input type="number" name="monthly_fee" step="0.01" min="0" class="input-field mt-1" value="<?= e((string)($merchant['monthly_fee'] ?? 0)) ?>"></div>
                 <div><label class="text-sm text-gray-400">Commission Rate (%)</label><input type="number" name="commission_rate" step="0.01" min="0" class="input-field mt-1" value="<?= e((string)($merchant['commission_rate'] ?? 1.5)) ?>"></div>
+                <?php
+                // F1: MDR (M) field with partner base MDR (P) read-only
+                $currentMdr = function_exists('getMerchantMdr') ? getMerchantMdr($id) : 2.00;
+                $partnerLinks = function_exists('getMerchantPartnerLinks') ? getMerchantPartnerLinks($id) : [];
+                $activePartnerKey = '';
+                $partnerBaseMdr = 0.0;
+                foreach ($partnerLinks as $pLink) {
+                    if (in_array(($pLink['kyc_status'] ?? ''), ['live', 'active'], true)) {
+                        $activePartnerKey = (string)$pLink['partner_key'];
+                        $partnerBaseMdr = function_exists('getPartnerBaseMdr') ? getPartnerBaseMdr($activePartnerKey) : 0.0;
+                        break;
+                    }
+                }
+                ?>
+                <div>
+                    <label class="text-sm text-gray-400">Merchant MDR M (%) <span class="text-gray-600">— per-merchant rate</span></label>
+                    <input type="number" name="mdr_percent" step="0.01" min="0" max="100" class="input-field mt-1" value="<?= e((string)$currentMdr) ?>" placeholder="2.00">
+                    <?php if ($activePartnerKey): ?>
+                    <input type="hidden" name="partner_key_for_mdr" value="<?= e($activePartnerKey) ?>">
+                    <p class="text-xs text-gray-600 mt-1">Partner base MDR (P): <strong><?= e(number_format($partnerBaseMdr, 2)) ?>%</strong> — M must be ≥ P.</p>
+                    <?php else: ?>
+                    <p class="text-xs text-gray-600 mt-1">No active partner linked. Default M: 2.00%.</p>
+                    <?php endif; ?>
+                </div>
                 <div>
                     <label class="text-sm text-gray-400">Collection Mode</label>
                     <select name="collection_mode" class="input-field mt-1">

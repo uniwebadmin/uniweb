@@ -283,7 +283,16 @@ require_once __DIR__ . '/header.php';
             <h3 class="font-semibold mb-3">Amount Split</h3>
             <div class="space-y-2 text-xs">
                 <div class="flex justify-between"><span class="text-gray-500">Gross</span><span><?= formatMoney($split['gross']) ?></span></div>
+                <?php if (!empty($txn['mdr_m'])): ?>
+                <div class="flex justify-between"><span class="text-gray-500">MDR (M)</span><span><?= e(number_format((float)$txn['mdr_m'], 2)) ?>%</span></div>
+                <?php endif; ?>
+                <?php if (!empty($txn['mdr_p'])): ?>
+                <div class="flex justify-between"><span class="text-gray-500">Partner Base (P)</span><span><?= e(number_format((float)$txn['mdr_p'], 2)) ?>%</span></div>
+                <?php endif; ?>
                 <div class="flex justify-between"><span class="text-gray-500">Platform Fee</span><span class="text-amber-400">−<?= formatMoney($split['platform_fee']) ?></span></div>
+                <?php if (!empty($txn['partner_fee']) && (float)$txn['partner_fee'] > 0): ?>
+                <div class="flex justify-between"><span class="text-gray-500">Partner Fee (info)</span><span class="text-gray-400"><?= formatMoney((float)$txn['partner_fee']) ?></span></div>
+                <?php endif; ?>
                 <div class="flex justify-between border-t border-gray-800 pt-2 font-semibold"><span>Merchant Net</span><span class="text-emerald-400"><?= formatMoney($split['merchant_net']) ?></span></div>
             </div>
         </div>

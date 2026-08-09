@@ -290,3 +290,17 @@ function ensureMissingColumns(): void
     schemaExecQuiet('ALTER TABLE merchants ADD COLUMN iec_number VARCHAR(20) DEFAULT NULL');
     schemaExecQuiet('ALTER TABLE transactions ADD COLUMN metadata JSON DEFAULT NULL');
 }
+
+/** F2: Ensure pricing snapshot columns on transactions table. */
+function ensurePricingSnapshotColumns(): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    schemaExecQuiet('ALTER TABLE transactions ADD COLUMN mdr_m DECIMAL(6,4) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE transactions ADD COLUMN mdr_p DECIMAL(6,4) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE transactions ADD COLUMN partner_fee DECIMAL(14,2) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE transactions ADD COLUMN pricing_snapshot JSON DEFAULT NULL');
+}

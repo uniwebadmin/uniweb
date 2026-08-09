@@ -55,6 +55,22 @@ $walletBalance = $wallet['balance'];
 $availableBalance = $wallet['available'];
 $minSettlement = getEffectiveMinSettlement($merchant, $availableBalance);
 
+// F6: Partner settlement mode info
+$partnerSettlementInfo = '';
+if (function_exists('getMerchantPartnerLinks') && function_exists('getPartnerSettlementMode')) {
+    $pLinks = getMerchantPartnerLinks($merchantId);
+    foreach ($pLinks as $pLink) {
+        if (in_array(($pLink['kyc_status'] ?? ''), ['live', 'active'], true)) {
+            $pKey = (string)$pLink['partner_key'];
+            $pMode = getPartnerSettlementMode($pKey);
+            $partnerSettlementInfo = $pMode === 'route_mode'
+                ? 'Settlement via partner route split — merchant net transferred directly to linked account.'
+                : 'Settlement follows partner standard settlement cycle. UniWeb processes commission only.';
+            break;
+        }
+    }
+}
+
 $settlementQ = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
 $settlementStatus = trim($_GET['status'] ?? 'all');
 if (!in_array($settlementStatus, ['all', 'pending', 'processing', 'completed', 'failed'], true)) $settlementStatus = 'all';
@@ -174,6 +190,14 @@ $exportQuery = http_build_query(['q' => $settlementQ, 'status' => $settlementSta
         <?php endif; ?>
     </div>
 </div>
+
+<?php if ($partnerSettlementInfo !== ''): ?>
+<div class="glass rounded-xl p-4 mb-6 border border-violet-500/20 bg-violet-500/5">
+    <p class="text-sm text-violet-200">
+        <strong>Settlement mode:</strong> <?= e($partnerSettlementInfo) ?>
+    </p>
+</div>
+<?php endif; ?>
 
 <div class="grid lg:grid-cols-4 gap-4 mb-8">
     <div class="stat-card border border-sky-500/30 rounded-xl p-5 bg-sky-500/5 lg:col-span-2">

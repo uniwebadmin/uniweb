@@ -549,11 +549,17 @@ function captureVerifiedPaymentOrder(array $verification): array
             'collection_mode' => $order['link_collection_mode'] ?: $order['collection_mode'],
         ];
         $split = calculateSplitBreakdown($amount, $link);
+
+        // F2: Ensure pricing snapshot columns exist
+        if (function_exists('ensurePricingSnapshotColumns')) {
+            ensurePricingSnapshotColumns();
+        }
+
         $txnRef = generateId('TXN');
         $txnInsert = $db->prepare(
             'INSERT INTO transactions
-             (txn_id,transaction_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?)'
+             (txn_id,transaction_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id,mdr_m,mdr_p,partner_fee,pricing_snapshot)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?,?,?,?,?)'
         );
         $txnInsert->execute([
             $txnRef,
@@ -573,6 +579,11 @@ function captureVerifiedPaymentOrder(array $verification): array
             mb_substr(trim((string)($order['customer_email'] ?? '')), 0, 190) ?: null,
             mb_substr(trim((string)($order['customer_phone'] ?? '')), 0, 32) ?: null,
             (int)($order['qr_code_id'] ?? 0) > 0 ? (int)$order['qr_code_id'] : null,
+            // F2: pricing snapshot fields
+            (float)($split['mdr_m'] ?? 0),
+            (float)($split['mdr_p'] ?? 0),
+            (float)($split['partner_fee'] ?? 0),
+            $split['pricing_snapshot'] ?? null,
         ]);
         $transactionId = (int)$db->lastInsertId();
         $db->prepare('INSERT INTO payment_order_transactions (payment_order_id,transaction_id) VALUES (?,?)')
@@ -621,6 +632,19 @@ function captureVerifiedPaymentOrder(array $verification): array
             recordSplitPayment($transactionId, (int)$order['merchant_id'], $split, (string)$verification['provider']);
             creditPlatformFeeWallet((float)$split['platform_fee'], $transactionId, 'Commission from ' . $order['order_ref']);
         }
+
+        // F3: Execute partner route/split (idempotent, non-blocking)
+        if (function_exists('executePartnerRouteSplit')) {
+            try {
+                executePartnerRouteSplit($transactionId, (int)$order['merchant_id'], $split, (string)$verification['provider']);
+            } catch (Throwable $splitEx) {
+                logPlatformError('warning', 'Partner route split deferred', [
+                    'transaction_id' => $transactionId,
+                    'error' => $splitEx->getMessage(),
+                ]);
+            }
+        }
+
         $db->prepare("UPDATE payment_orders SET status='paid', paid_at=NOW() WHERE id=?")->execute([(int)$order['id']]);
         $db->prepare("UPDATE payment_links SET status='paid', paid_at=NOW() WHERE id=?")->execute([(int)$order['payment_link_id']]);
 

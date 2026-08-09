@@ -80,7 +80,7 @@ function completeProviderRefund(string $refundId, string $providerReference): ar
     $db = getDB();
     $db->beginTransaction();
     try {
-        $st = $db->prepare('SELECT r.*,t.txn_id,t.amount AS transaction_amount,t.is_test FROM refunds r JOIN transactions t ON t.id=r.transaction_id WHERE r.refund_id=? FOR UPDATE');
+        $st = $db->prepare('SELECT r.*,t.txn_id,t.amount AS transaction_amount,t.is_test,t.merchant_id,t.payment_method FROM refunds r JOIN transactions t ON t.id=r.transaction_id WHERE r.refund_id=? FOR UPDATE');
         $st->execute([$refundId]);
         $refund = $st->fetch();
         if (!$refund) {
@@ -94,20 +94,56 @@ function completeProviderRefund(string $refundId, string $providerReference): ar
             throw new RuntimeException('Failed refund cannot be completed.');
         }
         $mode = !empty($refund['is_test']) ? 'test' : 'live';
+        $refundAmount = (float)$refund['amount'];
+
+        // F5: Get original snapshot for proportional reversal
+        $snapshot = null;
+        if (function_exists('getTransactionSnapshot')) {
+            $snapshot = getTransactionSnapshot((int)$refund['transaction_id']);
+        }
+        $reversalSplit = null;
+        if ($snapshot) {
+            $reversalSplit = calculateRefundReversalSplit($refundAmount, $snapshot);
+        }
+
         $merchantAccount = getOrCreateLedgerAccount('merchant_payable:' . (int)$refund['merchant_id'], 'merchant', (int)$refund['merchant_id'], 'liability', $mode);
         $providerAccount = getOrCreateLedgerAccount('provider_receivable:' . ($refund['provider'] ?: 'sandbox'), 'provider', null, 'asset', $mode);
+
+        // F4/F5: Post ledger reversal — debit merchant_payable, credit provider_receivable
+        // Use proportional amounts from snapshot if available
+        $merchantReversal = $reversalSplit ? (float)$reversalSplit['merchant_reversal'] : $refundAmount;
+        $platformReversal = $reversalSplit ? (float)$reversalSplit['platform_reversal'] : 0.0;
+
+        $entries = [
+            ['account_id' => $merchantAccount, 'side' => 'debit', 'amount' => $merchantReversal],
+            ['account_id' => $providerAccount, 'side' => 'credit', 'amount' => $refundAmount],
+        ];
+
+        // F5: If platform_fee was collected, reverse it too
+        if ($platformReversal > 0) {
+            $feeAccount = getOrCreateLedgerAccount('platform_fee_revenue', 'platform', null, 'revenue', $mode);
+            $entries[] = ['account_id' => $feeAccount, 'side' => 'debit', 'amount' => $platformReversal];
+            // Adjust merchant debit to keep balanced: merchant_debit + platform_debit = refundAmount
+            $entries[0]['amount'] = round($refundAmount - $platformReversal, 2);
+        }
+
         postBalancedJournal(
             'refund',
             $refundId,
             $mode,
             'INR',
-            [
-                ['account_id' => $merchantAccount, 'side' => 'debit', 'amount' => (float)$refund['amount']],
-                ['account_id' => $providerAccount, 'side' => 'credit', 'amount' => (float)$refund['amount']],
-            ],
+            $entries,
             'Provider-confirmed refund for ' . $refund['txn_id'],
-            ['provider_reference' => $providerReference]
+            ['provider_reference' => $providerReference, 'snapshot_used' => $snapshot !== null]
         );
+
+        // F5: Record refund reversal transfer (idempotent)
+        if ($snapshot && !empty($snapshot['partner_key']) && function_exists('recordRefundReversalTransfer')) {
+            try {
+                recordRefundReversalTransfer((int)$refund['transaction_id'], (int)$refund['merchant_id'], (string)$snapshot['partner_key'], $refundAmount);
+            } catch (Throwable $e) { /* non-fatal */ }
+        }
+
         $db->prepare("UPDATE refunds SET status='completed',provider_status='processed',provider_reference=?,processed_at=NOW() WHERE id=?")
             ->execute([$providerReference, (int)$refund['id']]);
         $totalSt = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM refunds WHERE transaction_id=? AND status='completed'");

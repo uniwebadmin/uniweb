@@ -314,6 +314,19 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
             $report['steps']['partner_forward'] = ['ok' => false, 'error' => $e->getMessage()];
         }
 
+        // F7: Alert on repeated partner transfer failures
+        try {
+            if (!function_exists('alertRepeatedTransferFailures')) {
+                require_once __DIR__ . '/split_settlement.php';
+            }
+            if (function_exists('alertRepeatedTransferFailures')) {
+                alertRepeatedTransferFailures();
+                $report['steps']['transfer_failure_alert'] = ['ok' => true];
+            }
+        } catch (Throwable $e) {
+            $report['steps']['transfer_failure_alert'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
         $brokenLinks = 0;
         $linkOk = true;
         if (function_exists('runFullLinkWatchdog')) {

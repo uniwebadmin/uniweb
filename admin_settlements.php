@@ -116,7 +116,78 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 }
 
 require_once __DIR__ . '/header.php';
+
+// F6: Platform fee report + failed transfers
+$platformFeeReport = [];
+$failedTransfers = [];
+if (function_exists('getPlatformFeeReport')) {
+    $platformFeeReport = getPlatformFeeReport(30);
+}
+if (function_exists('getFailedPartnerTransfers')) {
+    $failedTransfers = getFailedPartnerTransfers(20);
+}
+$totalPlatformFee30d = 0.0;
+foreach ($platformFeeReport as $r) {
+    $totalPlatformFee30d += (float)$r['platform_fee'];
+}
 ?>
+<?php if (!empty($platformFeeReport)): ?>
+<div class="glass rounded-xl p-5 mb-6 border border-emerald-500/20">
+    <div class="flex flex-wrap justify-between items-center gap-3 mb-3">
+        <h3 class="font-semibold text-emerald-300">Platform Fee Report (30 days)</h3>
+        <p class="text-2xl font-bold text-emerald-400"><?= formatMoney($totalPlatformFee30d) ?></p>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-xs min-w-[600px]">
+            <thead class="text-gray-500 uppercase"><tr>
+                <th class="px-3 py-2 text-left">Date</th><th class="px-3 py-2 text-left">Merchant</th>
+                <th class="px-3 py-2 text-right">Txns</th><th class="px-3 py-2 text-right">Gross</th>
+                <th class="px-3 py-2 text-right">Platform Fee</th><th class="px-3 py-2 text-right">Merchant Net</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-800">
+                <?php foreach (array_slice($platformFeeReport, 0, 15) as $r): ?>
+                <tr>
+                    <td class="px-3 py-2"><?= e((string)$r['day']) ?></td>
+                    <td class="px-3 py-2"><?= e($r['business_name']) ?></td>
+                    <td class="px-3 py-2 text-right"><?= (int)$r['txn_count'] ?></td>
+                    <td class="px-3 py-2 text-right"><?= formatMoney((float)$r['gross']) ?></td>
+                    <td class="px-3 py-2 text-right text-emerald-400 font-semibold"><?= formatMoney((float)$r['platform_fee']) ?></td>
+                    <td class="px-3 py-2 text-right"><?= formatMoney((float)$r['merchant_net']) ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if (!empty($failedTransfers)): ?>
+<div class="glass rounded-xl p-5 mb-6 border border-red-500/30 bg-red-500/5">
+    <h3 class="font-semibold text-red-300 mb-3">Failed Partner Transfers</h3>
+    <div class="overflow-x-auto">
+        <table class="w-full text-xs min-w-[600px]">
+            <thead class="text-gray-500 uppercase"><tr>
+                <th class="px-3 py-2 text-left">Txn</th><th class="px-3 py-2 text-left">Merchant</th>
+                <th class="px-3 py-2 text-left">Partner</th><th class="px-3 py-2 text-left">Type</th>
+                <th class="px-3 py-2 text-right">Amount</th><th class="px-3 py-2 text-left">Reason</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-800">
+                <?php foreach ($failedTransfers as $ft): ?>
+                <tr>
+                    <td class="px-3 py-2 font-mono text-sky-400"><?= e($ft['txn_id']) ?></td>
+                    <td class="px-3 py-2"><?= e($ft['business_name']) ?></td>
+                    <td class="px-3 py-2 uppercase"><?= e($ft['partner_key']) ?></td>
+                    <td class="px-3 py-2"><?= e($ft['transfer_type']) ?></td>
+                    <td class="px-3 py-2 text-right"><?= formatMoney((float)$ft['amount']) ?></td>
+                    <td class="px-3 py-2 text-red-300"><?= e($ft['failure_reason'] ?? '—') ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="glass rounded-xl p-4 mb-6 border border-sky-500/20 text-sm text-gray-400">
     <p class="text-sky-300 font-medium mb-1">Ops workflow</p>
     <p class="text-xs leading-relaxed">Merchant “Settle Now” only moves wallet → <strong class="text-gray-300">pending</strong> settlement. After you send NEFT/IMPS, enter the <strong class="text-brand-400">bank UTR</strong> to complete. Use Fail to refund the wallet if the transfer did not go through.</p>

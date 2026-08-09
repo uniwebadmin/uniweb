@@ -10,11 +10,18 @@ declare(strict_types=1);
  *   - Record the split in a dedicated table
  *   - Query splits for settlement and reconciliation
  *
- * Split formula:
- *   platform_fee = gross * mdr_rate + fixed_fee
- *   gst_on_fee = platform_fee * 0.18 (18% GST on platform fee)
- *   merchant_net = gross - platform_fee - gst_on_fee
+ * Split formula (F1/F2):
+ *   M = merchant mdr_percent (merchant_pricing)
+ *   P = partner base mdr_percent (partner_commercial)
+ *   platform_fee = gross * (M - P) / 100
+ *   merchant_net = gross * (1 - M/100) = gross - gross*M/100
+ *   partner_fee  = gross * P / 100 (informational; partner charges on their side)
+ *
+ * Default M when merchant goes live if unset: 2.00%
  */
+
+/** Default merchant MDR percent if no merchant_pricing row exists. */
+const DEFAULT_MDR_PERCENT = 2.00;
 
 function ensureSplitSettlementTable(): void
 {
@@ -38,7 +45,184 @@ function ensureSplitSettlementTable(): void
             UNIQUE KEY idx_txn (transaction_id),
             INDEX idx_merchant_status (merchant_id, split_status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // F1: merchant_pricing table — per-merchant MDR controlled by admin
+        getDB()->exec("CREATE TABLE IF NOT EXISTS merchant_pricing (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            merchant_id INT NOT NULL,
+            partner_id VARCHAR(40) DEFAULT NULL,
+            mdr_percent DECIMAL(6,4) NOT NULL,
+            effective_from DATE NOT NULL,
+            created_by VARCHAR(60) NOT NULL DEFAULT 'system',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_merchant (merchant_id, effective_from),
+            INDEX idx_partner (partner_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // F1: partner_commercial table — partner base MDR (P), admin-set
+        getDB()->exec("CREATE TABLE IF NOT EXISTS partner_commercial (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            partner_key VARCHAR(40) NOT NULL UNIQUE,
+            base_mdr_percent DECIMAL(6,4) NOT NULL DEFAULT 0,
+            settlement_mode ENUM('route_mode','standard_settle_mode') NOT NULL DEFAULT 'standard_settle_mode',
+            updated_by VARCHAR(60) NOT NULL DEFAULT 'system',
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // F3: partner_transfers table — idempotent split/transfer records
+        getDB()->exec("CREATE TABLE IF NOT EXISTS partner_transfers (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            transaction_id INT NOT NULL,
+            merchant_id INT NOT NULL,
+            partner_key VARCHAR(40) NOT NULL,
+            partner_transfer_id VARCHAR(200) DEFAULT NULL,
+            transfer_type ENUM('merchant_leg','platform_leg','refund_reversal') NOT NULL DEFAULT 'merchant_leg',
+            amount DECIMAL(14,2) NOT NULL,
+            currency CHAR(3) NOT NULL DEFAULT 'INR',
+            status ENUM('pending','processed','failed') NOT NULL DEFAULT 'pending',
+            linked_account_id VARCHAR(120) DEFAULT NULL,
+            failure_reason VARCHAR(500) DEFAULT NULL,
+            idempotency_key VARCHAR(200) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY idx_idem (idempotency_key),
+            INDEX idx_txn (transaction_id),
+            INDEX idx_merchant_status (merchant_id, status),
+            INDEX idx_partner (partner_key, status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     } catch (Throwable $e) { /* ok */ }
+}
+
+/**
+ * F1: Get partner base MDR (P) from partner_commercial table.
+ * Returns 0 if not set (no partner cost → platform keeps full M).
+ */
+function getPartnerBaseMdr(string $partnerKey): float
+{
+    ensureSplitSettlementTable();
+    try {
+        $st = getDB()->prepare('SELECT base_mdr_percent FROM partner_commercial WHERE partner_key=?');
+        $st->execute([$partnerKey]);
+        $row = $st->fetch();
+        return $row ? (float)$row['base_mdr_percent'] : 0.0;
+    } catch (Throwable $e) {
+        return 0.0;
+    }
+}
+
+/**
+ * F1: Get merchant MDR (M) in force at a given date (or now).
+ * Falls back to DEFAULT_MDR_PERCENT if no row exists.
+ */
+function getMerchantMdr(int $merchantId, ?string $date = null): float
+{
+    ensureSplitSettlementTable();
+    $date = $date ?: date('Y-m-d');
+    try {
+        $st = getDB()->prepare(
+            'SELECT mdr_percent FROM merchant_pricing
+             WHERE merchant_id=? AND effective_from <= ?
+             ORDER BY effective_from DESC, id DESC LIMIT 1'
+        );
+        $st->execute([$merchantId, $date]);
+        $row = $st->fetch();
+        return $row ? (float)$row['mdr_percent'] : DEFAULT_MDR_PERCENT;
+    } catch (Throwable $e) {
+        return DEFAULT_MDR_PERCENT;
+    }
+}
+
+/**
+ * F1: Set merchant MDR (M). Rejects if M < P (partner base MDR).
+ * @return array{ok:bool, error?:string}
+ */
+function setMerchantMdr(int $merchantId, float $mdrPercent, ?string $partnerKey = null, string $createdBy = 'admin'): array
+{
+    ensureSplitSettlementTable();
+    if ($mdrPercent < 0 || $mdrPercent > 100) {
+        return ['ok' => false, 'error' => 'MDR must be between 0 and 100.'];
+    }
+    // F1: M ≥ P rule
+    if ($partnerKey !== null) {
+        $p = getPartnerBaseMdr($partnerKey);
+        if ($mdrPercent < $p) {
+            return ['ok' => false, 'error' => "Merchant MDR ({$mdrPercent}%) must be ≥ partner base MDR ({$p}%)."];
+        }
+    }
+    try {
+        getDB()->prepare(
+            'INSERT INTO merchant_pricing (merchant_id, partner_id, mdr_percent, effective_from, created_by)
+             VALUES (?,?,?,?,?)'
+        )->execute([$merchantId, $partnerKey, $mdrPercent, date('Y-m-d'), $createdBy]);
+        return ['ok' => true];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * F1: Set partner base MDR (P) and settlement mode.
+ */
+function setPartnerCommercial(string $partnerKey, float $baseMdr, string $settlementMode = 'standard_settle_mode', string $updatedBy = 'admin'): bool
+{
+    ensureSplitSettlementTable();
+    if (!in_array($settlementMode, ['route_mode', 'standard_settle_mode'], true)) {
+        $settlementMode = 'standard_settle_mode';
+    }
+    try {
+        getDB()->prepare(
+            'INSERT INTO partner_commercial (partner_key, base_mdr_percent, settlement_mode, updated_by)
+             VALUES (?,?,?,?)
+             ON DUPLICATE KEY UPDATE base_mdr_percent=VALUES(base_mdr_percent), settlement_mode=VALUES(settlement_mode), updated_by=VALUES(updated_by)'
+        )->execute([$partnerKey, $baseMdr, $settlementMode, $updatedBy]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * F1: Get partner settlement mode (route_mode or standard_settle_mode).
+ */
+function getPartnerSettlementMode(string $partnerKey): string
+{
+    ensureSplitSettlementTable();
+    try {
+        $st = getDB()->prepare('SELECT settlement_mode FROM partner_commercial WHERE partner_key=?');
+        $st->execute([$partnerKey]);
+        $row = $st->fetch();
+        return $row ? (string)$row['settlement_mode'] : 'standard_settle_mode';
+    } catch (Throwable $e) {
+        return 'standard_settle_mode';
+    }
+}
+
+/**
+ * F1: Get all partner commercial records (for admin view).
+ */
+function getAllPartnerCommercial(): array
+{
+    ensureSplitSettlementTable();
+    try {
+        return getDB()->query('SELECT * FROM partner_commercial ORDER BY partner_key')->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/**
+ * F1: Get merchant pricing history.
+ */
+function getMerchantPricingHistory(int $merchantId): array
+{
+    ensureSplitSettlementTable();
+    try {
+        $st = getDB()->prepare('SELECT * FROM merchant_pricing WHERE merchant_id=? ORDER BY effective_from DESC, id DESC');
+        $st->execute([$merchantId]);
+        return $st->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
 }
 
 /**
@@ -207,4 +391,264 @@ function updateMerchantSplitConfig(int $merchantId, float $mdrRate, float $fixed
     } catch (Throwable $e) {
         return false;
     }
+}
+
+/**
+ * F3: Create an idempotent partner transfer record.
+ * Same idempotency_key = no duplicate. Key = payment_id + split attempt.
+ */
+function createPartnerTransfer(int $transactionId, int $merchantId, string $partnerKey, float $amount, string $transferType = 'merchant_leg', ?string $linkedAccountId = null): array
+{
+    ensureSplitSettlementTable();
+    $idemKey = $transactionId . ':' . $transferType . ':' . $partnerKey;
+    try {
+        $st = getDB()->prepare(
+            'INSERT INTO partner_transfers (transaction_id, merchant_id, partner_key, amount, transfer_type, linked_account_id, idempotency_key, status)
+             VALUES (?,?,?,?,?,?,?,?)
+             ON DUPLICATE KEY UPDATE amount=VALUES(amount)'
+        );
+        $st->execute([$transactionId, $merchantId, $partnerKey, $amount, $transferType, $linkedAccountId, $idemKey, 'pending']);
+        $id = (int)getDB()->lastInsertId();
+        if ($id === 0) {
+            $st2 = getDB()->prepare('SELECT id, status FROM partner_transfers WHERE idempotency_key=?');
+            $st2->execute([$idemKey]);
+            $row = $st2->fetch();
+            $id = (int)($row['id'] ?? 0);
+        }
+        return ['ok' => true, 'id' => $id, 'idempotency_key' => $idemKey];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * F3: Update partner transfer status (after partner API call or webhook).
+ */
+function updatePartnerTransferStatus(int $transferId, string $status, ?string $partnerTransferId = null, ?string $failureReason = null): void
+{
+    ensureSplitSettlementTable();
+    try {
+        getDB()->prepare(
+            'UPDATE partner_transfers SET status=?, partner_transfer_id=?, failure_reason=? WHERE id=?'
+        )->execute([$status, $partnerTransferId, mb_substr((string)$failureReason, 0, 500), $transferId]);
+    } catch (Throwable $e) { /* non-fatal */ }
+}
+
+/**
+ * F3: Execute partner route/split after capture.
+ * For route_mode partners: creates transfer records (actual API call deferred until partner SDK integration).
+ * For standard_settle_mode: records transfer as 'pending' — partner settles per their cycle.
+ *
+ * F7: Blocks if partner_merchant_links missing or not active.
+ */
+function executePartnerRouteSplit(int $transactionId, int $merchantId, array $split, string $provider): array
+{
+    ensureSplitSettlementTable();
+
+    // F7: Check linked account exists and is active
+    if (!function_exists('getMerchantPartnerLinks')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    $links = getMerchantPartnerLinks($merchantId);
+    $partnerKey = '';
+    $linkedAccountId = null;
+    foreach ($links as $link) {
+        if (($link['kyc_status'] ?? '') === 'live' || ($link['kyc_status'] ?? '') === 'active') {
+            $partnerKey = (string)$link['partner_key'];
+            $linkedAccountId = (string)($link['external_id'] ?? '');
+            break;
+        }
+    }
+
+    // F7: If no active linked account, fail safely
+    if ($partnerKey === '') {
+        return ['ok' => false, 'error' => 'No active partner linked account found. Split deferred — merchant settlement will follow partner standard cycle.'];
+    }
+
+    $settlementMode = getPartnerSettlementMode($partnerKey);
+    $merchantNet = (float)($split['merchant_net'] ?? 0);
+    $platformFee = (float)($split['platform_fee'] ?? 0);
+
+    // F3: Create merchant_leg transfer record (idempotent)
+    $merchantTransfer = createPartnerTransfer($transactionId, $merchantId, $partnerKey, $merchantNet, 'merchant_leg', $linkedAccountId);
+    if (!$merchantTransfer['ok']) {
+        return $merchantTransfer;
+    }
+
+    // F3: Create platform_leg transfer record if platform_fee > 0 (idempotent)
+    if ($platformFee > 0) {
+        createPartnerTransfer($transactionId, $merchantId, $partnerKey, $platformFee, 'platform_leg', $linkedAccountId);
+    }
+
+    if ($settlementMode === 'route_mode') {
+        // F3: Route mode — partner API call would go here (Razorpay Route / Cashfree Easy Split / PayU split)
+        // For now, mark as pending until partner SDK integration is complete.
+        // When integrated: call partner transfer API, update status to 'processed' or 'failed'
+        updatePartnerTransferStatus((int)$merchantTransfer['id'], 'pending');
+        return ['ok' => true, 'mode' => 'route_mode', 'transfer_id' => (int)$merchantTransfer['id'], 'note' => 'Route transfer queued — partner API call pending integration.'];
+    } else {
+        // F3: Standard settle mode — partner settles to merchant per their cycle
+        updatePartnerTransferStatus((int)$merchantTransfer['id'], 'pending');
+        return ['ok' => true, 'mode' => 'standard_settle_mode', 'transfer_id' => (int)$merchantTransfer['id'], 'note' => 'Partner standard settlement cycle — no UniWeb CA holding.'];
+    }
+}
+
+/**
+ * F5: Get the pricing snapshot from a transaction (for refund reversal).
+ */
+function getTransactionSnapshot(int $transactionId): ?array
+{
+    try {
+        $st = getDB()->prepare('SELECT amount, platform_fee, split_amount, mdr_m, mdr_p, partner_fee, pricing_snapshot FROM transactions WHERE id=?');
+        $st->execute([$transactionId]);
+        $row = $st->fetch();
+        if (!$row) return null;
+        $snapshot = null;
+        if (!empty($row['pricing_snapshot'])) {
+            $decoded = json_decode((string)$row['pricing_snapshot'], true);
+            if (is_array($decoded)) $snapshot = $decoded;
+        }
+        // Fallback to columns if JSON missing
+        if (!$snapshot) {
+            $snapshot = [
+                'gross' => (float)$row['amount'],
+                'mdr_m' => (float)($row['mdr_m'] ?? 0),
+                'mdr_p' => (float)($row['mdr_p'] ?? 0),
+                'platform_fee' => (float)$row['platform_fee'],
+                'merchant_net' => (float)$row['split_amount'],
+                'partner_fee' => (float)($row['partner_fee'] ?? 0),
+            ];
+        }
+        return $snapshot;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/**
+ * F5: Calculate proportional refund split using original snapshot.
+ * Returns how much to reverse from merchant_net and platform_fee legs.
+ */
+function calculateRefundReversalSplit(float $refundAmount, array $snapshot): array
+{
+    $gross = (float)($snapshot['gross'] ?? 0);
+    $merchantNet = (float)($snapshot['merchant_net'] ?? 0);
+    $platformFee = (float)($snapshot['platform_fee'] ?? 0);
+    if ($gross <= 0) {
+        return ['merchant_reversal' => $refundAmount, 'platform_reversal' => 0];
+    }
+    $ratio = $refundAmount / $gross;
+    $merchantReversal = round($merchantNet * $ratio, 2);
+    $platformReversal = round($platformFee * $ratio, 2);
+    // F7: Ensure reversal sum doesn't exceed refund amount (1-paise rule, adjust platform)
+    $sum = round($merchantReversal + $platformReversal, 2);
+    if (abs($sum - $refundAmount) > 0.001) {
+        $platformReversal = round($platformReversal + ($refundAmount - $sum), 2);
+    }
+    return [
+        'merchant_reversal' => max(0, $merchantReversal),
+        'platform_reversal' => max(0, $platformReversal),
+        'ratio' => $ratio,
+    ];
+}
+
+/**
+ * F5: Record refund reversal in partner_transfers (idempotent).
+ */
+function recordRefundReversalTransfer(int $transactionId, int $merchantId, string $partnerKey, float $amount): array
+{
+    return createPartnerTransfer($transactionId, $merchantId, $partnerKey, $amount, 'refund_reversal');
+}
+
+/**
+ * F6: Get failed partner transfers (for admin queue view).
+ */
+function getFailedPartnerTransfers(int $limit = 50): array
+{
+    ensureSplitSettlementTable();
+    try {
+        $st = getDB()->prepare(
+            'SELECT pt.*, t.txn_id, m.business_name
+             FROM partner_transfers pt
+             JOIN transactions t ON t.id = pt.transaction_id
+             JOIN merchants m ON m.id = pt.merchant_id
+             WHERE pt.status = ?
+             ORDER BY pt.updated_at DESC LIMIT ?'
+        );
+        $st->bindValue(1, 'failed');
+        $st->bindValue(2, $limit, PDO::PARAM_INT);
+        $st->execute();
+        return $st->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/**
+ * F6: Get platform fee report by day/merchant.
+ */
+function getPlatformFeeReport(int $days = 30): array
+{
+    $since = date('Y-m-d 00:00:00', time() - ($days * 86400));
+    try {
+        $st = getDB()->prepare(
+            'SELECT DATE(t.created_at) as day, t.merchant_id, m.business_name,
+                    COUNT(*) as txn_count,
+                    COALESCE(SUM(t.amount),0) as gross,
+                    COALESCE(SUM(t.platform_fee),0) as platform_fee,
+                    COALESCE(SUM(t.split_amount),0) as merchant_net,
+                    COALESCE(SUM(t.partner_fee),0) as partner_fee
+             FROM transactions t
+             JOIN merchants m ON m.id = t.merchant_id
+             WHERE t.status = ? AND t.created_at >= ?
+             GROUP BY DATE(t.created_at), t.merchant_id
+             ORDER BY day DESC, platform_fee DESC'
+        );
+        $st->execute(['success', $since]);
+        return $st->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/**
+ * F6: Get partner transfers for a transaction.
+ */
+function getTransactionPartnerTransfers(int $transactionId): array
+{
+    ensureSplitSettlementTable();
+    try {
+        $st = getDB()->prepare('SELECT * FROM partner_transfers WHERE transaction_id=? ORDER BY id');
+        $st->execute([$transactionId]);
+        return $st->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/**
+ * F7: Alert admin on repeated transfer failures (3+ failures for same merchant).
+ */
+function alertRepeatedTransferFailures(): void
+{
+    ensureSplitSettlementTable();
+    try {
+        $st = getDB()->prepare(
+            'SELECT merchant_id, COUNT(*) as fail_count
+             FROM partner_transfers
+             WHERE status = ? AND updated_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)
+             GROUP BY merchant_id
+             HAVING fail_count >= 3'
+        );
+        $st->execute(['failed']);
+        $merchants = $st->fetchAll();
+        foreach ($merchants as $m) {
+            if (function_exists('logPlatformError')) {
+                logPlatformError('error', 'Repeated partner transfer failures', [
+                    'merchant_id' => (int)$m['merchant_id'],
+                    'fail_count' => (int)$m['fail_count'],
+                ]);
+            }
+        }
+    } catch (Throwable $e) { /* non-fatal */ }
 }
