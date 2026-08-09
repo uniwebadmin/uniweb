@@ -259,6 +259,7 @@ function getRegisteredGateways(): array
 /**
  * Check if a gateway is active.
  */
+if (!function_exists('isGatewayActive')) {
 function isGatewayActive(string $key): bool
 {
     ensurePaymentMethodsTable();
@@ -269,6 +270,7 @@ function isGatewayActive(string $key): bool
     } catch (Throwable $e) {
         return false;
     }
+}
 }
 
 /**
@@ -418,6 +420,7 @@ function saveGatewayConfig(int $gatewayId, array $keys): array
 /**
  * Ensure gateway_health table exists for tracking success rates and response times.
  */
+if (!function_exists('ensureGatewayHealthTable')) {
 function ensureGatewayHealthTable(): void
 {
     static $done = false;
@@ -439,10 +442,12 @@ function ensureGatewayHealthTable(): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     } catch (Throwable $e) { /* ok */ }
 }
+}
 
 /**
  * Record a gateway payment attempt result.
  */
+if (!function_exists('recordGatewayAttempt')) {
 function recordGatewayAttempt(string $gatewayKey, bool $success, int $responseMs = 0, string $error = ''): void
 {
     ensureGatewayHealthTable();
@@ -494,12 +499,14 @@ function recordGatewayAttempt(string $gatewayKey, bool $success, int $responseMs
         }
     } catch (Throwable $e) { /* ok */ }
 }
+}
 
 /**
  * Get smart gateway priority order based on success rate + response time.
  * Returns array of gateway keys sorted best-to-worst.
  * Excludes 'down' gateways.
  */
+if (!function_exists('getSmartGatewayOrder')) {
 function getSmartGatewayOrder(array $gatewayKeys = []): array
 {
     ensureGatewayHealthTable();
@@ -537,10 +544,12 @@ function getSmartGatewayOrder(array $gatewayKeys = []): array
         return $gatewayKeys;
     }
 }
+}
 
 /**
  * Get gateway health summary for admin dashboard.
  */
+if (!function_exists('getGatewayHealthSummary')) {
 function getGatewayHealthSummary(): array
 {
     ensureGatewayHealthTable();
@@ -565,11 +574,13 @@ function getGatewayHealthSummary(): array
         return [];
     }
 }
+}
 
 /**
  * Get active collection gateways for a merchant (for checkout routing).
  * Returns gateway keys in smart priority order.
  */
+if (!function_exists('getMerchantCheckoutGateways')) {
 function getMerchantCheckoutGateways(int $merchantId): array
 {
     $methods = getMerchantPaymentMethods($merchantId);
@@ -581,4 +592,5 @@ function getMerchantCheckoutGateways(int $merchantId): array
     }
     if (empty($enabledKeys)) return ['upi_p2m'];
     return getSmartGatewayOrder($enabledKeys);
+}
 }

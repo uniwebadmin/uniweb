@@ -62,6 +62,9 @@ define('MIN_SETTLEMENT', 100);
 if (!defined('ENCRYPTION_KEY')) {
     define('ENCRYPTION_KEY', getenv('ENCRYPTION_KEY') ?: '');
 }
+if (ENCRYPTION_KEY === '' && PHP_SAPI !== 'cli') {
+    error_log('UNIWEB SECURITY WARNING: ENCRYPTION_KEY is not set. PII encryption disabled. Set it in .env or config.php');
+}
 
 /* ------------------------------------------------------------------ *
  *  Storage paths
@@ -96,6 +99,7 @@ function getDB(): PDO
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES   => false,
+        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
     ]);
     return $pdo;
 }
@@ -492,6 +496,7 @@ $__includes = [
     'multi_merchant',
     'email_templates',
     'payment_methods',
+    'partner_forward_queue',
 ];
 $__loaded = [];
 foreach ($__includes as $__inc) {

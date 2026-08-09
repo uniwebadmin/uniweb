@@ -175,12 +175,12 @@ if (!function_exists('getMerchantKycPrefills')) {
     function getMerchantKycPrefills(array $merchant): array
     {
         return [
-            'pan' => strtoupper(trim((string)($merchant['pan_number'] ?? ''))),
-            'gst' => strtoupper(trim((string)($merchant['gstin'] ?? ''))),
+            'pan' => strtoupper(trim((string)sensitiveDecrypt($merchant['pan_number'] ?? ''))),
+            'gst' => strtoupper(trim((string)sensitiveDecrypt($merchant['gstin'] ?? ''))),
             'aadhaar' => preg_replace('/\D/', '', (string)sensitiveDecrypt($merchant['aadhaar_number'] ?? '')),
-            'cin' => strtoupper(trim((string)($merchant['cin_llpin'] ?? ''))),
-            'udyam' => strtoupper(trim((string)($merchant['udyam_number'] ?? ''))),
-            'iec' => strtoupper(trim((string)($merchant['iec_number'] ?? ''))),
+            'cin' => strtoupper(trim((string)sensitiveDecrypt($merchant['cin_llpin'] ?? ''))),
+            'udyam' => strtoupper(trim((string)sensitiveDecrypt($merchant['udyam_number'] ?? ''))),
+            'iec' => strtoupper(trim((string)sensitiveDecrypt($merchant['iec_number'] ?? ''))),
         ];
     }
 }

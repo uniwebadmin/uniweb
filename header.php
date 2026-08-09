@@ -203,14 +203,20 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     ['merchant_payout.php','Payouts','M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4'],
                     ['merchant_payout_keys.php','Payout API Keys','M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z'],
                     ['merchant_settlement_settings.php','Settlement Settings','M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z'],
-                    ['merchant_nbfc.php','NBFC Finance','M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'],
-                    ['merchant_nbfc_loan.php','NBFC Loan & EMI','M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z'],
+                    ['beneficiaries.php','Beneficiaries','M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z'],
+                    ['merchant_recurring.php','Recurring & Mandates','M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'],
                 ]],
                 ['id' => 'customers', 'title' => 'Customers & Team', 'items' => [
                     ['invoices.php',__('invoices'),'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'],
                     ['agents.php',__('agents'),'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z'],
                     ['merchant_team.php','Team','M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'],
                     ['merchant_customer_tickets.php','Customer Complaints','M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z'],
+                ]],
+                ['id' => 'tools', 'title' => 'Tools & Settings', 'items' => [
+                    ['checkout_customize.php','Checkout Customize','M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z'],
+                    ['qr_analytics.php','QR Analytics','M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'],
+                    ['merchant_agreement.php','Agreement','M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'],
+                    ['merchant_notify_settings.php','Notification Settings','M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'],
                 ]],
                 ['id' => 'kyc', 'title' => 'KYC & Verify', 'items' => [
                     ['kyc.php',__('kyc'),'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'],
@@ -222,12 +228,11 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     ['support.php',__('support'),'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M5.636 5.636l3.536 3.536m0 5.656l-3.536 3.536M12 2.944l7.07 7.07a10 10 0 010 14.142L12 22.93l-7.07-7.07a10 10 0 010-14.142L12 2.944z'],
                 ]],
             ];
-            $nbfcLive = getSetting('nbfc_live_enabled','0') === '1';
             foreach ($merchantNav as &$group) {
-                $group['items'] = array_values(array_filter($group['items'], function($item) use ($nbfcLive) {
+                $group['items'] = array_values(array_filter($group['items'], function($item) {
                     $url = $item[0] ?? '';
                     if (in_array($url, ['merchant_nbfc.php','merchant_nbfc_loan.php'], true)) {
-                        return $nbfcLive;
+                        return false;
                     }
                     return true;
                 }));
@@ -322,7 +327,6 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     ['manage_merchant.php','All Merchants'],
                     ['add_merchant.php','Add Merchant'],
                     ['admin_kyc.php','KYC Review'],
-                    ['admin_nbfc.php','NBFC Applications'],
                     ['admin_payment_links.php','Payment Links'],
                     ['admin_qr_codes.php','QR Codes'],
                 ]],
@@ -343,7 +347,10 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     ['admin_settlements.php','Settlements'],
                     ['admin_settlement_settings.php','Settlement Engine'],
                     ['admin_settlement_batches.php','Settlement Batches'],
-                    ['admin_wallet.php','Platform Wallet'],
+                    ['admin_bulk_payout.php','Bulk Payout'],
+                    ['admin_bank_reconciliation.php','Bank Reconciliation'],
+                    ['admin_bank_holidays.php','Bank Holidays'],
+                    ['admin_rolling_reserve.php','Rolling Reserve'],
                     ['admin_payout.php','Payout Requests'],
                 ]],
                 ['id' => 'partners', 'title' => 'Partners & Integrations', 'items' => [
@@ -356,7 +363,12 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     ['admin_method_requests.php','Method Requests'],
                     ['admin_gateway_registry.php','Gateway Orchestrator'],
                     ['admin_gateway_health.php','Gateway Health'],
+                    ['admin_reason_map.php','Reason Maps'],
+                    ['admin_integration_matrix.php','Integration Matrix'],
+                    ['admin_circuit_breaker.php','Circuit Breaker'],
+                    ['admin_webhook_reliability.php','Webhook Reliability'],
                     ['admin_onboarding_invite.php','Onboarding Invites'],
+                    ['admin_forward_queue.php','KYC Forward Queue'],
                 ]],
                 ['id' => 'support', 'title' => 'Support & Risk', 'items' => [
                     ['admin_support.php','Support Tickets'],
@@ -364,17 +376,24 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     ['admin_website_reviews.php','Website Reviews'],
                     ['admin_aml.php','AML Compliance'],
                     ['admin_risk.php','Risk & AML'],
+                    ['admin_grievance.php','Grievance Officer'],
                 ]],
                 ['id' => 'platform', 'title' => 'Platform & Settings', 'items' => [
                     ['admin_platform_status.php','Platform Status'],
                     ['admin_transaction_monitor.php','Transaction Monitor'],
                     ['admin_website.php','Website & API Keys'],
-                    ['gateway_settings.php','Gateway Settings'],
+                    ['gateway_settings.php','Platform Integrations'],
                     ['admin_security.php','Security & Password'],
                     ['admin_error_log.php','Error Log'],
                     ['admin_watchdog.php','Link Watchdog'],
                     ['admin_link_audit.php','Link Audit'],
                     ['admin_nodal_accounts.php','Nodal Accounts'],
+                    ['admin_audit_log.php','Audit Log'],
+                    ['admin_incidents.php','Incidents'],
+                    ['admin_reports.php','Reports'],
+                    ['admin_merchant_health.php','Merchant Health'],
+                    ['admin_sub_merchants.php','Sub Merchants'],
+                    ['admin_throughput.php','Throughput Monitor'],
                 ]],
             ];
             $cur = basename($_SERVER['PHP_SELF']);

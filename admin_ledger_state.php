@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Get all merchants for dropdown
 $merchants = getDB()->query('SELECT id, business_name, email, wallet_balance FROM merchants ORDER BY id LIMIT 200')->fetchAll();
 
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/header.php';
 ?>
 <div class="max-w-6xl mx-auto px-4 py-8">
     <h1 class="text-2xl font-bold text-white mb-2">Ledger State Machine</h1>

@@ -44,6 +44,7 @@ function ensureKycSchema(): void
     // Document versioning: track version number per doc_type per merchant
     schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN version_number INT NOT NULL DEFAULT 1");
     schemaExecQuiet("ALTER TABLE kyc_documents ADD COLUMN replaced_by INT DEFAULT NULL");
+    ensureMissingColumns();
 }
 
 function ensureSignupVerificationSchema(): void
@@ -274,4 +275,18 @@ function ensureFailureReasonColumns(): void
     schemaExecQuiet('ALTER TABLE transactions ADD COLUMN failure_reason VARCHAR(500) DEFAULT NULL');
     schemaExecQuiet('ALTER TABLE settlements ADD COLUMN failure_reason VARCHAR(500) DEFAULT NULL');
     schemaExecQuiet('ALTER TABLE settlements ADD COLUMN api_message VARCHAR(255) DEFAULT NULL');
+}
+
+/** Ensure missing merchant KYC + transaction columns exist locally. */
+function ensureMissingColumns(): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    schemaExecQuiet('ALTER TABLE merchants ADD COLUMN gstin VARCHAR(20) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE merchants ADD COLUMN udyam_number VARCHAR(30) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE merchants ADD COLUMN iec_number VARCHAR(20) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE transactions ADD COLUMN metadata JSON DEFAULT NULL');
 }

@@ -193,6 +193,7 @@ function mapKycFailReason(string $code, string $field = ''): string
  * Same PAN + same GST = block (duplicate).
  * Same PAN + new GSTIN = allow (multi-business).
  */
+if (!function_exists('checkPanGstinDuplicate')) {
 function checkPanGstinDuplicate(string $pan, string $gstin, int $excludeMerchantId = 0): array
 {
     $pan = strtoupper(preg_replace('/\s+/', '', $pan));
@@ -219,4 +220,5 @@ function checkPanGstinDuplicate(string $pan, string $gstin, int $excludeMerchant
     } catch (Throwable $e) {
         return ['allowed' => true, 'reason' => '', 'multi_business' => false];
     }
+}
 }

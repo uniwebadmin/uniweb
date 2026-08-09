@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/page_ux.php';
+if (!function_exists('ensureSupportTicketTable')) {
+    require_once __DIR__ . '/includes/demo_tour.php';
+}
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'team_leader', 'support', 'ops']);
 ensureSupportTicketTable();
 $db = getDB();

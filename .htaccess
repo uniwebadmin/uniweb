@@ -32,6 +32,24 @@ ErrorDocument 500 /error.php
 <Files "debug_schema.php">
     Require all denied
 </Files>
+<Files "db_probe.php">
+    Require all denied
+</Files>
+<Files "db_wizard.php">
+    Require all denied
+</Files>
+<Files "config_repair.php">
+    Require all denied
+</Files>
+<Files "fix_config.php">
+    Require all denied
+</Files>
+<Files "cleanup.php">
+    Require all denied
+</Files>
+<Files "cleanup2.php">
+    Require all denied
+</Files>
 
 <IfModule mod_rewrite.c>
     RewriteEngine On

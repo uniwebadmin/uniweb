@@ -297,6 +297,17 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
             $report['steps']['recurring_mandate_charges'] = ['ok' => false, 'error' => $e->getMessage()];
         }
 
+        // D4: Process partner forward queue
+        try {
+            if (!function_exists('processPartnerForwardQueue')) {
+                require_once __DIR__ . '/partner_forward_queue.php';
+            }
+            $forwardResult = processPartnerForwardQueue(20);
+            $report['steps']['partner_forward'] = ['ok' => true, 'processed' => $forwardResult['processed'], 'success' => $forwardResult['success'], 'failed' => $forwardResult['failed'], 'retry' => $forwardResult['retry']];
+        } catch (Throwable $e) {
+            $report['steps']['partner_forward'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
         $brokenLinks = 0;
         $linkOk = true;
         if (function_exists('runFullLinkWatchdog')) {

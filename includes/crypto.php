@@ -122,3 +122,21 @@ function sensitiveMask(?string $value, string $type = ''): string
     }
     return '****' . substr($plain, -4);
 }
+
+/**
+ * Decrypt a sensitive value AND log the access to staff audit trail (C5).
+ * Use this instead of sensitiveDecrypt() when admin/staff views full PII.
+ */
+function sensitiveDecryptWithAudit(?string $value, string $fieldType, ?int $merchantId = null): ?string
+{
+    if ($value === null || $value === '' || !isSensitiveEncrypted($value)) {
+        return $value;
+    }
+    $plain = sensitiveDecrypt($value);
+    if (function_exists('logStaffActivity') && session_status() === PHP_SESSION_ACTIVE) {
+        try {
+            logStaffActivity('pii_view', 'Viewed full ' . $fieldType, $merchantId, 'merchant', (string)$merchantId);
+        } catch (Throwable $e) { /* non-fatal */ }
+    }
+    return $plain;
+}

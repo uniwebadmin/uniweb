@@ -33,7 +33,7 @@ function ensurePayoutJobsTable(): void
             INDEX idx_pjob_status (status, next_retry_at),
             INDEX idx_pjob_merchant (merchant_id, status),
             INDEX idx_pjob_order (payout_order_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf2mb4");
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     } catch (Throwable $e) {
         error_log('ensurePayoutJobsTable: ' . $e->getMessage());
     }

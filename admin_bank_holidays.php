@@ -1,12 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/bank_holidays.php';
-requireAdminLogin();
-$admin = getAdmin();
-if (!in_array($admin['role'] ?? '', ['super', 'ceo', 'ops'], true)) {
-    flash('error', 'Access denied.');
-    redirect('admin.php');
-}
+requireStaffAccess(['super', 'ceo', 'ops']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     $action = $_POST['action'] ?? '';

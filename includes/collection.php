@@ -72,12 +72,20 @@ function calculateSplitBreakdown(float $amount, array $merchant): array
 function recordSplitPayment(int $transactionId, int $merchantId, array $split, string $method = 'auto'): void
 {
     $db = getDB();
-    $db->prepare('INSERT INTO split_payments (transaction_id, merchant_id, recipient_type, recipient_id, amount, status) VALUES (?,?,?,?,?,?)')
-        ->execute([$transactionId, $merchantId, 'platform', null, $split['platform_fee'], 'completed']);
-    $db->prepare('INSERT INTO split_payments (transaction_id, merchant_id, recipient_type, recipient_id, amount, status) VALUES (?,?,?,?,?,?)')
-        ->execute([$transactionId, $merchantId, 'merchant', $merchantId, $split['merchant_net'], 'completed']);
-    $db->prepare('UPDATE transactions SET platform_fee = ?, split_amount = ? WHERE id = ?')
-        ->execute([$split['platform_fee'], $split['merchant_net'], $transactionId]);
+    try {
+        if (!function_exists('ensureSplitSettlementTable')) {
+            require_once __DIR__ . '/split_settlement.php';
+        }
+        if (function_exists('ensureSplitSettlementTable')) {
+            ensureSplitSettlementTable();
+        }
+        $db->prepare('INSERT INTO transaction_splits (transaction_id, merchant_id, gross_amount, platform_fee, merchant_net, split_status) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE platform_fee=VALUES(platform_fee), merchant_net=VALUES(merchant_net)')
+            ->execute([$transactionId, $merchantId, $split['gross'] ?? $split['platform_fee'] + $split['merchant_net'], $split['platform_fee'], $split['merchant_net'], 'pending']);
+    } catch (Throwable $e) { /* non-fatal */ }
+    try {
+        $db->prepare('UPDATE transactions SET platform_fee = ?, split_amount = ? WHERE id = ?')
+            ->execute([$split['platform_fee'], $split['merchant_net'], $transactionId]);
+    } catch (Throwable $e) { /* non-fatal */ }
 }
 
 /**

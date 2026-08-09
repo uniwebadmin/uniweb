@@ -1,8 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireSuperAdmin();
-$pageTitle = 'Decentro Partner Onboarding Checklist';
-require_once __DIR__ . '/header.php';
+redirect('admin_gateway_detail.php?partner=decentro');
 
 $db = getDB();
 $demoMerchant = $db->query("SELECT id FROM merchants WHERE email='demo@uniweb.co.in' LIMIT 1")->fetch();

@@ -21,6 +21,7 @@ fix_config.php
 diagnose.php
 sync_collection.php
 cleanup.php
+cleanup2.php
 diag.php
 wallet_diagnose.php
 morning_ops.php
@@ -29,6 +30,8 @@ update_mdr.php
 merchant_launch_test.php
 migrate_release.php
 platform_demo.php
+db_probe.php
+db_wizard.php
 
 # Runtime and private data
 uploads/
@@ -84,4 +87,14 @@ Jump to Content*
 tools/*.exe
 
 .cursor/
+
+# Dev-local diagnostic/test scripts (never deploy)
+dev_local/debug_*.php
+dev_local/test_a1.php
+dev_local/extract_pdfs*.php
+dev_local/dump_pdf*.php
+dev_local/encrypt_pii.php
+dev_local/check_files.php
+dev_local/find_orphans.php
+dev_local/reset_admin_pass.php
 

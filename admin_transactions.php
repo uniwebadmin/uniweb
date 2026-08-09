@@ -46,19 +46,22 @@ if ($q !== '') {
         LOWER(TRIM(COALESCE(t.customer_name,''))) LIKE ? OR LOWER(TRIM(COALESCE(t.customer_phone,''))) LIKE ? OR
         LOWER(TRIM(COALESCE(t.customer_email,''))) LIKE ? OR LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR
         LOWER(TRIM(COALESCE(m.merchant_code,''))) LIKE ? OR CAST(t.amount AS CHAR) LIKE ? OR
-        LOWER(CAST(COALESCE(t.metadata,'') AS CHAR)) LIKE ? OR
         t.payment_link_id IN (SELECT id FROM payment_links WHERE LOWER(TRIM(link_id)) LIKE ?)
     )";
-    array_push($params, $like, $like, $like, $like, $like, $like, $like, $like, $like, $like);
+    array_push($params, $like, $like, $like, $like, $like, $like, $like, $like, $like);
 }
 if ($method !== 'all' && in_array($method, ['upi','card','netbanking','wallet','qr','razorpay','cashfree','payu'], true)) {
     $where .= ' AND t.payment_method = ?'; $params[] = $method;
 }
 if ($from !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) { $where .= ' AND DATE(t.created_at) >= ?'; $params[] = $from; }
 if ($to !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) { $where .= ' AND DATE(t.created_at) <= ?'; $params[] = $to; }
-$stmt = $db->prepare("SELECT t.*, m.business_name, m.merchant_code FROM transactions t JOIN merchants m ON t.merchant_id=m.id WHERE $where ORDER BY t.created_at DESC LIMIT 50");
-$stmt->execute($params);
-$transactions = $stmt->fetchAll();
+try {
+    $stmt = $db->prepare("SELECT t.*, m.business_name, m.merchant_code FROM transactions t JOIN merchants m ON t.merchant_id=m.id WHERE $where ORDER BY t.created_at DESC LIMIT 50");
+    $stmt->execute($params);
+    $transactions = $stmt->fetchAll();
+} catch (Throwable $e) {
+    $transactions = [];
+}
 if (!isSuperAdmin()) {
     $transactions = array_values(array_filter($transactions, static fn(array $row): bool => staffHasMerchantAccess((int)$row['merchant_id'])));
 }

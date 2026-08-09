@@ -1,12 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/payout.php';
-requireAdminLogin();
-$admin = getAdmin();
-if (!in_array($admin['role'] ?? '', ['super', 'ceo', 'ops'], true)) {
-    flash('error', 'Access denied.');
-    redirect('admin.php');
-}
+requireStaffAccess(['super', 'ceo', 'ops']);
 
 $db = getDB();
 ensurePayoutSchema();

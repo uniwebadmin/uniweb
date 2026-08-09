@@ -22,6 +22,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
     $tables = [
         ['table' => 'merchants', 'column' => 'aadhaar_number', 'id' => 'id'],
+        ['table' => 'merchants', 'column' => 'pan_number', 'id' => 'id'],
+        ['table' => 'merchants', 'column' => 'gstin', 'id' => 'id'],
+        ['table' => 'merchants', 'column' => 'cin_llpin', 'id' => 'id'],
+        ['table' => 'merchants', 'column' => 'udyam_number', 'id' => 'id'],
+        ['table' => 'merchants', 'column' => 'iec_number', 'id' => 'id'],
         ['table' => 'bank_accounts', 'column' => 'account_number', 'id' => 'id'],
         ['table' => 'payout_beneficiaries', 'column' => 'account_number', 'id' => 'id'],
         ['table' => 'kyc_verifications', 'column' => 'doc_number', 'id' => 'id'],
@@ -56,10 +61,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
 // Show how many rows still need backfill
 $pending = 0;
-foreach (['merchants aadhaar_number', 'bank_accounts account_number', 'payout_beneficiaries account_number', 'kyc_verifications doc_number'] as $t) {
+foreach (['merchants aadhaar_number', 'merchants pan_number', 'merchants gstin', 'merchants cin_llpin', 'merchants udyam_number', 'merchants iec_number', 'bank_accounts account_number', 'payout_beneficiaries account_number', 'kyc_verifications doc_number'] as $t) {
     [$table, $column] = explode(' ', $t);
-    $st = $db->query("SELECT COUNT(*) FROM {$table} WHERE {$column} IS NOT NULL AND {$column} != '' AND {$column} NOT LIKE 'enc:v1:%'");
-    $pending += (int)$st->fetchColumn();
+    try {
+        $st = $db->query("SELECT COUNT(*) FROM {$table} WHERE {$column} IS NOT NULL AND {$column} != '' AND {$column} NOT LIKE 'enc:v1:%'");
+        $pending += (int)$st->fetchColumn();
+    } catch (Throwable $e) { /* column/table may not exist yet — skip */ }
 }
 
 $pageTitle = 'Encrypt PII Backfill';
@@ -67,7 +74,7 @@ require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6 max-w-3xl mx-auto">
     <h2 class="text-xl font-bold">Encrypt PII Backfill</h2>
-    <p class="text-sm text-gray-400">This one-time backfill encrypts any remaining plaintext Aadhaar, bank account numbers and verification numbers. Run it after you are sure <code>ENCRYPTION_KEY</code> is set and correct.</p>
+    <p class="text-sm text-gray-400">This one-time backfill encrypts any remaining plaintext PAN, GST, CIN, Aadhaar, bank account numbers and verification numbers. Run it after you are sure <code>ENCRYPTION_KEY</code> is set and correct.</p>
 
     <div class="glass rounded-xl p-6">
         <p class="text-sm text-gray-400">Plaintext rows still pending: <strong class="text-amber-400"><?= (int)$pending ?></strong></p>

@@ -85,6 +85,7 @@ function createMandate(
 /**
  * Update mandate status (e.g., after gateway confirms registration).
  */
+if (!function_exists('updateMandateStatus')) {
 function updateMandateStatus(int $mandateId, string $status, ?string $gatewayMandateId = null, ?array $gatewayResponse = null): bool
 {
     ensureMandateSchema();
@@ -121,6 +122,7 @@ function updateMandateStatus(int $mandateId, string $status, ?string $gatewayMan
     } catch (Throwable $e) {
         return false;
     }
+}
 }
 
 /**

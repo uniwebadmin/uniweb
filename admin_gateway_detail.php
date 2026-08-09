@@ -9,6 +9,21 @@ if (!function_exists('getPartnerRegistry')) {
 requireStaffAccess(['super', 'ceo', 'ops']);
 
 $gatewayId = (int)($_GET['id'] ?? 0);
+$partnerKeyParam = trim((string)($_GET['partner'] ?? ''));
+
+if ($gatewayId <= 0 && $partnerKeyParam !== '') {
+    $partnerRegistryTemp = getPartnerRegistry();
+    if (isset($partnerRegistryTemp[$partnerKeyParam])) {
+        $allGws = getRegisteredGateways();
+        foreach ($allGws as $ag) {
+            if ($ag['gateway_key'] === $partnerKeyParam) {
+                $gatewayId = (int)$ag['id'];
+                break;
+            }
+        }
+    }
+}
+
 if ($gatewayId <= 0) {
     flash('error', 'Invalid gateway ID.');
     redirect('admin_gateway_registry.php');

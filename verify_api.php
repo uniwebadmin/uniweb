@@ -42,7 +42,7 @@ if ($type === 'bank') {
             default => null,
         };
         if ($col && ($result['status'] ?? '') === 'verified') {
-            $stored = ($type === 'aadhaar') ? sensitiveEncrypt($number) : $number;
+            $stored = sensitiveEncrypt($number);
             getDB()->prepare("UPDATE merchants SET $col = ? WHERE id = ?")->execute([$stored, $merchant['id']]);
             autoApproveVerifiedKycDoc((int)$merchant['id'], $type, $number);
         }

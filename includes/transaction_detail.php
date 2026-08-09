@@ -27,7 +27,7 @@ function fetchTransactionDetail(string $txnId, ?int $merchantId = null, bool $ad
     $walletTxn->execute([(int)$row['merchant_id'], (int)$row['id'], $txnId]);
     $row['wallet_entry'] = $walletTxn->fetch() ?: null;
 
-    $splits = $db->prepare('SELECT * FROM split_payments WHERE transaction_id = ?');
+    $splits = $db->prepare('SELECT * FROM transaction_splits WHERE transaction_id = ?');
     $splits->execute([(int)$row['id']]);
     $row['splits'] = $splits->fetchAll();
 

@@ -379,6 +379,7 @@ function getLastAutoKycRun(): ?array
 /**
  * Ensure partner_forward_queue table exists.
  */
+if (!function_exists('ensurePartnerForwardQueueTable')) {
 function ensurePartnerForwardQueueTable(): void
 {
     static $ready = false;
@@ -402,6 +403,7 @@ function ensurePartnerForwardQueueTable(): void
             INDEX idx_forward_status (status, scheduled_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     } catch (Throwable $e) { /* ok */ }
+}
 }
 
 /**
@@ -463,6 +465,7 @@ function queueMerchantForPartnerForward(int $merchantId, ?string $gateways = nul
  * Process the partner forward queue — called from cron.
  * Forwards merchants whose scheduled_at has passed and status='queued'.
  */
+if (!function_exists('processPartnerForwardQueue')) {
 function processPartnerForwardQueue(): array
 {
     ensurePartnerForwardQueueTable();
@@ -542,6 +545,7 @@ function processPartnerForwardQueue(): array
     }
 
     return $summary;
+}
 }
 
 /**

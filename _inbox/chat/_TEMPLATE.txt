@@ -1,8 +1,0 @@
-SUBJECT: (e.g. exact reason / QR / payout / KYC)
-PRIORITY: low | normal | high
-START_CODE: no
----
-Write your point here in Hindi or English.
-
-Example:
-Exact reason banner pe "pending" wala line aur clear karo — merchant ko samajh aana chahiye.
