@@ -299,11 +299,17 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
 
         // D4: Process partner forward queue
         try {
-            if (!function_exists('processPartnerForwardQueue')) {
+            if (!function_exists('processPerPartnerForwardQueue')) {
                 require_once __DIR__ . '/partner_forward_queue.php';
             }
-            $forwardResult = processPartnerForwardQueue(20);
-            $report['steps']['partner_forward'] = ['ok' => true, 'processed' => $forwardResult['processed'], 'success' => $forwardResult['success'], 'failed' => $forwardResult['failed'], 'retry' => $forwardResult['retry']];
+            if (function_exists('processPerPartnerForwardQueue')) {
+                $forwardResult = processPerPartnerForwardQueue(20);
+            } elseif (function_exists('processPartnerForwardQueue')) {
+                $forwardResult = processPartnerForwardQueue(20);
+            } else {
+                $forwardResult = ['processed' => 0, 'success' => 0, 'failed' => 0, 'retry' => 0];
+            }
+            $report['steps']['partner_forward'] = ['ok' => true, 'processed' => $forwardResult['processed'] ?? 0, 'success' => $forwardResult['success'] ?? ($forwardResult['forwarded'] ?? 0), 'failed' => $forwardResult['failed'] ?? ($forwardResult['errors'] ?? 0), 'retry' => $forwardResult['retry'] ?? 0];
         } catch (Throwable $e) {
             $report['steps']['partner_forward'] = ['ok' => false, 'error' => $e->getMessage()];
         }

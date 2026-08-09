@@ -6,8 +6,17 @@ ensureKycSchema();
 require_once __DIR__ . '/includes/kyc_upload.php';
 require_once __DIR__ . '/includes/client_context.php';
 require_once __DIR__ . '/includes/kyc_verify.php';
+require_once __DIR__ . '/includes/onboarding_state_machine.php';
+require_once __DIR__ . '/includes/partner_forward_queue.php';
+require_once __DIR__ . '/includes/partner_payload.php';
 $merchant = getMerchant();
 $db = getDB();
+
+// D6: Get onboarding state and forward queue status for merchant visibility
+$onboardingState = getMerchantOnboardingState((int)$merchant['id']);
+$onboardingLabel = onboardingStateLabel($onboardingState);
+$forwardStatus = getMerchantForwardStatus((int)$merchant['id']);
+$kycFailCount = function_exists('getKycFailureCount') ? getKycFailureCount((int)$merchant['id']) : 0;
 
 $entityType = normalizeKycEntityType($merchant['business_entity_type'] ?? 'sole_proprietorship');
 $requiredDocs = getKycRequirements($entityType);
@@ -590,7 +599,45 @@ $docStatusMeta = static function (string $status): array {
             <p class="text-xs mt-4 <?= ($merchant['kyc_status'] ?? '') === 'verified' ? 'text-emerald-400' : 'text-amber-300' ?>">
                 KYC: <?= e(ucfirst((string)($merchant['kyc_status'] ?? 'pending'))) ?>
             </p>
+            <div class="mt-3 pt-3 border-t border-gray-800/50 space-y-1">
+                <p class="text-xs text-gray-400">Onboarding: <span class="font-medium text-sky-400"><?= e($onboardingLabel) ?></span></p>
+                <?php if ($kycFailCount > 0 && $onboardingState !== 'kyc_verified'): ?>
+                <p class="text-xs text-amber-400">Verification attempts: <?= $kycFailCount ?> of <?= function_exists('getKycMaxFailures') ? getKycMaxFailures() : 3 ?></p>
+                <?php endif; ?>
+            </div>
         </div>
+
+        <?php if (!empty($forwardStatus)): ?>
+        <div class="glass rounded-2xl p-5 border border-gray-800">
+            <h3 class="font-semibold text-sm mb-3">Partner Submission Status</h3>
+            <div class="space-y-2">
+                <?php foreach ($forwardStatus as $fwd): ?>
+                <div class="flex items-center justify-between text-xs">
+                    <span class="text-gray-400"><?= e(ucfirst($fwd['partner_key'] ?? '')) ?></span>
+                    <?php
+                    $statusColors = [
+                        'queued' => 'text-blue-400',
+                        'processing' => 'text-purple-400',
+                        'success' => 'text-emerald-400',
+                        'retry' => 'text-amber-400',
+                        'failed' => 'text-red-400',
+                    ];
+                    $statusLabel = $fwd['status'] ?? 'pending';
+                    $statusLabel = $statusLabel === 'success' ? 'Sent' : ucfirst($statusLabel);
+                    ?>
+                    <span class="font-medium <?= e($statusColors[$fwd['status']] ?? 'text-gray-400') ?>"><?= e($statusLabel) ?></span>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <p class="text-xs text-gray-500 mt-3">Documents are scheduled for partner submission. You will be notified on progress.</p>
+        </div>
+        <?php elseif ($onboardingState === 'kyc_verified' || $onboardingState === 'queue_forward'): ?>
+        <div class="glass rounded-2xl p-5 border border-gray-800">
+            <h3 class="font-semibold text-sm mb-2">Partner Submission</h3>
+            <p class="text-xs text-gray-400">Your documents are being prepared for partner submission. You will be notified when forwarded.</p>
+        </div>
+        <?php endif; ?>
+
         <div class="glass rounded-2xl p-5 border border-gray-800 text-xs text-gray-500 space-y-2">
             <p class="font-medium text-gray-300">Tips</p>
             <p>Upload clear JPG/PNG/PDF under 15MB. Rejected files show the exact reason and reappear in the upload list.</p>

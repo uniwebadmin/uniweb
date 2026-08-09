@@ -2,6 +2,8 @@
 require_once __DIR__ . '/config.php';
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'area_sales_manager', 'team_leader', 'staff_manager', 'field_staff', 'ops', 'kyc']);
 ensureKycSchema();
+require_once __DIR__ . '/includes/auto_kyc.php';
+require_once __DIR__ . '/includes/onboarding_state_machine.php';
 $db = getDB();
 $canMutateKyc = staffCanMutateKyc();
 $canChecker = staffCanCheckerApproveKyc();
@@ -15,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id = (int)($_POST['id'] ?? 0);
     $reason = trim((string)($_POST['reason'] ?? 'Compliance review'));
     try {
-        if (in_array($action, ['approve_doc', 'verify_merchant', 'verify_merchant_now', 'live_enable', 'verify_video', 'reject_video', 'reject_doc'], true)) {
+        if (in_array($action, ['approve_doc', 'verify_merchant', 'verify_merchant_now', 'live_enable', 'verify_video', 'reject_video', 'reject_doc', 'force_hold', 'force_reject', 'force_resubmit'], true)) {
             requireStaffKycMutation();
         }
         if (in_array($action, ['approve_request', 'reject_request', 'live_enable', 'verify_merchant_now'], true) && !$canChecker) {
@@ -113,6 +115,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'reject_request') {
             rejectApprovalRequest($id, $reason);
             flash('success', 'Approval request rejected.');
+        } elseif ($action === 'force_hold' && $canMutateKyc) {
+            // D1: Admin force hold with reason
+            requireMerchantAccess($id);
+            $tr = merchant_transition($id, 'hold', $reason);
+            if (!$tr['ok']) throw new RuntimeException($tr['error']);
+            logStaffActivity('kyc_force_hold', $reason, $id, 'merchant', (string)$id);
+            flash('success', 'Merchant put on hold. Reason shown to merchant.');
+        } elseif ($action === 'force_reject' && $canMutateKyc) {
+            // D1: Admin force reject with reason
+            requireMerchantAccess($id);
+            if ($reason === '' || $reason === 'Compliance review') {
+                throw new RuntimeException('A clear rejection reason is required.');
+            }
+            $tr = merchant_transition($id, 'rejected', $reason);
+            if (!$tr['ok']) throw new RuntimeException($tr['error']);
+            logStaffActivity('kyc_force_reject', $reason, $id, 'merchant', (string)$id);
+            flash('success', 'Merchant rejected. Reason shown to merchant.');
+        } elseif ($action === 'force_resubmit' && $canMutateKyc) {
+            // D1: Admin allow merchant to resubmit
+            requireMerchantAccess($id);
+            $tr = merchant_transition($id, 'kyc_submitted', $reason ?: 'Admin requested resubmission');
+            if (!$tr['ok']) throw new RuntimeException($tr['error']);
+            logStaffActivity('kyc_force_resubmit', $reason, $id, 'merchant', (string)$id);
+            flash('success', 'Merchant can now resubmit KYC.');
         } else {
             throw new RuntimeException('Unknown action.');
         }
@@ -224,6 +250,28 @@ if (!isSuperAdmin()) {
     $liveCandidates = array_values(array_filter($liveCandidates, static fn(array $row): bool => staffHasMerchantAccess((int)$row['id'])));
     $videoQueue = array_values(array_filter($videoQueue, static fn(array $row): bool => staffHasMerchantAccess((int)$row['id'])));
 }
+
+// D2: Manual assist lane — merchants that failed auto-KYC N times
+$manualAssistQueue = [];
+try {
+    if (function_exists('getKycMaxFailures')) {
+        $maxFail = getKycMaxFailures();
+        $manualAssistQueue = $db->prepare(
+            "SELECT m.id, m.business_name, m.merchant_code, m.onboarding_state, m.kyc_status,
+                    (SELECT COUNT(*) FROM auto_kyc_runs WHERE merchant_id=m.id AND action=?) AS fail_count
+             FROM merchants m
+             WHERE m.onboarding_state = 'hold'
+               AND m.status NOT IN ('blocked','suspended','deleted')
+               AND m.email <> 'demo@uniweb.co.in'
+             ORDER BY fail_count DESC LIMIT 20"
+        );
+        $manualAssistQueue->execute([getKycFailAction()]);
+        $manualAssistQueue = $manualAssistQueue->fetchAll();
+    }
+} catch (Throwable $e) {
+    $manualAssistQueue = [];
+}
+
 $pageTitle = 'KYC Review';
 require_once __DIR__ . '/header.php';
 ?>
@@ -280,6 +328,27 @@ require_once __DIR__ . '/header.php';
 </div>
 <?php elseif (empty($videoQueue) && $canMutateKyc): ?>
 <div class="glass rounded-xl p-4 mb-6 text-sm text-gray-500 border border-gray-800">Video KYC queue is clear — no submitted videos waiting for review.</div>
+<?php endif; ?>
+
+<?php if (!empty($manualAssistQueue) && $canMutateKyc): ?>
+<div class="glass rounded-xl overflow-hidden mb-8 border border-red-500/30 min-w-0">
+    <div class="px-4 sm:px-6 py-4 border-b border-gray-800">
+        <h2 class="font-semibold text-red-400">Manual assist lane</h2>
+        <p class="text-xs text-gray-500 mt-1">Merchants that failed auto-KYC verification <?= function_exists('getKycMaxFailures') ? getKycMaxFailures() : 3 ?>+ times. Staff can review, correct, or upload on their behalf — same queue, no parallel product.</p>
+    </div>
+    <?php foreach ($manualAssistQueue as $ma): ?>
+    <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-between gap-3">
+        <div class="min-w-0">
+            <p class="text-sm font-medium break-words"><?= e($ma['business_name']) ?> · <?= e($ma['merchant_code']) ?></p>
+            <p class="text-xs text-red-400">Failed <?= (int)$ma['fail_count'] ?> time(s) · State: <?= e($ma['onboarding_state']) ?></p>
+        </div>
+        <div class="flex gap-2">
+            <a href="admin_edit_merchant.php?id=<?= (int)$ma['id'] ?>" class="text-xs bg-sky-600/20 text-sky-300 px-3 py-2 rounded-lg">Review & Fix</a>
+            <a href="admin_kyc_doc.php?merchant_id=<?= (int)$ma['id'] ?>" class="text-xs bg-violet-600/20 text-violet-300 px-3 py-2 rounded-lg">View Documents</a>
+        </div>
+    </div>
+    <?php endforeach; ?>
+</div>
 <?php endif; ?>
 
 <?php if (!empty($liveCandidates) && $canMutateKyc): ?>

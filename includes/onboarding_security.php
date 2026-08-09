@@ -39,9 +39,12 @@ function merchantLiveGateReport(int $merchantId): array
         );
         $bank->execute([$merchantId]);
         $agreement = getDB()->prepare(
-            'SELECT COUNT(*) FROM merchant_agreement_acceptances WHERE merchant_id=? AND agreement_version=?'
+            'SELECT COUNT(*) AS cnt, MAX(requires_resign) AS needs_resign FROM merchant_agreement_acceptances WHERE merchant_id=? AND agreement_version=?'
         );
         $agreement->execute([$merchantId, ACTIVE_MERCHANT_AGREEMENT_VERSION]);
+        $agRow = $agreement->fetch();
+        $agreementAccepted = (int)($agRow['cnt'] ?? 0) > 0;
+        $agreementNeedsResign = (int)($agRow['needs_resign'] ?? 0) > 0;
 
         $videoStatus = strtolower((string)($merchant['video_kyc_status'] ?? 'pending'));
         $checks = [
@@ -52,7 +55,7 @@ function merchantLiveGateReport(int $merchantId): array
             'website_verified' => ($merchant['website_status'] ?? '') === 'verified'
                 && ($merchant['website_review_status'] ?? 'pending') === 'verified',
             'video_verified' => in_array($videoStatus, ['verified', 'approved'], true),
-            'agreement_accepted' => (int)$agreement->fetchColumn() > 0,
+            'agreement_accepted' => $agreementAccepted && !$agreementNeedsResign,
             'merchant_active' => ($merchant['status'] ?? '') === 'active',
         ];
         return [

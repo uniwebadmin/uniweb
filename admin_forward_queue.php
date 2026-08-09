@@ -13,6 +13,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'requeue' && !empty($_POST['item_id'])) {
             $ok = manualRequeueForward((int)$_POST['item_id']);
             flash($ok ? 'success' : 'error', $ok ? 'Item re-queued for processing.' : 'Could not re-queue item.');
+        } elseif ($action === 'run_now' && isSuperAdmin()) {
+            // D3: Super-admin only — run queue processor immediately with audit
+            if (function_exists('recordImmutableAudit')) {
+                recordImmutableAudit('forward_queue_run_now', 0, 'system', '0', 'Super-admin triggered immediate queue processing');
+            }
+            if (!function_exists('processPerPartnerForwardQueue')) {
+                require_once __DIR__ . '/includes/partner_forward_queue.php';
+            }
+            $result = processPerPartnerForwardQueue(50);
+            flash('success', 'Queue processed: ' . ($result['processed'] ?? 0) . ' items, '
+                . ($result['success'] ?? 0) . ' success, ' . ($result['failed'] ?? 0) . ' failed.');
         }
     }
     redirect('admin_forward_queue.php?status=' . urlencode($statusFilter));
@@ -27,7 +38,15 @@ require_once __DIR__ . '/header.php';
 <div class="space-y-6">
     <div class="flex items-center justify-between">
         <h2 class="text-xl font-bold">KYC Forward Queue — Status Matrix</h2>
-        <div class="flex gap-2 text-xs">
+        <div class="flex items-center gap-3">
+            <?php if (isSuperAdmin()): ?>
+            <form method="POST" action="admin_forward_queue.php" onsubmit="return confirm('Run queue processor now?')" class="inline">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="run_now">
+                <button type="submit" class="px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 text-xs font-medium hover:bg-amber-500/30">⚡ Run Now</button>
+            </form>
+            <?php endif; ?>
+            <div class="flex gap-2 text-xs">
             <a href="?status=" class="px-3 py-1.5 rounded-lg <?= $statusFilter === '' ? 'bg-brand-500 text-white' : 'bg-dark-700 text-gray-400' ?>">All</a>
             <a href="?status=queued" class="px-3 py-1.5 rounded-lg <?= $statusFilter === 'queued' ? 'bg-brand-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Queued</a>
             <a href="?status=processing" class="px-3 py-1.5 rounded-lg <?= $statusFilter === 'processing' ? 'bg-brand-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Processing</a>

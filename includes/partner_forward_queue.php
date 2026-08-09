@@ -75,7 +75,8 @@ function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payl
  * D4: Cron worker — process queued items whose schedule_at has passed.
  * Returns count of processed items.
  */
-function processPartnerForwardQueue(int $limit = 20): array
+if (!function_exists('processPerPartnerForwardQueue')) {
+function processPerPartnerForwardQueue(int $limit = 20): array
 {
     ensurePartnerForwardQueueTable();
     $db = getDB();
@@ -145,6 +146,7 @@ function processPartnerForwardQueue(int $limit = 20): array
 
     return $results;
 }
+} // end function_exists guard
 
 /**
  * Push KYC package to a partner API.

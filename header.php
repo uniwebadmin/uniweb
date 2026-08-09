@@ -330,6 +330,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     ['admin_view_merchant.php','Merchant Context'],
                     ['admin_kyc.php','KYC Review'],
                     ['admin_kyc_doc.php','KYC Documents'],
+                    ['admin_forward_queue.php','Forward Queue'],
                     ['admin_merchant_banks.php','Merchant Banks'],
                     ['admin_payment_links.php','Payment Links'],
                     ['admin_qr_codes.php','QR Codes'],

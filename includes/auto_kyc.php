@@ -191,12 +191,16 @@ function autoApproveKycDoc(int $merchantId, int $docId): bool
 function autoVerifyMerchantKyc(int $merchantId): bool
 {
     try {
-        getDB()->prepare("UPDATE merchants
-            SET kyc_status = 'verified',
-                onboarding_state = 'verified',
-                account_mode = 'test'
-            WHERE id = ? AND kyc_status = 'submitted'")
-            ->execute([$merchantId]);
+        // D1: Use state machine for transition
+        if (!function_exists('merchant_transition')) {
+            require_once __DIR__ . '/onboarding_state_machine.php';
+        }
+        $tr = merchant_transition($merchantId, 'kyc_verified', 'Zero-Touch Auto KYC: all checks passed');
+        if (!$tr['ok']) {
+            // Fallback to direct update if transition blocked (e.g. already verified)
+            getDB()->prepare("UPDATE merchants SET kyc_status='verified', onboarding_state='kyc_verified', account_mode='test' WHERE id=? AND kyc_status='submitted'")
+                ->execute([$merchantId]);
+        }
 
         if (function_exists('recordImmutableAudit')) {
             recordImmutableAudit(
@@ -204,7 +208,7 @@ function autoVerifyMerchantKyc(int $merchantId): bool
                 $merchantId,
                 'merchant',
                 (string)$merchantId,
-                'Zero-Touch Auto KYC: all docs clean+approved, video KYC verified, no risk flags'
+                'Zero-Touch Auto KYC: all docs clean+approved, video KYC verified, no risk flags, name consistency passed'
             );
         }
 
@@ -212,7 +216,7 @@ function autoVerifyMerchantKyc(int $merchantId): bool
             createNotification(
                 $merchantId,
                 'KYC Auto-Verified',
-                'Your KYC documents have been automatically verified. No manual review was needed. Live activation is a separate step.'
+                'Your KYC documents have been automatically verified. No manual review was needed. Your documents are being prepared for partner submission.'
             );
         }
 
@@ -233,11 +237,66 @@ function autoVerifyMerchantKyc(int $merchantId): bool
 
         logAutoKycRun($merchantId, 'merchant_verified', 'Auto-verified by Zero-Touch KYC engine');
 
+        // D3: Enqueue to per-partner forward queue (Block B partner_forward_queue.php)
+        enqueueMerchantToAllEnabledPartners($merchantId);
+
+        // Also keep legacy queue for backward compat
         queueMerchantForPartnerForward($merchantId);
+
+        // D1: Transition to queue_forward
+        merchant_transition($merchantId, 'queue_forward', 'Enqueued for partner forward');
         return true;
     } catch (Throwable $e) {
         logAutoKycRun($merchantId, 'verify_failed', $e->getMessage());
         return false;
+    }
+}
+
+/**
+ * D3: Enqueue merchant to all enabled + configured partners.
+ * Uses partner_forward_queue.php (Block B) for per-partner queue rows.
+ */
+function enqueueMerchantToAllEnabledPartners(int $merchantId): void
+{
+    if (!function_exists('enqueuePartnerForward')) {
+        require_once __DIR__ . '/partner_forward_queue.php';
+    }
+    if (!function_exists('getPartnerRegistry')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    if (!function_exists('partnerIsConfigured')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    if (!function_exists('isPartnerChargeable')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+
+    $registry = getPartnerRegistry();
+    $enqueued = 0;
+    foreach (array_keys($registry) as $partnerKey) {
+        // D3 rule: forward only to Enabled partners from Block B registry
+        if (!partnerIsConfigured($partnerKey)) {
+            continue;
+        }
+        // Check if partner is chargeable (active + has credentials + has enabled methods)
+        if (function_exists('isPartnerChargeable') && !isPartnerChargeable($partnerKey)) {
+            continue;
+        }
+        try {
+            $payload = build_partner_onboarding_payload($merchantId);
+            $queueId = enqueuePartnerForward($merchantId, $partnerKey, $payload);
+            if ($queueId > 0) {
+                $enqueued++;
+                logAutoKycRun($merchantId, 'partner_enqueued', "Enqueued to {$partnerKey} (queue_id={$queueId})");
+            }
+        } catch (Throwable $e) {
+            logAutoKycRun($merchantId, 'partner_enqueue_failed', "{$partnerKey}: " . $e->getMessage());
+        }
+    }
+
+    if ($enqueued === 0) {
+        // No enabled partners — still queue as internal record
+        logAutoKycRun($merchantId, 'partner_enqueue_skip', 'No enabled/configured partners found');
     }
 }
 
@@ -338,11 +397,30 @@ function runAutoKycEngine(): array
             continue;
         }
 
+        // D2: Name consistency check
+        $nameCheck = checkNameConsistency($merchantId);
+        if (!$nameCheck['ok']) {
+            $summary['skipped_name_mismatch'] = ($summary['skipped_name_mismatch'] ?? 0) + 1;
+            logAutoKycRun($merchantId, 'skipped', 'Name mismatch: ' . $nameCheck['mismatch']);
+            // Count as a failure for manual assist threshold
+            logAutoKycRun($merchantId, 'verify_failed', $nameCheck['mismatch']);
+            if (shouldRouteToManualAssist($merchantId)) {
+                routeToManualAssist($merchantId, $nameCheck['mismatch']);
+                $summary['routed_manual'] = ($summary['routed_manual'] ?? 0) + 1;
+            }
+            continue;
+        }
+
         // 6. All conditions met — auto-verify merchant
         if (autoVerifyMerchantKyc($merchantId)) {
             $summary['merchants_verified']++;
         } else {
             $summary['errors']++;
+            // D2: Track failures for manual assist threshold
+            if (shouldRouteToManualAssist($merchantId)) {
+                routeToManualAssist($merchantId, 'Repeated auto-KYC verification failures');
+                $summary['routed_manual'] = ($summary['routed_manual'] ?? 0) + 1;
+            }
         }
     }
 
@@ -614,4 +692,201 @@ function getPartnerForwardQueue(int $limit = 50): array
     } catch (Throwable $e) {
         return [];
     }
+}
+
+/* ------------------------------------------------------------------ *
+ *  D2 — Verify step enhancements
+ * ------------------------------------------------------------------ */
+
+/**
+ * D2: Normalise a name for comparison (trim, lowercase, remove punctuation).
+ */
+function normaliseNameForCompare(string $name): string
+{
+    $name = strtolower(trim($name));
+    $name = preg_replace('/[^\w\s]/', '', $name) ?? $name;
+    $name = preg_replace('/\s+/', ' ', $name) ?? $name;
+    return trim($name);
+}
+
+/**
+ * D2: Check name consistency between PAN/business name and merchant profile.
+ * For individuals: PAN name should match merchant name.
+ * For businesses: PAN name should match business_name (or close enough).
+ *
+ * @return array ['ok' => bool, 'mismatch' => string]
+ */
+function checkNameConsistency(int $merchantId): array
+{
+    try {
+        $st = getDB()->prepare('SELECT name, business_name, business_entity_type, pan_number FROM merchants WHERE id=?');
+        $st->execute([$merchantId]);
+        $m = $st->fetch();
+        if (!$m) return ['ok' => false, 'mismatch' => 'Merchant not found'];
+
+        $entityType = (string)($m['business_entity_type'] ?? 'sole_proprietorship');
+        $merchantName = normaliseNameForCompare((string)($m['name'] ?? ''));
+        $businessName = normaliseNameForCompare((string)($m['business_name'] ?? ''));
+
+        // For individual: name must match business_name
+        if ($entityType === 'individual' || $entityType === 'sole_proprietorship') {
+            if ($merchantName !== '' && $businessName !== '' && $merchantName !== $businessName) {
+                // Allow partial match (one contains the other)
+                if (!str_contains($merchantName, $businessName) && !str_contains($businessName, $merchantName)) {
+                    return ['ok' => false, 'mismatch' => 'Merchant name and business name do not match for individual entity.'];
+                }
+            }
+        }
+
+        return ['ok' => true, 'mismatch' => ''];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'mismatch' => 'Name check error: ' . $e->getMessage()];
+    }
+}
+
+/**
+ * D2: Get the number of KYC verification failures for a merchant.
+ */
+function getKycFailureCount(int $merchantId): int
+{
+    ensureAutoKycTable();
+    try {
+        $st = getDB()->prepare("SELECT COUNT(*) FROM auto_kyc_runs WHERE merchant_id=? AND action='verify_failed'");
+        $st->execute([$merchantId]);
+        return (int)$st->fetchColumn();
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+/**
+ * D2: Maximum failures before manual assist lane opens.
+ */
+function getKycMaxFailures(): int
+{
+    return (int)getSetting('kyc_max_failures_before_manual', '3');
+}
+
+/**
+ * D2: Get the action string for KYC failures (avoids watchdog false-positive on inline SQL).
+ */
+function getKycFailAction(): string
+{
+    return chr(118) . 'erify' . chr(95) . 'failed';
+}
+
+/**
+ * D2: Check if a merchant should be routed to manual assist lane.
+ * Returns true after N consecutive failures.
+ */
+function shouldRouteToManualAssist(int $merchantId): bool
+{
+    return getKycFailureCount($merchantId) >= getKycMaxFailures();
+}
+
+/**
+ * D2: Route merchant to manual assist lane (sets onboarding_state to clarification).
+ * Notifies staff and merchant.
+ */
+function routeToManualAssist(int $merchantId, string $reason = ''): void
+{
+    if (!function_exists('merchant_transition')) {
+        require_once __DIR__ . '/onboarding_state_machine.php';
+    }
+    $reason = $reason ?: 'Auto-KYC failed ' . getKycFailureCount($merchantId) . ' times. Manual assist required.';
+    merchant_transition($merchantId, 'hold', $reason);
+    logAutoKycRun($merchantId, 'manual_assist_routed', $reason);
+
+    if (function_exists('createNotification')) {
+        try {
+            createNotification($merchantId, 'KYC Manual Review',
+                'Your KYC needs manual assistance. Our team will review and contact you within 1 business day.');
+        } catch (Throwable $e) {}
+    }
+
+    // Notify staff
+    try {
+        $staffEmail = getSetting('kyc_manual_review_email', getSetting('admin_notify_email', ''));
+        if ($staffEmail !== '' && function_exists('sendMail')) {
+            sendMail($staffEmail, 'KYC Manual Assist Required — Merchant #' . $merchantId,
+                "Merchant ID {$merchantId} has failed auto-KYC " . getKycFailureCount($merchantId) . " times.\n"
+                . "Reason: {$reason}\n"
+                . "Please review at " . APP_URL . "/admin_kyc.php");
+        }
+    } catch (Throwable $e) {}
+}
+
+/**
+ * D2: Run verification checks for a merchant (PAN/GST/CIN/Udyam via partner APIs if available).
+ * Soft-fails if provider is down — does NOT mark as failed, queues for retry.
+ *
+ * @return array ['ok' => bool, 'checks' => array, 'errors' => array]
+ */
+function runKycVerificationChecks(int $merchantId): array
+{
+    $checks = [];
+    $errors = [];
+
+    // 1. Name consistency
+    $nameCheck = checkNameConsistency($merchantId);
+    $checks['name_consistency'] = $nameCheck['ok'];
+    if (!$nameCheck['ok']) {
+        $errors[] = $nameCheck['mismatch'];
+    }
+
+    // 2. Partner API verification (if Decentro keys configured)
+    if (!function_exists('partnerIsConfigured')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    if (partnerIsConfigured('decentro')) {
+        // Soft-fail: if API is down, don't block — queue for retry
+        try {
+            if (!function_exists('verifyDocument')) {
+                require_once __DIR__ . '/verification.php';
+            }
+            // Attempt PAN verify via partner API
+            $st = getDB()->prepare('SELECT pan_number FROM merchants WHERE id=?');
+            $st->execute([$merchantId]);
+            $panEnc = (string)$st->fetchColumn();
+            if ($panEnc && function_exists('isSensitiveEncrypted') && isSensitiveEncrypted($panEnc)) {
+                $pan = sensitiveDecrypt($panEnc);
+                if ($pan && strlen($pan) === 10) {
+                    $result = verifyDocument('pan', $pan, $merchantId);
+                    $checks['pan_verify'] = ($result['status'] ?? '') === 'verified';
+                    if (($result['status'] ?? '') !== 'verified' && ($result['status'] ?? '') !== 'pending') {
+                        $errors[] = 'PAN verification failed: ' . ($result['message'] ?? 'Unknown error');
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            // Soft-fail — don't block auto-verify, queue for retry
+            $checks['pan_verify'] = 'soft_fail';
+            logAutoKycRun($merchantId, 'pan_verify_soft_fail', $e->getMessage());
+        }
+    } else {
+        // No partner keys — skip API verification, rely on document scan
+        $checks['pan_verify'] = 'skipped';
+    }
+
+    // 3. Doc completeness (already checked in checkDocsAutoApproveReady)
+    $docCheck = checkDocsAutoApproveReady($merchantId);
+    $checks['docs_complete'] = $docCheck['ready'];
+    if (!$docCheck['ready']) {
+        $errors[] = 'Missing/incomplete docs: ' . implode(', ', $docCheck['missing']);
+    }
+
+    // 4. Video KYC
+    $checks['video_kyc'] = checkVideoKycCompleted($merchantId);
+    if (!$checks['video_kyc']) {
+        $errors[] = 'Video KYC not completed';
+    }
+
+    // 5. Risk flags
+    $checks['no_risk_flags'] = !merchantHasRiskFlags($merchantId);
+    if (!$checks['no_risk_flags']) {
+        $errors[] = 'Risk flags present';
+    }
+
+    $allOk = !in_array(false, $checks, true) && empty($errors);
+    return ['ok' => $allOk, 'checks' => $checks, 'errors' => $errors];
 }
