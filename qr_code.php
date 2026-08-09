@@ -17,6 +17,17 @@ $db = getDB();
 $isTest = isMerchantPaymentTest($merchant);
 $upiId = trim((string)($merchant['upi_id'] ?? ''));
 
+// E3: Use get_available_pay_methods() to check if UPI methods are available
+if (!function_exists('get_available_pay_methods')) {
+    require_once __DIR__ . '/includes/payment_methods.php';
+}
+if (!function_exists('getPaymentMethodCatalog')) {
+    require_once __DIR__ . '/includes/provision.php';
+}
+$availableMethods = get_available_pay_methods($merchantId);
+$availableKeys = array_column($availableMethods, 'key');
+$upiAvailable = in_array('upi_p2m', $availableKeys, true) || in_array('axis_va', $availableKeys, true) || in_array('payu_upi', $availableKeys, true);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireMerchantTeamCapability('create_links');
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
@@ -66,6 +77,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('error', 'Live QR needs verified KYC.');
         } elseif (!$isTest && $qrType === 'upi_dynamic' && $upiId === '') {
             flash('error', 'UPI QR needs a real UPI ID in My Account.');
+        } elseif ($qrType === 'upi_dynamic' && !$upiAvailable) {
+            // E3: Disabled UPI blocks new UPI QR charge path
+            flash('error', 'UPI payment method is not enabled. Contact support or complete partner setup.');
         } else {
             $created = 0;
             try {
@@ -110,6 +124,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash('error', 'Live QR needs verified KYC.');
     } elseif (!$isTest && $qrType === 'upi_dynamic' && $upiId === '') {
         flash('error', 'UPI QR needs a real UPI ID in My Account.');
+    } elseif ($qrType === 'upi_dynamic' && !$upiAvailable) {
+        // E3: Disabled UPI blocks new UPI QR charge path
+        flash('error', 'UPI payment method is not enabled. Contact support or complete partner setup.');
     } else {
         $qrCode = 'QR' . strtoupper(bin2hex(random_bytes(8)));
         try {

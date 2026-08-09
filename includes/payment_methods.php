@@ -594,3 +594,117 @@ function getMerchantCheckoutGateways(int $merchantId): array
     return getSmartGatewayOrder($enabledKeys);
 }
 }
+
+/**
+ * E1: Single source of truth for available payment methods.
+ *
+ * Returns only methods where ALL of:
+ *  1. Partner master is active (gateway_registry.is_active=1)
+ *  2. partner_methods.enabled=1 (Block B partner control)
+ *  3. Credentials present for current env (test/live)
+ *  4. Merchant is allowed to collect (onboarding_state live/kyc_verified AND merchant enabled)
+ *
+ * @return array List of method descriptors with key, label, gateway, pay_key, type
+ */
+function get_available_pay_methods(int $merchantId): array
+{
+    $db = getDB();
+    $methods = [];
+
+    // 4a. Merchant onboarding state check — must be live or kyc_verified
+    try {
+        $mst = $db->prepare('SELECT onboarding_state, kyc_status, account_mode, status FROM merchants WHERE id=?');
+        $mst->execute([$merchantId]);
+        $merchant = $mst->fetch();
+        if (!$merchant) return [];
+        if (in_array($merchant['status'], ['blocked', 'suspended', 'deleted'], true)) return [];
+    } catch (Throwable $e) {
+        return [];
+    }
+
+    // 4b. Get merchant-enabled method keys
+    $enabledKeys = getMerchantEnabledMethodKeys($merchantId);
+
+    // Get catalog for labels/pay_keys
+    if (function_exists('getPaymentMethodCatalog')) {
+        $catalog = getPaymentMethodCatalog();
+    } else {
+        return [];
+    }
+
+    // Load partner control helpers
+    if (!function_exists('isPartnerMethodEnabled')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    if (!function_exists('isPartnerChargeable')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+
+    // Check each enabled method
+    foreach ($enabledKeys as $methodKey) {
+        $cat = $catalog[$methodKey] ?? null;
+        if (!$cat) continue;
+
+        $gateway = $cat['gateway'] ?? '';
+        $partnerKey = $gateway;
+
+        // 1. Gateway active in registry?
+        if (function_exists('isGatewayActive') && !isGatewayActive($partnerKey)) continue;
+
+        // 2. Partner method enabled (Block B)?
+        if (function_exists('isPartnerMethodEnabled') && !isPartnerMethodEnabled($partnerKey, $methodKey)) continue;
+
+        // 3. Credentials present for current env?
+        $credKey = $gateway . '_key_id';
+        $credKey2 = $gateway . '_key_secret';
+        $envSetting = getSetting($gateway . '_environment', '');
+        $hasCreds = false;
+        if ($gateway === 'direct' || $gateway === 'axis') {
+            // Direct UPI / Axis VA — check merchant UPI ID or VA
+            $hasCreds = true; // direct UPI doesn't need gateway credentials
+        } elseif (function_exists('isGatewayConfigured')) {
+            $hasCreds = isGatewayConfigured($gateway);
+        } else {
+            $hasCreds = getSetting($credKey, '') !== '' && getSetting($credKey2, '') !== '';
+        }
+        if (!$hasCreds) continue;
+
+        // 4. Partner chargeable?
+        if (function_exists('isPartnerChargeable') && !isPartnerChargeable($partnerKey)) {
+            // Allow direct UPI which doesn't go through a chargeable partner
+            if ($gateway !== 'direct' && $gateway !== 'axis') continue;
+        }
+
+        $methods[] = [
+            'key' => $methodKey,
+            'label' => $cat['label'],
+            'pay_key' => $cat['pay_key'] ?? $methodKey,
+            'gateway' => $gateway,
+            'collection_mode' => $cat['collection_mode'] ?? '',
+            'icon' => $cat['icon'] ?? '',
+            'type' => $gateway === 'payu' ? 'payu' : ($gateway === 'razorpay' ? 'razorpay' : ($gateway === 'cashfree' ? 'cashfree' : 'p2m')),
+        ];
+    }
+
+    return $methods;
+}
+
+/**
+ * E1: Check if a specific method is available for a merchant.
+ */
+function isMethodAvailable(int $merchantId, string $methodKey): bool
+{
+    $methods = get_available_pay_methods($merchantId);
+    foreach ($methods as $m) {
+        if ($m['key'] === $methodKey) return true;
+    }
+    return false;
+}
+
+/**
+ * E1: Get available pay method keys (just the keys, for quick checks).
+ */
+function get_available_pay_method_keys(int $merchantId): array
+{
+    return array_column(get_available_pay_methods($merchantId), 'key');
+}

@@ -3,6 +3,11 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/qr_events.php';
 ensureMerchantQrCodes();
 
+// E3: Load method availability helper
+if (!function_exists('get_available_pay_methods')) {
+    require_once __DIR__ . '/includes/payment_methods.php';
+}
+
 /**
  * Branded dead-end for the public QR scan path — a customer who scans a stale,
  * inactive or malformed QR must never see a bare white exit() screen during a
@@ -86,7 +91,15 @@ if (!$qr || $qr['status'] !== 'active' || $qr['merchant_status'] !== 'active' ||
 
 $qrType = (string)($qr['qr_type'] ?? 'fixed');
 $isTest = !empty($qr['is_test']);
-$createCheckout = static function (float $amount, bool $upiOnly) use ($db, $qr, $isTest): ?string {
+// E3: Check if UPI methods are available for this merchant
+$upiMethods = get_available_pay_methods((int)$qr['merchant_id']);
+$upiKeys = array_column($upiMethods, 'key');
+$upiAvailable = in_array('upi_p2m', $upiKeys, true) || in_array('axis_va', $upiKeys, true) || in_array('payu_upi', $upiKeys, true);
+$createCheckout = static function (float $amount, bool $upiOnly) use ($db, $qr, $isTest, $upiAvailable): ?string {
+    // E3: Block UPI-only checkout if UPI method is disabled
+    if ($upiOnly && !$upiAvailable) {
+        return null;
+    }
     // QR payments are not throttled by UniWeb per scan; gateway/bank rails enforce limits.
     $amount = sanitizePaymentAmount($amount, $isTest);
     if ($amount < 1) {
@@ -133,6 +146,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
         $error = 'Security token expired. Refresh and try again.';
     } else {
+        // E7: Rate limit pay attempts (10 per 10 minutes per IP)
+        $rateKey = 'qr_pay_' . md5($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        $rateFile = sys_get_temp_dir() . '/uniweb_rl_' . md5($rateKey);
+        $rateCount = 0;
+        if (is_file($rateFile)) {
+            $rateData = json_decode((string)file_get_contents($rateFile), true);
+            if ($rateData && (time() - $rateData['ts']) < 600) {
+                $rateCount = (int)$rateData['count'];
+            }
+        }
+        if ($rateCount >= 10) {
+            $error = 'Too many attempts. Please wait a few minutes and try again.';
+        } else {
+            file_put_contents($rateFile, json_encode(['ts' => time(), 'count' => $rateCount + 1]));
+        }
+    }
+    if ($error === '') {
         $liveCap = livePaymentAmountCap();
         $amount = sanitizePaymentAmount((float)($_POST['amount'] ?? 0), $isTest);
         if ($amount < 1) {

@@ -122,7 +122,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && ($_POST['a
     if ($checkoutCustomerError !== '') {
         $error = $checkoutCustomerError;
     } else {
-        $method = preg_replace('/[^a-z0-9_]/i', '', $selectedPay) ?: 'test';
+        // E7: Rate limit test pay attempts (10 per 10 minutes per IP)
+        $rateKey = 'checkout_pay_' . md5($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        $rateFile = sys_get_temp_dir() . '/uniweb_rl_' . md5($rateKey);
+        $rateCount = 0;
+        if (is_file($rateFile)) {
+            $rateData = json_decode((string)file_get_contents($rateFile), true);
+            if ($rateData && (time() - $rateData['ts']) < 600) {
+                $rateCount = (int)$rateData['count'];
+            }
+        }
+        if ($rateCount >= 10) {
+            $error = 'Too many payment attempts. Please wait a few minutes and try again.';
+        } else {
+            file_put_contents($rateFile, json_encode(['ts' => time(), 'count' => $rateCount + 1]));
+            $method = preg_replace('/[^a-z0-9_]/i', '', $selectedPay) ?: 'test';
         $testReference = 'TEST' . strtoupper(bin2hex(random_bytes(6)));
         $order = createBoundPaymentOrder($link, 'sandbox', 'instant:' . $testReference);
         bindProviderOrder((int)$order['id'], 'sandbox', (string)$order['order_ref']);
@@ -142,6 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && ($_POST['a
         $txnRow->execute([$txnDbId]);
         $successTxnId = $txnRow->fetchColumn() ?: null;
         $success = true;
+        }
     }
 }
 

@@ -5,28 +5,54 @@ ensurePaymentPackSchema();
 $merchant = getMerchant();
 $db = getDB();
 $catalog = getPaymentMethodCatalog();
-$enabledMethods = getMerchantEnabledMethods($merchant);
+
+// E1: Use get_available_pay_methods() as single source of truth
+if (!function_exists('get_available_pay_methods')) {
+    require_once __DIR__ . '/includes/payment_methods.php';
+}
+$availableMethods = get_available_pay_methods((int)$merchant['id']);
+$enabledMethods = array_column($availableMethods, 'key');
+
 $methodChoices = [
     '' => ['label' => 'All enabled methods', 'hint' => 'Customer chooses UPI / Card / etc. on checkout'],
 ];
-foreach ($enabledMethods as $mk) {
-    if (!isset($catalog[$mk])) {
-        continue;
-    }
-    $methodChoices[$mk] = [
-        'label' => $catalog[$mk]['label'],
-        'hint' => 'Dedicated ' . $catalog[$mk]['label'] . ' checkout',
+foreach ($availableMethods as $am) {
+    $methodChoices[$am['key']] = [
+        'label' => $am['label'],
+        'hint' => 'Dedicated ' . $am['label'] . ' checkout',
     ];
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     requireMerchantTeamCapability('create_links');
+
+    // E7: Rate limit link creation (20 per 10 minutes per merchant)
+    $rateKey = 'link_create_' . (int)$merchant['id'];
+    $rateFile = sys_get_temp_dir() . '/uniweb_rl_' . md5($rateKey);
+    $rateCount = 0;
+    if (is_file($rateFile)) {
+        $rateData = json_decode((string)file_get_contents($rateFile), true);
+        if ($rateData && (time() - $rateData['ts']) < 600) {
+            $rateCount = (int)$rateData['count'];
+        }
+    }
+    if ($rateCount >= 20) {
+        flash('error', 'Too many links created recently. Please wait a few minutes and try again.');
+        redirect('payment_links.php');
+    }
+    file_put_contents($rateFile, json_encode(['ts' => time(), 'count' => $rateCount + 1]));
+
     $amount = (float)($_POST['amount'] ?? 0);
     $isTest = isMerchantPaymentTest($merchant);
     $amount = sanitizePaymentAmount($amount, $isTest);
     $methodKey = trim((string)($_POST['payment_method'] ?? ''));
     if ($methodKey !== '' && !isset($methodChoices[$methodKey])) {
         $methodKey = '';
+    }
+    // E1: Validate selected method is actually available
+    if ($methodKey !== '' && !in_array($methodKey, $enabledMethods, true)) {
+        flash('error', 'Selected payment method is not available. Please choose from the enabled methods.');
+        redirect('payment_links.php');
     }
     if ($amount < 1) {
         flash('error', $isTest ? 'Test mode: amount ₹1–₹100 only.' : 'Minimum amount is ₹1.');
@@ -52,6 +78,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 $description = 'Payment — ' . $label;
             }
         }
+        // E2: Idempotency key — prevent duplicate link creation on double-submit
+        $idempotencyKey = 'LNK_' . md5((int)$merchant['id'] . '_' . $amount . '_' . $methodKey . '_' . time() . '_' . random_bytes(4));
         try {
             $db->prepare('INSERT INTO payment_links (link_id,merchant_id,amount,description,customer_name,customer_phone,expires_at,is_test,payment_method,gateway_code,link_label,link_collection_mode) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
                 ->execute([

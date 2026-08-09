@@ -349,15 +349,26 @@ function getCheckoutPaymentMethods(array $link): array
     $cfConfigured = isGatewayConfigured('cashfree');
     $methods = [];
 
-    // Use new merchant_payment_methods system if available
+    // E1: Use get_available_pay_methods() as single source of truth
     $merchantId = (int)($link['merchant_id'] ?? 0);
-    $newEnabledKeys = [];
-    if ($merchantId > 0 && function_exists('getMerchantEnabledMethodKeys')) {
-        $newEnabledKeys = getMerchantEnabledMethodKeys($merchantId);
+    $availableMethods = [];
+    if ($merchantId > 0 && function_exists('get_available_pay_methods')) {
+        $availableMethods = get_available_pay_methods($merchantId);
     }
 
+    // Build a lookup of available method keys
+    $availableKeys = array_column($availableMethods, 'key');
+
     // Fall back to old system if new system returns nothing
-    $enabled = !empty($newEnabledKeys) ? $newEnabledKeys : getMerchantEnabledMethods($link);
+    if (empty($availableKeys)) {
+        $newEnabledKeys = [];
+        if ($merchantId > 0 && function_exists('getMerchantEnabledMethodKeys')) {
+            $newEnabledKeys = getMerchantEnabledMethodKeys($merchantId);
+        }
+        $enabled = !empty($newEnabledKeys) ? $newEnabledKeys : getMerchantEnabledMethods($link);
+    } else {
+        $enabled = $availableKeys;
+    }
     $catalog = getPaymentMethodCatalog();
     $allow = function (string $methodKey) use ($enabled): bool {
         return in_array($methodKey, $enabled, true);
