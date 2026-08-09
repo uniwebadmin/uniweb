@@ -196,7 +196,6 @@ function getWatchdogPageRegistry(): array
         ['whatsapp_webhook.php', 'WhatsApp Webhook', 'webhook', 'webhook'],
         ['platform_watchdog.php', 'Cron Watchdog', 'system', 'system'],
         ['cron_auto_audit.php', 'Auto Audit Cron', 'system', 'system'],
-        ['morning_ops.php', 'Morning Ops Cron', 'system', 'system'],
         ['cron_settlements.php', 'Settlement Cron', 'system', 'system'],
         ['ping.php', 'Ping', 'system', 'system'],
     ] as $row) {
@@ -226,7 +225,7 @@ function watchdogDiscoverPhpFiles(): array
     $root = watchdogRoot();
     $skip = ['update_', 'wallet_fix', 'wallet_diagnose', 'debug_', 'night_setup', 'my_secret', 'diag', 'platform_wallet_fix', 'axis_probe', 'db_wizard'];
     // Gitignored dev-only files — never deployed to production, don't flag as missing
-    $skipFiles = ['platform_demo.php', 'migrate_release.php', 'morning_ops.php', 'config.private.php'];
+    $skipFiles = ['migrate_release.php', 'morning_ops.php', 'config.private.php'];
     $files = [];
     foreach (glob($root . '/*.php') ?: [] as $path) {
         if (!is_file($path) || is_dir($path)) {

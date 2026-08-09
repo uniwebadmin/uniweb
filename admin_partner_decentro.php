@@ -19,7 +19,7 @@ $emailBody = partnerProductionEmail('decentro');
 
 <div class="mb-4 flex flex-wrap gap-3 items-center justify-between">
     <a href="admin_partner_requests.php" class="text-sm text-gray-400 hover:text-white">← Partner Requests</a>
-    <a href="platform_demo.php" target="_blank" class="text-sm text-sky-400">Open Public Tour →</a>
+    <a href="demo.php" target="_blank" class="text-sm text-sky-400">Open Public Tour →</a>
 </div>
 
 <div class="bg-brand-500/10 border border-brand-500/30 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8">

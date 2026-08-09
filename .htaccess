@@ -50,6 +50,14 @@ ErrorDocument 500 /error.php
 <Files "cleanup2.php">
     Require all denied
 </Files>
+<Files "migrate_legacy_kyc.php">
+    Require all denied
+</Files>
+
+# Block entire dev_local directory from web access
+<IfModule mod_rewrite.c>
+    RewriteRule ^dev_local/ - [F]
+</IfModule>
 
 <IfModule mod_rewrite.c>
     RewriteEngine On

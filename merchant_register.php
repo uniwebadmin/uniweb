@@ -148,7 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             }
             $local = strstr($email, '@', true) ?: 'merchant';
             $name = $invName !== '' ? $invName : ucfirst(preg_replace('/[^a-zA-Z0-9]/', ' ', $local));
-            $phone = $invPhone !== '' ? '+91' . preg_replace('/\D/', '', $invPhone) : '+919900000000';
+            $phone = $invPhone !== '' ? '+91' . preg_replace('/\D/', '', $invPhone) : '+910000000000';
         } else {
             $phoneCode = trim($_POST['phone_code'] ?? '+91');
             $phoneNum = preg_replace('/\D/', '', $_POST['phone'] ?? $invPhone);

@@ -28,7 +28,6 @@ morning_ops.php
 update_axis_keys.php
 update_mdr.php
 merchant_launch_test.php
-migrate_release.php
 platform_demo.php
 db_probe.php
 db_wizard.php
@@ -66,6 +65,8 @@ _inbox/*.jpeg
 _inbox/*.png
 _inbox/*.webp
 _inbox/*.gif
+_inbox/*.docx
+_inbox/*.pdf
 _inbox/Screenshot/
 _inbox/chat/*
 !_inbox/README.txt

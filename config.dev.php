@@ -32,7 +32,7 @@ define('COMPANY_SUPPORT_EMAIL', 'support@uniweb.co.in');
 define('COMPANY_ADMIN_EMAIL', 'admin@uniweb.co.in');
 define('COMPANY_PHONE', '+911140000000');
 // Admin support / social channel links (replace with real values before going live)
-if (!defined('SUPPORT_WHATSAPP')) define('SUPPORT_WHATSAPP', '919900000000');
+if (!defined('SUPPORT_WHATSAPP')) define('SUPPORT_WHATSAPP', '9000000000');
 if (!defined('SUPPORT_EMAIL')) define('SUPPORT_EMAIL', 'support@uniweb.co.in');
 if (!defined('SUPPORT_INSTAGRAM')) define('SUPPORT_INSTAGRAM', 'https://instagram.com/uniweb');
 if (!defined('SUPPORT_TELEGRAM')) define('SUPPORT_TELEGRAM', 'https://t.me/uniweb');
@@ -50,7 +50,7 @@ define('COMPANY_MAP_URL', 'https://maps.google.com/?q=Bengaluru');
 define('GRIEVANCE_OFFICER_NAME', 'Rohan Sharma');
 define('GRIEVANCE_OFFICER_DESIGNATION', 'Grievance / Nodal Officer');
 define('GRIEVANCE_OFFICER_EMAIL', 'grievance@uniweb.co.in');
-define('GRIEVANCE_OFFICER_PHONE', '+919900000002');
+define('GRIEVANCE_OFFICER_PHONE', '+910000000002');
 define('ACTIVE_MERCHANT_AGREEMENT_VERSION', date('Y') . '.07.19');
 define('MIN_SETTLEMENT', 100);
 

@@ -15,7 +15,7 @@ if (!defined('GRIEVANCE_OFFICER_EMAIL')) {
     define('GRIEVANCE_OFFICER_EMAIL', 'grievance@uniweb.co.in');
 }
 if (!defined('GRIEVANCE_OFFICER_PHONE')) {
-    define('GRIEVANCE_OFFICER_PHONE', '+919900000002');
+    define('GRIEVANCE_OFFICER_PHONE', '+910000000002');
 }
 
 $pageTitle = 'Grievance Redressal';
