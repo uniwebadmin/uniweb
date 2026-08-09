@@ -47,17 +47,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
     // Profile fields only — never accept email/phone from this POST.
     $pan = strtoupper(trim($_POST['pan_number'] ?? ''));
+    $gstinVal = strtoupper(trim($_POST['gstin'] ?? ''));
+    $cinVal = strtoupper(trim($_POST['cin_llpin'] ?? ''));
 
     if ($pan && !preg_match('/^[A-Z]{5}[0-9]{4}[A-Z]$/', $pan)) {
         flash('error', 'Invalid PAN format.');
         redirect('my_account.php');
     }
 
+    // If masked value submitted, keep existing encrypted DB value
+    $panSave = $pan && !str_starts_with($pan, '*') ? sensitiveEncrypt($pan) : ($pan && str_starts_with($pan, '*') ? (string)($merchant['pan_number'] ?? '') : null);
+    $gstinSave = $gstinVal && !str_starts_with($gstinVal, '*') ? sensitiveEncrypt($gstinVal) : ($gstinVal && str_starts_with($gstinVal, '*') ? (string)($merchant['gstin'] ?? '') : null);
+    $cinSave = $cinVal && !str_starts_with($cinVal, '*') ? sensitiveEncrypt($cinVal) : ($cinVal && str_starts_with($cinVal, '*') ? (string)($merchant['cin_llpin'] ?? '') : null);
+
     $db->prepare('UPDATE merchants SET name=?, business_name=?, business_type=?, business_entity_type=?, gstin=?, pan_number=?, cin_llpin=?, address=?, country=?, state=?, district=?, city=?, pincode=? WHERE id=?')
         ->execute([
             trim($_POST['name']), trim($_POST['business_name']), $_POST['business_type'],
             $_POST['business_entity_type'] ?? 'sole_proprietorship',
-            trim($_POST['gstin']), $pan ?: null, trim($_POST['cin_llpin'] ?? '') ?: null,
+            $gstinSave, $panSave, $cinSave,
             trim($_POST['address']), trim($_POST['country'] ?? 'India'), trim($_POST['state']),
             trim($_POST['district'] ?? ''), trim($_POST['city']), trim($_POST['pincode']),
             $merchant['id']
@@ -197,16 +204,16 @@ require_once __DIR__ . '/header.php';
                 <div><label class="text-sm text-gray-400">Business Category</label>
                     <select name="business_type" class="input-field mt-1"><?php foreach ($categories as $k=>$v): ?><option value="<?= $k ?>" <?= $merchant['business_type']===$k?'selected':'' ?>><?= e($v) ?></option><?php endforeach; ?></select>
                 </div>
-                <div><label class="text-sm text-gray-400">PAN</label><input type="text" name="pan_number" maxlength="10" class="input-field mt-1 uppercase" value="<?= e($merchant['pan_number']??'') ?>"></div>
+                <div><label class="text-sm text-gray-400">PAN</label><input type="text" name="pan_number" maxlength="10" class="input-field mt-1 uppercase" value="<?= e(sensitiveMask($merchant['pan_number']??'', 'pan')) ?>" placeholder="Enter PAN to update"></div>
                 <?php if (!empty($taxFields['gst'])): ?>
-                <div><label class="text-sm text-gray-400">GSTIN</label><input type="text" name="gstin" class="input-field mt-1" value="<?= e($merchant['gstin']??'') ?>"></div>
+                <div><label class="text-sm text-gray-400">GSTIN</label><input type="text" name="gstin" class="input-field mt-1" value="<?= e(sensitiveMask($merchant['gstin']??'', 'gst')) ?>" placeholder="Enter GSTIN to update"></div>
                 <?php else: ?>
-                <input type="hidden" name="gstin" value="<?= e($merchant['gstin']??'') ?>">
+                <input type="hidden" name="gstin" value="">
                 <?php endif; ?>
                 <?php if (!empty($taxFields['cin'])): ?>
-                <div class="col-span-2"><label class="text-sm text-gray-400">CIN / LLPIN</label><input type="text" name="cin_llpin" class="input-field mt-1" value="<?= e($merchant['cin_llpin']??'') ?>" placeholder="For Pvt Ltd / LLP / OPC"></div>
+                <div class="col-span-2"><label class="text-sm text-gray-400">CIN / LLPIN</label><input type="text" name="cin_llpin" class="input-field mt-1" value="<?= e(sensitiveMask($merchant['cin_llpin']??'', 'gst')) ?>" placeholder="Enter CIN to update"></div>
                 <?php else: ?>
-                <input type="hidden" name="cin_llpin" value="<?= e($merchant['cin_llpin']??'') ?>">
+                <input type="hidden" name="cin_llpin" value="">
                 <?php endif; ?>
                 <p class="col-span-2 text-xs text-gray-500">KYC documents on the next step match this entity. Individual sees PAN / Aadhaar / bank / photo only — no GST or CIN.</p>
             </div>

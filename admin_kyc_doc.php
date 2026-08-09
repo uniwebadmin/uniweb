@@ -26,6 +26,17 @@ if (!is_file($doc['file_path'])) {
     die('Document not found');
 }
 
+// C4: Audit document view
+if (function_exists('recordImmutableAudit')) {
+    recordImmutableAudit(
+        'kyc_document_viewed',
+        (int)$doc['merchant_id'],
+        'kyc_document',
+        (string)$id,
+        'Viewed KYC document: ' . ($doc['file_name'] ?? 'unknown')
+    );
+}
+
 $path = realpath($doc['file_path']);
 $privateRoot = realpath(KYC_PRIVATE_DIR);
 $legacyRoot = realpath(rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR . 'kyc');

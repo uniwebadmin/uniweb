@@ -140,3 +140,53 @@ function sensitiveDecryptWithAudit(?string $value, string $fieldType, ?int $merc
     }
     return $plain;
 }
+
+/* ------------------------------------------------------------------ *
+ *  PII helper wrappers (Block C — single shared crypto surface)
+ *  Algorithm: AES-256-GCM via sensitiveEncrypt/sensitiveDecrypt.
+ *  Key from ENCRYPTION_KEY env constant only — never hardcoded.
+ *  All pii_* functions are thin wrappers over the core primitives
+ *  so there is exactly one encrypt/decrypt implementation.
+ * ------------------------------------------------------------------ */
+
+function pii_encrypt(string $plain): string
+{
+    return sensitiveEncrypt($plain) ?? '';
+}
+
+function pii_decrypt(string $cipher): string
+{
+    return (string)sensitiveDecrypt($cipher);
+}
+
+function pii_mask_aadhaar(?string $value): string
+{
+    return sensitiveMask($value, 'aadhaar');
+}
+
+function pii_mask_pan(?string $value): string
+{
+    if ($value === null || $value === '') return '—';
+    $plain = isSensitiveEncrypted($value) ? sensitiveDecrypt($value) : $value;
+    $plain = (string)$plain;
+    if (strlen($plain) < 6) return '****';
+    return substr($plain, 0, 5) . str_repeat('*', max(0, strlen($plain) - 6)) . substr($plain, -1);
+}
+
+function pii_mask_account(?string $value): string
+{
+    return sensitiveLast4($value);
+}
+
+function pii_mask_gstin(?string $value): string
+{
+    return sensitiveMask($value, 'gst');
+}
+
+function pii_hash(string $normalizedValue): string
+{
+    if (!defined('ENCRYPTION_KEY') || constant('ENCRYPTION_KEY') === '') {
+        throw new RuntimeException('ENCRYPTION_KEY is not configured.');
+    }
+    return hash_hmac('sha256', $normalizedValue, _sensitiveKey());
+}

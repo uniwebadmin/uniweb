@@ -35,6 +35,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $category = $_POST['business_type'] ?? 'retail';
     $pan = strtoupper(trim($_POST['pan_number'] ?? ''));
     $gstin = strtoupper(trim($_POST['gstin'] ?? ''));
+    // If masked value submitted, treat as unchanged
+    if ($pan && str_starts_with($pan, '*')) $pan = '';
+    if ($gstin && str_starts_with($gstin, '*')) $gstin = '';
     $collectionMode = $_POST['collection_mode'] ?? getSetting('default_collection_mode', 'direct_upi');
     $enabledMethods = array_values(array_intersect(
         array_keys(getPaymentMethodCatalog()),
@@ -69,10 +72,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     if (empty($errors)) {
         $alreadyCompleted = (string)($merchant['provision_profile'] ?? '') === 'signup_custom';
         $db->prepare('UPDATE merchants SET name=?, business_name=?, business_type=?, business_entity_type=?, pan_number=?, address=?, country=?, state=?, district=?, city=?, pincode=? WHERE id=?')
-            ->execute([$name, $business, $category, $entity, $pan ?: null, $address, $country, $state, $district, $city, $pincode, $merchant['id']]);
+            ->execute([$name, $business, $category, $entity, $pan ? sensitiveEncrypt($pan) : null, $address, $country, $state, $district, $city, $pincode, $merchant['id']]);
         // Try to save gstin column (may not exist on older DBs)
         if ($gstin !== '') {
-            try { $db->prepare('UPDATE merchants SET gstin=? WHERE id=?')->execute([$gstin, $merchant['id']]); } catch (Throwable $e) {}
+            try { $db->prepare('UPDATE merchants SET gstin=? WHERE id=?')->execute([sensitiveEncrypt($gstin), $merchant['id']]); } catch (Throwable $e) {}
         }
 
         // Link user to merchant in user_merchant_roles
@@ -168,11 +171,11 @@ require_once __DIR__ . '/header.php';
             </div>
             <div>
                 <label class="text-sm text-gray-400"><?= __('pan_optional') ?></label>
-                <input type="text" name="pan_number" maxlength="10" class="input-field mt-1 uppercase" value="<?= e($formData['pan_number'] ?? $merchant['pan_number'] ?? '') ?>">
+                <input type="text" name="pan_number" maxlength="10" class="input-field mt-1 uppercase" value="<?= e(sensitiveMask($formData['pan_number'] ?? $merchant['pan_number'] ?? '', 'pan')) ?>" placeholder="Enter PAN to update">
             </div>
             <div>
                 <label class="text-sm text-gray-400">GSTIN (optional)</label>
-                <input type="text" name="gstin" maxlength="15" class="input-field mt-1 uppercase" value="<?= e($formData['gstin'] ?? $merchant['gstin'] ?? '') ?>" placeholder="27ABCDE1234F1Z5">
+                <input type="text" name="gstin" maxlength="15" class="input-field mt-1 uppercase" value="<?= e(sensitiveMask($formData['gstin'] ?? $merchant['gstin'] ?? '', 'gst')) ?>" placeholder="27ABCDE1234F1Z5">
             </div>
         </div>
 

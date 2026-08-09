@@ -71,9 +71,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     }
 
     $pan = strtoupper(trim($_POST['pan_number'] ?? ''));
-    if ($pan && !preg_match('/^[A-Z]{5}[0-9]{4}[A-Z]$/', $pan)) {
-        flash('error', 'Invalid PAN format.');
-        redirect('admin_edit_merchant.php?id=' . $id);
+    // If field shows masked value (starts with *), keep existing
+    if ($pan && str_starts_with($pan, '*')) {
+        $pan = (string)($merchant['pan_number'] ?? '');
+        // Already encrypted in DB — skip re-encrypting
+        $panEncrypted = $pan ?: null;
+    } else {
+        if ($pan && !preg_match('/^[A-Z]{5}[0-9]{4}[A-Z]$/', $pan)) {
+            flash('error', 'Invalid PAN format.');
+            redirect('admin_edit_merchant.php?id=' . $id);
+        }
+        $panEncrypted = $pan ? sensitiveEncrypt($pan) : null;
+    }
+    $gstinRaw = strtoupper(trim($_POST['gstin'] ?? ''));
+    if ($gstinRaw && str_starts_with($gstinRaw, '*')) {
+        $gstinEncrypted = (string)($merchant['gstin'] ?? '') ?: null;
+    } else {
+        $gstinEncrypted = $gstinRaw ? sensitiveEncrypt($gstinRaw) : null;
+    }
+    $cinRaw = strtoupper(trim($_POST['cin_llpin'] ?? ''));
+    if ($cinRaw && str_starts_with($cinRaw, '*')) {
+        $cinEncrypted = (string)($merchant['cin_llpin'] ?? '') ?: null;
+    } else {
+        $cinEncrypted = $cinRaw ? sensitiveEncrypt($cinRaw) : null;
     }
     $accountMode = $_POST['account_mode'] ?? 'test';
     $kycStatus = $_POST['kyc_status'] ?? 'pending';
@@ -99,9 +119,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             trim($_POST['phone']),
             $_POST['business_type'],
             $_POST['business_entity_type'],
-            $pan ?: null,
-            trim($_POST['gstin'] ?? '') ?: null,
-            trim($_POST['cin_llpin'] ?? '') ?: null,
+            $panEncrypted,
+            $gstinEncrypted,
+            $cinEncrypted,
             (float)($_POST['commission_rate'] ?? 1.5),
             $kycStatus,
             $accountMode,
@@ -118,6 +138,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             normalizeAppStoreUrl(trim($_POST['ios_app_url'] ?? '')) ?: null,
             $id,
         ]);
+
+    // C3: Update PII search hashes when new values are saved
+    if (function_exists('pii_hash')) {
+        try {
+            $panInput = strtoupper(trim($_POST['pan_number'] ?? ''));
+            $gstinInput = strtoupper(trim($_POST['gstin'] ?? ''));
+            $cinInput = strtoupper(trim($_POST['cin_llpin'] ?? ''));
+            $updates = [];
+            $params = [];
+            if ($panInput && !str_starts_with($panInput, '*')) {
+                $updates[] = 'pan_hash=?';
+                $params[] = pii_hash(preg_replace('/\s+/', '', $panInput));
+            }
+            if ($gstinInput && !str_starts_with($gstinInput, '*')) {
+                $updates[] = 'gstin_hash=?';
+                $params[] = pii_hash(preg_replace('/\s+/', '', $gstinInput));
+            }
+            if ($cinInput && !str_starts_with($cinInput, '*')) {
+                $updates[] = 'cin_hash=?';
+                $params[] = pii_hash(preg_replace('/\s+/', '', $cinInput));
+            }
+            if ($updates) {
+                $params[] = $id;
+                $db->prepare('UPDATE merchants SET ' . implode(',', $updates) . ' WHERE id=?')->execute($params);
+            }
+        } catch (Throwable $e) { /* hash columns may not exist yet */ }
+    }
 
     if ($accountMode === 'live' && ($merchant['account_mode'] ?? 'test') !== 'live') {
         createNotification($id, 'Account Live!', 'Admin activated your LIVE mode. You can now accept real payments.');
@@ -176,16 +223,16 @@ $methodCatalog = getPaymentMethodCatalog();
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div><label class="text-sm text-gray-400">PAN</label><input type="text" name="pan_number" maxlength="10" class="input-field mt-1 uppercase" value="<?= e($merchant['pan_number'] ?? '') ?>"></div>
+                <div><label class="text-sm text-gray-400">PAN</label><div class="flex gap-2 mt-1"><input type="text" name="pan_number" maxlength="10" class="input-field flex-1 uppercase" value="<?= e(sensitiveMask($merchant['pan_number'] ?? '', 'pan')) ?>" placeholder="Leave blank to keep existing"><button type="button" onclick="piiReveal('pan_number',<?= $id ?>,this)" class="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-sky-400">Reveal</button></div></div>
                 <?php if (!empty($editTaxFields['gst'])): ?>
-                <div><label class="text-sm text-gray-400">GSTIN</label><input type="text" name="gstin" class="input-field mt-1" value="<?= e($merchant['gstin'] ?? '') ?>"></div>
+                <div><label class="text-sm text-gray-400">GSTIN</label><div class="flex gap-2 mt-1"><input type="text" name="gstin" class="input-field flex-1" value="<?= e(sensitiveMask($merchant['gstin'] ?? '', 'gst')) ?>" placeholder="Leave blank to keep existing"><button type="button" onclick="piiReveal('gstin',<?= $id ?>,this)" class="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-sky-400">Reveal</button></div></div>
                 <?php else: ?>
-                <input type="hidden" name="gstin" value="<?= e($merchant['gstin'] ?? '') ?>">
+                <input type="hidden" name="gstin" value="">
                 <?php endif; ?>
                 <?php if (!empty($editTaxFields['cin'])): ?>
-                <div><label class="text-sm text-gray-400">CIN / LLPIN</label><input type="text" name="cin_llpin" class="input-field mt-1" value="<?= e($merchant['cin_llpin'] ?? '') ?>"></div>
+                <div><label class="text-sm text-gray-400">CIN / LLPIN</label><div class="flex gap-2 mt-1"><input type="text" name="cin_llpin" class="input-field flex-1" value="<?= e(sensitiveMask($merchant['cin_llpin'] ?? '', 'gst')) ?>" placeholder="Leave blank to keep existing"><button type="button" onclick="piiReveal('cin_llpin',<?= $id ?>,this)" class="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-sky-400">Reveal</button></div></div>
                 <?php else: ?>
-                <input type="hidden" name="cin_llpin" value="<?= e($merchant['cin_llpin'] ?? '') ?>">
+                <input type="hidden" name="cin_llpin" value="">
                 <?php endif; ?>
                 <p class="sm:col-span-2 text-xs text-gray-500">GSTIN / CIN fields follow the selected entity type (Individual hides GST and CIN).</p>
             </div>
@@ -383,4 +430,27 @@ $methodCatalog = getPaymentMethodCatalog();
         }
     }
 })();
+
+function piiReveal(field, merchantId, btn) {
+    btn.disabled = true;
+    btn.textContent = '...';
+    fetch('admin_pii_reveal.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'csrf_token=' + encodeURIComponent('<?= csrfToken() ?>') + '&merchant_id=' + merchantId + '&field=' + field
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.value && data.value !== '—') {
+            var input = btn.previousElementSibling;
+            if (input) input.value = data.value;
+            btn.textContent = 'Revealed';
+            btn.classList.add('text-amber-400');
+        } else {
+            btn.textContent = 'N/A';
+        }
+    })
+    .catch(function() { btn.textContent = 'Error'; })
+    .finally(function() { setTimeout(function(){ btn.disabled = false; btn.textContent = 'Reveal'; btn.classList.remove('text-amber-400'); }, 5000); });
+}
 </script>

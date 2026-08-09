@@ -32,12 +32,13 @@ $result = validateKycField($field, $value);
 if ($field === 'gst' && $result['valid']) {
     $merchant = getMerchant();
     $panInGst = $result['pan'] ?? '';
-    $merchantPan = strtoupper(trim((string)($merchant['pan_number'] ?? '')));
+    $rawPan = (string)($merchant['pan_number'] ?? '');
+    $merchantPan = strtoupper(trim(isSensitiveEncrypted($rawPan) ? sensitiveDecrypt($rawPan) : $rawPan));
     if ($merchantPan !== '' && $panInGst !== '' && $panInGst !== $merchantPan) {
         echo json_encode([
             'ok' => true,
             'valid' => false,
-            'reason' => 'GSTIN ka PAN aapke profile PAN se match nahi hota. Profile PAN: ' . $merchantPan . ', GSTIN PAN: ' . $panInGst,
+            'reason' => 'GSTIN PAN does not match your profile PAN. Profile PAN: ' . pii_mask_pan($rawPan) . ', GSTIN PAN: ' . $panInGst,
         ]);
         exit;
     }

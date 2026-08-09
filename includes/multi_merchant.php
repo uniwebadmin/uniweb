@@ -76,9 +76,17 @@ function checkPanGstinDuplicate(string $pan, ?string $gstin): array
 
     if ($gstin !== '') {
         // Rule 1: Same PAN + same GSTIN → BLOCK
+        // C3: Use hash columns for search since pan_number is now encrypted
         try {
-            $st = $db->prepare('SELECT id FROM merchants WHERE pan_number=? AND gstin=? LIMIT 1');
-            $st->execute([$pan, $gstin]);
+            $panHash = function_exists('pii_hash') ? pii_hash(preg_replace('/\s+/', '', $pan)) : null;
+            $gstinHash = function_exists('pii_hash') ? pii_hash(preg_replace('/\s+/', '', $gstin)) : null;
+            if ($panHash && $gstinHash) {
+                $st = $db->prepare('SELECT id FROM merchants WHERE pan_hash=? AND gstin_hash=? LIMIT 1');
+                $st->execute([$panHash, $gstinHash]);
+            } else {
+                $st = $db->prepare('SELECT id FROM merchants WHERE pan_number=? AND gstin=? LIMIT 1');
+                $st->execute([$pan, $gstin]);
+            }
             $existing = $st->fetch();
         } catch (Throwable $e) { $existing = null; }
         if ($existing) {
@@ -94,9 +102,16 @@ function checkPanGstinDuplicate(string $pan, ?string $gstin): array
 
     // No GSTIN provided
     // Rule 2: Same PAN + no GSTIN on existing → BLOCK
+    // C3: Use hash column for search since pan_number is now encrypted
     try {
-        $st = $db->prepare('SELECT id, gstin FROM merchants WHERE pan_number=?');
-        $st->execute([$pan]);
+        $panHash = function_exists('pii_hash') ? pii_hash(preg_replace('/\s+/', '', $pan)) : null;
+        if ($panHash) {
+            $st = $db->prepare('SELECT id, gstin FROM merchants WHERE pan_hash=?');
+            $st->execute([$panHash]);
+        } else {
+            $st = $db->prepare('SELECT id, gstin FROM merchants WHERE pan_number=?');
+            $st->execute([$pan]);
+        }
         $rows = $st->fetchAll();
     } catch (Throwable $e) { $rows = []; }
     if (count($rows) > 0) {
@@ -235,8 +250,8 @@ function createAdditionalBusiness(array $currentUser, string $pan, ?string $gsti
             $businessName,
             'retail',
             $entityType,
-            $pan ?: null,
-            $gstin,
+            $pan ? sensitiveEncrypt($pan) : null,
+            $gstin ? sensitiveEncrypt($gstin) : null,
             '',
             'India', '', '', '', '',
             'uk_' . bin2hex(random_bytes(16)),
@@ -273,14 +288,26 @@ function getMerchantsByPan(string $pan): array
     ensureMultiMerchantTables();
     $pan = normalizePan($pan);
     if ($pan === '') return [];
+    // C3: Use hash column for search since pan_number is now encrypted
     try {
-        $st = getDB()->prepare(
-            'SELECT id, merchant_code, business_name, name, gstin, kyc_status, account_mode, created_at
-             FROM merchants
-             WHERE pan_number = ?
-             ORDER BY created_at ASC'
-        );
-        $st->execute([$pan]);
+        $panHash = function_exists('pii_hash') ? pii_hash(preg_replace('/\s+/', '', $pan)) : null;
+        if ($panHash) {
+            $st = getDB()->prepare(
+                'SELECT id, merchant_code, business_name, name, gstin, kyc_status, account_mode, created_at
+                 FROM merchants
+                 WHERE pan_hash = ?
+                 ORDER BY created_at ASC'
+            );
+            $st->execute([$panHash]);
+        } else {
+            $st = getDB()->prepare(
+                'SELECT id, merchant_code, business_name, name, gstin, kyc_status, account_mode, created_at
+                 FROM merchants
+                 WHERE pan_number = ?
+                 ORDER BY created_at ASC'
+            );
+            $st->execute([$pan]);
+        }
         return $st->fetchAll() ?: [];
     } catch (Throwable $e) { return []; }
 }

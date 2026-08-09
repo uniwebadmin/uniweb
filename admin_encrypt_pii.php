@@ -46,8 +46,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $update = $db->prepare("UPDATE {$table} SET {$column} = ? WHERE {$id} = ?");
         foreach ($rows as $row) {
             try {
-                $update->execute([sensitiveEncrypt($row[$column]), $row[$id]]);
+                $enc = sensitiveEncrypt($row[$column]);
+                $update->execute([$enc, $row[$id]]);
                 $total++;
+
+                // C3: Populate search hash columns for merchants table
+                if ($table === 'merchants' && function_exists('pii_hash')) {
+                    $hashCol = match($column) {
+                        'pan_number' => 'pan_hash',
+                        'gstin' => 'gstin_hash',
+                        'cin_llpin' => 'cin_hash',
+                        'aadhaar_number' => 'aadhaar_hash',
+                        default => null,
+                    };
+                    if ($hashCol !== null) {
+                        try {
+                            $normalized = strtoupper(preg_replace('/\s+/', '', (string)$row[$column]));
+                            $db->prepare("UPDATE merchants SET {$hashCol} = ? WHERE id = ?")
+                                ->execute([pii_hash($normalized), $row[$id]]);
+                        } catch (Throwable $e) { /* hash column may not exist yet */ }
+                    }
+                }
             } catch (Throwable $e) {
                 $failed++;
                 error_log("PII backfill failed for {$table} #{$row[$id]}: " . $e->getMessage());
