@@ -259,7 +259,7 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
         <div><label class="text-sm text-gray-400">Platform Margin (%)</label>
             <input type="number" step="0.01" name="settings[platform_margin_pct]" value="<?= e($settingsMap['platform_margin_pct'] ?? '0.10') ?>" class="input-field mt-1">
         </div>
-        <?= settingsSectionHeading('Payment Gateways', 'slate') ?>
+        <?= settingsSectionHeading('Payment Gateway Selection', 'slate') ?>
         <p class="text-xs text-gray-500">Add API keys to enable real-time UPI, cards & international payments.</p>
         <div><label class="text-sm text-gray-400">Primary Payment Gateway</label>
             <select name="settings[active_payment_gateway]" class="input-field mt-1">
@@ -268,129 +268,12 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
                 <?php endforeach; ?>
             </select>
         </div>
-
-        <?= settingsSectionHeading('Razorpay', 'sky') ?>
-        <?php foreach ([
-            ['razorpay_key_id','Razorpay Key ID','text'],['razorpay_key_secret','Razorpay Key Secret','password'],
-            ['razorpay_webhook_secret','Razorpay Webhook Secret','password'],
-            ['razorpay_environment','Razorpay Env (test/live)','text'],
-        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-
-        <?= settingsSectionHeading('Cashfree', 'emerald') ?>
-        <?php foreach ([
-            ['cashfree_app_id','Cashfree App ID','text'],['cashfree_secret_key','Cashfree Secret','password'],
-            ['cashfree_environment','Cashfree Env (production/sandbox)','text'],
-        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-
-        <?= settingsSectionHeading('PayU', 'amber') ?>
-        <?php foreach ([
-            ['payu_merchant_key','PayU Merchant Key','text'],['payu_merchant_salt','PayU Salt','password'],
-            ['payu_environment','PayU Env (test/production)','text'],
-        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-
-        <?= settingsSectionHeading('PhonePe', 'indigo') ?>
-        <?php foreach ([
-            ['phonepe_merchant_id','PhonePe Merchant ID','text'],['phonepe_salt_key','PhonePe Salt Key','password'],
-            ['phonepe_salt_index','PhonePe Salt Index','text'],
-            ['phonepe_environment','PhonePe Env (sandbox/production)','text'],
-        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-
-        <?= settingsSectionHeading('Pine Labs Plural', 'violet') ?>
-        <?php foreach ([
-            ['pinelabs_merchant_id','Pine Labs Merchant ID','text'],
-            ['pinelabs_access_code','Pine Labs Access Code','text'],
-            ['pinelabs_secure_key','Pine Labs Secure Key','password'],
-            ['pinelabs_environment','Pine Labs Env (sandbox/production)','text'],
-        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-
-        <?= settingsSectionHeading('Worldline', 'teal') ?>
-        <?php foreach ([
-            ['worldline_merchant_id','Worldline Merchant ID','text'],
-            ['worldline_access_key','Worldline Access Key','text'],
-            ['worldline_secret_key','Worldline Secret Key','password'],
-            ['worldline_environment','Worldline Env (sandbox/production)','text'],
-        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-
-        <div class="rounded-xl border border-gray-800 bg-dark-900/50 p-4 text-xs text-gray-500 space-y-2">
-            <p class="text-gray-400 font-medium text-sm mb-2">Webhook URLs (configure in PG dashboard)</p>
-            <?php foreach (['razorpay' => pgWebhookUrl('razorpay'), 'cashfree' => pgWebhookUrl('cashfree'), 'payu' => pgWebhookUrl('payu')] as $gw => $url): ?>
-            <div class="flex flex-wrap items-center gap-2">
-                <span class="text-gray-400 w-16"><?= ucfirst($gw) ?>:</span>
-                <code class="text-sky-400 break-all flex-1" id="wh-<?= $gw ?>"><?= e($url) ?></code>
-                <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('wh-<?= $gw ?>').textContent);this.textContent='Copied'" class="px-2 py-1 rounded bg-dark-800 text-gray-400 hover:text-white">Copy</button>
-            </div>
-            <?php endforeach; ?>
+        <div class="rounded-xl border border-sky-500/30 bg-sky-500/5 p-4 my-4 text-sm text-gray-400 space-y-2">
+            <p class="font-medium text-sky-300">Partner API keys have moved →</p>
+            <p>Per-partner credentials (Razorpay, Cashfree, PayU, PhonePe, Pine Labs, Worldline, Axis, RBL, Decentro, Digio) are now managed in the <a href="admin_gateway_registry.php" class="text-sky-400 underline">Partner Registry</a>. Click any partner → Configure to add keys, enable methods, and test connections.</p>
+            <p class="text-xs text-gray-500">Platform-wide settings (SMTP, WhatsApp, SEO, cron, collection mode) remain here. Method partner webhook URL is configured in Partner Detail → Webhooks tab.</p>
+            <p class="text-xs text-gray-600">Method partner webhook endpoint: <code class="text-gray-400"><?= e(rtrim(APP_URL, '/')) ?>/method_partner_webhook.php</code></p>
         </div>
-        <?= settingsSectionHeading('Payout Partner Keys (licensed rail)', 'rose') ?>
-        <p class="text-xs text-gray-500 mb-2">Paste keys when a licensed payout partner is signed. Until then the payout module stays gated — no live money movement. Set <code class="text-gray-400">payout_live_enabled=1</code> only after compliance review.</p>
-        <?php foreach ([
-            ['razorpayx_key_id','RazorpayX Key ID','text'],['razorpayx_key_secret','RazorpayX Key Secret','password'],
-            ['cashfree_payout_client_id','Cashfree Payouts Client ID','text'],['cashfree_payout_client_secret','Cashfree Payouts Client Secret','password'],
-            ['payout_live_enabled','Enable live payout money movement (0/1)','number'],
-        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-        <?= settingsSectionHeading('Axis Bank (Virtual Account / Collections)', 'violet') ?>
-        <p class="text-xs text-gray-500"><a href="admin_axis.php" class="text-sky-400">Axis UAT Dashboard →</a> · Webhook: <?= e(axisWebhookUrl()) ?></p>
-        <?php foreach ([
-            ['axis_app_name','Axis App Name (Portal)','text'],
-            ['axis_application_id','Axis Application UUID (Portal)','text'],
-            ['axis_oauth_redirect','Axis OAuth Redirect URL','text'],
-            ['axis_client_id','Axis Client ID','text'],['axis_client_secret','Axis Client Secret','password'],
-            ['axis_api_key','Axis API Key (legacy)','text'],['axis_api_secret','Axis API Secret (legacy)','password'],
-            ['axis_environment','Axis Env (uat/production)','text'],['axis_base_url','Axis Base URL','text'],
-            ['axis_token_url','Axis Token URL (from portal docs)','text'],
-            ['axis_channel_id','Axis Channel ID','text'],['axis_corporate_id','Axis Corporate / Customer Code','text'],
-            ['axis_master_account','Axis Master Collection Account','text'],
-            ['axis_va_ifsc','Axis VA IFSC','text'],
-            ['axis_allow_mock','Allow Mock VA (0=real API only)','number'],
-        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-        <?= settingsSectionHeading('RBL Bank', 'rose', 'text-xl') ?>
-        <p class="text-xs text-gray-500">Sandbox keys for RBL Open Banking: Virtual Account, UPI Collection, Account Balance, Blob VA Statement, Corporate Payments.</p>
-        <?php foreach ([
-            ['rbl_app_name','RBL App Name','text'],
-            ['rbl_client_id','RBL Client ID (API Key)','text'],
-            ['rbl_client_secret','RBL Client Secret (API Secret)','password'],
-            ['rbl_environment','RBL Env (sandbox/production)','text'],
-            ['rbl_base_url','RBL Base URL (optional override)','text'],
-            ['rbl_master_account','RBL Master / Corporate Account No','text'],
-            ['rbl_corp_id','RBL Corp ID','text'],
-            ['rbl_maker_id','RBL Maker ID','text'],
-            ['rbl_checker_id','RBL Checker ID','text'],
-            ['rbl_approver_id','RBL Approver ID','text'],
-            ['rbl_va_enabled','Enable RBL VA (0/1)','number'],
-            ['rbl_upi_collection_enabled','Enable RBL UPI Collection (0/1)','number'],
-            ['rbl_payout_enabled','Enable RBL Payouts (0/1)','number'],
-        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-        <?= settingsSectionHeading('KYC Verification (Decentro)', 'teal') ?>
-        <p class="text-xs text-gray-500">Auto-verify PAN, Aadhaar, GST, CIN, Udyam, IEC, Bank via Decentro API (staging/production).</p>
-        <?php foreach ([
-            ['decentro_client_id','Decentro Client ID','text'],['decentro_client_secret','Decentro Client Secret','password'],
-            ['decentro_consumer_urn','Decentro Master Consumer URN','text'],
-            ['decentro_module_secret','Decentro Module Secret','password'],
-            ['decentro_provider_secret','Decentro Provider Secret','password'],
-            ['decentro_base_url','Decentro Base URL','text'],
-        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-        <?= settingsSectionHeading('Video KYC face-match partner (Digio)', 'cyan') ?>
-        <p class="text-xs text-gray-500 mb-2">Owner-confirmed: UniWeb does <strong>not</strong> store Aadhaar/face biometrics. Paste Digio (or equivalent certified partner) keys when contracted. Until then Video KYC is manual review only.</p>
-        <?php foreach ([
-            ['digio_client_id','Digio Client ID','text'],
-            ['digio_client_secret','Digio Client Secret','password'],
-            ['digio_environment','Digio Env (sandbox/production)','text'],
-            ['digio_face_match_enabled','Enable Digio face-match (0/1)','number'],
-        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-        <?= settingsSectionHeading('Method Partner Automation', 'amber') ?>
-        <p class="text-xs text-gray-500 mb-2">Partner approve/reject hits this URL and turns merchant methods ON/OFF automatically.</p>
-        <div class="rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 mb-3 text-xs space-y-2">
-            <p class="text-[10px] text-gray-600 uppercase tracking-wide">Method partner webhook URL</p>
-            <code class="block text-sky-400 font-mono break-all"><?= e(rtrim(APP_URL, '/') . '/method_partner_webhook.php') ?></code>
-            <p class="text-gray-500">Auth header: <code class="text-gray-300">X-UniWeb-Method-Secret</code> (or query <code class="text-gray-300">?key=</code>). Body JSON: partner_ref + decision (approved|rejected).</p>
-        </div>
-        <?php foreach ([
-            ['method_partner_webhook_secret','Method Partner Webhook Secret','password'],
-            ['nbfc_partner_gateway','NBFC Partner Gateway (payu/razorpay/…)','text'],
-            ['nbfc_live_enabled','NBFC live + show merchant menu (0=hidden, 1=visible)','number'],
-            ['instant_settlement_gateway','Instant Settlement Gateway','text'],
-            ['payout_live_enabled','Payout live money switch (0/1)','number'],
-        ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <?= settingsSectionHeading('SEO — Google Search Console', 'emerald') ?>
         <p class="text-xs text-gray-500 mb-2">Paste the HTML-tag verification token from Google Search Console (the <code class="text-gray-400">content</code> value only). It is rendered as <code class="text-gray-400">&lt;meta name="google-site-verification"&gt;</code> on every page via <code class="text-gray-400">header.php</code>. Setting key: <code class="text-gray-400">google_site_verification</code>.</p>
         <?php foreach ([

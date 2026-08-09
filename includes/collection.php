@@ -369,34 +369,42 @@ function getCheckoutPaymentMethods(array $link): array
         return true; // fallback if function not loaded
     };
 
+    // Check if a method is enabled for a partner in partner_methods (B3)
+    $partnerMethodOn = function(string $partnerKey, string $method): bool {
+        if (function_exists('isPartnerMethodEnabled')) {
+            return isPartnerMethodEnabled($partnerKey, $method);
+        }
+        return true; // fallback: allow if partner_control not loaded
+    };
+
     if ($allow('upi_p2m') || in_array($handler, ['direct_upi', 'axis_va'], true) || empty($link['payment_method'])) {
         $methods[] = ['key' => 'upi', 'label' => 'UPI / QR', 'sub' => 'Google Pay · PhonePe · Paytm', 'icon' => '📱', 'type' => 'p2m'];
     }
 
     if (($payuConfigured || $isTest) && $gwActive('payu')) {
-        if ($allow('debit_card')) {
+        if ($allow('debit_card') && $partnerMethodOn('payu', 'debit_card')) {
             $methods[] = ['key' => 'dc', 'label' => 'Debit Card', 'sub' => $payuConfigured ? 'Visa · Mastercard · RuPay' : 'Test Mode — Instant Pay', 'icon' => '💳', 'type' => 'payu', 'pg' => 'DC'];
         }
-        if ($allow('credit_card')) {
+        if ($allow('credit_card') && $partnerMethodOn('payu', 'credit_card')) {
             $methods[] = ['key' => 'cc', 'label' => 'Credit Card', 'sub' => $payuConfigured ? 'Visa · Mastercard · Amex' : 'Test Mode — Instant Pay', 'icon' => '💳', 'type' => 'payu', 'pg' => 'CC'];
         }
-        if ($allow('netbanking')) {
+        if ($allow('netbanking') && $partnerMethodOn('payu', 'netbanking')) {
             $methods[] = ['key' => 'nb', 'label' => 'Net Banking', 'sub' => $payuConfigured ? 'All major banks' : 'Test Mode — Instant Pay', 'icon' => '🏦', 'type' => 'payu', 'pg' => 'NB'];
         }
-        if ($allow('emi')) {
+        if ($allow('emi') && $partnerMethodOn('payu', 'emi')) {
             $methods[] = ['key' => 'emi', 'label' => 'EMI', 'sub' => $payuConfigured ? 'Card EMI · No Cost EMI' : 'Test Mode — Instant Pay', 'icon' => '📅', 'type' => 'payu', 'pg' => 'EMI'];
         }
-        if ($allow('wallet')) {
+        if ($allow('wallet') && $partnerMethodOn('payu', 'upi')) {
             $methods[] = ['key' => 'wallet', 'label' => 'Wallets', 'sub' => $payuConfigured ? 'Paytm · PhonePe · Amazon Pay' : 'Test Mode — Instant Pay', 'icon' => '👛', 'type' => 'payu', 'pg' => 'CASH'];
         }
-        if ($allow('payu_upi')) {
+        if ($allow('payu_upi') && $partnerMethodOn('payu', 'upi')) {
             $methods[] = ['key' => 'payu_upi', 'label' => 'UPI (Gateway)', 'sub' => $payuConfigured ? 'Pay via PayU' : 'Test Mode — Instant Pay', 'icon' => '⚡', 'type' => 'payu', 'pg' => 'UPI'];
         }
     }
-    if (($allow('razorpay') || $handler === 'razorpay_route') && ($rzpConfigured || $isTest) && $gwActive('razorpay') && ($handler === 'razorpay_route' || $handler === 'platform_pg' || $allow('razorpay'))) {
+    if (($allow('razorpay') || $handler === 'razorpay_route') && ($rzpConfigured || $isTest) && $gwActive('razorpay') && $partnerMethodOn('razorpay', 'upi') && ($handler === 'razorpay_route' || $handler === 'platform_pg' || $allow('razorpay'))) {
         $methods[] = ['key' => 'razorpay', 'label' => 'Cards & UPI', 'sub' => $rzpConfigured ? 'Razorpay Checkout' : 'Test Mode — Instant Pay', 'icon' => '🔒', 'type' => 'razorpay'];
     }
-    if (($allow('cashfree') || $handler === 'cashfree_route') && ($cfConfigured || $isTest) && $gwActive('cashfree') && ($handler === 'cashfree_route' || $handler === 'platform_pg' || $allow('cashfree'))) {
+    if (($allow('cashfree') || $handler === 'cashfree_route') && ($cfConfigured || $isTest) && $gwActive('cashfree') && $partnerMethodOn('cashfree', 'upi') && ($handler === 'cashfree_route' || $handler === 'platform_pg' || $allow('cashfree'))) {
         $methods[] = ['key' => 'cashfree', 'label' => 'Cashfree Pay', 'sub' => $cfConfigured ? 'Cards · UPI · NB' : 'Test Mode — Instant Pay', 'icon' => '💰', 'type' => 'cashfree'];
     }
 

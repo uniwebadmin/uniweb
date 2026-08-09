@@ -6,9 +6,13 @@ if (!function_exists('getMerchantPaymentMethods')) {
 if (!function_exists('getPartnerRegistry')) {
     require_once __DIR__ . '/includes/partner_engine.php';
 }
+if (!function_exists('ensurePartnerControlTables')) {
+    require_once __DIR__ . '/includes/partner_control.php';
+}
 requireStaffAccess(['super', 'ceo', 'ops']);
 
 syncPartnerGateways();
+ensurePartnerControlTables();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     $action = (string)($_POST['action'] ?? '');
@@ -96,6 +100,8 @@ require_once __DIR__ . '/header.php';
                 $partnerInfo = $partnerRegistry[$g['gateway_key']] ?? null;
                 $isActive = (int)$g['is_active'] === 1;
                 $hasKeys = $partnerInfo && partnerIsConfigured($g['gateway_key']);
+                $credStat = getPartnerCredentialStatus($g['gateway_key']);
+                $enabledMethods = getEnabledPartnerMethods($g['gateway_key']);
             ?>
             <div class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-white/5 transition-colors">
                 <div class="flex items-center gap-4">
@@ -113,6 +119,9 @@ require_once __DIR__ . '/header.php';
                             <?php elseif ($partnerInfo): ?>
                             <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">Awaiting Keys</span>
                             <?php endif; ?>
+                            <?php if ($credStat['test']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-sky-500/10 text-sky-400">Test</span><?php endif; ?>
+                            <?php if ($credStat['live']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Live</span><?php endif; ?>
+                            <?php if (!empty($enabledMethods)): ?><span class="text-[10px] px-2 py-0.5 rounded bg-violet-500/10 text-violet-400"><?= count($enabledMethods) ?> methods</span><?php endif; ?>
                         </div>
                         <p class="text-xs text-gray-500 font-mono mt-0.5"><?= e($g['gateway_key']) ?></p>
                         <div class="flex gap-1.5 mt-1">

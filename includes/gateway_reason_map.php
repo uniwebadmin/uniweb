@@ -122,10 +122,19 @@ function normalizeGatewayErrorCode(?string $codeOrText): string
  * If the raw message is already a clear sentence and code is unknown, keep a sanitized
  * version of the raw message instead of inventing a bank story.
  */
-function mapGatewayFailureReason(?string $errorCode = null, ?string $rawMessage = null): string
+function mapGatewayFailureReason(?string $errorCode = null, ?string $rawMessage = null, ?string $partnerKey = null): string
 {
-    $dict = gatewayFailureReasonDictionary();
     $code = normalizeGatewayErrorCode($errorCode);
+
+    // B3: Check partner-specific gateway_reason_maps table first
+    if ($partnerKey !== null && $partnerKey !== '' && $code !== '' && function_exists('mapPartnerError')) {
+        $partnerMsg = mapPartnerError($partnerKey, $code, 'en');
+        if ($partnerMsg !== '') {
+            return $partnerMsg;
+        }
+    }
+
+    $dict = gatewayFailureReasonDictionary();
     if ($code !== '' && isset($dict[$code])) {
         return $dict[$code];
     }
