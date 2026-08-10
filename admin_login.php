@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $st = $db->prepare('SELECT * FROM admins WHERE id=? LIMIT 1');
         $st->execute([(int)$_SESSION['pending_admin_id']]);
         $admin = $st->fetch();
-        if (!$admin || !adminHasMfaEnabled($admin) || !totpVerify(decryptTotpSecret((string)$admin['totp_secret']), (string)($_POST['totp_code'] ?? ''))) {
+        if (!$admin || !adminHasMfaEnabled($admin) || !totpVerify(decryptTotpSecretWithUpgrade((string)$admin['totp_secret'], 'admins', (int)$admin['id']), (string)($_POST['totp_code'] ?? ''))) {
             usleep(350000);
             $error = 'Invalid authenticator code.';
         } else {

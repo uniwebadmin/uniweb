@@ -130,6 +130,44 @@ function decryptTotpSecret(?string $stored): string
 }
 
 /**
+ * Decrypt a TOTP secret and transparently upgrade legacy plaintext to encrypted.
+ * Call this at login/verify time instead of decryptTotpSecret when you have
+ * the table + row id context to write back the encrypted value.
+ *
+ * @param string|null $stored  The raw DB value
+ * @param string $table         'merchants' or 'admins'
+ * @param int $rowId            Primary key of the row
+ * @return string               Plaintext base32 secret (empty on failure)
+ */
+function decryptTotpSecretWithUpgrade(?string $stored, string $table, int $rowId): string
+{
+    if ($stored === null || $stored === '') {
+        return '';
+    }
+    // Already encrypted — just decrypt
+    if (function_exists('isSensitiveEncrypted') && isSensitiveEncrypted($stored)) {
+        if (function_exists('sensitiveDecrypt')) {
+            return sensitiveDecrypt($stored) ?? '';
+        }
+        return '';
+    }
+    // Legacy plaintext — decrypt (return as-is), then re-encrypt and save
+    $plain = $stored;
+    $encrypted = encryptTotpSecret($plain);
+    if ($encrypted !== $plain && $encrypted !== '') {
+        try {
+            $safeTable = preg_match('/^[a-zA-Z_]+$/', $table) ? $table : 'merchants';
+            getDB()->prepare("UPDATE {$safeTable} SET totp_secret=? WHERE id=?")
+                ->execute([$encrypted, $rowId]);
+        } catch (Throwable $e) {
+            // Non-fatal — login still works with plaintext returned
+            error_log("TOTP transparent upgrade failed for {$table}#{$rowId}: " . $e->getMessage());
+        }
+    }
+    return $plain;
+}
+
+/**
  * One-time migration: encrypt plaintext totp_secret values in merchants + admins tables.
  * Idempotent: rows already encrypted (enc:v1: prefix) are skipped.
  * Returns count of rows migrated.

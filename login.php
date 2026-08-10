@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = getDB()->prepare('SELECT * FROM merchants WHERE id = ?');
         $stmt->execute([$pendingId]);
         $m = $stmt->fetch();
-        if ($pendingId && $m && !empty($m['totp_enabled']) && !empty($m['totp_secret']) && totpVerify(decryptTotpSecret($m['totp_secret']), $_POST['totp_code'] ?? '')) {
+        if ($pendingId && $m && !empty($m['totp_enabled']) && !empty($m['totp_secret']) && totpVerify(decryptTotpSecretWithUpgrade($m['totp_secret'], 'merchants', $pendingId), $_POST['totp_code'] ?? '')) {
             unset($_SESSION['admin_id'], $_SESSION['admin_name'], $_SESSION['pending_2fa_merchant_id'], $_SESSION['merchant_team_id'], $_SESSION['merchant_team_role']);
             $_SESSION['merchant_id'] = $m['id'];
             $_SESSION['merchant_code'] = $m['merchant_code'] ?? '';
