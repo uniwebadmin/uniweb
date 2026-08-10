@@ -337,10 +337,6 @@ function submitMerchantToGateway(int $merchantId, string $gateway, int $adminId,
 {
     ensureGatewaySubmissionsTable();
     $db = getDB();
-    $merchant = $db->prepare('SELECT * FROM merchants WHERE id = ?');
-    $merchant->execute([$merchantId]);
-    $m = $merchant->fetch();
-    if (!$m) return false;
 
     $existing = $db->prepare("SELECT id FROM gateway_submissions WHERE merchant_id=? AND gateway=? AND status IN ('submitted','pending_review','approved') ORDER BY id DESC LIMIT 1");
     $existing->execute([$merchantId, $gateway]);
@@ -348,11 +344,18 @@ function submitMerchantToGateway(int $merchantId, string $gateway, int $adminId,
         return true;
     }
 
-    $docs = $db->prepare('SELECT * FROM kyc_documents WHERE merchant_id = ?');
-    $docs->execute([$merchantId]);
-    $documents = $docs->fetchAll();
+    // Use the structured payload builder — never store raw PAN/GST/password/api_secret
+    if (!function_exists('build_partner_onboarding_payload')) {
+        require_once __DIR__ . '/partner_payload.php';
+    }
+    $payloadArr = build_partner_onboarding_payload($merchantId);
+    if (!function_exists('redactPartnerPayload')) {
+        require_once __DIR__ . '/partner_payload.php';
+    }
+    $payloadArr = redactPartnerPayload($payloadArr);
+    $payloadArr['gateway'] = $gateway;
+    $payload = json_encode($payloadArr);
 
-    $payload = json_encode(['merchant' => $m, 'documents' => $documents, 'gateway' => $gateway]);
     $db->prepare('INSERT INTO gateway_submissions (merchant_id, gateway, status, payload, admin_id, admin_notes) VALUES (?,?,?,?,?,?)')
         ->execute([$merchantId, $gateway, 'submitted', $payload, $adminId, $notes]);
 

@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $st = $db->prepare('SELECT * FROM admins WHERE id=? LIMIT 1');
         $st->execute([(int)$_SESSION['pending_admin_id']]);
         $admin = $st->fetch();
-        if (!$admin || !adminHasMfaEnabled($admin) || !totpVerify((string)$admin['totp_secret'], (string)($_POST['totp_code'] ?? ''))) {
+        if (!$admin || !adminHasMfaEnabled($admin) || !totpVerify(decryptTotpSecret((string)$admin['totp_secret']), (string)($_POST['totp_code'] ?? ''))) {
             usleep(350000);
             $error = 'Invalid authenticator code.';
         } else {
@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             $error = 'Authenticator setup failed. Retry with a fresh code.';
         } else {
             $db->prepare('UPDATE admins SET totp_secret=?, totp_enabled=1, mfa_enforced_at=NOW() WHERE id=?')
-                ->execute([$secret, (int)$admin['id']]);
+                ->execute([encryptTotpSecret($secret), (int)$admin['id']]);
             $admin['totp_secret'] = $secret;
             $admin['totp_enabled'] = 1;
             completeAdminLoginSession($admin);

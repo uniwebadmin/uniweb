@@ -149,13 +149,25 @@ function checkDocsAutoApproveReady(int $merchantId): array
 
 /**
  * Check if video KYC is required and completed for a merchant.
+ * In test mode, video KYC can be skipped if owner sets 'video_kyc_optional_test' = 1.
  */
 function checkVideoKycCompleted(int $merchantId): bool
 {
     try {
-        $st = getDB()->prepare('SELECT video_kyc_status FROM merchants WHERE id = ?');
+        $st = getDB()->prepare('SELECT video_kyc_status, account_mode FROM merchants WHERE id = ?');
         $st->execute([$merchantId]);
-        $status = (string)$st->fetchColumn();
+        $row = $st->fetch();
+        if (!$row) {
+            return true;
+        }
+        $status = (string)($row['video_kyc_status'] ?? '');
+        $accountMode = (string)($row['account_mode'] ?? '');
+
+        // Test-mode bypass: if owner allows video-optional for test merchants
+        if ($accountMode === 'test' && getSetting('video_kyc_optional_test', '0') === '1') {
+            return true;
+        }
+
         // 'verified' means done. 'pending'/'rejected'/NULL means not done.
         // If the column doesn't exist, fetchColumn returns false → treat as not required.
         if ($status === '' || $status === 'false') {
@@ -284,6 +296,10 @@ function enqueueMerchantToAllEnabledPartners(int $merchantId): void
         }
         try {
             $payload = build_partner_onboarding_payload($merchantId);
+            // Store only redacted version in the queue — no raw PAN/GST/secrets at rest
+            if (function_exists('redactPartnerPayload')) {
+                $payload = redactPartnerPayload($payload);
+            }
             $queueId = enqueuePartnerForward($merchantId, $partnerKey, $payload);
             if ($queueId > 0) {
                 $enqueued++;

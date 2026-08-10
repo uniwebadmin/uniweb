@@ -11,7 +11,7 @@ if (!$admin) {
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     $passwordOk = password_verify((string)($_POST['password'] ?? ''), (string)$admin['password']);
-    $mfaOk = adminHasMfaEnabled($admin) && totpVerify((string)$admin['totp_secret'], (string)($_POST['totp_code'] ?? ''));
+    $mfaOk = adminHasMfaEnabled($admin) && totpVerify(decryptTotpSecret((string)$admin['totp_secret']), (string)($_POST['totp_code'] ?? ''));
     if ($passwordOk && $mfaOk) {
         markStepUpAuthenticated();
         recordImmutableAudit('admin_stepup', null, 'admin', (string)$admin['id'], 'Step-up re-authentication');

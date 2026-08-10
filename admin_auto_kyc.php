@@ -11,6 +11,12 @@ $forwardQueue = [];
 // Manual trigger
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     $action = $_POST['action'] ?? '';
+    if ($action === 'toggle_video_optional') {
+        $current = getSetting('video_kyc_optional_test', '0');
+        setSetting('video_kyc_optional_test', $current === '1' ? '0' : '1');
+        flash('success', 'Video KYC test-mode bypass ' . ($current === '1' ? 'disabled' : 'enabled') . '.');
+        redirect('admin_auto_kyc.php');
+    }
     if ($action === 'run_now' && function_exists('runAutoKycEngine')) {
         $result = runAutoKycEngine();
         flash('success', "Auto KYC run complete: {$result['merchants_verified']} verified, {$result['docs_auto_approved']} docs approved, {$result['merchants_checked']} checked.");
@@ -152,6 +158,23 @@ require_once __DIR__ . '/header.php';
         </form>
     </div>
     <?php endif; ?>
+
+    <div class="glass rounded-xl p-5 border border-amber-500/20 mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <p class="text-sm font-semibold text-white">Video KYC — Test Mode Bypass</p>
+            <p class="text-xs text-gray-500 mt-1">When enabled, test-mode merchants can be auto-verified without Video KYC. Live merchants always require Video KYC.</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <span class="text-xs <?= getSetting('video_kyc_optional_test', '0') === '1' ? 'text-emerald-400' : 'text-gray-500' ?>"><?= getSetting('video_kyc_optional_test', '0') === '1' ? 'ENABLED' : 'DISABLED' ?></span>
+            <form method="POST" class="inline">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="toggle_video_optional">
+                <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-medium <?= getSetting('video_kyc_optional_test', '0') === '1' ? 'bg-amber-600/20 text-amber-400 hover:bg-amber-600/30' : 'bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30' ?>">
+                    <?= getSetting('video_kyc_optional_test', '0') === '1' ? 'Disable Bypass' : 'Enable Bypass' ?>
+                </button>
+            </form>
+        </div>
+    </div>
 
     <div class="flex gap-3 flex-wrap">
     <form method="POST" class="inline">

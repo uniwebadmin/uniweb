@@ -208,7 +208,11 @@ function ensureAdminMfaColumns(): void
     }
     $ready = true;
     try {
-        getDB()->exec("ALTER TABLE admins ADD COLUMN totp_secret VARCHAR(64) DEFAULT NULL");
+        getDB()->exec("ALTER TABLE admins ADD COLUMN totp_secret VARCHAR(256) DEFAULT NULL");
+    } catch (Throwable $e) {
+    }
+    try {
+        getDB()->exec("ALTER TABLE admins MODIFY totp_secret VARCHAR(256) DEFAULT NULL");
     } catch (Throwable $e) {
     }
     try {

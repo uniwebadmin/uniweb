@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         } elseif (!totpVerify($secret, $code)) {
             $error = 'That code did not match. Check the time on your phone and try again.';
         } else {
-            $db->prepare('UPDATE merchants SET totp_secret = ?, totp_enabled = 1 WHERE id = ?')->execute([$secret, $merchant['id']]);
+            $db->prepare('UPDATE merchants SET totp_secret = ?, totp_enabled = 1 WHERE id = ?')->execute([encryptTotpSecret($secret), $merchant['id']]);
             unset($_SESSION['pending_2fa_secret']);
             createNotification($merchant['id'], '2FA Enabled', 'Two-factor authentication was turned on for your account. You will need your authenticator app code at every login.');
             flash('success', '2FA enabled. You will need your authenticator code at every future login.');

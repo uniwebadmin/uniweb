@@ -169,7 +169,13 @@ function pushPackageToPartner(string $partnerKey, int $merchantId, array $payloa
         return ['success' => false, 'error' => 'Partner keys not configured yet'];
     }
 
-    return ['success' => false, 'error' => 'Partner adapter not yet implemented for ' . $partnerKey];
+    // Rebuild full payload at push time — the stored queue payload is redacted
+    if (!function_exists('build_partner_onboarding_payload')) {
+        require_once __DIR__ . '/partner_payload.php';
+    }
+    $fullPayload = build_partner_onboarding_payload($merchantId);
+
+    return ['success' => false, 'error' => 'Partner adapter not yet implemented for ' . $partnerKey, 'payload_ready' => !empty($fullPayload['merchant'])];
 }
 
 /**

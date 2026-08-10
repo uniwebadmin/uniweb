@@ -94,6 +94,41 @@ function totpAuthUrl(string $base32Secret, string $accountLabel, string $issuer 
     return "otpauth://totp/{$label}?{$params}";
 }
 
+/**
+ * Encrypt a TOTP secret for storage at rest.
+ * Uses sensitiveEncrypt (AES-256-GCM) if available.
+ */
+function encryptTotpSecret(string $plainSecret): string
+{
+    if (function_exists('sensitiveEncrypt')) {
+        $enc = sensitiveEncrypt($plainSecret);
+        if ($enc !== null && $enc !== '') {
+            return $enc;
+        }
+    }
+    return $plainSecret;
+}
+
+/**
+ * Decrypt a TOTP secret from storage.
+ * Returns the plaintext base32 secret, or empty string on failure.
+ * Backward compatible: if not encrypted (legacy plaintext), returns as-is.
+ */
+function decryptTotpSecret(?string $stored): string
+{
+    if ($stored === null || $stored === '') {
+        return '';
+    }
+    if (function_exists('isSensitiveEncrypted') && isSensitiveEncrypted($stored)) {
+        if (function_exists('sensitiveDecrypt')) {
+            $dec = sensitiveDecrypt($stored);
+            return $dec ?? '';
+        }
+    }
+    // Legacy plaintext — return as-is
+    return $stored;
+}
+
 function ensureMerchant2FA(): void
 {
     static $done = false;
@@ -102,8 +137,11 @@ function ensureMerchant2FA(): void
     }
     $done = true;
     try {
-        getDB()->exec("ALTER TABLE merchants ADD COLUMN totp_secret VARCHAR(64) NULL");
+        getDB()->exec("ALTER TABLE merchants ADD COLUMN totp_secret VARCHAR(256) NULL");
     } catch (Throwable $e) { /* ok */ }
+    try {
+        getDB()->exec("ALTER TABLE merchants MODIFY totp_secret VARCHAR(256) NULL");
+    } catch (Throwable $e) { /* ok if already wide enough */ }
     try {
         getDB()->exec("ALTER TABLE merchants ADD COLUMN totp_enabled TINYINT(1) NOT NULL DEFAULT 0");
     } catch (Throwable $e) { /* ok */ }
