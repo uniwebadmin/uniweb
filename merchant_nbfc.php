@@ -3,6 +3,10 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/method_requests.php';
 require_once __DIR__ . '/includes/nbfc.php';
 requireLogin();
+if (!function_exists('abortFeatureDisabled')) {
+    require_once __DIR__ . '/includes/ops_security.php';
+}
+abortFeatureDisabled('nbfc');
 requireMerchantTeamCapability('settings');
 
 if (getSetting('nbfc_live_enabled','0') !== '1') {

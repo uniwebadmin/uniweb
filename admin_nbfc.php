@@ -2,6 +2,10 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/nbfc.php';
 requireStaffAccess(['super', 'ceo', 'finance', 'ops', 'regional_manager']);
+if (!function_exists('abortFeatureDisabled')) {
+    require_once __DIR__ . '/includes/ops_security.php';
+}
+abortFeatureDisabled('nbfc');
 ensureNbfcSchema();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
