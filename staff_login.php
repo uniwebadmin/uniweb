@@ -39,10 +39,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             $db->prepare('INSERT INTO admin_login_attempts (username, ip_address, succeeded) VALUES (?,?,?)')
                 ->execute([$username, $ipAddress, $valid ? 1 : 0]);
             if ($valid) {
-                if (defined('PASSWORD_ARGON2ID') && password_needs_rehash((string)$admin['password'], PASSWORD_ARGON2ID)) {
+                if (!function_exists('maybeRehashToArgon2id')) {
+                    require_once __DIR__ . '/includes/ops_security.php';
+                }
+                $newHash = maybeRehashToArgon2id($password, (string)$admin['password']);
+                if ($newHash !== null) {
                     try {
                         $db->prepare('UPDATE admins SET password=? WHERE id=?')
-                            ->execute([password_hash($password, PASSWORD_ARGON2ID), (int)$admin['id']]);
+                            ->execute([$newHash, (int)$admin['id']]);
                     } catch (Throwable $e) { /* non-fatal */ }
                 }
                 $role = adminRole($admin);

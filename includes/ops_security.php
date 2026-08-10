@@ -1,6 +1,24 @@
 <?php
 declare(strict_types=1);
 
+/**
+ * D8: Transparently rehash a verified password to Argon2id if needed.
+ * Call ONLY after password_verify() returns true.
+ * Returns true if rehash was performed, false if already Argon2id.
+ */
+function maybeRehashToArgon2id(string $plainPassword, string $currentHash): ?string
+{
+    if (!defined('PASSWORD_ARGON2ID')) {
+        return null;
+    }
+    $needs = password_needs_rehash($currentHash, PASSWORD_ARGON2ID);
+    $isLegacy = !str_starts_with($currentHash, '$argon2id$');
+    if (!$needs && !$isLegacy) {
+        return null;
+    }
+    return password_hash($plainPassword, PASSWORD_ARGON2ID);
+}
+
 function validateStrongPassword(string $password, int $minLength = 12): ?string
 {
     if (strlen($password) < $minLength) {

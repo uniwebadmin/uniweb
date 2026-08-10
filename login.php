@@ -83,10 +83,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         if ($m && password_verify($password, $m['password'])) {
-            if (defined('PASSWORD_ARGON2ID') && password_needs_rehash($m['password'], PASSWORD_ARGON2ID)) {
+            if (!function_exists('maybeRehashToArgon2id')) {
+                require_once __DIR__ . '/includes/ops_security.php';
+            }
+            $newHash = maybeRehashToArgon2id($password, (string)$m['password']);
+            if ($newHash !== null) {
                 try {
                     getDB()->prepare('UPDATE merchants SET password=? WHERE id=?')
-                        ->execute([password_hash($password, PASSWORD_ARGON2ID), $m['id']]);
+                        ->execute([$newHash, $m['id']]);
                 } catch (Throwable $e) { /* non-fatal */ }
             }
             ensureMerchant2FA();
