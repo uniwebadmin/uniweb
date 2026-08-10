@@ -149,7 +149,13 @@ function checkDocsAutoApproveReady(int $merchantId): array
 
 /**
  * Check if video KYC is required and completed for a merchant.
- * In test mode, video KYC can be skipped if owner sets 'video_kyc_optional_test' = 1.
+ *
+ * Setting: video_kyc_required_for_auto
+ *   '1' = video required for auto-KYC (production strict)
+ *   '0' = video not required for auto-KYC (test/demo lenient)
+ *
+ * Default: '0' for test-mode merchants, '1' for live-mode merchants.
+ * Backward compat: video_kyc_optional_test='1' is treated as video_kyc_required_for_auto='0' for test mode.
  */
 function checkVideoKycCompleted(int $merchantId): bool
 {
@@ -163,8 +169,18 @@ function checkVideoKycCompleted(int $merchantId): bool
         $status = (string)($row['video_kyc_status'] ?? '');
         $accountMode = (string)($row['account_mode'] ?? '');
 
-        // Test-mode bypass: if owner allows video-optional for test merchants
+        // Determine if video is required for this merchant's auto-KYC path
+        // Default: test mode → not required (0), live mode → required (1)
+        $defaultRequired = ($accountMode === 'live') ? '1' : '0';
+        $required = getSetting('video_kyc_required_for_auto', $defaultRequired);
+
+        // Backward compat: old setting video_kyc_optional_test='1' means "not required for test"
         if ($accountMode === 'test' && getSetting('video_kyc_optional_test', '0') === '1') {
+            $required = '0';
+        }
+
+        // If video is not required for auto-KYC, skip the check
+        if ($required !== '1') {
             return true;
         }
 
@@ -221,7 +237,7 @@ function autoVerifyMerchantKyc(int $merchantId): bool
                 'merchant',
                 (string)$merchantId,
                 'Zero-Touch Auto KYC: all docs clean+approved, no risk flags, name consistency passed'
-                . (getSetting('video_kyc_optional_test', '0') === '1' ? ' (video KYC bypassed for test mode)' : ', video KYC verified')
+                . (getSetting('video_kyc_required_for_auto', '0') !== '1' ? ' (video KYC not required — skipped)' : ', video KYC verified')
             );
         }
 
@@ -339,7 +355,7 @@ function runAutoKycEngine(): array
 
     // Find merchants with kyc_status='submitted' — candidates for auto-KYC
     try {
-        $st = $db->prepare("SELECT id, business_name, business_entity_type, video_kyc_status
+        $st = $db->prepare("SELECT id, business_name, business_entity_type, video_kyc_status, account_mode
             FROM merchants
             WHERE kyc_status = 'submitted'
               AND status NOT IN ('blocked', 'suspended', 'deleted')
@@ -349,7 +365,7 @@ function runAutoKycEngine(): array
     } catch (Throwable $e) {
         // video_kyc_status column might not exist
         try {
-            $st = $db->prepare("SELECT id, business_name, business_entity_type
+            $st = $db->prepare("SELECT id, business_name, business_entity_type, account_mode
                 FROM merchants
                 WHERE kyc_status = 'submitted'
                   AND status NOT IN ('blocked', 'suspended', 'deleted')
@@ -375,8 +391,14 @@ function runAutoKycEngine(): array
         // 2. Check video KYC (if required)
         if (!checkVideoKycCompleted($merchantId)) {
             $summary['skipped_video']++;
-            logAutoKycRun($merchantId, 'skipped', 'Video KYC not verified');
+            logAutoKycRun($merchantId, 'skipped', 'Video KYC not verified (required by setting)');
             continue;
+        }
+        // Log when video is skipped because setting is off (audit trail)
+        $acctMode = (string)($m['account_mode'] ?? 'test');
+        $vidRequired = getSetting('video_kyc_required_for_auto', ($acctMode === 'live') ? '1' : '0');
+        if ($vidRequired !== '1') {
+            logAutoKycRun($merchantId, 'video_skipped_not_required', 'Video KYC not required for auto-KYC (setting off, mode=' . $acctMode . ')');
         }
 
         // 3. Check docs
