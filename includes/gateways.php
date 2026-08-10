@@ -2,6 +2,9 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/rbl.php';
+if (!function_exists('isGatewayActive')) {
+    require_once __DIR__ . '/payment_methods.php';
+}
 
 function createRazorpayOrder(float $amount, string $receipt, array $notes = []): ?array
 {
@@ -555,6 +558,12 @@ function getActivePaymentGateway(): string
 
 function isGatewayConfigured(string $gateway): bool
 {
+    // D4: If gateway is deactivated in registry, treat as not configured
+    // regardless of whether credentials exist. This ensures disabled partners
+    // are excluded from all checkout/QR/link paths that call isGatewayConfigured().
+    if (function_exists('isGatewayActive') && !isGatewayActive($gateway)) {
+        return false;
+    }
     return match ($gateway) {
         'razorpay' => (bool)getSetting('razorpay_key_id', '') && (bool)getSetting('razorpay_key_secret', ''),
         'cashfree' => (bool)getSetting('cashfree_app_id', '') && (bool)getSetting('cashfree_secret_key', ''),

@@ -41,6 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $gatewayId = (int)($_POST['gateway_id'] ?? 0);
         if ($gatewayId > 0) {
             $result = activateGatewayForAllMerchants($gatewayId);
+            if ($result['ok'] && function_exists('recordImmutableAudit')) {
+                recordImmutableAudit('gateway_activated', null, 'gateway', (string)$gatewayId, 'Gateway activated by admin: ' . ($result['gateway_name'] ?? ''));
+            }
             flash($result['ok'] ? 'success' : 'error', $result['ok'] ? $result['gateway_name'] . ' activated! Added to ' . $result['merchants'] . ' merchants.' : ($result['error'] ?? 'Error'));
         }
         redirect('admin_gateway_registry.php');
@@ -49,8 +52,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     if ($action === 'deactivate') {
         $gatewayId = (int)($_POST['gateway_id'] ?? 0);
         if ($gatewayId > 0) {
+            $gwName = '';
+            foreach (getRegisteredGateways() as $g) {
+                if ((int)$g['id'] === $gatewayId) { $gwName = $g['gateway_name']; break; }
+            }
             $result = deactivateGateway($gatewayId);
-            flash($result['ok'] ? 'success' : 'error', $result['ok'] ? 'Gateway deactivated.' : ($result['error'] ?? 'Error'));
+            if ($result['ok'] && function_exists('recordImmutableAudit')) {
+                recordImmutableAudit('gateway_deactivated', null, 'gateway', (string)$gatewayId, 'Gateway deactivated by admin: ' . $gwName . ' — methods hidden from checkout/QR/links');
+            }
+            flash($result['ok'] ? 'success' : 'error', $result['ok'] ? $gwName . ' deactivated. Payment methods from this partner are now hidden from checkout, QR, and payment links.' : ($result['error'] ?? 'Error'));
         }
         redirect('admin_gateway_registry.php');
     }
@@ -146,7 +156,7 @@ require_once __DIR__ . '/header.php';
                         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <input type="hidden" name="action" value="deactivate">
                         <input type="hidden" name="gateway_id" value="<?= (int)$g['id'] ?>">
-                        <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20">Deactivate</button>
+                        <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20" onclick="return confirm('Disable <?= e($g['gateway_name']) ?>? Payment methods from this partner will be hidden from checkout, QR, and payment links. History is retained.')">Disable</button>
                     </form>
                     <?php endif; ?>
                 </div>
