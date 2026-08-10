@@ -9,6 +9,7 @@ declare(strict_types=1);
  * D5: Manual fallback only after repeated failures.
  */
 
+if (!function_exists('ensurePartnerForwardQueueTable')) {
 function ensurePartnerForwardQueueTable(): void
 {
     static $done = false;
@@ -35,6 +36,7 @@ function ensurePartnerForwardQueueTable(): void
             INDEX idx_pfq_partner (partner_key, status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     } catch (Throwable $e) { /* ok */ }
+}
 }
 
 /**

@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('getMerchantBeneficiaries')) {
+    require_once __DIR__ . '/includes/beneficiaries.php';
+}
 requireLogin();
 $merchant = getMerchant();
 $merchantId = (int)$merchant['id'];

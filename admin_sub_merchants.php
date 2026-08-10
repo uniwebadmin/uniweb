@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('addSubMerchant')) {
+    require_once __DIR__ . '/includes/sub_merchant.php';
+}
 requireStaffAccess(['super', 'ceo', 'finance', 'ops']);
 
 $adminId = (int)($_SESSION['admin_id'] ?? 0);

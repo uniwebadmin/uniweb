@@ -60,19 +60,23 @@ function sensitiveDecrypt(?string $value): ?string
     if (!isSensitiveEncrypted($value)) {
         return $value;
     }
-    $key = _sensitiveKey();
-    $raw = base64_decode(substr($value, strlen(SENSITIVE_ENC_PREFIX)), true);
-    if ($raw === false || strlen($raw) < 28) {
-        throw new RuntimeException('sensitiveDecrypt: malformed ciphertext.');
+    try {
+        $key = _sensitiveKey();
+        $raw = base64_decode(substr($value, strlen(SENSITIVE_ENC_PREFIX)), true);
+        if ($raw === false || strlen($raw) < 28) {
+            return null;
+        }
+        $tag = substr($raw, 0, 16);
+        $iv = substr($raw, 16, 12);
+        $ciphertext = substr($raw, 28);
+        $plain = openssl_decrypt($ciphertext, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
+        if ($plain === false) {
+            return null;
+        }
+        return $plain;
+    } catch (Throwable $e) {
+        return null;
     }
-    $tag = substr($raw, 0, 16);
-    $iv = substr($raw, 16, 12);
-    $ciphertext = substr($raw, 28);
-    $plain = openssl_decrypt($ciphertext, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
-    if ($plain === false) {
-        throw new RuntimeException('sensitiveDecrypt: invalid key or corrupt data.');
-    }
-    return $plain;
 }
 
 function isSensitiveEncrypted(?string $value): bool

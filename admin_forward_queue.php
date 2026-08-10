@@ -5,6 +5,8 @@ if (!function_exists('ensurePartnerForwardQueueTable')) {
     require_once __DIR__ . '/includes/partner_forward_queue.php';
 }
 
+$statusFilter = trim((string)($_GET['status'] ?? ''));
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
         flash('error', 'Session expired. Retry.');
@@ -29,7 +31,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('admin_forward_queue.php?status=' . urlencode($statusFilter));
 }
 
-$statusFilter = trim((string)($_GET['status'] ?? ''));
 $matrix = getAdminForwardMatrix($statusFilter);
 
 $pageTitle = 'KYC Forward Queue';

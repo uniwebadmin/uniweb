@@ -328,6 +328,7 @@ function revokeMandate(int $subscriptionId, string $reason = 'Customer revoked')
 /**
  * Update mandate status from partner webhook.
  */
+if (!function_exists('updateMandateStatus')) {
 function updateMandateStatus(int $subscriptionId, string $status, ?string $mandateId = null): array
 {
     ensureRecurringTables();
@@ -349,6 +350,7 @@ function updateMandateStatus(int $subscriptionId, string $status, ?string $manda
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => $e->getMessage()];
     }
+}
 }
 
 /**

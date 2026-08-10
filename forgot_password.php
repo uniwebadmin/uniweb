@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/page_ux.php';
+if (!function_exists('ensurePasswordResetsTable')) {
+    require_once __DIR__ . '/includes/schema_ensure.php';
+}
 ensurePasswordResetsTable();
 $pageTitle = 'Forgot Password';
 $hideNav = true;

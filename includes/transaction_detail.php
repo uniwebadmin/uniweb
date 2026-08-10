@@ -27,9 +27,13 @@ function fetchTransactionDetail(string $txnId, ?int $merchantId = null, bool $ad
     $walletTxn->execute([(int)$row['merchant_id'], (int)$row['id'], $txnId]);
     $row['wallet_entry'] = $walletTxn->fetch() ?: null;
 
-    $splits = $db->prepare('SELECT * FROM transaction_splits WHERE transaction_id = ?');
-    $splits->execute([(int)$row['id']]);
-    $row['splits'] = $splits->fetchAll();
+    try {
+        $splits = $db->prepare('SELECT * FROM transaction_splits WHERE transaction_id = ?');
+        $splits->execute([(int)$row['id']]);
+        $row['splits'] = $splits->fetchAll();
+    } catch (Throwable $e) {
+        $row['splits'] = [];
+    }
 
     try {
         $refunds = $db->prepare('SELECT refund_id, amount, status, created_at, processed_at FROM refunds WHERE transaction_id=? ORDER BY created_at ASC');
