@@ -23,31 +23,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($phone === '') {
             redirect('customer_login.php');
         }
-        $res = verifyCustomerOtp($phone, (string)$_POST['otp_code']);
-        if ($res['ok']) {
-            unset($_SESSION['customer_pending_phone'], $_SESSION['customer_demo_otp']);
-            flash('success', 'Welcome! You are logged in.');
-            redirect('customer_portal.php');
-        }
-        $error = $res['message'];
-        $otpStep = true;
-    } else {
-        $phone = customerNormalizePhone((string)($_POST['mobile'] ?? ''));
-        if ($phone === '') {
-            $error = 'Please enter a valid 10-digit Indian mobile number.';
+        if (function_exists('checkVelocityBlock') && checkVelocityBlock('otp_fail')['blocked']) {
+            $v = checkVelocityBlock('otp_fail');
+            $error = 'Too many incorrect OTP attempts. Please try again in ~' . $v['retry_after_minutes'] . ' minutes.';
+            $otpStep = true;
         } else {
-            $res = requestCustomerOtp($phone);
+            $res = verifyCustomerOtp($phone, (string)$_POST['otp_code']);
             if ($res['ok']) {
-                $_SESSION['customer_pending_phone'] = $phone;
-                if (($res['channel'] ?? '') === 'demo' && !empty($res['demo_otp'])) {
-                    $_SESSION['customer_demo_otp'] = $res['demo_otp'];
-                } else {
-                    unset($_SESSION['customer_demo_otp']);
-                }
-                $notice = $res['message'];
-                $otpStep = true;
+                unset($_SESSION['customer_pending_phone'], $_SESSION['customer_demo_otp']);
+                flash('success', 'Welcome! You are logged in.');
+                redirect('customer_portal.php');
+            }
+            if (function_exists('recordVelocityEvent')) {
+                recordVelocityEvent('otp_fail', $phone);
+            }
+            $error = $res['message'];
+            $otpStep = true;
+        }
+    } else {
+        if (function_exists('checkVelocityBlock') && checkVelocityBlock('login_fail')['blocked']) {
+            $v = checkVelocityBlock('login_fail');
+            $error = 'Too many attempts from this network. Please try again in ~' . $v['retry_after_minutes'] . ' minutes.';
+        } else {
+            $phone = customerNormalizePhone((string)($_POST['mobile'] ?? ''));
+            if ($phone === '') {
+                $error = 'Please enter a valid 10-digit Indian mobile number.';
             } else {
-                $error = $res['message'];
+                $res = requestCustomerOtp($phone);
+                if ($res['ok']) {
+                    $_SESSION['customer_pending_phone'] = $phone;
+                    if (($res['channel'] ?? '') === 'demo' && !empty($res['demo_otp'])) {
+                        $_SESSION['customer_demo_otp'] = $res['demo_otp'];
+                    } else {
+                        unset($_SESSION['customer_demo_otp']);
+                    }
+                    $notice = $res['message'];
+                    $otpStep = true;
+                } else {
+                    if (function_exists('recordVelocityEvent')) {
+                        recordVelocityEvent('login_fail', $phone);
+                    }
+                    $error = $res['message'];
+                }
             }
         }
     }

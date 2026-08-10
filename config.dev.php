@@ -203,6 +203,22 @@ if (session_status() === PHP_SESSION_NONE) {
             header('X-Frame-Options: SAMEORIGIN');
             header('Referrer-Policy: strict-origin-when-cross-origin');
             header('X-XSS-Protection: 1; mode=block');
+            // Baseline CSP — allows inline scripts/styles (existing code uses them),
+            // images/fonts from self and data: URIs, form actions to self,
+            // connect-src for API calls and partner redirects.
+            // frame-ancestors denies clickjacking; 'self' for form-action.
+            $csp = "default-src 'self'; "
+                . "script-src 'self' 'unsafe-inline'; "
+                . "style-src 'self' 'unsafe-inline'; "
+                . "img-src 'self' data: https:; "
+                . "font-src 'self' data:; "
+                . "connect-src 'self' https:; "
+                . "frame-src 'self' https:; "
+                . "form-action 'self' https:; "
+                . "base-uri 'self'; "
+                . "frame-ancestors 'self'; "
+                . "object-src 'none'";
+            header('Content-Security-Policy: ' . $csp);
             if ($isHttps) {
                 header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
             }

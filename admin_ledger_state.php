@@ -9,6 +9,10 @@ $result = null;
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
+        flash('error', 'Session expired.');
+        redirect('admin_ledger_state.php');
+    }
     $action = $_POST['action'] ?? '';
     try {
         if ($action === 'rebuild_one') {

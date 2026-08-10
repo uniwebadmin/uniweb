@@ -3,8 +3,17 @@ declare(strict_types=1);
 /**
  * Cron: Daily reconciliation summary + auto-mark reconciled transactions.
  * Run daily via Hostinger cron or includes/auto_audit.php.
+ * URL: cron_reconciliation.php?key=<WATCHDOG_KEY>
  */
 require_once __DIR__ . '/config.php';
+
+$isCli = php_sapi_name() === 'cli';
+if (!$isCli) {
+    $auth = validateCronRequest();
+    if (empty($auth['ok'])) {
+        rejectCronRequest($auth['error'] ?? 'Invalid key');
+    }
+}
 
 $yesterday = date('Y-m-d', strtotime('-1 day'));
 $today = date('Y-m-d');
