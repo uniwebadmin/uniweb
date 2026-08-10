@@ -2,11 +2,10 @@
 -- Allows admin search by PAN/GSTIN without decrypting ciphertext.
 -- Hash is HMAC-SHA256 of normalised value using ENCRYPTION_KEY.
 
-ALTER TABLE merchants
-    ADD COLUMN IF NOT EXISTS pan_hash VARCHAR(64) DEFAULT NULL AFTER pan_number,
-    ADD COLUMN IF NOT EXISTS gstin_hash VARCHAR(64) DEFAULT NULL AFTER gstin,
-    ADD COLUMN IF NOT EXISTS cin_hash VARCHAR(64) DEFAULT NULL AFTER cin_llpin,
-    ADD COLUMN IF NOT EXISTS aadhaar_hash VARCHAR(64) DEFAULT NULL AFTER aadhaar_number;
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS pan_hash VARCHAR(64) DEFAULT NULL;
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS gstin_hash VARCHAR(64) DEFAULT NULL;
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS cin_hash VARCHAR(64) DEFAULT NULL;
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS aadhaar_hash VARCHAR(64) DEFAULT NULL;
 
 -- Backfill hashes for existing plaintext rows (skip already-encrypted — those need
 -- a runtime backfill via admin_encrypt_pii.php which has access to the key).

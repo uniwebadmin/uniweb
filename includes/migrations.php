@@ -168,6 +168,10 @@ function applyPendingMigrations(string $directory): array
                             error_log('Migration ALTER TABLE skipped: ' . $migration['version'] . ' - ' . $e->getMessage());
                             continue;
                         }
+                        if ((string)$e->getCode() === '42S22' && str_contains($e->getMessage(), 'Unknown column') && (bool)preg_match('/^\s*UPDATE\s+/i', $statement)) {
+                            error_log('Migration UPDATE skipped (unknown column): ' . $migration['version'] . ' - ' . $e->getMessage());
+                            continue;
+                        }
                         throw $e;
                     }
                 }
