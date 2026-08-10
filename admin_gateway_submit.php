@@ -23,6 +23,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         redirect($redirectTo);
     }
 
+    if ($action === 'migrate_totp' && isSuperAdmin()) {
+        if (!function_exists('migrateTotpSecretsEncryption')) {
+            require_once __DIR__ . '/includes/totp.php';
+        }
+        $result = migrateTotpSecretsEncryption();
+        $total = $result['merchants'] + $result['admins'];
+        flash('success', "TOTP migration complete. {$total} secrets encrypted (merchants: {$result['merchants']}, admins: {$result['admins']}).");
+        recordImmutableAudit('migrate_totp', null, 'admin', (string)$adminId, "Encrypted {$total} plaintext TOTP secrets at rest");
+        redirect($redirectTo);
+    }
+
     if ($action === 'update_status') {
         $submissionId = (int)($_POST['submission_id'] ?? 0);
         $status = (string)($_POST['status'] ?? '');
@@ -268,12 +279,21 @@ require_once __DIR__ . '/header.php';
 
     <?php if (isSuperAdmin()): ?>
     <div class="glass rounded-xl p-4 sm:p-6 border border-red-500/20">
-        <h2 class="font-semibold text-red-400 mb-2">Security Cleanup — Purge Plaintext Secrets</h2>
+        <h2 class="font-semibold text-red-400 mb-2">Security Cleanup</h2>
         <p class="text-xs text-gray-500 mb-3">Scans all <code class="text-xs bg-gray-800 px-1 rounded">gateway_submissions</code> and <code class="text-xs bg-gray-800 px-1 rounded">partner_forward_queue</code> rows for plaintext PAN/GST/password/api_secret and overwrites them with redacted versions. <strong class="text-amber-400">Take a DB backup before running.</strong> Safe to run multiple times (idempotent).</p>
         <form method="POST" class="inline" onsubmit="return confirm('Have you taken a DB backup? This will overwrite old payload data. Continue?')">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="purge_secrets">
             <button type="submit" class="px-4 py-2 rounded-lg bg-red-600/20 text-red-400 hover:bg-red-600/30 text-sm font-medium">Purge Old Secrets Now</button>
+        </form>
+    </div>
+    <div class="glass rounded-xl p-4 sm:p-6 border border-amber-500/20">
+        <h2 class="font-semibold text-amber-400 mb-2">TOTP Secret Encryption Migration</h2>
+        <p class="text-xs text-gray-500 mb-3">Encrypts plaintext <code class="text-xs bg-gray-800 px-1 rounded">totp_secret</code> values in <code class="text-xs bg-gray-800 px-1 rounded">merchants</code> and <code class="text-xs bg-gray-800 px-1 rounded">admins</code> tables using AES-256-GCM. Already-encrypted rows are skipped. <strong class="text-amber-400">Take a DB backup before running.</strong> Idempotent.</p>
+        <form method="POST" class="inline" onsubmit="return confirm('Have you taken a DB backup? This will encrypt all plaintext TOTP secrets. Continue?')">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="action" value="migrate_totp">
+            <button type="submit" class="px-4 py-2 rounded-lg bg-amber-600/20 text-amber-400 hover:bg-amber-600/30 text-sm font-medium">Encrypt TOTP Secrets Now</button>
         </form>
     </div>
     <?php endif; ?>

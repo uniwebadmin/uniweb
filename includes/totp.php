@@ -129,6 +129,53 @@ function decryptTotpSecret(?string $stored): string
     return $stored;
 }
 
+/**
+ * One-time migration: encrypt plaintext totp_secret values in merchants + admins tables.
+ * Idempotent: rows already encrypted (enc:v1: prefix) are skipped.
+ * Returns count of rows migrated.
+ */
+function migrateTotpSecretsEncryption(): array
+{
+    $db = getDB();
+    $migrated = ['merchants' => 0, 'admins' => 0];
+
+    // 1. Migrate merchants.totp_secret
+    try {
+        $rows = $db->query("SELECT id, totp_secret FROM merchants WHERE totp_secret IS NOT NULL AND totp_secret != ''")->fetchAll();
+        foreach ($rows as $row) {
+            $stored = (string)$row['totp_secret'];
+            if (function_exists('isSensitiveEncrypted') && isSensitiveEncrypted($stored)) {
+                continue; // already encrypted
+            }
+            $encrypted = encryptTotpSecret($stored);
+            if ($encrypted !== $stored) {
+                $db->prepare("UPDATE merchants SET totp_secret=? WHERE id=?")
+                    ->execute([$encrypted, (int)$row['id']]);
+                $migrated['merchants']++;
+            }
+        }
+    } catch (Throwable $e) { /* ok */ }
+
+    // 2. Migrate admins.totp_secret
+    try {
+        $rows = $db->query("SELECT id, totp_secret FROM admins WHERE totp_secret IS NOT NULL AND totp_secret != ''")->fetchAll();
+        foreach ($rows as $row) {
+            $stored = (string)$row['totp_secret'];
+            if (function_exists('isSensitiveEncrypted') && isSensitiveEncrypted($stored)) {
+                continue; // already encrypted
+            }
+            $encrypted = encryptTotpSecret($stored);
+            if ($encrypted !== $stored) {
+                $db->prepare("UPDATE admins SET totp_secret=? WHERE id=?")
+                    ->execute([$encrypted, (int)$row['id']]);
+                $migrated['admins']++;
+            }
+        }
+    } catch (Throwable $e) { /* ok */ }
+
+    return $migrated;
+}
+
 function ensureMerchant2FA(): void
 {
     static $done = false;
