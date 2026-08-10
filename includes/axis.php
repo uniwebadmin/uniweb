@@ -45,6 +45,14 @@ function axisAllowMock(): bool
 
 function axisLogApi(string $endpoint, string $method, ?string $request, ?string $response, int $httpCode, ?int $merchantId = null, string $status = 'ok'): void
 {
+    // D10: mask PII before writing to log table
+    if (!function_exists('maskPiiInString') && is_file(__DIR__ . '/partner_payload.php')) {
+        require_once __DIR__ . '/partner_payload.php';
+    }
+    if (function_exists('maskPiiInString')) {
+        $request = maskPiiInString($request);
+        $response = maskPiiInString($response);
+    }
     try {
         getDB()->prepare('INSERT INTO axis_api_logs (endpoint, method, request_body, response_body, http_code, merchant_id, status) VALUES (?,?,?,?,?,?,?)')
             ->execute([$endpoint, $method, $request, $response, $httpCode, $merchantId, $status]);

@@ -108,6 +108,14 @@ function postMerchantWebhook(string $url, string $event, string $eventId, string
 
 function logMerchantWebhookDelivery(int $merchantId, string $event, string $payload, int $code, string $body): void
 {
+    // D10: mask PII before writing to log table
+    if (!function_exists('maskPiiInString') && is_file(__DIR__ . '/partner_payload.php')) {
+        require_once __DIR__ . '/partner_payload.php';
+    }
+    if (function_exists('maskPiiInString')) {
+        $payload = maskPiiInString($payload);
+        $body = maskPiiInString($body);
+    }
     try {
         getDB()->prepare('INSERT INTO merchant_webhook_logs (merchant_id, event_type, payload, response_code, response_body) VALUES (?,?,?,?,?)')
             ->execute([$merchantId, $event, $payload, $code ?: null, $body !== '' ? substr($body, 0, 2000) : null]);
@@ -202,16 +210,24 @@ function processMerchantWebhookQueue(int $limit = 25): array
         $processed++;
         $attempt = (int)$delivery['attempt_count'] + 1;
         if (!empty($result['ok'])) {
+            $respBody = (string)$result['body'];
+            if (function_exists('maskPiiInString')) {
+                $respBody = maskPiiInString($respBody);
+            }
             $db->prepare(
                 "UPDATE merchant_webhook_deliveries
                  SET status='delivered',response_code=?,response_body=?,last_error=NULL,delivered_at=NOW(),locked_at=NULL
                  WHERE id=?"
-            )->execute([(int)$result['code'], mb_substr((string)$result['body'], 0, 2000), (int)$delivery['id']]);
+            )->execute([(int)$result['code'], mb_substr($respBody, 0, 2000), (int)$delivery['id']]);
             $delivered++;
         } else {
             $delays = [60, 300, 1800, 7200, 21600, 43200, 86400];
             $dead = $attempt >= 8;
             $delay = $delays[min($attempt - 1, count($delays) - 1)];
+            $respBody = (string)($result['body'] ?? '');
+            if (function_exists('maskPiiInString')) {
+                $respBody = maskPiiInString($respBody);
+            }
             $db->prepare(
                 "UPDATE merchant_webhook_deliveries
                  SET status=?,response_code=?,response_body=?,last_error=?,next_attempt_at=DATE_ADD(NOW(),INTERVAL {$delay} SECOND),locked_at=NULL
@@ -219,7 +235,7 @@ function processMerchantWebhookQueue(int $limit = 25): array
             )->execute([
                 $dead ? 'dead' : 'retry',
                 (int)($result['code'] ?? 0) ?: null,
-                mb_substr((string)($result['body'] ?? ''), 0, 2000) ?: null,
+                mb_substr($respBody, 0, 2000) ?: null,
                 mb_substr((string)($result['error'] ?? 'HTTP delivery failed'), 0, 500),
                 (int)$delivery['id'],
             ]);

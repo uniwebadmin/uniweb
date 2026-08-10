@@ -315,3 +315,186 @@ function purgeSecretsFromSubmissions(): array
 
     return $purged;
 }
+
+/**
+ * D10: Mask PII in a log body string (JSON or plain text).
+ * Recursively walks JSON keys; falls back to regex on non-JSON strings.
+ * Returns the masked string — never stores raw PAN/Aadhaar/account/secrets.
+ */
+function maskPiiInString(?string $body): ?string
+{
+    if ($body === null || $body === '') {
+        return $body;
+    }
+
+    // Try JSON first
+    $decoded = json_decode($body, true);
+    if (is_array($decoded)) {
+        $masked = maskPiiRecursive($decoded);
+        return json_encode($masked, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    // Plain text: regex-mask common PII patterns
+    return maskPiiRegex($body);
+}
+
+/**
+ * Recursively mask PII fields in an array (JSON body).
+ */
+function maskPiiRecursive(array $data): array
+{
+    // Keys to fully redact (replace with [REDACTED])
+    $redactKeys = [
+        'password', 'password_hash', 'pass', 'pwd',
+        'api_secret', 'api_key', 'secret', 'secret_key',
+        'totp_secret', 'otp', 'token', 'access_token',
+        'client_secret', 'merchant_salt', 'salt',
+    ];
+
+    // Keys to mask (keep last 4)
+    $maskKeys = [
+        'pan', 'pan_number', 'aadhaar', 'aadhaar_number', 'aadhaar_no',
+        'account_number', 'bank_account_number', 'acct_no',
+        'card_number', 'card_no', 'credit_card', 'debit_card',
+        'cvv', 'cvv2',
+    ];
+
+    // Keys to partially mask (keep last 4, prefix ****)
+    $partialMaskKeys = [
+        'ifsc', 'gstin', 'cin_llpin', 'cin',
+    ];
+
+    foreach ($data as $key => &$value) {
+        $lowerKey = strtolower((string)$key);
+
+        if (is_array($value)) {
+            $value = maskPiiRecursive($value);
+            continue;
+        }
+
+        // Full redact
+        if (in_array($lowerKey, $redactKeys, true)) {
+            $value = '[REDACTED]';
+            continue;
+        }
+
+        // Mask to last 4
+        if (in_array($lowerKey, $maskKeys, true)) {
+            $s = (string)$value;
+            if (strlen($s) > 4) {
+                $value = '****' . substr($s, -4);
+            } else {
+                $value = '****';
+            }
+            continue;
+        }
+
+        // Partial mask for IFSC/GSTIN/CIN
+        if (in_array($lowerKey, $partialMaskKeys, true)) {
+            $s = (string)$value;
+            if (strlen($s) > 4) {
+                $value = '****' . substr($s, -4);
+            }
+            continue;
+        }
+
+        // If value is a string, apply regex masking for embedded PII
+        if (is_string($value)) {
+            $value = maskPiiRegex($value);
+        }
+    }
+    unset($value);
+
+    return $data;
+}
+
+/**
+ * Regex-mask PII patterns in a plain-text string.
+ * Catches PAN (ABCDE1234F), Aadhaar (12-digit), card numbers (13-19 digit),
+ * and key=value patterns for sensitive fields.
+ */
+function maskPiiRegex(string $text): string
+{
+    // Mask "key":"value" or "key": "value" patterns for sensitive keys
+    $sensitiveKeys = ['password', 'pwd', 'pass', 'secret', 'api_secret', 'api_key', 'totp_secret', 'otp', 'token', 'client_secret', 'salt'];
+    foreach ($sensitiveKeys as $sk) {
+        $text = preg_replace(
+            '/("?' . preg_quote($sk, '/') . '"?\s*[:=]\s*"?)([^"&,}\s]+)/i',
+            '$1[REDACTED]',
+            $text
+        );
+    }
+
+    // PAN pattern: 5 letters + 4 digits + 1 letter (e.g. ABCDE1234F)
+    $text = preg_replace('/\b([A-Z]{4})[A-Z0-9]{1}(\d{4})([A-Z])\b/', '$1****$3', $text);
+
+    // Aadhaar: 12-digit number (with or without spaces/dashes)
+    $text = preg_replace('/\b(\d{4})[\s-]?\d{4}[\s-]?(\d{4})\b/', '$1-XXXX-$2', $text);
+
+    // Card number: 13-19 consecutive digits
+    $text = preg_replace('/\b(\d{4})[\s-]?\d{4,6}[\s-]?\d{4,6}[\s-]?(\d{4})\b/', '$1************$2', $text);
+
+    // Bank account: "account_number":"1234567890" → keep last 4
+    $text = preg_replace(
+        '/("(?:account_number|bank_account_number|acct_no|account_no)"\s*:\s*")(\d{4})(\d+)(\d{4})(")/i',
+        '$1$2****$4$5',
+        $text
+    );
+
+    return $text;
+}
+
+/**
+ * D10: Mask PII in old log rows (idempotent cleanup).
+ * Scans partner_api_logs and axis_api_logs for request_body/response_body
+ * containing unmasked PII patterns and overwrites with masked versions.
+ */
+function purgePiiFromApiLogs(int $batchSize = 500): array
+{
+    $db = getDB();
+    $purged = ['partner_api_logs' => 0, 'axis_api_logs' => 0];
+
+    // PAN regex to detect unmasked values
+    $panPattern = '/[A-Z]{5}\d{4}[A-Z]/';
+    $aadhaarPattern = '/\b\d{12}\b/';
+
+    // 1. partner_api_logs
+    try {
+        $rows = $db->query("SELECT id, request_body, response_body FROM partner_api_logs
+            WHERE (request_body REGEXP '[A-Z]{5}[0-9]{4}[A-Z]'
+                OR response_body REGEXP '[A-Z]{5}[0-9]{4}[A-Z]'
+                OR request_body REGEXP '[0-9]{12}'
+                OR response_body REGEXP '[0-9]{12}')
+            ORDER BY id DESC LIMIT {$batchSize}")->fetchAll();
+        foreach ($rows as $row) {
+            $newReq = maskPiiInString($row['request_body']);
+            $newResp = maskPiiInString($row['response_body']);
+            if ($newReq !== $row['request_body'] || $newResp !== $row['response_body']) {
+                $db->prepare('UPDATE partner_api_logs SET request_body=?, response_body=? WHERE id=?')
+                    ->execute([$newReq, $newResp, $row['id']]);
+                $purged['partner_api_logs']++;
+            }
+        }
+    } catch (Throwable $e) { /* ok */ }
+
+    // 2. axis_api_logs
+    try {
+        $rows = $db->query("SELECT id, request_body, response_body FROM axis_api_logs
+            WHERE (request_body REGEXP '[A-Z]{5}[0-9]{4}[A-Z]'
+                OR response_body REGEXP '[A-Z]{5}[0-9]{4}[A-Z]'
+                OR request_body REGEXP '[0-9]{12}'
+                OR response_body REGEXP '[0-9]{12}')
+            ORDER BY id DESC LIMIT {$batchSize}")->fetchAll();
+        foreach ($rows as $row) {
+            $newReq = maskPiiInString($row['request_body']);
+            $newResp = maskPiiInString($row['response_body']);
+            if ($newReq !== $row['request_body'] || $newResp !== $row['response_body']) {
+                $db->prepare('UPDATE axis_api_logs SET request_body=?, response_body=? WHERE id=?')
+                    ->execute([$newReq, $newResp, $row['id']]);
+                $purged['axis_api_logs']++;
+            }
+        }
+    } catch (Throwable $e) { /* ok */ }
+
+    return $purged;
+}

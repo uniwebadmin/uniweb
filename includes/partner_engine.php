@@ -532,6 +532,14 @@ function getPartnerRegistry(): array
 function partnerLogApi(string $partnerKey, string $endpoint, string $method, ?string $request, ?string $response, int $httpCode, string $status = 'ok'): void
 {
     ensurePartnerEngine();
+    // D10: mask PII before writing to log table
+    if (!function_exists('maskPiiInString') && is_file(__DIR__ . '/partner_payload.php')) {
+        require_once __DIR__ . '/partner_payload.php';
+    }
+    if (function_exists('maskPiiInString')) {
+        $request = maskPiiInString($request);
+        $response = maskPiiInString($response);
+    }
     try {
         getDB()->prepare('INSERT INTO partner_api_logs (partner_key, endpoint, method, request_body, response_body, http_code, status) VALUES (?,?,?,?,?,?,?)')
             ->execute([$partnerKey, $endpoint, $method, $request, $response, $httpCode, $status]);

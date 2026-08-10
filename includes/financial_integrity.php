@@ -463,8 +463,16 @@ function claimApiIdempotency(int $merchantId, string $mode, string $key, array $
 
 function completeApiIdempotency(int $id, int $statusCode, array $response): void
 {
+    // D10: mask PII before storing response
+    $body = json_encode($response, JSON_UNESCAPED_SLASHES);
+    if (!function_exists('maskPiiInString') && is_file(__DIR__ . '/partner_payload.php')) {
+        require_once __DIR__ . '/partner_payload.php';
+    }
+    if (function_exists('maskPiiInString')) {
+        $body = maskPiiInString($body);
+    }
     getDB()->prepare('UPDATE api_idempotency_keys SET response_code=?,response_body=?,completed_at=NOW(),locked_until=NULL WHERE id=?')
-        ->execute([$statusCode, json_encode($response, JSON_UNESCAPED_SLASHES), $id]);
+        ->execute([$statusCode, $body, $id]);
 }
 
 function captureVerifiedPaymentOrder(array $verification): array
