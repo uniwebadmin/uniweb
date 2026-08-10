@@ -220,7 +220,8 @@ function autoVerifyMerchantKyc(int $merchantId): bool
                 $merchantId,
                 'merchant',
                 (string)$merchantId,
-                'Zero-Touch Auto KYC: all docs clean+approved, video KYC verified, no risk flags, name consistency passed'
+                'Zero-Touch Auto KYC: all docs clean+approved, no risk flags, name consistency passed'
+                . (getSetting('video_kyc_optional_test', '0') === '1' ? ' (video KYC bypassed for test mode)' : ', video KYC verified')
             );
         }
 
