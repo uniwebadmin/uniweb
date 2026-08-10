@@ -16,14 +16,12 @@ $partnerKeyParam = trim((string)($_GET['partner'] ?? ''));
 $activeTab = trim((string)($_GET['tab'] ?? 'keys'));
 
 if ($gatewayId <= 0 && $partnerKeyParam !== '') {
-    $partnerRegistryTemp = getPartnerRegistry();
-    if (isset($partnerRegistryTemp[$partnerKeyParam])) {
-        $allGws = getRegisteredGateways();
-        foreach ($allGws as $ag) {
-            if ($ag['gateway_key'] === $partnerKeyParam) {
-                $gatewayId = (int)$ag['id'];
-                break;
-            }
+    // D5: Look up by gateway_key in registry — works for both hardcoded and custom-registered partners
+    $allGws = getRegisteredGateways();
+    foreach ($allGws as $ag) {
+        if ($ag['gateway_key'] === $partnerKeyParam) {
+            $gatewayId = (int)$ag['id'];
+            break;
         }
     }
 }

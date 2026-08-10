@@ -33,8 +33,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             'webhook_url' => trim((string)($_POST['webhook_url'] ?? '')) ?: null,
         ];
         $result = registerGateway($key, $name, $capabilities);
-        flash($result['ok'] ? 'success' : 'error', $result['ok'] ? "Gateway '{$name}' registered as INACTIVE. Click Activate to enable for merchants." : ($result['error'] ?? 'Error'));
-        redirect('admin_gateway_registry.php');
+        if ($result['ok']) {
+            if (function_exists('recordImmutableAudit')) {
+                recordImmutableAudit('partner_created', null, 'gateway', $key, 'Partner registered from admin UI: ' . $name . ' (inactive, key=' . $key . ')');
+            }
+            flash('success', "Partner '{$name}' registered as INACTIVE. Configure keys and methods on the detail page, then Activate.");
+            redirect('admin_gateway_detail.php?partner=' . urlencode($key));
+        } else {
+            flash('error', $result['error'] ?? 'Error');
+            redirect('admin_gateway_registry.php');
+        }
     }
 
     if ($action === 'activate') {

@@ -203,12 +203,23 @@ function setMerchantPaymentMethods(int $merchantId, array $enabledKeys, string $
 }
 
 /**
- * Register a new gateway/partner — auto-adds to all merchant method lists.
+ * Register a new gateway/partner — creates as INACTIVE by default.
+ * Seeds partner_methods rows (all disabled) for the new partner.
+ * Does not auto-activate or auto-enable methods.
  */
 function registerGateway(string $key, string $name, array $capabilities = []): array
 {
     ensurePaymentMethodsTable();
     $db = getDB();
+
+    // Validate key: safe slug charset only
+    if (!preg_match('/^[a-z0-9_]{2,40}$/', $key)) {
+        return ['ok' => false, 'error' => 'Partner key must be 2–40 chars: lowercase letters, numbers, underscore only.'];
+    }
+    if (trim($name) === '') {
+        return ['ok' => false, 'error' => 'Display name is required.'];
+    }
+
     try {
         $collection = $capabilities['collection'] ?? 1;
         $payout = $capabilities['payout'] ?? 0;
@@ -217,15 +228,21 @@ function registerGateway(string $key, string $name, array $capabilities = []): a
         $adapter = $capabilities['adapter'] ?? null;
         $webhookUrl = $capabilities['webhook_url'] ?? null;
         $configJson = $capabilities['config_json'] ?? null;
+        $sortOrder = $capabilities['sort_order'] ?? 99;
 
+        // Check for duplicate
+        $check = $db->prepare("SELECT id FROM gateway_registry WHERE gateway_key=?");
+        $check->execute([$key]);
+        if ($check->fetch()) {
+            return ['ok' => false, 'error' => 'Partner key already exists. Use a different key or configure the existing one.'];
+        }
+
+        // Insert as INACTIVE (is_active=0)
         $db->prepare(
-            "INSERT INTO gateway_registry (gateway_key, gateway_name, adapter_class, is_active, supports_collection, supports_payout, supports_refund, supports_recurring, webhook_url, config_json)
-             VALUES (?,?,?,?,?,?,?,?,?,?)
-             ON DUPLICATE KEY UPDATE gateway_name=VALUES(gateway_name), adapter_class=VALUES(adapter_class), is_active=1,
-                   supports_collection=VALUES(supports_collection), supports_payout=VALUES(supports_payout),
-                   supports_refund=VALUES(supports_refund), supports_recurring=VALUES(supports_recurring),
-                   webhook_url=VALUES(webhook_url), config_json=VALUES(config_json)"
-        )->execute([$key, $name, $adapter, 1, $collection, $payout, $refund, $recurring, $webhookUrl, $configJson]);
+            "INSERT INTO gateway_registry (gateway_key, gateway_name, adapter_class, is_active, supports_collection, supports_payout, supports_refund, supports_recurring, webhook_url, config_json, sort_order)
+             VALUES (?,?,?,?,0,?,?,?,?,?,?)
+             ON DUPLICATE KEY UPDATE gateway_key=gateway_key"
+        )->execute([$key, $name, $adapter, $collection, $payout, $refund, $recurring, $webhookUrl, $configJson, $sortOrder]);
 
         $gatewayId = (int)$db->lastInsertId();
         if (!$gatewayId) {
@@ -234,10 +251,25 @@ function registerGateway(string $key, string $name, array $capabilities = []): a
             $gatewayId = (int)$st->fetchColumn();
         }
 
-        $db->prepare("INSERT INTO gateway_method_map (gateway_id, method_key, is_active) VALUES (?,?,1) ON DUPLICATE KEY UPDATE is_active=1")
+        // Seed gateway_method_map (inactive)
+        $db->prepare("INSERT INTO gateway_method_map (gateway_id, method_key, is_active) VALUES (?,?,0) ON DUPLICATE KEY UPDATE is_active=0")
             ->execute([$gatewayId, $key]);
 
-        return ['ok' => true, 'gateway_id' => $gatewayId];
+        // Seed partner_methods rows (all disabled) for standard methods
+        if (function_exists('seedPartnerMethods')) {
+            // seedPartnerMethods seeds for all registry partners — call it to cover the new one
+            seedPartnerMethods();
+        } elseif (class_exists('PDO') && $db) {
+            $defaultMethods = ['upi', 'credit_card', 'debit_card', 'netbanking', 'emi', 'emandate_upi', 'emandate_card', 'emandate_nb'];
+            foreach ($defaultMethods as $method) {
+                try {
+                    $db->prepare("INSERT IGNORE INTO partner_methods (partner_key, method, is_enabled, priority) VALUES (?,?,0,50)")
+                        ->execute([$key, $method]);
+                } catch (Throwable $e) { /* ok */ }
+            }
+        }
+
+        return ['ok' => true, 'gateway_id' => $gatewayId, 'gateway_name' => $name];
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => $e->getMessage()];
     }

@@ -4,6 +4,19 @@ When Owner signs a new bank or PA (Payment Aggregator), the developer adds them 
 
 ## Steps
 
+### 0. Add partner from Registry UI (control-plane registration)
+
+**Owner / Super-Admin can do this without a developer:**
+
+1. Go to `admin_gateway_registry.php` → "Register Custom Gateway" section at bottom
+2. Enter Partner Key (slug: `lowercase_letters_numbers_underscore`, 2–40 chars) and Display Name
+3. Click "Register" → partner is created as **INACTIVE** (`is_active = 0`) with all methods **disabled**
+4. Redirected to `admin_gateway_detail.php?partner={key}` — shared Detail page opens with tabs (Keys, Methods, Webhooks, Test, Logs)
+5. Paste API keys → enable methods → Activate when ready
+
+**What works without code:** registry row, method toggles, credential storage (encrypted), webhook URL display, audit logging.
+**What still needs a developer:** checkout adapter (`includes/{partner}.php`) + webhook file (`{partner}_webhook.php`) for live payment routing. Until adapter exists, `get_available_pay_methods()` will not return methods for this partner even if enabled — because `isGatewayConfigured()` returns false (no credentials pattern match) and `isPartnerChargeable()` returns false (no chargeable path).
+
 ### 1. Insert row in `gateway_registry` (partners table)
 
 ```sql
