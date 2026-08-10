@@ -50,16 +50,19 @@ add_action('plugins_loaded', static function (): void {
                 'api_key' => [
                     'title' => 'API Key',
                     'type' => 'text',
+                    'description' => 'Get keys from UniWeb Merchant Portal → API Keys (https://uniweb.co.in/dashboard.php)',
                 ],
                 'api_secret' => [
                     'title' => 'API Secret',
                     'type' => 'password',
+                    'description' => 'Get keys from UniWeb Merchant Portal → API Keys. Never share your secret.',
                 ],
                 'mode' => [
                     'title' => 'Mode',
                     'type' => 'select',
-                    'options' => ['test' => 'Test', 'live' => 'Live'],
+                    'options' => ['test' => 'Test (sandbox — no real money)', 'live' => 'Live (real payments)'],
                     'default' => 'test',
+                    'description' => 'Test: use test API keys. Live: use live API keys (requires KYC verified).',
                 ],
                 'api_base' => [
                     'title' => 'API Base URL',
