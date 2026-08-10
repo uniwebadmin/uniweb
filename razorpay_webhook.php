@@ -158,6 +158,30 @@ if (in_array($event, ['payout.processed', 'payout.failed', 'payout.reversed'], t
     }
 }
 
+// G5: Handle mandate/recurring events
+$mandateEvents = ['mandate.authorised', 'mandate.cancelled', 'mandate.failed', 'mandate.revoked'];
+if (in_array($event, $mandateEvents, true)) {
+    try {
+        $mandateEntity = $payload['payload']['mandate']['entity'] ?? [];
+        $mandateId = (string)($mandateEntity['id'] ?? '');
+        $mandateStatus = strtolower((string)($mandateEntity['status'] ?? ''));
+
+        if ($mandateId !== '' && function_exists('updateMandateStatusFromWebhook')) {
+            updateMandateStatusFromWebhook('razorpay', $mandateId, $mandateStatus, $mandateEntity);
+        }
+
+        setGatewayEventStatus((int)$gatewayEvent['id'], 'processed');
+        markWebhookCompleted((int)$webhookEv['id']);
+        logPgWebhook('razorpay', 'mandate_event', $event, $mandateId, null, json_encode(['status' => $mandateStatus]));
+        jsonResponse(['ok' => true, 'mandate_event' => true]);
+    } catch (Throwable $e) {
+        setGatewayEventStatus((int)$gatewayEvent['id'], 'failed', null, $e->getMessage());
+        markWebhookFailed((int)$webhookEv['id'], $e->getMessage());
+        logPlatformError('error', 'Razorpay mandate webhook failed.', ['event_id' => $eventId, 'error' => $e->getMessage()]);
+        jsonResponse(['error' => 'Mandate processing failed'], 422);
+    }
+}
+
 $successEvents = ['payment.captured', 'order.paid'];
 $failureEvents = ['payment.failed'];
 if (in_array($event, $failureEvents, true) && $paymentId !== '') {

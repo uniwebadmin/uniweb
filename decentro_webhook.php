@@ -57,6 +57,47 @@ if (!function_exists('webhookFastAck')) {
 }
 webhookFastAck(['ok' => true, 'received' => true]);
 
+// G5: Handle mandate/recurring events from Decentro
+$mandateEventTypes = ['mandate_registered', 'mandate_authorised', 'mandate_cancelled', 'mandate_failed', 'mandate_revoked', 'autopay_debit_success', 'autopay_debit_failed', 'enach_debit_success', 'enach_debit_failed'];
+if (in_array($eventType, $mandateEventTypes, true) || str_contains($eventType, 'mandate') || str_contains($eventType, 'autopay_debit') || str_contains($eventType, 'enach_debit')) {
+    try {
+        $mandateId = (string)($payload['mandate_id'] ?? $payload['data']['mandate_id'] ?? '');
+        $mandateStatus = strtolower((string)($payload['mandate_status'] ?? $payload['data']['mandate_status'] ?? $txnStatus));
+        $debitRef = (string)($payload['reference_id'] ?? $payload['data']['reference_id'] ?? '');
+
+        if ($mandateId !== '' && function_exists('updateMandateStatusFromWebhook')) {
+            updateMandateStatusFromWebhook('decentro', $mandateId, $mandateStatus, $payload);
+        }
+
+        // G5: Handle debit success/fail — update mandate_debits
+        if (str_contains($eventType, 'debit_success') && $debitRef !== '') {
+            try {
+                $db = getDB();
+                $db->prepare("UPDATE mandate_debits SET status='success', processed_at=NOW() WHERE mandate_ref=? OR idempotency_key=?")
+                    ->execute([$debitRef, $debitRef]);
+            } catch (Throwable $e) {}
+        } elseif (str_contains($eventType, 'debit_failed') && $debitRef !== '') {
+            $failReason = (string)($payload['message'] ?? $payload['data']['error'] ?? 'Decentro debit failed');
+            $mappedReason = function_exists('mapMandateFailureReason') ? mapMandateFailureReason($failReason) : $failReason;
+            try {
+                $db = getDB();
+                $db->prepare("UPDATE mandate_debits SET status='failed', failure_reason=?, mapped_reason=? WHERE mandate_ref=? OR idempotency_key=?")
+                    ->execute([$mappedReason, $mappedReason, $debitRef, $debitRef]);
+            } catch (Throwable $e) {}
+        }
+
+        setGatewayEventStatus((int)$gatewayEvent['id'], 'processed');
+        markWebhookCompleted((int)$webhookEv['id']);
+        logPgWebhook('decentro', 'mandate_event', $eventType, $mandateId ?: $debitRef, null, json_encode(['status' => $mandateStatus]));
+        jsonResponse(['ok' => true, 'mandate_event' => true]);
+    } catch (Throwable $e) {
+        setGatewayEventStatus((int)$gatewayEvent['id'], 'failed', null, $e->getMessage());
+        markWebhookFailed((int)$webhookEv['id'], $e->getMessage());
+        logPlatformError('error', 'Decentro mandate webhook failed.', ['event_id' => $eventId, 'error' => $e->getMessage()]);
+        jsonResponse(['error' => 'Mandate processing failed'], 422);
+    }
+}
+
 // Server-side verification: fetch transaction status from Decentro API
 if ($decentroTxnId !== '') {
     try {
