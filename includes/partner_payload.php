@@ -148,16 +148,47 @@ function build_partner_onboarding_payload(int $merchantId): array
 
 /**
  * D4: Get a redacted version of the payload for logging/display (no raw PII).
+ * Must never contain: plain PAN/GSTIN/CIN/Aadhaar, password/hash, api_secret/api_key,
+ * or full bank account numbers.
  */
 function redactPartnerPayload(array $payload): array
 {
     if (isset($payload['merchant'])) {
         $m = &$payload['merchant'];
-        if (function_exists('pii_mask_pan')) {
-            $m['pan'] = !empty($m['pan']) ? pii_mask_pan(sensitiveEncrypt($m['pan'])) : '';
-            $m['gstin'] = !empty($m['gstin']) ? pii_mask_gstin(sensitiveEncrypt($m['gstin'])) : '';
-            $m['cin_llpin'] = !empty($m['cin_llpin']) ? pii_mask_pan(sensitiveEncrypt($m['cin_llpin'])) : '';
+
+        // Strip any sensitive fields that should never be in a stored payload
+        unset(
+            $m['password'], $m['password_hash'], $m['api_secret'], $m['api_key'],
+            $m['totp_secret'], $m['aadhaar'], $m['aadhaar_number'],
+            $m['pan_number'], $m['gstin'], $m['cin_llpin'],
+            $m['bank_account_number'], $m['account_number'],
+        );
+
+        // Redact PAN
+        if (!empty($m['pan'])) {
+            if (function_exists('pii_mask_pan')) {
+                $m['pan'] = pii_mask_pan($m['pan']);
+            } else {
+                $m['pan'] = '****' . substr((string)$m['pan'], -4);
+            }
         }
+        // Redact GSTIN
+        if (!empty($m['gstin'])) {
+            if (function_exists('pii_mask_gstin')) {
+                $m['gstin'] = pii_mask_gstin($m['gstin']);
+            } else {
+                $m['gstin'] = '****' . substr((string)$m['gstin'], -4);
+            }
+        }
+        // Redact CIN
+        if (!empty($m['cin_llpin'])) {
+            if (function_exists('pii_mask_pan')) {
+                $m['cin_llpin'] = pii_mask_pan($m['cin_llpin']);
+            } else {
+                $m['cin_llpin'] = '****' . substr((string)$m['cin_llpin'], -4);
+            }
+        }
+
         // Mask phone partially
         if (!empty($m['phone'])) {
             $m['phone'] = '****' . substr($m['phone'], -4);
@@ -168,18 +199,59 @@ function redactPartnerPayload(array $payload): array
             $m['email'] = substr($local, 0, 2) . '***@' . $domain;
         }
     }
+
+    // Redact bank verification — mask account holder name, keep only IFSC prefix
+    if (isset($payload['bank_verification']) && is_array($payload['bank_verification'])) {
+        $b = &$payload['bank_verification'];
+        // Never store full account numbers — only last 4 if present
+        if (!empty($b['account_number'])) {
+            $b['account_number'] = '****' . substr((string)$b['account_number'], -4);
+        }
+        // Strip any account_holder that might contain sensitive info
+        if (!empty($b['account_holder'])) {
+            $b['account_holder'] = '****' . substr((string)$b['account_holder'], -2);
+        }
+    }
+
+    // Redact any top-level sensitive keys that might have been added by old code paths
+    foreach (['password', 'password_hash', 'api_secret', 'api_key', 'totp_secret', 'aadhaar', 'secret'] as $dangerousKey) {
+        unset($payload[$dangerousKey]);
+    }
+
     return $payload;
 }
 
 /**
  * Purge plaintext secrets from old gateway_submissions and partner_forward_queue rows.
  * Overwrites payload with redacted version or NULL if cannot be redacted.
+ * Idempotent: safe to run multiple times — already-redacted rows are skipped.
  * Returns count of rows purged.
  */
 function purgeSecretsFromSubmissions(): array
 {
     $db = getDB();
     $purged = ['gateway_submissions' => 0, 'partner_forward_queue' => 0];
+
+    // Helper: detect if a merchant sub-array contains plaintext secrets
+    $hasPlaintextSecrets = static function (array $m): bool {
+        // Password / api_secret / totp_secret — always dangerous
+        if (isset($m['password']) || isset($m['password_hash'])
+            || isset($m['api_secret']) || isset($m['api_key'])
+            || isset($m['totp_secret']) || isset($m['secret'])) {
+            return true;
+        }
+        // PAN: plaintext if not masked (doesn't start with ****)
+        foreach (['pan', 'pan_number', 'gstin', 'cin_llpin', 'aadhaar', 'aadhaar_number'] as $field) {
+            if (!empty($m[$field]) && !str_starts_with((string)$m[$field], '****') && !str_starts_with((string)$m[$field], '—')) {
+                return true;
+            }
+        }
+        // Full bank account number
+        if (!empty($m['bank_account_number']) && !str_starts_with((string)$m['bank_account_number'], '****')) {
+            return true;
+        }
+        return false;
+    };
 
     // 1. Purge gateway_submissions
     try {
@@ -192,21 +264,22 @@ function purgeSecretsFromSubmissions(): array
                 $purged['gateway_submissions']++;
                 continue;
             }
-            // Check if it contains raw merchant data (old format with SELECT *)
+            $needsPurge = false;
             if (isset($data['merchant']) && is_array($data['merchant'])) {
-                // Check for plaintext PAN/GST/password fields
-                $m = $data['merchant'];
-                $hasSecrets = isset($m['pan_number']) || isset($m['gstin']) || isset($m['password'])
-                    || isset($m['api_secret']) || isset($m['totp_secret']);
-                if ($hasSecrets) {
-                    // Strip sensitive fields and redact
-                    unset($data['merchant']['password'], $data['merchant']['api_secret'],
-                        $data['merchant']['totp_secret'], $data['merchant']['pan_number'],
-                        $data['merchant']['gstin'], $data['merchant']['cin_llpin']);
-                    $db->prepare("UPDATE gateway_submissions SET payload=? WHERE id=?")
-                        ->execute([json_encode($data), $row['id']]);
-                    $purged['gateway_submissions']++;
+                $needsPurge = $hasPlaintextSecrets($data['merchant']);
+            }
+            // Also check top-level dangerous keys
+            foreach (['password', 'password_hash', 'api_secret', 'api_key', 'totp_secret', 'aadhaar', 'secret'] as $dk) {
+                if (isset($data[$dk])) {
+                    $needsPurge = true;
+                    break;
                 }
+            }
+            if ($needsPurge) {
+                $redacted = redactPartnerPayload($data);
+                $db->prepare("UPDATE gateway_submissions SET payload=? WHERE id=?")
+                    ->execute([json_encode($redacted), $row['id']]);
+                $purged['gateway_submissions']++;
             }
         }
     } catch (Throwable $e) { /* ok */ }
@@ -221,17 +294,21 @@ function purgeSecretsFromSubmissions(): array
                 $purged['partner_forward_queue']++;
                 continue;
             }
+            $needsPurge = false;
             if (isset($data['merchant']) && is_array($data['merchant'])) {
-                $m = $data['merchant'];
-                $hasSecrets = isset($m['pan']) && !str_starts_with((string)$m['pan'], '****')
-                    || isset($m['gstin']) && !str_starts_with((string)$m['gstin'], '****')
-                    || isset($m['password']) || isset($m['api_secret']) || isset($m['totp_secret']);
-                if ($hasSecrets) {
-                    $redacted = redactPartnerPayload($data);
-                    $db->prepare("UPDATE partner_forward_queue SET package_payload=? WHERE id=?")
-                        ->execute([json_encode($redacted), $row['id']]);
-                    $purged['partner_forward_queue']++;
+                $needsPurge = $hasPlaintextSecrets($data['merchant']);
+            }
+            foreach (['password', 'password_hash', 'api_secret', 'api_key', 'totp_secret', 'aadhaar', 'secret'] as $dk) {
+                if (isset($data[$dk])) {
+                    $needsPurge = true;
+                    break;
                 }
+            }
+            if ($needsPurge) {
+                $redacted = redactPartnerPayload($data);
+                $db->prepare("UPDATE partner_forward_queue SET package_payload=? WHERE id=?")
+                    ->execute([json_encode($redacted), $row['id']]);
+                $purged['partner_forward_queue']++;
             }
         }
     } catch (Throwable $e) { /* ok */ }

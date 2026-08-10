@@ -12,6 +12,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $merchantId = (int)($_POST['merchant_id'] ?? 0);
     $redirectTo = 'admin_gateway_submit.php' . ($merchantId ? ('?merchant_id=' . $merchantId) : '');
 
+    if ($action === 'purge_secrets' && isSuperAdmin()) {
+        if (!function_exists('purgeSecretsFromSubmissions')) {
+            require_once __DIR__ . '/includes/partner_payload.php';
+        }
+        $result = purgeSecretsFromSubmissions();
+        $total = $result['gateway_submissions'] + $result['partner_forward_queue'];
+        flash('success', "Secrets purge complete. {$total} rows cleaned (gateway_submissions: {$result['gateway_submissions']}, partner_forward_queue: {$result['partner_forward_queue']}).");
+        recordImmutableAudit('purge_secrets', null, 'admin', (string)$adminId, "Purged plaintext secrets from {$total} submission rows");
+        redirect($redirectTo);
+    }
+
     if ($action === 'update_status') {
         $submissionId = (int)($_POST['submission_id'] ?? 0);
         $status = (string)($_POST['status'] ?? '');
@@ -254,5 +265,17 @@ require_once __DIR__ . '/header.php';
         </div>
         <?php endif; ?>
     </div>
+
+    <?php if (isSuperAdmin()): ?>
+    <div class="glass rounded-xl p-4 sm:p-6 border border-red-500/20">
+        <h2 class="font-semibold text-red-400 mb-2">Security Cleanup — Purge Plaintext Secrets</h2>
+        <p class="text-xs text-gray-500 mb-3">Scans all <code class="text-xs bg-gray-800 px-1 rounded">gateway_submissions</code> and <code class="text-xs bg-gray-800 px-1 rounded">partner_forward_queue</code> rows for plaintext PAN/GST/password/api_secret and overwrites them with redacted versions. <strong class="text-amber-400">Take a DB backup before running.</strong> Safe to run multiple times (idempotent).</p>
+        <form method="POST" class="inline" onsubmit="return confirm('Have you taken a DB backup? This will overwrite old payload data. Continue?')">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="action" value="purge_secrets">
+            <button type="submit" class="px-4 py-2 rounded-lg bg-red-600/20 text-red-400 hover:bg-red-600/30 text-sm font-medium">Purge Old Secrets Now</button>
+        </form>
+    </div>
+    <?php endif; ?>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>
