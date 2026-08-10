@@ -99,6 +99,9 @@ function getMerchantStatsForMode(int $merchantId, bool $testMode): array
     $rateRow = $rateSt->fetch() ?: ['total' => 0, 'ok' => 0];
     $rateTotal = (int)($rateRow['total'] ?? 0);
     $successRate = $rateTotal > 0 ? round(100 * (int)($rateRow['ok'] ?? 0) / $rateTotal, 1) : 0.0;
+    $failedSt = $db->prepare("SELECT COUNT(*) as cnt FROM transactions WHERE merchant_id = ? AND status = 'failed' AND DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)" . $modeSql);
+    $failedSt->execute([$merchantId]);
+    $failedCount = (int)($failedSt->fetch()['cnt'] ?? 0);
     return [
         'today_amount' => capStatAmount((float)($todayData['total'] ?? 0), (int)($todayData['count'] ?? 0)),
         'today_count' => (int)($todayData['count'] ?? 0),
@@ -107,6 +110,7 @@ function getMerchantStatsForMode(int $merchantId, bool $testMode): array
         'total_amount' => capStatAmount((float)($totalData['total'] ?? 0), (int)($totalData['count'] ?? 0)),
         'total_count' => (int)($totalData['count'] ?? 0),
         'success_rate' => $successRate,
+        'failed_count_7d' => $failedCount,
     ];
 }
 

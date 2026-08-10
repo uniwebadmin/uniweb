@@ -59,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ->execute([$id]);
             } catch (Throwable $e) { /* column may be missing on older DBs */ }
             recordImmutableAudit('video_kyc_verified', $id, 'merchant', (string)$id, $reason);
+            logStaffActivity('video_kyc_verified', $reason, $id, 'merchant', (string)$id);
             createNotification($id, 'Video KYC Verified', 'Your Video KYC was approved. Continue with remaining onboarding steps.');
             sendTemplatedEmail($id, 'kyc_approved', []);
             flash('success', 'Video KYC marked verified.');

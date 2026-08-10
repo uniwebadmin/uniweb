@@ -146,6 +146,16 @@ if ($balanceBreakdown):
     <?php endforeach; ?>
 </div>
 
+<?php if (!empty($stats['failed_count_7d']) && $stats['failed_count_7d'] > 0): ?>
+<div class="glass rounded-xl p-4 mb-6 border border-red-500/20 flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <p class="text-sm font-semibold text-red-300">Failed Payments (7 days)</p>
+        <p class="text-xs text-gray-500 mt-1"><?= (int)$stats['failed_count_7d'] ?> failed transaction(s) in the last 7 days</p>
+    </div>
+    <a href="transactions.php?status=failed" class="text-xs text-red-400 hover:underline">View failed transactions →</a>
+</div>
+<?php endif; ?>
+
 <?php if (function_exists('getMerchantHealthScore')): $healthScore = getMerchantHealthScore((int)$merchant['id']); ?>
 <div class="glass rounded-xl p-5 mb-8 border border-emerald-500/20">
     <div class="flex flex-wrap items-center justify-between gap-3">

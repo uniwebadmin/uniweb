@@ -395,19 +395,19 @@ function sendLoginOtpViaWhatsAppAndEmail(array $merchant, string $otp): array
 function notificationEventFromTitle(string $title): ?string
 {
     $t = strtolower($title);
-    if (str_contains($t, 'payment') || str_contains($t, 'received')) {
+    if (str_contains($t, 'payment') || str_contains($t, 'received') || str_contains($t, 'recurring payment')) {
         return 'payment_success';
     }
-    if (str_contains($t, 'fail') || str_contains($t, 'failed')) {
+    if (str_contains($t, 'fail') || str_contains($t, 'failed') || str_contains($t, 'debit failed')) {
         return 'payment_failed';
     }
-    if (str_contains($t, 'settlement') || str_contains($t, 'payout access')) {
+    if (str_contains($t, 'settlement') || str_contains($t, 'payout access') || str_contains($t, 'payout sent') || str_contains($t, 'payout successful') || str_contains($t, 'payout failed')) {
         return 'settlement';
     }
     if (str_contains($t, 'refund')) {
         return 'refund';
     }
-    if (str_contains($t, 'kyc') || str_contains($t, 'video kyc') || str_contains($t, 'account live') || str_contains($t, '2fa')) {
+    if (str_contains($t, 'kyc') || str_contains($t, 'video kyc') || str_contains($t, 'account live') || str_contains($t, '2fa') || str_contains($t, 'mandate')) {
         return 'account';
     }
     return null;

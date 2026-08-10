@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
-requireAdmin();
+requireSuperAdmin();
 
 $pageTitle = 'Ledger State Machine';
 $adminSection = 'financial';

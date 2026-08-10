@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
-requireAdmin();
+requireSuperAdmin();
 if (!function_exists('getAllAuditLog') && is_file(__DIR__ . '/includes/audit_log.php')) {
     require_once __DIR__ . '/includes/audit_log.php';
 }

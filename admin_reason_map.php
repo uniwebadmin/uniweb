@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
-requireAdmin();
+requireSuperAdmin();
 
 $pageTitle = 'Reason Map Manager';
 $adminSection = 'financial';

@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
-requireAdmin();
+requireSuperAdmin();
 if (!function_exists('getPlatformWalletBalance') && is_file(__DIR__ . '/includes/wallet.php')) {
     require_once __DIR__ . '/includes/wallet.php';
 }
