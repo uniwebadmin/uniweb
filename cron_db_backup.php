@@ -155,6 +155,8 @@ $payload = [
     'email_sent' => $emailSent,
 ];
 
+recordCronHeartbeat('db_backup', 'ok');
+
 if (!$isCli) {
     sendCronJsonResponse($payload);
 }

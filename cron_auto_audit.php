@@ -16,6 +16,7 @@ if (empty($auth['ok'])) {
 $http = ($_GET['http'] ?? '0') === '1';
 $verbose = ($_GET['verbose'] ?? '0') === '1';
 $report = runBackgroundAutoAudit($http, 'cron');
+recordCronHeartbeat('auto_audit', !empty($report['ok']) ? 'ok' : 'error');
 $health = getCronHealthStatus();
 $webhookQueue = processMerchantWebhookQueue(25);
 $kycScans = processPendingKycScans(10);

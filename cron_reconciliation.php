@@ -25,4 +25,6 @@ generateDailyReconciliationSummary($today);
 // Auto-mark reconciled for last 7 days
 $marked = autoMarkReconciledTransactions(7);
 
+recordCronHeartbeat('reconciliation', 'ok');
+
 echo "Reconciliation cron done: " . count($summaries) . " gateway summaries for {$yesterday}, {$marked} txns auto-marked.\n";

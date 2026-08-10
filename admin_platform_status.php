@@ -224,10 +224,60 @@ require_once __DIR__ . '/header.php';
     </div>
 </div>
 
+<?php
+$cronHeartbeats = getCronHeartbeatStatus();
+?>
+<div class="glass rounded-xl p-6 mb-8 border border-gray-800">
+    <div class="flex items-center justify-between gap-4 mb-4">
+        <div>
+            <h3 class="font-semibold">⏰ Cron Job Status</h3>
+            <p class="text-xs text-gray-500 mt-1">Last run of each scheduled job. STALE = not seen within expected window. NEVER = no heartbeat recorded yet.</p>
+        </div>
+        <a href="admin_platform_status.php?refresh_health=<?= csrfToken() ?>" class="text-xs px-3 py-2 rounded-lg border border-gray-700 text-gray-300 hover:text-white">Refresh</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="text-gray-500 uppercase text-xs bg-dark-900/50">
+                <tr>
+                    <th class="px-4 py-2 text-left">Job</th>
+                    <th class="px-4 py-2 text-left">Schedule</th>
+                    <th class="px-4 py-2 text-left">Last Run</th>
+                    <th class="px-4 py-2 text-left">Age</th>
+                    <th class="px-4 py-2 text-left">Status</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-800">
+                <?php foreach ($cronHeartbeats as $ch): ?>
+                <tr class="hover:bg-white/5">
+                    <td class="px-4 py-3 text-gray-300"><?= e($ch['label']) ?></td>
+                    <td class="px-4 py-3 text-gray-500 text-xs"><?= e($ch['schedule']) ?></td>
+                    <td class="px-4 py-3 text-gray-400 text-xs font-mono"><?= $ch['last_run'] ? e($ch['last_run']) : '—' ?></td>
+                    <td class="px-4 py-3 text-gray-400 text-xs"><?= e($ch['age_human']) ?></td>
+                    <td class="px-4 py-3">
+                        <?php
+                        $statusClass = match($ch['status']) {
+                            'OK' => 'bg-emerald-500/20 text-emerald-400',
+                            'STALE' => 'bg-amber-500/20 text-amber-400',
+                            'NEVER' => 'bg-red-500/20 text-red-400',
+                            default => 'bg-gray-700/50 text-gray-400',
+                        };
+                        ?>
+                        <span class="text-[10px] px-2 py-1 rounded-full <?= $statusClass ?>"><?= e($ch['status']) ?></span>
+                        <?php if ($ch['status'] === 'STALE'): ?>
+                            <span class="text-[10px] text-gray-600 ml-1">Check Hostinger Cron Jobs</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <p class="text-[11px] text-gray-600 mt-3">See <a href="admin_error_log.php" class="text-sky-400 hover:underline">Error Log</a> for cron failure details. Cron URLs/keys are not shown on this page.</p>
+</div>
+
 <div class="glass rounded-xl p-6 border border-gray-800">
 
     <h3 class="font-semibold mb-3">End-to-End Test Path</h3>
-
     <ol class="text-sm text-gray-400 space-y-2 list-decimal list-inside">
 
         <li>Register new merchant → auto Payment Pack</li>

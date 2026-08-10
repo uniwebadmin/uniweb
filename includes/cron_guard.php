@@ -134,3 +134,83 @@ function cronHealthLabel(array $health): string
     }
     return 'Not started — add Hostinger cron (every ' . (int)($health['interval_min'] ?? 10) . ' min).';
 }
+
+/**
+ * D9: Record a cron heartbeat — call at end of each cron job.
+ * Stores timestamp in gateway_settings as cron_heartbeat_{job}.
+ */
+function recordCronHeartbeat(string $job, string $status = 'ok'): void
+{
+    $key = 'cron_heartbeat_' . $job;
+    $value = json_encode(['ts' => date('Y-m-d H:i:s'), 'status' => $status]);
+    try {
+        getDB()->prepare('INSERT INTO gateway_settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=?')
+            ->execute([$key, $value, $value]);
+    } catch (Throwable $e) { /* non-fatal */ }
+}
+
+/**
+ * D9: Get heartbeat status for all inventory cron jobs.
+ * Returns array of [job, label, schedule, last_run, age_human, status_code, stale_after_hours]
+ */
+function getCronHeartbeatStatus(): array
+{
+    $jobs = [
+        ['job' => 'auto_audit',          'label' => 'Auto Audit (includes forward queue + webhook retry)', 'schedule' => 'Every 10 min',  'stale_hours' => 1],
+        ['job' => 'auto_kyc',             'label' => 'Auto KYC Engine',                                      'schedule' => 'Every 10 min',  'stale_hours' => 1],
+        ['job' => 'settlements',          'label' => 'Settlements + Payout Dispatch',                        'schedule' => 'Every 15 min',  'stale_hours' => 1],
+        ['job' => 'mandates',             'label' => 'Mandate Debits (recurring)',                           'schedule' => 'Daily 09:00',   'stale_hours' => 36],
+        ['job' => 'db_backup',            'label' => 'Database Backup',                                      'schedule' => 'Daily 02:00',   'stale_hours' => 36],
+        ['job' => 'reconciliation',       'label' => 'Reconciliation Summary',                               'schedule' => 'Daily 03:00',   'stale_hours' => 36],
+        ['job' => 'bank_reconciliation',  'label' => 'Bank Reconciliation',                                  'schedule' => 'Daily 04:00',   'stale_hours' => 36],
+    ];
+
+    $result = [];
+    foreach ($jobs as $j) {
+        $key = 'cron_heartbeat_' . $j['job'];
+        $raw = null;
+        try {
+            $stmt = getDB()->prepare('SELECT setting_value FROM gateway_settings WHERE setting_key=? LIMIT 1');
+            $stmt->execute([$key]);
+            $raw = $stmt->fetchColumn() ?: null;
+        } catch (Throwable $e) { /* ok */ }
+
+        if ($raw) {
+            $data = json_decode((string)$raw, true);
+            $ts = $data['ts'] ?? null;
+            $status = $data['status'] ?? 'ok';
+            if ($ts) {
+                $ageSec = max(0, time() - strtotime($ts));
+                $ageHours = $ageSec / 3600;
+                $staleHours = $j['stale_hours'];
+                if ($ageHours > $staleHours) {
+                    $code = 'STALE';
+                } else {
+                    $code = 'OK';
+                }
+                // Human-readable age
+                if ($ageSec < 60) {
+                    $ageHuman = $ageSec . 's ago';
+                } elseif ($ageSec < 3600) {
+                    $ageHuman = floor($ageSec / 60) . ' min ago';
+                } else {
+                    $ageHuman = floor($ageSec / 3600) . 'h ' . floor(($ageSec % 3600) / 60) . 'm ago';
+                }
+                $result[] = [
+                    'job' => $j['job'],
+                    'label' => $j['label'],
+                    'schedule' => $j['schedule'],
+                    'last_run' => $ts,
+                    'age_human' => $ageHuman,
+                    'status' => $code,
+                    'heartbeat_status' => $status,
+                ];
+            } else {
+                $result[] = array_merge($j, ['last_run' => null, 'age_human' => 'Never', 'status' => 'NEVER', 'heartbeat_status' => '']);
+            }
+        } else {
+            $result[] = array_merge($j, ['last_run' => null, 'age_human' => 'Never', 'status' => 'NEVER', 'heartbeat_status' => '']);
+        }
+    }
+    return $result;
+}

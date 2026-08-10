@@ -17,6 +17,7 @@ if ($key !== $expected && !isAdminLoggedIn()) {
 
 try {
     $res = runBankReconciliationFetch();
+    recordCronHeartbeat('bank_reconciliation', 'ok');
     echo 'Bank reconciliation cron ' . date('Y-m-d H:i:s') . "\n";
     if (!empty($res['skipped'])) {
         echo $res['message'] ?? 'Skipped' . "\n";

@@ -38,6 +38,8 @@ if (function_exists('processDueMandateCharges')) {
     $summary['recurring'] = processDueMandateCharges(50);
 }
 
+recordCronHeartbeat('mandates', 'ok');
+
 if ($isCli) {
     echo "Mandate processing: " . json_encode($summary) . "\n";
 } else {

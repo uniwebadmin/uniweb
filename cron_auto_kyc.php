@@ -28,6 +28,7 @@ if (!function_exists('runAutoKycEngine')) {
 }
 
 $summary = runAutoKycEngine();
+recordCronHeartbeat('auto_kyc', !empty($summary['ok']) ? 'ok' : 'error');
 
 // D3: Process legacy partner forward queue (auto_kyc.php)
 $forwardSummary = ['processed' => 0, 'forwarded' => 0, 'errors' => 0];

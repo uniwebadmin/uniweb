@@ -17,6 +17,7 @@ if ($key !== $expected && !isAdminLoggedIn()) {
 try {
     $results = runScheduledSettlementBatches();
     logSettlementCronRun($results);
+    recordCronHeartbeat('settlements', 'ok');
 
     echo 'Settlement cron ' . date('Y-m-d H:i:s') . "\n";
     echo 'Processed: ' . count($results) . " merchant batch(es)\n";
