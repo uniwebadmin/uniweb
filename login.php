@@ -200,7 +200,7 @@ require_once __DIR__ . '/header.php';
                 <button type="submit" class="ap-btn"><?= __('login_btn') ?></button>
             </form>
             <?php endif; ?>
-            <p class="ap-foot"><?= __('no_account') ?> <a href="merchant_register.php" class="ap-link"><?= __('create_account') ?></a> · <a href="admin_login.php" class="ap-text-link">Admin Login →</a></p>
+            <p class="ap-foot"><?= __('no_account') ?> <a href="merchant_register.php" class="ap-link"><?= __('create_account') ?></a></p>
         </div>
     </div>
 </div>
