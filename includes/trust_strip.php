@@ -1,18 +1,12 @@
 <?php
 /** Reusable trust / compliance strip for public pages and checkout */
-$activePg = getSetting('active_payment_gateway', 'razorpay');
-$trustPartners = array_values(array_filter([
-    isGatewayConfigured('razorpay') ? 'Razorpay' : null,
-    isGatewayConfigured('cashfree') ? 'Cashfree' : null,
-    isGatewayConfigured('payu') ? 'PayU' : null,
-    isGatewayConfigured('axis') ? 'Axis Bank' : null,
-]));
+if (!function_exists('getPublicLivePartners')) {
+    require_once __DIR__ . '/partner_control.php';
+}
+$livePartners = getPublicLivePartners();
 $badges = ['HTTPS Transport', 'Secure Sessions', 'GST Registered', 'Signed Provider Webhooks', 'Test / Live Separation'];
 if ((int)getSetting('whatsapp_enabled', '0') === 1) {
     $badges[] = 'WhatsApp OTP';
-}
-if (isGatewayConfigured($activePg)) {
-    $badges[] = ucfirst($activePg) . ' Configured';
 }
 ?>
 <div class="trust-strip">
@@ -24,9 +18,11 @@ if (isGatewayConfigured($activePg)) {
         </span>
         <?php endforeach; ?>
     </div>
-    <?php if ($trustPartners): ?><div class="flex flex-wrap justify-center items-center gap-4 sm:gap-6 opacity-80">
-        <?php foreach ($trustPartners as $p): ?>
-        <span class="text-xs sm:text-sm font-bold tracking-wide text-gray-400 uppercase"><?= e($p) ?> configured</span>
+    <?php if ($livePartners): ?><div class="flex flex-wrap justify-center items-center gap-4 sm:gap-6 opacity-80">
+        <?php foreach ($livePartners as $p): ?>
+        <span class="text-xs sm:text-sm font-bold tracking-wide text-gray-400 uppercase"><?= e($p['icon']) ?> <?= e($p['name']) ?></span>
         <?php endforeach; ?>
-    </div><?php endif; ?>
+    </div><?php else: ?>
+    <p class="text-center text-xs text-gray-600">Payment partners onboarding</p>
+    <?php endif; ?>
 </div>

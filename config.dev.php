@@ -461,12 +461,15 @@ function notificationActionUrl(array $row): string
  * ------------------------------------------------------------------ */
 function getPublicStats(): array
 {
-    $stats = ['volume' => 0.0, 'merchants' => 0, 'transactions' => 0];
+    $stats = ['volume' => 0.0, 'merchants' => 0, 'transactions' => 0, 'partners' => 0];
     try {
         $db = getDB();
-        $stats['merchants'] = (int)$db->query("SELECT COUNT(*) FROM merchants WHERE status='active'")->fetchColumn();
-        $stats['transactions'] = (int)$db->query("SELECT COUNT(*) FROM transactions WHERE status='success'")->fetchColumn();
-        $stats['volume'] = (float)$db->query("SELECT COALESCE(SUM(amount),0) FROM transactions WHERE status='success'")->fetchColumn();
+        $stats['merchants'] = (int)$db->query("SELECT COUNT(*) FROM merchants WHERE status='active' AND account_mode='live' AND email != 'demo@uniweb.co.in'")->fetchColumn();
+        $stats['transactions'] = (int)$db->query("SELECT COUNT(*) FROM transactions t JOIN merchants m ON m.id=t.merchant_id WHERE t.status='success' AND t.is_test=0 AND m.account_mode='live' AND m.email != 'demo@uniweb.co.in'")->fetchColumn();
+        $stats['volume'] = (float)$db->query("SELECT COALESCE(SUM(t.amount),0) FROM transactions t JOIN merchants m ON m.id=t.merchant_id WHERE t.status='success' AND t.is_test=0 AND m.account_mode='live' AND m.email != 'demo@uniweb.co.in'")->fetchColumn();
+        if (function_exists('getPublicLivePartners')) {
+            $stats['partners'] = count(getPublicLivePartners());
+        }
     } catch (Throwable $e) {
         // tables may be empty/missing; return zeros
     }

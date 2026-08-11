@@ -42,6 +42,10 @@ function ensurePaymentMethodsTable(): void
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+        try { getDB()->exec("ALTER TABLE gateway_registry ADD COLUMN public_go_live TINYINT(1) NOT NULL DEFAULT 0"); } catch (Throwable $e) { /* already exists */ }
+        try { getDB()->exec("ALTER TABLE gateway_registry ADD COLUMN public_go_live_at TIMESTAMP NULL DEFAULT NULL"); } catch (Throwable $e) { /* already exists */ }
+        try { getDB()->exec("ALTER TABLE gateway_registry ADD COLUMN public_go_live_by VARCHAR(120) DEFAULT NULL"); } catch (Throwable $e) { /* already exists */ }
+
         getDB()->exec("CREATE TABLE IF NOT EXISTS gateway_method_map (
             id INT AUTO_INCREMENT PRIMARY KEY,
             gateway_id INT NOT NULL,

@@ -37,7 +37,7 @@ require_once __DIR__ . '/header.php';
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-3xl mx-auto">
             <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= formatPublicVolume($publicStats['volume']) ?></div><div class="text-xs text-gray-500 mt-1">Verified Live Volume</div></div>
             <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= number_format($publicStats['merchants']) ?></div><div class="text-xs text-gray-500 mt-1">Live Merchants</div></div>
-            <div><div class="text-2xl sm:text-3xl font-bold text-brand-400">8</div><div class="text-xs text-gray-500 mt-1">API Endpoints</div></div>
+            <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= number_format($publicStats['partners'] ?? 0) ?></div><div class="text-xs text-gray-500 mt-1">Live Partners</div></div>
             <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= number_format($publicStats['transactions']) ?></div><div class="text-xs text-gray-500 mt-1">Verified Live Payments</div></div>
         </div>
         <p class="text-center text-xs text-gray-600 mt-6"><a href="api_docs.php" class="text-sky-400 hover:underline">OpenAPI docs</a> · HMAC webhook signing · Self-hosted QR · Compiled CSS</p>
@@ -210,7 +210,7 @@ require_once __DIR__ . '/header.php';
     <div class="max-w-6xl mx-auto px-4 sm:px-6">
         <?php require __DIR__ . '/includes/trust_strip.php'; ?>
         <p class="text-center text-[11px] text-gray-600 mt-5 max-w-3xl mx-auto">
-            <?= e(COMPANY_LEGAL_NAME) ?> · GST <?= COMPANY_GST ?> · CIN <?= COMPANY_CIN ?> · Live payment services are subject to merchant and partner activation.
+            <?= e(COMPANY_LEGAL_NAME) ?> · GST <?= COMPANY_GST ?> · CIN <?= COMPANY_CIN ?>
         </p>
     </div>
 </section>

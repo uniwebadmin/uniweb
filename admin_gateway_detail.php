@@ -78,6 +78,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=methods');
     }
 
+    if ($action === 'toggle_go_live') {
+        $goLive = isset($_POST['go_live']);
+        $adminEmail = $_SESSION['staff_email'] ?? $_SESSION['admin_email'] ?? 'admin';
+        $result = setPartnerGoLive($gatewayId, $goLive, $adminEmail);
+        flash($result['ok'] ? 'success' : 'error', $result['ok'] ? ($goLive ? 'Partner is now live on public website.' : 'Partner removed from public website.') : ($result['error'] ?? 'Failed'));
+        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=' . $activeTab);
+    }
+
     if ($action === 'save_reason_map') {
         $rawCode = trim((string)($_POST['raw_code'] ?? ''));
         $msgEn = trim((string)($_POST['msg_en'] ?? ''));
@@ -159,6 +167,33 @@ require_once __DIR__ . '/header.php';
             <?php if ($partner && $partner['dashboard']): ?>
             <a href="<?= e($partner['dashboard']) ?>" target="_blank" rel="noopener" class="glass px-5 py-2.5 rounded-xl text-sm">Dashboard ↗</a>
             <?php endif; ?>
+        </div>
+    </div>
+
+    <div class="glass rounded-xl p-6 border border-gray-800">
+        <h3 class="font-semibold mb-1">Public Website</h3>
+        <p class="text-xs text-gray-500 mb-4">Control whether this partner appears on the public homepage "Our Partners" section. Go Live requires: partner active, live credentials saved, and at least one payment method enabled.</p>
+        <div class="flex flex-wrap items-center gap-4">
+            <form method="POST" class="inline">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="toggle_go_live">
+                <?php $isGoLive = (int)($gateway['public_go_live'] ?? 0) === 1; ?>
+                <?php if ($isGoLive): ?>
+                <input type="hidden" name="go_live" value="0">
+                <button type="submit" class="text-xs px-4 py-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" onclick="return confirm('Remove from public website?')">● Go Live ON — Click to turn OFF</button>
+                <?php else: ?>
+                <input type="hidden" name="go_live" value="1">
+                <button type="submit" class="text-xs px-4 py-2.5 rounded-lg bg-gray-700/50 text-gray-400 border border-gray-600" onclick="return confirm('Show this partner on public website?')">○ Go Live OFF — Click to turn ON</button>
+                <?php endif; ?>
+            </form>
+            <div class="text-xs text-gray-500 space-y-0.5">
+                <div>Active: <span class="<?= $isActive ? 'text-emerald-400' : 'text-red-400' ?>"><?= $isActive ? 'Yes' : 'No' ?></span></div>
+                <div>Live keys: <span class="<?= $credStatus['live'] ? 'text-emerald-400' : 'text-red-400' ?>"><?= $credStatus['live'] ? 'Yes' : 'No' ?></span></div>
+                <div>Methods enabled: <span class="<?= !empty(array_filter($partnerMethods, fn($m) => (int)$m['is_enabled'] === 1)) ? 'text-emerald-400' : 'text-red-400' ?>"><?= count(array_filter($partnerMethods, fn($m) => (int)$m['is_enabled'] === 1)) ?></span></div>
+                <?php if ($isGoLive && !empty($gateway['public_go_live_at'])): ?>
+                <div class="text-gray-600">Go Live since: <?= e((string)$gateway['public_go_live_at']) ?> by <?= e((string)($gateway['public_go_live_by'] ?? '')) ?></div>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 

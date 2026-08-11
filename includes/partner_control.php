@@ -403,3 +403,70 @@ function isPartnerChargeable(string $partnerKey): bool
     $methods = getEnabledPartnerMethods($partnerKey);
     return !empty($methods);
 }
+
+/**
+ * Get partners that are explicitly Go Live for public website display.
+ * Conditions: is_active=1, public_go_live=1, live credentials present, >=1 enabled method.
+ * Returns array of ['key','name','icon'] for public HTML.
+ */
+function getPublicLivePartners(): array
+{
+    if (!function_exists('ensurePaymentMethodsTable')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+    ensurePaymentMethodsTable();
+    ensurePartnerControlTables();
+    $result = [];
+    try {
+        $db = getDB();
+        $rows = $db->query("SELECT gateway_key, gateway_name FROM gateway_registry WHERE is_active=1 AND public_go_live=1 ORDER BY sort_order ASC, gateway_name ASC")->fetchAll();
+        $registry = getPartnerRegistry();
+        foreach ($rows as $row) {
+            $pk = $row['gateway_key'];
+            $cred = getPartnerCredentialStatus($pk);
+            if (!$cred['live']) continue;
+            $methods = getEnabledPartnerMethods($pk);
+            if (empty($methods)) continue;
+            $result[] = [
+                'key' => $pk,
+                'name' => $row['gateway_name'],
+                'icon' => $registry[$pk]['icon'] ?? '',
+            ];
+        }
+    } catch (Throwable $e) { /* ok */ }
+    return $result;
+}
+
+/**
+ * Set partner Go Live flag (public website visibility).
+ * Validates: active + live credentials + >=1 enabled method before allowing ON.
+ */
+function setPartnerGoLive(int $gatewayId, bool $goLive, string $adminEmail): array
+{
+    if (!function_exists('ensurePaymentMethodsTable')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+    ensurePaymentMethodsTable();
+    ensurePartnerControlTables();
+    try {
+        $gw = getGatewayById($gatewayId);
+        if (!$gw) return ['ok' => false, 'error' => 'Gateway not found.'];
+        $pk = $gw['gateway_key'];
+        if ($goLive) {
+            if ((int)$gw['is_active'] !== 1) return ['ok' => false, 'error' => 'Partner must be Active first.'];
+            $cred = getPartnerCredentialStatus($pk);
+            if (!$cred['live']) return ['ok' => false, 'error' => 'Live credentials required. Save live keys first.'];
+            $methods = getEnabledPartnerMethods($pk);
+            if (empty($methods)) return ['ok' => false, 'error' => 'At least one payment method must be enabled.'];
+        }
+        $db = getDB();
+        $db->prepare("UPDATE gateway_registry SET public_go_live=?, public_go_live_at=?, public_go_live_by=? WHERE id=?")
+            ->execute([$goLive ? 1 : 0, $goLive ? date('Y-m-d H:i:s') : null, $goLive ? $adminEmail : null, $gatewayId]);
+        if (function_exists('logAudit')) {
+            logAudit('partner_go_live', $adminEmail, "partner={$pk} go_live=" . ($goLive ? 'ON' : 'OFF'));
+        }
+        return ['ok' => true, 'go_live' => $goLive];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => $e->getMessage()];
+    }
+}
