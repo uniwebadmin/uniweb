@@ -184,6 +184,6 @@ return [
     'settlements_sync_done' => 'Wallet synced.',
     'settlements_low_balance' => 'Low balance',
     'profile_menu_account' => 'My Account',
-    'profile_menu_wallet' => 'My Wallet',
+    'profile_menu_wallet' => 'Settlement Balance',
     'profile_menu_support' => 'Support',
 ];

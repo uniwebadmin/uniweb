@@ -109,7 +109,7 @@ try {
     $allRequests = $st->fetchAll();
 } catch (Throwable $e) {}
 
-$pageTitle = 'Gateway Status Matrix';
+$pageTitle = 'Gateway Routing Matrix';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6">

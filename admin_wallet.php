@@ -88,7 +88,7 @@ $ledger = getPlatformWalletLedger(50);
 $payouts = $db->query('SELECT * FROM platform_settlements ORDER BY created_at DESC LIMIT 20')->fetchAll();
 $uncredited = getUncreditedSuccessCount();
 
-$pageTitle = 'Platform Wallet';
+$pageTitle = 'Platform Bank Account';
 require_once __DIR__ . '/header.php';
 ?>
 

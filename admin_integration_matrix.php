@@ -3,7 +3,7 @@ require_once __DIR__ . '/config.php';
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'finance', 'ops']);
 require_once __DIR__ . '/includes/integration_matrix.php';
 
-$pageTitle = 'Gateway Integration Matrix';
+$pageTitle = 'Integration Status Board';
 require_once __DIR__ . '/header.php';
 $rows = integrationMatrixSummary();
 $counts = ['scaffold' => 0, 'blocked_owner' => 0, 'blocked_axis_uat' => 0, 'pending' => 0];

@@ -61,7 +61,7 @@ $risky = getRiskyMerchants(50);
 $watchlist = getAmlWatchlistEntries(100);
 $blacklist = getBlacklistEntries(100);
 
-$pageTitle = 'Risk & AML';
+$pageTitle = 'Risk Rules';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6">

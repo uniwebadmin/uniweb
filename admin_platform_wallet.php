@@ -5,7 +5,7 @@ if (!function_exists('getPlatformWalletBalance') && is_file(__DIR__ . '/includes
     require_once __DIR__ . '/includes/wallet.php';
 }
 
-$pageTitle = 'Platform Fee Wallet';
+$pageTitle = 'Platform Fee Ledger';
 $adminSection = 'financial';
 
 // C5: Settle commission POST handler
