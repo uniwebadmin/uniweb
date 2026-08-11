@@ -101,7 +101,8 @@ require_once __DIR__ . '/header.php';
             <?php if (empty($holidays)): ?>
             <p class="text-sm text-gray-500">No holidays configured for <?= $year ?>. Click "Seed RBI Holidays" to auto-populate.</p>
             <?php else: ?>
-            <table class="w-full text-sm">
+            <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[480px]">
                 <thead class="text-gray-400">
                     <tr>
                         <th class="px-3 py-2 text-left">Date</th>
@@ -130,6 +131,7 @@ require_once __DIR__ . '/header.php';
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
             <?php endif; ?>
         </div>
     </div>

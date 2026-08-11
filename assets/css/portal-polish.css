@@ -185,17 +185,25 @@ body,
 
 /* Table-responsive helper class — reuse everywhere. */
 .table-responsive {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  max-width: 100%;
 }
 
-.table-responsive > table {
-  min-width: max-content;
+.table-responsive > table,
+.glass .overflow-x-auto > table,
+.card .overflow-x-auto > table {
+  width: 100%;
 }
 
 /* Prevent word-break: break-all from splitting every character.
    Use overflow-wrap: anywhere instead — only breaks when needed. */
 * {
   word-break: normal;
+}
+
+/* Body must never scroll horizontally — only table wrappers scroll. */
+body {
+  overflow-x: hidden;
 }

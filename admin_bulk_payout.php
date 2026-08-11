@@ -95,7 +95,8 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <div class="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
-            <table class="w-full text-sm">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[640px]">
                 <thead class="bg-gray-800/50 text-gray-400">
                     <tr>
                         <th class="px-4 py-3 text-left">#</th>
@@ -126,6 +127,7 @@ require_once __DIR__ . '/header.php';
                     <?php endforeach; ?>
                 </tbody>
             </table>
+          </div>
         </div>
 
         <?php if (($batch['failed_count'] ?? 0) > 0): ?>
@@ -160,7 +162,8 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <div class="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
-            <table class="w-full text-sm">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[640px]">
                 <thead class="bg-gray-800/50 text-gray-400">
                     <tr>
                         <th class="px-4 py-3 text-left">Payout ID</th>
@@ -191,6 +194,7 @@ require_once __DIR__ . '/header.php';
                     <?php endforeach; ?>
                 </tbody>
             </table>
+          </div>
         </div>
 
         <?php if (($batch['failed_count'] ?? 0) > 0): ?>
@@ -246,7 +250,8 @@ require_once __DIR__ . '/header.php';
                 ?>
                 <p class="text-sm text-gray-500">No bulk payout batches yet.</p>
                 <?php else: ?>
-                <table class="w-full text-sm">
+                <div class="overflow-x-auto">
+                <table class="w-full text-sm min-w-[560px]">
                     <thead class="text-gray-400">
                         <tr>
                             <th class="px-2 py-2 text-left">Batch</th>
@@ -277,6 +282,7 @@ require_once __DIR__ . '/header.php';
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                </div>
                 <?php endif; ?>
             </div>
         </div>

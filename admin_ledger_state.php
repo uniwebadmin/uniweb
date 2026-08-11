@@ -100,7 +100,8 @@ require_once __DIR__ . '/header.php';
     <!-- Allowed transitions reference -->
     <div class="glass rounded-xl p-6 border border-gray-700">
         <h2 class="text-lg font-semibold text-white mb-4">Allowed Ledger State Transitions</h2>
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[400px]">
             <thead>
                 <tr class="text-gray-400 text-xs border-b border-gray-700">
                     <th class="text-left py-2 px-3">Action</th>
@@ -116,6 +117,7 @@ require_once __DIR__ . '/header.php';
                 <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

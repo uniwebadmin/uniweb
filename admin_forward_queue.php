@@ -56,6 +56,7 @@ require_once __DIR__ . '/header.php';
             <a href="?status=retry" class="px-3 py-1.5 rounded-lg <?= $statusFilter === 'retry' ? 'bg-amber-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Retry</a>
             <a href="?status=failed" class="px-3 py-1.5 rounded-lg <?= $statusFilter === 'failed' ? 'bg-red-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Failed</a>
         </div>
+        </div>
     </div>
 
     <form method="GET" data-live-search-form data-results-target="forward-results" class="flex gap-2 items-end">

@@ -45,6 +45,7 @@ require_once __DIR__ . '/header.php';
     <?php endforeach; ?>
 </div>
 <div class="glass rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
     <table class="w-full text-sm min-w-[800px]">
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
             <th class="px-5 py-3 text-left">Merchant</th>
@@ -88,5 +89,6 @@ require_once __DIR__ . '/header.php';
             <?php endforeach; endif; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>
