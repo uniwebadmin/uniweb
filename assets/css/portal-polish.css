@@ -135,3 +135,67 @@ table th .font-mono {
     letter-spacing: -0.035em;
   }
 }
+
+/* ============================================================
+   GLOBAL LAYOUT SAFETY — prevent vertical text, card overflow,
+   and table page explosion across all portals.
+   ============================================================ */
+
+/* Force normal horizontal text everywhere. Overrides any
+   inherited writing-mode that could stack characters vertically. */
+body,
+.portal-main,
+.customer-portal-shell,
+.auth-portal-shell,
+.public-site {
+  writing-mode: horizontal-tb;
+  text-orientation: mixed;
+}
+
+/* Flex children must not squash to zero width — prevents
+   character-by-character stacking in narrow columns. */
+.portal-main .glass > div,
+.portal-main .flex > div,
+.portal-main .grid > div,
+.dash-quick-card {
+  min-width: 0;
+}
+
+/* Badges / pills / status labels stay on one line. */
+.portal-main .glass span[class*="rounded-full"],
+.portal-main .glass span[class*="px-2"],
+.portal-main .glass span[class*="px-1"],
+.badge,
+.status-badge {
+  white-space: nowrap;
+}
+
+/* Cards keep content inside borders. */
+.portal-main .glass,
+.customer-portal-shell .cp-panel,
+.stat-card {
+  overflow: hidden;
+}
+
+/* Allow auto overflow on scrollable card sections. */
+.portal-main .glass .overflow-x-auto,
+.portal-main .glass .overflow-auto {
+  overflow: auto;
+}
+
+/* Table-responsive helper class — reuse everywhere. */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+.table-responsive > table {
+  min-width: max-content;
+}
+
+/* Prevent word-break: break-all from splitting every character.
+   Use overflow-wrap: anywhere instead — only breaks when needed. */
+* {
+  word-break: normal;
+}
