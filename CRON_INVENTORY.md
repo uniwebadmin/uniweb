@@ -40,6 +40,7 @@ Or use the PHP CLI path:
 
 ## Monitoring
 
+- **Admin UI (operator view):** Admin → Data & Platform → Platform Status + Cron Jobs (`admin_platform_status.php`) — shows all 7 cron jobs in one table with last run, age, and OK/STALE/NEVER status.
 - Cron health is visible in Admin → Platform Status (`admin_platform_status.php`)
 - Failed cron runs log to `platform_errors` table → visible in Admin → Error Log
 - The auto-audit cron checks DB connectivity, file integrity, and broken links every 10 min
