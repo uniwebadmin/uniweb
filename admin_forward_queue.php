@@ -85,10 +85,10 @@ require_once __DIR__ . '/header.php';
                 <?php else: foreach ($matrix as $row): ?>
                 <tr class="border-t border-gray-800/50">
                     <td class="px-4 py-3">
-                        <div class="font-medium text-gray-200"><?= e($row['business_name'] ?? '—') ?></div>
+                        <div class="font-medium text-gray-200"><a href="admin_view_merchant.php?id=<?= (int)($row['merchant_id'] ?? 0) ?>" class="hover:text-sky-300"><?= e($row['business_name'] ?? '—') ?></a></div>
                         <div class="text-xs text-gray-500"><?= e($row['merchant_code'] ?? '') ?></div>
                     </td>
-                    <td class="px-4 py-3"><?= e(ucfirst($row['partner_key'])) ?></td>
+                    <td class="px-4 py-3"><a href="admin_gateway_detail.php?partner=<?= urlencode((string)$row['partner_key']) ?>" class="hover:text-sky-300"><?= e(ucfirst($row['partner_key'])) ?></a></td>
                     <td class="px-4 py-3">
                         <?php
                         $colors = [

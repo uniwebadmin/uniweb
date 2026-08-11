@@ -82,8 +82,8 @@ require_once __DIR__ . '/header.php';
             <?php if (!$rows): ?><tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No open chargebacks.</td></tr><?php endif; ?>
             <?php foreach ($rows as $row): ?>
             <tr>
-                <td class="px-4 py-3 font-mono text-xs"><?= e($row['chargeback_ref']) ?></td>
-                <td class="px-4 py-3"><?= e($row['business_name']) ?></td>
+                <td class="px-4 py-3 font-mono text-xs"><?= txnDetailLink($row['chargeback_ref']) ?></td>
+                <td class="px-4 py-3"><?= adminMerchantLink((int)$row['merchant_id'], $row['business_name']) ?></td>
                 <td class="px-4 py-3"><?= formatMoney((float)$row['amount']) ?></td>
                 <td class="px-4 py-3 text-xs"><?= e($row['evidence_due_at'] ?? '-') ?></td>
                 <td class="px-4 py-3"><?= statusBadge($row['status']) ?></td>

@@ -148,7 +148,7 @@ foreach ($platformFeeReport as $r) {
                 <?php foreach (array_slice($platformFeeReport, 0, 15) as $r): ?>
                 <tr>
                     <td class="px-3 py-2"><?= e((string)$r['day']) ?></td>
-                    <td class="px-3 py-2"><?= e($r['business_name']) ?></td>
+                    <td class="px-3 py-2"><?= adminMerchantLink((int)$r['merchant_id'], $r['business_name']) ?></td>
                     <td class="px-3 py-2 text-right"><?= (int)$r['txn_count'] ?></td>
                     <td class="px-3 py-2 text-right"><?= formatMoney((float)$r['gross']) ?></td>
                     <td class="px-3 py-2 text-right text-emerald-400 font-semibold"><?= formatMoney((float)$r['platform_fee']) ?></td>
@@ -174,9 +174,9 @@ foreach ($platformFeeReport as $r) {
             <tbody class="divide-y divide-gray-800">
                 <?php foreach ($failedTransfers as $ft): ?>
                 <tr>
-                    <td class="px-3 py-2 font-mono text-sky-400"><?= e($ft['txn_id']) ?></td>
-                    <td class="px-3 py-2"><?= e($ft['business_name']) ?></td>
-                    <td class="px-3 py-2 uppercase"><?= e($ft['partner_key']) ?></td>
+                    <td class="px-3 py-2 font-mono text-sky-400"><?= txnDetailLink($ft['txn_id']) ?></td>
+                    <td class="px-3 py-2"><?= adminMerchantLink((int)$ft['merchant_id'], $ft['business_name']) ?></td>
+                    <td class="px-3 py-2 uppercase"><a href="admin_gateway_detail.php?partner=<?= urlencode((string)$ft['partner_key']) ?>" class="hover:text-sky-300"><?= e($ft['partner_key']) ?></a></td>
                     <td class="px-3 py-2"><?= e($ft['transfer_type']) ?></td>
                     <td class="px-3 py-2 text-right"><?= formatMoney((float)$ft['amount']) ?></td>
                     <td class="px-3 py-2 text-red-300"><?= e($ft['failure_reason'] ?? '—') ?></td>

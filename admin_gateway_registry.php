@@ -131,7 +131,7 @@ require_once __DIR__ . '/header.php';
                     </div>
                     <div>
                         <div class="flex items-center gap-2">
-                            <p class="text-sm font-medium text-gray-200"><?= e($g['gateway_name']) ?></p>
+                            <a href="admin_gateway_detail.php?partner=<?= urlencode($g['gateway_key']) ?>" class="text-sm font-medium text-gray-200 hover:text-sky-300"><?= e($g['gateway_name']) ?></a>
                             <span class="text-[10px] px-2 py-0.5 rounded-full <?= $isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700/50 text-gray-400' ?>">
                                 <?= $isActive ? '● Active' : '○ Inactive' ?>
                             </span>

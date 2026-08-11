@@ -75,7 +75,7 @@ require_once __DIR__ . '/header.php';
                 <tr><td colspan="5" class="px-5 py-10 text-center text-gray-500">No pending reversal requests.</td></tr>
                 <?php else: foreach ($reversals as $rv): ?>
                 <tr class="align-top">
-                    <td class="px-5 py-3"><p class="font-medium"><?= e($rv['business_name']) ?></p><p class="text-xs font-mono text-gray-500"><?= e($rv['merchant_code']) ?></p></td>
+                    <td class="px-5 py-3"><p class="font-medium"><?= adminMerchantLink((int)$rv['merchant_id'], $rv['business_name'], 'text-white hover:text-sky-300') ?></p><p class="text-xs font-mono text-gray-500"><?= e($rv['merchant_code']) ?></p></td>
                     <td class="px-5 py-3 font-mono text-xs text-sky-400"><?= e($rv['payout_id']) ?></td>
                     <td class="px-5 py-3"><?= formatMoney((float)$rv['amount']) ?></td>
                     <td class="px-5 py-3 text-xs text-red-300 max-w-xs"><?= e($rv['failure_reason'] ?: ($rv['merchant_note'] ?: '—')) ?></td>
