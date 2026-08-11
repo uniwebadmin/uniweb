@@ -14,7 +14,7 @@ $searchHistoryScope = isset($_SESSION['admin_id'])
     <div class="max-w-2xl mx-auto mt-[8vh] rounded-2xl border border-gray-700 bg-dark-900 shadow-2xl overflow-hidden">
         <div class="flex items-center gap-3 px-4 border-b border-gray-700">
             <span class="text-gray-500 text-xl">⌕</span>
-            <input id="uniweb-spotlight-input" type="search" class="w-full bg-transparent py-4 text-base outline-none text-white placeholder:text-gray-500" placeholder="Search transactions, settlements, links, merchants…" autocomplete="off">
+            <input id="uniweb-spotlight-input" type="search" class="w-full bg-transparent py-4 text-base outline-none text-white placeholder:text-gray-500" placeholder="Search pages, transactions, merchants, PAN, GSTIN…" autocomplete="off">
             <button type="button" data-spotlight-close class="text-xs text-gray-500 border border-gray-700 rounded px-2 py-1">ESC</button>
         </div>
         <div id="uniweb-spotlight-results" class="max-h-[60vh] overflow-y-auto p-2">
@@ -47,13 +47,23 @@ $searchHistoryScope = isset($_SESSION['admin_id'])
     const render=rows=>{
         clear();
         if(!rows.length){note('No matching result. Try an ID, name, phone, email or amount.');return}
+        const groups={},order=[];
         rows.forEach(r=>{
-            const a=document.createElement('a');a.href=r.url;a.className='flex items-center justify-between gap-4 px-3 py-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-gray-800';
-            const left=document.createElement('div'), title=document.createElement('p'), sub=document.createElement('p'), tag=document.createElement('span');
-            title.className='text-sm font-medium text-white';title.textContent=r.title;
-            sub.className='text-xs text-gray-500 mt-0.5';sub.textContent=r.subtitle;
-            tag.className='text-[10px] px-2 py-1 rounded-full bg-sky-500/10 text-sky-400 whitespace-nowrap';tag.textContent=r.type;
-            left.append(title,sub);a.append(left,tag);a.onclick=()=>save(input.value.trim());box.appendChild(a);
+            const t=r.type; if(!groups[t]){groups[t]=[];order.push(t)} groups[t].push(r);
+        });
+        const typeOrder=['Page','Merchant','Transaction','Settlement','Payment Link','QR Code','Refund','Mandate','Forward Queue','KYC'];
+        order.sort((a,b)=>{const ia=typeOrder.indexOf(a),ib=typeOrder.indexOf(b);return(ia===-1?99:ia)-(ib===-1?99:ib)});
+        order.forEach(type=>{
+            const items=groups[type];
+            const hdr=document.createElement('div');hdr.className='px-3 pt-3 pb-1 text-[10px] uppercase tracking-wide text-gray-600';hdr.textContent=type+(type==='Page'?'':'s');box.appendChild(hdr);
+            items.forEach(r=>{
+                const a=document.createElement('a');a.href=r.url;a.className='flex items-center justify-between gap-4 px-3 py-2.5 rounded-xl hover:bg-white/5 border border-transparent hover:border-gray-800';
+                const left=document.createElement('div'), title=document.createElement('p'), sub=document.createElement('p'), tag=document.createElement('span');
+                title.className='text-sm font-medium text-white';title.textContent=r.title;
+                sub.className='text-xs text-gray-500 mt-0.5';sub.textContent=r.subtitle;
+                tag.className='text-[10px] px-2 py-1 rounded-full bg-sky-500/10 text-sky-400 whitespace-nowrap';tag.textContent=r.type;
+                left.append(title,sub);a.append(left,tag);a.onclick=()=>save(input.value.trim());box.appendChild(a);
+            });
         });
     };
     const run=q=>{

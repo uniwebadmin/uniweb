@@ -56,6 +56,28 @@ $sql .= " ORDER BY m.created_at DESC LIMIT 100";
 $stmt = $db->prepare($sql);
 $stmt->execute($params);
 $allMerchants = $stmt->fetchAll();
+
+if ($search && function_exists('pii_hash') && defined('ENCRYPTION_KEY') && constant('ENCRYPTION_KEY') !== '') {
+    $normalizedSearch = strtoupper(preg_replace('/\s+/', '', $search));
+    $hashVal = null;
+    try { $hashVal = pii_hash($normalizedSearch); } catch (Throwable $e) {}
+    if ($hashVal !== null) {
+        $hashCols = ['pan_hash', 'gstin_hash', 'cin_hash', 'aadhaar_hash'];
+        foreach ($hashCols as $hcol) {
+            try {
+                $hstmt = $db->prepare("SELECT m.* FROM merchants m WHERE m.status!='deleted' AND m.{$hcol} = ? LIMIT 10");
+                $hstmt->execute([$hashVal]);
+                foreach ($hstmt->fetchAll() as $hrow) {
+                    $exists = false;
+                    foreach ($allMerchants as $am) {
+                        if ((int)$am['id'] === (int)$hrow['id']) { $exists = true; break; }
+                    }
+                    if (!$exists) $allMerchants[] = $hrow;
+                }
+            } catch (Throwable $e) {}
+        }
+    }
+}
 $listParams = listPageParams(25);
 $merchantTotal = count($allMerchants);
 $merchants = array_slice($allMerchants, $listParams['offset'], $listParams['perPage']);
@@ -63,7 +85,7 @@ $pageTitle = 'Manage Merchants';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
-    <form method="GET" data-live-search-form data-results-target="merchant-results" class="flex gap-2"><label class="sr-only" for="merchant-search">Search merchants</label><input id="merchant-search" type="search" name="q" value="<?= e($search) ?>" placeholder="Name / Company / Email / Mobile / Merchant ID" class="input-field w-80 max-w-full" autocomplete="off" aria-label="Search merchants"><button class="btn-primary px-4 py-2 text-sm">Search</button></form>
+    <form method="GET" data-live-search-form data-results-target="merchant-results" class="flex gap-2"><label class="sr-only" for="merchant-search">Search merchants</label><input id="merchant-search" type="search" name="q" value="<?= e($search) ?>" placeholder="Name / Company / Email / Mobile / Merchant ID / PAN / GSTIN" class="input-field w-80 max-w-full" autocomplete="off" aria-label="Search merchants"><button class="btn-primary px-4 py-2 text-sm">Search</button></form>
     <?php if ($canManageAll): ?>
     <a href="add_merchant.php" class="btn-primary text-sm">+ Add Merchant</a>
     <?php endif; ?>

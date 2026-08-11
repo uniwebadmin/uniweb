@@ -6,6 +6,7 @@ if (!function_exists('ensurePartnerForwardQueueTable')) {
 }
 
 $statusFilter = trim((string)($_GET['status'] ?? ''));
+$q = mb_substr(trim((string)($_GET['q'] ?? '')), 0, 100);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
@@ -31,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('admin_forward_queue.php?status=' . urlencode($statusFilter));
 }
 
-$matrix = getAdminForwardMatrix($statusFilter);
+$matrix = getAdminForwardMatrix($statusFilter, $q);
 
 $pageTitle = 'KYC Forward Queue';
 require_once __DIR__ . '/header.php';
@@ -57,7 +58,13 @@ require_once __DIR__ . '/header.php';
         </div>
     </div>
 
-    <div class="glass rounded-xl overflow-hidden">
+    <form method="GET" data-live-search-form data-results-target="forward-results" class="flex gap-2 items-end">
+        <div class="flex-1"><label class="text-[10px] text-gray-600 uppercase">Search</label><input type="text" name="q" value="<?= e($q) ?>" placeholder="Merchant / Partner / Status / ID" class="input-field mt-1 text-sm" autocomplete="off"></div>
+        <input type="hidden" name="status" value="<?= e($statusFilter) ?>">
+        <button class="btn-primary px-4 py-2.5 text-sm">Search</button>
+    </form>
+
+    <div id="forward-results" class="glass rounded-xl overflow-hidden">
         <table class="w-full text-sm">
             <thead class="bg-dark-900/50 text-gray-400 text-xs uppercase">
                 <tr>

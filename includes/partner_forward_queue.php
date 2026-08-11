@@ -201,7 +201,7 @@ function getMerchantForwardStatus(int $merchantId): array
 /**
  * Get all forward queue items for admin status matrix (D4).
  */
-function getAdminForwardMatrix(string $statusFilter = ''): array
+function getAdminForwardMatrix(string $statusFilter = '', string $q = ''): array
 {
     ensurePartnerForwardQueueTable();
     try {
@@ -209,9 +209,18 @@ function getAdminForwardMatrix(string $statusFilter = ''): array
                 FROM partner_forward_queue q
                 JOIN merchants m ON m.id = q.merchant_id";
         $params = [];
+        $conditions = [];
         if ($statusFilter !== '') {
-            $sql .= " WHERE q.status = ?";
+            $conditions[] = "q.status = ?";
             $params[] = $statusFilter;
+        }
+        if ($q !== '') {
+            $like = '%' . strtolower($q) . '%';
+            $conditions[] = "(LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR LOWER(TRIM(COALESCE(m.merchant_code,''))) LIKE ? OR LOWER(TRIM(COALESCE(q.partner_key,''))) LIKE ? OR LOWER(TRIM(COALESCE(q.status,''))) LIKE ? OR CAST(q.id AS CHAR) LIKE ?)";
+            array_push($params, $like, $like, $like, $like, $like);
+        }
+        if ($conditions) {
+            $sql .= " WHERE " . implode(' AND ', $conditions);
         }
         $sql .= " ORDER BY q.schedule_at DESC LIMIT 200";
         $st = getDB()->prepare($sql);

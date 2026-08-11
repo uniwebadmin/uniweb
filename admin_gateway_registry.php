@@ -106,9 +106,12 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <div class="glass rounded-xl overflow-hidden border border-gray-800">
-        <div class="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+        <div class="px-6 py-4 border-b border-gray-800 flex items-center justify-between gap-4">
             <h3 class="font-semibold">Registered Gateways</h3>
-            <span class="text-xs text-gray-500"><?= count($gateways) ?> total</span>
+            <div class="flex items-center gap-3">
+                <input type="search" id="gateway-filter" placeholder="Filter by name / key…" class="bg-dark-900 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-gray-300 focus:border-sky-500 focus:outline-none" oninput="filterGateways(this.value)">
+                <span class="text-xs text-gray-500"><?= count($gateways) ?> total</span>
+            </div>
         </div>
         <?php if (empty($gateways)): ?>
         <div class="p-8 text-center text-sm text-gray-500">No gateways registered yet.</div>
@@ -121,7 +124,7 @@ require_once __DIR__ . '/header.php';
                 $credStat = getPartnerCredentialStatus($g['gateway_key']);
                 $enabledMethods = getEnabledPartnerMethods($g['gateway_key']);
             ?>
-            <div class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-white/5 transition-colors">
+            <div class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-white/5 transition-colors" data-gw-name="<?= e(mb_strtolower($g['gateway_name'] . ' ' . $g['gateway_key'])) ?>">
                 <div class="flex items-center gap-4">
                     <div class="w-10 h-10 rounded-lg bg-dark-900/80 flex items-center justify-center text-xl flex-shrink-0">
                         <?= e($partnerInfo['icon'] ?? '⚙️') ?>
@@ -208,4 +211,13 @@ require_once __DIR__ . '/header.php';
         </form>
     </div>
 </div>
+<script>
+function filterGateways(q){
+    q=(q||'').toLowerCase().trim();
+    document.querySelectorAll('[data-gw-name]').forEach(function(el){
+        var name=el.getAttribute('data-gw-name')||'';
+        el.style.display=(!q||name.indexOf(q)>-1)?'':'none';
+    });
+}
+</script>
 <?php require_once __DIR__ . '/footer.php';
