@@ -151,7 +151,7 @@ require_once __DIR__ . '/header.php';
                     </div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
-                    <a href="admin_gateway_detail.php?id=<?= (int)$g['id'] ?>" class="text-xs px-3 py-1.5 rounded-lg bg-dark-900/80 text-gray-300 border border-gray-700 hover:border-gray-500">Configure →</a>
+                    <a href="admin_gateway_detail.php?partner=<?= urlencode($g['gateway_key']) ?>" class="text-xs px-3 py-1.5 rounded-lg bg-dark-900/80 text-gray-300 border border-gray-700 hover:border-gray-500">Configure →</a>
                     <?php if (!$isActive): ?>
                     <form method="POST" class="inline">
                         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
