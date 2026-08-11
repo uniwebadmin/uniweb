@@ -43,9 +43,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
 $staff = $db->query("SELECT a.*, p.name AS manager_name FROM admins a LEFT JOIN admins p ON p.id=a.reports_to WHERE a.role NOT IN ('super') ORDER BY a.role, a.name")->fetchAll();
 $managers = $db->query("SELECT id, name, role FROM admins WHERE role IN ('ceo','regional_manager','area_sales_manager','team_leader','staff_manager') AND is_active=1 ORDER BY name")->fetchAll();
+
+$detailId = (int)($_GET['id'] ?? 0);
+$detailStaff = null;
+$detailActivity = [];
+if ($detailId > 0) {
+    $st = $db->prepare("SELECT a.*, p.name AS manager_name FROM admins a LEFT JOIN admins p ON p.id=a.reports_to WHERE a.id=? AND a.role NOT IN ('super')");
+    $st->execute([$detailId]);
+    $detailStaff = $st->fetch();
+    if ($detailStaff) {
+        $detailActivity = getStaffActivityLogs($detailId, 50);
+    }
+}
+
 $pageTitle = 'Staff Control';
 require_once __DIR__ . '/header.php';
 ?>
+<?php if ($detailStaff): ?>
+<div class="max-w-4xl space-y-6">
+    <div class="mb-2">
+        <a href="admin_manage_staff.php" class="text-sm text-gray-400 hover:text-white">← Back to Staff list</a>
+    </div>
+    <div class="glass rounded-xl p-6 border border-gray-800">
+        <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
+            <div>
+                <h2 class="font-semibold text-lg"><?= e($detailStaff['name']) ?></h2>
+                <p class="text-xs text-gray-500 font-mono mt-1"><?= e($detailStaff['username']) ?> · #<?= (int)$detailStaff['id'] ?></p>
+                <div class="flex gap-2 mt-2">
+                    <span class="text-[10px] px-2 py-0.5 rounded bg-brand-500/10 text-brand-400"><?= e(staffRoleLabel($detailStaff['role'])) ?></span>
+                    <span class="text-[10px] px-2 py-0.5 rounded <?= (int)$detailStaff['is_active'] === 1 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700/50 text-gray-400' ?>"><?= (int)$detailStaff['is_active'] === 1 ? '● Active' : '○ Inactive' ?></span>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <?php if ((int)$detailStaff['id'] !== (int)($_SESSION['admin_id'] ?? 0)): ?>
+                <form method="POST" class="inline">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="action" value="toggle">
+                    <input type="hidden" name="id" value="<?= (int)$detailStaff['id'] ?>">
+                    <button type="submit" class="text-xs px-4 py-2 rounded-lg <?= (int)$detailStaff['is_active'] === 1 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' ?>"><?= (int)$detailStaff['is_active'] === 1 ? 'Deactivate' : 'Activate' ?></button>
+                </form>
+                <?php endif; ?>
+            </div>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-4 text-sm">
+            <div><span class="text-gray-500 text-xs">Email</span><p class="text-gray-300"><?= e($detailStaff['email'] ?? '—') ?></p></div>
+            <div><span class="text-gray-500 text-xs">Phone</span><p class="text-gray-300"><?= e($detailStaff['phone'] ?? '—') ?></p></div>
+            <div><span class="text-gray-500 text-xs">Manager</span><p class="text-gray-300"><?= e($detailStaff['manager_name'] ?? '—') ?></p></div>
+            <div><span class="text-gray-500 text-xs">Last Login</span><p class="text-gray-300"><?= !empty($detailStaff['last_login_at']) ? e(formatDate($detailStaff['last_login_at'])) : 'Never' ?></p></div>
+            <div><span class="text-gray-500 text-xs">Last Login IP</span><p class="text-gray-300 font-mono"><?= e($detailStaff['last_login_ip'] ?? '—') ?></p></div>
+            <div><span class="text-gray-500 text-xs">Created</span><p class="text-gray-300"><?= e(formatDate($detailStaff['created_at'] ?? '')) ?></p></div>
+        </div>
+    </div>
+    <div class="glass rounded-xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-800 flex justify-between items-center">
+            <h3 class="font-semibold">Recent Activity</h3>
+            <a href="admin_staff_activity.php?staff_id=<?= (int)$detailStaff['id'] ?>" class="text-xs text-sky-400">View full activity log →</a>
+        </div>
+        <?php if (empty($detailActivity)): ?>
+        <p class="px-6 py-10 text-center text-sm text-gray-500">No activity logged yet.</p>
+        <?php else: ?>
+        <div class="overflow-x-auto"><table class="min-w-[480px] w-full text-sm">
+            <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
+                <th class="px-5 py-3 text-left">Time</th><th class="px-5 py-3 text-left">Action</th><th class="px-5 py-3 text-left">Details</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-800">
+                <?php foreach ($detailActivity as $log): ?>
+                <tr class="hover:bg-white/5">
+                    <td class="px-5 py-3 text-xs text-gray-500 whitespace-nowrap"><?= formatDate($log['created_at']) ?></td>
+                    <td class="px-5 py-3 font-mono text-xs text-sky-400"><?= e($log['action']) ?></td>
+                    <td class="px-5 py-3 text-xs text-gray-400 max-w-md truncate" title="<?= e($log['details'] ?? '') ?>"><?= e($log['details'] ?? '') ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table></div>
+        <?php endif; ?>
+    </div>
+</div>
+<?php require_once __DIR__ . '/footer.php'; return; endif; ?>
+
 <div class="grid lg:grid-cols-3 gap-6 pb-24 lg:pb-6">
     <div class="glass rounded-xl p-6 lg:sticky lg:top-24 self-start max-h-[calc(100vh-7rem)] overflow-y-auto">
         <h2 class="font-semibold mb-4">Add Team Member</h2>
@@ -89,9 +164,9 @@ require_once __DIR__ . '/header.php';
                 </tr></thead>
                 <tbody class="divide-y divide-gray-800">
                     <?php foreach ($staff as $s): if ($s['role'] === 'ceo') continue; ?>
-                    <tr>
-                        <td class="px-5 py-3 font-mono text-xs"><?= e($s['username']) ?></td>
-                        <td class="px-5 py-3"><?= e($s['name']) ?></td>
+                    <tr class="hover:bg-white/5">
+                        <td class="px-5 py-3 font-mono text-xs"><a href="admin_manage_staff.php?id=<?= (int)$s['id'] ?>" class="text-sky-400 hover:underline"><?= e($s['username']) ?></a></td>
+                        <td class="px-5 py-3"><a href="admin_manage_staff.php?id=<?= (int)$s['id'] ?>" class="text-gray-200 hover:text-brand-400 hover:underline"><?= e($s['name']) ?></a></td>
                         <td class="px-5 py-3 text-xs"><?= e(staffRoleLabel($s['role'])) ?></td>
                         <td class="px-5 py-3 text-xs text-gray-500"><?= e($s['manager_name'] ?? '—') ?></td>
                         <td class="px-5 py-3"><?= ($s['is_active'] ?? 1) ? statusBadge('active') : statusBadge('suspended') ?></td>
