@@ -7,23 +7,34 @@ ensureCustomerPortalSchema();
 $phoneRaw = trim((string)($_GET['phone'] ?? ''));
 $phone = customerNormalizePhone($phoneRaw) ?: preg_replace('/\D/', '', $phoneRaw);
 $highlightTxn = trim((string)($_GET['txn'] ?? ''));
-if ($phone === '' || strlen((string)$phone) < 10) {
-    flash('error', 'Customer mobile required.');
-    redirect('admin_customer_tickets.php');
-}
 
-$txns = getCustomerTransactions((string)$phone, 100);
-$tickets = getCustomerTickets((string)$phone);
-
-$pageTitle = 'Customer +91 ' . $phone;
+$pageTitle = 'Customer Lookup';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6">
+    <div>
+        <h1 class="text-xl font-semibold">Customer Lookup</h1>
+        <p class="text-sm text-gray-400 mt-1">Search customer by mobile number — view payments & complaints across all merchants.</p>
+    </div>
+
+    <div class="glass rounded-xl p-5">
+        <form method="GET" class="flex flex-wrap items-end gap-3">
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-xs text-gray-500 mb-1">Customer Mobile Number</label>
+                <input type="text" name="phone" value="<?= e($phoneRaw) ?>" placeholder="e.g. 9876543210 or +919876543210" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none" />
+            </div>
+            <button type="submit" class="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg transition">Search</button>
+        </form>
+    </div>
+
+    <?php if ($phone !== '' && strlen((string)$phone) >= 10):
+        $txns = getCustomerTransactions((string)$phone, 100);
+        $tickets = getCustomerTickets((string)$phone);
+    ?>
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-            <a href="admin_customer_tickets.php" class="text-sm text-gray-400 hover:text-white">← Customer complaints</a>
-            <h1 class="text-xl font-semibold mt-2">Customer history</h1>
-            <p class="text-sm text-gray-400 mt-1">+91 <?= e((string)$phone) ?> · full payment history across merchants</p>
+            <h2 class="font-semibold">+91 <?= e((string)$phone) ?></h2>
+            <p class="text-sm text-gray-400 mt-1"><?= count($txns) ?> payment<?= count($txns) === 1 ? '' : 's' ?> · <?= count($tickets) ?> complaint<?= count($tickets) === 1 ? '' : 's' ?></p>
         </div>
     </div>
 
@@ -81,5 +92,6 @@ require_once __DIR__ . '/header.php';
             <?php endforeach; endif; ?>
         </div>
     </div>
+    <?php endif; ?>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>
