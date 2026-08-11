@@ -301,7 +301,58 @@ function merchantCommercialSchedule(array $merchant): array
         'settlement_mode' => $mode === 'scheduled' ? 'Scheduled batch' : 'Manual settle',
         'account_mode' => merchantAccountMode($merchant),
         'methods' => $methods,
+        'grouped' => getGroupedMerchantPricing($merchant),
     ];
+}
+
+/**
+ * Build grouped pricing rows: method+rate → partner names.
+ * Only includes active partners with enabled methods.
+ * Returns [['method_label','rate','partners_csv','gst']]
+ */
+function getGroupedMerchantPricing(?array $merchant = null): array
+{
+    if (!function_exists('getPartnerRegistry')) {
+        return [];
+    }
+    $registry = getPartnerRegistry();
+    $isTestMode = $merchant && merchantAccountMode($merchant) === 'test';
+    $groups = [];
+    try {
+        $db = getDB();
+        $sql = "SELECT pm.partner_key, pm.method, pm.base_mdr_percent, g.gateway_name, g.is_active
+                FROM partner_methods pm
+                JOIN gateway_registry g ON g.gateway_key = pm.partner_key
+                WHERE pm.is_enabled = 1 AND g.is_active = 1";
+        if (!$isTestMode) {
+            $sql .= " AND (g.public_go_live = 1 OR g.public_go_live IS NULL)";
+        }
+        $sql .= " ORDER BY pm.method, pm.base_mdr_percent";
+        $rows = $db->query($sql)->fetchAll();
+    } catch (Throwable $e) {
+        $rows = [];
+    }
+    $modeLabels = [
+        'upi' => 'UPI', 'credit_card' => 'Credit Card', 'debit_card' => 'Debit Card',
+        'netbanking' => 'Net Banking', 'wallet' => 'Wallets', 'emi' => 'EMI',
+    ];
+    foreach ($rows as $row) {
+        $method = $row['method'];
+        $rate = (float)$row['base_mdr_percent'];
+        $partnerName = $row['gateway_name'] ?: ($registry[$row['partner_key']]['name'] ?? ucfirst($row['partner_key']));
+        $label = $modeLabels[$method] ?? ucfirst($method);
+        $key = $method . '|' . number_format($rate, 2);
+        if (!isset($groups[$key])) {
+            $groups[$key] = [
+                'method_label' => $label,
+                'rate' => $rate,
+                'partners' => [],
+                'gst' => in_array($method, ['credit_card', 'debit_card', 'netbanking'], true),
+            ];
+        }
+        $groups[$key]['partners'][] = $partnerName;
+    }
+    return array_values($groups);
 }
 
 function renderMerchantCommercialCard(array $merchant): void
@@ -334,6 +385,29 @@ function renderMerchantCommercialCard(array $merchant): void
             </div>
             <?php endforeach; ?>
         </div>
+        <?php if (!empty($s['grouped'])): ?>
+        <div class="mb-4">
+            <h3 class="text-sm font-semibold mb-2">Partner rates by method</h3>
+            <div class="overflow-x-auto rounded-lg border border-gray-800">
+                <table class="w-full text-xs">
+                    <thead class="text-gray-500 uppercase bg-dark-900/50"><tr>
+                        <th class="px-4 py-2 text-left">Method</th>
+                        <th class="px-4 py-2 text-left">Partner MDR (P)</th>
+                        <th class="px-4 py-2 text-left">Partners</th>
+                    </tr></thead>
+                    <tbody class="divide-y divide-gray-800">
+                        <?php foreach ($s['grouped'] as $g): ?>
+                        <tr>
+                            <td class="px-4 py-2 text-gray-300"><?= e($g['method_label']) ?></td>
+                            <td class="px-4 py-2 font-mono text-gray-200"><?= e(number_format($g['rate'], 2)) ?>%<?= $g['gst'] ? ' + GST' : '' ?></td>
+                            <td class="px-4 py-2 text-gray-500"><?= e(implode(', ', $g['partners'])) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php endif; ?>
         <p class="text-[11px] text-gray-600">Gateway MDR may include partner charges + published platform margin. Refunds, chargebacks and holds can reduce settleable balance. <a href="pricing.php" class="text-sky-400">Public pricing</a> · <a href="merchant_settlement_settings.php" class="text-sky-400">Settlement settings</a></p>
     </div>
     <?php

@@ -86,6 +86,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=' . $activeTab);
     }
 
+    if ($action === 'save_method_mdr') {
+        $method = trim((string)($_POST['method'] ?? ''));
+        $mdr = (float)($_POST['base_mdr_percent'] ?? 0);
+        $adminEmail = $_SESSION['staff_email'] ?? $_SESSION['admin_email'] ?? 'admin';
+        $result = setPartnerMethodMdr($partnerKey, $method, $mdr, $adminEmail);
+        flash($result['ok'] ? 'success' : 'error', $result['ok'] ? "Partner MDR (P) for {$method} set to {$mdr}%" : ($result['error'] ?? 'Failed'));
+        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=pricing');
+    }
+
+    if ($action === 'save_commercial') {
+        $baseMdr = (float)($_POST['base_mdr_percent'] ?? 0);
+        $settlementMode = trim((string)($_POST['settlement_mode'] ?? 'standard_settle_mode'));
+        $adminEmail = $_SESSION['staff_email'] ?? $_SESSION['admin_email'] ?? 'admin';
+        $ok = setPartnerCommercial($partnerKey, $baseMdr, $settlementMode, $adminEmail);
+        flash($ok ? 'success' : 'error', $ok ? "Default partner MDR (P) set to {$baseMdr}%" : 'Failed');
+        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=pricing');
+    }
+
     if ($action === 'save_reason_map') {
         $rawCode = trim((string)($_POST['raw_code'] ?? ''));
         $msgEn = trim((string)($_POST['msg_en'] ?? ''));
@@ -114,7 +132,7 @@ $methodLabels = [
     'netbanking' => 'Net Banking', 'emi' => 'EMI',
     'emandate_upi' => 'E-Mandate UPI', 'emandate_card' => 'E-Mandate Card', 'emandate_nb' => 'E-Mandate NB',
 ];
-$tabs = ['keys' => 'Keys', 'methods' => 'Methods', 'webhooks' => 'Webhooks', 'test' => 'Test', 'logs' => 'Logs'];
+$tabs = ['keys' => 'Keys', 'methods' => 'Methods', 'pricing' => 'Pricing', 'webhooks' => 'Webhooks', 'test' => 'Test', 'logs' => 'Logs'];
 
 $pageTitle = $gateway['gateway_name'] . ' — Partner Detail';
 require_once __DIR__ . '/header.php';
@@ -281,6 +299,60 @@ require_once __DIR__ . '/header.php';
                 <span class="text-[10px] px-2 py-0.5 rounded-full <?= $enabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700/50 text-gray-400' ?>"><?= $enabled ? 'ON' : 'OFF' ?></span>
             </form>
             <?php endforeach; endif; ?>
+        </div>
+    </div>
+
+    <?php elseif ($activeTab === 'pricing'):
+        $defaultP = getPartnerBaseMdr($partnerKey);
+        $methodMdrs = getAllPartnerMethodMdrs($partnerKey);
+        $commercialRow = null;
+        try {
+            $stc = getDB()->prepare('SELECT * FROM partner_commercial WHERE partner_key=?');
+            $stc->execute([$partnerKey]);
+            $commercialRow = $stc->fetch();
+        } catch (Throwable $e) {}
+    ?>
+    <div class="glass rounded-xl p-6 border border-gray-800">
+        <h3 class="font-semibold mb-1">Partner MDR (P) — what <?= e($gateway['gateway_name']) ?> charges UniWeb</h3>
+        <p class="text-xs text-gray-500 mb-4">Set the base MDR percent per payment method. This is the partner cost (P). Platform margin = Merchant MDR (M) − P. If per-method P is 0, the default below is used.</p>
+
+        <div class="rounded-lg border border-gray-800 p-4 mb-6">
+            <h4 class="text-sm font-semibold mb-3">Default Partner MDR (fallback)</h4>
+            <form method="POST" class="flex flex-wrap items-end gap-3">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="save_commercial">
+                <div>
+                    <label class="text-gray-500 text-xs block mb-1">Default P %</label>
+                    <input type="number" name="base_mdr_percent" value="<?= e(number_format($defaultP, 4)) ?>" class="input-field w-32" step="0.01" min="0" max="100">
+                </div>
+                <div>
+                    <label class="text-gray-500 text-xs block mb-1">Settlement mode</label>
+                    <select name="settlement_mode" class="input-field w-48">
+                        <option value="standard_settle_mode" <?= ($commercialRow['settlement_mode'] ?? '') === 'standard_settle_mode' ? 'selected' : '' ?>>Standard settle</option>
+                        <option value="route_mode" <?= ($commercialRow['settlement_mode'] ?? '') === 'route_mode' ? 'selected' : '' ?>>Route mode</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary px-4 py-2 text-sm">Save default</button>
+            </form>
+        </div>
+
+        <h4 class="text-sm font-semibold mb-3">Per-method Partner MDR (P)</h4>
+        <div class="space-y-2">
+            <?php foreach ($methodLabels as $methodKey => $label): ?>
+            <form method="POST" class="flex items-center gap-3 rounded-lg border border-gray-800 px-4 py-2.5">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="save_method_mdr">
+                <input type="hidden" name="method" value="<?= e($methodKey) ?>">
+                <span class="text-sm text-gray-300 min-w-[140px]"><?= e($label) ?></span>
+                <input type="number" name="base_mdr_percent" value="<?= e(number_format($methodMdrs[$methodKey] ?? 0, 2)) ?>" class="input-field w-28 text-sm" step="0.01" min="0" max="100">
+                <span class="text-xs text-gray-600">%</span>
+                <button type="submit" class="text-xs text-brand-400 hover:underline ml-auto">Save</button>
+            </form>
+            <?php endforeach; ?>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-gray-800 text-xs text-gray-500">
+            <p><strong class="text-gray-400">P</strong> = Partner MDR (this page) · <strong class="text-gray-400">M</strong> = Merchant MDR (admin_edit_merchant) · Platform margin = M − P</p>
         </div>
     </div>
 

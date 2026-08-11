@@ -38,10 +38,12 @@ function ensurePartnerControlTables(): void
             priority INT NOT NULL DEFAULT 50,
             min_amt DECIMAL(14,2) NOT NULL DEFAULT 0,
             max_amt DECIMAL(14,2) NOT NULL DEFAULT 0,
+            base_mdr_percent DECIMAL(6,4) NOT NULL DEFAULT 0,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY uniq_partner_method (partner_key, method),
             INDEX idx_partner_enabled (partner_key, is_enabled)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        try { $db->exec("ALTER TABLE partner_methods ADD COLUMN base_mdr_percent DECIMAL(6,4) NOT NULL DEFAULT 0"); } catch (Throwable $e) { /* already exists */ }
 
         $db->exec("CREATE TABLE IF NOT EXISTS partner_merchant_links (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -468,5 +470,67 @@ function setPartnerGoLive(int $gatewayId, bool $goLive, string $adminEmail): arr
         return ['ok' => true, 'go_live' => $goLive];
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Get per-method partner base MDR (P) from partner_methods table.
+ * Returns 0 if not set.
+ */
+function getPartnerMethodMdr(string $partnerKey, string $method): float
+{
+    ensurePartnerControlTables();
+    try {
+        $st = getDB()->prepare('SELECT base_mdr_percent FROM partner_methods WHERE partner_key=? AND method=?');
+        $st->execute([$partnerKey, $method]);
+        $row = $st->fetch();
+        return $row ? (float)$row['base_mdr_percent'] : 0.0;
+    } catch (Throwable $e) {
+        return 0.0;
+    }
+}
+
+/**
+ * Set per-method partner base MDR (P).
+ * Creates method row if not exists. Audit logs old→new.
+ */
+function setPartnerMethodMdr(string $partnerKey, string $method, float $mdrPercent, string $updatedBy = 'admin'): array
+{
+    ensurePartnerControlTables();
+    if ($mdrPercent < 0 || $mdrPercent > 100) {
+        return ['ok' => false, 'error' => 'MDR must be between 0 and 100.'];
+    }
+    try {
+        $old = getPartnerMethodMdr($partnerKey, $method);
+        getDB()->prepare(
+            'INSERT INTO partner_methods (partner_key, method, is_enabled, base_mdr_percent)
+             VALUES (?, ?, 0, ?)
+             ON DUPLICATE KEY UPDATE base_mdr_percent=VALUES(base_mdr_percent)'
+        )->execute([$partnerKey, $method, $mdrPercent]);
+        if (function_exists('logAudit')) {
+            logAudit('partner_method_mdr', $updatedBy, "partner={$partnerKey} method={$method} old={$old} new={$mdrPercent}");
+        }
+        return ['ok' => true, 'old' => $old, 'new' => $mdrPercent];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Get all partner method MDRs as associative array [method => mdr_percent].
+ */
+function getAllPartnerMethodMdrs(string $partnerKey): array
+{
+    ensurePartnerControlTables();
+    try {
+        $st = getDB()->prepare('SELECT method, base_mdr_percent FROM partner_methods WHERE partner_key=?');
+        $st->execute([$partnerKey]);
+        $result = [];
+        foreach ($st->fetchAll() as $row) {
+            $result[$row['method']] = (float)$row['base_mdr_percent'];
+        }
+        return $result;
+    } catch (Throwable $e) {
+        return [];
     }
 }

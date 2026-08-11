@@ -97,9 +97,15 @@ function ensureSplitSettlementTable(): void
  * F1: Get partner base MDR (P) from partner_commercial table.
  * Returns 0 if not set (no partner cost → platform keeps full M).
  */
-function getPartnerBaseMdr(string $partnerKey): float
+function getPartnerBaseMdr(string $partnerKey, ?string $method = null): float
 {
     ensureSplitSettlementTable();
+    if ($method !== null && $method !== '') {
+        if (function_exists('getPartnerMethodMdr')) {
+            $perMethod = getPartnerMethodMdr($partnerKey, $method);
+            if ($perMethod > 0) return $perMethod;
+        }
+    }
     try {
         $st = getDB()->prepare('SELECT base_mdr_percent FROM partner_commercial WHERE partner_key=?');
         $st->execute([$partnerKey]);

@@ -84,7 +84,8 @@ function calculateSplitBreakdown(float $amount, array $merchant): array
                 }
             }
         }
-        $p = $partnerKey !== '' ? getPartnerBaseMdr($partnerKey) : 0.0;
+        $method = (string)($merchant['method'] ?? $merchant['payment_method'] ?? $merchant['mode'] ?? '');
+        $p = $partnerKey !== '' ? getPartnerBaseMdr($partnerKey, $method !== '' ? $method : null) : 0.0;
 
         $merchantFee = round($amount * $m / 100, 2);
         $platformFee = round($amount * ($m - $p) / 100, 2);
@@ -113,6 +114,7 @@ function calculateSplitBreakdown(float $amount, array $merchant): array
                 'merchant_net' => max(0, $merchantNet),
                 'partner_fee' => $partnerFee,
                 'partner_key' => $partnerKey,
+                'method' => $method,
             ], JSON_UNESCAPED_SLASHES),
         ];
     }
