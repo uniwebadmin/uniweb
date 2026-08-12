@@ -38,7 +38,7 @@ require_once __DIR__ . '/includes/migrations.php';
 header('Content-Type: application/json');
 
 try {
-    $result = applyPendingMigrations();
+    $result = applyPendingMigrations(__DIR__ . '/migrations');
     echo json_encode([
         'ok' => true,
         'applied' => $result['applied'] ?? 0,
