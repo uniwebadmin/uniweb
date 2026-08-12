@@ -289,6 +289,16 @@ function ensureMissingColumns(): void
     schemaExecQuiet('ALTER TABLE merchants ADD COLUMN udyam_number VARCHAR(30) DEFAULT NULL');
     schemaExecQuiet('ALTER TABLE merchants ADD COLUMN iec_number VARCHAR(20) DEFAULT NULL');
     schemaExecQuiet('ALTER TABLE transactions ADD COLUMN metadata JSON DEFAULT NULL');
+
+    // 058: schema drift — columns referenced by code but missing from original migrations
+    schemaExecQuiet("ALTER TABLE platform_settlements ADD COLUMN mode VARCHAR(20) DEFAULT 'manual'");
+    schemaExecQuiet('ALTER TABLE platform_settlements ADD COLUMN bank_account VARCHAR(30) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE platform_settlements ADD COLUMN processed_by VARCHAR(120) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE payout_beneficiaries ADD COLUMN account_number_last4 VARCHAR(8) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE payout_orders ADD COLUMN processed_at DATETIME DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE payout_orders ADD COLUMN utr VARCHAR(60) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE gateway_events ADD COLUMN provider_order_id VARCHAR(120) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE gateway_events ADD INDEX idx_gateway_event_provider_order (provider_order_id)');
 }
 
 /** F2: Ensure pricing snapshot columns on transactions table. */
