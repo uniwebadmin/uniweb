@@ -49,7 +49,7 @@ $vkwRejected = $vkwStatus === 'rejected';
 <?php elseif ($vkwRejected): ?>
 <div class="bg-red-500/10 border border-red-500/40 rounded-xl px-4 py-3 mb-6">
     <p class="text-sm font-semibold text-red-300">Video rejected — please re-record</p>
-    <p class="text-sm text-red-200/90 mt-1">Reason: <?= e($vkwRejectionReason !== '' ? $vkwRejectionReason : 'Please record again with a clearer face and document.') ?></p>
+    <p class="text-sm text-red-200/90 mt-1">Reason: <?= e(function_exists('kycRejectionDisplay') ? kycRejectionDisplay($vkwRejectionReason) : ($vkwRejectionReason !== '' ? $vkwRejectionReason : 'Please record again with a clearer face and document.')) ?></p>
 </div>
 <?php endif; ?>
 

@@ -16,6 +16,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string)($_POST['action'] ?? '');
     $id = (int)($_POST['id'] ?? 0);
     $reason = trim((string)($_POST['reason'] ?? 'Compliance review'));
+    // 2.11: Enforce human-readable rejection reasons — minimum 10 chars for reject actions
+    $rejectActions = ['reject_doc', 'reject_video', 'force_reject', 'reject_request'];
+    if (in_array($action, $rejectActions, true) && strlen($reason) < 10) {
+        flash('error', 'Rejection reason must be at least 10 characters. Please provide a clear explanation for the merchant.');
+        redirect('admin_kyc.php');
+    }
     try {
         if (in_array($action, ['approve_doc', 'verify_merchant', 'verify_merchant_now', 'live_enable', 'verify_video', 'reject_video', 'reject_doc', 'force_hold', 'force_reject', 'force_resubmit'], true)) {
             requireStaffKycMutation();
@@ -322,7 +328,7 @@ require_once __DIR__ . '/header.php';
             <a href="admin_kyc_doc.php?id=<?= (int)$videoRow['doc_id'] ?>&token=<?= csrfToken() ?>" target="_blank" rel="noopener" class="text-xs bg-sky-600/20 text-sky-400 px-3 py-2 rounded-lg text-center">Play / view video</a>
             <?php endif; ?>
             <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="verify_video"><input type="hidden" name="id" value="<?= (int)$videoRow['id'] ?>"><input type="hidden" name="reason" value="Video KYC reviewed"><button class="text-xs bg-violet-600 text-white px-3 py-2 rounded-lg w-full sm:w-auto">Mark video verified</button></form>
-            <form method="post" class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center min-w-0 flex-1"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="reject_video"><input type="hidden" name="id" value="<?= (int)$videoRow['id'] ?>"><input name="reason" required maxlength="500" placeholder="Rejection reason (shown to merchant)" aria-label="Video rejection reason" class="text-xs bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 w-full min-w-0"><button class="text-xs bg-red-600/20 text-red-400 px-3 py-2 rounded-lg w-full sm:w-auto shrink-0">Reject video</button></form>
+            <form method="post" class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center min-w-0 flex-1"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="reject_video"><input type="hidden" name="id" value="<?= (int)$videoRow['id'] ?>"><div class="flex flex-col gap-1 w-full min-w-0"><div class="flex flex-wrap gap-1 mb-1"><?php foreach (['Video too blurry or dark','Face not clearly visible','Video appears manipulated or edited','Audio inaudible or missing'] as $preset): ?><button type="button" onclick="this.closest('form').querySelector('textarea[name=reason]').value=this.textContent" class="text-[10px] px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-sky-400 hover:border-sky-500/30"><?= e($preset) ?></button><?php endforeach; ?></div><textarea name="reason" required minlength="10" maxlength="500" rows="2" placeholder="Rejection reason (min 10 chars — shown to merchant)" aria-label="Video rejection reason" class="text-xs bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 w-full min-w-0"></textarea></div><button class="text-xs bg-red-600/20 text-red-400 px-3 py-2 rounded-lg w-full sm:w-auto shrink-0">Reject video</button></form>
         </div>
     </div>
     <?php endforeach; ?>
@@ -441,7 +447,7 @@ require_once __DIR__ . '/header.php';
                 <a href="admin_kyc_doc.php?id=<?= $doc['id'] ?>&token=<?= csrfToken() ?>" target="_blank" class="text-xs bg-sky-600/20 text-sky-400 px-3 py-1.5 rounded-lg">View Doc</a>
                 <?php if ($canMutateKyc): ?>
                 <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="approve_doc"><input type="hidden" name="id" value="<?= (int)$doc['id'] ?>"><input type="hidden" name="reason" value="Document content reviewed"><button class="text-xs bg-brand-600/20 text-brand-400 px-3 py-1.5 rounded-lg">Send for approval</button></form>
-                <form method="post" class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto min-w-0"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="reject_doc"><input type="hidden" name="id" value="<?= (int)$doc['id'] ?>"><input name="reason" required maxlength="500" placeholder="Clarification reason" aria-label="Document rejection reason" class="text-xs bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 w-full"><button class="text-xs bg-red-600/20 text-red-400 px-3 py-1.5 rounded-lg w-full sm:w-auto">Reject</button></form>
+                <form method="post" class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto min-w-0"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="reject_doc"><input type="hidden" name="id" value="<?= (int)$doc['id'] ?>"><div class="flex flex-col gap-1 w-full min-w-0"><div class="flex flex-wrap gap-1 mb-1"><?php foreach (['Blurry or unreadable document','Name mismatch on document','Expired ID document','Incomplete document — missing pages','Wrong document type uploaded'] as $preset): ?><button type="button" onclick="this.closest('form').querySelector('textarea[name=reason]').value=this.textContent" class="text-[10px] px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-sky-400 hover:border-sky-500/30"><?= e($preset) ?></button><?php endforeach; ?></div><textarea name="reason" required minlength="10" maxlength="500" rows="2" placeholder="Clarification reason (min 10 chars — shown to merchant)" aria-label="Document rejection reason" class="text-xs bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 w-full"></textarea></div><button class="text-xs bg-red-600/20 text-red-400 px-3 py-1.5 rounded-lg w-full sm:w-auto shrink-0">Reject</button></form>
                 <?php endif; ?>
             </div>
         </div>

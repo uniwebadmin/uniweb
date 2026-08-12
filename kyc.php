@@ -12,6 +12,16 @@ require_once __DIR__ . '/includes/partner_payload.php';
 $merchant = getMerchant();
 $db = getDB();
 
+// 2.11: Helper to display rejection reason — falls back for legacy single-letter codes
+if (!function_exists('kycRejectionDisplay')) {
+    function kycRejectionDisplay(string $reason): string {
+        $trimmed = trim($reason);
+        if ($trimmed === '') return 'Please re-upload a clearer copy.';
+        if (strlen($trimmed) < 10) return 'Document rejected — please re-upload a clearer copy. (Legacy reason code: ' . $trimmed . ')';
+        return $trimmed;
+    }
+}
+
 // D6: Get onboarding state and forward queue status for merchant visibility
 $onboardingState = getMerchantOnboardingState((int)$merchant['id']);
 $onboardingLabel = onboardingStateLabel($onboardingState);
@@ -204,7 +214,7 @@ $docStatusMeta = static function (string $status): array {
                 <div class="flex items-start justify-between gap-2 flex-wrap">
                     <div class="min-w-0">
                         <span class="font-medium"><?= e($docLabels[$rejType] ?? $rejType) ?>:</span>
-                        <?= e(trim((string)($rej['rejection_reason'] ?? '')) ?: 'Please re-upload a clearer copy.') ?>
+                        <?= e(kycRejectionDisplay((string)($rej['rejection_reason'] ?? ''))) ?>
                         <span class="block text-xs text-gray-400 mt-1">Attempt <?= $rejCount ?> of <?= $maxRetries ?> · <?= $retriesLeft > 0 ? $retriesLeft . ' retry left' : 'No retries left' ?></span>
                     </div>
                     <?php if ($retriesLeft <= 0): ?>
@@ -284,7 +294,7 @@ $docStatusMeta = static function (string $status): array {
                         <p class="text-sm font-medium truncate"><?= e($docLabels[$docKey] ?? $docKey) ?></p>
                         <p class="text-xs mt-0.5 <?= $labelTone ?>"><?= e($meta['label']) ?></p>
                         <?php if ($rejected): ?>
-                        <p class="text-xs text-red-300/90 mt-2 leading-relaxed">Reason: <?= e(trim((string)($latest['rejection_reason'] ?? '')) ?: 'Please re-upload a clearer copy.') ?></p>
+                        <p class="text-xs text-red-300/90 mt-2 leading-relaxed">Reason: <?= e(kycRejectionDisplay((string)($latest['rejection_reason'] ?? ''))) ?></p>
                         <?php endif; ?>
                     </div>
                     <?php if (!$approved): ?>
@@ -316,7 +326,7 @@ $docStatusMeta = static function (string $status): array {
                 </div>
                 <p class="text-xs text-gray-500 mt-0.5">Live camera recording with your name, shop name and address</p>
                 <?php if ($vkRejected): ?>
-                <p class="text-xs text-red-300 mt-2">Reason: <?= e(trim((string)($vkLatest['rejection_reason'] ?? '')) ?: 'Please record again with clearer face and voice.') ?></p>
+                <p class="text-xs text-red-300 mt-2">Reason: <?= e(kycRejectionDisplay((string)($vkLatest['rejection_reason'] ?? ''))) ?></p>
                 <?php endif; ?>
             </div>
             <span class="text-violet-400 shrink-0">▾</span>
@@ -475,7 +485,7 @@ $docStatusMeta = static function (string $status): array {
                     <td class="px-5 py-3"><?= statusBadge($doc['status']) ?></td>
                     <td class="px-5 py-3 text-xs break-words <?= ($doc['status'] ?? '') === 'rejected' ? 'text-red-300' : 'text-gray-500' ?>">
                         <?= ($doc['status'] ?? '') === 'rejected'
-                            ? e(trim((string)($doc['rejection_reason'] ?? '')) ?: 'Re-upload required')
+                            ? e(kycRejectionDisplay((string)($doc['rejection_reason'] ?? '')))
                             : '—' ?>
                     </td>
                     <td class="px-5 py-3 text-xs text-gray-500 whitespace-nowrap"><?= formatDate($doc['created_at']) ?></td>
@@ -564,7 +574,7 @@ $docStatusMeta = static function (string $status): array {
                     'icon' => '!',
                     'tone' => 'red',
                     'text' => e($label) . ' rejected',
-                    'sub' => e(trim((string)($doc['rejection_reason'] ?? '')) ?: 'Re-upload required'),
+                    'sub' => e(kycRejectionDisplay((string)($doc['rejection_reason'] ?? ''))),
                 ];
             }
         }
