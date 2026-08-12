@@ -37,8 +37,9 @@ if (isset($_GET['run_auto']) && verifyCsrf($_GET['csrf'] ?? '')) {
 }
 
 $scan = $_SESSION['watchdog_scan'] ?? $_SESSION['watchdog_quick_scan'] ?? null;
-$lastAuto = getLastAutoAuditRun();
-$autoHistory = getAutoAuditHistory(25);
+try { $lastAuto = getLastAutoAuditRun(); } catch (Throwable $e) { $lastAuto = null; }
+try { $autoHistory = getAutoAuditHistory(25); } catch (Throwable $e) { $autoHistory = []; }
+try { $unresolvedErrors = countUnresolvedPlatformErrors(); } catch (Throwable $e) { $unresolvedErrors = 0; }
 $registry = getWatchdogPageRegistry();
 if (isset($_GET['export']) && $_GET['export'] === 'csv' && $tab === 'rules') {
     $csvRows = [];
@@ -54,7 +55,6 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && $tab === 'rules') {
     sendCsvDownload(['Portal', 'File', 'Label', 'Auth', 'On disk'], $csvRows, 'watchdog-registry-' . date('Y-m-d') . '.csv');
 }
 $intervalMin = (int)(autoAuditIntervalSeconds() / 60);
-$unresolvedErrors = countUnresolvedPlatformErrors();
 
 $summary = is_array($scan) ? ($scan['summary'] ?? []) : [];
 $brokenLinks = is_array($scan) ? ($scan['broken_links'] ?? []) : [];

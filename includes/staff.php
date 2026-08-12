@@ -25,7 +25,11 @@ function ensureStaffRoles(): void
         return;
     }
     $done = true;
-    $db = getDB();
+    try {
+        $db = getDB();
+    } catch (Throwable $e) {
+        return;
+    }
     foreach ([
         "ALTER TABLE admins ADD COLUMN role VARCHAR(32) NOT NULL DEFAULT 'super'",
         "ALTER TABLE admins ADD COLUMN email VARCHAR(150) NULL",
