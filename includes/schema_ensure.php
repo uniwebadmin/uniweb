@@ -299,6 +299,10 @@ function ensureMissingColumns(): void
     schemaExecQuiet('ALTER TABLE payout_orders ADD COLUMN utr VARCHAR(60) DEFAULT NULL');
     schemaExecQuiet('ALTER TABLE gateway_events ADD COLUMN provider_order_id VARCHAR(120) DEFAULT NULL');
     schemaExecQuiet('ALTER TABLE gateway_events ADD INDEX idx_gateway_event_provider_order (provider_order_id)');
+
+    // 059: notification dedup — event_key for idempotent notification creation
+    schemaExecQuiet('ALTER TABLE notifications ADD COLUMN event_key VARCHAR(120) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE notifications ADD INDEX idx_notif_event (merchant_id, event_key)');
 }
 
 /** F2: Ensure pricing snapshot columns on transactions table. */

@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         } else {
             $db->prepare('UPDATE merchants SET totp_secret = ?, totp_enabled = 1 WHERE id = ?')->execute([encryptTotpSecret($secret), $merchant['id']]);
             unset($_SESSION['pending_2fa_secret']);
-            createNotification($merchant['id'], '2FA Enabled', 'Two-factor authentication was turned on for your account. You will need your authenticator app code at every login.');
+            createNotification($merchant['id'], '2FA Enabled', 'Two-factor authentication was turned on for your account. You will need your authenticator app code at every login.', '2fa_enabled');
             flash('success', '2FA enabled. You will need your authenticator code at every future login.');
             redirect('merchant_2fa.php');
         }
@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             $error = 'Incorrect password.';
         } else {
             $db->prepare('UPDATE merchants SET totp_secret = NULL, totp_enabled = 0 WHERE id = ?')->execute([$merchant['id']]);
-            createNotification($merchant['id'], '2FA Disabled', 'Two-factor authentication was turned off for your account.');
+            createNotification($merchant['id'], '2FA Disabled', 'Two-factor authentication was turned off for your account.', '2fa_disabled');
             flash('success', '2FA disabled.');
             redirect('merchant_2fa.php');
         }

@@ -95,8 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             } catch (Throwable $e) { /* ok */ }
 
             notifyAdminNewMerchantSignup((int)$merchant['id']);
-            createNotification((int)$merchant['id'], __('setup_title'), __('notif_profile_saved'));
-            createNotification((int)$merchant['id'], 'Payment Pack Ready', 'Your test payment links are ready. Open Payment Pack to try ₹1 test payments.');
+            createNotification((int)$merchant['id'], __('setup_title'), __('notif_profile_saved'), 'profile_saved');
+            createNotification((int)$merchant['id'], 'Payment Pack Ready', 'Your test payment links are ready. Open Payment Pack to try ₹1 test payments.', 'payment_pack_ready');
         }
 
         clearMerchantOnboardingDraft((int)$merchant['id']);

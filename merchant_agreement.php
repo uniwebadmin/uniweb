@@ -142,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($acceptance) {
         generateAndStoreMerchantAgreementPdf($merchant, $acceptance, $sections);
         emailMerchantAgreementAccepted($merchant, $acceptance);
-        createNotification($merchantId, 'Agreement accepted', 'Merchant Services Agreement v' . $version . ' recorded. Download your PDF copy anytime.');
+        createNotification($merchantId, 'Agreement accepted', 'Merchant Services Agreement v' . $version . ' recorded. Download your PDF copy anytime.', 'agreement_accepted_' . $version);
     }
     flash('success', 'Merchant Agreement accepted. A PDF copy has been emailed to you.');
     redirect('merchant_agreement.php');

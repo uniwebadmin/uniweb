@@ -363,7 +363,7 @@ function applyMerchantSignupPreferences(int $merchantId, string $collectionMode,
         } catch (Throwable $e2) { /* ok */ }
     }
     generateMerchantPaymentPack($merchantId, 1.0, true);
-    createNotification($merchantId, 'Payment Pack Ready', 'Your selected payment methods are active in TEST mode. Check Payment Pack for ₹1 test links.');
+    createNotification($merchantId, 'Payment Pack Ready', 'Your selected payment methods are active in TEST mode. Check Payment Pack for ₹1 test links.', 'payment_pack_ready');
 }
 
 function autoProvisionMerchant(int $merchantId, int $adminId): array
@@ -386,7 +386,8 @@ function autoProvisionMerchant(int $merchantId, int $adminId): array
     createNotification(
         $merchantId,
         'Payment Stack Queued',
-        'UPI P2M is active in TEST mode. Other methods are waiting for admin → partner approval.'
+        'UPI P2M is active in TEST mode. Other methods are waiting for admin → partner approval.',
+        'payment_stack_queued'
     );
 
     return [

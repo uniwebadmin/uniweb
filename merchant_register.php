@@ -107,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 }
 
                 updateMerchantRiskScore($id);
-                createNotification($id, __('notif_welcome_title'), __('notif_welcome_body'));
+                createNotification($id, __('notif_welcome_title'), __('notif_welcome_body'), 'welcome');
 
                 // Mark invite as used
                 if ($inviteData && !empty($inviteData['token'])) {
