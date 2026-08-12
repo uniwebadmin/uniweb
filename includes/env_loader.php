@@ -1,6 +1,14 @@
 <?php
 declare(strict_types=1);
 
+// Load error catcher first so global handlers are registered before any other include can fatal
+if (!function_exists('logPlatformError') && is_file(__DIR__ . '/error_catcher.php')) {
+    require_once __DIR__ . '/error_catcher.php';
+}
+if (function_exists('initErrorCatcher') && !defined('UNIWEB_ERROR_CATCHER_INIT')) {
+    initErrorCatcher();
+}
+
 /**
  * Simple .env file loader — no dependencies.
  * Reads KEY=VALUE pairs from .env file and sets them as environment variables.

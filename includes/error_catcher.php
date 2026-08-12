@@ -260,6 +260,7 @@ function initErrorCatcher(): void
             'line' => (int)($err['line'] ?? 0),
             'type' => (int)$err['type'],
         ]);
+        uniwebRenderCaughtError(null);
     });
 }
 
