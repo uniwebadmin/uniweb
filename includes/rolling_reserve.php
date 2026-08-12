@@ -226,7 +226,7 @@ function cancelReserveHold(int $transactionId): bool
 function getMerchantReserveHolds(int $merchantId, string $status = '', int $limit = 100): array
 {
     ensureRollingReserveTables();
-    $sql = "SELECT h.*, t.amount as txn_amount, t.reference as txn_ref
+    $sql = "SELECT h.*, t.amount as txn_amount, t.txn_id as txn_ref
             FROM rolling_reserve_holds h
             LEFT JOIN transactions t ON t.id=h.transaction_id
             WHERE h.merchant_id=?";

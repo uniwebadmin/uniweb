@@ -72,10 +72,16 @@ function build_partner_onboarding_payload(int $merchantId): array
     }
 
     // 3. Bank proof reference
-    $bankSt = $db->prepare("SELECT id, doc_type, status, account_holder, ifsc_code
+    $bankSt = $db->prepare("SELECT id, doc_type, status
         FROM kyc_verifications WHERE merchant_id=? AND doc_type='bank' ORDER BY created_at DESC LIMIT 1");
     $bankSt->execute([$merchantId]);
     $bank = $bankSt->fetch();
+
+    // 3b. Bank account details (account holder, IFSC) from bank_accounts table
+    $bankAcctSt = $db->prepare("SELECT account_holder, ifsc_code, account_number_last4
+        FROM bank_accounts WHERE merchant_id=? ORDER BY id DESC LIMIT 1");
+    $bankAcctSt->execute([$merchantId]);
+    $bankAcct = $bankAcctSt->fetch();
 
     // 4. Agreement acceptance status
     $agreementSt = $db->prepare("SELECT agreement_version, accepted_at, accepted_ip, signature_name, partner_names
@@ -118,8 +124,9 @@ function build_partner_onboarding_payload(int $merchantId): array
         'bank_verification' => $bank ? [
             'verification_id' => (int)$bank['id'],
             'status' => $bank['status'],
-            'account_holder' => $bank['account_holder'],
-            'ifsc_code' => $bank['ifsc_code'],
+            'account_holder' => $bankAcct['account_holder'] ?? null,
+            'ifsc_code' => $bankAcct['ifsc_code'] ?? null,
+            'account_number_last4' => $bankAcct['account_number_last4'] ?? null,
         ] : null,
         'agreement' => $agreement ? [
             'version' => $agreement['agreement_version'],

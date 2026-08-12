@@ -5,6 +5,14 @@ if (!function_exists('runAutoKycEngine') && is_file(__DIR__ . '/includes/auto_ky
     require_once __DIR__ . '/includes/auto_kyc.php';
 }
 
+if (!function_exists('setSetting')) {
+    function setSetting(string $key, string $value): void {
+        $db = getDB();
+        $st = $db->prepare('INSERT INTO gateway_settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=?');
+        $st->execute([$key, $value, $value]);
+    }
+}
+
 $lastRun = getLastAutoKycRun();
 $forwardQueue = [];
 

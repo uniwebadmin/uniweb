@@ -5,6 +5,12 @@ $merchant = getMerchant();
 $merchantId = (int)$merchant['id'];
 $db = getDB();
 
+// Ensure merchant_qr_codes has payment_order_id column (migration 045)
+try {
+    $db->exec("ALTER TABLE merchant_qr_codes ADD COLUMN IF NOT EXISTS payment_order_id INT DEFAULT NULL");
+    $db->exec("ALTER TABLE merchant_qr_codes ADD INDEX IF NOT EXISTS idx_qr_order (payment_order_id)");
+} catch (Throwable $e) {}
+
 $pageTitle = 'Orders';
 require_once __DIR__ . '/header.php';
 

@@ -4,7 +4,7 @@
  * Run every 15-30 minutes via cron or auto_audit.
  * URL: cron_partner_forward.php?key=<WATCHDOG_KEY>
  */
-require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/config.php';
 
 $isCli = php_sapi_name() === 'cli';
 if (!$isCli) {
@@ -15,7 +15,7 @@ if (!$isCli) {
 }
 
 if (!function_exists('ensurePartnerForwardQueueTable')) {
-    require_once __DIR__ . '/../includes/partner_forward_queue.php';
+    require_once __DIR__ . '/includes/partner_forward_queue.php';
 }
 
 $results = processPartnerForwardQueue(20);

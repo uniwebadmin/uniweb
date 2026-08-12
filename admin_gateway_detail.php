@@ -303,6 +303,9 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <?php elseif ($activeTab === 'pricing'):
+        if (!function_exists('getPartnerBaseMdr')) {
+            require_once __DIR__ . '/includes/split_settlement.php';
+        }
         $defaultP = getPartnerBaseMdr($partnerKey);
         $methodMdrs = getAllPartnerMethodMdrs($partnerKey);
         $commercialRow = null;

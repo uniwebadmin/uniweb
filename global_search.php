@@ -324,7 +324,7 @@ if ($isMerchant) {
 
     /* --- Payment Links (admin) --- */
     try {
-        $stmt = $db->prepare("SELECT pl.link_id, pl.amount, pl.description, pl.status, m.business_name
+        $stmt = $db->prepare("SELECT pl.link_id, pl.amount, pl.description, pl.status, pl.merchant_id, m.business_name
             FROM payment_links pl JOIN merchants m ON m.id=pl.merchant_id WHERE (
             LOWER(TRIM(COALESCE(pl.link_id,''))) LIKE ? OR LOWER(TRIM(COALESCE(pl.description,''))) LIKE ? OR
             LOWER(TRIM(COALESCE(pl.link_label,''))) LIKE ? OR LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ?)
