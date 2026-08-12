@@ -37,33 +37,32 @@ $matrix = getAdminForwardMatrix($statusFilter, $q);
 $pageTitle = 'KYC Forward Queue';
 require_once __DIR__ . '/header.php';
 ?>
-<div class="space-y-6">
-    <div class="flex items-center justify-between">
-        <h2 class="text-xl font-bold">KYC Forward Queue — Status Matrix</h2>
-        <div class="flex items-center gap-3">
+<div class="space-y-4">
+    <div class="glass rounded-xl p-5 border border-gray-800">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 class="text-xl font-bold">KYC Forward Queue — Status Matrix</h2>
             <?php if (isSuperAdmin()): ?>
             <form method="POST" action="admin_forward_queue.php" onsubmit="return confirm('Run queue processor now?')" class="inline">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="run_now">
-                <button type="submit" class="px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 text-xs font-medium hover:bg-amber-500/30">⚡ Run Now</button>
+                <button type="submit" class="px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 text-xs font-medium hover:bg-amber-500/30 whitespace-nowrap">⚡ Run Now</button>
             </form>
             <?php endif; ?>
-            <div class="flex gap-2 text-xs">
-            <a href="?status=" class="px-3 py-1.5 rounded-lg <?= $statusFilter === '' ? 'bg-brand-500 text-white' : 'bg-dark-700 text-gray-400' ?>">All</a>
-            <a href="?status=queued" class="px-3 py-1.5 rounded-lg <?= $statusFilter === 'queued' ? 'bg-brand-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Queued</a>
-            <a href="?status=processing" class="px-3 py-1.5 rounded-lg <?= $statusFilter === 'processing' ? 'bg-brand-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Processing</a>
-            <a href="?status=success" class="px-3 py-1.5 rounded-lg <?= $statusFilter === 'success' ? 'bg-emerald-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Success</a>
-            <a href="?status=retry" class="px-3 py-1.5 rounded-lg <?= $statusFilter === 'retry' ? 'bg-amber-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Retry</a>
-            <a href="?status=failed" class="px-3 py-1.5 rounded-lg <?= $statusFilter === 'failed' ? 'bg-red-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Failed</a>
         </div>
+        <div class="flex flex-wrap gap-2 text-xs mb-3">
+            <a href="?status=" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === '' ? 'bg-brand-500 text-white' : 'bg-dark-700 text-gray-400' ?>">All</a>
+            <a href="?status=queued" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'queued' ? 'bg-brand-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Queued</a>
+            <a href="?status=processing" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'processing' ? 'bg-brand-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Processing</a>
+            <a href="?status=success" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'success' ? 'bg-emerald-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Success</a>
+            <a href="?status=retry" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'retry' ? 'bg-amber-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Retry</a>
+            <a href="?status=failed" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'failed' ? 'bg-red-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Failed</a>
         </div>
+        <form method="GET" data-live-search-form data-results-target="forward-results" class="flex gap-2 items-end">
+            <div class="flex-1 min-w-[180px]"><label class="text-[10px] text-gray-600 uppercase">Search</label><input type="text" name="q" value="<?= e($q) ?>" placeholder="Merchant / Partner / Status / ID" class="input-field mt-1 text-sm" autocomplete="off"></div>
+            <input type="hidden" name="status" value="<?= e($statusFilter) ?>">
+            <button class="btn-primary px-4 py-2.5 text-sm whitespace-nowrap">Search</button>
+        </form>
     </div>
-
-    <form method="GET" data-live-search-form data-results-target="forward-results" class="flex gap-2 items-end">
-        <div class="flex-1"><label class="text-[10px] text-gray-600 uppercase">Search</label><input type="text" name="q" value="<?= e($q) ?>" placeholder="Merchant / Partner / Status / ID" class="input-field mt-1 text-sm" autocomplete="off"></div>
-        <input type="hidden" name="status" value="<?= e($statusFilter) ?>">
-        <button class="btn-primary px-4 py-2.5 text-sm">Search</button>
-    </form>
 
     <div id="forward-results" class="glass rounded-xl overflow-hidden">
       <div class="overflow-x-auto">
