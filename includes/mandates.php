@@ -165,15 +165,15 @@ function registerMandateWithPartner(int $mandateId): array
     $channel = (string)($mandate['channel'] ?? 'upi');
     $partnerConfigured = false;
     if ($channel === 'upi' || $mandate['mandate_type'] === 'upi_autopay') {
-        $partnerConfigured = trim((string)getSetting('razorpay_key_id', '')) !== ''
-            || trim((string)getSetting('cashfree_app_id', '')) !== ''
-            || trim((string)(getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', ''))) !== '';
+        $partnerConfigured = trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', '')) !== ''
+            || trim((string)getPartnerSetting('cashfree', 'cashfree_app_id', '')) !== ''
+            || trim((string)(getPartnerSetting('decentro', 'decentro_client_id', '') ?: getSetting('decentro_api_key', ''))) !== '';
     } elseif ($channel === 'netbanking' || $mandate['mandate_type'] === 'enach') {
-        $partnerConfigured = trim((string)getSetting('razorpay_key_id', '')) !== ''
-            || trim((string)(getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', ''))) !== '';
+        $partnerConfigured = trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', '')) !== ''
+            || trim((string)(getPartnerSetting('decentro', 'decentro_client_id', '') ?: getSetting('decentro_api_key', ''))) !== '';
     } elseif ($channel === 'card') {
-        $partnerConfigured = trim((string)getSetting('razorpay_key_id', '')) !== ''
-            || trim((string)getSetting('cashfree_app_id', '')) !== '';
+        $partnerConfigured = trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', '')) !== ''
+            || trim((string)getPartnerSetting('cashfree', 'cashfree_app_id', '')) !== '';
     }
 
     if (!$partnerConfigured) {
@@ -187,17 +187,17 @@ function registerMandateWithPartner(int $mandateId): array
     $mandateType = $mandate['mandate_type'] ?? 'upi_autopay';
 
     if ($mandateType === 'upi_autopay') {
-        if (trim((string)getSetting('razorpay_key_id', '')) !== '') {
+        if (trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', '')) !== '') {
             $result = razorpayMandateRegistration($mandate);
-        } elseif (trim((string)getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', '')) !== '') {
+        } elseif (trim((string)getPartnerSetting('decentro', 'decentro_client_id', '')) !== '') {
             $result = decentroMandateRegistration($mandate);
         } else {
             $result = ['ok' => false, 'error' => 'No UPI Autopay partner configured.'];
         }
     } elseif ($mandateType === 'enach') {
-        if (trim((string)getSetting('razorpay_key_id', '')) !== '') {
+        if (trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', '')) !== '') {
             $result = razorpayMandateRegistration($mandate);
-        } elseif (trim((string)(getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', ''))) !== '') {
+        } elseif (trim((string)getPartnerSetting('decentro', 'decentro_client_id', '')) !== '') {
             $result = decentroEnachRegistration($mandate);
         } else {
             $result = ['ok' => false, 'error' => 'No eNACH partner configured.'];
@@ -231,8 +231,8 @@ function registerMandateWithPartner(int $mandateId): array
  */
 function razorpayMandateRegistration(array $mandate): array
 {
-    $keyId = trim((string)getSetting('razorpay_key_id', ''));
-    $keySecret = trim((string)getSetting('razorpay_key_secret', ''));
+    $keyId = trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', ''));
+    $keySecret = trim((string)getPartnerSetting('razorpay', 'razorpay_key_secret', ''));
     $amountPaise = (int)round((float)$mandate['max_amount'] * 100);
 
     $payload = json_encode([
@@ -398,9 +398,9 @@ function cancelMandateWithPartner(int $mandateId, string $reason): array
 
     // G3: Call partner cancel API if gateway mandate ID exists
     if ($gatewayMandateId !== '') {
-        if ($gateway === 'razorpay' && trim((string)getSetting('razorpay_key_id', '')) !== '') {
-            $keyId = trim((string)getSetting('razorpay_key_id', ''));
-            $keySecret = trim((string)getSetting('razorpay_key_secret', ''));
+        if ($gateway === 'razorpay' && trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', '')) !== '') {
+            $keyId = trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', ''));
+            $keySecret = trim((string)getPartnerSetting('razorpay', 'razorpay_key_secret', ''));
             $ch = curl_init('https://api.razorpay.com/v1/mandates/' . urlencode($gatewayMandateId) . '/cancel');
             curl_setopt_array($ch, [
                 CURLOPT_RETURNTRANSFER => true,
@@ -838,22 +838,22 @@ function resolveMandateDebitAdapter(array $mandate): ?callable
     }
 
     if ($mandateType === 'upi_autopay') {
-        if (trim((string)getSetting('razorpay_key_id', '')) !== '') {
+        if (trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', '')) !== '') {
             return 'razorpayMandateDebitAdapter';
         }
-        if (trim((string)getSetting('cashfree_app_id', '')) !== '') {
+        if (trim((string)getPartnerSetting('cashfree', 'cashfree_app_id', '')) !== '') {
             return 'cashfreeMandateDebitAdapter';
         }
-        if (trim((string)getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', '')) !== '') {
+        if (trim((string)getPartnerSetting('decentro', 'decentro_client_id', '') ?: getSetting('decentro_api_key', '')) !== '') {
             return 'decentroMandateDebitAdapter';
         }
     }
 
     if ($mandateType === 'enach') {
-        if (trim((string)getSetting('razorpay_key_id', '')) !== '') {
+        if (trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', '')) !== '') {
             return 'razorpayMandateDebitAdapter';
         }
-        if (trim((string)getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', '')) !== '') {
+        if (trim((string)getPartnerSetting('decentro', 'decentro_client_id', '') ?: getSetting('decentro_api_key', '')) !== '') {
             return 'decentroEnachDebitAdapter';
         }
     }
@@ -863,8 +863,8 @@ function resolveMandateDebitAdapter(array $mandate): ?callable
 
 function razorpayMandateDebitAdapter(array $mandate, array $debit): array
 {
-    $keyId = trim((string)getSetting('razorpay_key_id', ''));
-    $keySecret = trim((string)getSetting('razorpay_key_secret', ''));
+    $keyId = trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', ''));
+    $keySecret = trim((string)getPartnerSetting('razorpay', 'razorpay_key_secret', ''));
     $gatewayMandateId = $mandate['gateway_mandate_id'] ?? '';
     $amount = (float)$mandate['max_amount'];
     $amountPaise = (int)round($amount * 100);

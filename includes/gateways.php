@@ -11,8 +11,8 @@ function createRazorpayOrder(float $amount, string $receipt, array $notes = []):
     if (!isGatewayConfigured('razorpay')) {
         return null;
     }
-    $keyId = getSetting('razorpay_key_id', '');
-    $keySecret = getSetting('razorpay_key_secret', '');
+    $keyId = getPartnerSetting('razorpay', 'razorpay_key_id', '');
+    $keySecret = getPartnerSetting('razorpay', 'razorpay_key_secret', '');
     if (!$keyId || !$keySecret) return null;
 
     $ch = curl_init('https://api.razorpay.com/v1/orders');
@@ -35,7 +35,7 @@ function createRazorpayOrder(float $amount, string $receipt, array $notes = []):
 
 function verifyRazorpayPayment(string $orderId, string $paymentId, string $signature): bool
 {
-    $secret = getSetting('razorpay_key_secret', '');
+    $secret = getPartnerSetting('razorpay', 'razorpay_key_secret', '');
     if (!$secret) return false;
     $expected = hash_hmac('sha256', $orderId . '|' . $paymentId, $secret);
     return hash_equals($expected, $signature);
@@ -43,8 +43,8 @@ function verifyRazorpayPayment(string $orderId, string $paymentId, string $signa
 
 function fetchRazorpayPayment(string $paymentId): ?array
 {
-    $keyId = getSetting('razorpay_key_id', '');
-    $keySecret = getSetting('razorpay_key_secret', '');
+    $keyId = getPartnerSetting('razorpay', 'razorpay_key_id', '');
+    $keySecret = getPartnerSetting('razorpay', 'razorpay_key_secret', '');
     if (!$keyId || !$keySecret || $paymentId === '') {
         return null;
     }
@@ -66,8 +66,8 @@ function fetchRazorpayPayment(string $paymentId): ?array
 
 function createRazorpayRefund(string $paymentId, float $amount, string $receipt): ?array
 {
-    $keyId = getSetting('razorpay_key_id', '');
-    $keySecret = getSetting('razorpay_key_secret', '');
+    $keyId = getPartnerSetting('razorpay', 'razorpay_key_id', '');
+    $keySecret = getPartnerSetting('razorpay', 'razorpay_key_secret', '');
     if (!$keyId || !$keySecret || $paymentId === '' || $amount <= 0) {
         return null;
     }
@@ -97,8 +97,8 @@ function createRazorpayRefund(string $paymentId, float $amount, string $receipt)
 
 function fetchRazorpayRefund(string $paymentId, string $refundId): ?array
 {
-    $keyId = getSetting('razorpay_key_id', '');
-    $keySecret = getSetting('razorpay_key_secret', '');
+    $keyId = getPartnerSetting('razorpay', 'razorpay_key_id', '');
+    $keySecret = getPartnerSetting('razorpay', 'razorpay_key_secret', '');
     if (!$keyId || !$keySecret || $paymentId === '' || $refundId === '') {
         return null;
     }
@@ -121,8 +121,8 @@ function fetchRazorpayRefund(string $paymentId, string $refundId): ?array
 
 function razorpayXRequest(string $method, string $path, ?array $body = null, array $headers = []): ?array
 {
-    $keyId = getSetting('razorpayx_key_id', '') ?: getSetting('razorpay_key_id', '');
-    $keySecret = getSetting('razorpayx_key_secret', '') ?: getSetting('razorpay_key_secret', '');
+    $keyId = getPartnerSetting('razorpayx', 'razorpayx_key_id', '') ?: getPartnerSetting('razorpay', 'razorpay_key_id', '');
+    $keySecret = getPartnerSetting('razorpayx', 'razorpayx_key_secret', '') ?: getPartnerSetting('razorpay', 'razorpay_key_secret', '');
     if (!$keyId || !$keySecret) {
         return null;
     }
@@ -565,15 +565,15 @@ function isGatewayConfigured(string $gateway): bool
         return false;
     }
     return match ($gateway) {
-        'razorpay' => (bool)getSetting('razorpay_key_id', '') && (bool)getSetting('razorpay_key_secret', ''),
-        'cashfree' => (bool)getSetting('cashfree_app_id', '') && (bool)getSetting('cashfree_secret_key', ''),
-        'payu' => (bool)getSetting('payu_merchant_key', '') && (bool)getSetting('payu_merchant_salt', ''),
-        'phonepe' => (bool)getSetting('phonepe_merchant_id', '') && (bool)getSetting('phonepe_salt_key', ''),
-        'axis' => (bool)(getSetting('axis_client_id', '') && getSetting('axis_client_secret', ''))
+        'razorpay' => (bool)getPartnerSetting('razorpay', 'razorpay_key_id', '') && (bool)getPartnerSetting('razorpay', 'razorpay_key_secret', ''),
+        'cashfree' => (bool)getPartnerSetting('cashfree', 'cashfree_app_id', '') && (bool)getPartnerSetting('cashfree', 'cashfree_secret_key', ''),
+        'payu' => (bool)getPartnerSetting('payu', 'payu_merchant_key', '') && (bool)getPartnerSetting('payu', 'payu_merchant_salt', ''),
+        'phonepe' => (bool)getPartnerSetting('phonepe', 'phonepe_merchant_id', '') && (bool)getPartnerSetting('phonepe', 'phonepe_salt_key', ''),
+        'axis' => (bool)(getPartnerSetting('axis', 'axis_client_id', '') && getPartnerSetting('axis', 'axis_client_secret', ''))
             || (bool)(getSetting('axis_api_key', '') && getSetting('axis_api_secret', '')),
-        'decentro' => (bool)getSetting('decentro_client_id', '') && (bool)getSetting('decentro_client_secret', ''),
-        'pinelabs' => (bool)getSetting('pinelabs_merchant_id', '') && (bool)getSetting('pinelabs_access_code', '') && (bool)getSetting('pinelabs_secure_key', ''),
-        'worldline' => (bool)getSetting('worldline_merchant_id', '') && (bool)getSetting('worldline_access_key', '') && (bool)getSetting('worldline_secret_key', ''),
+        'decentro' => (bool)getPartnerSetting('decentro', 'decentro_client_id', '') && (bool)getPartnerSetting('decentro', 'decentro_client_secret', ''),
+        'pinelabs' => (bool)getPartnerSetting('pinelabs', 'pinelabs_merchant_id', '') && (bool)getPartnerSetting('pinelabs', 'pinelabs_access_code', '') && (bool)getPartnerSetting('pinelabs', 'pinelabs_secure_key', ''),
+        'worldline' => (bool)getPartnerSetting('worldline', 'worldline_merchant_id', '') && (bool)getPartnerSetting('worldline', 'worldline_access_key', '') && (bool)getPartnerSetting('worldline', 'worldline_secret_key', ''),
         'rbl' => isRblConfigured(),
         default => false,
     };
@@ -602,8 +602,8 @@ function gatewayStatusLabel(string $gateway): string
 /** @return array{ok:bool,message:string} */
 function testRazorpayConnection(): array
 {
-    $keyId = getSetting('razorpay_key_id', '');
-    $keySecret = getSetting('razorpay_key_secret', '');
+    $keyId = getPartnerSetting('razorpay', 'razorpay_key_id', '');
+    $keySecret = getPartnerSetting('razorpay', 'razorpay_key_secret', '');
     if (!$keyId || !$keySecret) {
         return ['ok' => false, 'message' => 'Razorpay Key ID and Secret are required.'];
     }
@@ -877,8 +877,8 @@ function createRazorpayOrderWithRoute(float $amount, string $receipt, array $mer
     if (!isGatewayConfigured('razorpay')) {
         return null;
     }
-    $keyId = getSetting('razorpay_key_id', '');
-    $keySecret = getSetting('razorpay_key_secret', '');
+    $keyId = getPartnerSetting('razorpay', 'razorpay_key_id', '');
+    $keySecret = getPartnerSetting('razorpay', 'razorpay_key_secret', '');
     if (!$keyId || !$keySecret) return null;
 
     $split = calculateSplitBreakdown($amount, $merchant);

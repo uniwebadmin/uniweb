@@ -114,7 +114,7 @@ function bindProviderOrder(int $paymentOrderId, string $provider, string $provid
 function assertProviderModeMatches(string $provider, string $mode): void
 {
     if ($provider === 'razorpay') {
-        $keyId = getSetting('razorpay_key_id', '');
+        $keyId = function_exists('getPartnerSetting') ? getPartnerSetting('razorpay', 'razorpay_key_id', '') : getSetting('razorpay_key_id', '');
         $credentialMode = str_starts_with($keyId, 'rzp_live_') ? 'live' : 'test';
     } elseif ($provider === 'cashfree') {
         $credentialMode = getSetting('cashfree_environment', 'production') === 'sandbox' ? 'test' : 'live';

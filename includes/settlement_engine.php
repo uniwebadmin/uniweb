@@ -450,7 +450,9 @@ function dispatchPlatformPgPayout(array $merchant, array $batch, float $amount):
             'final' => true,
         ];
     }
-    if (!getSetting('razorpayx_account_number', '') || !getSetting('razorpayx_key_id', getSetting('razorpay_key_id', ''))) {
+    $razorpayxAcct = function_exists('getPartnerSetting') ? getPartnerSetting('razorpayx', 'razorpayx_account_number', '') : getSetting('razorpayx_account_number', '');
+    $razorpayxKey = function_exists('getPartnerSetting') ? getPartnerSetting('razorpayx', 'razorpayx_key_id', '') ?: getPartnerSetting('razorpay', 'razorpay_key_id', '') : getSetting('razorpayx_key_id', getSetting('razorpay_key_id', ''));
+    if (!$razorpayxAcct || !$razorpayxKey) {
         return ['ok' => false, 'error' => 'RazorpayX payout rail is not activated.'];
     }
     $result = processMerchantSettlement((int)$merchant['id'], $merchant, $amount);

@@ -566,7 +566,7 @@ function partnerIsConfigured(string $partnerKey): bool
     if (!$reg) return false;
     foreach ($reg['config_keys'] as $key => $meta) {
         if (str_contains($key, 'secret') || str_contains($key, 'salt') || str_contains($key, 'key')) {
-            if (getSetting($key, '') !== '') {
+            if (function_exists('getPartnerSetting') && getPartnerSetting($partnerKey, $key, '') !== '') {
                 return true;
             }
         }
@@ -587,20 +587,20 @@ function partnerTestConnection(string $partnerKey): array
         return ['ok' => (bool)($test['token_ok'] ?? false), 'message' => $test['message'] ?? 'Axis test done.'];
     }
     if ($partnerKey === 'payu') {
-        $ok = (bool)getSetting('payu_merchant_key', '');
-        $msg = $ok ? 'PayU keys saved. Live hash test on checkout.' : 'Add payu_merchant_key + payu_merchant_salt in Gateway Settings.';
+        $ok = (bool)getPartnerSetting('payu', 'payu_merchant_key', '');
+        $msg = $ok ? 'PayU keys saved.' : 'Add payu_merchant_key + payu_merchant_salt in Partner Detail → Keys.';
         partnerLogApi('payu', 'config_check', 'GET', null, $msg, $ok ? 200 : 0, $ok ? 'ok' : 'pending');
         return ['ok' => $ok, 'message' => $msg];
     }
     if ($partnerKey === 'razorpay') {
-        $ok = (bool)getSetting('razorpay_key_id', '');
-        $msg = $ok ? 'Razorpay keys saved.' : 'Add razorpay_key_id + razorpay_key_secret.';
+        $ok = (bool)getPartnerSetting('razorpay', 'razorpay_key_id', '');
+        $msg = $ok ? 'Razorpay keys saved.' : 'Add razorpay_key_id + razorpay_key_secret in Partner Detail → Keys.';
         partnerLogApi('razorpay', 'config_check', 'GET', null, $msg, $ok ? 200 : 0, $ok ? 'ok' : 'pending');
         return ['ok' => $ok, 'message' => $msg];
     }
     if ($partnerKey === 'cashfree') {
-        $ok = (bool)getSetting('cashfree_app_id', '');
-        $msg = $ok ? 'Cashfree keys saved.' : 'Add cashfree_app_id + cashfree_secret_key.';
+        $ok = (bool)getPartnerSetting('cashfree', 'cashfree_app_id', '');
+        $msg = $ok ? 'Cashfree keys saved.' : 'Add cashfree_app_id + cashfree_secret_key in Partner Detail → Keys.';
         partnerLogApi('cashfree', 'config_check', 'GET', null, $msg, $ok ? 200 : 0, $ok ? 'ok' : 'pending');
         return ['ok' => $ok, 'message' => $msg];
     }

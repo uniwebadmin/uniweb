@@ -50,9 +50,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $env = trim((string)($_POST['env'] ?? 'test'));
         $configKeys = $partner['config_keys'] ?? [];
         $last4 = savePartnerCredentials($partnerKey, $env, $keys, $configKeys);
-        $result = saveGatewayConfig($gatewayId, $keys);
-        flash($result['ok'] ? 'success' : 'error', $result['ok'] ? 'API keys saved for ' . e($gateway['gateway_name']) . " (env: {$env}" . ($last4 ? ", last4: ***{$last4}" : '') . ')' : ($result['error'] ?? 'Error'));
-        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=keys');
+        $msg = $last4 && $last4 !== 'no_keys'
+            ? 'API keys saved for ' . e($gateway['gateway_name']) . " (env: {$env}, last4: ***{$last4})"
+            : ($last4 === 'no_keys' ? 'No key values submitted — nothing changed.' : 'API keys saved for ' . e($gateway['gateway_name']) . " (env: {$env})");
+        flash($last4 === 'no_keys' ? 'warning' : 'success', $msg);
+        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=keys&env=' . $env);
     }
 
     if ($action === 'activate') {
@@ -239,32 +241,48 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <?php if ($activeTab === 'keys'): ?>
+    <?php
+        $keyEnv = preg_replace('/[^a-z]/', '', (string)($_GET['env'] ?? 'test'));
+        if (!in_array($keyEnv, ['test', 'live'], true)) $keyEnv = 'test';
+        $existingCreds = getPartnerCredentials($partnerKey, $keyEnv);
+    ?>
     <div class="glass rounded-xl p-6 border border-gray-800">
         <h3 class="font-semibold mb-1">API Credentials</h3>
-        <p class="text-xs text-gray-500 mb-4">Secrets are encrypted at rest. Only last4 is shown after save. Leave password fields blank to keep current value.</p>
+        <p class="text-xs text-gray-500 mb-2">Secrets are encrypted at rest in <code class="text-gray-400">partner_credentials</code>. Only last4 is shown after save. Leave password fields blank to keep current value.</p>
+        <div class="flex gap-2 mb-4">
+            <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=keys&env=test" class="text-xs px-3 py-1.5 rounded-lg <?= $keyEnv === 'test' ? 'bg-sky-500/20 text-sky-400' : 'glass text-gray-400' ?>">Test</a>
+            <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=keys&env=live" class="text-xs px-3 py-1.5 rounded-lg <?= $keyEnv === 'live' ? 'bg-emerald-500/20 text-emerald-400' : 'glass text-gray-400' ?>">Live</a>
+        </div>
         <?php if (!empty($configKeys)): ?>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="save_keys">
-            <input type="hidden" name="env" value="test">
+            <input type="hidden" name="env" value="<?= e($keyEnv) ?>">
             <?php foreach ($configKeys as $key => $meta): ?>
             <div>
                 <label class="text-sm text-gray-400"><?= e($meta['label']) ?></label>
                 <?php if (($meta['type'] ?? 'text') === 'select'): ?>
                 <select name="keys[<?= e($key) ?>]" class="input-field mt-1">
                     <?php foreach ($meta['options'] as $val => $label): ?>
-                    <option value="<?= e($val) ?>" <?= getSetting($key, '') === $val ? 'selected' : '' ?>><?= e($label) ?></option>
+                    <option value="<?= e($val) ?>" <?= ($existingCreds[$key] ?? getSetting($key, '')) === $val ? 'selected' : '' ?>><?= e($label) ?></option>
                     <?php endforeach; ?>
                 </select>
                 <?php else: ?>
-                <input type="<?= e($meta['type'] ?? 'text') ?>" name="keys[<?= e($key) ?>]" value="" placeholder="<?= ($meta['type'] ?? '') === 'password' ? '•••• (leave blank to keep current)' : '' ?>" class="input-field mt-1 font-mono text-xs" autocomplete="off">
+                <?php $hasExisting = !empty($existingCreds[$key]); ?>
+                <input type="<?= e($meta['type'] ?? 'text') ?>" name="keys[<?= e($key) ?>]" value="" placeholder="<?= ($meta['type'] ?? '') === 'password' ? ($hasExisting ? '••••••' . e($existingCreds['_last4'] ?? '') . ' (leave blank to keep)' : '•••• (leave blank to keep current)') : ($hasExisting ? 'Current: ' . e(substr((string)$existingCreds[$key], 0, 8)) . '…' : '') ?>" class="input-field mt-1 font-mono text-xs" autocomplete="off">
+                <?php if ($hasExisting && ($meta['type'] ?? '') !== 'password'): ?>
+                <p class="text-[10px] text-gray-600 mt-1">Current value saved in encrypted credentials.</p>
+                <?php endif; ?>
                 <?php endif; ?>
             </div>
             <?php endforeach; ?>
-            <button type="submit" class="btn-primary px-6 py-2.5">Save Keys</button>
+            <button type="submit" class="btn-primary px-6 py-2.5">Save <?= e(ucfirst($keyEnv)) ?> Keys</button>
         </form>
-        <?php if (!empty($configMeta['keys_saved_at'])): ?>
-        <p class="text-[11px] text-gray-600 mt-3">Last saved: <?= e($configMeta['keys_saved_at']) ?> · <?= (int)($configMeta['keys_count'] ?? 0) ?> keys</p>
+        <?php if ($credStatus['test'] || $credStatus['live']): ?>
+        <p class="text-[11px] text-gray-600 mt-3">
+            Saved: <?php if ($credStatus['test']): ?><span class="text-sky-400">Test ***<?= e($credStatus['test_last4']) ?></span><?php endif; ?>
+            <?php if ($credStatus['live']): ?><span class="text-emerald-400 ml-2">Live ***<?= e($credStatus['live_last4']) ?></span><?php endif; ?>
+        </p>
         <?php endif; ?>
         <?php else: ?>
         <p class="text-xs text-gray-500">This partner has no config keys defined.</p>

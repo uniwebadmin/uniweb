@@ -70,6 +70,7 @@ function ensurePartnerControlTables(): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
         seedPartnerMethods();
+        migrateGatewaySettingsToPartnerCredentials();
     } catch (Throwable $e) { /* ok */ }
 }
 
@@ -129,12 +130,6 @@ function savePartnerCredentials(string $partnerKey, string $env, array $keys, ar
          ON DUPLICATE KEY UPDATE encrypted_payload=VALUES(encrypted_payload), last4=VALUES(last4)"
     )->execute([$partnerKey, $env, $encrypted, $last4]);
 
-    // Also save to gateway_settings for backward compat (existing code reads from there)
-    foreach ($payload as $k => $v) {
-        $db->prepare('INSERT INTO gateway_settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=?')
-            ->execute([$k, $v, $v]);
-    }
-
     return $last4;
 }
 
@@ -155,6 +150,107 @@ function getPartnerCredentials(string $partnerKey, string $env = 'test'): array
         return $data;
     } catch (Throwable $e) {
         return [];
+    }
+}
+
+/**
+ * Bridge function: read a single partner key from partner_credentials (encrypted, source of truth).
+ * Falls back to getSetting() (gateway_settings) only if no partner_credentials row exists yet.
+ * This allows gradual migration without breaking live flows.
+ */
+function getPartnerSetting(string $partnerKey, string $keyName, string $default = ''): string
+{
+    static $cache = [];
+    $ck = $partnerKey . ':' . $keyName;
+    if (array_key_exists($ck, $cache)) {
+        return $cache[$ck];
+    }
+
+    $env = 'test';
+    if (function_exists('getSetting')) {
+        $envVal = getSetting($partnerKey . '_environment', '');
+        if ($envVal === 'live') {
+            $env = 'live';
+        }
+    }
+
+    $creds = getPartnerCredentials($partnerKey, $env);
+    if (empty($creds)) {
+        $creds = getPartnerCredentials($partnerKey, 'test');
+    }
+
+    if (!empty($creds[$keyName])) {
+        $cache[$ck] = (string)$creds[$keyName];
+        return $cache[$ck];
+    }
+
+    if (function_exists('getSetting')) {
+        $cache[$ck] = getSetting($keyName, $default);
+        return $cache[$ck];
+    }
+
+    $cache[$ck] = $default;
+    return $default;
+}
+
+/**
+ * One-time migration: copy plaintext PG keys from gateway_settings into encrypted partner_credentials.
+ * Only migrates if partner_credentials has no row for that partner+env yet.
+ * Called once at load time from ensurePartnerControlTables().
+ */
+function migrateGatewaySettingsToPartnerCredentials(): void
+{
+    static $done = false;
+    if ($done) return;
+    $done = true;
+
+    if (!function_exists('getSetting') || !function_exists('sensitiveEncrypt')) {
+        return;
+    }
+
+    $partners = [
+        'razorpay' => ['test' => ['razorpay_key_id', 'razorpay_key_secret']],
+        'razorpayx' => ['test' => ['razorpayx_key_id', 'razorpayx_key_secret', 'razorpayx_account_number']],
+        'cashfree' => ['test' => ['cashfree_app_id', 'cashfree_secret_key']],
+        'payu' => ['test' => ['payu_merchant_key', 'payu_merchant_salt']],
+        'phonepe' => ['test' => ['phonepe_merchant_id', 'phonepe_salt_key']],
+        'pinelabs' => ['test' => ['pinelabs_merchant_id', 'pinelabs_access_code', 'pinelabs_secure_key']],
+        'worldline' => ['test' => ['worldline_merchant_id', 'worldline_access_key', 'worldline_secret_key']],
+        'decentro' => ['test' => ['decentro_client_id', 'decentro_client_secret']],
+        'axis' => ['test' => ['axis_client_id', 'axis_client_secret']],
+    ];
+
+    $db = getDB();
+    foreach ($partners as $partnerKey => $envs) {
+        foreach ($envs as $env => $keys) {
+            try {
+                $st = $db->prepare("SELECT id FROM partner_credentials WHERE partner_key=? AND env=?");
+                $st->execute([$partnerKey, $env]);
+                if ($st->fetch()) continue;
+
+                $payload = [];
+                $last4 = '';
+                foreach ($keys as $k) {
+                    $val = trim((string)getSetting($k, ''));
+                    if ($val !== '') {
+                        $payload[$k] = $val;
+                        if ($last4 === '' && (str_contains($k, 'secret') || str_contains($k, 'salt') || str_contains($k, 'pass'))) {
+                            $last4 = substr($val, -4);
+                        }
+                    }
+                }
+                if (empty($payload)) continue;
+
+                $encrypted = sensitiveEncrypt(json_encode($payload));
+                $db->prepare(
+                    "INSERT INTO partner_credentials (partner_key, env, encrypted_payload, last4) VALUES (?,?,?,?)
+                     ON DUPLICATE KEY UPDATE encrypted_payload=VALUES(encrypted_payload), last4=VALUES(last4)"
+                )->execute([$partnerKey, $env, $encrypted, $last4]);
+                error_log("UniWeb: migrated {$partnerKey} {$env} keys from gateway_settings to partner_credentials");
+            } catch (Throwable $e) {
+                error_log("UniWeb: key migration failed for {$partnerKey} {$env}: " . $e->getMessage());
+            }
+        }
     }
 }
 

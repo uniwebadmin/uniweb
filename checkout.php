@@ -160,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && ($_POST['a
     }
 }
 
-$razorpayKey = getSetting('razorpay_key_id', '');
+$razorpayKey = function_exists('getPartnerSetting') ? getPartnerSetting('razorpay', 'razorpay_key_id', '') : getSetting('razorpay_key_id', '');
 $razorpayOrder = null;
 $cashfreeSession = null;
 $payuForms = [];

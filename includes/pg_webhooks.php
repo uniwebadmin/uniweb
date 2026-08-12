@@ -69,7 +69,7 @@ function fulfillGatewayPayment(string $gateway, string $linkId, string $referenc
 
 function verifyRazorpayWebhookSignature(string $rawBody, string $signature): bool
 {
-    $secret = getSetting('razorpay_webhook_secret', '') ?: getSetting('razorpay_key_secret', '');
+    $secret = getSetting('razorpay_webhook_secret', '') ?: (function_exists('getPartnerSetting') ? getPartnerSetting('razorpay', 'razorpay_key_secret', '') : getSetting('razorpay_key_secret', ''));
     if (!$secret || $signature === '') {
         return false;
     }
