@@ -90,8 +90,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $method = trim((string)($_POST['method'] ?? ''));
         $mdr = (float)($_POST['base_mdr_percent'] ?? 0);
         $adminEmail = $_SESSION['staff_email'] ?? $_SESSION['admin_email'] ?? 'admin';
-        $result = setPartnerMethodMdr($partnerKey, $method, $mdr, $adminEmail);
-        flash($result['ok'] ? 'success' : 'error', $result['ok'] ? "Partner MDR (P) for {$method} set to {$mdr}%" : ($result['error'] ?? 'Failed'));
+        try {
+            $result = setPartnerMethodMdr($partnerKey, $method, $mdr, $adminEmail);
+            flash($result['ok'] ? 'success' : 'error', $result['ok'] ? "Partner MDR (P) for {$method} set to {$mdr}%" : ($result['error'] ?? 'Failed'));
+        } catch (Throwable $e) {
+            if (function_exists('logPlatformError')) {
+                logPlatformError('pricing_method_save', $e->getMessage(), ['partner_key' => $partnerKey, 'method' => $method]);
+            }
+            flash('error', 'Could not save method MDR. Error logged.');
+        }
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=pricing');
     }
 
@@ -99,8 +106,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $baseMdr = (float)($_POST['base_mdr_percent'] ?? 0);
         $settlementMode = trim((string)($_POST['settlement_mode'] ?? 'standard_settle_mode'));
         $adminEmail = $_SESSION['staff_email'] ?? $_SESSION['admin_email'] ?? 'admin';
-        $ok = setPartnerCommercial($partnerKey, $baseMdr, $settlementMode, $adminEmail);
-        flash($ok ? 'success' : 'error', $ok ? "Default partner MDR (P) set to {$baseMdr}%" : 'Failed');
+        try {
+            if (!function_exists('setPartnerCommercial')) {
+                require_once __DIR__ . '/includes/split_settlement.php';
+            }
+            $ok = setPartnerCommercial($partnerKey, $baseMdr, $settlementMode, $adminEmail);
+            flash($ok ? 'success' : 'error', $ok ? "Default partner MDR (P) set to {$baseMdr}%" : 'Failed to save commercial terms');
+        } catch (Throwable $e) {
+            if (function_exists('logPlatformError')) {
+                logPlatformError('pricing_tab_save', $e->getMessage(), ['partner_key' => $partnerKey, 'base_mdr' => $baseMdr]);
+            }
+            flash('error', 'Could not save commercial terms. Error logged.');
+        }
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=pricing');
     }
 
@@ -306,18 +323,36 @@ require_once __DIR__ . '/header.php';
         if (!function_exists('getPartnerBaseMdr')) {
             require_once __DIR__ . '/includes/split_settlement.php';
         }
-        $defaultP = getPartnerBaseMdr($partnerKey);
-        $methodMdrs = getAllPartnerMethodMdrs($partnerKey);
+        $pricingError = null;
+        $defaultP = 0.0;
+        $methodMdrs = [];
         $commercialRow = null;
         try {
+            $defaultP = getPartnerBaseMdr($partnerKey);
+            $methodMdrs = getAllPartnerMethodMdrs($partnerKey);
             $stc = getDB()->prepare('SELECT * FROM partner_commercial WHERE partner_key=?');
             $stc->execute([$partnerKey]);
             $commercialRow = $stc->fetch();
-        } catch (Throwable $e) {}
+        } catch (Throwable $e) {
+            $pricingError = $e->getMessage();
+            if (function_exists('logPlatformError')) {
+                logPlatformError('pricing_tab_load', $e->getMessage(), ['partner_key' => $partnerKey, 'file' => __FILE__, 'line' => $e->getLine()]);
+            }
+        }
     ?>
     <div class="glass rounded-xl p-6 border border-gray-800">
         <h3 class="font-semibold mb-1">Partner MDR (P) — what <?= e($gateway['gateway_name']) ?> charges UniWeb</h3>
         <p class="text-xs text-gray-500 mb-4">Set the base MDR percent per payment method. This is the partner cost (P). Platform margin = Merchant MDR (M) − P. If per-method P is 0, the default below is used.</p>
+
+        <?php if ($pricingError): ?>
+        <div class="rounded-lg border border-amber-700/50 bg-amber-900/20 p-3 mb-4 text-sm text-amber-300">
+            Could not load existing commercial terms. You can still save new values below.
+        </div>
+        <?php elseif (!$commercialRow): ?>
+        <div class="rounded-lg border border-gray-700 bg-gray-800/30 p-3 mb-4 text-sm text-gray-400">
+            No commercial terms saved yet for <?= e($gateway['gateway_name']) ?>. Set the default MDR and settlement mode below and click Save.
+        </div>
+        <?php endif; ?>
 
         <div class="rounded-lg border border-gray-800 p-4 mb-6">
             <h4 class="text-sm font-semibold mb-3">Default Partner MDR (fallback)</h4>
