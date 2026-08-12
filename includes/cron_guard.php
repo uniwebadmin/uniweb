@@ -28,7 +28,7 @@ function rotateCronWatchdogKey(): string
 
 function cronRequestKey(): string
 {
-    return trim($_GET['key'] ?? $_SERVER['HTTP_X_WATCHDOG_KEY'] ?? '');
+    return trim($_GET['key'] ?? $_POST['key'] ?? $_SERVER['HTTP_X_WATCHDOG_KEY'] ?? '');
 }
 
 function logCronAuthFailure(string $reason): void
@@ -133,6 +133,24 @@ function cronHealthLabel(array $health): string
         return 'Stale — last cron ' . (int)floor(((int)($health['age_sec'] ?? 0)) / 60) . ' min ago. Check Hostinger Cron Jobs.';
     }
     return 'Not started — add Hostinger cron (every ' . (int)($health['interval_min'] ?? 10) . ' min).';
+}
+
+/**
+ * Mask the key= parameter in a cron URL so the full secret is never shown in HTML.
+ * Returns e.g. https://uniweb.co.in/cron_auto_audit.php?key=****abdd
+ */
+function maskCronUrl(string $url): string
+{
+    return preg_replace('/(key=)[^&]+/', '$1****' . substr((string)preg_replace('/.*key=/', '', $url), -4), $url);
+}
+
+/**
+ * Mask a bare secret key string — show first 6 + last 4 only.
+ */
+function maskSecretKey(string $key): string
+{
+    if (strlen($key) <= 12) return str_repeat('*', strlen($key));
+    return substr($key, 0, 6) . '****' . substr($key, -4);
 }
 
 /**

@@ -6,7 +6,9 @@ $db = getDB();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     if (($_POST['form'] ?? '') === 'cron_key') {
         $newKey = trim((string)($_POST['settlement_cron_key'] ?? ''));
-        if ($newKey === '' || strlen($newKey) < 8) {
+        if ($newKey === '' || str_contains($newKey, '****')) {
+            flash('info', 'Cron key not changed (masked value submitted). Enter a new key to update.');
+        } elseif (strlen($newKey) < 8) {
             flash('error', 'Cron key must be at least 8 characters.');
         } else {
             $db->prepare('INSERT INTO gateway_settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=?')
@@ -131,20 +133,20 @@ require_once __DIR__ . '/header.php';
                 <p class="font-medium mt-1"><?= $cronStatus['enabled'] ? 'Enabled' : 'Disabled' ?></p>
             </div>
         </div>
-        <code class="block bg-dark-900 rounded-lg p-3 text-xs text-sky-400 font-mono break-all mb-4" id="cron-url"><?= e($cronStatus['cron_url']) ?></code>
+        <code class="block bg-dark-900 rounded-lg p-3 text-xs text-sky-400 font-mono break-all mb-4" id="cron-url"><?= e(function_exists('maskCronUrl') ? maskCronUrl($cronStatus['cron_url']) : $cronStatus['cron_url']) ?></code>
         <div class="flex flex-wrap gap-2 mb-4">
-            <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('cron-url').textContent);this.textContent='Copied'" class="px-3 py-2 rounded-lg text-xs bg-dark-800 text-gray-400 hover:text-white">Copy Cron URL</button>
             <a href="?action=run_batches&token=<?= csrfToken() ?>" class="inline-block btn-primary text-sm px-5 py-2.5" onclick="return confirm('Run scheduled batches now?')">▶ Run Batches Now</a>
         </div>
+        <p class="text-[11px] text-gray-600 mb-4">Full cron URL is masked for security. To get the real URL, check the <code class="text-gray-500">settlement_cron_key</code> value in Gateway Settings → Platform Settings, or run <code class="text-gray-500">php cron_settlements.php</code> from CLI.</p>
         <form method="POST" class="space-y-3 border-t border-gray-800 pt-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="form" value="cron_key">
             <label class="text-sm text-gray-400">Cron secret key</label>
             <div class="flex flex-wrap gap-2">
-                <input type="text" name="settlement_cron_key" value="<?= e($cronStatus['key']) ?>" class="input-field flex-1 min-w-[200px] font-mono text-xs">
+                <input type="text" name="settlement_cron_key" value="<?= e(function_exists('maskSecretKey') ? maskSecretKey($cronStatus['key']) : $cronStatus['key']) ?>" class="input-field flex-1 min-w-[200px] font-mono text-xs" autocomplete="off">
                 <button type="submit" class="px-4 py-2 rounded-lg text-sm bg-violet-600/20 text-violet-300 hover:bg-violet-600/30">Update Key</button>
             </div>
-            <p class="text-[11px] text-gray-600">Hostinger cron example: every 15 min → <code class="text-gray-500">curl -s "<?= e($cronStatus['cron_url']) ?>"</code></p>
+            <p class="text-[11px] text-gray-600">Hostinger cron example: every 15 min → <code class="text-gray-500">curl -s "<?= e(function_exists('maskCronUrl') ? maskCronUrl($cronStatus['cron_url']) : $cronStatus['cron_url']) ?>"</code></p>
         </form>
     </div>
 </div>

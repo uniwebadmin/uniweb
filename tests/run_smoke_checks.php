@@ -318,7 +318,7 @@ $assert(str_contains($migReadme, '011_') && str_contains($migReadme, '017_'), 'm
 $migrateRelease = (string)file_get_contents($root . '/migrate_release.php');
 $assert(str_contains($migrateRelease, 'YOUR_EXISTING_WATCHDOG_KEY') || str_contains($migrateRelease, 'migrations/README.md'), 'migrate_release_documents_existing_key');
 $gwSettingsMig = (string)file_get_contents($root . '/gateway_settings.php');
-$assert(str_contains($gwSettingsMig, 'migrate_release.php?key=') && str_contains($gwSettingsMig, 'Apply pending migrations'), 'gateway_settings_migrate_release_link');
+$assert(str_contains($gwSettingsMig, 'migrate_release.php') && str_contains($gwSettingsMig, 'Apply pending migrations'), 'gateway_settings_migrate_release_link');
 $migLib = (string)file_get_contents($root . '/includes/migrations.php');
 $assert(str_contains($migLib, "str_starts_with(\$trimmed, '--')"), 'migration_parser_strips_line_comments');
 $cfgDev = (string)file_get_contents($root . '/config.dev.php');

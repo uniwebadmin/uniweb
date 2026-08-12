@@ -108,6 +108,7 @@ $gatewayCards = [
 ];
 $settleCronKey = function_exists('getSettlementCronKey') ? getSettlementCronKey() : 'uniweb-settle';
 $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCronKey);
+$settleCronUrlMasked = function_exists('maskCronUrl') ? maskCronUrl($settleCronUrl) : $settleCronUrl;
 ?>
 <?php if (!empty($gatewayGaps)): ?>
 <div class="glass rounded-xl p-5 mb-6 border border-amber-500/40 bg-amber-500/5 max-w-4xl">
@@ -147,23 +148,30 @@ $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCr
     <div class="space-y-3 text-xs">
         <div>
             <p class="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Cron URL (Hostinger → Advanced → Cron Jobs)</p>
-            <code class="block text-sky-400 font-mono break-all bg-dark-900/60 p-3 rounded-lg"><?= e($cronHealth['cron_url'] ?? '') ?></code>
+            <code class="block text-sky-400 font-mono break-all bg-dark-900/60 p-3 rounded-lg"><?= e(function_exists('maskCronUrl') ? maskCronUrl($cronHealth['cron_url'] ?? '') : ($cronHealth['cron_url'] ?? '')) ?></code>
         </div>
         <div>
             <p class="text-[10px] text-gray-600 uppercase tracking-wide mb-1">wget command (every <?= (int)($cronHealth['interval_min'] ?? 10) ?> min)</p>
-            <code class="block text-emerald-400 font-mono break-all bg-dark-900/60 p-3 rounded-lg">wget -q -O /dev/null "<?= e($cronHealth['cron_url'] ?? '') ?>"</code>
+            <code class="block text-emerald-400 font-mono break-all bg-dark-900/60 p-3 rounded-lg">wget -q -O /dev/null "<?= e(function_exists('maskCronUrl') ? maskCronUrl($cronHealth['cron_url'] ?? '') : ($cronHealth['cron_url'] ?? '')) ?>"</code>
         </div>
         <p class="text-gray-500">Security: URL requires secret key · wrong key = 403 · failed attempts logged in Error Log.</p>
         <p class="text-gray-500">Cron key (masked): <span class="font-mono text-gray-400"><?= e($cronKeyMasked) ?></span></p>
         <div class="flex flex-wrap gap-2 pt-2">
-            <a href="cron_auto_audit.php?key=<?= rawurlencode($cronKey) ?>&verbose=1" target="_blank" rel="noopener" class="text-xs px-3 py-2 rounded-lg border border-gray-700 text-gray-300 hover:text-white">Test cron now ↗</a>
-            <a href="migrate_release.php?key=<?= rawurlencode($cronKey) ?>" target="_blank" rel="noopener" class="text-xs px-3 py-2 rounded-lg border border-sky-700/60 text-sky-300 hover:text-white" title="Applies pending migrations/*.sql using this same cron key. Safe to re-run.">Apply pending migrations ↗</a>
+            <form method="POST" action="cron_auto_audit.php" target="_blank" rel="noopener" class="inline">
+                <input type="hidden" name="key" value="<?= e($cronKey) ?>">
+                <input type="hidden" name="verbose" value="1">
+                <button type="submit" class="text-xs px-3 py-2 rounded-lg border border-gray-700 text-gray-300 hover:text-white">Test cron now ↗</button>
+            </form>
+            <form method="POST" action="migrate_release.php" target="_blank" rel="noopener" class="inline">
+                <input type="hidden" name="key" value="<?= e($cronKey) ?>">
+                <button type="submit" class="text-xs px-3 py-2 rounded-lg border border-sky-700/60 text-sky-300 hover:text-white" title="Applies pending migrations/*.sql using this same cron key. Safe to re-run.">Apply pending migrations ↗</button>
+            </form>
             <a href="?rotate_cron_key=1&csrf=<?= e(csrfToken()) ?>" class="text-xs px-3 py-2 rounded-lg border border-amber-500/40 text-amber-400 hover:bg-amber-500/10" onclick="return confirm('Rotate cron key? You must update Hostinger cron URL after this.')">Rotate key</a>
         </div>
         <p class="text-[11px] text-gray-500">One-time after deploy: <strong class="text-gray-400 font-medium">Apply pending migrations</strong> uses the same watchdog key (never invent a new CRON_KEY). Expect JSON <code class="text-sky-400">ok: true</code>. Details in <code class="text-gray-400">migrations/README.md</code>.</p>
         <div class="pt-4 mt-2 border-t border-gray-800">
             <p class="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Optional — Settlement batch cron (every 15 min)</p>
-            <code class="block text-violet-300 font-mono break-all bg-dark-900/60 p-3 rounded-lg text-[11px]"><?= e($settleCronUrl) ?></code>
+            <code class="block text-violet-300 font-mono break-all bg-dark-900/60 p-3 rounded-lg text-[11px]"><?= e($settleCronUrlMasked) ?></code>
             <p class="text-gray-500 mt-2">Needed only if merchants use Scheduled Batch settlements. Details: <a href="admin_settlement_settings.php" class="text-sky-400">Settlement settings</a></p>
         </div>
     </div>

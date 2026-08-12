@@ -10,7 +10,7 @@
 
 // CLI: no key needed
 $isCli = PHP_SAPI === 'cli';
-$key = $_GET['key'] ?? ($argv[1] ?? '');
+$key = $_GET['key'] ?? $_POST['key'] ?? ($argv[1] ?? '');
 $keyArg = '';
 if (strpos($key, 'key=') === 0) {
     $keyArg = substr($key, 4);

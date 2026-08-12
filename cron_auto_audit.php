@@ -13,8 +13,8 @@ if (empty($auth['ok'])) {
     rejectCronRequest($auth['error'] ?? 'Invalid key');
 }
 
-$http = ($_GET['http'] ?? '0') === '1';
-$verbose = ($_GET['verbose'] ?? '0') === '1';
+$http = (($_GET['http'] ?? $_POST['http'] ?? '0') === '1');
+$verbose = (($_GET['verbose'] ?? $_POST['verbose'] ?? '0') === '1');
 $report = runBackgroundAutoAudit($http, 'cron');
 recordCronHeartbeat('auto_audit', !empty($report['ok']) ? 'ok' : 'error');
 $health = getCronHealthStatus();
