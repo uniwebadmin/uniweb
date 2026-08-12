@@ -303,6 +303,14 @@ function ensureMissingColumns(): void
     // 059: notification dedup — event_key for idempotent notification creation
     schemaExecQuiet('ALTER TABLE notifications ADD COLUMN event_key VARCHAR(120) DEFAULT NULL');
     schemaExecQuiet('ALTER TABLE notifications ADD INDEX idx_notif_event (merchant_id, event_key)');
+
+    // 060: partner route/split scaffold columns on partner_commercial
+    schemaExecQuiet('ALTER TABLE partner_commercial ADD COLUMN route_enabled TINYINT(1) NOT NULL DEFAULT 0');
+    schemaExecQuiet("ALTER TABLE partner_commercial ADD COLUMN route_mode VARCHAR(20) NOT NULL DEFAULT 'off'");
+    schemaExecQuiet("ALTER TABLE partner_commercial ADD COLUMN route_provider VARCHAR(30) NOT NULL DEFAULT 'none'");
+    schemaExecQuiet('ALTER TABLE partner_commercial ADD COLUMN route_linked_account_hint VARCHAR(120) DEFAULT NULL');
+    schemaExecQuiet("ALTER TABLE partner_commercial ADD COLUMN route_split_on VARCHAR(20) NOT NULL DEFAULT 'capture'");
+    schemaExecQuiet("ALTER TABLE partner_commercial ADD COLUMN route_status VARCHAR(20) NOT NULL DEFAULT 'scaffold'");
 }
 
 /** F2: Ensure pricing snapshot columns on transactions table. */

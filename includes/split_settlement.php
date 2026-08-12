@@ -65,6 +65,12 @@ function ensureSplitSettlementTable(): void
             partner_key VARCHAR(40) NOT NULL UNIQUE,
             base_mdr_percent DECIMAL(6,4) NOT NULL DEFAULT 0,
             settlement_mode ENUM('route_mode','standard_settle_mode') NOT NULL DEFAULT 'standard_settle_mode',
+            route_enabled TINYINT(1) NOT NULL DEFAULT 0,
+            route_mode VARCHAR(20) NOT NULL DEFAULT 'off',
+            route_provider VARCHAR(30) NOT NULL DEFAULT 'none',
+            route_linked_account_hint VARCHAR(120) DEFAULT NULL,
+            route_split_on VARCHAR(20) NOT NULL DEFAULT 'capture',
+            route_status VARCHAR(20) NOT NULL DEFAULT 'scaffold',
             updated_by VARCHAR(60) NOT NULL DEFAULT 'system',
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
@@ -201,6 +207,92 @@ function getPartnerSettlementMode(string $partnerKey): string
     } catch (Throwable $e) {
         return 'standard_settle_mode';
     }
+}
+
+/**
+ * 2.9: Get partner route/split scaffold config (save/load only — no API calls).
+ * Returns defaults if no row exists.
+ */
+function getPartnerRouteConfig(string $partnerKey): array
+{
+    ensureSplitSettlementTable();
+    $defaults = [
+        'route_enabled' => 0,
+        'route_mode' => 'off',
+        'route_provider' => 'none',
+        'route_linked_account_hint' => '',
+        'route_split_on' => 'capture',
+        'route_status' => 'scaffold',
+    ];
+    try {
+        $st = getDB()->prepare('SELECT route_enabled, route_mode, route_provider, route_linked_account_hint, route_split_on, route_status FROM partner_commercial WHERE partner_key=?');
+        $st->execute([$partnerKey]);
+        $row = $st->fetch();
+        if (!$row) {
+            return $defaults;
+        }
+        return [
+            'route_enabled' => (int)$row['route_enabled'],
+            'route_mode' => (string)$row['route_mode'],
+            'route_provider' => (string)$row['route_provider'],
+            'route_linked_account_hint' => (string)($row['route_linked_account_hint'] ?? ''),
+            'route_split_on' => (string)$row['route_split_on'],
+            'route_status' => (string)$row['route_status'],
+        ];
+    } catch (Throwable $e) {
+        return $defaults;
+    }
+}
+
+/**
+ * 2.9: Save partner route/split scaffold config (save only — no API calls).
+ */
+function setPartnerRouteConfig(string $partnerKey, array $cfg, string $updatedBy = 'admin'): bool
+{
+    ensureSplitSettlementTable();
+    $validModes = ['off', 'internal_only', 'partner_api'];
+    $validProviders = ['none', 'razorpay_route', 'cashfree_vendor', 'other'];
+    $validSplitOn = ['capture', 'settlement', 'manual'];
+    $validStatus = ['scaffold', 'ready_for_api', 'live'];
+
+    $routeEnabled = !empty($cfg['route_enabled']) ? 1 : 0;
+    $routeMode = in_array($cfg['route_mode'] ?? '', $validModes, true) ? $cfg['route_mode'] : 'off';
+    $routeProvider = in_array($cfg['route_provider'] ?? '', $validProviders, true) ? $cfg['route_provider'] : 'none';
+    $routeHint = trim((string)($cfg['route_linked_account_hint'] ?? ''));
+    $routeSplitOn = in_array($cfg['route_split_on'] ?? '', $validSplitOn, true) ? $cfg['route_split_on'] : 'capture';
+    $routeStatus = in_array($cfg['route_status'] ?? '', $validStatus, true) ? $cfg['route_status'] : 'scaffold';
+
+    // Safety: never allow 'live' to be set automatically — only manual admin action
+    // and only if route_mode is partner_api. This is a scaffold; live API integration
+    // is a future ticket.
+    if ($routeStatus === 'live' && $routeMode !== 'partner_api') {
+        $routeStatus = 'ready_for_api';
+    }
+
+    try {
+        getDB()->prepare(
+            'INSERT INTO partner_commercial (partner_key, route_enabled, route_mode, route_provider, route_linked_account_hint, route_split_on, route_status, updated_by)
+             VALUES (?,?,?,?,?,?,?,?)
+             ON DUPLICATE KEY UPDATE route_enabled=VALUES(route_enabled), route_mode=VALUES(route_mode), route_provider=VALUES(route_provider),
+             route_linked_account_hint=VALUES(route_linked_account_hint), route_split_on=VALUES(route_split_on), route_status=VALUES(route_status), updated_by=VALUES(updated_by)'
+        )->execute([$partnerKey, $routeEnabled, $routeMode, $routeProvider, $routeHint, $routeSplitOn, $routeStatus, $updatedBy]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * 2.9: Can use partner route for live split? Returns false unless
+ * route_mode=partner_api AND route_status=live. This will stay false
+ * until a future ticket implements the actual API integration.
+ */
+function canUsePartnerRoute(string $partnerKey): bool
+{
+    $cfg = getPartnerRouteConfig($partnerKey);
+    return $cfg['route_enabled'] === 1
+        && $cfg['route_mode'] === 'partner_api'
+        && $cfg['route_status'] === 'live';
 }
 
 /**

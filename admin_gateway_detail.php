@@ -14,6 +14,7 @@ requireStaffAccess(['super', 'ceo', 'ops']);
 $gatewayId = (int)($_GET['id'] ?? 0);
 $partnerKeyParam = trim((string)($_GET['partner'] ?? ''));
 $activeTab = trim((string)($_GET['tab'] ?? 'keys'));
+if ($activeTab === 'pricing') { $activeTab = 'commercial'; }
 
 if ($gatewayId <= 0 && $partnerKeyParam !== '') {
     // D5: Look up by gateway_key in registry — works for both hardcoded and custom-registered partners
@@ -101,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             }
             flash('error', 'Could not save method MDR. Error logged.');
         }
-        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=pricing');
+        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=commercial');
     }
 
     if ($action === 'save_commercial') {
@@ -120,7 +121,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             }
             flash('error', 'Could not save commercial terms. Error logged.');
         }
-        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=pricing');
+        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=commercial');
+    }
+
+    if ($action === 'save_route_config') {
+        if (!function_exists('setPartnerRouteConfig')) {
+            require_once __DIR__ . '/includes/split_settlement.php';
+        }
+        $adminEmail = $_SESSION['staff_email'] ?? $_SESSION['admin_email'] ?? 'admin';
+        $cfg = [
+            'route_enabled' => isset($_POST['route_enabled']) ? 1 : 0,
+            'route_mode' => trim((string)($_POST['route_mode'] ?? 'off')),
+            'route_provider' => trim((string)($_POST['route_provider'] ?? 'none')),
+            'route_linked_account_hint' => trim((string)($_POST['route_linked_account_hint'] ?? '')),
+            'route_split_on' => trim((string)($_POST['route_split_on'] ?? 'capture')),
+            'route_status' => trim((string)($_POST['route_status'] ?? 'scaffold')),
+        ];
+        $ok = setPartnerRouteConfig($partnerKey, $cfg, $adminEmail);
+        flash($ok ? 'success' : 'error', $ok ? 'Route/split config saved.' : 'Failed to save route config.');
+        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=commercial');
     }
 
     if ($action === 'save_reason_map') {
@@ -151,7 +170,7 @@ $methodLabels = [
     'netbanking' => 'Net Banking', 'emi' => 'EMI',
     'emandate_upi' => 'E-Mandate UPI', 'emandate_card' => 'E-Mandate Card', 'emandate_nb' => 'E-Mandate NB',
 ];
-$tabs = ['keys' => 'Keys', 'methods' => 'Methods', 'pricing' => 'Pricing', 'webhooks' => 'Webhooks', 'test' => 'Test', 'logs' => 'Logs'];
+$tabs = ['keys' => 'Keys', 'methods' => 'Methods', 'commercial' => 'Commercial & Split', 'webhooks' => 'Webhooks', 'test' => 'Test', 'logs' => 'Logs'];
 
 $pageTitle = $gateway['gateway_name'] . ' — Partner Detail';
 require_once __DIR__ . '/header.php';
@@ -337,7 +356,7 @@ require_once __DIR__ . '/header.php';
         </div>
     </div>
 
-    <?php elseif ($activeTab === 'pricing'):
+    <?php elseif ($activeTab === 'commercial'):
         if (!function_exists('getPartnerBaseMdr')) {
             require_once __DIR__ . '/includes/split_settlement.php';
         }
@@ -357,10 +376,11 @@ require_once __DIR__ . '/header.php';
                 logPlatformError('pricing_tab_load', $e->getMessage(), ['partner_key' => $partnerKey, 'file' => __FILE__, 'line' => $e->getLine()]);
             }
         }
+        $routeCfg = getPartnerRouteConfig($partnerKey);
     ?>
     <div class="glass rounded-xl p-6 border border-gray-800">
-        <h3 class="font-semibold mb-1">Partner MDR (P) — what <?= e($gateway['gateway_name']) ?> charges UniWeb</h3>
-        <p class="text-xs text-gray-500 mb-4">Set the base MDR percent per payment method. This is the partner cost (P). Platform margin = Merchant MDR (M) − P. If per-method P is 0, the default below is used.</p>
+        <h3 class="font-semibold mb-1">Commercial & Split — <?= e($gateway['gateway_name']) ?></h3>
+        <p class="text-xs text-gray-500 mb-4">One place for partner money config: MDR (P) and Route/Split scaffold.</p>
 
         <?php if ($pricingError): ?>
         <div class="rounded-lg border border-amber-700/50 bg-amber-900/20 p-3 mb-4 text-sm text-amber-300">
@@ -372,9 +392,12 @@ require_once __DIR__ . '/header.php';
         </div>
         <?php endif; ?>
 
+        <!-- Section A: Partner Commercial (MDR) -->
         <div class="rounded-lg border border-gray-800 p-4 mb-6">
-            <h4 class="text-sm font-semibold mb-3">Default Partner MDR (fallback)</h4>
-            <form method="POST" class="flex flex-wrap items-end gap-3">
+            <h4 class="text-sm font-semibold mb-1">Section A — Partner MDR (P)</h4>
+            <p class="text-xs text-gray-600 mb-3">Partner cost (P). Platform margin = Merchant MDR (M) − P. If per-method P is 0, the default below is used.</p>
+
+            <form method="POST" class="flex flex-wrap items-end gap-3 mb-4">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="save_commercial">
                 <div>
@@ -390,25 +413,90 @@ require_once __DIR__ . '/header.php';
                 </div>
                 <button type="submit" class="btn-primary px-4 py-2 text-sm">Save default</button>
             </form>
+
+            <h5 class="text-xs font-semibold text-gray-500 uppercase mb-2">Per-method Partner MDR (P)</h5>
+            <div class="space-y-2">
+                <?php foreach ($methodLabels as $methodKey => $label): ?>
+                <form method="POST" class="flex items-center gap-3 rounded-lg border border-gray-800 px-4 py-2.5">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="action" value="save_method_mdr">
+                    <input type="hidden" name="method" value="<?= e($methodKey) ?>">
+                    <span class="text-sm text-gray-300 min-w-[140px]"><?= e($label) ?></span>
+                    <input type="number" name="base_mdr_percent" value="<?= e(number_format($methodMdrs[$methodKey] ?? 0, 2)) ?>" class="input-field w-28 text-sm" step="0.01" min="0" max="100">
+                    <span class="text-xs text-gray-600">%</span>
+                    <button type="submit" class="text-xs text-brand-400 hover:underline ml-auto">Save</button>
+                </form>
+                <?php endforeach; ?>
+            </div>
         </div>
 
-        <h4 class="text-sm font-semibold mb-3">Per-method Partner MDR (P)</h4>
-        <div class="space-y-2">
-            <?php foreach ($methodLabels as $methodKey => $label): ?>
-            <form method="POST" class="flex items-center gap-3 rounded-lg border border-gray-800 px-4 py-2.5">
+        <!-- Section B: Route / Split Scaffold -->
+        <div class="rounded-lg border border-gray-800 p-4">
+            <h4 class="text-sm font-semibold mb-1">Section B — Route / Split Scaffold</h4>
+            <p class="text-xs text-gray-600 mb-3">Save-only configuration. No provider API calls are made. Route status stays <code class="text-amber-400">scaffold</code> until a future ticket implements live API integration.</p>
+
+            <form method="POST" class="space-y-4">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                <input type="hidden" name="action" value="save_method_mdr">
-                <input type="hidden" name="method" value="<?= e($methodKey) ?>">
-                <span class="text-sm text-gray-300 min-w-[140px]"><?= e($label) ?></span>
-                <input type="number" name="base_mdr_percent" value="<?= e(number_format($methodMdrs[$methodKey] ?? 0, 2)) ?>" class="input-field w-28 text-sm" step="0.01" min="0" max="100">
-                <span class="text-xs text-gray-600">%</span>
-                <button type="submit" class="text-xs text-brand-400 hover:underline ml-auto">Save</button>
+                <input type="hidden" name="action" value="save_route_config">
+
+                <div class="flex flex-wrap gap-4">
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="route_enabled" value="1" <?= $routeCfg['route_enabled'] ? 'checked' : '' ?> class="rounded">
+                        <span>Route enabled</span>
+                    </label>
+                </div>
+
+                <div class="grid sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-gray-500 text-xs block mb-1">Route mode</label>
+                        <select name="route_mode" class="input-field w-full text-sm">
+                            <?php foreach (['off', 'internal_only', 'partner_api'] as $rm): ?>
+                            <option value="<?= $rm ?>" <?= $routeCfg['route_mode'] === $rm ? 'selected' : '' ?>><?= e($rm) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-gray-500 text-xs block mb-1">Route provider</label>
+                        <select name="route_provider" class="input-field w-full text-sm">
+                            <?php foreach (['none', 'razorpay_route', 'cashfree_vendor', 'other'] as $rp): ?>
+                            <option value="<?= $rp ?>" <?= $routeCfg['route_provider'] === $rp ? 'selected' : '' ?>><?= e($rp) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-gray-500 text-xs block mb-1">Linked account hint</label>
+                        <input type="text" name="route_linked_account_hint" value="<?= e($routeCfg['route_linked_account_hint']) ?>" placeholder="e.g. razorpay_linked_account_id" class="input-field w-full text-sm font-mono">
+                    </div>
+                    <div>
+                        <label class="text-gray-500 text-xs block mb-1">Split on</label>
+                        <select name="route_split_on" class="input-field w-full text-sm">
+                            <?php foreach (['capture', 'settlement', 'manual'] as $so): ?>
+                            <option value="<?= $so ?>" <?= $routeCfg['route_split_on'] === $so ? 'selected' : '' ?>><?= e($so) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-gray-500 text-xs block mb-1">Route status</label>
+                    <select name="route_status" class="input-field w-48 text-sm">
+                        <?php foreach (['scaffold', 'ready_for_api', 'live'] as $rs): ?>
+                        <option value="<?= $rs ?>" <?= $routeCfg['route_status'] === $rs ? 'selected' : '' ?> <?= $rs === 'live' ? 'disabled' : '' ?>><?= e($rs) ?><?= $rs === 'live' ? ' (locked — future ticket)' : '' ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p class="text-[10px] text-gray-600 mt-1">"live" is locked until API integration is implemented. Use "ready_for_api" to mark config as complete.</p>
+                </div>
+
+                <button type="submit" class="btn-primary px-4 py-2 text-sm">Save route config</button>
             </form>
-            <?php endforeach; ?>
         </div>
 
         <div class="mt-6 pt-4 border-t border-gray-800 text-xs text-gray-500">
-            <p><strong class="text-gray-400">P</strong> = Partner MDR (this page) · <strong class="text-gray-400">M</strong> = Merchant MDR (admin_edit_merchant) · Platform margin = M − P</p>
+            <p><strong class="text-gray-400">P</strong> = Partner MDR (Section A) · <strong class="text-gray-400">M</strong> = Merchant MDR (admin_edit_merchant) · Platform margin = M − P</p>
+            <p class="mt-1">Route scaffold: <strong class="text-gray-400"><?= e($routeCfg['route_status']) ?></strong> · canUsePartnerRoute(): <strong class="<?= canUsePartnerRoute($partnerKey) ? 'text-emerald-400' : 'text-gray-600' ?>"><?= canUsePartnerRoute($partnerKey) ? 'true' : 'false' ?></strong></p>
         </div>
     </div>
 
