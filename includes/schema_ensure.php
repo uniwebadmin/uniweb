@@ -304,3 +304,46 @@ function ensurePricingSnapshotColumns(): void
     schemaExecQuiet('ALTER TABLE transactions ADD COLUMN partner_fee DECIMAL(14,2) DEFAULT NULL');
     schemaExecQuiet('ALTER TABLE transactions ADD COLUMN pricing_snapshot JSON DEFAULT NULL');
 }
+
+/**
+ * Ensure all app tables use utf8mb4_unicode_ci collation.
+ * Prevents "Illegal mix of collations" errors on JOINs between tables
+ * created under different server defaults (general_ci vs uca1400_ai_ci vs unicode_ci).
+ * Runs once per request, converts only tables that exist and differ.
+ */
+function ensureCollationConsistency(): void
+{
+    static $done = false;
+    if ($done) return;
+    $done = true;
+
+    try {
+        $db = getDB();
+        $target = 'utf8mb4_unicode_ci';
+
+        $rows = $db->query("SELECT TABLE_NAME, TABLE_COLLATION
+            FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_TYPE = 'BASE TABLE'
+              AND TABLE_COLLATION IS NOT NULL
+              AND TABLE_COLLATION != '{$target}'")->fetchAll();
+
+        if (empty($rows)) return;
+
+        $db->exec("SET FOREIGN_KEY_CHECKS = 0");
+        foreach ($rows as $row) {
+            $table = $row['TABLE_NAME'];
+            if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) continue;
+            try {
+                $db->exec("ALTER TABLE `{$table}` CONVERT TO CHARACTER SET utf8mb4 COLLATE {$target}");
+            } catch (Throwable $e) {
+                error_log("UniWeb collation fix failed for {$table}: " . $e->getMessage());
+            }
+        }
+        $db->exec("SET FOREIGN_KEY_CHECKS = 1");
+    } catch (Throwable $e) {
+        error_log('UniWeb ensureCollationConsistency failed: ' . $e->getMessage());
+    }
+}
+
+ensureCollationConsistency();

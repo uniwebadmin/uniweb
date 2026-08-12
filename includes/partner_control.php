@@ -28,7 +28,7 @@ function ensurePartnerControlTables(): void
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY uniq_partner_env (partner_key, env),
             INDEX idx_partner (partner_key)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
         $db->exec("CREATE TABLE IF NOT EXISTS partner_methods (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -42,7 +42,7 @@ function ensurePartnerControlTables(): void
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY uniq_partner_method (partner_key, method),
             INDEX idx_partner_enabled (partner_key, is_enabled)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         try { $db->exec("ALTER TABLE partner_methods ADD COLUMN base_mdr_percent DECIMAL(6,4) NOT NULL DEFAULT 0"); } catch (Throwable $e) { /* already exists */ }
 
         $db->exec("CREATE TABLE IF NOT EXISTS partner_merchant_links (
@@ -56,7 +56,7 @@ function ensurePartnerControlTables(): void
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY uniq_merchant_partner (merchant_id, partner_key),
             INDEX idx_partner (partner_key, kyc_status)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
         $db->exec("CREATE TABLE IF NOT EXISTS gateway_reason_maps (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -67,7 +67,7 @@ function ensurePartnerControlTables(): void
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY uniq_partner_code (partner_key, raw_code)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
         seedPartnerMethods();
     } catch (Throwable $e) { /* ok */ }

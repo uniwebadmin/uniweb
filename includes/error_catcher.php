@@ -26,7 +26,7 @@ function ensureErrorCatcher(): void
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_level_created (level, created_at),
         INDEX idx_resolved (is_resolved, created_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     $ready = true;
 }
 

@@ -34,7 +34,7 @@ function ensurePartnerForwardQueueTable(): void
             INDEX idx_pfq_status (status, schedule_at),
             INDEX idx_pfq_merchant (merchant_id, status),
             INDEX idx_pfq_partner (partner_key, status)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     } catch (Throwable $e) { /* ok */ }
 }
 }

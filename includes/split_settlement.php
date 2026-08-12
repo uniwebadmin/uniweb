@@ -44,7 +44,7 @@ function ensureSplitSettlementTable(): void
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY idx_txn (transaction_id),
             INDEX idx_merchant_status (merchant_id, split_status)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
         // F1: merchant_pricing table — per-merchant MDR controlled by admin
         getDB()->exec("CREATE TABLE IF NOT EXISTS merchant_pricing (
@@ -57,7 +57,7 @@ function ensureSplitSettlementTable(): void
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_merchant (merchant_id, effective_from),
             INDEX idx_partner (partner_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
         // F1: partner_commercial table — partner base MDR (P), admin-set
         getDB()->exec("CREATE TABLE IF NOT EXISTS partner_commercial (
@@ -67,7 +67,7 @@ function ensureSplitSettlementTable(): void
             settlement_mode ENUM('route_mode','standard_settle_mode') NOT NULL DEFAULT 'standard_settle_mode',
             updated_by VARCHAR(60) NOT NULL DEFAULT 'system',
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
         // F3: partner_transfers table — idempotent split/transfer records
         getDB()->exec("CREATE TABLE IF NOT EXISTS partner_transfers (
@@ -89,7 +89,7 @@ function ensureSplitSettlementTable(): void
             INDEX idx_txn (transaction_id),
             INDEX idx_merchant_status (merchant_id, status),
             INDEX idx_partner (partner_key, status)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     } catch (Throwable $e) { /* ok */ }
 }
 
