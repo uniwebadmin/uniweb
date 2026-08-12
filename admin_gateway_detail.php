@@ -55,18 +55,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             ? 'API keys saved for ' . e($gateway['gateway_name']) . " (env: {$env}, last4: ***{$last4})"
             : ($last4 === 'no_keys' ? 'No key values submitted — nothing changed.' : 'API keys saved for ' . e($gateway['gateway_name']) . " (env: {$env})");
         flash($last4 === 'no_keys' ? 'warning' : 'success', $msg);
+        if (function_exists('logStaffActivity')) { logStaffActivity('partner_keys_saved', 'Saved ' . $env . ' keys for ' . $partnerKey . ' (last4: ' . ($last4 ?: 'n/a') . ')', null, 'partner', $partnerKey); }
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=keys&env=' . $env);
     }
 
     if ($action === 'activate') {
         $result = activateGatewayForAllMerchants($gatewayId);
         flash($result['ok'] ? 'success' : 'error', $result['ok'] ? $result['gateway_name'] . ' activated!' : ($result['error'] ?? 'Activation failed.'));
+        if ($result['ok'] && function_exists('logStaffActivity')) { logStaffActivity('partner_activated', 'Activated partner ' . $partnerKey, null, 'partner', $partnerKey); }
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=' . $activeTab);
     }
 
     if ($action === 'deactivate') {
         $result = deactivateGateway($gatewayId);
         flash($result['ok'] ? 'success' : 'error', $result['ok'] ? 'Partner deactivated.' : ($result['error'] ?? 'Error'));
+        if ($result['ok'] && function_exists('logStaffActivity')) { logStaffActivity('partner_deactivated', 'Deactivated partner ' . $partnerKey, null, 'partner', $partnerKey); }
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=' . $activeTab);
     }
 
@@ -96,6 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         try {
             $result = setPartnerMethodMdr($partnerKey, $method, $mdr, $adminEmail);
             flash($result['ok'] ? 'success' : 'error', $result['ok'] ? "Partner MDR (P) for {$method} set to {$mdr}%" : ($result['error'] ?? 'Failed'));
+            if ($result['ok'] && function_exists('logStaffActivity')) { logStaffActivity('partner_method_mdr_saved', "{$method} MDR set to {$mdr}% for {$partnerKey}", null, 'partner', $partnerKey); }
         } catch (Throwable $e) {
             if (function_exists('logPlatformError')) {
                 logPlatformError('pricing_method_save', $e->getMessage(), ['partner_key' => $partnerKey, 'method' => $method]);
@@ -115,6 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             }
             $ok = setPartnerCommercial($partnerKey, $baseMdr, $settlementMode, $adminEmail);
             flash($ok ? 'success' : 'error', $ok ? "Default partner MDR (P) set to {$baseMdr}%" : 'Failed to save commercial terms');
+            if ($ok && function_exists('logStaffActivity')) { logStaffActivity('partner_commercial_saved', "Default MDR {$baseMdr}%, mode {$settlementMode} for {$partnerKey}", null, 'partner', $partnerKey); }
         } catch (Throwable $e) {
             if (function_exists('logPlatformError')) {
                 logPlatformError('pricing_tab_save', $e->getMessage(), ['partner_key' => $partnerKey, 'base_mdr' => $baseMdr]);
@@ -139,6 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         ];
         $ok = setPartnerRouteConfig($partnerKey, $cfg, $adminEmail);
         flash($ok ? 'success' : 'error', $ok ? 'Route/split config saved.' : 'Failed to save route config.');
+        if ($ok && function_exists('logStaffActivity')) { logStaffActivity('partner_route_config_saved', 'Route config saved for ' . $partnerKey . ': mode=' . $cfg['route_mode'] . ', status=' . $cfg['route_status'], null, 'partner', $partnerKey); }
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=commercial');
     }
 

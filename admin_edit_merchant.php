@@ -25,6 +25,7 @@ $editTaxFields = entityProfileTaxFields($editEntityType);
 if (isset($_GET['action']) && in_array($_GET['action'], ['verify_website', 'reject_website'], true) && verifyCsrf($_GET['token'] ?? '')) {
     ensureMerchantWebsiteEngine();
     adminSetMerchantWebsiteStatus($id, $_GET['action'] === 'verify_website' ? 'verified' : 'rejected');
+    logStaffActivity($_GET['action'] === 'verify_website' ? 'website_verified' : 'website_rejected', 'Merchant #' . $id, $id, 'merchant', (string)$id);
     flash('success', $_GET['action'] === 'verify_website' ? 'Website marked verified.' : 'Website marked rejected.');
     redirect('admin_edit_merchant.php?id=' . $id);
 }
@@ -37,6 +38,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'provision_axis_va' && verifyC
 
 if (isset($_GET['action']) && $_GET['action'] === 'auto_provision' && verifyCsrf($_GET['token'] ?? '')) {
     $result = autoProvisionMerchant($id, (int)($_SESSION['admin_id'] ?? 0));
+    logStaffActivity('auto_provision', $result['ok'] ? 'Auto-provisioned merchant #' . $id : 'Auto-provision failed: ' . ($result['message'] ?? ''), $id, 'merchant', (string)$id);
     flash($result['ok'] ? 'success' : 'error', $result['message']);
     redirect('admin_edit_merchant.php?id=' . $id);
 }
@@ -44,6 +46,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'auto_provision' && verifyCsrf
 if (isset($_GET['action']) && $_GET['action'] === 'regen_key' && verifyCsrf($_GET['token'] ?? '')) {
     $mode = ($_GET['mode'] ?? 'live') === 'test' ? 'test' : 'live';
     $result = regenerateMerchantApiKey($id, $mode, (int)($_SESSION['admin_id'] ?? 0));
+    logStaffActivity('regen_api_key', ucfirst($mode) . ' key regenerated for merchant #' . $id, $id, 'merchant', (string)$id);
     flash($result['ok'] ? 'success' : 'error', $result['ok']
         ? ucfirst($mode) . ' API key regenerated. Merchant notified by email + dashboard.'
         : ($result['error'] ?? 'Failed.'));
@@ -58,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $enabled = ($_POST['enabled'] ?? '') === '1';
         if ($methodKey !== '') {
             $result = toggleMerchantPaymentMethod($id, $methodKey, $enabled, 'admin');
+            logStaffActivity('toggle_method', $methodKey . ' ' . ($enabled ? 'enabled' : 'disabled') . ' for merchant #' . $id, $id, 'merchant', (string)$id);
             flash($result['ok'] ? 'success' : 'error', $result['ok'] ? $methodKey . ' ' . ($enabled ? 'enabled' : 'disabled') : ($result['error'] ?? 'Error'));
         }
         redirect('admin_edit_merchant.php?id=' . $id . '#payment-methods');
@@ -66,6 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     if ($adminAction === 'bulk_methods') {
         $enabledKeys = array_map('strval', $_POST['methods'] ?? []);
         $result = setMerchantPaymentMethods($id, $enabledKeys, 'admin');
+        logStaffActivity('bulk_methods', 'Updated payment methods for merchant #' . $id . ': ' . implode(', ', $enabledKeys), $id, 'merchant', (string)$id);
         flash($result['ok'] ? 'success' : 'error', $result['ok'] ? 'Payment methods updated.' : ($result['error'] ?? 'Error'));
         redirect('admin_edit_merchant.php?id=' . $id . '#payment-methods');
     }

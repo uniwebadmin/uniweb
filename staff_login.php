@@ -76,6 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             completeAdminLoginSession($admin);
             $db->prepare('UPDATE admins SET last_login_at=NOW(), last_login_ip=? WHERE id=?')
                 ->execute([$ipAddress, (int)$admin['id']]);
+            if (function_exists('logStaffActivity')) { logStaffActivity('staff_login', 'Staff login: ' . ($admin['username'] ?? '')); }
             flash('success', 'Welcome, ' . $admin['name']);
             redirect('staff_dashboard.php');
         }
@@ -92,6 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             $admin['totp_secret'] = $secret;
             $admin['totp_enabled'] = 1;
             completeAdminLoginSession($admin);
+            if (function_exists('logStaffActivity')) { logStaffActivity('staff_login', 'Staff login (MFA setup): ' . ($admin['username'] ?? '')); }
             flash('success', 'MFA enabled. Welcome, ' . $admin['name']);
             redirect('staff_dashboard.php');
         }
