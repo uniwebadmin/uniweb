@@ -5,6 +5,9 @@ require_once __DIR__ . '/rbl.php';
 if (!function_exists('isGatewayActive')) {
     require_once __DIR__ . '/payment_methods.php';
 }
+if (!function_exists('getPartnerSetting')) {
+    require_once __DIR__ . '/partner_control.php';
+}
 
 function createRazorpayOrder(float $amount, string $receipt, array $notes = []): ?array
 {

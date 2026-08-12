@@ -90,8 +90,8 @@ function build_partner_onboarding_payload(int $merchantId): array
     $agreement = $agreementSt->fetch();
 
     // 5. eSign status
-    $esignSt = $db->prepare("SELECT id, status, provider, initiated_at, completed_at
-        FROM esign_requests WHERE merchant_id=? ORDER BY initiated_at DESC LIMIT 1");
+    $esignSt = $db->prepare("SELECT id, status, provider, created_at AS initiated_at, signed_at AS completed_at
+        FROM esign_requests WHERE merchant_id=? ORDER BY created_at DESC LIMIT 1");
     $esignSt->execute([$merchantId]);
     $esign = $esignSt->fetch();
 
