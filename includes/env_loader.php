@@ -1,10 +1,32 @@
 <?php
 declare(strict_types=1);
 
+/**
+ * 2.16: Configure PHP error display before anything else.
+ * Production default: display_errors Off, log_errors On.
+ * Dev override via .env UNIWEB_DISPLAY_ERRORS=1 or APP_DEBUG=true or APP_ENV=dev/local.
+ */
+function configureErrorDisplay(): void
+{
+    $display = envBool('UNIWEB_DISPLAY_ERRORS', false)
+        || envBool('APP_DEBUG', false)
+        || in_array(strtolower(env('APP_ENV', '')), ['dev', 'development', 'local', 'debug'], true);
+    if ($display) {
+        @ini_set('display_errors', '1');
+        @ini_set('html_errors', '1');
+        @error_reporting(E_ALL);
+        return;
+    }
+    @ini_set('display_errors', '0');
+    @ini_set('log_errors', '1');
+    @error_reporting(E_ALL);
+}
+
 // Load error catcher first so global handlers are registered before any other include can fatal
 if (!function_exists('logPlatformError') && is_file(__DIR__ . '/error_catcher.php')) {
     require_once __DIR__ . '/error_catcher.php';
 }
+configureErrorDisplay();
 if (function_exists('initErrorCatcher') && !defined('UNIWEB_ERROR_CATCHER_INIT')) {
     initErrorCatcher();
 }
@@ -51,6 +73,8 @@ function loadEnvFile(string $path): void
             putenv("{$key}={$value}");
         }
     }
+    // 2.16: Re-apply error display config after .env is loaded
+    configureErrorDisplay();
 }
 
 /**
