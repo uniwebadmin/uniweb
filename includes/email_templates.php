@@ -138,6 +138,19 @@ function renderEmailTemplate(string $template, array $vars = []): string
 function sendTemplatedEmail(int $merchantId, string $template, array $vars = []): void
 {
     try {
+        $smtpHost = getSetting('smtp_host', '');
+        $smtpUser = getSetting('smtp_user', '');
+        $smtpPass = getSetting('smtp_pass', '');
+        if (!$smtpHost || !$smtpUser || !$smtpPass) {
+            if (function_exists('logPlatformError')) {
+                logPlatformError('warning', 'Templated email skipped: SMTP not configured', [
+                    'template' => $template,
+                    'merchant_id' => $merchantId,
+                ]);
+            }
+            return;
+        }
+
         $stmt = getDB()->prepare('SELECT email, name, business_name FROM merchants WHERE id = ?');
         $stmt->execute([$merchantId]);
         $m = $stmt->fetch();

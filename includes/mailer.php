@@ -262,3 +262,5 @@ function smtpSendMailRaw(string $host, int $port, string $user, string $pass, st
     fclose($socket);
     return true;
 }
+
+require_once __DIR__ . '/email_templates.php';
