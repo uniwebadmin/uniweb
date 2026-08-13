@@ -46,6 +46,21 @@ function ensurePartnerForwardQueueTable(): void
 function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payload = null): int
 {
     ensurePartnerForwardQueueTable();
+    $db = getDB();
+
+    // Idempotent: skip if a non-terminal row already exists for this merchant + partner
+    try {
+        $check = $db->prepare(
+            "SELECT id FROM partner_forward_queue
+             WHERE merchant_id=? AND partner_key=? AND status IN ('queued','retry','processing')
+             LIMIT 1"
+        );
+        $check->execute([$merchantId, $partnerKey]);
+        if ($check->fetchColumn()) {
+            return 0; // already queued — do not flood duplicates
+        }
+    } catch (Throwable $e) { /* table may not exist yet — continue to insert */ }
+
     $now = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
     $hour = (int)$now->format('H');
     if ($hour >= 18) {
@@ -55,7 +70,7 @@ function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payl
         $schedule->modify('+' . random_int(60, 90) . ' minutes');
     }
     try {
-        $st = getDB()->prepare(
+        $st = $db->prepare(
             'INSERT INTO partner_forward_queue (merchant_id, partner_key, package_payload, status, schedule_at)
              VALUES (?, ?, ?, ?, ?)'
         );
@@ -66,7 +81,7 @@ function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payl
             'queued',
             $schedule->format('Y-m-d H:i:s'),
         ]);
-        return (int)getDB()->lastInsertId();
+        return (int)$db->lastInsertId();
     } catch (Throwable $e) {
         logPlatformError('error', 'enqueuePartnerForward failed: ' . $e->getMessage(), ['merchant_id' => $merchantId]);
         return 0;
