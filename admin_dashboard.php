@@ -1,6 +1,29 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireSuperAdmin();
+$totalMerchants = 0;
+$activeMerchants = 0;
+$pendingKyc = 0;
+$todayTxn = ['t' => 0, 'c' => 0];
+$monthTxn = ['t' => 0, 'c' => 0];
+$pendingSettlements = 0;
+$openDisputes = 0;
+$agedSettlements = 0;
+$agedRefunds = 0;
+$unresolvedErrors = 0;
+$lastAutoAudit = null;
+$gatewayGaps = [];
+$quickWatchdog = null;
+$watchdogIssues = 0;
+$recentTxns = [];
+$recentMerchants = [];
+$platformWallet = 0;
+$readiness = ['pct' => 0, 'done' => 0, 'total' => 0, 'merchants' => 0, 'transactions' => 0];
+$opsAllClear = false;
+$todayVol = 0;
+$monthVol = 0;
+
+try {
 ensureDisputesEngine();
 $db = getDB();
 
@@ -36,6 +59,14 @@ $readiness = getPlatformReadiness();
 $opsAllClear = ($unresolvedErrors === 0 && $watchdogIssues === 0 && $pendingKyc === 0 && ($lastAutoAudit && !empty($lastAutoAudit['ok'])));
 $todayVol = capStatAmount((float)$todayTxn['t']);
 $monthVol = capStatAmount((float)$monthTxn['t']);
+} catch (Throwable $e) {
+    if (function_exists('logPlatformError')) {
+        logPlatformError('error', 'admin_dashboard data load failed: ' . $e->getMessage(), ['file' => $e->getFile(), 'line' => $e->getLine()]);
+    }
+    if (function_exists('flash')) {
+        flash('warning', 'Dashboard loaded in safe mode. Some widgets may be empty.');
+    }
+}
 $pageTitle = 'Admin Dashboard';
 require_once __DIR__ . '/header.php';
 ?>
