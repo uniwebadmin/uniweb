@@ -60,10 +60,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'verify_video') {
             requireMerchantAccess($id);
             $db->prepare("UPDATE merchants SET video_kyc_status='verified' WHERE id=?")->execute([$id]);
-            try {
-                $db->prepare("UPDATE kyc_documents SET status='approved', rejection_reason=NULL, reviewed_at=NOW() WHERE merchant_id=? AND doc_type='video_kyc' AND status IN ('pending','rejected')")
-                    ->execute([$id]);
-            } catch (Throwable $e) { /* column may be missing on older DBs */ }
+            // 2.15: Find and update the matching video_kyc document instead of a blind, swallowed UPDATE
+            $vst = $db->prepare("SELECT id FROM kyc_documents WHERE merchant_id=? AND doc_type='video_kyc' AND status IN ('pending','rejected') ORDER BY created_at DESC LIMIT 1");
+            $vst->execute([$id]);
+            $vidId = $vst->fetchColumn();
+            if ($vidId) {
+                try {
+                    $db->prepare("UPDATE kyc_documents SET status='approved', rejection_reason=NULL, reviewed_at=NOW() WHERE id=?")
+                        ->execute([$vidId]);
+                } catch (Throwable $e) {
+                    // Do not block verify, but warn ops and log platform error
+                    error_log('Video KYC verify document update: ' . $e->getMessage());
+                    if (function_exists('logPlatformError')) {
+                        logPlatformError('warning', 'Video KYC verify document update failed', ['merchant_id' => $id, 'doc_id' => $vidId, 'error' => $e->getMessage()]);
+                    }
+                }
+            }
             recordImmutableAudit('video_kyc_verified', $id, 'merchant', (string)$id, $reason);
             logStaffActivity('video_kyc_verified', $reason, $id, 'merchant', (string)$id);
             createNotification($id, 'Video KYC Verified', 'Your Video KYC was approved. Continue with remaining onboarding steps.');
@@ -75,20 +87,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Please enter a clear rejection reason for the merchant.');
             }
             $db->prepare("UPDATE merchants SET video_kyc_status='rejected' WHERE id=?")->execute([$id]);
-            $vidId = null;
-            try {
-                $st = $db->prepare("SELECT id FROM kyc_documents WHERE merchant_id=? AND doc_type='video_kyc' ORDER BY created_at DESC LIMIT 1");
-                $st->execute([$id]);
-                $vidId = $st->fetchColumn();
-            } catch (Throwable $e) {
-                $vidId = null;
+            // 2.15: Find the latest video_kyc document and require it for a meaningful reject
+            $st = $db->prepare("SELECT id FROM kyc_documents WHERE merchant_id=? AND doc_type='video_kyc' AND status IN ('pending','submitted','rejected') ORDER BY created_at DESC LIMIT 1");
+            $st->execute([$id]);
+            $vidId = $st->fetchColumn();
+            if (!$vidId) {
+                throw new RuntimeException('No pending Video KYC record found for this merchant. Ask the merchant to re-upload.');
             }
-            if ($vidId) {
+            try {
+                $db->prepare("UPDATE kyc_documents SET status='rejected', rejection_reason=?, reviewed_at=NOW() WHERE id=?")
+                    ->execute([$reason, $vidId]);
+            } catch (Throwable $e) {
+                // Fallback to status/reviewed_at only if rejection_reason is unavailable
                 try {
-                    $db->prepare("UPDATE kyc_documents SET status='rejected', rejection_reason=?, reviewed_at=NOW() WHERE id=?")
-                        ->execute([$reason, $vidId]);
-                } catch (Throwable $e) {
                     $db->prepare("UPDATE kyc_documents SET status='rejected', reviewed_at=NOW() WHERE id=?")->execute([$vidId]);
+                } catch (Throwable $e2) {
+                    throw new RuntimeException('Could not update Video KYC record: ' . $e2->getMessage());
+                }
+                if (function_exists('logPlatformError')) {
+                    logPlatformError('warning', 'Video KYC reject document update needed fallback (rejection_reason)', ['merchant_id' => $id, 'doc_id' => $vidId, 'error' => $e->getMessage()]);
                 }
             }
             logStaffActivity('video_kyc_rejected', $reason, $id, 'merchant', (string)$id);
@@ -151,6 +168,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } catch (Throwable $e) {
         flash('error', $e->getMessage());
+        if (function_exists('logPlatformError')) {
+            logPlatformError('error', 'admin_kyc action failed: ' . $action, ['merchant_id' => $id, 'error' => $e->getMessage()]);
+        }
     }
     redirect('admin_kyc.php');
 }
