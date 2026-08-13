@@ -4,6 +4,8 @@
 -- with columns: partner_key, raw_code, msg_en, msg_hi, is_active
 
 -- Seed common reason maps (partner_key='generic' for all partners)
+-- 044-fix: gateway_reason_maps may pre-exist without partner_key; add it idempotently first.
+ALTER TABLE gateway_reason_maps ADD COLUMN partner_key VARCHAR(40) NOT NULL DEFAULT '';
 INSERT IGNORE INTO gateway_reason_maps (partner_key, raw_code, msg_en, msg_hi) VALUES
 ('generic', 'INSUFFICIENT_FUNDS', 'Insufficient balance in the customer''s account.', 'ग्राहक के खाते में पर्याप्त बैलेंस नहीं है।'),
 ('generic', 'INSUFFICIENT_BALANCE', 'Insufficient balance in the customer''s account.', 'ग्राहक के खाते में पर्याप्त बैलेंस नहीं है।'),
