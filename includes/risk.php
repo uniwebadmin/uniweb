@@ -186,10 +186,39 @@ function isBlacklisted(int $merchantId, array $customer = []): bool
 function recordAmlFlag(int $merchantId, ?int $transactionId, string $flagType, string $severity, string $description): void
 {
     ensureAmlFlagsTable();
+    $db = getDB();
+    // 2.14: Dedup — skip if an open flag already exists for same merchant + type + transaction
     try {
-        getDB()->prepare('INSERT INTO aml_flags (merchant_id, transaction_id, flag_type, severity, description) VALUES (?,?,?,?,?)')
+        if ($transactionId !== null) {
+            $check = $db->prepare('SELECT 1 FROM aml_flags WHERE merchant_id=? AND flag_type=? AND transaction_id=? AND status="open" LIMIT 1');
+            $check->execute([$merchantId, $flagType, $transactionId]);
+        } else {
+            $check = $db->prepare('SELECT 1 FROM aml_flags WHERE merchant_id=? AND flag_type=? AND transaction_id IS NULL AND status="open" LIMIT 1');
+            $check->execute([$merchantId, $flagType]);
+        }
+        if ($check->fetchColumn()) {
+            return; // already flagged — do not duplicate
+        }
+    } catch (Throwable $e) { /* table may not exist yet — continue to insert */ }
+    try {
+        $db->prepare('INSERT INTO aml_flags (merchant_id, transaction_id, flag_type, severity, description) VALUES (?,?,?,?,?)')
             ->execute([$merchantId, $transactionId, $flagType, $severity, $description]);
     } catch (Throwable $e) { /* ok */ }
+}
+
+/**
+ * 2.14: Auto-resolve open kyc_pending flags when merchant becomes KYC verified.
+ */
+function resolveKycPendingFlags(int $merchantId): int
+{
+    ensureAmlFlagsTable();
+    try {
+        $st = getDB()->prepare("UPDATE aml_flags SET status='cleared', description=CONCAT(description, ' [auto-resolved: KYC verified]') WHERE merchant_id=? AND flag_type='kyc_pending' AND status='open'");
+        $st->execute([$merchantId]);
+        return $st->rowCount();
+    } catch (Throwable $e) {
+        return 0;
+    }
 }
 
 function screenAmlWatchlist(int $merchantId, ?int $transactionId, array $customer = []): array

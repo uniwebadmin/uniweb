@@ -200,6 +200,13 @@ function applyApprovedControlAction(array $request): void
             }
             $db->prepare("UPDATE merchants SET kyc_status='verified',onboarding_state='verified',account_mode='test' WHERE id=?")
                 ->execute([$merchantId]);
+            // 2.14: Auto-resolve kyc_pending AML flags on KYC verify
+            if (!function_exists('resolveKycPendingFlags') && is_file(__DIR__ . '/risk.php')) {
+                require_once __DIR__ . '/risk.php';
+            }
+            if (function_exists('resolveKycPendingFlags')) {
+                try { resolveKycPendingFlags($merchantId); } catch (Throwable $e) { /* ok */ }
+            }
             // Point 2/4: after KYC verified → queue methods (if needed) + auto Send to Partner.
             if (!function_exists('afterKycVerifiedAutoSendMethods')) {
                 $mr = __DIR__ . '/method_requests.php';
@@ -294,6 +301,13 @@ function verifyMerchantKycNow(int $merchantId, string $reason): void
         );
     }
     logStaffActivity('kyc_verified_solo', $reason, $merchantId, 'merchant', (string)$merchantId);
+    // 2.14: Auto-resolve kyc_pending AML flags on solo KYC verify
+    if (!function_exists('resolveKycPendingFlags') && is_file(__DIR__ . '/risk.php')) {
+        require_once __DIR__ . '/risk.php';
+    }
+    if (function_exists('resolveKycPendingFlags')) {
+        try { resolveKycPendingFlags($merchantId); } catch (Throwable $e) { /* ok */ }
+    }
     // 2.13: Enqueue to partner forward queue on solo KYC verify
     if (!function_exists('enqueueMerchantToAllEnabledPartners') && is_file(__DIR__ . '/auto_kyc.php')) {
         require_once __DIR__ . '/auto_kyc.php';
