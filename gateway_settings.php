@@ -110,6 +110,15 @@ $settleCronKey = function_exists('getSettlementCronKey') ? getSettlementCronKey(
 $settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCronKey);
 $settleCronUrlMasked = function_exists('maskCronUrl') ? maskCronUrl($settleCronUrl) : $settleCronUrl;
 ?>
+<div class="glass rounded-xl p-5 mb-6 border border-sky-500/40 bg-sky-500/5 max-w-4xl">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+            <p class="font-semibold text-sky-300 text-sm">Money & Partner config lives in Partner Registry</p>
+            <p class="text-xs text-gray-400 mt-1">Partner API keys, payment methods, MDR, and Route/Split are configured only under <a href="admin_gateway_registry.php" class="text-sky-400 underline">Admin → Partner Registry → Partner Detail</a>. This page is platform-wide only (SMTP, feature flags, masked cron, non-secret defaults, collection-mode template for new merchants).</p>
+        </div>
+        <a href="admin_gateway_registry.php" class="shrink-0 text-xs px-4 py-2 rounded-lg bg-sky-600/20 text-sky-400 hover:bg-sky-600/30">Partner Registry →</a>
+    </div>
+</div>
 <?php if (!empty($gatewayGaps)): ?>
 <div class="glass rounded-xl p-5 mb-6 border border-amber-500/40 bg-amber-500/5 max-w-4xl">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -124,7 +133,7 @@ $settleCronUrlMasked = function_exists('maskCronUrl') ? maskCronUrl($settleCronU
         </div>
         <?php endforeach; ?>
     </div>
-    <p class="text-[10px] text-gray-600 mt-3">When partner production keys arrive: paste below → Save → Test Connection → set environment to live when PG approves. Blank password fields keep the existing secret.</p>
+    <p class="text-[10px] text-gray-600 mt-3">When partner production keys arrive: add them in <a href="admin_gateway_registry.php" class="text-sky-400">Partner Registry → Partner Detail → Keys</a>, then use Test Connection above. This page does not accept live PG API keys.</p>
 </div>
 <?php else: ?>
 <div class="glass rounded-xl p-4 mb-6 border border-emerald-500/30 bg-emerald-500/5 max-w-4xl">
@@ -178,7 +187,7 @@ $settleCronUrlMasked = function_exists('maskCronUrl') ? maskCronUrl($settleCronU
 </div>
 <div class="glass rounded-xl p-6">
     <?= settingsMainHeading('Gateway Status') ?>
-    <p class="text-xs text-gray-500 mb-4">Save keys below, then run Test Connection. Primary gateway: <span class="text-brand-400 font-medium"><?= e(ucfirst($activePg)) ?></span></p>
+    <p class="text-xs text-gray-500 mb-4">Test connection for gateways configured in <a href="admin_gateway_registry.php" class="text-sky-400">Partner Registry</a>. Active checkout gateway: <span class="text-brand-400 font-medium"><?= e(ucfirst($activePg)) ?></span> (set in Payment Gateway Selection below — template for new merchants only)</p>
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <?php foreach ($gatewayCards as $card):
             $configured = isGatewayConfigured($card['id']);
@@ -223,11 +232,11 @@ $settleCronUrlMasked = function_exists('maskCronUrl') ? maskCronUrl($settleCronU
             ['support_whatsapp', 'Support WhatsApp Number (with country code)', 'text'],
             ['min_settlement_amount', 'Min Settlement (₹)', 'number'],
             ['settlement_cycle', 'Settlement Cycle', 'text'],
-            ['upi_mdr', 'UPI MDR (%)', 'number'],
-            ['card_mdr', 'Card MDR (%)', 'number'],
-            ['netbanking_mdr', 'Netbanking MDR (%)', 'number'],
-            ['wallet_mdr', 'Wallet MDR (%)', 'number'],
-            ['default_commission', 'Default Commission (%)', 'number'],
+            ['upi_mdr', 'UPI MDR (%) — platform default, overridden by Partner Detail', 'number'],
+            ['card_mdr', 'Card MDR (%) — platform default, overridden by Partner Detail', 'number'],
+            ['netbanking_mdr', 'Netbanking MDR (%) — platform default, overridden by Partner Detail', 'number'],
+            ['wallet_mdr', 'Wallet MDR (%) — platform default, overridden by Partner Detail', 'number'],
+            ['default_commission', 'Default Commission (%) — platform default, overridden by Partner Detail', 'number'],
             ['aml_high_value_threshold', 'AML High Value Threshold (₹)', 'number'],
             ['maintenance_mode', 'Maintenance Mode (0/1)', 'number'],
             ['auto_audit_interval_minutes', 'Auto-audit interval (minutes, 5–120)', 'number'],
@@ -256,7 +265,8 @@ $settleCronUrlMasked = function_exists('maskCronUrl') ? maskCronUrl($settleCronU
             ['support_linkedin', 'LinkedIn URL', 'text'],
             ['support_youtube', 'YouTube URL', 'text'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
-        <?= settingsSectionHeading('B2B Collection Engine', 'teal') ?>
+        <?= settingsSectionHeading('B2B Collection Engine (template for new merchants)', 'teal') ?>
+        <p class="text-xs text-gray-500 mb-3">These defaults apply to <strong>new merchants only</strong> and do not override per-partner commercial or split settings in Partner Detail.</p>
         <div><label class="text-sm text-gray-400">Default Collection Mode (new merchants)</label>
             <select name="settings[default_collection_mode]" class="input-field mt-1">
                 <?php foreach (getCollectionModes() as $k => $label): ?>
@@ -267,19 +277,19 @@ $settleCronUrlMasked = function_exists('maskCronUrl') ? maskCronUrl($settleCronU
         <div><label class="text-sm text-gray-400">Platform Margin (%)</label>
             <input type="number" step="0.01" name="settings[platform_margin_pct]" value="<?= e($settingsMap['platform_margin_pct'] ?? '0.10') ?>" class="input-field mt-1">
         </div>
-        <?= settingsSectionHeading('Payment Gateway Selection', 'slate') ?>
-        <p class="text-xs text-gray-500">Add API keys to enable real-time UPI, cards & international payments.</p>
-        <div><label class="text-sm text-gray-400">Primary Payment Gateway</label>
+        <?= settingsSectionHeading('Payment Gateway Selection (template for new merchants)', 'slate') ?>
+        <p class="text-xs text-gray-500 mb-3">This sets the default checkout gateway for <strong>new merchants only</strong>. Per-merchant gateway routing and live API keys are managed in <a href="admin_gateway_registry.php" class="text-sky-400">Partner Registry → Partner Detail → Keys</a>.</p>
+        <div><label class="text-sm text-gray-400">Default Payment Gateway (new merchants)</label>
             <select name="settings[active_payment_gateway]" class="input-field mt-1">
                 <?php foreach (['razorpay'=>'Razorpay','cashfree'=>'Cashfree','payu'=>'PayU','manual'=>'Manual UPI Only'] as $val=>$label): ?>
-                <option value="<?= $val ?>" <?= ($settingsMap['active_payment_gateway'] ?? 'razorpay') === $val ? 'selected' : '' ?>><?= $label ?></option>
+                <option value="<?= $val ?>" <?= ($settingsMap['active_payment_gateway'] ?? 'razorpay') === $val ? 'selected' : '' ?>><?= e($label) ?></option>
                 <?php endforeach; ?>
             </select>
         </div>
         <div class="rounded-xl border border-sky-500/30 bg-sky-500/5 p-4 my-4 text-sm text-gray-400 space-y-2">
-            <p class="font-medium text-sky-300">Partner API keys have moved →</p>
-            <p>Per-partner credentials (Razorpay, Cashfree, PayU, PhonePe, Pine Labs, Worldline, Axis, RBL, Decentro, Digio) are now managed in the <a href="admin_gateway_registry.php" class="text-sky-400 underline">Partner Registry</a>. Click any partner → Configure to add keys, enable methods, and test connections.</p>
-            <p class="text-xs text-gray-500">Platform-wide settings (SMTP, WhatsApp, SEO, cron, collection mode) remain here. Method partner webhook URL is configured in Partner Detail → Webhooks tab.</p>
+            <p class="font-medium text-sky-300">Partner API keys, methods, MDR & Split → Partner Registry</p>
+            <p>Per-partner credentials (Razorpay, Cashfree, PayU, PhonePe, Pine Labs, Worldline, Axis, RBL, Decentro, Digio) are managed in the <a href="admin_gateway_registry.php" class="text-sky-400 underline">Partner Registry</a>. Click any partner → Configure to add keys, enable methods, set MDR, and configure split.</p>
+            <p class="text-xs text-gray-500">This page does NOT accept live PG API keys. Platform-wide settings (SMTP, WhatsApp, SEO, cron) remain here. Method partner webhook URL is configured in Partner Detail → Webhooks tab.</p>
             <p class="text-xs text-gray-600">Method partner webhook endpoint: <code class="text-gray-400"><?= e(rtrim(APP_URL, '/')) ?>/method_partner_webhook.php</code></p>
         </div>
         <?= settingsSectionHeading('SEO — Google Search Console', 'emerald') ?>
