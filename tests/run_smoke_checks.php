@@ -442,6 +442,9 @@ $assert(str_contains($cronGuard, 'function cronAuthOk'), 'cron_auth_accepts_watc
 $autoAudit = (string)file_get_contents($root . '/includes/auto_audit.php');
 $assert(str_contains($autoAudit, "\$hb('auto_kyc'"), 'auto_audit_heartbeats_kyc');
 $assert(str_contains($autoAudit, "\$hb('settlements'"), 'auto_audit_heartbeats_settlements');
+$backupCron = (string)file_get_contents($root . '/cron_db_backup.php');
+$assert(str_contains($backupCron, 'uniwebPhpDumpDatabase'), 'backup_cron_has_php_dump_fallback');
+$assert(is_file($root . '/includes/db_backup.php'), 'file_includes_db_backup_php');
 
 // Instant printable UPI QR (direct P2M) — page + helper must exist and be honest about routing.
 $assert(is_file($root . '/qr_upi_print.php'), 'file_qr_upi_print_php', 'qr_upi_print.php');

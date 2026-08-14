@@ -33,6 +33,7 @@ db_probe.php
 db_wizard.php
 
 # Runtime and private data
+backups/
 uploads/
 !uploads/kyc/
 !uploads/kyc/.htaccess
