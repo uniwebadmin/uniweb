@@ -166,6 +166,119 @@ function processPerPartnerForwardQueue(int $limit = 20): array
 } // end function_exists guard
 
 /**
+ * Alias used by cron_auto_kyc / admin_auto_kyc.
+ * Returns both new keys (success/failed/retry) and legacy keys (forwarded/errors)
+ * so older callers keep working.
+ */
+if (!function_exists('processPartnerForwardQueue')) {
+function processPartnerForwardQueue(int $limit = 20): array
+{
+    $r = processPerPartnerForwardQueue($limit);
+    return [
+        'processed' => (int)($r['processed'] ?? 0),
+        'success' => (int)($r['success'] ?? 0),
+        'failed' => (int)($r['failed'] ?? 0),
+        'retry' => (int)($r['retry'] ?? 0),
+        'forwarded' => (int)($r['success'] ?? 0),
+        'errors' => (int)($r['failed'] ?? 0),
+    ];
+}
+}
+
+if (!function_exists('queueMerchantForPartnerForward')) {
+function queueMerchantForPartnerForward(int $merchantId, ?string $gateways = null): bool
+{
+    if (function_exists('enqueueMerchantToAllEnabledPartners')) {
+        enqueueMerchantToAllEnabledPartners($merchantId);
+        return true;
+    }
+    $keys = [];
+    if ($gateways !== null && $gateways !== '') {
+        $keys = array_values(array_filter(array_map('trim', explode(',', $gateways))));
+    }
+    if ($keys === [] && function_exists('gatewaySubmissionAllowedGateways')) {
+        $keys = gatewaySubmissionAllowedGateways();
+    }
+    foreach ($keys as $key) {
+        enqueuePartnerForward($merchantId, (string)$key);
+    }
+    return $keys !== [];
+}
+}
+
+if (!function_exists('pausePartnerForward')) {
+function pausePartnerForward(int $merchantId, int $adminId): bool
+{
+    ensurePartnerForwardQueueTable();
+    try {
+        getDB()->prepare("UPDATE partner_forward_queue SET status='paused', error_message=? WHERE merchant_id=? AND status IN ('queued','retry')")
+            ->execute(['Paused by admin #' . $adminId, $merchantId]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+}
+
+if (!function_exists('resumePartnerForward')) {
+function resumePartnerForward(int $merchantId): bool
+{
+    ensurePartnerForwardQueueTable();
+    $now = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
+    if ((int)$now->format('H') >= 18) {
+        $schedule = new DateTime('tomorrow 09:00', new DateTimeZone('Asia/Kolkata'));
+    } else {
+        $schedule = clone $now;
+        $schedule->modify('+' . random_int(60, 90) . ' minutes');
+    }
+    try {
+        getDB()->prepare("UPDATE partner_forward_queue SET status='queued', schedule_at=?, error_message=NULL WHERE merchant_id=? AND status='paused'")
+            ->execute([$schedule->format('Y-m-d H:i:s'), $merchantId]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+}
+
+if (!function_exists('cancelPartnerForward')) {
+function cancelPartnerForward(int $merchantId, string $reason = ''): bool
+{
+    ensurePartnerForwardQueueTable();
+    try {
+        getDB()->prepare("UPDATE partner_forward_queue SET status='cancelled', error_message=? WHERE merchant_id=? AND status IN ('queued','paused','retry')")
+            ->execute([mb_substr($reason, 0, 500), $merchantId]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+}
+
+if (!function_exists('getPartnerForwardQueue')) {
+function getPartnerForwardQueue(int $limit = 50): array
+{
+    ensurePartnerForwardQueueTable();
+    try {
+        $st = getDB()->prepare("SELECT q.*, q.schedule_at AS scheduled_at, q.error_message AS admin_note,
+            q.last_attempt_at AS forwarded_at,
+            m.business_name, m.merchant_code, m.kyc_status
+            FROM partner_forward_queue q
+            JOIN merchants m ON q.merchant_id = m.id
+            WHERE q.status IN ('queued','paused','retry','processing','success','failed','cancelled')
+            ORDER BY
+                CASE q.status WHEN 'queued' THEN 0 WHEN 'retry' THEN 1 WHEN 'paused' THEN 2 WHEN 'failed' THEN 3 ELSE 4 END,
+                q.schedule_at DESC
+            LIMIT ?");
+        $st->execute([$limit]);
+        return $st->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+}
+
+/**
  * Push KYC package to a partner API.
  * Stub for now — real adapter will be built when partner keys are configured.
  */

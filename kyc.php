@@ -53,8 +53,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($saved['ok'])) {
             flash('error', $saved['error'] ?? 'Upload failed. Please retry.');
         } else {
-            $db->prepare("UPDATE merchants SET kyc_status='submitted',onboarding_state='submitted',onboarding_submitted_at=COALESCE(onboarding_submitted_at,NOW()),account_mode='test' WHERE id=?")
-                ->execute([$merchant['id']]);
+            try {
+                $db->prepare("UPDATE merchants SET kyc_status='submitted',onboarding_state='submitted',onboarding_submitted_at=COALESCE(onboarding_submitted_at,NOW()),account_mode='test' WHERE id=?")
+                    ->execute([$merchant['id']]);
+            } catch (Throwable $e) {
+                logPlatformError('warning', 'KYC submit status update failed: ' . $e->getMessage(), ['merchant_id' => (int)$merchant['id']]);
+                try {
+                    $db->prepare("UPDATE merchants SET kyc_status='submitted',account_mode='test' WHERE id=?")->execute([$merchant['id']]);
+                } catch (Throwable $e2) { /* keep upload success even if status columns lag */ }
+            }
             notifyAdminKycDocumentUploaded((int)$merchant['id'], $docType);
             $msg = ($saved['scan_status'] ?? 'pending') === 'clean'
                 ? 'Document uploaded and security-scanned successfully.'

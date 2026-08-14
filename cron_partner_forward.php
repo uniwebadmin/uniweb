@@ -14,9 +14,9 @@ if (!$isCli) {
     }
 }
 
-if (!function_exists('ensurePartnerForwardQueueTable')) {
+if (!function_exists('processPerPartnerForwardQueue')) {
     require_once __DIR__ . '/includes/partner_forward_queue.php';
 }
 
-$results = processPartnerForwardQueue(20);
+$results = processPerPartnerForwardQueue(20);
 echo json_encode($results) . "\n";

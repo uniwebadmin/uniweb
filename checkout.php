@@ -37,13 +37,51 @@ if (!$linkId) {
 header('Cache-Control: no-store, no-cache, must-revalidate');
 
 $db = getDB();
-$stmt = $db->prepare("SELECT pl.id, pl.link_id, pl.amount AS payment_amount, pl.description, pl.customer_name, pl.customer_phone, pl.status AS link_status, pl.expires_at, pl.is_test, pl.merchant_id AS link_merchant_id, pl.payment_method, pl.gateway_code, pl.link_label, pl.link_collection_mode, pl.pack_id, pl.qr_code_id,
+if (!function_exists('ensurePaymentPackSchema') && is_file(__DIR__ . '/includes/provision.php')) {
+    require_once __DIR__ . '/includes/provision.php';
+}
+if (function_exists('ensurePaymentPackSchema')) {
+    ensurePaymentPackSchema();
+}
+if (!function_exists('ensureMerchantQrCodes') && is_file(__DIR__ . '/includes/schema_ensure.php')) {
+    require_once __DIR__ . '/includes/schema_ensure.php';
+}
+if (function_exists('ensureMerchantQrCodes')) {
+    ensureMerchantQrCodes();
+}
+
+$checkoutSelectFull = "SELECT pl.id, pl.link_id, pl.amount AS payment_amount, pl.description, pl.customer_name, pl.customer_phone, pl.status AS link_status, pl.expires_at, pl.is_test, pl.merchant_id AS link_merchant_id, pl.payment_method, pl.gateway_code, pl.link_label, pl.link_collection_mode, pl.pack_id, pl.qr_code_id,
     m.id AS merchant_id, m.business_name, m.upi_id, m.merchant_code, m.account_mode, m.kyc_status,
     m.collection_mode, m.commission_rate, m.axis_va_number, m.axis_va_ifsc, m.axis_va_upi, m.payu_child_key,
     m.razorpay_linked_account_id, m.cashfree_vendor_id, m.email AS merchant_email, m.phone AS merchant_phone
-    FROM payment_links pl JOIN merchants m ON pl.merchant_id = m.id WHERE pl.link_id = ?");
-$stmt->execute([$linkId]);
-$link = $stmt->fetch();
+    FROM payment_links pl JOIN merchants m ON pl.merchant_id = m.id WHERE pl.link_id = ?";
+$checkoutSelectBasic = "SELECT pl.id, pl.link_id, pl.amount AS payment_amount, pl.description, pl.customer_name, pl.customer_phone, pl.status AS link_status, pl.expires_at, pl.is_test, pl.merchant_id AS link_merchant_id, pl.payment_method, pl.gateway_code,
+    m.id AS merchant_id, m.business_name, m.upi_id, m.merchant_code, m.account_mode, m.kyc_status,
+    m.collection_mode, m.commission_rate, m.axis_va_number, m.axis_va_ifsc, m.axis_va_upi, m.payu_child_key,
+    m.razorpay_linked_account_id, m.cashfree_vendor_id, m.email AS merchant_email, m.phone AS merchant_phone
+    FROM payment_links pl JOIN merchants m ON pl.merchant_id = m.id WHERE pl.link_id = ?";
+$link = false;
+try {
+    $stmt = $db->prepare($checkoutSelectFull);
+    $stmt->execute([$linkId]);
+    $link = $stmt->fetch();
+} catch (Throwable $e) {
+    logPlatformError('warning', 'Checkout full link query failed: ' . $e->getMessage(), ['link_id' => $linkId]);
+    try {
+        $stmt = $db->prepare($checkoutSelectBasic);
+        $stmt->execute([$linkId]);
+        $link = $stmt->fetch();
+        if (is_array($link)) {
+            $link['link_label'] = $link['link_label'] ?? null;
+            $link['link_collection_mode'] = $link['link_collection_mode'] ?? null;
+            $link['pack_id'] = $link['pack_id'] ?? null;
+            $link['qr_code_id'] = $link['qr_code_id'] ?? null;
+        }
+    } catch (Throwable $e2) {
+        logPlatformError('error', 'Checkout basic link query failed: ' . $e2->getMessage(), ['link_id' => $linkId]);
+        $link = false;
+    }
+}
 if (!$link) {
     renderCheckoutUnavailable(
         'Payment link not found',

@@ -398,6 +398,19 @@ $assert(str_contains($gwSubmit, 'submitMerchantToGateways'), 'gateway_submit_use
 $assert(str_contains($gwSubmit, 'Gateway status') && str_contains($gwSubmit, 'version history'), 'gateway_submit_shows_matrix_and_versions');
 $assert(str_contains($gwSubmit, 'audit trail'), 'gateway_submit_shows_audit_trail');
 
+$cronFwd = (string)file_get_contents($root . '/cron_partner_forward.php');
+$assert(str_contains($cronFwd, 'processPerPartnerForwardQueue'), 'cron_partner_forward_uses_live_queue');
+$assert(!preg_match('/processPartnerForwardQueue\s*\(/', $cronFwd), 'cron_partner_forward_no_undefined_alias_call');
+$autoKycLib = (string)file_get_contents($root . '/includes/auto_kyc.php');
+$assert(!str_contains($autoKycLib, "gateway_submit.php"), 'auto_kyc_no_missing_gateway_submit_require');
+$schemaEnsure = (string)file_get_contents($root . '/includes/schema_ensure.php');
+$assert(str_contains($schemaEnsure, 'onboarding_state'), 'schema_ensure_has_onboarding_state');
+$kycPage = (string)file_get_contents($root . '/kyc.php');
+$assert(str_contains($kycPage, 'KYC submit status update failed'), 'kyc_submit_status_update_soft_fails');
+$checkoutSrc = (string)file_get_contents($root . '/checkout.php');
+$assert(str_contains($checkoutSrc, 'ensurePaymentPackSchema'), 'checkout_ensures_pack_schema');
+$assert(str_contains($checkoutSrc, 'checkoutSelectBasic'), 'checkout_has_column_fallback_query');
+
 // Instant printable UPI QR (direct P2M) — page + helper must exist and be honest about routing.
 $assert(is_file($root . '/qr_upi_print.php'), 'file_qr_upi_print_php', 'qr_upi_print.php');
 $upiQrPage = (string)file_get_contents($root . '/qr_upi_print.php');

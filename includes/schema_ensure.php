@@ -288,6 +288,12 @@ function ensureMissingColumns(): void
     schemaExecQuiet('ALTER TABLE merchants ADD COLUMN gstin VARCHAR(20) DEFAULT NULL');
     schemaExecQuiet('ALTER TABLE merchants ADD COLUMN udyam_number VARCHAR(30) DEFAULT NULL');
     schemaExecQuiet('ALTER TABLE merchants ADD COLUMN iec_number VARCHAR(20) DEFAULT NULL');
+    schemaExecQuiet("ALTER TABLE merchants ADD COLUMN onboarding_state VARCHAR(32) NOT NULL DEFAULT 'draft'");
+    schemaExecQuiet('ALTER TABLE merchants ADD COLUMN onboarding_submitted_at DATETIME DEFAULT NULL');
+    schemaExecQuiet("ALTER TABLE merchants ADD COLUMN account_mode VARCHAR(16) NOT NULL DEFAULT 'test'");
+    schemaExecQuiet('ALTER TABLE merchants ADD COLUMN live_enabled_at DATETIME DEFAULT NULL');
+    schemaExecQuiet("ALTER TABLE merchants ADD COLUMN bank_verification_status VARCHAR(32) NOT NULL DEFAULT 'pending'");
+    schemaExecQuiet("ALTER TABLE merchants ADD COLUMN website_review_status VARCHAR(32) NOT NULL DEFAULT 'pending'");
     schemaExecQuiet('ALTER TABLE transactions ADD COLUMN metadata JSON DEFAULT NULL');
 
     // 058: schema drift — columns referenced by code but missing from original migrations

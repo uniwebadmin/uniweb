@@ -30,13 +30,7 @@ if (!function_exists('runAutoKycEngine')) {
 $summary = runAutoKycEngine();
 recordCronHeartbeat('auto_kyc', !empty($summary['ok']) ? 'ok' : 'error');
 
-// D3: Process legacy partner forward queue (auto_kyc.php)
-$forwardSummary = ['processed' => 0, 'forwarded' => 0, 'errors' => 0];
-if (function_exists('processPartnerForwardQueue')) {
-    $forwardSummary = processPartnerForwardQueue();
-}
-
-// D3: Process per-partner forward queue (partner_forward_queue.php — Block B)
+// D3: Process per-partner forward queue once (do not also call the legacy alias)
 $partnerForwardSummary = ['processed' => 0, 'success' => 0, 'failed' => 0, 'retry' => 0];
 if (!function_exists('processPerPartnerForwardQueue')) {
     require_once __DIR__ . '/includes/partner_forward_queue.php';
@@ -44,6 +38,11 @@ if (!function_exists('processPerPartnerForwardQueue')) {
 if (function_exists('processPerPartnerForwardQueue')) {
     $partnerForwardSummary = processPerPartnerForwardQueue(20);
 }
+$forwardSummary = [
+    'processed' => (int)($partnerForwardSummary['processed'] ?? 0),
+    'forwarded' => (int)($partnerForwardSummary['success'] ?? 0),
+    'errors' => (int)($partnerForwardSummary['failed'] ?? 0),
+];
 
 if ($isCli) {
     echo "Auto KYC run: " . json_encode($summary) . "\n";

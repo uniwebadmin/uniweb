@@ -137,24 +137,25 @@ require_once __DIR__ . '/header.php';
                     <tr>
                         <td class="px-3 py-2">
                             <p class="font-medium text-sm"><?= e($q['business_name'] ?? '') ?></p>
-                            <p class="text-xs text-gray-500 font-mono"><?= e($q['merchant_code'] ?? '') ?> · KYC: <?= e($q['kyc_status'] ?? '') ?></p>
+                            <p class="text-xs text-gray-500 font-mono"><?= e($q['merchant_code'] ?? '') ?> · KYC: <?= e($q['kyc_status'] ?? '') ?><?php if (!empty($q['partner_key'])): ?> · <?= e($q['partner_key']) ?><?php endif; ?></p>
                         </td>
                         <td class="px-3 py-2">
-                            <?php if ($qStatus === 'queued'): ?><span class="text-xs px-2 py-1 bg-sky-600/20 text-sky-400 rounded">Queued</span>
+                            <?php if ($qStatus === 'queued' || $qStatus === 'retry'): ?><span class="text-xs px-2 py-1 bg-sky-600/20 text-sky-400 rounded"><?= $qStatus === 'retry' ? 'Retry' : 'Queued' ?></span>
                             <?php elseif ($qStatus === 'paused'): ?><span class="text-xs px-2 py-1 bg-amber-600/20 text-amber-400 rounded">Paused</span>
-                            <?php elseif ($qStatus === 'forwarded'): ?><span class="text-xs px-2 py-1 bg-emerald-600/20 text-emerald-400 rounded">Forwarded</span>
-                            <?php elseif ($qStatus === 'failed'): ?><span class="text-xs px-2 py-1 bg-red-600/20 text-red-400 rounded">Failed</span>
+                            <?php elseif ($qStatus === 'forwarded' || $qStatus === 'success'): ?><span class="text-xs px-2 py-1 bg-emerald-600/20 text-emerald-400 rounded">Forwarded</span>
+                            <?php elseif ($qStatus === 'failed' || $qStatus === 'cancelled'): ?><span class="text-xs px-2 py-1 bg-red-600/20 text-red-400 rounded"><?= $qStatus === 'cancelled' ? 'Cancelled' : 'Failed' ?></span>
                             <?php else: ?><span class="text-xs px-2 py-1 bg-gray-700/40 text-gray-400 rounded"><?= e($qStatus) ?></span>
                             <?php endif; ?>
                             <?php if (!empty($q['admin_note'])): ?><p class="text-xs text-gray-500 mt-1"><?= e($q['admin_note']) ?></p><?php endif; ?>
+                            <?php if (!empty($q['error_message']) && empty($q['admin_note'])): ?><p class="text-xs text-gray-500 mt-1"><?= e($q['error_message']) ?></p><?php endif; ?>
                         </td>
                         <td class="px-3 py-2 text-xs text-gray-500">
-                            <?= e(formatDate($q['scheduled_at'] ?? '')) ?>
+                            <?= e(formatDate($q['scheduled_at'] ?? $q['schedule_at'] ?? '')) ?>
                             <?php if (!empty($q['forwarded_at'])): ?><br><span class="text-emerald-400">Forwarded: <?= e(formatDate($q['forwarded_at'])) ?></span><?php endif; ?>
                         </td>
                         <td class="px-3 py-2">
                             <div class="flex gap-1 flex-wrap">
-                                <?php if ($qStatus === 'queued'): ?>
+                                <?php if ($qStatus === 'queued' || $qStatus === 'retry'): ?>
                                 <form method="POST" class="inline"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="pause_forward"><input type="hidden" name="merchant_id" value="<?= (int)$q['merchant_id'] ?>"><button class="text-xs bg-amber-600/20 text-amber-400 px-2 py-1 rounded">Pause</button></form>
                                 <form method="POST" class="inline"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="cancel_forward"><input type="hidden" name="merchant_id" value="<?= (int)$q['merchant_id'] ?>"><input name="reason" placeholder="Reason" class="text-xs bg-gray-900 border border-gray-700 rounded px-1 py-0.5 w-20"><button class="text-xs bg-red-600/20 text-red-400 px-2 py-1 rounded">Cancel</button></form>
                                 <?php elseif ($qStatus === 'paused'): ?>
