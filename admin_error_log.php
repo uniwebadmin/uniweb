@@ -25,6 +25,10 @@ if (isset($_GET['run_watchdog']) && verifyCsrf($_GET['csrf'] ?? '')) {
     redirect('admin_error_log.php');
 }
 
+if (isset($_GET['probe_catcher']) && verifyCsrf($_GET['csrf'] ?? '')) {
+    throw new RuntimeException('Watchdog probe: error catcher test (safe to Resolve).');
+}
+
 $showResolved = isset($_GET['show']) && $_GET['show'] === 'all';
 $errors = getRecentPlatformErrors(80, !$showResolved);
 $unresolved = countUnresolvedPlatformErrors();
@@ -43,6 +47,7 @@ require_once __DIR__ . '/header.php';
     </div>
     <div class="flex flex-wrap gap-2">
         <a href="?run_watchdog=1&csrf=<?= e(csrfToken()) ?>" class="btn-primary text-sm px-4 py-2 w-full sm:w-auto text-center">Run Watchdog Now</a>
+        <a href="?probe_catcher=1&csrf=<?= e(csrfToken()) ?>" class="glass px-4 py-2 rounded-xl text-sm text-gray-300 w-full sm:w-auto text-center">Test error capture</a>
         <?php if ($unresolved > 0): ?>
         <a href="?resolve_all=1&csrf=<?= e(csrfToken()) ?>" class="glass px-4 py-2 rounded-xl text-sm text-amber-400 w-full sm:w-auto text-center" onclick="return confirm('Mark all <?= (int)$unresolved ?> errors resolved?')">Resolve all</a>
         <?php endif; ?>

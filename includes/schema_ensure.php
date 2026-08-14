@@ -294,6 +294,9 @@ function ensureMissingColumns(): void
     schemaExecQuiet('ALTER TABLE merchants ADD COLUMN live_enabled_at DATETIME DEFAULT NULL');
     schemaExecQuiet("ALTER TABLE merchants ADD COLUMN bank_verification_status VARCHAR(32) NOT NULL DEFAULT 'pending'");
     schemaExecQuiet("ALTER TABLE merchants ADD COLUMN website_review_status VARCHAR(32) NOT NULL DEFAULT 'pending'");
+    schemaExecQuiet('ALTER TABLE merchants ADD COLUMN enabled_methods TEXT DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE merchant_agreement_acceptances ADD COLUMN partner_names VARCHAR(500) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE merchant_agreement_acceptances ADD COLUMN requires_resign TINYINT(1) NOT NULL DEFAULT 0');
     schemaExecQuiet('ALTER TABLE transactions ADD COLUMN metadata JSON DEFAULT NULL');
 
     // 058: schema drift — columns referenced by code but missing from original migrations
@@ -309,6 +312,31 @@ function ensureMissingColumns(): void
     // 059: notification dedup — event_key for idempotent notification creation
     schemaExecQuiet('ALTER TABLE notifications ADD COLUMN event_key VARCHAR(120) DEFAULT NULL');
     schemaExecQuiet('ALTER TABLE notifications ADD INDEX idx_notif_event (merchant_id, event_key)');
+
+    // 044 / reason maps — partner_key required by INSERT seed
+    schemaExecQuiet("CREATE TABLE IF NOT EXISTS gateway_reason_maps (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        partner_key VARCHAR(40) NOT NULL DEFAULT '',
+        raw_code VARCHAR(120) NOT NULL,
+        msg_en VARCHAR(500) NOT NULL DEFAULT '',
+        msg_hi VARCHAR(500) NOT NULL DEFAULT '',
+        is_active TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_partner_code (partner_key, raw_code)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    schemaExecQuiet("ALTER TABLE gateway_reason_maps ADD COLUMN partner_key VARCHAR(40) NOT NULL DEFAULT ''");
+    schemaExecQuiet("ALTER TABLE gateway_reason_maps ADD COLUMN msg_en VARCHAR(500) NOT NULL DEFAULT ''");
+    schemaExecQuiet("ALTER TABLE gateway_reason_maps ADD COLUMN msg_hi VARCHAR(500) NOT NULL DEFAULT ''");
+
+    schemaExecQuiet("CREATE TABLE IF NOT EXISTS partner_credentials (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        partner_key VARCHAR(40) NOT NULL,
+        env VARCHAR(8) NOT NULL DEFAULT 'test',
+        encrypted_payload TEXT NOT NULL,
+        last4 VARCHAR(8) NOT NULL DEFAULT '',
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_partner_env (partner_key, env)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
     // 060: partner route/split scaffold columns on partner_commercial
     schemaExecQuiet('ALTER TABLE partner_commercial ADD COLUMN route_enabled TINYINT(1) NOT NULL DEFAULT 0');
@@ -372,6 +400,10 @@ function ensureCollationConsistency(): void
     } catch (Throwable $e) {
         error_log('UniWeb ensureCollationConsistency failed: ' . $e->getMessage());
     }
+}
+
+if (!function_exists('initErrorCatcher') && is_file(__DIR__ . '/error_catcher.php')) {
+    require_once __DIR__ . '/error_catcher.php';
 }
 
 ensureCollationConsistency();

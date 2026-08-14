@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+@ini_set('display_errors', '0');
 // Defense in depth: ensure qr_svg helpers exist if live config.php omitted 'qr_svg'.
 if (!function_exists('qrImageUrl')) {
     require_once __DIR__ . '/includes/qr_svg.php';
@@ -21,6 +22,8 @@ $wantLogo = ($_GET['logo'] ?? '1') !== '0' && $size >= 120;
 $lib = __DIR__ . '/includes/phpqrcode/qrlib.php';
 if (is_file($lib)) {
     require_once $lib;
+}
+if (class_exists('QRcode', false)) {
     header('Content-Type: image/png');
     header('Cache-Control: public, max-age=86400');
     // High error-correction (H, ~30% recoverable) so a center logo cutout stays scannable.

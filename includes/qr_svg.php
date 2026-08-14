@@ -7,6 +7,10 @@ function qrSvg(string $text, int $size = 200): string
     if (!is_file($lib)) {
         return '<svg xmlns="http://www.w3.org/2000/svg" width="' . $size . '" height="' . $size . '"><text x="10" y="20" fill="#666" font-size="12">QR unavailable</text></svg>';
     }
+    require_once $lib;
+    if (!class_exists('QRcode', false)) {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="' . $size . '" height="' . $size . '"><text x="10" y="20" fill="#666" font-size="12">QR library missing</text></svg>';
+    }
     ob_start();
     // @-suppress: vendored phpqrcode's PHP 8.1+ deprecations would otherwise leak
     // into this output buffer and corrupt the captured PNG (see qr_image.php).

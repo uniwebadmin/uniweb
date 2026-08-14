@@ -39,7 +39,7 @@ fi
 
 echo "==> Applying real migrations/*.sql (schema of record)"
 if [ -d "${ROOT_DIR}/migrations" ]; then
-    php -r 'require getcwd()."/config.php"; $a = applyPendingMigrations(getcwd()."/migrations"); fwrite(STDERR, "    applied: ".(count($a)?implode(", ",$a):"none (already up to date)")."\n");' \
+    php -r 'require getcwd()."/config.php"; $a = applyPendingMigrations(getcwd()."/migrations"); $f = $a["applied_files"] ?? []; fwrite(STDERR, "    applied: ".(count($f)?implode(", ",$f):"none (already up to date)")."\n");' \
         2>&1 || echo "    (migration step reported an issue — check output above)"
 else
     echo "    migrations/ not present — running on base dev schema only"

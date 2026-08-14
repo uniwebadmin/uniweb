@@ -410,6 +410,30 @@ $assert(str_contains($kycPage, 'KYC submit status update failed'), 'kyc_submit_s
 $checkoutSrc = (string)file_get_contents($root . '/checkout.php');
 $assert(str_contains($checkoutSrc, 'ensurePaymentPackSchema'), 'checkout_ensures_pack_schema');
 $assert(str_contains($checkoutSrc, 'checkoutSelectBasic'), 'checkout_has_column_fallback_query');
+$assert(str_contains($checkoutSrc, 'm.enabled_methods'), 'checkout_selects_enabled_methods');
+$assert(str_contains($checkoutSrc, 'Checkout method list failed'), 'checkout_methods_soft_fail');
+$collLib = (string)file_get_contents($root . '/includes/collection.php');
+$assert(str_contains($collLib, 'Merchant enabled_methods JSON is the product data model'), 'checkout_methods_use_merchant_json');
+$assert(!str_contains($collLib, "partnerMethodOn('payu', 'debit_card')"), 'checkout_cards_not_hidden_by_empty_partner_row');
+$migLib = (string)file_get_contents($root . '/includes/migrations.php');
+$assert(str_contains($migLib, 'applied_files'), 'migrations_return_applied_files');
+$mig044 = (string)file_get_contents($root . '/migrations/044_gateway_reason_map_db.sql');
+$assert(str_contains($mig044, 'CREATE TABLE IF NOT EXISTS gateway_reason_maps'), 'migration_044_creates_table_before_insert');
+$assert(str_contains($mig044, 'ADD COLUMN partner_key'), 'migration_044_adds_partner_key_before_insert');
+$assert(str_contains($migLib, 'Migration failed:'), 'migrations_name_failing_file');
+$assert(!str_contains($migLib, 'Applied migration checksum mismatch'), 'migrations_checksum_rebase_not_throw');
+$migRel = (string)file_get_contents($root . '/migrate_release.php');
+$assert(str_contains($migRel, "'migration' => \$file"), 'migrate_release_names_failed_file');
+$errCatch = (string)file_get_contents($root . '/includes/error_catcher.php');
+$assert(!str_contains($errCatch, '%checkout.php on line%'), 'error_catcher_does_not_auto_resolve_checkout');
+$assert(str_contains($errCatch, 'qr_image.php'), 'error_catcher_skips_html_on_qr_image');
+$qrImg = (string)file_get_contents($root . '/qr_image.php');
+$assert(str_contains($qrImg, "ini_set('display_errors', '0')"), 'qr_image_hides_php_warnings');
+$assert(str_contains($qrImg, "class_exists('QRcode'"), 'qr_image_requires_qrcode_class');
+$errLog = (string)file_get_contents($root . '/admin_error_log.php');
+$assert(str_contains($errLog, 'probe_catcher'), 'error_log_has_catcher_probe');
+$hdr = (string)file_get_contents($root . '/header.php');
+$assert(str_contains($hdr, 'countUnresolvedPlatformErrors'), 'admin_header_error_badge_from_db');
 
 // Instant printable UPI QR (direct P2M) — page + helper must exist and be honest about routing.
 $assert(is_file($root . '/qr_upi_print.php'), 'file_qr_upi_print_php', 'qr_upi_print.php');

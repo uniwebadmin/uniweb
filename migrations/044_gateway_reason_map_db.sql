@@ -4,8 +4,23 @@
 -- with columns: partner_key, raw_code, msg_en, msg_hi, is_active
 
 -- Seed common reason maps (partner_key='generic' for all partners)
--- 044-fix: gateway_reason_maps may pre-exist without partner_key; add it idempotently first.
+-- 044-fix: table may be missing, or may pre-exist without partner_key / msg columns.
+-- CREATE + ALTER ADD before INSERT so half-applied DBs never fail on Unknown column.
+CREATE TABLE IF NOT EXISTS gateway_reason_maps (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    partner_key VARCHAR(40) NOT NULL DEFAULT '',
+    raw_code VARCHAR(120) NOT NULL,
+    msg_en VARCHAR(500) NOT NULL DEFAULT '',
+    msg_hi VARCHAR(500) NOT NULL DEFAULT '',
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_partner_code (partner_key, raw_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ALTER TABLE gateway_reason_maps ADD COLUMN partner_key VARCHAR(40) NOT NULL DEFAULT '';
+ALTER TABLE gateway_reason_maps ADD COLUMN raw_code VARCHAR(120) NOT NULL DEFAULT '';
+ALTER TABLE gateway_reason_maps ADD COLUMN msg_en VARCHAR(500) NOT NULL DEFAULT '';
+ALTER TABLE gateway_reason_maps ADD COLUMN msg_hi VARCHAR(500) NOT NULL DEFAULT '';
+ALTER TABLE gateway_reason_maps ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1;
 INSERT IGNORE INTO gateway_reason_maps (partner_key, raw_code, msg_en, msg_hi) VALUES
 ('generic', 'INSUFFICIENT_FUNDS', 'Insufficient balance in the customer''s account.', 'ग्राहक के खाते में पर्याप्त बैलेंस नहीं है।'),
 ('generic', 'INSUFFICIENT_BALANCE', 'Insufficient balance in the customer''s account.', 'ग्राहक के खाते में पर्याप्त बैलेंस नहीं है।'),

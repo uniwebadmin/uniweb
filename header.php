@@ -447,15 +447,20 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
             <div class="flex items-center gap-2 flex-wrap justify-end">
                 <span class="hidden xl:inline text-[10px] text-gray-500 font-mono" title="30-minute inactivity timeout"><span data-ist-clock><?= e(date('d M, h:i:s A')) ?> IST</span> · Session <span data-session-countdown><?= gmdate('i:s', (int)$sessionInfo['remaining']) ?></span></span>
                 <?php require __DIR__ . '/includes/global_search_ui.php'; ?>
+            <?php
+                $unresolvedHdr = function_exists('countUnresolvedPlatformErrors') ? countUnresolvedPlatformErrors() : 0;
+            ?>
             <?php if (function_exists('getAutoAuditStatusForHeader')):
                 $auditHdr = getAutoAuditStatusForHeader();
             ?>
                 <a href="admin_watchdog.php?tab=auto" class="text-xs px-2.5 py-1 rounded-full border <?= $auditHdr['audit_ok'] ? 'border-emerald-500/40 text-emerald-400 bg-emerald-500/10' : 'border-amber-500/40 text-amber-400 bg-amber-500/10' ?>" title="Auto-audit every <?= (int)$auditHdr['interval_min'] ?> min">● Audit</a>
-                <?php if ($auditHdr['errors'] > 0): ?>
-                <a href="admin_error_log.php" class="text-xs px-2.5 py-1 rounded-full border border-red-500/40 text-red-400 bg-red-500/10"><?= (int)$auditHdr['errors'] ?> errors</a>
-                <?php endif; ?>
-                <a href="admin_watchdog.php" class="text-xs px-2.5 py-1 rounded-full border border-gray-700 text-gray-400 hover:text-white">Watchdog</a>
             <?php endif; ?>
+                <a href="admin_watchdog.php" class="text-xs px-2.5 py-1 rounded-full border border-gray-700 text-gray-400 hover:text-white">Watchdog</a>
+                <?php if ($unresolvedHdr > 0): ?>
+                <a href="admin_error_log.php" class="text-xs px-2.5 py-1 rounded-full border border-red-500/40 text-red-400 bg-red-500/10"><?= (int)$unresolvedHdr ?> errors</a>
+                <?php else: ?>
+                <a href="admin_error_log.php" class="text-xs px-2.5 py-1 rounded-full border border-gray-700 text-gray-400 hover:text-white">Error Log</a>
+                <?php endif; ?>
                 <button type="button" onclick="toggleUniwebTheme()" class="theme-toggle-btn" title="Toggle dark / light mode" aria-label="Toggle theme"><span data-theme-icon>🌙</span></button>
             </div>
         </header>

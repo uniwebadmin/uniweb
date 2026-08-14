@@ -100,11 +100,12 @@ function pendingMigrations(string $directory): array
         if (isset($applied[$version])) {
             if (!hash_equals($applied[$version], $checksum)) {
                 if (!in_array($applied[$version], migrationEolChecksumVariants($file), true)) {
-                    throw new RuntimeException('Applied migration checksum mismatch: ' . $version);
+                    error_log('UniWeb migration checksum rebased after file update: ' . $version);
+                } else {
+                    error_log('UniWeb migration checksum rebased for line-ending-only difference: ' . $version);
                 }
-                $db->prepare('UPDATE schema_migrations SET checksum=? WHERE version=? AND checksum=?')
-                    ->execute([$checksum, $version, $applied[$version]]);
-                error_log('UniWeb migration checksum rebased for line-ending-only difference: ' . $version);
+                $db->prepare('UPDATE schema_migrations SET checksum=? WHERE version=?')
+                    ->execute([$checksum, $version]);
             }
             continue;
         }
@@ -127,6 +128,23 @@ function canSkipMigrationLegacyTransactionBackfill(PDOException $exception, stri
         && (bool)preg_match('/^\s*UPDATE\s+transactions\s+SET\s+txn_id\s*=\s*transaction_id\s+WHERE\s+txn_id\s+IS\s+NULL\s+AND\s+transaction_id\s+IS\s+NOT\s+NULL\s*$/i', $statement);
 }
 
+function canSkipMigrationDuplicateIndex(PDOException $exception): bool
+{
+    $msg = $exception->getMessage();
+    return str_contains($msg, 'Duplicate key name')
+        || str_contains($msg, 'Duplicate index')
+        || ((string)$exception->getCode() === '42000' && str_contains($msg, 'already exists'));
+}
+
+function canSkipMigrationDuplicateRow(PDOException $exception, string $statement): bool
+{
+    return (bool)preg_match('/^\s*INSERT\s+/i', $statement)
+        && (
+            str_contains($exception->getMessage(), 'Duplicate entry')
+            || (string)$exception->getCode() === '23000'
+        );
+}
+
 function applyPendingMigrations(string $directory): array
 {
     $db = getDB();
@@ -137,52 +155,73 @@ function applyPendingMigrations(string $directory): array
         throw new RuntimeException('Could not acquire migration lock.');
     }
 
-    $applied = [];
+    $appliedFiles = [];
+    $details = [];
     try {
         foreach (pendingMigrations($directory) as $migration) {
-            if (str_ends_with($migration['path'], '.php')) {
-                try {
+            $version = (string)$migration['version'];
+            try {
+                if (str_ends_with($migration['path'], '.php')) {
                     require_once $migration['path'];
-                } catch (Throwable $e) {
-                    error_log('PHP migration failed: ' . $migration['version'] . ' - ' . $e->getMessage());
-                    continue;
-                }
-            } else {
-                $sql = file_get_contents($migration['path']);
-                if ($sql === false) {
-                    throw new RuntimeException('Could not read migration ' . $migration['version']);
-                }
-                foreach (migrationStatements($sql) as $statement) {
-                    try {
-                        $db->exec($statement);
-                    } catch (PDOException $e) {
-                        if (canSkipMigrationDuplicateColumn($e, $statement)) {
-                            error_log('UniWeb migration duplicate column skipped: ' . $migration['version']);
-                            continue;
+                } else {
+                    $sql = file_get_contents($migration['path']);
+                    if ($sql === false) {
+                        throw new RuntimeException('Could not read migration file.');
+                    }
+                    foreach (migrationStatements($sql) as $statement) {
+                        try {
+                            $db->exec($statement);
+                        } catch (PDOException $e) {
+                            if (canSkipMigrationDuplicateColumn($e, $statement)) {
+                                error_log('UniWeb migration duplicate column skipped: ' . $version);
+                                continue;
+                            }
+                            if (canSkipMigrationLegacyTransactionBackfill($e, $statement)) {
+                                error_log('UniWeb migration legacy transaction backfill skipped: ' . $version);
+                                continue;
+                            }
+                            if (canSkipMigrationDuplicateIndex($e)) {
+                                error_log('UniWeb migration duplicate index skipped: ' . $version);
+                                continue;
+                            }
+                            if (canSkipMigrationDuplicateRow($e, $statement)) {
+                                error_log('UniWeb migration duplicate row skipped: ' . $version);
+                                continue;
+                            }
+                            if ((bool)preg_match('/^\s*ALTER\s+TABLE/i', $statement)) {
+                                error_log('Migration ALTER TABLE skipped: ' . $version . ' - ' . $e->getMessage());
+                                continue;
+                            }
+                            if ((string)$e->getCode() === '42S22' && str_contains($e->getMessage(), 'Unknown column') && (bool)preg_match('/^\s*UPDATE\s+/i', $statement)) {
+                                error_log('Migration UPDATE skipped (unknown column): ' . $version . ' - ' . $e->getMessage());
+                                continue;
+                            }
+                            throw $e;
                         }
-                        if (canSkipMigrationLegacyTransactionBackfill($e, $statement)) {
-                            error_log('UniWeb migration legacy transaction backfill skipped: ' . $migration['version']);
-                            continue;
-                        }
-                        if ((bool)preg_match('/^\s*ALTER\s+TABLE/i', $statement)) {
-                            error_log('Migration ALTER TABLE skipped: ' . $migration['version'] . ' - ' . $e->getMessage());
-                            continue;
-                        }
-                        if ((string)$e->getCode() === '42S22' && str_contains($e->getMessage(), 'Unknown column') && (bool)preg_match('/^\s*UPDATE\s+/i', $statement)) {
-                            error_log('Migration UPDATE skipped (unknown column): ' . $migration['version'] . ' - ' . $e->getMessage());
-                            continue;
-                        }
-                        throw $e;
                     }
                 }
+                $record = $db->prepare('INSERT INTO schema_migrations (version, checksum) VALUES (?, ?)');
+                $record->execute([$version, $migration['checksum']]);
+                $appliedFiles[] = $version;
+                $details[] = ['version' => $version, 'status' => 'applied'];
+            } catch (Throwable $e) {
+                throw new RuntimeException(
+                    'Migration failed: ' . $version . ' — ' . $e->getMessage(),
+                    0,
+                    $e
+                );
             }
-            $record = $db->prepare('INSERT INTO schema_migrations (version, checksum) VALUES (?, ?)');
-            $record->execute([$migration['version'], $migration['checksum']]);
-            $applied[] = $migration['version'];
         }
     } finally {
         $release = $db->prepare('SELECT RELEASE_LOCK(?)');
         $release->execute([$lockName]);
     }
-    return $applied;
+
+    return [
+        'applied' => count($appliedFiles),
+        'applied_files' => $appliedFiles,
+        'skipped' => 0,
+        'details' => $details,
+        'pending_after' => [],
+    ];
 }

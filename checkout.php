@@ -1,8 +1,17 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('initErrorCatcher') && is_file(__DIR__ . '/includes/error_catcher.php')) {
+    require_once __DIR__ . '/includes/error_catcher.php';
+}
 // Defense in depth: live config.php is gitignored and may omit 'qr_svg' from $__includes.
 if (!function_exists('qrImageUrl')) {
     require_once __DIR__ . '/includes/qr_svg.php';
+}
+if (!function_exists('getMerchantEnabledMethods') && is_file(__DIR__ . '/includes/provision.php')) {
+    require_once __DIR__ . '/includes/provision.php';
+}
+if (!function_exists('getCheckoutPaymentMethods') && is_file(__DIR__ . '/includes/collection.php')) {
+    require_once __DIR__ . '/includes/collection.php';
 }
 
 require_once __DIR__ . '/includes/checkout_mode_banner.php';
@@ -37,6 +46,12 @@ if (!$linkId) {
 header('Cache-Control: no-store, no-cache, must-revalidate');
 
 $db = getDB();
+if (!function_exists('ensureMissingColumns') && is_file(__DIR__ . '/includes/schema_ensure.php')) {
+    require_once __DIR__ . '/includes/schema_ensure.php';
+}
+if (function_exists('ensureMissingColumns')) {
+    ensureMissingColumns();
+}
 if (!function_exists('ensurePaymentPackSchema') && is_file(__DIR__ . '/includes/provision.php')) {
     require_once __DIR__ . '/includes/provision.php';
 }
@@ -52,12 +67,12 @@ if (function_exists('ensureMerchantQrCodes')) {
 
 $checkoutSelectFull = "SELECT pl.id, pl.link_id, pl.amount AS payment_amount, pl.description, pl.customer_name, pl.customer_phone, pl.status AS link_status, pl.expires_at, pl.is_test, pl.merchant_id AS link_merchant_id, pl.payment_method, pl.gateway_code, pl.link_label, pl.link_collection_mode, pl.pack_id, pl.qr_code_id,
     m.id AS merchant_id, m.business_name, m.upi_id, m.merchant_code, m.account_mode, m.kyc_status,
-    m.collection_mode, m.commission_rate, m.axis_va_number, m.axis_va_ifsc, m.axis_va_upi, m.payu_child_key,
+    m.collection_mode, m.commission_rate, m.enabled_methods, m.axis_va_number, m.axis_va_ifsc, m.axis_va_upi, m.payu_child_key,
     m.razorpay_linked_account_id, m.cashfree_vendor_id, m.email AS merchant_email, m.phone AS merchant_phone
     FROM payment_links pl JOIN merchants m ON pl.merchant_id = m.id WHERE pl.link_id = ?";
 $checkoutSelectBasic = "SELECT pl.id, pl.link_id, pl.amount AS payment_amount, pl.description, pl.customer_name, pl.customer_phone, pl.status AS link_status, pl.expires_at, pl.is_test, pl.merchant_id AS link_merchant_id, pl.payment_method, pl.gateway_code,
     m.id AS merchant_id, m.business_name, m.upi_id, m.merchant_code, m.account_mode, m.kyc_status,
-    m.collection_mode, m.commission_rate, m.axis_va_number, m.axis_va_ifsc, m.axis_va_upi, m.payu_child_key,
+    m.collection_mode, m.commission_rate, m.enabled_methods, m.axis_va_number, m.axis_va_ifsc, m.axis_va_upi, m.payu_child_key,
     m.razorpay_linked_account_id, m.cashfree_vendor_id, m.email AS merchant_email, m.phone AS merchant_phone
     FROM payment_links pl JOIN merchants m ON pl.merchant_id = m.id WHERE pl.link_id = ?";
 $link = false;
@@ -148,7 +163,16 @@ $logoUrl = APP_URL . '/assets/img/uniweb-logo.svg';
 $upiData = buildMerchantUpiIntent($link);
 $upiPa = trim((string)($link['upi_id'] ?? $link['axis_va_upi'] ?? ''));
 $whatsappLink = buildWhatsAppPaymentLink($link);
-$paymentMethods = getCheckoutPaymentMethods($link);
+$paymentMethods = [];
+try {
+    $paymentMethods = getCheckoutPaymentMethods($link);
+} catch (Throwable $e) {
+    logPlatformError('error', 'Checkout method list failed: ' . $e->getMessage(), ['link_id' => $linkId]);
+    $paymentMethods = [['key' => 'upi', 'label' => 'UPI / QR', 'sub' => 'Google Pay · PhonePe · Paytm', 'icon' => '📱', 'type' => 'p2m']];
+}
+if ($paymentMethods === []) {
+    $paymentMethods = [['key' => 'upi', 'label' => 'UPI / QR', 'sub' => 'No other methods enabled', 'icon' => '📱', 'type' => 'p2m']];
+}
 $lockedMethod = !empty($link['payment_method']) ? ($link['link_label'] ?? $link['payment_method']) : null;
 $selectedPay = $_GET['pay'] ?? $_POST['pay'] ?? 'upi';
 $validKeys = array_column($paymentMethods, 'key');
@@ -226,13 +250,18 @@ if ($handler === 'axis_va') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    if ($selectedPay === 'upi' && decentroSandboxCheckoutAvailable($link)) {
+  try {
+    if ($selectedPay === 'upi' && function_exists('decentroSandboxCheckoutAvailable') && decentroSandboxCheckoutAvailable($link)) {
         $decentroQr = createDecentroSandboxCheckoutQr($link);
     }
-    if (isGatewayConfigured('payu')) {
+    if (isGatewayConfigured('payu') && function_exists('buildPayUPaymentForm')) {
         foreach ($paymentMethods as $m) {
             if (($m['type'] ?? '') === 'payu' && !empty($m['pg'])) {
-                $payuForms[$m['key']] = buildPayUPaymentForm($link, $link, $withPayuSplit, $m['pg'], $m['key'], $payAmount);
+                try {
+                    $payuForms[$m['key']] = buildPayUPaymentForm($link, $link, $withPayuSplit, $m['pg'], $m['key'], $payAmount);
+                } catch (Throwable $e) {
+                    logPlatformError('warning', 'PayU checkout form failed: ' . $e->getMessage(), ['link_id' => $linkId, 'pay' => $m['key']]);
+                }
             }
         }
     }
@@ -272,6 +301,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
         $cashfreeSession = $cf['payment_session_id'] ?? null;
     }
+  } catch (Throwable $e) {
+    logPlatformError('error', 'Checkout gateway init failed: ' . $e->getMessage(), ['link_id' => $linkId]);
+  }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && $selectedPay === 'upi' && in_array($handler, ['direct_upi', 'axis_va'], true) && !$success) {

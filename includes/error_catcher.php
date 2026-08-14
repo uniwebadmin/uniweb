@@ -159,10 +159,6 @@ function autoResolveAuditNoise(): int
         $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND level IN ('warning','notice') AND created_at < DATE_SUB(NOW(), INTERVAL 48 HOUR)");
         // Transient deploy races
         $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'Call to undefined function renderMerchantModeToggle%'");
-        // Fixed checkout null / Axis IFSC display issues
-        $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE '%checkout.php on line%'");
-        $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'Undefined array key \"ifsc\"%'");
-        $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'e(): Argument #1%'");
         return $cleared;
     } catch (Throwable $e) {
         return 0;
@@ -195,6 +191,15 @@ function uniwebRenderCaughtError(?Throwable $e = null): never
     }
 
     $uri = (string)($_SERVER['REQUEST_URI'] ?? '');
+    $script = (string)($_SERVER['SCRIPT_NAME'] ?? '');
+    $isImage = str_contains($uri, 'qr_image.php') || str_ends_with($script, 'qr_image.php');
+    if ($isImage) {
+        if (!headers_sent()) {
+            header('Content-Type: image/png');
+        }
+        echo base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+        exit;
+    }
     if (str_contains($uri, 'api.php') || str_starts_with($uri, '/api')) {
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode([

@@ -38,6 +38,13 @@ CREATE TABLE IF NOT EXISTS gateway_method_map (
     FOREIGN KEY (gateway_id) REFERENCES gateway_registry(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Half-applied DBs may have gateway_registry without these columns. ALTER before INSERT.
+ALTER TABLE gateway_registry ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE gateway_registry ADD COLUMN supports_collection TINYINT(1) NOT NULL DEFAULT 1;
+ALTER TABLE gateway_registry ADD COLUMN supports_payout TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE gateway_registry ADD COLUMN supports_refund TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE gateway_registry ADD COLUMN supports_recurring TINYINT(1) NOT NULL DEFAULT 0;
+
 -- Seed default payment methods
 INSERT INTO gateway_registry (gateway_key, gateway_name, is_active, supports_collection, supports_payout, supports_refund, supports_recurring) VALUES
     ('upi_p2m', 'UPI P2M', 1, 1, 0, 1, 1),

@@ -87,6 +87,27 @@ $tabClass = static function (string $id, string $active): string {
     </div>
 </div>
 
+<?php
+$recentFatals = function_exists('getRecentPlatformErrors') ? getRecentPlatformErrors(8, true) : [];
+if ($unresolvedErrors > 0 && $recentFatals):
+?>
+<div class="glass rounded-xl p-4 mb-6 border border-red-500/30">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h2 class="font-semibold text-red-300">Recent unresolved errors</h2>
+        <a href="admin_error_log.php" class="text-xs text-sky-400">Open Error Log →</a>
+    </div>
+    <ul class="space-y-2 text-sm">
+        <?php foreach ($recentFatals as $err): ?>
+        <li class="text-gray-300">
+            <span class="text-xs uppercase text-red-400"><?= e((string)($err['level'] ?? 'error')) ?></span>
+            · <?= e(mb_substr((string)($err['message'] ?? ''), 0, 160)) ?>
+            <span class="text-xs text-gray-600"><?= e((string)($err['created_at'] ?? '')) ?></span>
+        </li>
+        <?php endforeach; ?>
+    </ul>
+</div>
+<?php endif; ?>
+
 <div class="flex flex-wrap gap-2 mb-8">
     <a href="?tab=scan" class="<?= $tabClass('scan', $tab) ?>">Scan Results</a>
     <a href="?tab=auto" class="<?= $tabClass('auto', $tab) ?>">Auto Audit</a>
