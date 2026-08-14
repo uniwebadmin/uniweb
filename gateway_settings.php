@@ -178,9 +178,18 @@ $gatewayCards = [
                 <button type="button" class="text-xs px-3 py-2 rounded-lg border border-emerald-500/40 text-emerald-300" onclick="navigator.clipboard.writeText(document.getElementById('hostinger-cron-cmd').innerText).then(function(){this.textContent='Copied';}.bind(this))">Copy command</button>
                 <button type="button" class="text-xs px-3 py-2 rounded-lg border border-sky-500/40 text-sky-300" onclick="navigator.clipboard.writeText(document.getElementById('hostinger-cron-url').innerText).then(function(){this.textContent='Copied';}.bind(this))">Copy URL</button>
             </div>
-            <details class="mt-4">
-                <summary class="cursor-pointer text-gray-400">Optional — daily database backup (2:00 AM)</summary>
-                <code class="block text-violet-300 font-mono break-all bg-dark-900/60 p-3 rounded-lg mt-2"><?= e($backupWgetCmd) ?></code>
+            <details class="mt-4 rounded-lg border border-violet-500/30 bg-violet-500/5 p-3">
+                <summary class="cursor-pointer text-violet-300 font-medium">Backup cron — daily 2:00 AM (copy this)</summary>
+                <p class="text-gray-500 mt-2 mb-2">This is a <strong class="text-gray-300">second</strong> Hostinger job. Do not replace the 10-minute job. Schedule: once a day at 02:00.</p>
+                <p class="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Command</p>
+                <code id="hostinger-backup-cmd" class="block text-violet-300 font-mono break-all bg-dark-900/60 p-3 rounded-lg"><?= e($backupWgetCmd) ?></code>
+                <p class="text-[10px] text-gray-600 uppercase tracking-wide mt-3 mb-1">Or paste this URL in Hostinger “URL to fetch”</p>
+                <code id="hostinger-backup-url" class="block text-sky-400 font-mono break-all bg-dark-900/60 p-3 rounded-lg"><?= e($backupUrl) ?></code>
+                <div class="flex flex-wrap gap-2 mt-3">
+                    <button type="button" class="text-xs px-3 py-2 rounded-lg border border-violet-500/40 text-violet-300" onclick="navigator.clipboard.writeText(document.getElementById('hostinger-backup-cmd').innerText).then(function(){this.textContent='Copied';}.bind(this))">Copy backup command</button>
+                    <button type="button" class="text-xs px-3 py-2 rounded-lg border border-sky-500/40 text-sky-300" onclick="navigator.clipboard.writeText(document.getElementById('hostinger-backup-url').innerText).then(function(){this.textContent='Copied';}.bind(this))">Copy backup URL</button>
+                </div>
+                <p class="text-gray-500 mt-3">Keeps last 7 daily copies. Also turn on Hostinger’s own Backups (Files → Backups) — that is the hosting copy of the whole site.</p>
             </details>
         </details>
         <p class="text-gray-500">Security: URL requires secret key · wrong key = 403 · failed attempts logged in Error Log.</p>
