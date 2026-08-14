@@ -57,6 +57,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
 $settings = $db->query('SELECT * FROM gateway_settings ORDER BY setting_key')->fetchAll();
 $settingsMap = array_column($settings, 'setting_value', 'setting_key');
+if (empty($settingsMap['db_backup_email'])) {
+    $settingsMap['db_backup_email'] = 'startelecom620@gmail.com';
+}
 
 function settingsSectionColorClass(string $color): string
 {
@@ -189,7 +192,7 @@ $gatewayCards = [
                     <button type="button" class="text-xs px-3 py-2 rounded-lg border border-violet-500/40 text-violet-300" onclick="navigator.clipboard.writeText(document.getElementById('hostinger-backup-cmd').innerText).then(function(){this.textContent='Copied';}.bind(this))">Copy backup command</button>
                     <button type="button" class="text-xs px-3 py-2 rounded-lg border border-sky-500/40 text-sky-300" onclick="navigator.clipboard.writeText(document.getElementById('hostinger-backup-url').innerText).then(function(){this.textContent='Copied';}.bind(this))">Copy backup URL</button>
                 </div>
-                <p class="text-gray-500 mt-3">Keeps last 7 daily copies. Also turn on Hostinger’s own Backups (Files → Backups) — that is the hosting copy of the whole site.</p>
+                <p class="text-gray-500 mt-3">Keeps last 7 daily copies of the <strong class="text-gray-300">database</strong> and emails that copy to Backup notify email. Full website restore is Hostinger → Files → Backups — Gmail cannot hold the whole site.</p>
             </details>
         </details>
         <p class="text-gray-500">Security: URL requires secret key · wrong key = 403 · failed attempts logged in Error Log.</p>
@@ -256,6 +259,7 @@ $gatewayCards = [
         $fields = [
             ['platform_name', 'Platform Name', 'text'],
             ['support_email', 'Support Email', 'email'],
+            ['db_backup_email', 'Backup notify email (database copy)', 'email'],
             ['support_phone', 'Support Phone', 'text'],
             ['support_whatsapp', 'Support WhatsApp Number (with country code)', 'text'],
             ['min_settlement_amount', 'Min Settlement (₹)', 'number'],

@@ -444,6 +444,9 @@ $assert(str_contains($autoAudit, "\$hb('auto_kyc'"), 'auto_audit_heartbeats_kyc'
 $assert(str_contains($autoAudit, "\$hb('settlements'"), 'auto_audit_heartbeats_settlements');
 $backupCron = (string)file_get_contents($root . '/cron_db_backup.php');
 $assert(str_contains($backupCron, 'uniwebPhpDumpDatabase'), 'backup_cron_has_php_dump_fallback');
+$assert(str_contains($backupCron, 'uniwebSendBackupEmail'), 'backup_cron_sends_owner_email');
+$dbBackupLib = (string)file_get_contents($root . '/includes/db_backup.php');
+$assert(str_contains($dbBackupLib, 'startelecom620@gmail.com'), 'backup_email_defaults_to_owner_gmail');
 $assert(is_file($root . '/includes/db_backup.php'), 'file_includes_db_backup_php');
 
 // Instant printable UPI QR (direct P2M) — page + helper must exist and be honest about routing.

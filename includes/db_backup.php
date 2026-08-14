@@ -14,6 +14,67 @@ function uniwebBackupExecDisabled(): bool
     return in_array('exec', $disabled, true);
 }
 
+function uniwebDefaultBackupEmail(): string
+{
+    return 'startelecom620@gmail.com';
+}
+
+function uniwebResolveBackupEmail(): string
+{
+    if (defined('DB_BACKUP_EMAIL') && filter_var(DB_BACKUP_EMAIL, FILTER_VALIDATE_EMAIL)) {
+        return (string)DB_BACKUP_EMAIL;
+    }
+    $stored = trim((string)getSetting('db_backup_email', ''));
+    if (filter_var($stored, FILTER_VALIDATE_EMAIL)) {
+        return $stored;
+    }
+    $fallback = uniwebDefaultBackupEmail();
+    if (function_exists('saveAutoAuditMeta')) {
+        saveAutoAuditMeta('db_backup_email', $fallback);
+    }
+    return $fallback;
+}
+
+/**
+ * @return array{sent:bool,attached:bool,error:string}
+ */
+function uniwebSendBackupEmail(string $to, string $gzPath): array
+{
+    $result = ['sent' => false, 'attached' => false, 'error' => ''];
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        $result['error'] = 'Backup email address is missing.';
+        return $result;
+    }
+    $size = is_file($gzPath) ? (int)filesize($gzPath) : 0;
+    $fileName = basename($gzPath);
+    $maxAttach = 12 * 1024 * 1024;
+    $subject = '[' . APP_NAME . '] Database backup ' . date('Y-m-d H:i');
+    $body = "UniWeb database backup finished.\n\n"
+        . "File: {$fileName}\n"
+        . "Size: " . number_format($size) . " bytes\n"
+        . "This email is the database copy only.\n"
+        . "Full website restore = Hostinger → Files → Backups (turn that ON).\n"
+        . "Gmail cannot hold the whole website.\n";
+
+    if ($size > 0 && $size <= $maxAttach && function_exists('sendPlatformEmailWithAttachment')) {
+        $result['sent'] = sendPlatformEmailWithAttachment($to, $subject, $body, $gzPath);
+        $result['attached'] = $result['sent'];
+    }
+    if (!$result['sent'] && function_exists('sendPlatformEmail')) {
+        $note = $size > $maxAttach
+            ? $body . "\nAttachment skipped (file too large for Gmail). File is saved on the server.\n"
+            : $body . "\nCould not attach the file. File is saved on the server. Set SMTP in Gateway Settings if this email also fails.\n";
+        $result['sent'] = sendPlatformEmail($to, $subject, $note);
+    }
+    if (!$result['sent']) {
+        $smtp = trim((string)getSetting('smtp_host', ''));
+        $result['error'] = $smtp === ''
+            ? 'Email did not send. Set SMTP in Gateway Settings (Hostinger mailbox), then run backup again. Also check Spam.'
+            : 'Email did not send. Check SMTP username/password in Gateway Settings, then check Spam.';
+    }
+    return $result;
+}
+
 function uniwebSqlLiteral(PDO $db, mixed $value): string
 {
     if ($value === null) {

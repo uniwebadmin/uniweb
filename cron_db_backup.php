@@ -92,24 +92,18 @@ foreach (glob($backupsDir . '/uniweb_*.sql.gz') ?: [] as $f) {
     }
 }
 
-if (defined('DB_BACKUP_EMAIL') && filter_var(DB_BACKUP_EMAIL, FILTER_VALIDATE_EMAIL)) {
-    $backupEmail = DB_BACKUP_EMAIL;
-} else {
-    $backupEmail = getSetting('db_backup_email', getSetting('support_email', COMPANY_ADMIN_EMAIL));
-}
-$emailSent = false;
-if ($backupEmail && filter_var($backupEmail, FILTER_VALIDATE_EMAIL) && function_exists('sendPlatformEmailWithAttachment')) {
-    $subject = '[' . APP_NAME . '] DB backup ' . date('Y-m-d H:i:s');
-    $body = "Automated database backup attached.\n\nFile: " . basename($gzPath) . "\nSize: " . number_format((int)filesize($gzPath)) . " bytes\n";
-    $emailSent = sendPlatformEmailWithAttachment($backupEmail, $subject, $body, $gzPath);
-}
+$backupEmail = uniwebResolveBackupEmail();
+$emailInfo = uniwebSendBackupEmail($backupEmail, $gzPath);
 
 $payload = [
     'ok' => true,
     'file' => basename($gzPath),
     'size' => (int)filesize($gzPath),
     'method' => $method,
-    'email_sent' => $emailSent,
+    'email_to' => $backupEmail,
+    'email_sent' => !empty($emailInfo['sent']),
+    'email_attached' => !empty($emailInfo['attached']),
+    'email_error' => $emailInfo['error'] ?? '',
 ];
 
 recordCronHeartbeat('db_backup', 'ok');
