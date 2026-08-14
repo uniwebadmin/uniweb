@@ -10,7 +10,8 @@ header('Content-Type: text/plain; charset=utf-8');
 
 $key = $_GET['key'] ?? '';
 $expected = bankReconciliationCronKey();
-if ($key !== $expected && !isAdminLoggedIn()) {
+$legacyOk = $expected !== '' && hash_equals($expected, (string)$key);
+if (!cronAuthOk('bank_reconciliation_cron_key') && !$legacyOk && !isAdminLoggedIn()) {
     http_response_code(403);
     die('Forbidden');
 }

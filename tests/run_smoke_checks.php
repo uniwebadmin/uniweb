@@ -434,6 +434,14 @@ $errLog = (string)file_get_contents($root . '/admin_error_log.php');
 $assert(str_contains($errLog, 'probe_catcher'), 'error_log_has_catcher_probe');
 $hdr = (string)file_get_contents($root . '/header.php');
 $assert(str_contains($hdr, 'countUnresolvedPlatformErrors'), 'admin_header_error_badge_from_db');
+$gwSettings = (string)file_get_contents($root . '/gateway_settings.php');
+$assert(str_contains($gwSettings, 'Show full Hostinger command'), 'gateway_settings_reveals_hostinger_cron');
+$assert(str_contains($gwSettings, 'made by UniWeb'), 'gateway_settings_explains_cron_key_source');
+$cronGuard = (string)file_get_contents($root . '/includes/cron_guard.php');
+$assert(str_contains($cronGuard, 'function cronAuthOk'), 'cron_auth_accepts_watchdog_or_dedicated');
+$autoAudit = (string)file_get_contents($root . '/includes/auto_audit.php');
+$assert(str_contains($autoAudit, "\$hb('auto_kyc'"), 'auto_audit_heartbeats_kyc');
+$assert(str_contains($autoAudit, "\$hb('settlements'"), 'auto_audit_heartbeats_settlements');
 
 // Instant printable UPI QR (direct P2M) — page + helper must exist and be honest about routing.
 $assert(is_file($root . '/qr_upi_print.php'), 'file_qr_upi_print_php', 'qr_upi_print.php');

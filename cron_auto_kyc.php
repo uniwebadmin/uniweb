@@ -8,14 +8,10 @@
 require_once __DIR__ . '/config.php';
 
 $isCli = php_sapi_name() === 'cli';
-$cronKey = $_GET['key'] ?? '';
-$expectedKey = getSetting('cron_auto_kyc_key', '');
-if (!$isCli) {
-    if ($expectedKey !== '' && !hash_equals($expectedKey, $cronKey)) {
-        http_response_code(403);
-        echo json_encode(['ok' => false, 'error' => 'auth']);
-        exit;
-    }
+if (!$isCli && !cronAuthOk('cron_auto_kyc_key')) {
+    http_response_code(403);
+    echo json_encode(['ok' => false, 'error' => 'auth']);
+    exit;
 }
 
 if (!function_exists('runAutoKycEngine') && is_file(__DIR__ . '/includes/auto_kyc.php')) {

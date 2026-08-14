@@ -9,7 +9,8 @@ header('Content-Type: text/plain; charset=utf-8');
 
 $key = $_GET['key'] ?? '';
 $expected = getSettlementCronKey();
-if ($key !== $expected && !isAdminLoggedIn()) {
+$legacyOk = $expected !== '' && hash_equals($expected, (string)$key);
+if (!cronAuthOk('settlement_cron_key') && !$legacyOk && !isAdminLoggedIn()) {
     http_response_code(403);
     die('Forbidden');
 }

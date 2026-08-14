@@ -393,6 +393,24 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
         ]));
 
         pruneAutoAuditRuns(200);
+
+        if (function_exists('recordCronHeartbeat')) {
+            $hb = static function (string $job, $step) use ($report): void {
+                if (!is_array($step) && $job !== 'auto_audit') {
+                    return;
+                }
+                $status = 'ok';
+                if (is_array($step) && ((!empty($step['error'])) || (array_key_exists('ok', $step) && $step['ok'] === false))) {
+                    $status = 'error';
+                }
+                recordCronHeartbeat($job, $status);
+            };
+            $hb('auto_audit', ['ok' => !empty($report['ok'])]);
+            $hb('auto_kyc', $report['steps']['auto_kyc'] ?? null);
+            $hb('settlements', $report['steps']['scheduled_settlements'] ?? ($report['steps']['settlement'] ?? null));
+            $hb('mandates', $report['steps']['mandates'] ?? null);
+            $hb('reconciliation', $report['steps']['reconciliation'] ?? null);
+        }
     } finally {
         unlockAutoAudit();
     }

@@ -91,6 +91,10 @@ function settingsSectionHeading(string $title, string $color = 'brand', string $
 $cronHealth = getCronHealthStatus();
 $cronKey = autoAuditWatchdogKey();
 $cronKeyMasked = strlen($cronKey) > 12 ? substr($cronKey, 0, 14) . '…' . substr($cronKey, -4) : $cronKey;
+$cronFullUrl = (string)($cronHealth['cron_url'] ?? (rtrim(APP_URL, '/') . '/cron_auto_audit.php?key=' . rawurlencode($cronKey)));
+$cronWgetCmd = 'wget -q -O /dev/null "' . $cronFullUrl . '"';
+$backupUrl = rtrim(APP_URL, '/') . '/cron_db_backup.php?key=' . rawurlencode($cronKey);
+$backupWgetCmd = 'wget -q -O /dev/null "' . $backupUrl . '"';
 $pageTitle = 'Gateway Settings';
 require_once __DIR__ . '/header.php';
 $activePg = $settingsMap['active_payment_gateway'] ?? 'razorpay';
@@ -106,9 +110,6 @@ $gatewayCards = [
     ['id' => 'rbl', 'label' => 'RBL Bank', 'test' => true, 'checkout' => false, 'note' => 'Paste sandbox keys · VA + UPI Collection + Payouts'],
     ['id' => 'decentro', 'label' => 'Decentro KYC', 'test' => true],
 ];
-$settleCronKey = function_exists('getSettlementCronKey') ? getSettlementCronKey() : 'uniweb-settle';
-$settleCronUrl = APP_URL . '/cron_settlements.php?key=' . rawurlencode($settleCronKey);
-$settleCronUrlMasked = function_exists('maskCronUrl') ? maskCronUrl($settleCronUrl) : $settleCronUrl;
 ?>
 <div class="glass rounded-xl p-5 mb-6 border border-sky-500/40 bg-sky-500/5 max-w-4xl">
     <div class="flex flex-wrap items-start justify-between gap-3">
@@ -155,14 +156,33 @@ $settleCronUrlMasked = function_exists('maskCronUrl') ? maskCronUrl($settleCronU
         <a href="admin_watchdog.php?tab=auto" class="text-xs text-sky-400">Watchdog → Auto Audit</a>
     </div>
     <div class="space-y-3 text-xs">
-        <div>
-            <p class="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Cron URL (Hostinger → Advanced → Cron Jobs)</p>
-            <code class="block text-sky-400 font-mono break-all bg-dark-900/60 p-3 rounded-lg"><?= e(function_exists('maskCronUrl') ? maskCronUrl($cronHealth['cron_url'] ?? '') : ($cronHealth['cron_url'] ?? '')) ?></code>
+        <p class="text-gray-300">This cron key is <strong class="text-white">made by UniWeb</strong>. You do not get it from a bank, PayU, Razorpay, or email. Partner API keys are a different thing (Partner Registry).</p>
+        <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-3 space-y-1.5 text-gray-400">
+            <p class="text-gray-200 font-medium">What Hostinger needs</p>
+            <p><span class="text-emerald-400">Required — 1 job:</span> every 10 minutes → Watchdog + KYC + settlements + recurring + partner queue (all inside this one URL).</p>
+            <p><span class="text-sky-400">Not a cron:</span> database updates → use <strong class="text-gray-300">Apply pending migrations</strong> below (one click after each deploy).</p>
+            <p><span class="text-gray-500">Optional:</span> daily backup job (2:00 AM). Bank statement fetch only if you use bank files.</p>
         </div>
         <div>
-            <p class="text-[10px] text-gray-600 uppercase tracking-wide mb-1">wget command (every <?= (int)($cronHealth['interval_min'] ?? 10) ?> min)</p>
-            <code class="block text-emerald-400 font-mono break-all bg-dark-900/60 p-3 rounded-lg">wget -q -O /dev/null "<?= e(function_exists('maskCronUrl') ? maskCronUrl($cronHealth['cron_url'] ?? '') : ($cronHealth['cron_url'] ?? '')) ?>"</code>
+            <p class="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Masked URL (safe to screenshot)</p>
+            <code class="block text-sky-400 font-mono break-all bg-dark-900/60 p-3 rounded-lg"><?= e(function_exists('maskCronUrl') ? maskCronUrl($cronFullUrl) : $cronFullUrl) ?></code>
         </div>
+        <details class="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+            <summary class="cursor-pointer text-amber-300 font-medium">Show full Hostinger command (copy this)</summary>
+            <p class="text-gray-500 mt-2 mb-2">Hostinger → Advanced → Cron Jobs → create job → paste command. Schedule: every 10 minutes.</p>
+            <p class="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Command</p>
+            <code id="hostinger-cron-cmd" class="block text-emerald-400 font-mono break-all bg-dark-900/60 p-3 rounded-lg"><?= e($cronWgetCmd) ?></code>
+            <p class="text-[10px] text-gray-600 uppercase tracking-wide mt-3 mb-1">Or paste this URL in Hostinger “URL to fetch”</p>
+            <code id="hostinger-cron-url" class="block text-sky-400 font-mono break-all bg-dark-900/60 p-3 rounded-lg"><?= e($cronFullUrl) ?></code>
+            <div class="flex flex-wrap gap-2 mt-3">
+                <button type="button" class="text-xs px-3 py-2 rounded-lg border border-emerald-500/40 text-emerald-300" onclick="navigator.clipboard.writeText(document.getElementById('hostinger-cron-cmd').innerText).then(function(){this.textContent='Copied';}.bind(this))">Copy command</button>
+                <button type="button" class="text-xs px-3 py-2 rounded-lg border border-sky-500/40 text-sky-300" onclick="navigator.clipboard.writeText(document.getElementById('hostinger-cron-url').innerText).then(function(){this.textContent='Copied';}.bind(this))">Copy URL</button>
+            </div>
+            <details class="mt-4">
+                <summary class="cursor-pointer text-gray-400">Optional — daily database backup (2:00 AM)</summary>
+                <code class="block text-violet-300 font-mono break-all bg-dark-900/60 p-3 rounded-lg mt-2"><?= e($backupWgetCmd) ?></code>
+            </details>
+        </details>
         <p class="text-gray-500">Security: URL requires secret key · wrong key = 403 · failed attempts logged in Error Log.</p>
         <p class="text-gray-500">Cron key (masked): <span class="font-mono text-gray-400"><?= e($cronKeyMasked) ?></span></p>
         <div class="flex flex-wrap gap-2 pt-2">
@@ -177,11 +197,10 @@ $settleCronUrlMasked = function_exists('maskCronUrl') ? maskCronUrl($settleCronU
             </form>
             <a href="?rotate_cron_key=1&csrf=<?= e(csrfToken()) ?>" class="text-xs px-3 py-2 rounded-lg border border-amber-500/40 text-amber-400 hover:bg-amber-500/10" onclick="return confirm('Rotate cron key? You must update Hostinger cron URL after this.')">Rotate key</a>
         </div>
-        <p class="text-[11px] text-gray-500">One-time after deploy: <strong class="text-gray-400 font-medium">Apply pending migrations</strong> uses the same watchdog key (never invent a new CRON_KEY). Expect JSON <code class="text-sky-400">ok: true</code>. Details in <code class="text-gray-400">migrations/README.md</code>.</p>
+        <p class="text-[11px] text-gray-500">After each website update: click <strong class="text-gray-400 font-medium">Apply pending migrations</strong> once. Expect JSON <code class="text-sky-400">ok: true</code>. Do not drop the database.</p>
         <div class="pt-4 mt-2 border-t border-gray-800">
-            <p class="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Optional — Settlement batch cron (every 15 min)</p>
-            <code class="block text-violet-300 font-mono break-all bg-dark-900/60 p-3 rounded-lg text-[11px]"><?= e($settleCronUrlMasked) ?></code>
-            <p class="text-gray-500 mt-2">Needed only if merchants use Scheduled Batch settlements. Details: <a href="admin_settlement_settings.php" class="text-sky-400">Settlement settings</a></p>
+            <p class="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Already included in the 10-minute job — extra Hostinger jobs not required</p>
+            <p class="text-gray-500">Watchdog, auto KYC, settlements, recurring mandates, partner forward, payout queue.</p>
         </div>
     </div>
 </div>

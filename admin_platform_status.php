@@ -272,7 +272,7 @@ $cronHeartbeats = getCronHeartbeatStatus();
             </tbody>
         </table>
     </div>
-    <p class="text-[11px] text-gray-600 mt-3">See <a href="admin_error_log.php" class="text-sky-400 hover:underline">Error Log</a> for cron failure details. Cron URLs/keys are not shown on this page.</p>
+    <p class="text-[11px] text-gray-600 mt-3">Hostinger needs one 10-minute job (Gateway Settings → Show full Hostinger command). Watchdog, KYC, settlements and recurring already run inside that job — NEVER on those rows usually means that one Hostinger job is not saved yet. See <a href="admin_error_log.php" class="text-sky-400 hover:underline">Error Log</a> for failures. Full keys are not shown on this page.</p>
 </div>
 
 <div class="glass rounded-xl p-6 border border-gray-800">

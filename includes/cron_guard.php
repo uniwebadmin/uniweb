@@ -61,6 +61,35 @@ function validateCronRequest(): array
     return ['ok' => true];
 }
 
+/**
+ * Accept the main watchdog key, or an optional dedicated cron key.
+ * One Hostinger job can therefore use a single UniWeb-made key.
+ */
+function cronAuthOk(?string $dedicatedSettingKey = null): bool
+{
+    if (PHP_SAPI === 'cli') {
+        return true;
+    }
+    if (function_exists('isAdminLoggedIn') && isAdminLoggedIn()) {
+        return true;
+    }
+    $provided = cronRequestKey();
+    if ($provided === '') {
+        return false;
+    }
+    $watch = autoAuditWatchdogKey();
+    if (hash_equals($watch, $provided)) {
+        return true;
+    }
+    if ($dedicatedSettingKey) {
+        $dedicated = trim((string)getSetting($dedicatedSettingKey, ''));
+        if ($dedicated !== '' && hash_equals($dedicated, $provided)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function sendCronJsonResponse(array $payload, int $status = 200): void
 {
     http_response_code($status);
