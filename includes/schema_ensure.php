@@ -437,6 +437,23 @@ function ensurePricingSnapshotColumns(): void
     schemaExecQuiet('ALTER TABLE transactions ADD COLUMN pricing_snapshot JSON DEFAULT NULL');
 }
 
+/** B-02: room for enc:v1: AES blobs (short VARCHAR truncates → B-01 garbled UI). */
+function ensureSensitivePiiColumnWidths(): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    schemaExecQuiet('ALTER TABLE merchants MODIFY COLUMN pan_number VARCHAR(255) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE merchants MODIFY COLUMN gstin VARCHAR(255) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE merchants MODIFY COLUMN cin_llpin VARCHAR(255) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE merchants MODIFY COLUMN aadhaar_number VARCHAR(255) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE merchants MODIFY COLUMN udyam_number VARCHAR(255) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE merchants MODIFY COLUMN iec_number VARCHAR(255) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE merchants MODIFY COLUMN address VARCHAR(1000) DEFAULT NULL');
+}
+
 /**
  * Ensure all app tables use utf8mb4_unicode_ci collation.
  * Prevents "Illegal mix of collations" errors on JOINs between tables
@@ -567,4 +584,5 @@ function closePublicContactInquiry(string $inquiryId): bool
 ensureCollationConsistency();
 if (!schemaEnsureSkipHeavy()) {
     ensureMissingColumns();
+    ensureSensitivePiiColumnWidths();
 }

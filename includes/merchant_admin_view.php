@@ -17,6 +17,10 @@ function buildMerchantAdminView(int $merchantId): ?array
     $st = $db->prepare('SELECT * FROM merchants WHERE id = ?');
     $st->execute([$merchantId]);
     $merchant = $st->fetch();
+    // B-03: admin detail always shows decrypted KYC PII (never raw enc:v1:)
+    if (is_array($merchant) && function_exists('decryptMerchantPiiFields')) {
+        $merchant = decryptMerchantPiiFields($merchant);
+    }
 
     $wallet = ensureMerchantWalletReady($merchantId);
     $preview = merchantMethodPreview($merchant);

@@ -4,6 +4,7 @@ require_once __DIR__ . '/includes/customer_portal.php';
 requireCustomer();
 
 $phone = currentCustomerPhone();
+$phoneDisplay = (function_exists('sensitiveUiPlain') ? (sensitiveUiPlain($phone) ?: $phone) : $phone);
 $tickets = getCustomerTickets($phone);
 $txns = getCustomerTransactions($phone, 5);
 
@@ -89,7 +90,7 @@ require_once __DIR__ . '/header.php';
             <?php $logoHref = 'customer_portal.php'; $logoSize = 'sm'; require __DIR__ . '/includes/brand_logo.php'; ?>
             <?php require __DIR__ . '/includes/customer_portal_nav.php'; ?>
             <div class="flex items-center gap-2 sm:gap-3">
-                <span class="cp-phone-chip">+91 <?= e($phone) ?></span>
+                <span class="cp-phone-chip">+91 <?= e($phoneDisplay) ?></span>
                 <a href="customer_logout.php" class="cp-btn cp-btn-ghost text-xs !py-1.5 !px-3">Logout</a>
             </div>
         </div>
@@ -104,7 +105,7 @@ require_once __DIR__ . '/header.php';
         <section class="cp-panel p-6 space-y-4">
             <div>
                 <p class="text-[10px] uppercase text-slate-500 font-semibold">Mobile</p>
-                <p class="text-lg font-semibold text-slate-900 mt-1">+91 <?= e($phone) ?></p>
+                <p class="text-lg font-semibold text-slate-900 mt-1">+91 <?= e($phoneDisplay) ?></p>
             </div>
 
             <?php if ($phoneChangeNew): ?>

@@ -639,7 +639,13 @@ $assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.ph
 
 $cryptoCleanup = (string)file_get_contents($root . '/includes/crypto.php');
 $assert(str_contains($cryptoCleanup, 'function encryptSensitive') && str_contains($cryptoCleanup, 'function sensitiveUiPlain'), 'cleanup_b_encrypt_decrypt_ui_helpers');
+$assert(str_contains($cryptoCleanup, 'function decryptMerchantPiiFields') && str_contains($cryptoCleanup, "'address'"), 'cleanup_b_merchant_pii_decrypt_helper');
 $assert(str_contains((string)file_get_contents($root . '/my_account.php'), 'sensitiveUiPlain') && str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'sensitiveUiPlain'), 'cleanup_b_merchant_admin_show_plain');
+$assert(str_contains((string)file_get_contents($root . '/includes/merchant_admin_view.php'), 'decryptMerchantPiiFields'), 'cleanup_b03_admin_view_decrypt');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_payload.php'), 'decryptMerchantPiiFields'), 'cleanup_b04_partner_payload_decrypt');
+$assert(is_file($root . '/migrations/062_widen_merchant_pii_cipher.sql') && str_contains((string)file_get_contents($root . '/includes/schema_ensure.php'), 'ensureSensitivePiiColumnWidths'), 'cleanup_b02_widen_cipher_columns');
+$assert(str_contains((string)file_get_contents($root . '/admin_encrypt_pii.php'), "'address'") && str_contains((string)file_get_contents($root . '/my_account.php'), 'sensitiveUiSave(trim((string)($_POST[\'address\']'), 'cleanup_b_address_encrypt_paths');
+$assert(str_contains((string)file_get_contents($root . '/customer_profile.php'), 'sensitiveUiPlain'), 'cleanup_b05_customer_profile_plain');
 $assert(is_file($root . '/CLEANUP_SENSITIVE_CLICKABLE_AUDIT.md') && str_contains((string)file_get_contents($root . '/AGENTS.md'), 'CLEANUP_SENSITIVE_CLICKABLE_AUDIT.md'), 'cleanup_audit_noted_in_agents');
 $assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'admin_disputes.php') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'Open Disputes'), 'cleanup_c_disputes_card_clickable');
 $assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'admin_transactions.php?status=failed') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), "Today's Volume"), 'cleanup_c05_volume_and_failed_cards');

@@ -239,3 +239,44 @@ function sensitiveUiSave(?string $submitted, ?string $existingStored): ?string
     }
     return sensitiveEncrypt($submitted);
 }
+
+/**
+ * Sensitive columns encrypted at rest (B-02 / B-06).
+ * Login email/phone stay plaintext so WHERE email=? / phone login keeps working.
+ * Display any of these with sensitiveUiPlain(); never echo raw enc:v1: on UI (B-01/B-03/B-07).
+ *
+ * @return list<string>
+ */
+function sensitiveMerchantColumns(): array
+{
+    return [
+        'pan_number',
+        'gstin',
+        'cin_llpin',
+        'aadhaar_number',
+        'udyam_number',
+        'iec_number',
+        'address',
+    ];
+}
+
+/**
+ * Decrypt merchant KYC PII fields for authorized UI / partner outbound (mutates a copy).
+ * Does not encrypt login email/phone. Public pages must not call this (B-07).
+ */
+function decryptMerchantPiiFields(array $row): array
+{
+    foreach (sensitiveMerchantColumns() as $col) {
+        if (!array_key_exists($col, $row)) {
+            continue;
+        }
+        $row[$col] = sensitiveUiPlain($row[$col] !== null ? (string)$row[$col] : null);
+    }
+    // Defensive: if email/phone were ever stored encrypted, show plaintext to owner/admin.
+    foreach (['email', 'phone'] as $col) {
+        if (!empty($row[$col]) && isSensitiveEncrypted((string)$row[$col])) {
+            $row[$col] = sensitiveUiPlain((string)$row[$col]);
+        }
+    }
+    return $row;
+}

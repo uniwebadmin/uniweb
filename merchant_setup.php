@@ -79,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     if (empty($errors)) {
         $alreadyCompleted = (string)($merchant['provision_profile'] ?? '') === 'signup_custom';
         $db->prepare('UPDATE merchants SET name=?, business_name=?, business_type=?, business_entity_type=?, pan_number=?, address=?, country=?, state=?, district=?, city=?, pincode=? WHERE id=?')
-            ->execute([$name, $business, $category, $entity, $pan ? sensitiveEncrypt($pan) : null, $address, $country, $state, $district, $city, $pincode, $merchant['id']]);
+            ->execute([$name, $business, $category, $entity, $pan ? sensitiveEncrypt($pan) : null, $address !== '' ? sensitiveEncrypt($address) : null, $country, $state, $district, $city, $pincode, $merchant['id']]);
         // Try to save gstin column (may not exist on older DBs)
         if ($gstin !== '') {
             try { $db->prepare('UPDATE merchants SET gstin=? WHERE id=?')->execute([sensitiveEncrypt($gstin), $merchant['id']]); } catch (Throwable $e) {}
@@ -120,7 +120,7 @@ if (empty($enabledMethods)) {
     $enabledMethods = $defaultMethods;
 }
 $addressValues = [
-    'address' => $formData['address'] ?? ($merchant['address'] ?? ''),
+    'address' => (isset($formData['address']) && $formData['address'] !== '' && !(function_exists('isSensitiveEncrypted') && isSensitiveEncrypted((string)$formData['address']))) ? (string)$formData['address'] : sensitiveUiPlain($merchant['address'] ?? ''),
     'country' => $formData['country'] ?? ($merchant['country'] ?? 'India'),
     'state' => $formData['state'] ?? ($merchant['state'] ?? ''),
     'district' => $formData['district'] ?? ($merchant['district'] ?? ''),
@@ -235,7 +235,7 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <p class="text-xs text-gray-600 text-center pt-4 border-t border-gray-800">
-            <?= __('login_credential') ?>: <span class="text-gray-400"><?= e($merchant['email']) ?></span> · <span class="text-gray-400"><?= e($merchant['phone']) ?></span>
+            <?= __('login_credential') ?>: <span class="text-gray-400"><?= e(sensitiveUiPlain($merchant['email'] ?? '') ?: (string)($merchant['email'] ?? '')) ?></span> · <span class="text-gray-400"><?= e(sensitiveUiPlain($merchant['phone'] ?? '') ?: (string)($merchant['phone'] ?? '')) ?></span>
         </p>
     </form>
 </div>

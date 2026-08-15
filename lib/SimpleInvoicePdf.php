@@ -46,6 +46,9 @@ class SimpleInvoicePdf
         $parts = [];
         foreach (['address', 'city', 'district', 'state', 'pincode', 'country'] as $key) {
             $v = trim((string)($merchant[$key] ?? ''));
+            if ($key === 'address' && function_exists('sensitiveUiPlain')) {
+                $v = sensitiveUiPlain($v);
+            }
             if ($v !== '' && !in_array($v, $parts, true)) {
                 $parts[] = $v;
             }
@@ -64,7 +67,11 @@ class SimpleInvoicePdf
         $contactName = $this->display((string)($merchant['name'] ?? ''));
         $merchantEmail = $this->display((string)($merchant['email'] ?? ''));
         $merchantPhone = $this->display((string)($merchant['phone'] ?? ''));
-        $merchantGst = $this->display((string)($merchant['gstin'] ?? ''), 'Not provided');
+        $gstRaw = (string)($merchant['gstin'] ?? '');
+        if (function_exists('sensitiveUiPlain')) {
+            $gstRaw = sensitiveUiPlain($gstRaw) ?: $gstRaw;
+        }
+        $merchantGst = $this->display($gstRaw, 'Not provided');
         $merchantAddr = $this->display(self::merchantFullAddress($merchant), 'Not provided');
 
         $custName = $this->display((string)($inv['customer_name'] ?? ''), 'Customer');

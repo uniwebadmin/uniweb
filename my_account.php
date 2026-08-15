@@ -65,7 +65,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             trim($_POST['name']), trim($_POST['business_name']), $_POST['business_type'],
             $_POST['business_entity_type'] ?? 'sole_proprietorship',
             $gstinSave, $panSave, $cinSave,
-            trim($_POST['address']), trim($_POST['country'] ?? 'India'), trim($_POST['state']),
+            sensitiveUiSave(trim((string)($_POST['address'] ?? '')), (string)($merchant['address'] ?? '')),
+            trim($_POST['country'] ?? 'India'), trim($_POST['state']),
             trim($_POST['district'] ?? ''), trim($_POST['city']), trim($_POST['pincode']),
             $merchant['id']
         ]);
@@ -105,8 +106,8 @@ require_once __DIR__ . '/header.php';
                 </div>
             </div>
             <div><span class="text-gray-500">UPI ID</span><p class="font-mono text-sm"><?= e($merchant['upi_id']) ?></p></div>
-            <div><span class="text-gray-500">Email</span><p><?= e($merchant['email']) ?></p></div>
-            <div><span class="text-gray-500">Phone</span><p><?= e($merchant['phone']) ?></p></div>
+            <div><span class="text-gray-500">Email</span><p><?= e(sensitiveUiPlain($merchant['email'] ?? '') ?: (string)($merchant['email'] ?? '')) ?></p></div>
+            <div><span class="text-gray-500">Phone</span><p><?= e(sensitiveUiPlain($merchant['phone'] ?? '') ?: (string)($merchant['phone'] ?? '')) ?></p></div>
             <div><span class="text-gray-500">Legal Entity</span><p><?= e(entityTypeLabel($merchant['business_entity_type'] ?? 'sole_proprietorship')) ?></p></div>
             <div><span class="text-gray-500">KYC Status</span><p><?= statusBadge($merchant['kyc_status']) ?></p></div>
             <div><span class="text-gray-500">Commission</span><p><?= $merchant['commission_rate'] ?>% (Cards/NB)</p></div>
@@ -221,7 +222,7 @@ require_once __DIR__ . '/header.php';
             $addressPrefix = 'profile';
             $addressTitle = 'Business Address';
             $addressValues = [
-                'address' => $merchant['address'] ?? '',
+                'address' => sensitiveUiPlain($merchant['address'] ?? ''),
                 'country' => $merchant['country'] ?? 'India',
                 'state' => $merchant['state'] ?? '',
                 'district' => $merchant['district'] ?? '',

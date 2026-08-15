@@ -2,6 +2,9 @@
 require_once __DIR__ . '/config.php';
 requireLogin();
 $merchant = getMerchant();
+if (function_exists('decryptMerchantPiiFields')) {
+    $merchant = decryptMerchantPiiFields($merchant);
+}
 ensureInvoiceSchema();
 $id = trim($_GET['id'] ?? '');
 $stmt = getDB()->prepare('SELECT * FROM invoices WHERE invoice_id = ? AND merchant_id = ?');

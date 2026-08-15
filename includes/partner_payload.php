@@ -33,18 +33,13 @@ function build_partner_onboarding_payload(int $merchantId): array
         return ['error' => 'Merchant not found'];
     }
 
-    // Decrypt PII fields for payload (partner API needs full values, but we don't log them)
-    $pan = '';
-    $gstin = '';
-    $cin = '';
-    if (function_exists('isSensitiveEncrypted') && function_exists('sensitiveDecrypt')) {
-        $pan = (string)$merchant['pan_number'];
-        $pan = isSensitiveEncrypted($pan) ? sensitiveDecrypt($pan) : $pan;
-        $gstin = (string)$merchant['gstin'];
-        $gstin = isSensitiveEncrypted($gstin) ? sensitiveDecrypt($gstin) : $gstin;
-        $cin = (string)$merchant['cin_llpin'];
-        $cin = isSensitiveEncrypted($cin) ? sensitiveDecrypt($cin) : $cin;
+    // B-04: decrypt immediately before partner outbound JSON (never send enc:v1: blobs)
+    if (function_exists('decryptMerchantPiiFields')) {
+        $merchant = decryptMerchantPiiFields($merchant);
     }
+    $pan = (string)($merchant['pan_number'] ?? '');
+    $gstin = (string)($merchant['gstin'] ?? '');
+    $cin = (string)($merchant['cin_llpin'] ?? '');
 
     // 2. KYC document references (storage paths, not raw file contents)
     $docSt = $db->prepare("SELECT id, doc_type, file_name, storage_key, status, scan_status, mime_type, file_size, sha256
@@ -117,8 +112,8 @@ function build_partner_onboarding_payload(int $merchantId): array
             'pan' => $pan,
             'gstin' => $gstin,
             'cin_llpin' => $cin,
-            'udyam_number' => $merchant['udyam_number'],
-            'iec_number' => $merchant['iec_number'],
+            'udyam_number' => $merchant['udyam_number'] ?? '',
+            'iec_number' => $merchant['iec_number'] ?? '',
         ],
         'kyc_documents' => array_values($docsByType),
         'bank_verification' => $bank ? [

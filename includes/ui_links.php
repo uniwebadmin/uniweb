@@ -61,6 +61,9 @@ function adminStaffLink(int $staffId, string $label, string $class = 'text-sky-4
 
 function merchantWhatsAppUrl(?string $phone): ?string
 {
+    if (function_exists('sensitiveUiPlain') && $phone !== null && $phone !== '') {
+        $phone = sensitiveUiPlain($phone) ?: $phone;
+    }
     $digits = preg_replace('/\D+/', '', (string)$phone);
     if (strlen($digits) === 10) {
         $digits = '91' . $digits;
@@ -70,6 +73,9 @@ function merchantWhatsAppUrl(?string $phone): ?string
 
 function merchantMailtoLink(string $email, ?string $label = null, string $class = 'text-sky-400 hover:underline'): string
 {
+    if (function_exists('sensitiveUiPlain') && $email !== '') {
+        $email = sensitiveUiPlain($email) ?: $email;
+    }
     $label = $label ?? $email;
     if ($email === '') {
         return e($label);
