@@ -92,6 +92,10 @@ $pageTitle = 'Platform Bank Account';
 require_once __DIR__ . '/header.php';
 ?>
 
+<div class="mb-4">
+    <p class="text-xs text-gray-500">Platform commission bank details and withdrawals. Fee ledger / settle commission: <a href="admin_platform_wallet.php" class="text-sky-400 hover:underline">Platform Fee Ledger</a>.</p>
+</div>
+
 <div class="bg-sky-500/10 border border-sky-500/30 rounded-xl p-4 mb-6 flex flex-wrap items-center justify-between gap-3 text-sm">
     <div>
         <p class="text-sky-200 font-medium">Platform Wallet Sync</p>

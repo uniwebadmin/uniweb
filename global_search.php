@@ -291,6 +291,15 @@ if ($isMerchant) {
         $add('Team', (string)$row['name'], ucfirst((string)$row['role']) . ' · ' . (string)$row['email'] . ' · ' . ucfirst((string)$row['status']), 'merchant_team.php');
     }
 
+    foreach ($fetchRows(
+        "SELECT id, label, account_holder, status FROM payout_beneficiaries WHERE merchant_id=? AND (
+        LOWER(TRIM(COALESCE(label,''))) LIKE ? OR LOWER(TRIM(COALESCE(account_holder,''))) LIKE ? OR CAST(id AS CHAR) LIKE ?)
+        ORDER BY id DESC LIMIT 10",
+        [$merchantId, $like, $like, $like]
+    ) as $row) {
+        $add('Beneficiary', (string)($row['label'] ?: $row['account_holder'] ?: ('#' . $row['id'])), ucfirst((string)($row['status'] ?? 'active')) . ' · ' . ($row['account_holder'] ?: ''), 'merchant_payout.php?q=' . rawurlencode((string)($row['label'] ?: $row['id'])));
+    }
+
 } else {
     $canMerchants = $canPage('manage_merchant.php');
     $canTransactions = $canPage('admin_transactions.php');
@@ -588,6 +597,20 @@ if ($isMerchant) {
             }
             $ref = (string)($row['payout_id'] ?: ('PO #' . $row['id']));
             $add('Payout', $ref, formatMoney((float)($row['amount'] ?? 0)) . ' · ' . ucfirst((string)$row['status']) . ' · ' . $row['business_name'], 'admin_payout.php?q=' . rawurlencode($ref));
+        }
+
+        foreach ($fetchRows(
+            "SELECT b.id, b.label, b.account_holder, b.status, b.merchant_id, m.business_name
+                FROM payout_beneficiaries b JOIN merchants m ON m.id=b.merchant_id WHERE (
+                LOWER(TRIM(COALESCE(b.label,''))) LIKE ? OR LOWER(TRIM(COALESCE(b.account_holder,''))) LIKE ? OR
+                LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(b.id AS CHAR) LIKE ?)
+                ORDER BY b.id DESC LIMIT 10",
+            [$like, $like, $like, $like]
+        ) as $row) {
+            if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
+                continue;
+            }
+            $add('Beneficiary', (string)($row['label'] ?: $row['account_holder'] ?: ('#' . $row['id'])), ($row['business_name'] ?? '') . ' · ' . ucfirst((string)($row['status'] ?? '')), 'admin_payout.php?q=' . rawurlencode((string)($row['label'] ?: $row['id'])));
         }
     }
 

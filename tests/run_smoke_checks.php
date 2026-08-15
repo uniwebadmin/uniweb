@@ -556,7 +556,8 @@ $assert(str_contains($gsP6, "\$canRefunds = \$canPage('admin_refunds.php')") && 
 $assert(str_contains($gsP6, "\$canForward = \$canPage('admin_forward_queue.php')") && str_contains($gsP6, 'if ($canForward)'), 'srch04_forward_gated');
 $assert(str_contains($gsP6, 'if ($canRefunds)') && str_contains($gsP6, 'if ($canKyc)') && str_contains($gsP6, 'if ($canChargebacks)'), 'srch04_money_loops_gated');
 // SRCH-06 — high-value money / risk entities (program coverage step)
-$assert(str_contains($gsP6, 'FROM chargebacks') && str_contains($gsP6, 'FROM payout_orders') && str_contains($gsP6, 'FROM merchant_virtual_accounts'), 'srch06_money_entities');
+$assert(str_contains($gsP6, 'FROM payout_orders') && str_contains($gsP6, 'FROM payout_beneficiaries'), 'srch02_beneficiaries_searchable');
+$assert(str_contains((string)file_get_contents($root . '/admin_platform_wallet.php'), 'Platform Fee Ledger') && str_contains((string)file_get_contents($root . '/admin_wallet.php'), 'admin_platform_wallet.php'), 'dup09_wallet_cross_links');
 $assert(str_contains($gsP6, 'FROM merchant_method_requests') && str_contains($gsP6, 'FROM aml_flags') && str_contains($gsP6, 'FROM disputes'), 'srch06_kyc_risk_entities');
 $assert(str_contains($gsP6, "'chargebacks'") && str_contains($gsP6, "'virtual accounts'") && str_contains($gsP6, "'api docs'"), 'srch06_settings_nicknames');
 $assert(str_contains($gsUiP6, 'Ctrl K') && str_contains($gsUiP6, 'GSTIN') && str_contains($gsUiP6, 'q.length<2'), 'p6_search_visible_examples');

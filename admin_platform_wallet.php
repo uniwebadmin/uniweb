@@ -48,8 +48,9 @@ try {
 require_once __DIR__ . '/header.php';
 ?>
 <div class="max-w-7xl mx-auto px-4 py-8">
-    <h1 class="text-2xl font-bold text-white mb-2">Platform Fee Wallet</h1>
-    <p class="text-sm text-gray-500 mb-6">Commission earned from every payment capture. Separated from merchant wallets.</p>
+    <h1 class="text-2xl font-bold text-white mb-2">Platform Fee Ledger</h1>
+    <p class="text-sm text-gray-500 mb-2">Commission earned from every payment capture. Separated from merchant settlement wallets.</p>
+    <p class="text-xs text-gray-600 mb-6">Bank account &amp; withdraw UI: <a href="admin_wallet.php" class="text-sky-400 hover:underline">Platform Bank Account</a>. This page is the fee ledger only.</p>
 
     <div class="grid sm:grid-cols-3 gap-4 mb-8">
         <div class="glass rounded-xl p-5 stat-card border border-emerald-500/20">
