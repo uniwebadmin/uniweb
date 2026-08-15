@@ -12,7 +12,7 @@ require_once __DIR__ . '/header.php';
     <section class="company-hero"><div class="company-shell">
         <div class="company-eyebrow">Pricing</div>
         <h1>Clear commercial terms for Indian merchants.</h1>
-        <p>Start free in Test Mode. Live rates depend on payment method, risk category and partner rails. Below is how UniWeb prices collections — without fake “0% forever” claims.</p>
+        <p>Test Mode is free. Live fees are partner MDR + UniWeb platform fee + GST. Settlement follows the written T+N schedule — not a public “0% UPI forever” or “instant settlement” slogan.</p>
         <div class="flex flex-wrap gap-3 mt-6">
             <a href="demo.php" class="btn-primary px-6 py-3">Try ₹1 demo</a>
             <a href="merchant_register.php" class="px-6 py-3 rounded-lg border border-gray-700">Create merchant account</a>
@@ -21,10 +21,9 @@ require_once __DIR__ . '/header.php';
 
     <section class="company-section"><div class="company-shell">
         <div class="company-grid">
-            <div class="company-card"><h3>Test Mode</h3><p>Free. Instant Test Pay, API sandbox keys, payment links and QR — no real money movement.</p></div>
-            <div class="company-card"><h3>Live Mode</h3><p>Enabled after KYC, agreement and partner activation. Real UPI/cards/netbanking via approved gateways.</p></div>
-            <div class="company-card"><h3>Platform fee</h3><p>Default commission is configurable per merchant (typically a small % on successful collections). Exact schedule is shown in the Merchant Portal.</p></div>
-            <div class="company-card"><h3>Gateway MDR</h3><p>Partner MDR for cards, net banking and wallets is passed through and may include a published platform margin when approved for public display.</p></div>
+            <div class="company-card"><h3>Shop / counter</h3><p>QR and links in Test Mode at ₹0. Live UPI/QR fees appear in the commercial schedule after KYC — we do not print a fake 0% live rate here.</p></div>
+            <div class="company-card"><h3>Online SME</h3><p>Cards, net banking and wallets carry partner MDR plus UniWeb platform fee and GST. Your portal schedule is authoritative.</p></div>
+            <div class="company-card"><h3>High volume</h3><p>Custom MCC, reserves and settlement cut-offs. Request a written proposal — we do not invent public “same day” or “instant” guarantees.</p></div>
         </div>
     </div></section>
 
@@ -67,9 +66,19 @@ require_once __DIR__ . '/header.php';
     <?php endif; ?>
 
     <section class="company-section" style="padding-top:0"><div class="company-shell">
+        <div class="company-kicker">Fee stack</div>
+        <h2 class="company-title">What you actually pay on a Live capture</h2>
+        <div class="company-grid">
+            <div class="company-card"><h3>1. Partner MDR</h3><p>Bank or gateway charge for UPI, cards, net banking or wallets. Set by the activated rail, MCC and volume.</p></div>
+            <div class="company-card"><h3>2. UniWeb platform fee</h3><p>Our commission on successful collections, shown per merchant in the Portal. Not a hidden “convenience fee” on the customer unless you configure one.</p></div>
+            <div class="company-card"><h3>3. GST on fees</h3><p>GST applies on applicable fee components as per Indian tax rules. Settlement is net of fees, refunds, reserves and holds.</p></div>
+        </div>
+    </div></section>
+
+    <section class="company-section" style="padding-top:0"><div class="company-shell">
         <div class="company-kicker">Compare honestly</div>
         <h2 class="company-title">Vs typical Indian gateways</h2>
-        <p class="company-lead">Razorpay, Cashfree and PayU publish broad rate cards because they hold large partner books. UniWeb starts with Test Mode + partner-routed Live rails and a written schedule per merchant — the same model many early aggregators used before public rate cards.</p>
+        <p class="company-lead">Razorpay, Cashfree and PayU publish broad rate cards because they hold large partner books. UniWeb starts with Test Mode + partner-routed Live rails and a written schedule per merchant — the same model many early aggregators used before public rate cards. We do not advertise 0% live UPI or instant settlement as a public fact.</p>
     </div></section>
 </main>
 <?php require_once __DIR__ . '/footer.php'; ?>

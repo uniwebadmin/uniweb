@@ -26,7 +26,35 @@ $overall = $health['operational'] && !$health['maintenance'] && empty($openIncid
             <?= $health['maintenance'] ? 'Maintenance Mode' : ($overall ? 'Core Platform Available' : (!empty($openIncidents) ? 'Active Incident' : 'Partial Service')) ?>
         </div>
         <h1 class="text-3xl font-bold mb-2"><?= e(APP_NAME) ?> Platform Status</h1>
-        <p class="text-gray-500 text-sm">Configuration and availability status. Partner configuration does not prove transaction or settlement health.</p>
+        <p class="text-gray-500 text-sm">Named components below. Partner credentials do not prove a merchant’s Live rail is healthy.</p>
+        <p class="text-xs text-gray-600 mt-2">Last updated <?= e(date('d M Y, H:i')) ?> IST</p>
+    </div>
+
+    <?php
+    $componentOk = $overall;
+    $componentLabel = $health['maintenance'] ? 'Maintenance' : ($componentOk ? 'Operational' : 'Degraded');
+    $componentClass = $health['maintenance'] ? 'text-amber-400' : ($componentOk ? 'text-emerald-400' : 'text-amber-400');
+    $statusComponents = [
+        ['Checkout', 'Hosted pay page, Instant Test Pay, UPI/QR and partner checkout'],
+        ['Dashboard', 'Merchant and admin consoles, login, reports'],
+        ['Webhooks', 'Inbound partner events and outbound merchant HMAC webhooks'],
+        ['KYC', 'Document queue, video capture, Live Mode gates'],
+        ['Settlements', 'Wallet, batches and UTR tracking — bank payout follows the activated rail'],
+    ];
+    ?>
+    <div class="glass rounded-xl overflow-hidden mb-8">
+        <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Components</h2></div>
+        <div class="divide-y divide-gray-800">
+            <?php foreach ($statusComponents as [$name, $hint]): ?>
+            <div class="px-6 py-4 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <p class="text-sm text-gray-200"><?= e($name) ?></p>
+                    <p class="text-xs text-gray-600 mt-1"><?= e($hint) ?></p>
+                </div>
+                <span class="text-xs font-medium <?= e($componentClass) ?>"><?= e($componentLabel) ?></span>
+            </div>
+            <?php endforeach; ?>
+        </div>
     </div>
 
     <div class="grid sm:grid-cols-3 gap-4 mb-8">

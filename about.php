@@ -35,6 +35,16 @@ require_once __DIR__ . '/header.php';
     </div></section>
 
     <section class="company-section" style="padding-top:0"><div class="company-shell">
+        <div class="company-kicker">Who it is for</div>
+        <h2 class="company-title">Three merchant segments — one console.</h2>
+        <div class="company-grid">
+            <div class="company-card"><h3>Shop &amp; counter</h3><p>QR at the till, payment links on WhatsApp, UPI confirmation without building a website first.</p></div>
+            <div class="company-card"><h3>Online SME</h3><p>Hosted checkout, invoices, refunds and settlement tracking after KYC. Live cards and UPI use approved partner rails.</p></div>
+            <div class="company-card"><h3>Developers</h3><p>Test and Live API keys, HMAC webhooks and OpenAPI docs. Sandbox money never looks like a live capture.</p></div>
+        </div>
+    </div></section>
+
+    <section class="company-section" style="padding-top:0"><div class="company-shell">
         <div class="company-kicker">What the platform covers</div>
         <h2 class="company-title">From onboarding to reconciliation.</h2>
         <div class="company-grid">

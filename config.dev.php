@@ -47,11 +47,11 @@ if (!defined('ENCRYPTION_KEY')) define('ENCRYPTION_KEY', (string)(getenv('ENCRYP
 define('COMPANY_CIN', 'U72900KA2024PTC000000');
 define('COMPANY_CEO', 'UniWeb Management');
 define('COMPANY_MAP_URL', 'https://maps.google.com/?q=Bengaluru');
-// RBI PA-PG grievance-redressal requires a NAMED officer — DEMO values, replace with the real officer before going fully live.
-define('GRIEVANCE_OFFICER_NAME', 'Rohan Sharma');
-define('GRIEVANCE_OFFICER_DESIGNATION', 'Grievance / Nodal Officer');
-define('GRIEVANCE_OFFICER_EMAIL', 'grievance@uniweb.co.in');
-define('GRIEVANCE_OFFICER_PHONE', '+910000000002');
+// Named grievance contact — public pages use COMPANY_* so a leftover demo name cannot leak.
+define('GRIEVANCE_OFFICER_NAME', COMPANY_CEO);
+define('GRIEVANCE_OFFICER_DESIGNATION', 'Managing Director / Grievance Officer');
+define('GRIEVANCE_OFFICER_EMAIL', COMPANY_SUPPORT_EMAIL);
+define('GRIEVANCE_OFFICER_PHONE', COMPANY_PHONE);
 define('ACTIVE_MERCHANT_AGREEMENT_VERSION', date('Y') . '.07.19');
 define('MIN_SETTLEMENT', 100);
 

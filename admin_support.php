@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/page_ux.php';
+if (!function_exists('listPublicContactInquiries') && is_file(__DIR__ . '/includes/schema_ensure.php')) {
+    require_once __DIR__ . '/includes/schema_ensure.php';
+}
 if (!function_exists('ensureSupportTicketTable')) {
     require_once __DIR__ . '/includes/demo_tour.php';
 }
@@ -9,6 +12,18 @@ ensureSupportTicketTable();
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    if (($_POST['action'] ?? '') === 'close_inquiry') {
+        $inquiryId = trim((string)($_POST['inquiry_id'] ?? ''));
+        if (function_exists('closePublicContactInquiry') && closePublicContactInquiry($inquiryId)) {
+            if (function_exists('logStaffActivity')) {
+                logStaffActivity('contact_inquiry_closed', $inquiryId, null, 'contact_inquiry', $inquiryId);
+            }
+            flash('success', 'Website inquiry ' . $inquiryId . ' marked closed.');
+        } else {
+            flash('error', 'Could not close that website inquiry.');
+        }
+        redirect('admin_support.php');
+    }
     $ticketId = (int)($_POST['ticket_id'] ?? 0);
     $reply = trim($_POST['admin_reply'] ?? '');
     $status = $_POST['status'] ?? 'in_progress';
@@ -57,6 +72,7 @@ $tickets = $stmt->fetchAll();
 if (!isSuperAdmin()) {
     $tickets = array_values(array_filter($tickets, static fn(array $row): bool => staffHasMerchantAccess((int)$row['merchant_id'])));
 }
+$websiteInquiries = function_exists('listPublicContactInquiries') ? listPublicContactInquiries(30) : [];
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     $csvRows = [];
     foreach ($tickets as $t) {
@@ -69,6 +85,39 @@ require_once __DIR__ . '/header.php';
 ?>
 
 <?= uxListToolbar(uxExportCsvLink(array_filter(['q' => $q ?: null, 'status' => $statusFilter !== 'all' ? $statusFilter : null]))) ?>
+
+<?php if (!empty($websiteInquiries)): ?>
+<div class="glass rounded-xl p-6 mb-6 border border-sky-500/20">
+    <h2 class="font-semibold mb-1">Website contact form</h2>
+    <p class="text-xs text-gray-500 mb-4">Public Contact page messages. Saved even if email is delayed. Reply from <?= e(COMPANY_SUPPORT_EMAIL) ?> and keep the CTI reference.</p>
+    <div class="space-y-3">
+        <?php foreach ($websiteInquiries as $inq): ?>
+        <div class="border border-gray-800 rounded-lg p-4">
+            <div class="flex flex-wrap justify-between gap-2 mb-2">
+                <div>
+                    <span class="font-mono text-xs text-gray-500"><?= e((string)$inq['inquiry_id']) ?></span>
+                    <?= !empty($inq['email_sent']) ? '<span class="text-xs text-emerald-400 ml-2">Email sent</span>' : '<span class="text-xs text-amber-400 ml-2">Email not sent</span>' ?>
+                    <?= statusBadge((string)($inq['status'] ?? 'open')) ?>
+                </div>
+                <span class="text-xs text-gray-500"><?= e(formatDate((string)($inq['created_at'] ?? ''))) ?></span>
+            </div>
+            <h3 class="font-semibold text-sm"><?= e((string)$inq['subject']) ?></h3>
+            <p class="text-xs text-gray-500 mt-1"><?= e((string)$inq['name']) ?> — <a class="text-sky-400" href="mailto:<?= e((string)$inq['email']) ?>"><?= e((string)$inq['email']) ?></a></p>
+            <p class="text-sm text-gray-400 mt-2 whitespace-pre-wrap"><?= e((string)$inq['message']) ?></p>
+            <?php if (($inq['status'] ?? '') === 'open'): ?>
+            <form method="POST" class="mt-3">
+                <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                <input type="hidden" name="action" value="close_inquiry">
+                <input type="hidden" name="inquiry_id" value="<?= e((string)$inq['inquiry_id']) ?>">
+                <button type="submit" class="text-xs border border-gray-700 px-3 py-1.5 rounded-lg text-gray-300 hover:bg-white/5">Mark closed</button>
+            </form>
+            <?php endif; ?>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</div>
+<?php endif; ?>
+
 <form method="GET" class="glass rounded-xl p-4 mb-6 border border-gray-800 flex flex-wrap gap-3 items-end no-print" aria-label="Filter support tickets">
     <div class="flex-1 min-w-[180px]"><?= uxLabel('support-q', 'Search') ?><input id="support-q" name="q" value="<?= e($q) ?>" class="input-field mt-1 text-sm" placeholder="Ticket ID / subject / merchant"></div>
     <div><?= uxLabel('support-status', 'Status') ?><select id="support-status" name="status" class="input-field mt-1 text-sm"><?php foreach (['all'=>'All','open'=>'Open','in_progress'=>'In Progress','resolved'=>'Resolved','closed'=>'Closed'] as $sk=>$sl): ?><option value="<?= $sk ?>" <?= $statusFilter===$sk?'selected':'' ?>><?= $sl ?></option><?php endforeach; ?></select></div>

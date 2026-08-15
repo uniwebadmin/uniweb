@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('recordPublicContactInquiry') && is_file(__DIR__ . '/includes/schema_ensure.php')) {
+    require_once __DIR__ . '/includes/schema_ensure.php';
+}
 require_once __DIR__ . '/includes/page_ux.php';
 $sent = false;
 $error = '';
@@ -14,16 +17,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Please enter a valid email address.';
     } else {
-        $to = COMPANY_SUPPORT_EMAIL;
-        $mailSubject = APP_NAME . ' Contact — ' . $subject;
-        $body = "Name: {$name}\nEmail: {$email}\nSubject: {$subject}\n\nMessage:\n{$message}\n\n— Sent from " . APP_URL . '/contact.php';
-        $ok = sendPlatformEmail($to, $mailSubject, $body);
-        if ($ok) {
-            $sent = true;
-            flash('success', 'Message sent! We will respond within 24 hours.');
-            redirect('contact.php');
+        $rateFile = sys_get_temp_dir() . '/uniweb_contact_' . md5($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        $rateCount = 0;
+        if (is_file($rateFile)) {
+            $rateData = json_decode((string)file_get_contents($rateFile), true);
+            if (is_array($rateData) && (time() - (int)($rateData['ts'] ?? 0)) < 600) {
+                $rateCount = (int)($rateData['count'] ?? 0);
+            }
         }
-        $error = 'Could not send right now. Email us at ' . COMPANY_SUPPORT_EMAIL;
+        if ($rateCount >= 8) {
+            $error = 'Too many messages from this network. Email us at ' . COMPANY_SUPPORT_EMAIL . ' or try again in a few minutes.';
+        } else {
+            @file_put_contents($rateFile, json_encode(['ts' => time(), 'count' => $rateCount + 1]));
+            $to = COMPANY_SUPPORT_EMAIL;
+            $mailSubject = APP_NAME . ' Contact — ' . $subject;
+            $body = "Name: {$name}\nEmail: {$email}\nSubject: {$subject}\n\nMessage:\n{$message}\n\n— Sent from " . APP_URL . '/contact.php';
+            $emailSent = false;
+            try {
+                $emailSent = (bool)sendPlatformEmail($to, $mailSubject, $body);
+            } catch (Throwable $e) {
+                $emailSent = false;
+            }
+            $saved = function_exists('recordPublicContactInquiry')
+                ? recordPublicContactInquiry($name, $email, $subject, $message, $emailSent)
+                : ['ok' => false, 'inquiry_id' => ''];
+            if (!empty($saved['ok'])) {
+                $ref = (string)$saved['inquiry_id'];
+                flash('success', 'Request saved as ' . $ref . '. We acknowledge within 1 business day. Keep this reference if you follow up.');
+                redirect('contact.php');
+            }
+            if ($emailSent) {
+                flash('success', 'Message sent. We acknowledge within 1 business day.');
+                redirect('contact.php');
+            }
+            $error = 'Could not save right now. Email us at ' . COMPANY_SUPPORT_EMAIL . ' with your details.';
+        }
     }
 }
 
@@ -52,7 +80,7 @@ require_once __DIR__ . '/header.php';
                 <div class="company-fact"><span>Address</span><strong><?= e(COMPANY_ADDRESS) ?></strong></div>
                 <div class="company-fact"><span>Office location</span><strong><a href="<?= e(COMPANY_MAP_URL) ?>" target="_blank" rel="noopener" class="text-brand-400">Open verified map location →</a></strong></div>
             </div>
-            <div class="company-card mt-5"><h3>Response and escalation</h3><p>We aim to acknowledge normal support requests within one business day. Payment and banking resolution time can depend on external partners. If a case is unresolved, reply on the same ticket with the existing reference rather than opening duplicates.</p></div>
+            <div class="company-card mt-5"><h3>Response and escalation</h3><p><strong>Website form:</strong> we save a ticket and try email. Acknowledgement target: <strong>1 business day</strong>. Payment or bank issues may take longer because partners must confirm. If unresolved, reply with the same reference rather than opening a duplicate.</p></div>
             <div class="company-card mt-5 border border-sky-500/20">
                 <div class="company-kicker">Grievance Officer</div>
                 <h3><?= e(COMPANY_CEO) ?></h3>
@@ -65,7 +93,7 @@ require_once __DIR__ . '/header.php';
         <div class="contact-form-card">
             <div class="company-kicker">Send a message</div>
             <h2 class="company-title" style="font-size:1.65rem">Tell us how we can help.</h2>
-            <p class="company-lead text-sm mb-5">Provide enough information to identify the case, without including payment credentials.</p>
+            <p class="company-lead text-sm mb-5">We save a ticket even if email is delayed. Include merchant code or TXN / LNK ID. Never send OTPs, PINs or passwords. SLA: acknowledge in 1 business day.</p>
             <?php if ($error !== ''): ?><p class="text-sm text-amber-400 mb-4"><?= e($error) ?></p><?php endif; ?>
             <form method="POST" class="space-y-4" aria-label="Contact form">
                 <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">

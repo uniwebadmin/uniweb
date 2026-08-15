@@ -298,6 +298,7 @@ function ensureMissingColumns(): void
     schemaExecQuiet('ALTER TABLE merchant_agreement_acceptances ADD COLUMN partner_names VARCHAR(500) DEFAULT NULL');
     schemaExecQuiet('ALTER TABLE merchant_agreement_acceptances ADD COLUMN requires_resign TINYINT(1) NOT NULL DEFAULT 0');
     schemaExecQuiet('ALTER TABLE transactions ADD COLUMN metadata JSON DEFAULT NULL');
+    ensureContactInquirySchema();
 
     // P0-02: partner_commercial may be missing entirely — CREATE then ALTER (aligned with split_settlement).
     schemaExecQuiet("CREATE TABLE IF NOT EXISTS partner_commercial (
@@ -472,6 +473,83 @@ function ensureCollationConsistency(): void
 
 if (!function_exists('initErrorCatcher') && is_file(__DIR__ . '/error_catcher.php')) {
     require_once __DIR__ . '/error_catcher.php';
+}
+
+function ensureContactInquirySchema(): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    schemaExecQuiet("CREATE TABLE IF NOT EXISTS contact_inquiries (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        inquiry_id VARCHAR(32) NOT NULL UNIQUE,
+        name VARCHAR(120) NOT NULL,
+        email VARCHAR(190) NOT NULL,
+        subject VARCHAR(190) NOT NULL,
+        message TEXT NOT NULL,
+        ip VARCHAR(45) DEFAULT NULL,
+        email_sent TINYINT(1) NOT NULL DEFAULT 0,
+        status VARCHAR(20) NOT NULL DEFAULT 'open',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_contact_status (status, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+function recordPublicContactInquiry(string $name, string $email, string $subject, string $message, bool $emailSent): array
+{
+    ensureContactInquirySchema();
+    $inquiryId = function_exists('generateId') ? generateId('CTI') : ('CTI' . strtoupper(bin2hex(random_bytes(6))));
+    try {
+        getDB()->prepare(
+            'INSERT INTO contact_inquiries (inquiry_id, name, email, subject, message, ip, email_sent, status)
+             VALUES (?,?,?,?,?,?,?,\'open\')'
+        )->execute([
+            $inquiryId,
+            mb_substr($name, 0, 120),
+            mb_substr($email, 0, 190),
+            mb_substr($subject, 0, 190),
+            mb_substr($message, 0, 4000),
+            mb_substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45) ?: null,
+            $emailSent ? 1 : 0,
+        ]);
+        return ['ok' => true, 'inquiry_id' => $inquiryId];
+    } catch (Throwable $e) {
+        if (function_exists('logPlatformError')) {
+            logPlatformError('error', 'Contact inquiry save failed: ' . $e->getMessage());
+        }
+        return ['ok' => false, 'inquiry_id' => $inquiryId, 'error' => $e->getMessage()];
+    }
+}
+
+function listPublicContactInquiries(int $limit = 20): array
+{
+    ensureContactInquirySchema();
+    $limit = max(1, min(50, $limit));
+    try {
+        return getDB()->query(
+            "SELECT * FROM contact_inquiries ORDER BY FIELD(status,'open','closed'), created_at DESC LIMIT {$limit}"
+        )->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function closePublicContactInquiry(string $inquiryId): bool
+{
+    ensureContactInquirySchema();
+    $inquiryId = trim($inquiryId);
+    if ($inquiryId === '' || !preg_match('/^CTI[A-Z0-9]+$/i', $inquiryId)) {
+        return false;
+    }
+    try {
+        $stmt = getDB()->prepare("UPDATE contact_inquiries SET status = 'closed' WHERE inquiry_id = ? AND status = 'open'");
+        $stmt->execute([$inquiryId]);
+        return $stmt->rowCount() > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
 }
 
 ensureCollationConsistency();

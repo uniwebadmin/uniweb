@@ -529,6 +529,31 @@ foreach ($p6NavUrls as $ref) {
 $assert($p6Missing === [], 'p6_nav_catalog_files_exist', $p6Missing === [] ? (string)count($p6NavUrls) . ' urls' : implode(', ', $p6Missing));
 $assert(count($p6NavUrls) >= 70, 'p6_nav_catalog_coverage', (string)count($p6NavUrls));
 
+// Phase 7 — public website (homepage, pricing honesty, contact ticket, legal pack)
+$enP7 = (string)file_get_contents($root . '/lang/en.php');
+$idxP7 = (string)file_get_contents($root . '/index.php');
+$contactP7 = (string)file_get_contents($root . '/contact.php');
+$schemaP7 = (string)file_get_contents($root . '/includes/schema_ensure.php');
+$grievP7 = (string)file_get_contents($root . '/grievance.php');
+$priceP7 = (string)file_get_contents($root . '/pricing.php');
+$compP7 = (string)file_get_contents($root . '/compliance.php');
+$termsP7 = (string)file_get_contents($root . '/terms.php');
+$statusP7 = (string)file_get_contents($root . '/status.php');
+$adminSupP7 = (string)file_get_contents($root . '/admin_support.php');
+$assert(str_contains($enP7, 'Payment links, QR and UPI') && str_contains($enP7, 'for Indian merchants'), 'p7_hero_copy');
+$assert(str_contains($idxP7, 'Collect. Operate. Settle.') && str_contains($idxP7, 'Start Test Mode — free'), 'p7_homepage_pillars_and_cta');
+$assert(!str_contains($idxP7, 'Starter') && !preg_match('/0% UPI forever/i', $idxP7), 'p7_homepage_no_fake_starter_tier');
+$assert(str_contains($priceP7, 'Partner MDR') && str_contains($priceP7, 'UniWeb platform fee') && str_contains($priceP7, 'GST'), 'p7_pricing_fee_stack');
+$assert(str_contains($contactP7, 'recordPublicContactInquiry') && str_contains($contactP7, 'sendPlatformEmail') && str_contains($contactP7, '1 business day'), 'p7_contact_saves_ticket_and_sla');
+$assert(str_contains($schemaP7, 'contact_inquiries') && str_contains($schemaP7, "generateId('CTI')"), 'p7_contact_inquiry_schema');
+$assert(is_file($root . '/migrations/061_contact_inquiries.sql'), 'p7_contact_inquiry_migration');
+$assert(str_contains($adminSupP7, 'listPublicContactInquiries') && str_contains($adminSupP7, 'closePublicContactInquiry'), 'p7_admin_support_website_inquiries');
+$assert(str_contains($grievP7, 'COMPANY_CEO') && !str_contains($grievP7, 'Rohan Sharma'), 'p7_grievance_named_company_officer');
+$assert(str_contains($compP7, 'PPI') && str_contains($compP7, 'NBFC'), 'p7_compliance_excludes_ppi_nbfc');
+$assert(str_contains($termsP7, 'PPI') && str_contains($termsP7, 'NBFC'), 'p7_terms_excludes_ppi_nbfc');
+$assert(str_contains($statusP7, 'Checkout') && str_contains($statusP7, 'Dashboard') && str_contains($statusP7, 'Webhooks') && str_contains($statusP7, 'KYC') && str_contains($statusP7, 'Settlements') && str_contains($statusP7, 'IST'), 'p7_status_named_components');
+$assert(str_contains((string)file_get_contents($root . '/faq.php'), '1 business day') && str_contains((string)file_get_contents($root . '/about.php'), 'Shop'), 'p7_faq_sla_and_about_segments');
+
 $assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');
 
 // Auth portal redesign (all four logins — presentation only).

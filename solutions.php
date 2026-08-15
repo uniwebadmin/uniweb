@@ -61,10 +61,19 @@ $products = [
     <section class="company-hero"><div class="company-shell">
         <div class="company-eyebrow">Products</div>
         <h1>Payment products Indian merchants actually use.</h1>
-        <p>Compare UniWeb to Razorpay, Cashfree and PayU on the workflows that matter: checkout, links, QR, API, settlements and KYC — with honest partner-rail positioning.</p>
+        <p>Shop counters, online SMEs and developers share one UniWeb console: checkout, links, QR, API, settlements and KYC. Live rails stay partner-gated. We do not sell a consumer PPI wallet or an NBFC loan product.</p>
         <div class="flex flex-wrap gap-3 mt-6">
             <a href="demo.php" class="btn-primary px-6 py-3">Try ₹1 demo payment</a>
             <a href="merchant_register.php" class="px-6 py-3 rounded-lg border border-gray-700">Create merchant account</a>
+        </div>
+    </div></section>
+
+    <section class="company-section"><div class="company-shell">
+        <div class="company-kicker">Who it is for</div>
+        <div class="company-grid">
+            <div class="company-card"><h3>Shop &amp; counter</h3><p>Fixed and dynamic QR, WhatsApp links, UPI confirmation. No website required to start Test Mode.</p></div>
+            <div class="company-card"><h3>Online SME</h3><p>Hosted checkout, invoices, refunds, staff roles and settlement batches after KYC.</p></div>
+            <div class="company-card"><h3>Developers</h3><p>REST API, Test vs Live keys, HMAC webhooks. Demo captures stay labelled as test.</p></div>
         </div>
     </div></section>
 

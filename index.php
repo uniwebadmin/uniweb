@@ -2,12 +2,6 @@
 if (function_exists('opcache_invalidate')) { opcache_invalidate(__FILE__, true); }
 if (function_exists('opcache_invalidate')) { opcache_invalidate(__DIR__ . '/config.php', true); }
 require_once __DIR__ . '/config.php';
-$visitorRegion = detectVisitorCountry();
-$isIntl = $visitorRegion === 'International';
-$marginNote = getPlatformMarginPct();
-$cardMdr = getMdrWithMargin('card_debit');
-$nbMdr = getMdrWithMargin('netbanking');
-$walletMdr = getMdrWithMargin('wallet');
 $publicStats = getPublicStats();
 $pageTitle = 'Digital Fintech Payment Solutions';
 $pageDescription = 'UniWeb — best payment gateway for Indian merchants. UPI, QR code payments, payment links, cards, net banking, API, KYC and settlements. Start free in Test Mode.';
@@ -38,8 +32,9 @@ require_once __DIR__ . '/header.php';
             <?= __('hero_sub') ?>
         </p>
         <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-            <a href="merchant_register.php" class="w-full sm:w-auto bg-brand-600 hover:bg-brand-500 text-white px-10 py-4 rounded-xl font-semibold text-lg transition shadow-lg shadow-brand-600/25">Start Accepting Payments →</a>
-            <a href="tour_videos.php" class="w-full sm:w-auto glass text-gray-200 hover:text-white px-8 py-4 rounded-xl font-semibold text-lg transition border border-gray-700">Watch Platform Tour</a>
+            <a href="merchant_register.php" class="w-full sm:w-auto bg-brand-600 hover:bg-brand-500 text-white px-10 py-4 rounded-xl font-semibold text-lg transition shadow-lg shadow-brand-600/25">Start Test Mode — free →</a>
+            <a href="contact.php" class="w-full sm:w-auto glass text-gray-200 hover:text-white px-8 py-4 rounded-xl font-semibold text-lg transition border border-gray-700">Request commercial terms</a>
+            <a href="tour_videos.php" class="w-full sm:w-auto text-gray-400 hover:text-white px-6 py-4 rounded-xl font-semibold text-lg transition">Watch platform tour</a>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-3xl mx-auto">
             <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= formatPublicVolume($publicStats['volume']) ?></div><div class="text-xs text-gray-500 mt-1">Verified Live Volume</div></div>
@@ -47,7 +42,40 @@ require_once __DIR__ . '/header.php';
             <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= number_format($publicStats['partners'] ?? 0) ?></div><div class="text-xs text-gray-500 mt-1">Live Partners</div></div>
             <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= number_format($publicStats['transactions']) ?></div><div class="text-xs text-gray-500 mt-1">Verified Live Payments</div></div>
         </div>
-        <p class="text-center text-xs text-gray-600 mt-6"><a href="api_docs.php" class="text-sky-400 hover:underline">OpenAPI docs</a> · HMAC webhook signing · Self-hosted QR · Compiled CSS</p>
+        <p class="text-center text-xs text-gray-600 mt-6"><a href="trust.php" class="text-sky-400 hover:underline">Trust centre</a> · <a href="status.php" class="text-sky-400 hover:underline">System status</a> · <a href="api_docs.php" class="text-sky-400 hover:underline">API docs</a></p>
+    </div>
+</section>
+
+<section class="py-10 border-y border-gray-800/80 bg-dark-900/40">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+        <?php require __DIR__ . '/includes/trust_strip.php'; ?>
+    </div>
+</section>
+
+<section id="pillars" class="py-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+            <p class="text-brand-400 text-sm font-semibold uppercase tracking-wider mb-2">What UniWeb is for</p>
+            <h2 class="text-3xl sm:text-4xl font-bold mb-4">Collect. Operate. Settle.</h2>
+            <p class="text-gray-400 max-w-2xl mx-auto">Built for Indian shops, websites and APIs — not a consumer wallet, not an NBFC loan product.</p>
+        </div>
+        <div class="grid md:grid-cols-3 gap-8">
+            <div class="glass rounded-2xl p-8">
+                <h3 class="text-xl font-semibold mb-3">Collect</h3>
+                <p class="text-gray-400 text-sm leading-relaxed mb-4">Payment links, counter QR, hosted checkout and UPI journeys. Share on WhatsApp. Test with Instant Test Pay before Live rails are on.</p>
+                <a href="solutions.php#links" class="text-sm text-brand-400">See collection tools →</a>
+            </div>
+            <div class="glass rounded-2xl p-8">
+                <h3 class="text-xl font-semibold mb-3">Operate</h3>
+                <p class="text-gray-400 text-sm leading-relaxed mb-4">KYC, video review, staff roles, refunds, disputes and a named grievance path. Test Mode and Live Mode stay separate.</p>
+                <a href="trust.php" class="text-sm text-brand-400">Trust &amp; security →</a>
+            </div>
+            <div class="glass rounded-2xl p-8">
+                <h3 class="text-xl font-semibold mb-3">Settle</h3>
+                <p class="text-gray-400 text-sm leading-relaxed mb-4">Wallet, batch tracking and UTR on the commercial schedule you approve. Timing follows banks and partners — we do not invent instant settlement.</p>
+                <a href="pricing.php" class="text-sm text-brand-400">How fees work →</a>
+            </div>
+        </div>
     </div>
 </section>
 
@@ -72,8 +100,8 @@ require_once __DIR__ . '/header.php';
 <section id="features" class="py-20 bg-dark-900/50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-16">
-            <h2 class="text-3xl sm:text-4xl font-bold mb-4">Why Choose <span class="gradient-text"><?= APP_NAME ?></span>?</h2>
-            <p class="text-gray-400 max-w-xl mx-auto">Complete payment infrastructure for Indian merchants — from QR to API.</p>
+            <h2 class="text-3xl sm:text-4xl font-bold mb-4">Why merchants pick <span class="gradient-text"><?= APP_NAME ?></span></h2>
+            <p class="text-gray-400 max-w-xl mx-auto">Practical payment operations — not a feature dump that hides partner and KYC gates.</p>
         </div>
         <div class="grid md:grid-cols-3 gap-8">
             <?php
@@ -103,8 +131,8 @@ require_once __DIR__ . '/header.php';
 <section id="pricing" class="py-20">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-16">
-            <h2 class="text-3xl font-bold mb-4">Transparent <span class="gradient-text">Pricing</span></h2>
-            <p class="text-gray-400 max-w-xl mx-auto">Final rates, taxes, reserves and settlement schedules are provided in the approved merchant commercial schedule.</p>
+            <h2 class="text-3xl font-bold mb-4">Honest <span class="gradient-text">pricing</span></h2>
+            <p class="text-gray-400 max-w-xl mx-auto">No “0% forever” card. Test Mode is free. Live fees are partner MDR + UniWeb platform fee + GST, written in your commercial schedule.</p>
         </div>
 
         <?php $publicPricingApproved = getSetting('public_pricing_approved', '0') === '1'; ?>
@@ -146,59 +174,32 @@ require_once __DIR__ . '/header.php';
             </div>
         </div>
 
-        <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            <div class="glass rounded-2xl p-8 card-hover">
-                <h3 class="text-lg font-semibold text-gray-300">Starter</h3>
-                <p class="text-gray-500 text-sm mt-1">For new businesses</p>
-                <div class="my-6 space-y-3 text-sm">
-                    <div class="flex justify-between"><span class="text-gray-400">UPI / QR</span><span class="font-bold text-brand-400">0%</span></div>
-                    <div class="flex justify-between"><span class="text-gray-400">Cards (Debit/Credit)</span><span class="font-bold"><?= formatMdr($cardMdr, false, true) ?></span></div>
-                    <div class="flex justify-between"><span class="text-gray-400">Netbanking</span><span class="font-bold"><?= formatMdr($nbMdr, false, true) ?></span></div>
-                    <div class="flex justify-between"><span class="text-gray-400">Wallets</span><span class="font-bold"><?= formatMdr($walletMdr) ?></span></div>
-                    <div class="flex justify-between border-t border-gray-800 pt-3"><span class="text-gray-400">Settlement</span><span class="text-brand-400">T+1 Free</span></div>
-                </div>
-                <ul class="space-y-2 text-xs text-gray-500 mb-8">
-                    <li>✓ Payment Links & QR</li><li>✓ Basic Dashboard</li><li>✓ Email Support</li>
-                </ul>
-                <a href="merchant_register.php" class="block text-center border border-brand-500/30 text-brand-400 hover:bg-brand-500/10 py-3 rounded-xl transition">Get Started</a>
+        <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-10">
+            <div class="glass rounded-2xl p-8">
+                <h3 class="text-lg font-semibold text-gray-200">Test Mode</h3>
+                <p class="text-gray-500 text-sm mt-1">Shops, websites, developers evaluating the console</p>
+                <p class="text-3xl font-bold text-brand-400 my-4">₹0</p>
+                <p class="text-sm text-gray-400 mb-6">Instant Test Pay, links, QR and API sandbox. No real money movement.</p>
+                <a href="merchant_register.php" class="block text-center border border-brand-500/30 text-brand-400 hover:bg-brand-500/10 py-3 rounded-xl transition">Create Test account</a>
             </div>
-            <div class="bg-gradient-to-b from-brand-600/20 to-dark-900 border-2 border-brand-500/40 rounded-2xl p-8 card-hover relative">
-                <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-500 text-dark-900 text-xs font-bold px-3 py-1 rounded-full">MOST POPULAR</div>
-                <h3 class="text-lg font-semibold text-brand-400">Business</h3>
-                <p class="text-gray-500 text-sm mt-1">For growing merchants</p>
-                <div class="my-6 space-y-3 text-sm">
-                    <div class="flex justify-between"><span class="text-gray-400">UPI / QR</span><span class="font-bold text-brand-400">0%</span></div>
-                    <div class="flex justify-between"><span class="text-gray-400">Cards</span><span class="font-bold text-brand-400">0.9%</span></div>
-                    <div class="flex justify-between"><span class="text-gray-400">Netbanking</span><span class="font-bold text-brand-400">0.9%</span></div>
-                    <div class="flex justify-between"><span class="text-gray-400">Wallets</span><span class="font-bold">1.25%</span></div>
-                    <div class="flex justify-between border-t border-gray-800 pt-3"><span class="text-gray-400">Settlement</span><span class="text-brand-400">Same Day</span></div>
-                </div>
-                <ul class="space-y-2 text-xs text-gray-500 mb-8">
-                    <li>✓ Everything in Starter</li><li>✓ API & Webhooks</li><li>✓ Priority Support</li><li>✓ Invoices & Reports</li>
-                </ul>
-                <a href="merchant_register.php" class="block text-center bg-brand-600 hover:bg-brand-500 text-white py-3 rounded-xl font-semibold transition">Get Started</a>
+            <div class="bg-gradient-to-b from-brand-600/20 to-dark-900 border-2 border-brand-500/40 rounded-2xl p-8">
+                <h3 class="text-lg font-semibold text-brand-400">Live — SME</h3>
+                <p class="text-gray-500 text-sm mt-1">After KYC, agreement and partner activation</p>
+                <p class="text-sm text-gray-300 my-4 leading-relaxed">Partner MDR + UniWeb platform fee + GST. Settlement on the written T+N schedule — not a public “same day” promise.</p>
+                <a href="contact.php" class="block text-center bg-brand-600 hover:bg-brand-500 text-white py-3 rounded-xl font-semibold transition">Request commercial terms</a>
             </div>
-            <div class="glass rounded-2xl p-8 card-hover">
-                <h3 class="text-lg font-semibold text-gray-300">Enterprise</h3>
-                <p class="text-gray-500 text-sm mt-1">High-volume businesses</p>
-                <div class="my-6 space-y-3 text-sm">
-                    <div class="flex justify-between"><span class="text-gray-400">UPI / QR</span><span class="font-bold text-brand-400">0%</span></div>
-                    <div class="flex justify-between"><span class="text-gray-400">Cards</span><span class="font-bold">Custom</span></div>
-                    <div class="flex justify-between"><span class="text-gray-400">Netbanking</span><span class="font-bold">Custom</span></div>
-                    <div class="flex justify-between"><span class="text-gray-400">Wallets</span><span class="font-bold">Custom</span></div>
-                    <div class="flex justify-between border-t border-gray-800 pt-3"><span class="text-gray-400">Settlement</span><span class="text-brand-400">Instant</span></div>
-                </div>
-                <ul class="space-y-2 text-xs text-gray-500 mb-8">
-                    <li>✓ Dedicated Account Manager</li><li>✓ Custom Integration</li><li>✓ SLA Guarantee</li>
-                </ul>
-                <a href="contact.php" class="block text-center border border-gray-600 text-gray-300 hover:bg-white/5 py-3 rounded-xl transition">Contact Sales</a>
+            <div class="glass rounded-2xl p-8">
+                <h3 class="text-lg font-semibold text-gray-200">High volume</h3>
+                <p class="text-gray-500 text-sm mt-1">Custom MCC, reserves and rails</p>
+                <p class="text-sm text-gray-400 my-4 leading-relaxed">Negotiated schedule, named support, and partner routing. We do not publish a fake 0% UPI rate card.</p>
+                <a href="contact.php" class="block text-center border border-gray-600 text-gray-300 hover:bg-white/5 py-3 rounded-xl transition">Talk to sales</a>
             </div>
         </div>
-        <p class="text-center text-xs text-gray-600 mt-8">Published rates are available only after commercial approval and may vary by payment method, risk category and partner.</p>
+        <p class="text-center text-xs text-gray-600 mt-2 mb-8">Your Merchant Portal schedule is the source of truth. Website numbers are illustrative only when a public MDR table is approved.</p>
         <?php else: ?>
         <div class="glass rounded-2xl p-8 max-w-3xl mx-auto text-center border border-brand-500/20">
-            <h3 class="text-xl font-semibold mb-3">Commercial pricing is approval-based</h3>
-            <p class="text-sm text-gray-400 leading-relaxed mb-6">Create a Test Mode account to evaluate the platform. Live rates and settlement schedules are shared after business review, KYC and payment-partner activation.</p>
+            <h3 class="text-xl font-semibold mb-3">Live rates are written, not guessed</h3>
+            <p class="text-sm text-gray-400 leading-relaxed mb-6">Use Test Mode now. After KYC we share partner MDR, UniWeb platform fee, GST and settlement T+N in a commercial schedule. Public MDR tables appear here only when approved for publication.</p>
             <a href="contact.php" class="btn-primary inline-block px-7 py-3">Request a commercial proposal</a>
         </div>
         <?php endif; ?>
@@ -207,9 +208,12 @@ require_once __DIR__ . '/header.php';
 
 <section class="py-20 bg-dark-900/50">
     <div class="max-w-4xl mx-auto px-4 text-center">
-        <h2 class="text-3xl font-bold mb-4">Ready to Accept Digital Payments?</h2>
-        <p class="text-gray-400 mb-8">Join merchants across India. Setup takes less than 2 minutes.</p>
-        <a href="merchant_register.php" class="inline-block bg-brand-600 hover:bg-brand-500 text-white px-10 py-4 rounded-xl font-semibold text-lg transition">Create Free Account →</a>
+        <h2 class="text-3xl font-bold mb-4">Start in Test Mode. Go Live when you are ready.</h2>
+        <p class="text-gray-400 mb-8">Account setup takes a few minutes. Live collections wait for KYC, agreement and partner activation.</p>
+        <div class="flex flex-col sm:flex-row gap-3 justify-center">
+            <a href="merchant_register.php" class="inline-block bg-brand-600 hover:bg-brand-500 text-white px-10 py-4 rounded-xl font-semibold text-lg transition">Create Test account →</a>
+            <a href="contact.php" class="inline-block glass border border-gray-700 text-gray-200 px-8 py-4 rounded-xl font-semibold">Request commercial terms</a>
+        </div>
     </div>
 </section>
 

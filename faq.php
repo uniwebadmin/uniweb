@@ -34,10 +34,17 @@ $faqGroups = [
         ['What should I do if credentials are exposed?', 'Change the password, revoke other sessions if available, rotate API and webhook secrets, review staff access and contact support with the incident time. Never send the exposed secret itself.'],
         ['Can staff see every merchant?', 'Staff access is role- and scope-based. Sensitive actions and merchant-management events may be recorded for audit and review.'],
     ],
+    'Pricing and fees' => [
+        ['Is Test Mode free?', 'Yes. Instant Test Pay, sandbox API keys, payment links and QR in Test Mode do not move real money and do not attract Live MDR.'],
+        ['What do I pay in Live Mode?', 'Partner MDR + UniWeb platform fee + GST on applicable fees. Settlement follows the written T+N schedule in your Portal. We do not publish a fake 0% live UPI or instant-settlement public rate card.'],
+        ['Where is the official rate?', 'Your Merchant Portal commercial schedule is the source of truth. Website numbers appear only when a public MDR table is approved for publication.'],
+    ],
     'Support and customer protection' => [
         ['What details should I send to support?', 'Include merchant code, transaction or settlement ID, date, amount, payment status and a concise description. Do not send OTPs, UPI PINs, card PINs, CVV, passwords or complete card numbers.'],
+        ['How fast will you reply to the website form?', 'We save a ticket even if email is delayed. Acknowledgement target is 1 business day. Payment or bank issues may take longer because partners must confirm. Keep the CTI reference if you follow up.'],
         ['What if money was debited but payment failed?', 'Check whether the debit is final and keep the bank reference. Failed debits are often reversed by the bank after reconciliation. Contact the merchant and issuing bank if the normal reversal period has passed.'],
-        ['Where can I read the legal policies?', 'Terms, Privacy, Refund and Compliance pages are available from the website footer. Signed-in merchants can review and accept their Merchant Agreement from Merchant Settings.'],
+        ['Where can I read the legal policies?', 'Terms, Privacy, Refund, Compliance, Trust and Grievance pages are in the website footer. Signed-in merchants accept the Merchant Agreement from Merchant Settings.'],
+        ['Do you offer a customer wallet or NBFC loan?', 'No. UniWeb does not issue a consumer PPI wallet and does not sell an NBFC lending product.'],
     ],
 ];
 ?>

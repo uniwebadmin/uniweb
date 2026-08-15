@@ -30,7 +30,8 @@ require_once __DIR__ . '/header.php';
         <div class="company-card company-wide">
             <p><?= e(COMPANY_LEGAL_NAME) ?> operates a merchant technology platform. Live acquiring, cards, UPI settlement and payouts are provided through contracted banks and payment partners after commercial activation.</p>
             <p class="mt-3"><strong>We do not claim</strong> that UniWeb independently holds an RBI Payment Aggregator licence, a banking licence, or a card-network membership. Those claims appear only when the relevant licence or partner agreement is in force and disclosed here.</p>
-            <p class="mt-3"><a href="compliance.php" class="text-brand-400">Read the full Compliance Framework →</a></p>
+            <p class="mt-3">We do not offer a consumer PPI wallet or an NBFC lending product. Personal data is processed in India under the DPDP Act, 2023 — see the <a href="privacy.php" class="text-brand-400">Privacy Policy</a>.</p>
+            <p class="mt-3"><a href="status.php" class="text-brand-400">Live system status →</a> · <a href="compliance.php" class="text-brand-400">Compliance Framework →</a></p>
         </div>
     </div></section>
 
