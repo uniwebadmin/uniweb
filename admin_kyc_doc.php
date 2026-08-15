@@ -1,11 +1,11 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/page_ux.php';
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'area_sales_manager', 'team_leader', 'staff_manager', 'field_staff', 'ops', 'kyc']);
 
 $id = (int)($_GET['id'] ?? 0);
 if (!$id || !verifyCsrf($_GET['token'] ?? '')) {
-    http_response_code(403);
-    die('Forbidden');
+    uxSoftErrorExit('Access denied', 'This KYC document link is invalid or expired.', 403, 'admin_kyc.php');
 }
 
 $db = getDB();
@@ -13,17 +13,14 @@ $st = $db->prepare('SELECT file_path,file_name,merchant_id,mime_type,scan_status
 $st->execute([$id]);
 $doc = $st->fetch();
 if (!$doc) {
-    http_response_code(404);
-    die('Document not found');
+    uxSoftErrorExit('Document not found', 'No KYC file matches this link.', 404, 'admin_kyc.php');
 }
 requireMerchantAccess((int)$doc['merchant_id']);
 if (($doc['scan_status'] ?? 'pending') !== 'clean') {
-    http_response_code(423);
-    die('Document is quarantined until malware scanning completes.');
+    uxSoftErrorExit('Document quarantined', 'Wait until malware scanning completes, then try again.', 423, 'admin_kyc.php');
 }
 if (!is_file($doc['file_path'])) {
-    http_response_code(404);
-    die('Document not found');
+    uxSoftErrorExit('Document not found', 'The file is missing on the server.', 404, 'admin_kyc.php');
 }
 
 // C4: Audit document view
@@ -43,8 +40,7 @@ $legacyRoot = realpath(rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR . 'kyc');
 $insidePrivate = $path && $privateRoot && str_starts_with($path, $privateRoot . DIRECTORY_SEPARATOR);
 $insideLegacy = $path && $legacyRoot && str_starts_with($path, $legacyRoot . DIRECTORY_SEPARATOR);
 if (!$path || (!$insidePrivate && !$insideLegacy)) {
-    http_response_code(403);
-    die('Invalid path');
+    uxSoftErrorExit('Invalid path', 'This document path is not allowed.', 403, 'admin_kyc.php');
 }
 
 $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));

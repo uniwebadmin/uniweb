@@ -255,9 +255,9 @@ function abortFeatureDisabled(string $feature): void
     if (function_exists('isSuperAdmin') && isSuperAdmin()) {
         return;
     }
-    http_response_code(403);
+    $msg = ucfirst($feature) . ' feature is not available on this platform.';
     if (function_exists('flash')) {
-        flash('error', ucfirst($feature) . ' feature is not available on this platform.');
+        flash('error', $msg);
     }
     if (function_exists('redirect')) {
         if (function_exists('isAdminLoggedIn') && isAdminLoggedIn()) {
@@ -268,5 +268,14 @@ function abortFeatureDisabled(string $feature): void
         }
         redirect('index.php');
     }
-    exit('403 — Feature not available');
+    if (function_exists('uxSoftErrorExit')) {
+        uxSoftErrorExit('Feature not available', $msg, 403);
+    }
+    http_response_code(403);
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Feature not available</title></head>'
+        . '<body style="font-family:system-ui,sans-serif;background:#0b1220;color:#e5e7eb;padding:2rem;text-align:center">'
+        . '<h1>Feature not available</h1><p>' . htmlspecialchars($msg, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</p>'
+        . '<p><a href="index.php" style="color:#38bdf8">Home</a></p></body></html>';
+    exit;
 }

@@ -13,8 +13,8 @@ $st = getDB()->prepare('SELECT * FROM merchant_agreement_acceptances WHERE id=? 
 $st->execute([$id, $merchantId]);
 $acceptance = $st->fetch();
 if (!$acceptance) {
-    http_response_code(404);
-    exit('Agreement record not found.');
+    require_once __DIR__ . '/includes/page_ux.php';
+    uxSoftErrorExit('Agreement not found', 'This agreement record is missing or does not belong to your account.', 404, 'merchant_agreement.php');
 }
 $path = merchantAgreementPdfPath($id, $merchantId);
 if (!$path) {
@@ -23,8 +23,8 @@ if (!$path) {
     $path = merchantAgreementPdfPath($id, $merchantId);
 }
 if (!$path) {
-    http_response_code(404);
-    exit('PDF not available yet. Re-accept the agreement or contact support.');
+    require_once __DIR__ . '/includes/page_ux.php';
+    uxSoftErrorExit('PDF not available yet', 'Re-accept the agreement or contact support.', 404, 'merchant_agreement.php');
 }
 header('Content-Type: application/pdf');
 header('Content-Disposition: attachment; filename="UniWeb-Merchant-Agreement-' . $id . '.pdf"');

@@ -375,6 +375,16 @@ $assert(str_contains($navSrc, 'add_bank.php') && str_contains($navSrc, 'Settleme
 $assert(str_contains($navSrc, 'Collect / P2M') && str_contains($navSrc, "'title' => 'Settlements'"), 'p4_merchant_nav_full_groups');
 $assert(str_contains($header, 'merchant-group-panel') && str_contains($header, "max-height:<?= \$isOpen ? '2000'"), 'p4_merchant_groups_open_full');
 $assert(!str_contains($navSrc, 'merchant_nbfc.php') && !str_contains($navSrc, 'admin_nbfc.php'), 'p4_nav_has_no_nbfc_urls');
+$assert(str_contains($navSrc, "['admin_payment_links.php', 'Payment Links']") && str_contains($navSrc, "['admin_qr_codes.php', 'QR Codes']"), 'sum_admin_payment_links_qr_in_nav');
+$assert(!str_contains($navSrc, "['admin_link_audit.php'") && !str_contains($navSrc, "['admin_throughput.php'"), 'sum_no_dup_watchdog_throughput_nav');
+$assert(!str_contains($navSrc, "['video_kyc.php'"), 'sum_video_kyc_not_separate_nav');
+$assert(is_file($root . '/pci.php') && str_contains((string)file_get_contents($root . '/pci.php'), 'pci_dss.php'), 'sum_pci_alias_redirect');
+$assert(str_contains((string)file_get_contents($root . '/admin_throughput.php'), 'admin_transaction_monitor.php'), 'sum_throughput_redirects_to_monitor');
+$assert(str_contains((string)file_get_contents($root . '/includes/page_ux.php'), 'function uxSoftErrorExit'), 'sum_soft_error_helper');
+$assert(str_contains((string)file_get_contents($root . '/invoice_pdf.php'), 'uxSoftErrorExit') && str_contains((string)file_get_contents($root . '/admin_kyc_doc.php'), 'uxSoftErrorExit'), 'sum_pdf_kyc_soft_errors');
+$assert(str_contains((string)file_get_contents($root . '/solutions.php'), 'Settlements & balance'), 'sum_public_wallet_wording');
+$assert(str_contains((string)file_get_contents($root . '/global_search.php'), "'watchdog'") && str_contains((string)file_get_contents($root . '/global_search.php'), "'payment links'"), 'sum_search_aliases_expanded');
+$assert(str_contains((string)file_get_contents($root . '/includes/staff.php'), 'admin_payment_links.php') && str_contains((string)file_get_contents($root . '/includes/staff.php'), 'admin_qr_codes.php'), 'sum_staff_nav_has_payment_links');
 $walletP4 = (string)file_get_contents($root . '/wallet.php');
 $assert(str_contains($walletP4, 'Settlement Balance') && str_contains($walletP4, 'not a customer PPI wallet'), 'p4_wallet_settlement_not_ppi');
 $langP4 = (string)file_get_contents($root . '/lang/en.php');

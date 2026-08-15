@@ -230,4 +230,36 @@ CSS;
     {
         return renderPagePrintStyles();
     }
+
+    /**
+     * Soft branded error for PDF/KYC/doc dead-ends (never a bare white die()).
+     * Prefer flash+redirect when a session home is known.
+     */
+    function uxSoftErrorExit(string $heading, string $detail, int $status = 404, ?string $backUrl = null): void
+    {
+        if (function_exists('flash') && function_exists('redirect') && $backUrl !== null && $backUrl !== '') {
+            flash('error', $heading . ($detail !== '' ? ' — ' . $detail : ''));
+            redirect($backUrl);
+        }
+        http_response_code($status);
+        $safeHeading = htmlspecialchars($heading, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $safeDetail = htmlspecialchars($detail, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $home = 'index.php';
+        if (function_exists('isAdminLoggedIn') && isAdminLoggedIn()) {
+            $home = (function_exists('isSuperAdmin') && isSuperAdmin()) ? 'admin_dashboard.php' : 'staff_dashboard.php';
+        } elseif (function_exists('isLoggedIn') && isLoggedIn()) {
+            $home = 'dashboard.php';
+        }
+        $safeHome = htmlspecialchars($home, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        header('Content-Type: text/html; charset=utf-8');
+        echo '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+            . '<title>' . $safeHeading . '</title>'
+            . '<style>body{margin:0;font-family:system-ui,sans-serif;background:#0b1220;color:#e5e7eb;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:1.5rem}'
+            . '.box{max-width:28rem;width:100%;background:#111827;border:1px solid #1f2937;border-radius:1rem;padding:2rem;text-align:center}'
+            . 'h1{font-size:1.15rem;margin:0 0 .5rem}p{color:#9ca3af;font-size:.9rem;margin:0 0 1.25rem;line-height:1.45}'
+            . 'a{display:inline-block;background:#0ea5e9;color:#fff;text-decoration:none;padding:.65rem 1.1rem;border-radius:.65rem;font-size:.875rem;font-weight:600}</style></head><body>'
+            . '<div class="box"><h1>' . $safeHeading . '</h1><p>' . $safeDetail . '</p>'
+            . '<a href="' . $safeHome . '">Back</a></div></body></html>';
+        exit;
+    }
 }

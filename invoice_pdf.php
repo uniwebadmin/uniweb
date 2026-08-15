@@ -10,7 +10,10 @@ $id = $_GET['id'] ?? '';
 $stmt = getDB()->prepare('SELECT * FROM invoices WHERE invoice_id = ? AND merchant_id = ?');
 $stmt->execute([$id, $merchant['id']]);
 $inv = $stmt->fetch();
-if (!$inv) { http_response_code(404); die('Invoice not found.'); }
+if (!$inv) {
+    require_once __DIR__ . '/includes/page_ux.php';
+    uxSoftErrorExit('Invoice not found', 'This invoice is missing or does not belong to your account.', 404, 'invoices.php');
+}
 
 require_once __DIR__ . '/lib/SimpleInvoicePdf.php';
 $pdf = new SimpleInvoicePdf();

@@ -107,7 +107,7 @@ require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6">
     <div class="flex flex-wrap gap-3 items-center justify-between">
-        <p class="text-sm text-gray-400">Consolidated reporting across transactions, settlements, disputes, merchants</p>
+        <p class="text-sm text-gray-400">Consolidated reporting across transactions, settlements, disputes, merchants. Primary date-range report: <a href="admin_financial_reports.php" class="text-brand-400 hover:text-brand-300">Financial Reports</a>.</p>
         <form method="GET" class="flex gap-2 items-center">
             <select name="days" class="input-field text-xs w-32" onchange="this.form.submit()">
                 <option value="7" <?= $days === 7 ? 'selected' : '' ?>>Last 7 days</option>

@@ -42,8 +42,8 @@ $products = [
     [
         'id' => 'settle',
         'eyebrow' => 'Money out',
-        'title' => 'Settlements & wallet',
-        'body' => 'Successful collections credit the merchant wallet. Settle to a verified bank account on a T+N style schedule or manual Settle Now — with UTR tracking for ops.',
+        'title' => 'Settlements & balance',
+        'body' => 'Successful collections credit the merchant settlement balance. Settle to a verified bank account on a T+N style schedule or manual Settle Now — with UTR tracking for ops.',
         'points' => ['Available vs pending visibility', 'Min settlement threshold', 'Partner payout rails when keys are live'],
         'cta' => ['pricing.php', 'View pricing model'],
     ],
@@ -106,7 +106,7 @@ $products = [
         <div class="company-kicker">How we compare</div>
         <h2 class="company-title">What matches big gateways — and what does not</h2>
         <div class="company-grid">
-            <div class="company-card"><h3>Matches today</h3><p>Test/Live modes, payment links, QR, hosted checkout, KYC gates, wallet + settlements, refunds, staff RBAC, webhooks.</p></div>
+            <div class="company-card"><h3>Matches today</h3><p>Test/Live modes, payment links, QR, hosted checkout, KYC gates, settlement balance, refunds, staff RBAC, webhooks.</p></div>
             <div class="company-card"><h3>Partner-dependent</h3><p>Live cards/UPI money movement, PhonePe native, EMI/BNPL, Instant Settlement — need partner keys and commercial approval.</p></div>
             <div class="company-card"><h3>Still building</h3><p>Payment Pages builder, full developer hub, case studies — see the <a href="roadmap.php" class="text-brand-400">roadmap</a>. Merchant team invites are live under Team in the dashboard.</p></div>
         </div>

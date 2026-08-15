@@ -71,6 +71,7 @@ require_once __DIR__ . '/header.php';
         <a href="?from=<?= e(urlencode($from)) ?>&to=<?= e(urlencode($to)) ?>&export=csv" class="glass px-4 py-2.5 rounded-xl text-sm text-center w-full sm:w-auto">Export CSV</a>
     </form>
     <a href="admin_chargebacks.php" class="glass px-4 py-2.5 rounded-xl text-sm text-center">Chargebacks</a>
+    <a href="admin_reports.php" class="glass px-4 py-2.5 rounded-xl text-sm text-center">Ops day summary</a>
 </div>
 
 <p class="text-xs text-gray-500 mb-4">Live (non-test) success/refund rows only. Staff access: super / CEO / ops / staff manager.</p>

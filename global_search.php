@@ -72,21 +72,45 @@ if ($isMerchant) {
 $featureAliases = [
     'registry' => 'admin_gateway_registry.php',
     'partners' => 'admin_gateway_registry.php',
+    'partner registry' => 'admin_gateway_registry.php',
     'forward queue' => 'admin_forward_queue.php',
     'reason maps' => 'admin_reason_map.php',
     'platform status' => 'admin_platform_status.php',
     'cron' => 'admin_platform_status.php',
+    'watchdog' => 'admin_watchdog.php',
+    'link audit' => 'admin_watchdog.php',
+    'mdr' => 'admin_partner_commercial.php',
+    'commercial' => 'admin_partner_commercial.php',
+    '2fa' => $isMerchant ? 'merchant_2fa.php' : 'admin_security.php',
+    'totp' => $isMerchant ? 'merchant_2fa.php' : 'admin_security.php',
+    'encrypt pii' => 'admin_encrypt_pii.php',
+    'pii' => 'admin_encrypt_pii.php',
     'payment links' => $isMerchant ? 'payment_links.php' : 'admin_payment_links.php',
+    'payment link' => $isMerchant ? 'payment_links.php' : 'admin_payment_links.php',
     'qr' => $isMerchant ? 'qr_code.php' : 'admin_qr_codes.php',
+    'qr codes' => $isMerchant ? 'qr_code.php' : 'admin_qr_codes.php',
     'settlements' => $isMerchant ? 'settlements.php' : 'admin_settlements.php',
+    'settlement balance' => 'wallet.php',
+    'wallet' => $isMerchant ? 'wallet.php' : 'admin_wallet.php',
     'recurring' => 'merchant_recurring.php',
+    'mandates' => 'merchant_recurring.php',
     'api keys' => $isMerchant ? 'api_settings.php' : 'admin_website.php',
     'kyc' => $isMerchant ? 'kyc.php' : 'admin_kyc.php',
+    'video kyc' => $isMerchant ? 'kyc.php?section=video' : 'admin_kyc.php',
     'gstin' => $isMerchant ? 'kyc.php' : 'manage_merchant.php',
     'pan' => $isMerchant ? 'kyc.php' : 'manage_merchant.php',
     'staff' => 'admin_manage_staff.php',
     'tickets' => $isMerchant ? 'support.php' : 'admin_support.php',
     'complaints' => $isMerchant ? 'merchant_customer_tickets.php' : 'admin_customer_tickets.php',
+    'monitor' => 'admin_transaction_monitor.php',
+    'throughput' => 'admin_transaction_monitor.php',
+    'tps' => 'admin_transaction_monitor.php',
+    'reports' => 'admin_financial_reports.php',
+    'financial reports' => 'admin_financial_reports.php',
+    'aml' => 'admin_aml.php',
+    'risk' => 'admin_risk.php',
+    'checkout customize' => 'checkout_customize.php',
+    'error log' => 'admin_error_log.php',
 ];
 
 $qlower = mb_strtolower($q);
@@ -105,14 +129,23 @@ foreach ($featureAliases as $alias => $url) {
     if ($pageHits >= 12) {
         break;
     }
-    if (str_contains($alias, $qlower)) {
-        foreach ($featurePages as [$furl, $flabel]) {
-            if ($furl === $url) {
-                $add('Page', (string)$flabel, (string)$url, (string)$url);
-                $pageHits++;
-                break;
-            }
+    if (!str_contains($alias, $qlower) && $alias !== $qlower) {
+        continue;
+    }
+    $baseUrl = strtok($url, '?') ?: $url;
+    $matchedLabel = null;
+    foreach ($featurePages as [$furl, $flabel]) {
+        if ($furl === $baseUrl || $furl === $url) {
+            $matchedLabel = (string)$flabel;
+            break;
         }
+    }
+    if ($matchedLabel === null && $isAdmin && $canPage($baseUrl)) {
+        $matchedLabel = ucwords(str_replace(['_', '.php'], [' ', ''], basename($baseUrl)));
+    }
+    if ($matchedLabel !== null) {
+        $add('Page', $matchedLabel, (string)$url, (string)$url);
+        $pageHits++;
     }
 }
 
@@ -338,6 +371,10 @@ if ($isMerchant) {
         }
     }
 
+    $canPaymentLinks = $canPage('admin_payment_links.php');
+    $canQrCodes = $canPage('admin_qr_codes.php');
+
+    if ($canPaymentLinks) {
     foreach ($fetchRows(
         "SELECT pl.link_id, pl.amount, pl.description, pl.status, pl.merchant_id, m.business_name
             FROM payment_links pl JOIN merchants m ON m.id=pl.merchant_id WHERE (
@@ -351,7 +388,9 @@ if ($isMerchant) {
         }
         $add('Payment Link', (string)$row['link_id'], formatMoney((float)$row['amount']) . ' · ' . ($row['description'] ?: ucfirst((string)$row['status'])) . ' · ' . $row['business_name'], 'admin_payment_links.php?q=' . rawurlencode((string)$row['link_id']));
     }
+    }
 
+    if ($canQrCodes) {
     foreach ($fetchRows(
         "SELECT q.id, q.qr_code, q.label, q.status, q.merchant_id, m.business_name
             FROM merchant_qr_codes q JOIN merchants m ON m.id=q.merchant_id WHERE (
@@ -364,6 +403,7 @@ if ($isMerchant) {
             continue;
         }
         $add('QR Code', (string)($row['qr_code'] ?: 'QR #' . $row['id']), trim((string)($row['label'] ?? '')) . ' · ' . $row['business_name'], 'admin_qr_codes.php?q=' . rawurlencode((string)($row['qr_code'] ?: $row['id'])));
+    }
     }
 
     foreach ($fetchRows(
