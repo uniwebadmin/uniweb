@@ -1,15 +1,7 @@
-# UniWeb — Hostinger FTP auto-deploy (laptop-free)
-#
-# Triggers on every push to `main` (and manual workflow_dispatch).
-# Secrets: UNIWEB_FTP_HOST, UNIWEB_FTP_USER, UNIWEB_FTP_PASS
-# Optional: UNIWEB_FTP_REMOTE (defaults to public_html)
-#
-# Uses parallel FTP curl (same transport as scripts/release_deploy.ps1) so
-# special characters in passwords work. Git-ignored config.php /
-# .vscode/sftp.json are never in the checkout.
-#
-# Parallel uploads + per-file retry + serial second pass for flaky Hostinger
-# connections (sequential curl of 300+ files was too slow / timed out).
+# UniWeb — optional FTP upload.
+# Live website updates from Hostinger Git auto-deploy (connected to uniwebadmin/uniweb).
+# This FTP job only runs when ALL UNIWEB_FTP_* secrets exist. Incomplete secrets
+# skip with success so Actions does not look "cancelled" / failed.
 
 name: Deploy to UniWeb Hostinger
 
@@ -20,7 +12,7 @@ on:
 
 concurrency:
   group: uniweb-live-deploy
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -33,7 +25,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Skip FTP when secrets are incomplete
+        id: ftp_gate
+        env:
+          HOST: ${{ secrets.UNIWEB_FTP_HOST }}
+          USER: ${{ secrets.UNIWEB_FTP_USER }}
+          PASS: ${{ secrets.UNIWEB_FTP_PASS }}
+        run: |
+          if [ -z "${HOST:-}" ] || [ -z "${USER:-}" ] || [ -z "${PASS:-}" ]; then
+            echo "Hostinger Git is the live deploy. FTP secrets are incomplete (need HOST + USER + PASS) — skipping FTP."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Upload tracked files via FTP (parallel)
+        if: steps.ftp_gate.outputs.skip != 'true'
         env:
           HOST: ${{ secrets.UNIWEB_FTP_HOST }}
           USER: ${{ secrets.UNIWEB_FTP_USER }}
@@ -41,10 +48,6 @@ jobs:
           REMOTE: ${{ secrets.UNIWEB_FTP_REMOTE }}
         run: |
           set -euo pipefail
-          if [ -z "${HOST:-}" ] || [ -z "${USER:-}" ] || [ -z "${PASS:-}" ]; then
-            echo "Missing required UNIWEB_FTP_* secrets."
-            exit 1
-          fi
           RAW_REMOTE="${REMOTE:-}"
           BASE="${RAW_REMOTE:-public_html}"
           BASE="${BASE#/}"
