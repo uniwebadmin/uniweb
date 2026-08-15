@@ -68,7 +68,6 @@ $__cloudModules = [
     'integration_matrix.php',
     'settlement_delay_spec.php',
     'kyc_timeline.php',
-    'nbfc.php',
 ];
 
 foreach ($__cloudModules as $__cloudModule) {

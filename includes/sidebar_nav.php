@@ -8,12 +8,12 @@ declare(strict_types=1);
 
 function uniwebMerchantHiddenUrls(): array
 {
-    return ['merchant_nbfc.php', 'merchant_nbfc_loan.php'];
+    return [];
 }
 
 function uniwebAdminHiddenUrls(): array
 {
-    return ['admin_nbfc.php'];
+    return [];
 }
 
 function uniwebMerchantNavGroups(): array

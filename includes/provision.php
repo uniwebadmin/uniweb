@@ -119,14 +119,6 @@ function getPaymentMethodCatalog(): array
             'icon' => '💰',
             'mdr' => 'card_debit',
         ],
-        'nbfc' => [
-            'label' => 'NBFC / Merchant Finance',
-            'pay_key' => 'nbfc',
-            'gateway' => 'nbfc',
-            'collection_mode' => 'platform_pg',
-            'icon' => '🏢',
-            'mdr' => 'netbanking',
-        ],
         'instant_settlement' => [
             'label' => 'Instant Settlement',
             'pay_key' => 'instant_settlement',

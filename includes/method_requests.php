@@ -79,9 +79,8 @@ function methodRequestPartnerGateway(string $methodKey): string
     if ($gw === 'direct') {
         return 'payu';
     }
-    if ($gw === 'nbfc') {
-        $pref = trim((string)getSetting('nbfc_partner_gateway', 'payu'));
-        $gw = $pref !== '' ? $pref : 'payu';
+    if ($gw === 'nbfc' || $methodKey === 'nbfc') {
+        return '';
     }
     if ($gw === 'instant') {
         $pref = trim((string)getSetting('instant_settlement_gateway', 'razorpay'));
@@ -584,7 +583,7 @@ function bootstrapMerchantMethodAutomation(int $merchantId, string $note = 'Auto
         createNotification(
             $merchantId,
             'Methods sent for partner review',
-            'UPI P2M is already ON. Other methods (cards, wallets, EMI, VA, NBFC, payout, instant settlement) are with admin → partner. You do not need to click Request.'
+            'UPI P2M is already ON. Other methods (cards, wallets, EMI, VA, payout, instant settlement) are with admin → partner. You do not need to click Request.'
         );
         $notified[$merchantId] = true;
     }

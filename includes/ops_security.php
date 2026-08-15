@@ -247,13 +247,11 @@ function ensureAdminMfaColumns(): void
 }
 
 /**
- * D6: Block access to out-of-scope product pages (NBFC, customer PPI wallet).
+ * Block access to removed / never-ship product URLs (customer PPI wallet stubs, etc.).
  * Call at top of page after session bootstrap.
- * Super-admin can still view for audit/ops purposes.
  */
 function abortFeatureDisabled(string $feature): void
 {
-    // Super-admin can view for audit — but product is not usable
     if (function_exists('isSuperAdmin') && isSuperAdmin()) {
         return;
     }
@@ -261,12 +259,11 @@ function abortFeatureDisabled(string $feature): void
     if (function_exists('flash')) {
         flash('error', ucfirst($feature) . ' feature is not available on this platform.');
     }
-    // Redirect to safe dashboard
     if (function_exists('redirect')) {
-        if (function_exists('isAdminLoggedIn') && function_exists('isMerchantLoggedIn')) {
-            if (isAdminLoggedIn()) {
-                redirect('admin_dashboard.php');
-            }
+        if (function_exists('isAdminLoggedIn') && isAdminLoggedIn()) {
+            redirect('admin_dashboard.php');
+        }
+        if (function_exists('isLoggedIn') && isLoggedIn()) {
             redirect('dashboard.php');
         }
         redirect('index.php');

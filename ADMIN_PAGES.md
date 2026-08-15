@@ -102,7 +102,7 @@
 | admin_customer_view.php | Customer detail view | staff |
 | admin_integration_matrix.php | Integration matrix report | super-admin |
 | admin_stepup.php | Step-up auth verification | staff |
-| admin_nbfc.php | NBFC module (out of scope, not in sidebar) | super-admin |
+| admin_aml.php | AML alerts | super-admin |
 | staff_dashboard.php | Staff landing page | staff |
 | staff_login.php | Staff login | Public |
 
@@ -141,8 +141,7 @@
 - admin_wallet.php (platform wallet)
 - admin_aml.php (AML compliance)
 
-## Hidden/Removed from UI
+## Removed from product (do not restore)
 
-- merchant_nbfc.php — NBFC module (out of scope, filtered in header.php)
-- merchant_nbfc_loan.php — NBFC loans (out of scope, filtered in header.php)
-- Customer wallet — no wallet in customer portal nav
+- merchant_nbfc.php / merchant_nbfc_loan.php / admin_nbfc.php — NBFC deleted 2026-08-15
+- Customer PPI wallet — never built; no `customer_wallet.php`

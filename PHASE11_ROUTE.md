@@ -29,17 +29,16 @@
 ## P11-02 NBFC & customer PPI (EXCLUDED)
 
 **Problem:** Licence risk and product confusion if built.  
-**Expectation:** Not in product; hidden from menus.  
-**Action:** Keep `nbfc*` hidden; never ship a consumer PPI wallet.
+**Expectation:** Not in product at all.  
+**Action (done 2026-08-15):** NBFC pages + `includes/nbfc.php` **deleted**. Do not rebuild.
 
 **Today:**
 
-- Merchant / admin sidebars hide `merchant_nbfc.php`, `merchant_nbfc_loan.php`, `admin_nbfc.php`.
-- Direct URL: `abortFeatureDisabled('nbfc')` + `nbfcLiveDisburseAllowed()` is **always false**.
-- No `customer_wallet.php`. Merchant `wallet.php` is settlement balance, not a prepaid PPI.
+- No `merchant_nbfc.php`, `merchant_nbfc_loan.php`, `admin_nbfc.php`, or `includes/nbfc.php`.
+- No `customer_wallet.php` (customer PPI). Merchant `wallet.php` is settlement balance only.
 - Public copy on Trust, Terms, FAQ, Compare: we do not sell NBFC or PPI.
 
-Do **not** unhide those menus. Do **not** add a customer wallet page.
+Do **not** recreate those pages. Do **not** add a customer wallet page.
 
 ## Appendix — audit evidence (PDF)
 

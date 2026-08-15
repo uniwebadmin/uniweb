@@ -1,0 +1,27 @@
+---
+description: Owner hard rules — no NBFC/PPI; existing pages only; no new feature sprawl
+alwaysApply: true
+---
+
+# UniWeb Owner hard rules (permanent — 2026-08-15)
+
+Owner communication stays simple Hindi/Urdu; product UI English. Local laptop only.
+
+## Never build / never restore
+
+- **NBFC product** — no lending, no NBFC menus, no `merchant_nbfc*`, no `admin_nbfc`, no `includes/nbfc.php`. Do not re-add.
+- **Customer PPI wallet** — no `customer_wallet.php`, no consumer prepaid balance. Merchant `wallet.php` = settlement balance only (keep).
+
+## Existing-first (hard)
+
+- **Do not invent new features / new product pages** for “nice to have” or market parity.
+- Work **only on pages and features that already exist** (fix, wire, clean, search, decrypt, nav).
+- **Create a new page/file only if** the Owner-approved gap has **no existing page** and the work cannot be done by editing an existing one.
+- PDF audit points = fix existing wiring/bugs/copy/search — not a licence to add Route, orchestrator, POS, or second apps.
+
+## Still parked unless Owner says start
+
+- Live Route / Split SDK (Phase 11).
+- Partner live keys = Owner pastes in UI.
+- Do not DROP production DB.
+---

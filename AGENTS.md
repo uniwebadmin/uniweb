@@ -111,7 +111,7 @@ Work **top-down**. Owner verifies each phase on **live** before the next. Phases
 | **9** | Market comparison | Reference — no parity build before 0–2 |
 | **10** | White-label checklist | Only if a real deal needs an item, after 0–2 |
 | **11** | Live Route/Split | Only after keys + commercial + Owner says start |
-| **Never** | NBFC product, customer PPI wallet | Hidden; do not build |
+| **Never** | NBFC product, customer PPI wallet | **Removed from product** (pages deleted 2026-08-15). Do not rebuild. Merchant `wallet.php` = settlement only. |
 
 Never drop production DB. Migrations = **Apply pending migrations** button, not a Hostinger cron.
 
@@ -228,4 +228,4 @@ Owner's explicit standing instruction: continue autonomously through phases with
 
 ## Latest Status (2026-08-15)
 
-Owner delivered ordered Deep Audit PDF. Phases 0–10 are in repo. Phase 11 is **parked** (`PHASE11_ROUTE.md`): Route/Split stays scaffold (no SDK, no auto-live). NBFC menus stay hidden; `nbfcLiveDisburseAllowed()` is always false; no customer PPI wallet. Do **not** start live Route unless the Owner says start + keys + commercial.
+Owner delivered ordered Deep Audit PDF. Phases 0–10 are in repo. Phase 11 is **parked** (`PHASE11_ROUTE.md`): Route/Split stays scaffold (no SDK, no auto-live). **NBFC product pages deleted** (not just hidden); **no customer PPI wallet**. Do **not** start live Route unless the Owner says start + keys + commercial. **Hard rule:** work existing pages only; no new feature sprawl (see `.cursor/rules/owner-hard-nbfc-ppi-existing-only.mdc`).
