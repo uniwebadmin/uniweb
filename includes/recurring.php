@@ -656,10 +656,10 @@ function processMandateCharge(array $mandate): array
 
         // Create transaction record
         $db->prepare(
-            "INSERT INTO transactions (txn_id, transaction_id, merchant_id, amount, status, payment_method, description, is_test, collection_mode, wallet_credited)
-             VALUES (?,?,?,?, 'pending', 'upi_autopay', ?, 0, 'upi_autopay', 0)"
+            "INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, is_test, collection_mode, wallet_credited)
+             VALUES (?,?,?, 'pending', 'upi_autopay', ?, 0, 'upi_autopay', 0)"
         )->execute([
-            $txnRef, $txnRef, (int)$mandate['merchant_id'], $amount,
+            $txnRef, (int)$mandate['merchant_id'], $amount,
             'Recurring charge for ' . $mandate['mandate_ref'],
         ]);
         $txnId = (int)$db->lastInsertId();

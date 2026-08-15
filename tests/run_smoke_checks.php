@@ -487,6 +487,18 @@ $assert(str_contains($amlP5, 'function syncKycPendingAmlFlags') && str_contains(
 $assert(str_contains((string)file_get_contents($root . '/admin_aml.php'), 'syncKycPendingAmlFlags'), 'p5_aml_page_uses_sync_helper');
 $assert(str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), 'resolveKycPendingFlags'), 'p5_kyc_verify_clears_aml');
 
+$gsLive = (string)file_get_contents($root . '/global_search.php');
+$assert(str_contains($gsLive, 'FROM merchant_qr_codes') && !str_contains($gsLive, 'batch_label'), 'live_search_uses_qr_codes_not_batch_label');
+$capLive = (string)file_get_contents($root . '/includes/financial_integrity.php');
+$assert(!preg_match('/INSERT INTO transactions\s*\(\s*txn_id\s*,\s*transaction_id\s*,\s*merchant_id/i', $capLive), 'live_capture_insert_no_transaction_id_column');
+$assert(str_contains($capLive, 'function providerCredentialsMatchOrderMode') && str_contains($capLive, 'return null;'), 'live_bound_gateway_skips_mode_mismatch');
+$idxLive = (string)file_get_contents($root . '/index.php');
+$assert(str_contains($idxLive, "is_file(__DIR__ . '/header.php')") && str_contains($idxLive, 'UniWeb is updating'), 'live_index_header_missing_503');
+$errLive = (string)file_get_contents($root . '/includes/error_catcher.php');
+$assert(str_contains($errLive, "message NOT LIKE 'Watchdog probe:%'"), 'live_error_count_skips_watchdog_probe');
+$coLive = (string)file_get_contents($root . '/checkout.php');
+$assert(str_contains($coLive, 'Instant test pay failed') && str_contains($coLive, 'is_array($cf)'), 'live_checkout_test_pay_and_cashfree_null_safe');
+
 $assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');
 
 // Auth portal redesign (all four logins — presentation only).

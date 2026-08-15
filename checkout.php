@@ -203,6 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && ($_POST['a
             file_put_contents($rateFile, json_encode(['ts' => time(), 'count' => $rateCount + 1]));
             $method = preg_replace('/[^a-z0-9_]/i', '', $selectedPay) ?: 'test';
         $testReference = 'TEST' . strtoupper(bin2hex(random_bytes(6)));
+        try {
         $order = createBoundPaymentOrder($link, 'sandbox', 'instant:' . $testReference);
         bindProviderOrder((int)$order['id'], 'sandbox', (string)$order['order_ref']);
         $captured = captureVerifiedPaymentOrder([
@@ -221,6 +222,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && ($_POST['a
         $txnRow->execute([$txnDbId]);
         $successTxnId = $txnRow->fetchColumn() ?: null;
         $success = true;
+        } catch (Throwable $e) {
+            $error = 'Test payment could not be recorded. Try again in a moment.';
+            logPlatformError('error', 'Instant test pay failed: ' . $e->getMessage(), ['link_id' => $linkId]);
+        }
         }
     }
 }
@@ -299,14 +304,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
     } elseif ($selectedPay === 'cashfree' && isGatewayConfigured('cashfree')) {
         $returnUrl = APP_URL . '/payment_cashfree_return.php?order_id={order_id}';
+        $cf = null;
         try {
             $cf = createBoundGatewayCheckoutOrder($link, 'cashfree', $returnUrl);
         } catch (Throwable $e) {
             $cf = null;
             $error = 'Cashfree checkout is temporarily unavailable.';
-            logPlatformError('error', 'Bound Cashfree order creation failed.', ['error' => $e->getMessage(), 'link_id' => $linkId]);
+            $level = str_contains($e->getMessage(), 'do not match the payment order mode') ? 'warning' : 'error';
+            logPlatformError($level, 'Bound Cashfree order creation failed: ' . $e->getMessage(), ['link_id' => $linkId]);
         }
-        $cashfreeSession = $cf['payment_session_id'] ?? null;
+        $cashfreeSession = is_array($cf) ? ($cf['payment_session_id'] ?? null) : null;
+        if ($cashfreeSession === null && ($error ?? '') === '') {
+            $error = 'Cashfree is not available in this Test/Live mode. Use UPI or another method.';
+        }
     }
   } catch (Throwable $e) {
     logPlatformError('error', 'Checkout gateway init failed: ' . $e->getMessage(), ['link_id' => $linkId]);

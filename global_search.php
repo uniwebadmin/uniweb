@@ -228,13 +228,14 @@ if ($isMerchant) {
         $add('Payment Link', (string)$row['link_id'], formatMoney((float)$row['amount']) . ' · ' . ($row['description'] ?: ucfirst((string)$row['status'])), 'payment_links.php?q=' . rawurlencode((string)$row['link_id']));
     }
 
-    $stmt = $db->prepare("SELECT id, batch_label, qr_ref, status FROM qr_code_events WHERE merchant_id=? AND (
-        LOWER(TRIM(COALESCE(qr_ref,''))) LIKE ? OR LOWER(TRIM(COALESCE(batch_label,''))) LIKE ? OR CAST(id AS CHAR) LIKE ?)
-        ORDER BY created_at DESC LIMIT 10");
     try {
-        $stmt->execute([$merchantId, $like, $like, $like]);
+        $stmt = $db->prepare("SELECT id, qr_code, label, status FROM merchant_qr_codes WHERE merchant_id=? AND (
+            LOWER(TRIM(COALESCE(qr_code,''))) LIKE ? OR LOWER(TRIM(COALESCE(label,''))) LIKE ?
+            OR LOWER(TRIM(COALESCE(description,''))) LIKE ? OR CAST(id AS CHAR) LIKE ?)
+            ORDER BY created_at DESC LIMIT 10");
+        $stmt->execute([$merchantId, $like, $like, $like, $like]);
         foreach ($stmt->fetchAll() as $row) {
-            $add('QR Code', (string)($row['qr_ref'] ?: 'QR #' . $row['id']), ($row['batch_label'] ?: '') . ' · ' . ucfirst((string)$row['status']), 'qr_code.php?q=' . rawurlencode((string)($row['qr_ref'] ?: $row['id'])));
+            $add('QR Code', (string)($row['qr_code'] ?: 'QR #' . $row['id']), trim((string)($row['label'] ?? '')) . ' · ' . ucfirst((string)$row['status']), 'qr_code.php?q=' . rawurlencode((string)($row['qr_code'] ?: $row['id'])));
         }
     } catch (Throwable $e) { /* table may not exist */ }
 
@@ -341,14 +342,14 @@ if ($isMerchant) {
 
     /* --- QR Codes (admin) --- */
     try {
-        $stmt = $db->prepare("SELECT q.id, q.qr_ref, q.batch_label, q.status, m.business_name
-            FROM qr_code_events q JOIN merchants m ON m.id=q.merchant_id WHERE (
-            LOWER(TRIM(COALESCE(q.qr_ref,''))) LIKE ? OR LOWER(TRIM(COALESCE(q.batch_label,''))) LIKE ? OR
+        $stmt = $db->prepare("SELECT q.id, q.qr_code, q.label, q.status, m.business_name
+            FROM merchant_qr_codes q JOIN merchants m ON m.id=q.merchant_id WHERE (
+            LOWER(TRIM(COALESCE(q.qr_code,''))) LIKE ? OR LOWER(TRIM(COALESCE(q.label,''))) LIKE ? OR
             LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(q.id AS CHAR) LIKE ?)
             ORDER BY q.created_at DESC LIMIT 10");
         $stmt->execute([$like, $like, $like, $like]);
         foreach ($stmt->fetchAll() as $row) {
-            $add('QR Code', (string)($row['qr_ref'] ?: 'QR #' . $row['id']), ($row['batch_label'] ?: '') . ' · ' . $row['business_name'], 'admin_qr_codes.php?q=' . rawurlencode((string)($row['qr_ref'] ?: $row['id'])));
+            $add('QR Code', (string)($row['qr_code'] ?: 'QR #' . $row['id']), trim((string)($row['label'] ?? '')) . ' · ' . $row['business_name'], 'admin_qr_codes.php?q=' . rawurlencode((string)($row['qr_code'] ?: $row['id'])));
         }
     } catch (Throwable $e) {}
 

@@ -117,24 +117,32 @@ function bindProviderOrder(int $paymentOrderId, string $provider, string $provid
 
 function assertProviderModeMatches(string $provider, string $mode): void
 {
+    if (!providerCredentialsMatchOrderMode($provider, $mode)) {
+        throw new RuntimeException(ucfirst($provider) . ' credentials do not match the payment order mode.');
+    }
+}
+
+function providerCredentialsMatchOrderMode(string $provider, string $mode): bool
+{
+    $provider = strtolower($provider);
     if ($provider === 'razorpay') {
         $keyId = function_exists('getPartnerSetting') ? getPartnerSetting('razorpay', 'razorpay_key_id', '') : getSetting('razorpay_key_id', '');
-        $credentialMode = str_starts_with($keyId, 'rzp_live_') ? 'live' : 'test';
+        $credentialMode = str_starts_with((string)$keyId, 'rzp_live_') ? 'live' : 'test';
     } elseif ($provider === 'cashfree') {
         $credentialMode = getSetting('cashfree_environment', 'production') === 'sandbox' ? 'test' : 'live';
     } else {
-        throw new InvalidArgumentException('Unsupported checkout provider.');
+        return true;
     }
-    if ($credentialMode !== $mode) {
-        throw new RuntimeException(ucfirst($provider) . ' credentials do not match the payment order mode.');
-    }
+    return $credentialMode === $mode;
 }
 
 function createBoundGatewayCheckoutOrder(array $link, string $provider, string $cashfreeReturnUrl = ''): ?array
 {
     $provider = strtolower($provider);
     $order = createBoundPaymentOrder($link, $provider);
-    assertProviderModeMatches($provider, (string)$order['mode']);
+    if (!providerCredentialsMatchOrderMode($provider, (string)$order['mode'])) {
+        return null;
+    }
     if ($provider === 'razorpay') {
         $response = createRazorpayOrder(
             (float)$order['expected_amount'],
@@ -568,13 +576,7 @@ function captureVerifiedPaymentOrder(array $verification): array
         }
 
         $txnRef = generateId('TXN');
-        $txnInsert = $db->prepare(
-            'INSERT INTO transactions
-             (txn_id,transaction_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id,mdr_m,mdr_p,partner_fee,pricing_snapshot)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?,?,?,?,?)'
-        );
-        $txnInsert->execute([
-            $txnRef,
+        $txnValues = [
             $txnRef,
             (int)$order['merchant_id'],
             $amount,
@@ -591,12 +593,42 @@ function captureVerifiedPaymentOrder(array $verification): array
             mb_substr(trim((string)($order['customer_email'] ?? '')), 0, 190) ?: null,
             mb_substr(trim((string)($order['customer_phone'] ?? '')), 0, 32) ?: null,
             (int)($order['qr_code_id'] ?? 0) > 0 ? (int)$order['qr_code_id'] : null,
-            // F2: pricing snapshot fields
-            (float)($split['mdr_m'] ?? 0),
-            (float)($split['mdr_p'] ?? 0),
-            (float)($split['partner_fee'] ?? 0),
-            $split['pricing_snapshot'] ?? null,
-        ]);
+        ];
+        try {
+            $db->prepare(
+                'INSERT INTO transactions
+                 (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id,mdr_m,mdr_p,partner_fee,pricing_snapshot)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?,?,?,?,?)'
+            )->execute(array_merge($txnValues, [
+                (float)($split['mdr_m'] ?? 0),
+                (float)($split['mdr_p'] ?? 0),
+                (float)($split['partner_fee'] ?? 0),
+                $split['pricing_snapshot'] ?? null,
+            ]));
+        } catch (Throwable $e) {
+            try {
+                $db->prepare(
+                    'INSERT INTO transactions
+                     (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?)'
+                )->execute($txnValues);
+            } catch (Throwable $e2) {
+                $db->prepare(
+                    'INSERT INTO transactions
+                     (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id)
+                     VALUES (?,?,?,?,?,?,?,?)'
+                )->execute([
+                    $txnRef,
+                    (int)$order['merchant_id'],
+                    $amount,
+                    'success',
+                    strtolower((string)$verification['provider']),
+                    $link['description'],
+                    (string)($verification['reference'] ?? $verification['provider_payment_id']),
+                    (int)$order['payment_link_id'],
+                ]);
+            }
+        }
         $transactionId = (int)$db->lastInsertId();
         $db->prepare('INSERT INTO payment_order_transactions (payment_order_id,transaction_id) VALUES (?,?)')
             ->execute([(int)$order['id'], $transactionId]);

@@ -13,6 +13,13 @@ $pageTitle = 'Digital Fintech Payment Solutions';
 $pageDescription = 'UniWeb — best payment gateway for Indian merchants. UPI, QR code payments, payment links, cards, net banking, API, KYC and settlements. Start free in Test Mode.';
 $pageKeywords = 'payment gateway India, best payment gateway, UPI payment gateway, payment aggregator, QR payment India, fintech platform, merchant onboarding India';
 $canonicalUrl = APP_URL . '/';
+if (!is_file(__DIR__ . '/header.php')) {
+    http_response_code(503);
+    header('Retry-After: 5');
+    header('Content-Type: text/plain; charset=utf-8');
+    echo 'UniWeb is updating. Refresh in a few seconds.';
+    exit;
+}
 require_once __DIR__ . '/header.php';
 ?>
 

@@ -702,11 +702,11 @@ function recordMandateDebitPayment(array $mandate, int $debitId, float $amount, 
     try {
         $db->prepare(
             'INSERT INTO transactions
-             (txn_id, transaction_id, merchant_id, amount, status, payment_method, description, utr, is_test, collection_mode, wallet_credited,
+             (txn_id, merchant_id, amount, status, payment_method, description, utr, is_test, collection_mode, wallet_credited,
               platform_fee, split_amount, mdr_m, mdr_p, partner_fee, pricing_snapshot)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
         )->execute([
-            $txnRef, $txnRef, $merchantId, $amount, 'success', 'upi_autopay',
+            $txnRef, $merchantId, $amount, 'success', 'upi_autopay',
             'Recurring debit for ' . ($mandate['mandate_ref'] ?? ''),
             $gatewayRef ?? '', 0, 'upi_autopay', 0,
             $platformFee, $merchantNet, $mdrM, $mdrP, $partnerFee, $pricingSnapshot,
@@ -717,10 +717,10 @@ function recordMandateDebitPayment(array $mandate, int $debitId, float $amount, 
         try {
             $db->prepare(
                 'INSERT INTO transactions
-                 (txn_id, transaction_id, merchant_id, amount, status, payment_method, description, is_test, collection_mode, wallet_credited, platform_fee, split_amount)
-                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
+                 (txn_id, merchant_id, amount, status, payment_method, description, is_test, collection_mode, wallet_credited, platform_fee, split_amount)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?)'
             )->execute([
-                $txnRef, $txnRef, $merchantId, $amount, 'success', 'upi_autopay',
+                $txnRef, $merchantId, $amount, 'success', 'upi_autopay',
                 'Recurring debit for ' . ($mandate['mandate_ref'] ?? ''),
                 0, 'upi_autopay', 0, $platformFee, $merchantNet,
             ]);

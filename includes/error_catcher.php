@@ -67,9 +67,10 @@ function logPlatformError(string $level, string $message, array $context = []): 
             return;
         }
         [$actorType, $actorId] = errorCatcherActor();
+        $autoResolved = str_starts_with($msg, 'Watchdog probe:') ? 1 : 0;
         $stmt = getDB()->prepare('INSERT INTO platform_errors
-            (level, message, file, line, url, request_method, actor_type, actor_id, trace, context_json, ip)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+            (level, message, file, line, url, request_method, actor_type, actor_id, trace, context_json, ip, is_resolved)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
         $stmt->execute([
             $level,
             $msg,
@@ -82,6 +83,7 @@ function logPlatformError(string $level, string $message, array $context = []): 
             $trace !== '' ? mb_substr($trace, 0, 65000) : null,
             $context ? json_encode($context, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) : null,
             substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45) ?: null,
+            $autoResolved,
         ]);
         prunePlatformErrors(800);
     } catch (Throwable $e) {
@@ -129,7 +131,8 @@ function countUnresolvedPlatformErrors(): int
         return (int)getDB()->query("SELECT COUNT(*) FROM platform_errors
             WHERE is_resolved = 0
               AND level != 'watchdog'
-              AND message NOT LIKE 'Cron auth failed%'")->fetchColumn();
+              AND message NOT LIKE 'Cron auth failed%'
+              AND message NOT LIKE 'Watchdog probe:%'")->fetchColumn();
     } catch (Throwable $e) {
         return 0;
     }
