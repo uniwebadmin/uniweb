@@ -168,12 +168,12 @@ require_once __DIR__ . '/header.php';
     </form>
 
     <div class="mt-8 bg-gray-900/60 border border-gray-800 rounded-xl p-6">
-        <h2 class="text-lg font-bold text-white mb-2">Platform domain (when a deal needs it)</h2>
+        <h2 class="text-lg font-bold text-white mb-2">Your domain + this checkout look</h2>
         <ol class="text-sm text-gray-400 space-y-2 list-decimal pl-5">
-            <li>Add the domain in Hostinger and turn on SSL.</li>
-            <li>Point it at this same UniWeb site — not a second app.</li>
-            <li>Set the live site URL in server config (never commit keys or that file).</li>
-            <li>Use this page for merchant logo and colours. UniWeb is not selling a separate white-label product from this screen.</li>
+            <li>Add your domain in Hostinger and turn on SSL (same UniWeb site — not a second app).</li>
+            <li>Point DNS at this site; set the live site URL in server config (never commit keys).</li>
+            <li>Use this page for your logo, colours, and checkout titles.</li>
+            <li>UniWeb does not sell a white-label program. Partner banks/PGs are separate from merchant branding.</li>
         </ol>
     </div>
 

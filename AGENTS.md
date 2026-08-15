@@ -109,9 +109,9 @@ Work **top-down**. Owner verifies each phase on **live** before the next. Phases
 | **7** | Public website copy | Later |
 | **8** | Design polish (mobile tables, empty states) | Later |
 | **9** | Market comparison | Reference — no parity build before 0–2 |
-| **10** | White-label checklist | Only if a real deal needs an item, after 0–2 |
+| **10** | White-label checklist | **Reference only** — UniWeb has **no white-label product**. Merchant = own domain + checkout customize only. Partner program (bank/PG keys) stays. |
 | **11** | Live Route/Split | Only after keys + commercial + Owner says start |
-| **Never** | NBFC product, customer PPI wallet | **Removed from product** (pages deleted 2026-08-15). Do not rebuild. Merchant `wallet.php` = settlement only. |
+| **Never** | NBFC, customer PPI wallet, white-label product | NBFC **removed** 2026-08-15. No PPI wallet. No white-label sales/shell. Merchant `wallet.php` = settlement only. Domain + checkout customize only. |
 
 Never drop production DB. Migrations = **Apply pending migrations** button, not a Hostinger cron.
 
@@ -228,4 +228,4 @@ Owner's explicit standing instruction: continue autonomously through phases with
 
 ## Latest Status (2026-08-15)
 
-Owner delivered ordered Deep Audit PDF. Phases 0–10 are in repo. Phase 11 is **parked** (`PHASE11_ROUTE.md`): Route/Split stays scaffold (no SDK, no auto-live). **NBFC product pages deleted** (not just hidden); **no customer PPI wallet**. Do **not** start live Route unless the Owner says start + keys + commercial. **Hard rule:** work existing pages only; no new feature sprawl (see `.cursor/rules/owner-hard-nbfc-ppi-existing-only.mdc`).
+Owner delivered ordered Deep Audit PDF. Phases 0–10 are in repo. Phase 11 is **parked** (`PHASE11_ROUTE.md`): Route/Split stays scaffold (no SDK, no auto-live). **NBFC product pages deleted**; **no customer PPI wallet**; **no white-label product** (partner program with banks/PGs = yes; merchant branding = domain + checkout customize only). Do **not** start live Route unless the Owner says start + keys + commercial. **Hard rule:** existing pages only (see `.cursor/rules/owner-hard-nbfc-ppi-existing-only.mdc`).

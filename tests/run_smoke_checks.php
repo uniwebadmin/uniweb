@@ -591,14 +591,15 @@ $assert(is_file($root . '/WHITE_LABEL_CHECKLIST.md'), 'p10_white_label_checklist
 foreach (['WL-01', 'WL-02', 'WL-03', 'WL-04', 'WL-05', 'WL-12'] as $wlId) {
     $assert(str_contains($wlMd, $wlId), 'p10_checklist_has_' . strtolower($wlId));
 }
-$assert(str_contains($wlMd, 'Not a command to sell') || str_contains($wlMd, 'Do **not** sell white-label'), 'p10_not_a_product_launch');
+$assert(str_contains($wlMd, 'no white-label program') || str_contains($wlMd, 'Not a command to sell') || str_contains($wlMd, 'Do **not** sell white-label'), 'p10_not_a_product_launch');
 $assert(str_contains((string)file_get_contents($root . '/DEEP_AUDIT_ORDERED.md'), 'WHITE_LABEL_CHECKLIST.md'), 'p10_audit_points_at_checklist');
 $ccLib = (string)file_get_contents($root . '/includes/checkout_customize.php');
 $assert(str_contains($ccLib, 'hide_powered_by') && str_contains($ccLib, 'function checkoutHidePoweredBy'), 'p10_hide_powered_by_helper');
 $assert(str_contains($ccLib, 'NOT NULL DEFAULT 0'), 'p10_hide_powered_by_default_off');
 $assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'checkoutHidePoweredBy'), 'p10_checkout_respects_hide_flag');
 $assert(str_contains((string)file_get_contents($root . '/checkout_customize.php'), 'Hide “Secured by UniWeb”') || str_contains((string)file_get_contents($root . '/checkout_customize.php'), 'Hide "Secured by UniWeb"') || str_contains((string)file_get_contents($root . '/checkout_customize.php'), 'hide_powered_by'), 'p10_customize_has_hide_checkbox');
-$assert(str_contains((string)file_get_contents($root . '/checkout_customize.php'), 'Platform domain'), 'p10_domain_guide_on_customize');
+$assert(str_contains((string)file_get_contents($root . '/checkout_customize.php'), 'Your domain + this checkout look') || str_contains((string)file_get_contents($root . '/checkout_customize.php'), 'Platform domain'), 'p10_domain_guide_on_customize');
+$assert(str_contains((string)file_get_contents($root . '/.cursor/rules/owner-hard-nbfc-ppi-existing-only.mdc'), 'White-label program') && str_contains((string)file_get_contents($root . '/.cursor/rules/owner-hard-nbfc-ppi-existing-only.mdc'), 'Partner program = yes'), 'owner_hard_rule_no_whitelabel_product');
 $apiSet = (string)file_get_contents($root . '/api_settings.php');
 $assert(str_contains($apiSet, 'X-UniWeb-Signature') && str_contains($apiSet, 'hash_hmac') && str_contains($apiSet, 'Copy snippet'), 'p10_webhook_copy_block');
 $staffNavSrc = (string)file_get_contents($root . '/includes/staff.php');
@@ -606,6 +607,7 @@ $assert(str_contains($staffNavSrc, 'Do not add gateway_settings.php'), 'p10_staf
 $assert(str_contains((string)file_get_contents($root . '/includes/baas.php'), 'function isMerchantTest') && str_contains((string)file_get_contents($root . '/includes/settlement_engine.php'), 'isSettlementSandbox'), 'p10_test_live_isolation_helpers');
 $homeSrc = (string)file_get_contents($root . '/index.php');
 $assert(!str_contains($homeSrc, 'White-label your gateway') && !str_contains($homeSrc, 'Buy white-label'), 'p10_homepage_does_not_sell_wl');
+$assert(!str_contains((string)file_get_contents($root . '/roadmap.php'), 'white-label options'), 'p10_roadmap_no_wl_product_claim');
 
 $finIso = (string)file_get_contents($root . '/includes/financial_integrity.php');
 $assert(str_contains($finIso, 'function healTestLiveIsolationFlags') && !str_contains($finIso, 'live_merchant_test_txn'), 'p10_isolation_does_not_flag_old_test_on_live');

@@ -1,5 +1,5 @@
 ---
-description: Owner hard rules — no NBFC/PPI; existing pages only; no new feature sprawl
+description: Owner hard rules — no NBFC/PPI; no white-label product; existing pages only
 alwaysApply: true
 ---
 
@@ -11,13 +11,24 @@ Owner communication stays simple Hindi/Urdu; product UI English. Local laptop on
 
 - **NBFC product** — no lending, no NBFC menus, no `merchant_nbfc*`, no `admin_nbfc`, no `includes/nbfc.php`. Do not re-add.
 - **Customer PPI wallet** — no `customer_wallet.php`, no consumer prepaid balance. Merchant `wallet.php` = settlement balance only (keep).
+- **White-label program / product** — UniWeb does **not** sell white-label (no reseller portal, no `*_v2` branded app, no “buy white-label” sales). Do not build or market one.
+
+## Partner program vs white-label (hard)
+
+- **Partner program = yes.** UniWeb works **with** bank / PG / KYC partners (keys, registry, forwards). Keep and fix that existing flow.
+- **White-label program = no.** Partners are not sold a full rebranded UniWeb.
+- **Merchant branding limit (only this):**
+  1. Merchant may **add / use their own domain** (same site — Hostinger / existing domain flow; not a second app).
+  2. Merchant may **customize checkout** (`checkout_customize.php` — logo, colours, titles).
+- Nothing beyond those two for “looks like my brand.” Do not invent full portal white-label.
 
 ## Existing-first (hard)
 
 - **Do not invent new features / new product pages** for “nice to have” or market parity.
 - Work **only on pages and features that already exist** (fix, wire, clean, search, decrypt, nav).
 - **Create a new page/file only if** the Owner-approved gap has **no existing page** and the work cannot be done by editing an existing one.
-- PDF audit points = fix existing wiring/bugs/copy/search — not a licence to add Route, orchestrator, POS, or second apps.
+- PDF audit points = fix existing wiring/bugs/copy/search — not a licence to add Route, orchestrator, POS, white-label shell, or second apps.
+- Phase 10 `WHITE_LABEL_CHECKLIST.md` = **reference only** (deal ops), never a product launch.
 
 ## Still parked unless Owner says start
 

@@ -1,6 +1,8 @@
-# UniWeb — white-label checklist (Phase 10 reference)
+# UniWeb — branding / deal ops checklist (Phase 10 reference)
 
-**Status:** awareness only. Do **not** sell white-label as UniWeb’s main product. Implement a row **only** if the Owner’s own deal needs that item — and only after Phase 0–2.
+**Hard rule (Owner 2026-08-15):** UniWeb has **no white-label program**. We **do** run a **partner program** (work with bank / PG / KYC partners). Merchants only: **own domain** + **checkout customize**. Do not sell or build a full white-label portal.
+
+**Status:** awareness / deal-ops reference only. Implement a row **only** if the Owner’s own deal needs that item — and only after Phase 0–2.
 
 **Audit tickets:** WL-01 … WL-12 in `DEEP_AUDIT_ORDERED.md`  
 **No public sales page.** There is no “buy white-label” CTA on the homepage.
@@ -38,7 +40,7 @@
 2. Point it at this same UniWeb site (not a second app).
 3. Set `APP_URL` in live `config.php` to `https://that-domain` (never commit this file).
 4. Merchant still sets **their** logo/colours on Checkout Customize.
-5. Do **not** build per-merchant custom domains or a `*_v2` white-label app unless the Owner names a real deal.
+5. Do **not** build a `*_v2` white-label app or reseller portal. Merchant branding stays: domain (same site) + Checkout Customize only.
 
 ## WL-02 Powered-by
 
