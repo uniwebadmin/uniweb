@@ -88,7 +88,43 @@ php -S localhost:8000
 - The captured session must record the user's IP address and the exact date/time.
 - Do not build file-upload-only Video KYC.
 
-## Remaining Work / Launch Plan
+## Deep Audit ordered plan (standing — 2026-08-15)
+
+**Owner file:** `UniWeb_Deep_Audit_Ordered_First_Things_First.pdf` (Downloads, generated 2026-08-15 03:54 UTC).  
+**Full text in repo:** `DEEP_AUDIT_ORDERED.md` (every ticket: Problem → Expectation → Solution).  
+**Workspace:** `uniweb1` only. Local laptop. No cloud agents. No live Route SDK. No `*_v2` apps.
+
+Work **top-down**. Owner verifies each phase on **live** before the next. Phases 9–10 are reference only — they do **not** jump ahead of 0–2.
+
+| Phase | What | Do now? |
+|-------|------|---------|
+| **0** | DB, migrations, schema, snag/error capture | **FIRST** — remaining: P0-02 live smoke, P0-04 live `config.php` includes |
+| **1** | Single money/keys plane (Partner Registry only) | After 0 green |
+| **2** | Checkout, QR, methods, payment links | After 1; code started (P2-01/02 in repo) |
+| **3** | KYC & onboarding (video = live camera + IP + time) | After 2 |
+| **4** | Menus A–Z; hide NBFC/PPI only | After 3 |
+| **5** | Ops: Watchdog, cron, queue, notification/AML dedup | 10-min + backup crons already on Hostinger |
+| **6** | Global search coverage | Later |
+| **7** | Public website copy | Later |
+| **8** | Design polish (mobile tables, empty states) | Later |
+| **9** | Market comparison | Reference — no parity build before 0–2 |
+| **10** | White-label checklist | Only if a real deal needs an item, after 0–2 |
+| **11** | Live Route/Split | Only after keys + commercial + Owner says start |
+| **Never** | NBFC product, customer PPI wallet | Hidden; do not build |
+
+Never drop production DB. Migrations = **Apply pending migrations** button, not a Hostinger cron.
+
+**Hostinger crons already created (do not duplicate):**  
+1) `*/10 * * * *` → `cron_auto_audit.php` (Watchdog + KYC + settlement + mandates + forward inside).  
+2) Backup → `cron_db_backup.php`.  
+Backup notify email: `startelecom620@gmail.com`. Full website restore = Hostinger **Files → Backups** (Gmail cannot hold the whole site). SMTP must be set for backup mail to arrive.
+
+**Ticket IDs (see DEEP_AUDIT_ORDERED.md for full 1/2/3):**  
+P0-01…P0-05 · P1-01…P1-03 · P2-01…P2-03 · P3-01…P3-04 · P4-A01/A02/A03 · P4-M01/M02 · P4-SM01 · P4-ST01 · P4-TM01 · P4-C01 · P4-W01 · P5-01…P5-04 · P6-01/02 · P7-01…P7-04 · P8-01/02 · P9-01 · WL-01…WL-12 · P11-01/P11-02.
+
+---
+
+## Remaining Work / Launch Plan (older Jul 2026 notes — superseded by Deep Audit order above)
 
 Summary from `LAUNCH_MASTER_REVIEW.md`, `FEATURE_CHECKLIST.md`, and `MULTI_GATEWAY_FORWARD_ANALYSIS.md` (Jul 26 2026):
 
@@ -164,4 +200,10 @@ All commits pushed to main: `0a689b8` (Phase 1), `514ded4` (Phase 2+4), `a1a9757
 
 Owner's explicit standing instruction: continue autonomously through phases without asking permission each time.
 
-- **Session continuity**: if a new agent picks up this repo (e.g. after a "Permission denied / model unavailable" error forces a session switch), check Cascade memory tagged `session_continuity` + `qr_code` for full context, in addition to this file.
+- **Session continuity**: if a new agent picks up this repo, read `AGENTS.md` Deep Audit section + `DEEP_AUDIT_ORDERED.md` first (order: Phase 0 → 1 → 2…). Also check Cascade memory tagged `session_continuity` + `qr_code`.
+
+## Latest Status (2026-08-15)
+
+Owner delivered ordered Deep Audit PDF. Saved in `DEEP_AUDIT_ORDERED.md` + this file.  
+Live Hostinger already has 10-min auto-audit cron + backup cron. Owner confirmed Error Log probe. Backup dump works without mysqldump; email needs SMTP.  
+Do not add extra settlement/KYC/migration crons. Next code: finish Phase 0 leftovers (schema/commercial smoke, live config includes), then Phase 1 keys plane.
