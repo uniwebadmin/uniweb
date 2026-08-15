@@ -73,6 +73,55 @@ function merchantLiveGateSatisfied(int $merchantId): bool
     return !empty(merchantLiveGateReport($merchantId)['ok']);
 }
 
+function merchantLiveGateCheckLabels(): array
+{
+    return [
+        'merchant' => 'Merchant record',
+        'schema_ready' => 'Database ready',
+        'not_demo' => 'Not a demo account',
+        'kyc_verified' => 'KYC verification',
+        'entity_documents' => 'Required KYC documents',
+        'bank_verified' => 'Bank account verified',
+        'website_verified' => 'Website reviewed',
+        'video_verified' => 'Video KYC verified',
+        'agreement_accepted' => 'Merchant agreement signed',
+        'merchant_active' => 'Merchant account active',
+    ];
+}
+
+function merchantLiveGateMissingLabels(array $report): array
+{
+    $labels = merchantLiveGateCheckLabels();
+    $out = [];
+    foreach ($report['missing'] ?? [] as $key) {
+        $out[] = $labels[(string)$key] ?? str_replace('_', ' ', (string)$key);
+    }
+    return $out;
+}
+
+function merchantLiveGateOpsLinks(int $merchantId, array $report): array
+{
+    $missing = $report['missing'] ?? [];
+    $links = [];
+    if (in_array('entity_documents', $missing, true) || in_array('kyc_verified', $missing, true)) {
+        $links[] = ['href' => 'admin_kyc.php', 'label' => 'Complete KYC docs'];
+    }
+    if (in_array('bank_verified', $missing, true)) {
+        $links[] = ['href' => 'admin_merchant_banks.php?id=' . $merchantId, 'label' => 'Complete bank'];
+    }
+    if (in_array('website_verified', $missing, true)) {
+        $links[] = ['href' => 'admin_website_reviews.php?q=' . urlencode((string)$merchantId), 'label' => 'Complete website'];
+    }
+    if (in_array('agreement_accepted', $missing, true)) {
+        $links[] = ['href' => 'admin_edit_merchant.php?id=' . $merchantId, 'label' => 'Complete agreement'];
+    }
+    if (in_array('video_verified', $missing, true)) {
+        $links[] = ['href' => 'admin_kyc.php#video-kyc-queue', 'label' => 'Complete Video KYC'];
+    }
+    $links[] = ['href' => 'admin_edit_merchant.php?id=' . $merchantId, 'label' => 'Merchant profile'];
+    return $links;
+}
+
 function submitApprovalRequest(
     string $actionType,
     ?int $merchantId,
@@ -236,7 +285,10 @@ function applyApprovedControlAction(array $request): void
         case 'merchant_live_enable':
             $gate = merchantLiveGateReport($merchantId);
             if (empty($gate['ok'])) {
-                throw new RuntimeException('Live gates are incomplete: ' . implode(', ', $gate['missing']));
+                $missing = function_exists('merchantLiveGateMissingLabels')
+                    ? merchantLiveGateMissingLabels($gate)
+                    : ($gate['missing'] ?? ['unknown']);
+                throw new RuntimeException('Live gates are incomplete: ' . implode(', ', $missing));
             }
             $db->prepare("UPDATE merchants SET account_mode='live',live_enabled_at=NOW(),live_enabled_by=? WHERE id=?")
                 ->execute([currentControlActor()['id'], $merchantId]);

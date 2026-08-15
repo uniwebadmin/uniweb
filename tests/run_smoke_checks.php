@@ -258,6 +258,21 @@ $assert(str_contains($onboardSec, "'verified', 'approved'"), 'live_gate_accepts_
 $assert(str_contains($onboardSec, 'function verifyMerchantKycNow'), 'kyc_verify_now_helper');
 $assert(str_contains($onboardSec, 'super_solo_ops') || str_contains($onboardSec, 'isSuperAdmin'), 'kyc_solo_ops_guard');
 
+// P3-01 / P3-02 / P3-03 / P3-04 — reject phrases, video row-id, upload guard, live gate
+$assert(function_exists('kycRejectionDisplay') && function_exists('kycNormalizeRejectReason'), 'p3_reject_helpers_loaded');
+$assert(kycRejectionDisplay('h') === kycNormalizeRejectReason('h')['reason'], 'p3_admin_merchant_same_reject_text');
+$assert(strlen(kycRejectionDisplay('j')) >= 10 && !str_contains(kycRejectionDisplay('k'), 'Legacy'), 'p3_letter_codes_become_human_phrases');
+$assert(!str_contains($kycPage, 'Legacy reason code'), 'p3_merchant_no_letter_code_copy');
+$assert(str_contains($kyc, 'name="doc_id"') && str_contains($kyc, 'Video KYC verified for this recording'), 'p3_video_verify_uses_row_id');
+$assert(str_contains($kyc, 'Could not verify that Video KYC recording'), 'p3_video_verify_clear_flash');
+$mediaP3 = (string)file_get_contents($root . '/kyc_media_receiver.php');
+$assert(str_contains($mediaP3, '$registered = true') && str_contains($mediaP3, 'if (!empty($registered))'), 'p3_video_upload_guards_post_save');
+$assert(str_contains($kycPage, 'KYC upload notify failed'), 'p3_doc_upload_guards_notify');
+$assert(str_contains($onboardSec, 'function merchantLiveGateMissingLabels'), 'p3_live_gate_human_labels');
+$assert(str_contains($onboardSec, 'Complete bank') && str_contains($onboardSec, 'Complete website') && str_contains($onboardSec, 'Complete agreement'), 'p3_live_gate_ops_complete_links');
+$assert(str_contains($kyc, 'merchantLiveGateOpsLinks'), 'p3_live_gate_renders_ops_links');
+$assert(str_contains($videoKycPage, 'Live camera recording') && str_contains($videoKycPage, 'ip_address'), 'p3_video_kyc_live_camera_ip');
+
 $adminDash = (string)file_get_contents($root . '/admin_dashboard.php');
 $assert(!str_contains($adminDash, 'Verify to enable Live mode'), 'dashboard_no_misleading_verify_live_copy');
 $assert(str_contains($adminDash, 'Live mode is a separate activation gate'), 'dashboard_live_gate_copy');

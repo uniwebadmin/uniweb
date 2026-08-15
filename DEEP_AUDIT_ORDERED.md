@@ -312,7 +312,11 @@ Code landed on `main` around this audit (Owner still verifies live):
 | P2-01 | Done in repo: amount always shown; methods soft-fail to UPI; keys missing = soft banner | Open one live checkout link |
 | P2-02 | Done in repo: QR PNG flush + “UPI ID missing” image | Open QR / checkout QR on live |
 | P2-03 | Done in repo: create → public checkout URL + Copy uses real URL | Create link → Copy → Open |
+| P3-01 | Done in repo: h/j/k → human phrases; admin + merchant same text | Reject one doc on live, merchant sees same sentence |
+| P3-02 | Done in repo: Video verify/reject by recording row; clear flash | Admin KYC → Video queue → Verify / Reject |
+| P3-03 | Done in repo: upload success stays success if later notify fails | Merchant KYC upload / live camera video |
+| P3-04 | Done in repo: Live gate lists docs/bank/website/agreement; ops complete links | Admin KYC → Live activation gate |
 | P5-01 | Hostinger: 10-min auto-audit + backup cron exist | Do not add extra settlement/KYC/migration crons |
 | Backup email | Default `startelecom620@gmail.com`; PHP dump if no mysqldump | SMTP in Gateway Settings; Hostinger Files → Backups for **full site** (Gmail cannot hold whole website) |
 
-Next agent: Owner verifies Phase 2 on **live** (checkout + QR + Copy link). Then Phase 3 KYC. Do not start Phase 3 until that live click-check.
+Next agent: Owner verifies Phase 3 on **live** (reject reason text, Video KYC verify, upload message, Live gate). Then Phase 4 menus. Do not start Phase 4 until that live click-check.

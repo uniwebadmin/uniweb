@@ -7,6 +7,9 @@
  * (defaults to kyc.php).
  */
 $vkwRedirectTo = $vkwRedirectTo ?? 'kyc.php';
+if (!function_exists('kycRejectionDisplay') && is_file(__DIR__ . '/kyc_entity.php')) {
+    require_once __DIR__ . '/kyc_entity.php';
+}
 
 $vkwStatus = (string)($merchant['video_kyc_status'] ?? 'pending');
 $vkwRejectionReason = '';

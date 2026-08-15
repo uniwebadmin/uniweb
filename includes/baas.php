@@ -204,7 +204,10 @@ function activateMerchantLive(int $merchantId): void
 {
     $gate = function_exists('merchantLiveGateReport') ? merchantLiveGateReport($merchantId) : ['ok' => false, 'missing' => ['live_gate']];
     if (empty($gate['ok'])) {
-        throw new RuntimeException('Live activation blocked: ' . implode(', ', $gate['missing'] ?? ['unknown']));
+        $missing = function_exists('merchantLiveGateMissingLabels')
+            ? merchantLiveGateMissingLabels($gate)
+            : ($gate['missing'] ?? ['unknown']);
+        throw new RuntimeException('Live activation blocked: ' . implode(', ', $missing));
     }
     getDB()->prepare("UPDATE merchants SET account_mode='live',live_enabled_at=NOW() WHERE id=?")->execute([$merchantId]);
     $m = getDB()->prepare('SELECT collection_mode FROM merchants WHERE id=?');

@@ -9,18 +9,11 @@ require_once __DIR__ . '/includes/kyc_verify.php';
 require_once __DIR__ . '/includes/onboarding_state_machine.php';
 require_once __DIR__ . '/includes/partner_forward_queue.php';
 require_once __DIR__ . '/includes/partner_payload.php';
+if (!function_exists('kycRejectionDisplay') && is_file(__DIR__ . '/includes/kyc_entity.php')) {
+    require_once __DIR__ . '/includes/kyc_entity.php';
+}
 $merchant = getMerchant();
 $db = getDB();
-
-// 2.11: Helper to display rejection reason — falls back for legacy single-letter codes
-if (!function_exists('kycRejectionDisplay')) {
-    function kycRejectionDisplay(string $reason): string {
-        $trimmed = trim($reason);
-        if ($trimmed === '') return 'Please re-upload a clearer copy.';
-        if (strlen($trimmed) < 10) return 'Document rejected — please re-upload a clearer copy. (Legacy reason code: ' . $trimmed . ')';
-        return $trimmed;
-    }
-}
 
 // D6: Get onboarding state and forward queue status for merchant visibility
 $onboardingState = getMerchantOnboardingState((int)$merchant['id']);
@@ -62,7 +55,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $db->prepare("UPDATE merchants SET kyc_status='submitted',account_mode='test' WHERE id=?")->execute([$merchant['id']]);
                 } catch (Throwable $e2) { /* keep upload success even if status columns lag */ }
             }
-            notifyAdminKycDocumentUploaded((int)$merchant['id'], $docType);
+            try {
+                notifyAdminKycDocumentUploaded((int)$merchant['id'], $docType);
+            } catch (Throwable $e) {
+                logPlatformError('warning', 'KYC upload notify failed: ' . $e->getMessage(), ['merchant_id' => (int)$merchant['id']]);
+            }
             $msg = ($saved['scan_status'] ?? 'pending') === 'clean'
                 ? 'Document uploaded and security-scanned successfully.'
                 : 'Document uploaded. Security scan and compliance review are pending.';

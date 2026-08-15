@@ -203,3 +203,80 @@ if (!function_exists('kycStepOneHint')) {
         return implode(', ', array_values($verifyFields));
     }
 }
+
+if (!function_exists('kycLegacyRejectCodeMap')) {
+    /** Old single-letter codes stored in rejection_reason (h / j / k). */
+    function kycLegacyRejectCodeMap(): array
+    {
+        return [
+            'h' => 'Photo is too dark or a handwritten copy is not accepted. Please upload a clear original.',
+            'j' => 'Image quality is too low. Please upload a clearer scan or photo.',
+            'k' => 'Document is incomplete or the wrong type. Please upload the correct document.',
+        ];
+    }
+}
+
+if (!function_exists('kycRejectReasonPresets')) {
+    function kycRejectReasonPresets(string $kind = 'document'): array
+    {
+        if ($kind === 'video') {
+            return [
+                'Video too blurry or dark',
+                'Face not clearly visible',
+                'Video appears manipulated or edited',
+                'Audio inaudible or missing',
+            ];
+        }
+        return [
+            'Blurry or unreadable document',
+            'Name mismatch on document',
+            'Expired ID document',
+            'Incomplete document — missing pages',
+            'Wrong document type uploaded',
+        ];
+    }
+}
+
+if (!function_exists('kycRejectionDisplay')) {
+    /** Same human phrase for admin and merchant. Never show raw h/j/k codes. */
+    function kycRejectionDisplay(string $reason): string
+    {
+        $trimmed = trim($reason);
+        if ($trimmed === '') {
+            return 'Please re-upload a clearer copy.';
+        }
+        $key = strtolower($trimmed);
+        $map = kycLegacyRejectCodeMap();
+        if (isset($map[$key])) {
+            return $map[$key];
+        }
+        if (strlen($trimmed) < 10) {
+            return 'Please re-upload a clearer copy.';
+        }
+        return $trimmed;
+    }
+}
+
+if (!function_exists('kycNormalizeRejectReason')) {
+    /**
+     * Expand legacy codes, require a real sentence, return the phrase that will be stored
+     * and shown to the merchant.
+     * @return array{ok:bool,reason:string,error:string}
+     */
+    function kycNormalizeRejectReason(string $reason): array
+    {
+        $trimmed = trim($reason);
+        if (in_array($trimmed, ['', 'Compliance review', 'Document content reviewed'], true)) {
+            return ['ok' => false, 'reason' => '', 'error' => 'Rejection reason must be at least 10 characters. Please provide a clear explanation for the merchant.'];
+        }
+        $key = strtolower($trimmed);
+        $map = kycLegacyRejectCodeMap();
+        if (isset($map[$key])) {
+            $trimmed = $map[$key];
+        }
+        if (strlen($trimmed) < 10) {
+            return ['ok' => false, 'reason' => '', 'error' => 'Rejection reason must be at least 10 characters. Please provide a clear explanation for the merchant.'];
+        }
+        return ['ok' => true, 'reason' => $trimmed, 'error' => ''];
+    }
+}

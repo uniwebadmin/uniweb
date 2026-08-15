@@ -98,6 +98,7 @@ if (!$output) {
 
 $size = 0;
 $parts = [];
+$registered = false;
 try {
     for ($i = 0; $i < $total; $i++) {
         $part = $prefix . str_pad((string)$i, 4, '0', STR_PAD_LEFT) . '.part';
@@ -144,16 +145,31 @@ try {
          (merchant_id,doc_type,file_name,file_path,storage_key,sha256,mime_type,file_size,ip_address,client_ip,user_agent,lat,lng,geo_accuracy_m,geo_source,recorded_at,scan_status,retention_until)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(CURDATE(),INTERVAL 8 YEAR))'
     )->execute([$merchantId, 'video_kyc', $fileName, $target, $merchantId . '/' . $fileName, $sha256, $mime, $size, $clientIp, $clientIp, $userAgent, $geoLat, $geoLng, $geoAcc, $geoSrc, $recordedAt, $scanStatus]);
+    $registered = true;
     try {
         getDB()->prepare("UPDATE merchants SET video_kyc_status='submitted',kyc_status='submitted',onboarding_state='submitted',onboarding_submitted_at=COALESCE(onboarding_submitted_at,NOW()),account_mode='test' WHERE id=?")->execute([$merchantId]);
     } catch (Throwable $e) {
         logPlatformError('warning', 'Video KYC status update failed: ' . $e->getMessage(), ['merchant_id' => $merchantId]);
+        try {
+            getDB()->prepare("UPDATE merchants SET video_kyc_status='submitted' WHERE id=?")->execute([$merchantId]);
+        } catch (Throwable $e2) { /* keep upload success */ }
     }
-    foreach ($parts as $part) @unlink($part);
-    notifyAdminKycDocumentUploaded($merchantId, 'video_kyc');
+    foreach ($parts as $part) {
+        @unlink($part);
+    }
+    try {
+        notifyAdminKycDocumentUploaded($merchantId, 'video_kyc');
+    } catch (Throwable $e) {
+        logPlatformError('warning', 'Video KYC upload notify failed: ' . $e->getMessage(), ['merchant_id' => $merchantId]);
+    }
     flash('success', 'Video KYC uploaded successfully. Review usually completes within 48 hours.');
     echo json_encode(['ok' => true]);
 } catch (Throwable $e) {
+    if (!empty($registered)) {
+        flash('success', 'Video KYC uploaded successfully. Review usually completes within 48 hours.');
+        echo json_encode(['ok' => true]);
+        exit;
+    }
     if (is_resource($output)) fclose($output);
     @unlink($target);
     foreach (glob($prefix . '*.part') ?: [] as $part) @unlink($part);

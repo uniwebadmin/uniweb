@@ -7,6 +7,9 @@ requireStaffAccess(['super', 'ceo', 'regional_manager', 'area_sales_manager', 't
 ensureKycSchema();
 require_once __DIR__ . '/includes/auto_kyc.php';
 require_once __DIR__ . '/includes/onboarding_state_machine.php';
+if (!function_exists('kycRejectReasonPresets') && is_file(__DIR__ . '/includes/kyc_entity.php')) {
+    require_once __DIR__ . '/includes/kyc_entity.php';
+}
 $db = getDB();
 $canMutateKyc = staffCanMutateKyc();
 $canChecker = staffCanCheckerApproveKyc();
@@ -18,12 +21,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $action = (string)($_POST['action'] ?? '');
     $id = (int)($_POST['id'] ?? 0);
+    $docId = (int)($_POST['doc_id'] ?? 0);
     $reason = trim((string)($_POST['reason'] ?? 'Compliance review'));
-    // 2.11: Enforce human-readable rejection reasons — minimum 10 chars for reject actions
     $rejectActions = ['reject_doc', 'reject_video', 'force_reject', 'reject_request'];
-    if (in_array($action, $rejectActions, true) && strlen($reason) < 10) {
-        flash('error', 'Rejection reason must be at least 10 characters. Please provide a clear explanation for the merchant.');
-        redirect('admin_kyc.php');
+    if (in_array($action, $rejectActions, true)) {
+        $norm = function_exists('kycNormalizeRejectReason')
+            ? kycNormalizeRejectReason($reason)
+            : ['ok' => strlen($reason) >= 10, 'reason' => $reason, 'error' => 'Rejection reason must be at least 10 characters. Please provide a clear explanation for the merchant.'];
+        if (empty($norm['ok'])) {
+            flash('error', $norm['error'] ?? 'Rejection reason must be at least 10 characters. Please provide a clear explanation for the merchant.');
+            redirect('admin_kyc.php');
+        }
+        $reason = (string)$norm['reason'];
     }
     try {
         if (in_array($action, ['approve_doc', 'verify_merchant', 'verify_merchant_now', 'live_enable', 'verify_video', 'reject_video', 'reject_doc', 'force_hold', 'force_reject', 'force_resubmit'], true)) {
@@ -61,73 +70,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             submitApprovalRequest('merchant_live_enable', $id, 'merchant', (string)$id, $reason);
             flash('success', 'Live activation sent to an independent checker.');
         } elseif ($action === 'verify_video') {
-            requireMerchantAccess($id);
-            $db->prepare("UPDATE merchants SET video_kyc_status='verified' WHERE id=?")->execute([$id]);
-            // 2.15: Find and update the matching video_kyc document instead of a blind, swallowed UPDATE
-            $vst = $db->prepare("SELECT id FROM kyc_documents WHERE merchant_id=? AND doc_type='video_kyc' AND status IN ('pending','rejected') ORDER BY created_at DESC LIMIT 1");
-            $vst->execute([$id]);
-            $vidId = $vst->fetchColumn();
-            if ($vidId) {
-                try {
-                    $db->prepare("UPDATE kyc_documents SET status='approved', rejection_reason=NULL, reviewed_at=NOW() WHERE id=?")
-                        ->execute([$vidId]);
-                } catch (Throwable $e) {
-                    // Do not block verify, but warn ops and log platform error
-                    error_log('Video KYC verify document update: ' . $e->getMessage());
-                    if (function_exists('logPlatformError')) {
-                        logPlatformError('warning', 'Video KYC verify document update failed', ['merchant_id' => $id, 'doc_id' => $vidId, 'error' => $e->getMessage()]);
-                    }
-                }
+            if ($docId < 1) {
+                throw new RuntimeException('Select a Video KYC recording first. Refresh the queue and try again.');
             }
-            recordImmutableAudit('video_kyc_verified', $id, 'merchant', (string)$id, $reason);
-            logStaffActivity('video_kyc_verified', $reason, $id, 'merchant', (string)$id);
-            createNotification($id, 'Video KYC Verified', 'Your Video KYC was approved. Continue with remaining onboarding steps.');
-            if (function_exists('sendTemplatedEmail')) {
-                sendTemplatedEmail($id, 'kyc_approved', []);
+            $videoDoc = $db->prepare("SELECT id, merchant_id, status FROM kyc_documents WHERE id=? AND doc_type='video_kyc' LIMIT 1");
+            $videoDoc->execute([$docId]);
+            $videoRow = $videoDoc->fetch();
+            if (!$videoRow) {
+                throw new RuntimeException('That Video KYC recording was not found. Refresh the queue and try again.');
             }
-            flash('success', 'Video KYC marked verified.');
-        } elseif ($action === 'reject_video') {
-            requireMerchantAccess($id);
-            if ($reason === '' || $reason === 'Compliance review') {
-                throw new RuntimeException('Please enter a clear rejection reason for the merchant.');
-            }
-            $db->prepare("UPDATE merchants SET video_kyc_status='rejected' WHERE id=?")->execute([$id]);
-            // 2.15: Find the latest video_kyc document and require it for a meaningful reject
-            $st = $db->prepare("SELECT id FROM kyc_documents WHERE merchant_id=? AND doc_type='video_kyc' AND status IN ('pending','submitted','rejected') ORDER BY created_at DESC LIMIT 1");
-            $st->execute([$id]);
-            $vidId = $st->fetchColumn();
-            if (!$vidId) {
-                throw new RuntimeException('No pending Video KYC record found for this merchant. Ask the merchant to re-upload.');
-            }
+            $merchantId = (int)$videoRow['merchant_id'];
+            requireMerchantAccess($merchantId);
             try {
-                $db->prepare("UPDATE kyc_documents SET status='rejected', rejection_reason=?, reviewed_at=NOW() WHERE id=?")
-                    ->execute([$reason, $vidId]);
+                $db->prepare("UPDATE kyc_documents SET status='approved', rejection_reason=NULL, reviewed_at=NOW() WHERE id=? AND merchant_id=? AND doc_type='video_kyc'")
+                    ->execute([$docId, $merchantId]);
             } catch (Throwable $e) {
-                // Fallback to status/reviewed_at only if rejection_reason is unavailable
-                try {
-                    $db->prepare("UPDATE kyc_documents SET status='rejected', reviewed_at=NOW() WHERE id=?")->execute([$vidId]);
-                } catch (Throwable $e2) {
-                    throw new RuntimeException('Could not update Video KYC record: ' . $e2->getMessage());
-                }
-                if (function_exists('logPlatformError')) {
-                    logPlatformError('warning', 'Video KYC reject document update needed fallback (rejection_reason)', ['merchant_id' => $id, 'doc_id' => $vidId, 'error' => $e->getMessage()]);
-                }
+                $db->prepare("UPDATE kyc_documents SET status='approved', reviewed_at=NOW() WHERE id=? AND merchant_id=? AND doc_type='video_kyc'")
+                    ->execute([$docId, $merchantId]);
             }
-            logStaffActivity('video_kyc_rejected', $reason, $id, 'merchant', (string)$id);
-            createNotification($id, 'Video KYC Needs Re-upload', 'Reason: ' . $reason);
+            $check = $db->prepare("SELECT status FROM kyc_documents WHERE id=? AND merchant_id=?");
+            $check->execute([$docId, $merchantId]);
+            if (strtolower((string)$check->fetchColumn()) !== 'approved') {
+                throw new RuntimeException('Could not verify that Video KYC recording. Refresh and try again.');
+            }
+            $db->prepare("UPDATE merchants SET video_kyc_status='verified' WHERE id=?")->execute([$merchantId]);
+            $id = $merchantId;
+            recordImmutableAudit('video_kyc_verified', $merchantId, 'merchant', (string)$merchantId, $reason);
+            logStaffActivity('video_kyc_verified', $reason, $merchantId, 'kyc_document', (string)$docId);
+            createNotification($merchantId, 'Video KYC Verified', 'Your Video KYC was approved. Continue with remaining onboarding steps.');
             if (function_exists('sendTemplatedEmail')) {
-                sendTemplatedEmail($id, 'kyc_rejected', ['reason' => $reason]);
+                sendTemplatedEmail($merchantId, 'kyc_approved', []);
             }
-            flash('success', 'Video KYC rejected with reason shown to merchant.');
+            flash('success', 'Video KYC verified for this recording.');
+        } elseif ($action === 'reject_video') {
+            if ($docId < 1) {
+                throw new RuntimeException('Select a Video KYC recording first. Refresh the queue and try again.');
+            }
+            $videoDoc = $db->prepare("SELECT id, merchant_id, status FROM kyc_documents WHERE id=? AND doc_type='video_kyc' LIMIT 1");
+            $videoDoc->execute([$docId]);
+            $videoRow = $videoDoc->fetch();
+            if (!$videoRow) {
+                throw new RuntimeException('That Video KYC recording was not found. Refresh the queue and try again.');
+            }
+            $merchantId = (int)$videoRow['merchant_id'];
+            requireMerchantAccess($merchantId);
+            try {
+                $db->prepare("UPDATE kyc_documents SET status='rejected', rejection_reason=?, reviewed_at=NOW() WHERE id=? AND merchant_id=? AND doc_type='video_kyc'")
+                    ->execute([$reason, $docId, $merchantId]);
+            } catch (Throwable $e) {
+                $db->prepare("UPDATE kyc_documents SET status='rejected', reviewed_at=NOW() WHERE id=? AND merchant_id=? AND doc_type='video_kyc'")
+                    ->execute([$docId, $merchantId]);
+                if (function_exists('logPlatformError')) {
+                    logPlatformError('warning', 'Video KYC reject needed fallback (rejection_reason)', ['merchant_id' => $merchantId, 'doc_id' => $docId, 'error' => $e->getMessage()]);
+                }
+            }
+            $check = $db->prepare("SELECT status FROM kyc_documents WHERE id=? AND merchant_id=?");
+            $check->execute([$docId, $merchantId]);
+            if (strtolower((string)$check->fetchColumn()) !== 'rejected') {
+                throw new RuntimeException('Could not reject that Video KYC recording. Refresh and try again.');
+            }
+            $db->prepare("UPDATE merchants SET video_kyc_status='rejected' WHERE id=?")->execute([$merchantId]);
+            $id = $merchantId;
+            logStaffActivity('video_kyc_rejected', $reason, $merchantId, 'kyc_document', (string)$docId);
+            createNotification($merchantId, 'Video KYC Needs Re-upload', 'Reason: ' . $reason);
+            if (function_exists('sendTemplatedEmail')) {
+                sendTemplatedEmail($merchantId, 'kyc_rejected', ['reason' => $reason]);
+            }
+            flash('success', 'Video KYC rejected. Merchant sees: ' . $reason);
         } elseif ($action === 'reject_doc') {
             $doc = $db->prepare('SELECT merchant_id,doc_type FROM kyc_documents WHERE id=?');
             $doc->execute([$id]);
             $d = $doc->fetch();
             if (!$d) throw new RuntimeException('Document not found.');
             requireMerchantAccess((int)$d['merchant_id']);
-            if ($reason === '' || $reason === 'Compliance review') {
-                throw new RuntimeException('Please enter a clear rejection reason for the merchant.');
-            }
             try {
                 $db->prepare("UPDATE kyc_documents SET status='rejected', rejection_reason=?, reviewed_at=NOW() WHERE id=?")->execute([$reason, $id]);
             } catch (Throwable $e) {
@@ -158,9 +173,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'force_reject' && $canMutateKyc) {
             // D1: Admin force reject with reason
             requireMerchantAccess($id);
-            if ($reason === '' || $reason === 'Compliance review') {
-                throw new RuntimeException('A clear rejection reason is required.');
-            }
             $tr = merchant_transition($id, 'rejected', $reason);
             if (!$tr['ok']) throw new RuntimeException($tr['error']);
             logStaffActivity('kyc_force_reject', $reason, $id, 'merchant', (string)$id);
@@ -341,10 +353,10 @@ require_once __DIR__ . '/header.php';
 <?php endif; ?>
 
 <?php if (!empty($videoQueue) && $canMutateKyc): ?>
-<div class="glass rounded-xl overflow-hidden mb-8 border border-violet-500/30 min-w-0">
+<div id="video-kyc-queue" class="glass rounded-xl overflow-hidden mb-8 border border-violet-500/30 min-w-0">
     <div class="px-4 sm:px-6 py-4 border-b border-gray-800">
         <h2 class="font-semibold">Video KYC queue</h2>
-        <p class="text-xs text-gray-500 mt-1">Review selfie videos before Live activation. Status must be <span class="text-violet-300">verified</span> for the Live gate.</p>
+        <p class="text-xs text-gray-500 mt-1">Review the live camera recording (IP + date/time). Verify or reject this row. Status must be <span class="text-violet-300">verified</span> for the Live gate.</p>
     </div>
     <?php foreach ($videoQueue as $videoRow): ?>
     <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-between gap-3">
@@ -355,9 +367,11 @@ require_once __DIR__ . '/header.php';
         <div class="flex flex-col sm:flex-row gap-2 flex-wrap w-full sm:w-auto">
             <?php if (!empty($videoRow['doc_id'])): ?>
             <a href="admin_kyc_doc.php?id=<?= (int)$videoRow['doc_id'] ?>&token=<?= csrfToken() ?>" target="_blank" rel="noopener" class="text-xs bg-sky-600/20 text-sky-400 px-3 py-2 rounded-lg text-center">Play / view video</a>
+            <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="verify_video"><input type="hidden" name="id" value="<?= (int)$videoRow['id'] ?>"><input type="hidden" name="doc_id" value="<?= (int)$videoRow['doc_id'] ?>"><input type="hidden" name="reason" value="Video KYC reviewed"><button class="text-xs bg-violet-600 text-white px-3 py-2 rounded-lg w-full sm:w-auto">Mark video verified</button></form>
+            <form method="post" class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center min-w-0 flex-1"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="reject_video"><input type="hidden" name="id" value="<?= (int)$videoRow['id'] ?>"><input type="hidden" name="doc_id" value="<?= (int)$videoRow['doc_id'] ?>"><div class="flex flex-col gap-1 w-full min-w-0"><div class="flex flex-wrap gap-1 mb-1"><?php foreach (kycRejectReasonPresets('video') as $preset): ?><button type="button" onclick="this.closest('form').querySelector('textarea[name=reason]').value=this.textContent" class="text-[10px] px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-sky-400 hover:border-sky-500/30"><?= e($preset) ?></button><?php endforeach; ?></div><textarea name="reason" required minlength="10" maxlength="500" rows="2" placeholder="Rejection reason (min 10 chars — shown to merchant)" aria-label="Video rejection reason" class="text-xs bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 w-full min-w-0"></textarea></div><button class="text-xs bg-red-600/20 text-red-400 px-3 py-2 rounded-lg w-full sm:w-auto shrink-0">Reject video</button></form>
+            <?php else: ?>
+            <p class="text-xs text-amber-400">No video row to verify. Ask the merchant to record again with live camera.</p>
             <?php endif; ?>
-            <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="verify_video"><input type="hidden" name="id" value="<?= (int)$videoRow['id'] ?>"><input type="hidden" name="reason" value="Video KYC reviewed"><button class="text-xs bg-violet-600 text-white px-3 py-2 rounded-lg w-full sm:w-auto">Mark video verified</button></form>
-            <form method="post" class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center min-w-0 flex-1"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="reject_video"><input type="hidden" name="id" value="<?= (int)$videoRow['id'] ?>"><div class="flex flex-col gap-1 w-full min-w-0"><div class="flex flex-wrap gap-1 mb-1"><?php foreach (['Video too blurry or dark','Face not clearly visible','Video appears manipulated or edited','Audio inaudible or missing'] as $preset): ?><button type="button" onclick="this.closest('form').querySelector('textarea[name=reason]').value=this.textContent" class="text-[10px] px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-sky-400 hover:border-sky-500/30"><?= e($preset) ?></button><?php endforeach; ?></div><textarea name="reason" required minlength="10" maxlength="500" rows="2" placeholder="Rejection reason (min 10 chars — shown to merchant)" aria-label="Video rejection reason" class="text-xs bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 w-full min-w-0"></textarea></div><button class="text-xs bg-red-600/20 text-red-400 px-3 py-2 rounded-lg w-full sm:w-auto shrink-0">Reject video</button></form>
         </div>
     </div>
     <?php endforeach; ?>
@@ -390,11 +404,28 @@ require_once __DIR__ . '/header.php';
 <?php if (!empty($liveCandidates) && $canMutateKyc): ?>
 <div class="glass rounded-xl overflow-hidden mb-8 border border-emerald-500/20 min-w-0">
     <div class="px-4 sm:px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Live activation gate</h2><p class="text-xs text-gray-500 mt-1">KYC verification alone does not enable real money. Every server-side gate must pass. Step-up required to send Live activation.</p></div>
-    <?php foreach ($liveCandidates as $candidate): $gate = merchantLiveGateReport((int)$candidate['id']); ?>
+    <?php foreach ($liveCandidates as $candidate):
+        $gate = merchantLiveGateReport((int)$candidate['id']);
+        $missingLabels = merchantLiveGateMissingLabels($gate);
+        $opsLinks = merchantLiveGateOpsLinks((int)$candidate['id'], $gate);
+        $liveVidId = 0;
+        try {
+            $vidSt = $db->prepare("SELECT id FROM kyc_documents WHERE merchant_id=? AND doc_type='video_kyc' ORDER BY created_at DESC LIMIT 1");
+            $vidSt->execute([(int)$candidate['id']]);
+            $liveVidId = (int)$vidSt->fetchColumn();
+        } catch (Throwable $e) {
+            $liveVidId = 0;
+        }
+    ?>
     <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-between gap-3">
-        <div class="min-w-0"><p class="text-sm font-medium break-words"><?= e($candidate['business_name']) ?> · <?= e($candidate['merchant_code']) ?></p><p class="text-xs <?= $gate['ok'] ? 'text-emerald-400' : 'text-amber-400' ?>"><?= $gate['ok'] ? 'All gates complete' : 'Missing: ' . e(implode(', ', $gate['missing'])) ?></p></div>
+        <div class="min-w-0"><p class="text-sm font-medium break-words"><?= e($candidate['business_name']) ?> · <?= e($candidate['merchant_code']) ?></p><p class="text-xs <?= $gate['ok'] ? 'text-emerald-400' : 'text-amber-400' ?>"><?= $gate['ok'] ? 'All gates complete' : 'Missing: ' . e(implode(', ', $missingLabels)) ?></p></div>
         <div class="flex flex-col sm:flex-row gap-2 flex-wrap w-full sm:w-auto">
-            <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="verify_video"><input type="hidden" name="id" value="<?= (int)$candidate['id'] ?>"><input type="hidden" name="reason" value="Video reviewed"><button class="text-xs bg-violet-600/20 text-violet-300 px-3 py-2 rounded-lg w-full sm:w-auto">Mark video verified</button></form>
+            <?php foreach ($opsLinks as $opsLink): ?>
+            <a href="<?= e($opsLink['href']) ?>" class="text-xs bg-gray-700/40 text-gray-300 px-3 py-2 rounded-lg text-center"><?= e($opsLink['label']) ?></a>
+            <?php endforeach; ?>
+            <?php if ($liveVidId > 0 && in_array('video_verified', $gate['missing'] ?? [], true)): ?>
+            <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="verify_video"><input type="hidden" name="id" value="<?= (int)$candidate['id'] ?>"><input type="hidden" name="doc_id" value="<?= $liveVidId ?>"><input type="hidden" name="reason" value="Video reviewed"><button class="text-xs bg-violet-600/20 text-violet-300 px-3 py-2 rounded-lg w-full sm:w-auto">Mark video verified</button></form>
+            <?php endif; ?>
             <?php if ($gate['ok'] && $canChecker): ?><form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="live_enable"><input type="hidden" name="id" value="<?= (int)$candidate['id'] ?>"><input type="hidden" name="reason" value="All production onboarding gates verified"><button class="text-xs bg-emerald-600 text-white px-3 py-2 rounded-lg w-full sm:w-auto">Send Live activation for approval</button></form><?php endif; ?>
         </div>
     </div>
@@ -476,7 +507,7 @@ require_once __DIR__ . '/header.php';
                 <a href="admin_kyc_doc.php?id=<?= $doc['id'] ?>&token=<?= csrfToken() ?>" target="_blank" class="text-xs bg-sky-600/20 text-sky-400 px-3 py-1.5 rounded-lg">View Doc</a>
                 <?php if ($canMutateKyc): ?>
                 <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="approve_doc"><input type="hidden" name="id" value="<?= (int)$doc['id'] ?>"><input type="hidden" name="reason" value="Document content reviewed"><button class="text-xs bg-brand-600/20 text-brand-400 px-3 py-1.5 rounded-lg">Send for approval</button></form>
-                <form method="post" class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto min-w-0"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="reject_doc"><input type="hidden" name="id" value="<?= (int)$doc['id'] ?>"><div class="flex flex-col gap-1 w-full min-w-0"><div class="flex flex-wrap gap-1 mb-1"><?php foreach (['Blurry or unreadable document','Name mismatch on document','Expired ID document','Incomplete document — missing pages','Wrong document type uploaded'] as $preset): ?><button type="button" onclick="this.closest('form').querySelector('textarea[name=reason]').value=this.textContent" class="text-[10px] px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-sky-400 hover:border-sky-500/30"><?= e($preset) ?></button><?php endforeach; ?></div><textarea name="reason" required minlength="10" maxlength="500" rows="2" placeholder="Clarification reason (min 10 chars — shown to merchant)" aria-label="Document rejection reason" class="text-xs bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 w-full"></textarea></div><button class="text-xs bg-red-600/20 text-red-400 px-3 py-1.5 rounded-lg w-full sm:w-auto shrink-0">Reject</button></form>
+                <form method="post" class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto min-w-0"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="reject_doc"><input type="hidden" name="id" value="<?= (int)$doc['id'] ?>"><div class="flex flex-col gap-1 w-full min-w-0"><div class="flex flex-wrap gap-1 mb-1"><?php foreach (kycRejectReasonPresets('document') as $preset): ?><button type="button" onclick="this.closest('form').querySelector('textarea[name=reason]').value=this.textContent" class="text-[10px] px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-sky-400 hover:border-sky-500/30"><?= e($preset) ?></button><?php endforeach; ?></div><textarea name="reason" required minlength="10" maxlength="500" rows="2" placeholder="Clarification reason (min 10 chars — shown to merchant)" aria-label="Document rejection reason" class="text-xs bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 w-full"></textarea></div><button class="text-xs bg-red-600/20 text-red-400 px-3 py-1.5 rounded-lg w-full sm:w-auto shrink-0">Reject</button></form>
                 <?php endif; ?>
             </div>
         </div>
