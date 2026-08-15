@@ -16,8 +16,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         redirect('collection_settings.php');
     }
     $mode = $_POST['collection_mode'] ?? 'direct_upi';
-    $modes = array_keys(getCollectionModes());
-    if (!in_array($mode, $modes, true)) $mode = 'direct_upi';
+    $modes = array_keys(getMerchantFacingCollectionModes($merchant));
+    if (!in_array($mode, $modes, true)) $mode = getMerchantCollectionMode($merchant) ?: 'direct_upi';
     // Payment methods now managed on payment_methods.php — but still save if posted
     $enabledKeys = array_map('strval', $_POST['enabled_methods'] ?? []);
     $enabled = array_values(array_intersect(
@@ -98,11 +98,13 @@ require_once __DIR__ . '/header.php';
                 </div>
             </div>
             <div><label class="text-sm text-gray-400">PayU Child Merchant Key (for split)</label>
-                <input type="text" name="payu_child_key" class="input-field mt-1 font-mono text-xs" value="<?= e($merchant['payu_child_key'] ?? '') ?>" placeholder="Optional — same as parent for test"></div>
+                <input type="text" name="payu_child_key" class="input-field mt-1 font-mono text-xs" value="<?= e($merchant['payu_child_key'] ?? '') ?>" placeholder="Optional — parked until Owner starts Route/Split"></div>
             <div><label class="text-sm text-gray-400">Razorpay Linked Account ID (Route)</label>
-                <input type="text" name="razorpay_linked_account_id" class="input-field mt-1 font-mono text-xs" value="<?= e($merchant['razorpay_linked_account_id'] ?? '') ?>"></div>
+                <input type="text" name="razorpay_linked_account_id" class="input-field mt-1 font-mono text-xs" value="<?= e($merchant['razorpay_linked_account_id'] ?? '') ?>">
+                <p class="text-[11px] text-gray-600 mt-1">Scaffold only. Saving an ID does not turn Razorpay Route live.</p></div>
             <div><label class="text-sm text-gray-400">Cashfree Vendor ID (Easy Split)</label>
-                <input type="text" name="cashfree_vendor_id" class="input-field mt-1 font-mono text-xs" value="<?= e($merchant['cashfree_vendor_id'] ?? '') ?>"></div>
+                <input type="text" name="cashfree_vendor_id" class="input-field mt-1 font-mono text-xs" value="<?= e($merchant['cashfree_vendor_id'] ?? '') ?>">
+                <p class="text-[11px] text-gray-600 mt-1">Scaffold only. Saving an ID does not turn Easy Split live.</p></div>
             <button type="submit" class="btn-primary px-6 py-2.5">✓ Save Collection Settings</button>
         </form>
     </div>

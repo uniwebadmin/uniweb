@@ -361,6 +361,10 @@ function applyMerchantSignupPreferences(int $merchantId, string $collectionMode,
     if (!in_array($collectionMode, $modes, true)) {
         $collectionMode = getSetting('default_collection_mode', 'direct_upi');
     }
+    // P11-01: new merchants must not start on live Route/Easy Split.
+    if (!in_array($collectionMode, ['direct_upi', 'platform_pg'], true)) {
+        $collectionMode = 'direct_upi';
+    }
     $catalogKeys = array_keys(getPaymentMethodCatalog());
     $enabledMethods = array_values(array_intersect($catalogKeys, $enabledMethods));
     if (empty($enabledMethods)) {

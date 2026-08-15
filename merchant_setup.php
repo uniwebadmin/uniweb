@@ -13,7 +13,7 @@ if (!$merchant) {
 $errors = [];
 $categories = getBusinessCategories();
 $entities = getBusinessEntityTypes();
-$collectionModes = getCollectionModes();
+$collectionModes = getMerchantFacingCollectionModes($merchant);
 $methodCatalog = getPaymentMethodCatalog();
 $defaultMethods = ['upi_p2m', 'debit_card', 'credit_card', 'netbanking'];
 $db = getDB();
@@ -42,6 +42,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     if ($pan && str_starts_with($pan, '*')) $pan = '';
     if ($gstin && str_starts_with($gstin, '*')) $gstin = '';
     $collectionMode = $_POST['collection_mode'] ?? getSetting('default_collection_mode', 'direct_upi');
+    $allowedModes = array_keys(getMerchantFacingCollectionModes($merchant));
+    if (!in_array($collectionMode, $allowedModes, true)) {
+        $collectionMode = 'direct_upi';
+    }
     $enabledMethods = array_values(array_intersect(
         array_keys(getPaymentMethodCatalog()),
         array_map('strval', $_POST['enabled_methods'] ?? ['upi_p2m', 'debit_card'])

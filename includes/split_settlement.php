@@ -283,10 +283,9 @@ function setPartnerRouteConfig(string $partnerKey, array $cfg, string $updatedBy
     $routeSplitOn = in_array($cfg['route_split_on'] ?? '', $validSplitOn, true) ? $cfg['route_split_on'] : 'capture';
     $routeStatus = in_array($cfg['route_status'] ?? '', $validStatus, true) ? $cfg['route_status'] : 'scaffold';
 
-    // Safety: never allow 'live' to be set automatically — only manual admin action
-    // and only if route_mode is partner_api. This is a scaffold; live API integration
-    // is a future ticket.
-    if ($routeStatus === 'live' && $routeMode !== 'partner_api') {
+    // P11-01: never persist live Route unless Owner has set route_split_live_enabled=1.
+    $ownerLive = trim((string)getSetting('route_split_live_enabled', '0')) === '1';
+    if ($routeStatus === 'live' && !$ownerLive) {
         $routeStatus = 'ready_for_api';
     }
 
@@ -310,6 +309,10 @@ function setPartnerRouteConfig(string $partnerKey, array $cfg, string $updatedBy
  */
 function canUsePartnerRoute(string $partnerKey): bool
 {
+    // P11-01: live Route/Split API stays off until Owner says start + keys + commercial.
+    if (trim((string)getSetting('route_split_live_enabled', '0')) !== '1') {
+        return false;
+    }
     $cfg = getPartnerRouteConfig($partnerKey);
     return $cfg['route_enabled'] === 1
         && $cfg['route_mode'] === 'partner_api'

@@ -283,6 +283,8 @@ Not a command to sell white-label as UniWeb’s main product. Implement only if 
 
 ## PHASE 11 — Later optional · never NBFC/PPI
 
+**Full map:** `PHASE11_ROUTE.md`. Do not go live from this phase text alone.
+
 ### P11-01 · Live Route/Split API
 
 Scaffold only today. Live only after keys + commercial + **explicit Owner ask**. No auto live status; no SDK early.

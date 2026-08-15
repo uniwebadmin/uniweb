@@ -24,7 +24,7 @@ require_once __DIR__ . '/header.php';
 
 <div class="mb-6 min-w-0">
     <p class="text-sm text-gray-400">How to use — work top-down by phase. You verify each phase on live before the next. Market and white-label are full reference — they do not override Phase 0–2.</p>
-    <p class="text-xs text-amber-400 mt-2">Current focus: Phase 0 first. Do not drop the production database. Never build NBFC product or a customer PPI wallet.</p>
+    <p class="text-xs text-amber-400 mt-2">Phases 0–10 are in the repo as code or reference. Phase 11 Route/Split stays parked. Never build NBFC product or a customer PPI wallet.</p>
 </div>
 
 <div class="flex flex-wrap gap-2 mb-6">

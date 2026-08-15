@@ -204,4 +204,4 @@ Owner's explicit standing instruction: continue autonomously through phases with
 
 ## Latest Status (2026-08-15)
 
-Owner delivered ordered Deep Audit PDF. Live Hostinger has 10-min auto-audit + backup cron. Phases 0–9 are in repo. Phase 10 is **reference only** (`WHITE_LABEL_CHECKLIST.md` WL-01…WL-12). Isolation audit no longer alarms because a Live merchant still has older Test payments. Do **not** sell white-label as the main product. Do **not** start Phase 11 Route/Split unless the Owner says start + keys + commercial.
+Owner delivered ordered Deep Audit PDF. Phases 0–10 are in repo. Phase 11 is **parked** (`PHASE11_ROUTE.md`): Route/Split stays scaffold (no SDK, no auto-live). NBFC menus stay hidden; `nbfcLiveDisburseAllowed()` is always false; no customer PPI wallet. Do **not** start live Route unless the Owner says start + keys + commercial.

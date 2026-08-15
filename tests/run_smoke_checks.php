@@ -615,6 +615,21 @@ $assert(str_contains((string)file_get_contents($root . '/admin_reconciliation.ph
 $assert(str_contains((string)file_get_contents($root . '/admin_audit_log.php'), "export'] === 'csv'") && str_contains((string)file_get_contents($root . '/includes/audit_log.php'), 'function auditLogFilterWhere'), 'p10_wl12_audit_date_csv');
 $assert(str_contains($wlMd, '## WL-06') && str_contains($wlMd, '## WL-12'), 'p10_checklist_wl06_wl12_sections');
 
+$p11 = (string)file_get_contents($root . '/PHASE11_ROUTE.md');
+$assert(is_file($root . '/PHASE11_ROUTE.md') && str_contains($p11, 'P11-01') && str_contains($p11, 'P11-02'), 'p11_route_reference_file');
+$assert(str_contains($p11, 'No SDK') || str_contains($p11, 'Does not** call'), 'p11_no_sdk_early');
+$splitLib = (string)file_get_contents($root . '/includes/split_settlement.php');
+$assert(str_contains($splitLib, 'route_split_live_enabled') && str_contains($splitLib, "partner API call pending integration"), 'p11_route_gated_no_sdk');
+$assert(str_contains((string)file_get_contents($root . '/includes/nbfc.php'), 'return false') && str_contains((string)file_get_contents($root . '/includes/nbfc.php'), 'P11-02'), 'p11_nbfc_disburse_always_off');
+$colLib = (string)file_get_contents($root . '/includes/collection.php');
+$assert(str_contains($colLib, "\$keys = ['direct_upi', 'platform_pg']"), 'p11_merchant_modes_no_live_route');
+$navLib = (string)file_get_contents($root . '/includes/sidebar_nav.php');
+$assert(str_contains($navLib, 'merchant_nbfc.php') && str_contains($navLib, 'admin_nbfc.php'), 'p11_nbfc_urls_hidden_from_nav');
+$assert(!is_file($root . '/customer_wallet.php'), 'p11_no_customer_ppi_page');
+$assert(str_contains((string)file_get_contents($root . '/collection_settings.php'), 'does not turn Razorpay Route live'), 'p11_collection_route_ids_parked');
+$assert(str_contains((string)file_get_contents($root . '/DEEP_AUDIT_ORDERED.md'), 'PHASE11_ROUTE.md'), 'p11_audit_points_at_map');
+$assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'locked — future ticket'), 'p11_live_status_locked_in_ui');
+
 $assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');
 
 // Auth portal redesign (all four logins — presentation only).

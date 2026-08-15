@@ -29,7 +29,8 @@ function getMerchantCollectionMode(array $merchant): string
 
 function getMerchantFacingCollectionModes(?array $merchant = null): array
 {
-    $keys = ['direct_upi', 'cashfree_route', 'platform_pg'];
+    // P11-01: merchants do not pick Razorpay Route / PayU Split / Easy Split as a live product.
+    $keys = ['direct_upi', 'platform_pg'];
     $all = getCollectionModes();
     $out = [];
     foreach ($keys as $k) {
@@ -39,7 +40,7 @@ function getMerchantFacingCollectionModes(?array $merchant = null): array
     }
     $current = $merchant ? getMerchantCollectionMode($merchant) : '';
     if ($current && isset($all[$current]) && !isset($out[$current])) {
-        $out[$current] = $all[$current];
+        $out[$current] = $all[$current] . ' (parked — Route/Split is not live)';
     }
     return $out;
 }

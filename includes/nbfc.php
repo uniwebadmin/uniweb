@@ -78,14 +78,8 @@ function ensureNbfcSchema(): void
 
 function nbfcLiveDisburseAllowed(): bool
 {
-    $gw = trim((string)getSetting('nbfc_partner_gateway', 'payu'));
-    if ($gw === '') {
-        $gw = 'payu';
-    }
-    if (!function_exists('isGatewayConfigured') || !isGatewayConfigured($gw)) {
-        return false;
-    }
-    return trim((string)getSetting('nbfc_live_enabled', '0')) === '1';
+    // P11-02: NBFC lending is excluded from UniWeb product. Never disburse.
+    return false;
 }
 
 function merchantNbfcEntitled(array $merchant): bool
