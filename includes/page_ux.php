@@ -262,4 +262,27 @@ CSS;
             . '<a href="' . $safeHome . '">Back</a></div></body></html>';
         exit;
     }
+
+    /**
+     * Merchant page gate: logged in + merchant row exists.
+     * Always flashes why before login redirect (TECH-03).
+     */
+    function requireMerchantAccount(): array
+    {
+        if (!function_exists('isLoggedIn') || !isLoggedIn()) {
+            if (function_exists('flash')) {
+                flash('error', 'Please log in to continue.');
+            }
+            redirect('login.php');
+        }
+        $merchant = function_exists('getMerchant') ? getMerchant() : null;
+        if (is_array($merchant) && !empty($merchant['id'])) {
+            return $merchant;
+        }
+        if (function_exists('flash')) {
+            flash('error', 'Your session expired. Please log in again.');
+        }
+        unset($_SESSION['merchant_id'], $_SESSION['merchant_team_member_id'], $_SESSION['active_merchant_id']);
+        redirect('login.php');
+    }
 }

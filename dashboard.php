@@ -1,8 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
-requireLogin();
-$merchant = getMerchant();
-if (!$merchant) { session_destroy(); redirect('login.php'); }
+require_once __DIR__ . '/includes/page_ux.php';
+$merchant = requireMerchantAccount();
 if (!merchantProfileComplete($merchant)) {
     redirect('merchant_setup.php');
 }

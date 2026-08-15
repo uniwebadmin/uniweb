@@ -3,12 +3,8 @@ require_once __DIR__ . '/config.php';
 if (is_file(__DIR__ . '/includes/release_helpers.php')) {
     require_once __DIR__ . '/includes/release_helpers.php';
 }
-requireLogin();
-$merchant = getMerchant();
-if (!$merchant) {
-    session_destroy();
-    redirect('login.php');
-}
+require_once __DIR__ . '/includes/page_ux.php';
+$merchant = requireMerchantAccount();
 
 $errors = [];
 $categories = getBusinessCategories();

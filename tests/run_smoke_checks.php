@@ -385,6 +385,11 @@ $assert(str_contains((string)file_get_contents($root . '/invoice_pdf.php'), 'uxS
 $assert(str_contains((string)file_get_contents($root . '/solutions.php'), 'Settlements & balance'), 'sum_public_wallet_wording');
 $assert(str_contains((string)file_get_contents($root . '/global_search.php'), "'watchdog'") && str_contains((string)file_get_contents($root . '/global_search.php'), "'payment links'"), 'sum_search_aliases_expanded');
 $assert(str_contains((string)file_get_contents($root . '/includes/staff.php'), 'admin_payment_links.php') && str_contains((string)file_get_contents($root . '/includes/staff.php'), 'admin_qr_codes.php'), 'sum_staff_nav_has_payment_links');
+$assert(str_contains((string)file_get_contents($root . '/includes/page_ux.php'), 'function requireMerchantAccount'), 'tech03_require_merchant_account_helper');
+$assert(str_contains((string)file_get_contents($root . '/merchant_launch.php'), 'requireMerchantAccount') && str_contains((string)file_get_contents($root . '/merchant_setup.php'), 'requireMerchantAccount'), 'tech03_launch_setup_use_helper');
+$assert(str_contains((string)file_get_contents($root . '/dashboard.php'), 'requireMerchantAccount'), 'tech03_dashboard_uses_helper');
+$assert(str_contains((string)file_get_contents($root . '/includes/ops_security.php'), 'isLoggedIn()') && str_contains((string)file_get_contents($root . '/includes/ops_security.php'), 'isAdminLoggedIn()'), 'tech01_abort_uses_real_login_checks');
+$assert(str_contains((string)file_get_contents($root . '/includes/cloud_modules.php'), 'page_ux.php'), 'tech07_cloud_modules_loads_page_ux');
 $walletP4 = (string)file_get_contents($root . '/wallet.php');
 $assert(str_contains($walletP4, 'Settlement Balance') && str_contains($walletP4, 'not a customer PPI wallet'), 'p4_wallet_settlement_not_ppi');
 $langP4 = (string)file_get_contents($root . '/lang/en.php');

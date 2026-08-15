@@ -1,13 +1,10 @@
 <?php
 require_once __DIR__ . '/config.php';
-requireLogin();
+require_once __DIR__ . '/includes/page_ux.php';
 ensureKycSchema();
 require_once __DIR__ . '/includes/kyc_upload.php';
 require_once __DIR__ . '/includes/client_context.php';
-$merchant = getMerchant();
-if (!$merchant) {
-    redirect('login.php');
-}
+$merchant = requireMerchantAccount();
 
 $clientIp = getRealClientIp();
 

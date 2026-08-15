@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
-requireLogin();
+require_once __DIR__ . '/includes/page_ux.php';
+requireMerchantAccount();
 requireMerchantTeamCapability('settings');
 
 if (!verifyCsrf($_GET['csrf'] ?? $_POST['csrf_token'] ?? '')) {
@@ -15,6 +16,7 @@ if (!in_array($mode, ['test', 'live'], true)) {
 
 $merchant = getMerchant();
 if (!$merchant) {
+    flash('error', 'Your session expired. Please log in again.');
     redirect('login.php');
 }
 

@@ -261,7 +261,14 @@ function abortFeatureDisabled(string $feature): void
     }
     if (function_exists('redirect')) {
         if (function_exists('isAdminLoggedIn') && isAdminLoggedIn()) {
-            redirect('admin_dashboard.php');
+            $adminHome = 'admin_dashboard.php';
+            if (function_exists('isSuperAdmin') && !isSuperAdmin() && function_exists('adminRole')) {
+                $role = (string)adminRole();
+                if ($role !== '' && $role !== 'ceo' && $role !== 'super') {
+                    $adminHome = 'staff_dashboard.php';
+                }
+            }
+            redirect($adminHome);
         }
         if (function_exists('isLoggedIn') && isLoggedIn()) {
             redirect('dashboard.php');

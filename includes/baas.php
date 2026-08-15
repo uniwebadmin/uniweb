@@ -459,7 +459,10 @@ function getMerchantKycProgress(?array $merchant): array
 function requireKycDocumentsUploaded(): void
 {
     $merchant = getMerchant();
-    if (!$merchant) redirect('login.php');
+    if (!$merchant) {
+        flash('error', 'Your session expired. Please log in again.');
+        redirect('login.php');
+    }
     if (isMerchantTest($merchant)) {
         return;
     }
@@ -473,7 +476,10 @@ function requireKycDocumentsUploaded(): void
 function requireLivePayments(): void
 {
     $merchant = getMerchant();
-    if (!$merchant) redirect('login.php');
+    if (!$merchant) {
+        flash('error', 'Your session expired. Please log in again.');
+        redirect('login.php');
+    }
     if (isMerchantTest($merchant)) {
         flash('error', 'Live payments are disabled in Test Mode. Complete KYC and wait for admin approval to go Live.');
         redirect('dashboard.php');

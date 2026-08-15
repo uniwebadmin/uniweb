@@ -1,10 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
-requireLogin();
-$merchant = getMerchant();
-if (!$merchant) {
-    redirect('login.php');
-}
+require_once __DIR__ . '/includes/page_ux.php';
+$merchant = requireMerchantAccount();
 
 try { ensureMultiMerchantTables(); } catch (Throwable $e) { /* ok — tables may not exist yet */ }
 
