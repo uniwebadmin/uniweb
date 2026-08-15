@@ -237,12 +237,12 @@ function requiresCheckerApproval(float $amount): bool
 function payoutActivationMessage(): string
 {
     if (payoutLiveMoneyAllowed()) {
-        return 'Payout rail is active with a licensed partner.';
+        return 'Payout rail is active with a licensed partner. Marketplace Easy Split / Route remains off until the Owner starts that deal.';
     }
     if (payoutPartnerKeysConfigured()) {
-        return 'Partner keys are present. Live money movement stays off until an admin enables payout_live_enabled after compliance review.';
+        return 'Partner keys are present. Live money movement stays off until an admin enables payout_live_enabled after compliance review. Easy Split / Route is not live marketplace split.';
     }
-    return 'Payouts activate when licensed payout partner keys are added (RazorpayX / Cashfree Payouts). Money movement is disabled until then.';
+    return 'Collect first. Payouts activate when licensed payout partner keys are added (RazorpayX / Cashfree Payouts). No fake marketplace Easy Split — Route stays parked until Owner + commercial.';
 }
 
 function merchantPayoutEnabled(array $merchant): bool

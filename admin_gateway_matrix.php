@@ -113,7 +113,10 @@ $pageTitle = 'Gateway Routing Matrix';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6">
-    <p class="text-sm text-gray-400">Multi-gateway onboarding status, one-click forward, per-merchant matrix</p>
+    <div>
+        <p class="text-sm text-gray-400">Ops view: which partner rail each merchant is on. Partner Registry holds keys and method ON/OFF. Deep multi-MID / multi-acquirer UI only if the Owner names that deal.</p>
+        <p class="text-xs text-gray-600 mt-1">UniWeb merchant code is the platform MID label. Partner sub-MID appears after forward / activation with that partner.</p>
+    </div>
 
     <div class="glass rounded-xl p-4 sm:p-6">
         <h3 class="font-semibold mb-4">Select Merchant</h3>

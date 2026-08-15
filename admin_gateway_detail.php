@@ -213,7 +213,7 @@ $methodLabels = [
     'netbanking' => 'Net Banking', 'emi' => 'EMI',
     'emandate_upi' => 'E-Mandate UPI', 'emandate_card' => 'E-Mandate Card', 'emandate_nb' => 'E-Mandate NB',
 ];
-$tabs = ['keys' => 'Keys', 'methods' => 'Methods', 'commercial' => 'Commercial & Split', 'webhooks' => 'Webhooks', 'golive' => 'Go-live', 'test' => 'Test', 'logs' => 'Logs'];
+$tabs = ['keys' => 'Keys', 'methods' => 'Methods', 'commercial' => 'Commercial', 'webhooks' => 'Webhooks', 'golive' => 'Go-live', 'test' => 'Test', 'logs' => 'Logs'];
 $webhookUrl = trim((string)($gateway['webhook_url'] ?: ($partner['webhook'] ?? '')));
 $goLiveChecklist = function_exists('partnerGoLiveChecklist')
     ? partnerGoLiveChecklist($partnerKey, $gateway, $webhookUrl)
@@ -288,15 +288,18 @@ require_once __DIR__ . '/header.php';
     ?>
     <div class="glass rounded-xl p-6 border border-gray-800">
         <h3 class="font-semibold mb-1">API Credentials</h3>
-        <p class="text-xs text-gray-500 mb-2">Secrets are encrypted. Only last4 is shown after save. Leave password fields blank to keep current value.</p>
+        <p class="text-xs text-gray-500 mb-2">Secrets are encrypted. Only last4 is shown after save. Leave password fields blank to keep current value. UniWeb is the merchant console — partners (for example Decentro) are banks/PGs, not UniWeb-as-bank.</p>
         <div class="flex gap-2 mb-4">
-            <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=keys&env=test" class="text-xs px-3 py-1.5 rounded-lg <?= $keyEnv === 'test' ? 'bg-sky-500/20 text-sky-400' : 'glass text-gray-400' ?>">Test</a>
-            <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=keys&env=live" class="text-xs px-3 py-1.5 rounded-lg <?= $keyEnv === 'live' ? 'bg-emerald-500/20 text-emerald-400' : 'glass text-gray-400' ?>">Live</a>
+            <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=keys&env=test" class="text-xs px-3 py-1.5 rounded-lg <?= $keyEnv === 'test' ? 'bg-sky-500/20 text-sky-400' : 'glass text-gray-400' ?>">Test / Sandbox</a>
+            <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=keys&env=live" class="text-xs px-3 py-1.5 rounded-lg <?= $keyEnv === 'live' ? 'bg-emerald-500/20 text-emerald-400' : 'glass text-gray-400' ?>">Live / Production</a>
         </div>
         <?php if ($keyEnv === 'live'): ?>
-        <div class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 mb-4 text-sm text-emerald-200">You are on <strong>LIVE</strong> keys (real money). Test keys are a separate tab.</div>
+        <div class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 mb-4 text-sm text-emerald-200">You are on <strong>LIVE / PRODUCTION</strong> keys (real money). Sandbox keys stay on the Test tab — never treat staging as live.</div>
         <?php else: ?>
-        <div class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 mb-4 text-sm text-amber-200">You are on <strong>TEST</strong> keys. Live Cashfree / Razorpay keys must be saved on the <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=keys&env=live" class="underline text-emerald-300">Live</a> tab.</div>
+        <div class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 mb-4 text-sm text-amber-200">You are on <strong>TEST / SANDBOX</strong> keys (no real settlement). Paste production keys only on the <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=keys&env=live" class="underline text-emerald-300">Live / Production</a> tab.</div>
+        <?php endif; ?>
+        <?php if ($partnerKey === 'decentro'): ?>
+        <div class="rounded-lg border border-sky-500/30 bg-sky-500/10 p-3 mb-4 text-xs text-sky-200">Decentro is a <strong>partner</strong>. UniWeb does not become the bank. Staging dashboard ≠ production money.</div>
         <?php endif; ?>
         <?php if ($keyEnv === 'live' && !empty($credStatus['test']) && empty($credStatus['live'])): ?>
         <form method="POST" class="mb-4">
@@ -433,8 +436,8 @@ require_once __DIR__ . '/header.php';
         $routeCfg = getPartnerRouteConfig($partnerKey);
     ?>
     <div class="glass rounded-xl p-6 border border-gray-800">
-        <h3 class="font-semibold mb-1">Commercial & Split — <?= e($gateway['gateway_name']) ?></h3>
-        <p class="text-xs text-gray-500 mb-4">One place for partner money config: MDR (P) and Route/Split scaffold.</p>
+        <h3 class="font-semibold mb-1">Commercial &amp; Route scaffold — <?= e($gateway['gateway_name']) ?></h3>
+        <p class="text-xs text-gray-500 mb-4">Partner MDR (P) here. Route / Easy Split stays scaffold — not live marketplace split until Owner + commercial + keys.</p>
 
         <?php if ($pricingError): ?>
         <div class="rounded-lg border border-amber-700/50 bg-amber-900/20 p-3 mb-4 text-sm text-amber-300">

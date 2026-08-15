@@ -9,13 +9,13 @@ function getDemoTourSlides(?array $demo = null): array
     return [
         [
             'id' => 'checkout',
-            'title' => 'Multi-Method Checkout',
-            'subtitle' => 'UPI · Cards · Netbanking · Wallets',
-            'desc' => 'One test payment link demonstrates the checkout methods that can be enabled after partner approval.',
+            'title' => 'Hosted Checkout',
+            'subtitle' => 'Enabled methods only',
+            'desc' => 'Checkout shows the methods entitled for that merchant after partner activation — not a fake full catalogue.',
             'img' => 'assets/img/demo/demo-checkout.png',
             'embed' => $payUrl,
             'action' => ['Try ₹1 Payment', $payUrl],
-            'narration_en' => 'Welcome to UniWeb. This is our multi-method checkout preview. The one rupee demonstration runs in Test Mode and does not move real money.',
+            'narration_en' => 'Welcome to UniWeb. This checkout preview runs in Test Mode. Live cards and other rails appear only when partner keys and merchant methods are on.',
         ],
         [
             'id' => 'dashboard',
@@ -29,11 +29,11 @@ function getDemoTourSlides(?array $demo = null): array
         [
             'id' => 'payment-pack',
             'title' => 'Auto Payment Pack',
-            'subtitle' => '6 method links — one click',
-            'desc' => 'New merchant signup → auto UPI, VA, PayU, Razorpay, Cashfree links created instantly.',
+            'subtitle' => 'Links for approved methods',
+            'desc' => 'New merchant signup creates Test links for methods on the pack — Live cards need partner credentials.',
             'img' => 'assets/img/demo/demo-payment-pack.png',
             'action' => ['Sign Up Free', 'merchant_register.php'],
-            'narration_en' => 'When a new merchant signs up, UniWeb auto-creates a payment pack — separate links for UPI, virtual account, PayU cards, Razorpay, Cashfree, and more. Share on WhatsApp in one click.',
+            'narration_en' => 'When a new merchant signs up, UniWeb creates a payment pack of Test links. Partner card rails go live only after keys and activation — not as a pretend all-methods catalogue.',
         ],
         [
             'id' => 'kyc',

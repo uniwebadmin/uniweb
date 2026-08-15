@@ -1,9 +1,12 @@
 # Block A — Hostinger & database cleanup
 
-**Status (2026-08-15):** Code/UI safety fixes shipped. **Hostinger file deletes wait on Owner backup.**  
+**Status (2026-08-15):** Code/UI safety fixes shipped. **Hostinger file deletes wait on Owner backup (LIVE-03).**  
 **Rule:** if unsure → leave it, mark REVIEW. Never hard-delete money rows. Never `DROP DATABASE`.
 
-Related: `CLEANUP_SENSITIVE_CLICKABLE_AUDIT.md` · Block D order = backup → B → C → **A** → E.
+**LIVE-03 order:** Files Backups + full SQL export → then delete junk only (lists below). See also `_inbox/chat/LIVE_03_backup_before_cleanup.txt`.
+
+Related: `CLEANUP_SENSITIVE_CLICKABLE_AUDIT.md` · Block D order = backup → B → C → **A** → E.  
+**LIVE-02 (after Git pull):** Apply pending migrations (062/063) → Encrypt PII Backfill if needed — never DROP DATABASE.
 
 ---
 
@@ -35,11 +38,11 @@ Related: `CLEANUP_SENSITIVE_CLICKABLE_AUDIT.md` · Block D order = backup → B 
 
 ### Keep (do not delete)
 
-`config.php`, `header.php`, `footer.php`, `checkout.php`, `*_webhook.php`, `webhook.php`, `migrate_release.php`, all `cron_*.php`, `health.php`, `demo.php`, `includes/`, `migrations/`, `assets/`, `lib/`, NBFC pages (hidden, parked).
+`config.php`, `header.php`, `footer.php`, `checkout.php`, `*_webhook.php`, `webhook.php`, `migrate_release.php`, all `cron_*.php`, `health.php`, `demo.php`, `includes/`, `migrations/`, `assets/`, `lib/`.
 
 ### REVIEW only (leave unless Owner confirms)
 
-`ping.php` (health probe), `mobile.php` (phone hub), `config.dev.php` (template — live uses `config.php`), hidden NBFC PHP files.
+`ping.php` (health probe), `mobile.php` (phone hub), `config.dev.php` (template — live uses `config.php`). Do not restore deleted NBFC / customer wallet pages.
 
 ### Code hardening (already in repo)
 

@@ -73,6 +73,8 @@ $featureAliases = [
     'registry' => 'admin_gateway_registry.php',
     'partners' => 'admin_gateway_registry.php',
     'partner registry' => 'admin_gateway_registry.php',
+    'orchestrator' => 'admin_gateway_registry.php',
+    'gateway orchestrator' => 'admin_gateway_registry.php',
     'forward queue' => 'admin_forward_queue.php',
     'reason maps' => 'admin_reason_map.php',
     'platform status' => 'admin_platform_status.php',
@@ -109,8 +111,20 @@ $featureAliases = [
     'financial reports' => 'admin_financial_reports.php',
     'aml' => 'admin_aml.php',
     'risk' => 'admin_risk.php',
+    'chargeback' => 'admin_chargebacks.php',
+    'chargebacks' => 'admin_chargebacks.php',
+    'disputes' => $isMerchant ? 'disputes.php' : 'admin_disputes.php',
+    'method request' => 'admin_method_requests.php',
+    'method requests' => 'admin_method_requests.php',
+    'virtual account' => 'admin_virtual_accounts.php',
+    'virtual accounts' => 'admin_virtual_accounts.php',
+    'va' => 'admin_virtual_accounts.php',
+    'payout' => $isMerchant ? 'merchant_payout.php' : 'admin_payout.php',
+    'payouts' => $isMerchant ? 'merchant_payout.php' : 'admin_payout.php',
     'checkout customize' => 'checkout_customize.php',
     'error log' => 'admin_error_log.php',
+    'api docs' => 'api_docs.php',
+    'webhooks' => $isMerchant ? 'api_settings.php' : 'admin_gateway_registry.php',
 ];
 
 $qlower = mb_strtolower($q);
@@ -406,58 +420,191 @@ if ($isMerchant) {
     }
     }
 
-    foreach ($fetchRows(
-        "SELECT r.refund_id, r.amount, r.status, r.txn_id, r.merchant_id, m.business_name
-            FROM refunds r JOIN merchants m ON m.id=r.merchant_id WHERE (
-            LOWER(TRIM(COALESCE(r.refund_id,''))) LIKE ? OR LOWER(TRIM(COALESCE(r.txn_id,''))) LIKE ? OR
-            LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(r.amount AS CHAR) LIKE ?)
-            ORDER BY r.created_at DESC LIMIT 10",
-        [$like, $like, $like, $like]
-    ) as $row) {
-        if (!staffHasMerchantAccess((int)($row['merchant_id'] ?? 0))) {
-            continue;
+    $canRefunds = $canPage('admin_refunds.php');
+    $canKyc = $canPage('admin_kyc.php');
+    $canForward = $canPage('admin_forward_queue.php');
+    $canDisputes = $canPage('admin_disputes.php');
+    $canChargebacks = $canPage('admin_chargebacks.php');
+    $canMethodRequests = $canPage('admin_method_requests.php');
+    $canVas = $canPage('admin_virtual_accounts.php');
+    $canAml = $canPage('admin_aml.php') || $canPage('admin_risk.php');
+    $canPayouts = $canPage('admin_payout.php') || $canPage('admin_bulk_payout.php');
+
+    if ($canRefunds) {
+        foreach ($fetchRows(
+            "SELECT r.refund_id, r.amount, r.status, r.txn_id, r.merchant_id, m.business_name
+                FROM refunds r JOIN merchants m ON m.id=r.merchant_id WHERE (
+                LOWER(TRIM(COALESCE(r.refund_id,''))) LIKE ? OR LOWER(TRIM(COALESCE(r.txn_id,''))) LIKE ? OR
+                LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(r.amount AS CHAR) LIKE ?)
+                ORDER BY r.created_at DESC LIMIT 10",
+            [$like, $like, $like, $like]
+        ) as $row) {
+            if (!staffHasMerchantAccess((int)($row['merchant_id'] ?? 0))) {
+                continue;
+            }
+            $add('Refund', (string)$row['refund_id'], formatMoney((float)$row['amount']) . ' · ' . ucfirst((string)$row['status']) . ' · ' . $row['business_name'], 'admin_refunds.php?q=' . rawurlencode((string)$row['refund_id']));
         }
-        $add('Refund', (string)$row['refund_id'], formatMoney((float)$row['amount']) . ' · ' . ucfirst((string)$row['status']) . ' · ' . $row['business_name'], 'admin_refunds.php?q=' . rawurlencode((string)$row['refund_id']));
     }
 
-    foreach ($fetchRows(
-        "SELECT mandate_ref, status, merchant_id, max_amount, customer_name FROM mandates WHERE (
-            LOWER(TRIM(COALESCE(mandate_ref,''))) LIKE ? OR LOWER(TRIM(COALESCE(customer_name,''))) LIKE ? OR CAST(max_amount AS CHAR) LIKE ?)
-            ORDER BY created_at DESC LIMIT 10",
-        [$like, $like, $like]
-    ) as $row) {
-        if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
-            continue;
+    if ($canTransactions) {
+        foreach ($fetchRows(
+            "SELECT mandate_ref, status, merchant_id, max_amount, customer_name FROM mandates WHERE (
+                LOWER(TRIM(COALESCE(mandate_ref,''))) LIKE ? OR LOWER(TRIM(COALESCE(customer_name,''))) LIKE ? OR CAST(max_amount AS CHAR) LIKE ?)
+                ORDER BY created_at DESC LIMIT 10",
+            [$like, $like, $like]
+        ) as $row) {
+            if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
+                continue;
+            }
+            $add('Mandate', (string)$row['mandate_ref'], formatMoney((float)$row['max_amount']) . ' · ' . ucfirst((string)$row['status']) . ' · ' . ($row['customer_name'] ?: ''), 'admin_transactions.php?q=' . rawurlencode((string)$row['mandate_ref']));
         }
-        $add('Mandate', (string)$row['mandate_ref'], formatMoney((float)$row['max_amount']) . ' · ' . ucfirst((string)$row['status']) . ' · ' . ($row['customer_name'] ?: ''), 'admin_transactions.php?q=' . rawurlencode((string)$row['mandate_ref']));
     }
 
-    foreach ($fetchRows(
-        "SELECT fq.id, fq.partner_key, fq.status, fq.merchant_id, m.business_name
-            FROM partner_forward_queue fq JOIN merchants m ON m.id=fq.merchant_id WHERE (
-            LOWER(TRIM(COALESCE(fq.partner_key,''))) LIKE ? OR LOWER(TRIM(COALESCE(fq.status,''))) LIKE ? OR
-            LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(fq.id AS CHAR) LIKE ?)
-            ORDER BY fq.created_at DESC LIMIT 10",
-        [$like, $like, $like, $like]
-    ) as $row) {
-        if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
-            continue;
+    if ($canForward) {
+        foreach ($fetchRows(
+            "SELECT fq.id, fq.partner_key, fq.status, fq.merchant_id, m.business_name
+                FROM partner_forward_queue fq JOIN merchants m ON m.id=fq.merchant_id WHERE (
+                LOWER(TRIM(COALESCE(fq.partner_key,''))) LIKE ? OR LOWER(TRIM(COALESCE(fq.status,''))) LIKE ? OR
+                LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(fq.id AS CHAR) LIKE ?)
+                ORDER BY fq.created_at DESC LIMIT 10",
+            [$like, $like, $like, $like]
+        ) as $row) {
+            if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
+                continue;
+            }
+            $add('Forward Queue', '#' . $row['id'] . ' · ' . $row['partner_key'], ucfirst((string)$row['status']) . ' · ' . $row['business_name'], 'admin_forward_queue.php?q=' . rawurlencode((string)$row['id']));
         }
-        $add('Forward Queue', '#' . $row['id'] . ' · ' . $row['partner_key'], ucfirst((string)$row['status']) . ' · ' . $row['business_name'], 'admin_forward_queue.php?q=' . rawurlencode((string)$row['id']));
     }
 
-    foreach ($fetchRows(
-        "SELECT kv.id, kv.verification_status, kv.merchant_id, m.business_name
-            FROM kyc_verifications kv JOIN merchants m ON m.id=kv.merchant_id WHERE (
-            LOWER(TRIM(COALESCE(kv.verification_status,''))) LIKE ? OR
-            LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(kv.id AS CHAR) LIKE ?)
-            ORDER BY kv.created_at DESC LIMIT 10",
-        [$like, $like, $like]
-    ) as $row) {
-        if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
-            continue;
+    if ($canKyc) {
+        foreach ($fetchRows(
+            "SELECT kv.id, kv.verification_status, kv.merchant_id, m.business_name
+                FROM kyc_verifications kv JOIN merchants m ON m.id=kv.merchant_id WHERE (
+                LOWER(TRIM(COALESCE(kv.verification_status,''))) LIKE ? OR
+                LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(kv.id AS CHAR) LIKE ?)
+                ORDER BY kv.created_at DESC LIMIT 10",
+            [$like, $like, $like]
+        ) as $row) {
+            if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
+                continue;
+            }
+            $add('KYC', '#' . $row['id'] . ' · ' . $row['business_name'], ucfirst((string)$row['verification_status']), 'admin_kyc.php?q=' . rawurlencode((string)$row['id']));
         }
-        $add('KYC', '#' . $row['id'] . ' · ' . $row['business_name'], ucfirst((string)$row['verification_status']), 'admin_kyc.php?q=' . rawurlencode((string)$row['id']));
+    }
+
+    if ($canChargebacks) {
+        foreach ($fetchRows(
+            "SELECT c.id, c.chargeback_ref, c.status, c.merchant_id, c.amount, m.business_name
+                FROM chargebacks c JOIN merchants m ON m.id=c.merchant_id WHERE (
+                LOWER(TRIM(COALESCE(c.chargeback_ref,''))) LIKE ? OR LOWER(TRIM(COALESCE(c.status,''))) LIKE ? OR
+                LOWER(TRIM(COALESCE(c.provider_dispute_id,''))) LIKE ? OR LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR
+                CAST(c.id AS CHAR) LIKE ? OR CAST(c.amount AS CHAR) LIKE ?)
+                ORDER BY c.created_at DESC LIMIT 10",
+            [$like, $like, $like, $like, $like, $like]
+        ) as $row) {
+            if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
+                continue;
+            }
+            $add('Chargeback', $ref, formatMoney((float)($row['amount'] ?? 0)) . ' · ' . ucfirst((string)$row['status']) . ' · ' . $row['business_name'], 'admin_chargebacks.php?q=' . rawurlencode($ref));
+        }
+    }
+
+    if ($canDisputes) {
+        foreach ($fetchRows(
+            "SELECT d.dispute_id, d.status, d.merchant_id, d.reason, m.business_name
+                FROM disputes d JOIN merchants m ON m.id=d.merchant_id WHERE (
+                LOWER(TRIM(COALESCE(d.dispute_id,''))) LIKE ? OR LOWER(TRIM(COALESCE(d.status,''))) LIKE ? OR
+                LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR LOWER(TRIM(COALESCE(d.reason,''))) LIKE ?)
+                ORDER BY d.created_at DESC LIMIT 10",
+            [$like, $like, $like, $like]
+        ) as $row) {
+            if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
+                continue;
+            }
+            $add('Dispute', (string)$row['dispute_id'], ucfirst((string)$row['status']) . ' · ' . $row['business_name'], 'admin_disputes.php?q=' . rawurlencode((string)$row['dispute_id']));
+        }
+    }
+
+    if ($canMethodRequests) {
+        foreach ($fetchRows(
+            "SELECT mr.id, mr.method_key, mr.status, mr.merchant_id, m.business_name
+                FROM merchant_method_requests mr JOIN merchants m ON m.id=mr.merchant_id WHERE (
+                LOWER(TRIM(COALESCE(mr.method_key,''))) LIKE ? OR LOWER(TRIM(COALESCE(mr.status,''))) LIKE ? OR
+                LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(mr.id AS CHAR) LIKE ?)
+                ORDER BY mr.created_at DESC LIMIT 10",
+            [$like, $like, $like, $like]
+        ) as $row) {
+            if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
+                continue;
+            }
+            $add('Method Request', (string)$row['method_key'] . ' · #' . $row['id'], ucfirst((string)$row['status']) . ' · ' . $row['business_name'], 'admin_method_requests.php?q=' . rawurlencode((string)$row['id']));
+        }
+    }
+
+    if ($canVas) {
+        foreach ($fetchRows(
+            "SELECT v.id, v.va_number, v.label, v.status, v.merchant_id, m.business_name
+                FROM merchant_virtual_accounts v JOIN merchants m ON m.id=v.merchant_id WHERE (
+                LOWER(TRIM(COALESCE(v.va_number,''))) LIKE ? OR LOWER(TRIM(COALESCE(v.label,''))) LIKE ? OR
+                LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(v.id AS CHAR) LIKE ?)
+                ORDER BY v.id DESC LIMIT 10",
+            [$like, $like, $like, $like]
+        ) as $row) {
+            if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
+                continue;
+            }
+            $add('Virtual Account', (string)($row['va_number'] ?: 'VA #' . $row['id']), ucfirst((string)$row['status']) . ' · ' . ($row['label'] ?: '') . ' · ' . $row['business_name'], 'admin_virtual_accounts.php?q=' . rawurlencode((string)($row['va_number'] ?: $row['id'])));
+        }
+    }
+
+    if ($canAml) {
+        foreach ($fetchRows(
+            "SELECT af.id, af.flag_type, af.severity, af.status, af.merchant_id, m.business_name
+                FROM aml_flags af JOIN merchants m ON m.id=af.merchant_id WHERE (
+                LOWER(TRIM(COALESCE(af.flag_type,''))) LIKE ? OR LOWER(TRIM(COALESCE(af.severity,''))) LIKE ? OR
+                LOWER(TRIM(COALESCE(af.status,''))) LIKE ? OR LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(af.id AS CHAR) LIKE ?)
+                ORDER BY af.created_at DESC LIMIT 10",
+            [$like, $like, $like, $like, $like]
+        ) as $row) {
+            if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
+                continue;
+            }
+            $amlUrl = $canPage('admin_aml.php') ? 'admin_aml.php' : 'admin_risk.php';
+            $add('AML Flag', '#' . $row['id'] . ' · ' . $row['flag_type'], ucfirst((string)$row['severity']) . ' · ' . ucfirst((string)$row['status']) . ' · ' . $row['business_name'], $amlUrl);
+        }
+    }
+
+    if ($canPayouts) {
+        foreach ($fetchRows(
+            "SELECT o.id, o.payout_id, o.status, o.amount, o.merchant_id, m.business_name
+                FROM payout_orders o JOIN merchants m ON m.id=o.merchant_id WHERE (
+                LOWER(TRIM(COALESCE(o.payout_id,''))) LIKE ? OR LOWER(TRIM(COALESCE(o.status,''))) LIKE ? OR
+                LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(o.id AS CHAR) LIKE ? OR CAST(o.amount AS CHAR) LIKE ?)
+                ORDER BY o.id DESC LIMIT 10",
+            [$like, $like, $like, $like, $like]
+        ) as $row) {
+            if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
+                continue;
+            }
+            $ref = (string)($row['payout_id'] ?: ('PO #' . $row['id']));
+            $add('Payout', $ref, formatMoney((float)($row['amount'] ?? 0)) . ' · ' . ucfirst((string)$row['status']) . ' · ' . $row['business_name'], 'admin_payout.php?q=' . rawurlencode($ref));
+        }
+    }
+
+    if ($canPaymentLinks) {
+        foreach ($fetchRows(
+            "SELECT pl.pack_id, pl.merchant_id, m.business_name, COUNT(*) AS link_count
+                FROM payment_links pl JOIN merchants m ON m.id=pl.merchant_id WHERE pl.pack_id IS NOT NULL AND pl.pack_id != '' AND (
+                LOWER(TRIM(COALESCE(pl.pack_id,''))) LIKE ? OR LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ?)
+                GROUP BY pl.pack_id, pl.merchant_id, m.business_name
+                ORDER BY MAX(pl.created_at) DESC LIMIT 10",
+            [$like, $like]
+        ) as $row) {
+            if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
+                continue;
+            }
+            $add('Payment Pack', (string)$row['pack_id'], (int)$row['link_count'] . ' links · ' . $row['business_name'], 'admin_payment_links.php?q=' . rawurlencode((string)$row['pack_id']));
+        }
     }
 
     if ($canStaff) {

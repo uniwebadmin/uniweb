@@ -82,15 +82,15 @@ foreach ($gateways as $g) {
     if ((int)$g['is_active']) $activeCount++;
     else $inactiveCount++;
 }
-$pageTitle = 'Gateway Orchestrator';
+$pageTitle = 'Partner Registry';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="max-w-4xl space-y-6">
     <div class="glass rounded-xl p-6 border border-gray-800">
         <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
             <div>
-                <h2 class="font-semibold text-lg">Gateway Orchestrator</h2>
-                <p class="text-xs text-gray-500 mt-1">All payment partners in one place. New partners auto-appear here as Inactive. Click a gateway to add API keys and activate.</p>
+                <h2 class="font-semibold text-lg">Partner Registry</h2>
+                <p class="text-xs text-gray-500 mt-1">Bank and PG partners in one place — keys, methods, activate. This is not a Juspay-style multi-rail orchestrator product. Uptime stays on <a href="status.php" class="text-sky-400 hover:underline">status.php</a>; Watchdog keeps links green.</p>
             </div>
             <div class="flex gap-3">
                 <div class="text-center">

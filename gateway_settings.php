@@ -209,7 +209,7 @@ $gatewayCards = [
             </form>
             <a href="?rotate_cron_key=1&csrf=<?= e(csrfToken()) ?>" class="text-xs px-3 py-2 rounded-lg border border-amber-500/40 text-amber-400 hover:bg-amber-500/10" onclick="return confirm('Rotate cron key? You must update Hostinger cron URL after this.')">Rotate key</a>
         </div>
-        <p class="text-[11px] text-gray-500">After each website update: click <strong class="text-gray-400 font-medium">Apply pending migrations</strong> once. Expect JSON <code class="text-sky-400">ok: true</code>. Do not drop the database.</p>
+        <p class="text-[11px] text-gray-500">After each website update: click <strong class="text-gray-400 font-medium">Apply pending migrations</strong> once. Expect JSON <code class="text-sky-400">ok: true</code>. Includes schema such as <strong class="text-gray-400">062</strong> (PII column width) and <strong class="text-gray-400">063</strong> (payment link Fixed/Open). Do not drop the database. Then open <a href="admin_encrypt_pii.php" class="text-sky-400 hover:underline">Encrypt PII Backfill</a> if plaintext remains.</p>
         <div class="pt-4 mt-2 border-t border-gray-800">
             <p class="text-[10px] text-gray-600 uppercase tracking-wide mb-1">Already included in the 10-minute job — extra Hostinger jobs not required</p>
             <p class="text-gray-500">Watchdog, auto KYC, settlements, recurring mandates, partner forward, payout queue.</p>

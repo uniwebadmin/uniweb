@@ -280,7 +280,7 @@ function registerGateway(string $key, string $name, array $capabilities = []): a
 }
 
 /**
- * Get all registered gateways (for admin orchestrator view).
+ * Get all registered gateways (Partner Registry admin view).
  */
 function getRegisteredGateways(): array
 {
@@ -728,8 +728,9 @@ function get_available_pay_methods(int $merchantId): array
             continue;
         }
 
-        // Partner PG — in Test Mode show entitled methods (Instant Test Pay on checkout).
-        // Live Mode still requires active + configured + partner method ON.
+        // Partner PG — Live Mode hard-gates: registry active + credentials + partner method ON.
+        // Test Mode may list entitled methods for Instant Test Pay (no real settlement).
+        // P9-06: never present cards/POS as available without Partner Registry + merchant activation.
         if (!$isTest) {
             if (function_exists('isGatewayActive') && !isGatewayActive($gateway)) {
                 continue;

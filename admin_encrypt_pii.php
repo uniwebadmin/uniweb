@@ -94,7 +94,16 @@ require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6 max-w-3xl mx-auto">
     <h2 class="text-xl font-bold">Encrypt PII Backfill</h2>
-    <p class="text-sm text-gray-400">This one-time backfill encrypts any remaining plaintext PAN, GST, CIN, Aadhaar, address, bank account numbers and verification numbers. Login email/phone stay plaintext so merchants can still sign in. Run it after you are sure <code>ENCRYPTION_KEY</code> is set and correct.</p>
+    <p class="text-sm text-gray-400">One-time backfill for remaining plaintext PAN, GST, CIN, Aadhaar, address, bank account numbers and verification numbers. Login email/phone stay plaintext so merchants can sign in.</p>
+    <div class="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 text-sm text-sky-200 mb-2">
+        <p class="font-semibold">LIVE-02 order</p>
+        <ol class="list-decimal pl-5 mt-2 text-xs text-sky-100/90 space-y-1">
+            <li>Hostinger Git pull, then <a href="gateway_settings.php" class="underline text-white">Apply pending migrations</a> (062 widen cipher columns, 063 Fixed/Open links). Expect <code class="text-sky-300">ok: true</code>.</li>
+            <li>Run this backfill only if pending count below is greater than zero.</li>
+            <li>Never <code class="text-sky-300">DROP DATABASE</code>. Do not rotate <code class="text-sky-300">ENCRYPTION_KEY</code> unless you know how to re-encrypt.</li>
+        </ol>
+    </div>
+    <p class="text-sm text-gray-500">Run only after <code>ENCRYPTION_KEY</code> in live <code>config.php</code> is set and correct.</p>
 
     <div class="glass rounded-xl p-6">
         <p class="text-sm text-gray-400">Plaintext rows still pending: <strong class="text-amber-400"><?= (int)$pending ?></strong></p>

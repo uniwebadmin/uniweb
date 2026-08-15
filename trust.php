@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 $pageTitle = 'Trust & Security';
-$pageDescription = 'UniWeb trust and security: HTTPS, KYC, audit logs, webhook verification, partner rails, grievance contacts and clear RBI positioning for Indian merchants.';
+$pageDescription = 'UniWeb trust and security: HTTPS, KYC, audit logs, webhook verification, partner rails, grievance contacts. We do not claim an independent RBI PA or banking licence unless disclosed here.';
 $pageKeywords = 'UniWeb security, payment gateway trust, PCI, KYC, grievance officer, fintech India compliance';
 $canonicalUrl = APP_URL . '/trust.php';
 require_once __DIR__ . '/header.php';
@@ -18,7 +18,7 @@ require_once __DIR__ . '/header.php';
             <div class="company-card"><h3>HTTPS everywhere</h3><p>Dashboard, checkout and API traffic use TLS. Session cookies are protected; idle timeout applies on merchant and admin portals.</p></div>
             <div class="company-card"><h3>KYC before Live Mode</h3><p>Live collections require verified documents, bank account, website review, video KYC where required, and signed merchant agreement.</p></div>
             <div class="company-card"><h3>Webhook &amp; API integrity</h3><p>Gateway webhooks are signature-checked. Merchant outbound webhooks use HMAC. API keys are separated for Test and Live.</p></div>
-            <div class="company-card"><h3>Audit &amp; maker-checker</h3><p>Sensitive KYC and Live activation actions go through independent checker approval with immutable audit records.</p></div>
+            <div class="company-card"><h3>Audit &amp; dual control (interim)</h3><p>Sensitive KYC and Live activation use checker flows and an immutable audit log where wired. Full bank-grade dual-approve is built only when a named deal requires it — roles alone are not a fake dual-control product.</p></div>
             <div class="company-card"><h3>Velocity &amp; fraud signals</h3><p>Failed login and non-QR payment abuse are rate-limited.</p></div>
             <div class="company-card"><h3>Private KYC storage</h3><p>New KYC uploads are stored outside the public web root with access limited to authorized staff viewers.</p></div>
         </div>
@@ -38,13 +38,16 @@ require_once __DIR__ . '/header.php';
     <section class="company-section" style="padding-top:0"><div class="company-shell">
         <div class="company-kicker">Security questionnaire</div>
         <h2 class="company-title">Where the evidence already lives</h2>
+        <p class="company-lead mb-6">Map buyer diligence questions to these controls. Do not invent PCI Level 1, ISO 27001 or SOC 2 badges. See also the <a href="pci_dss.php" class="text-brand-400">PCI readiness path</a>.</p>
         <div class="company-grid">
-            <div class="company-card"><h3>Transport</h3><p>HTTPS / TLS on dashboard, checkout and API. See this page and the Privacy Policy.</p></div>
-            <div class="company-card"><h3>Access control</h3><p>Merchant team roles and staff roles. Partner keys stay on Super Admin Platform Settings — not Support or KYC staff.</p></div>
-            <div class="company-card"><h3>Audit trail</h3><p>Immutable money-action log. Maker-checker on Live KYC. Export by date from Admin → Audit Log when needed.</p></div>
-            <div class="company-card"><h3>Webhooks</h3><p>HMAC-SHA256 <code>X-UniWeb-Signature</code>. Copy-paste verify on API Settings. Test vs Live API keys are separate.</p></div>
-            <div class="company-card"><h3>Data residency</h3><p>Personal data processed in India under the DPDP Act, 2023. KYC files are not on the public web root.</p></div>
-            <div class="company-card"><h3>PCI / ISO badges</h3><p>We do not display PCI DSS, ISO 27001 or SOC 2 until an independent assessment exists. Card rails sit with licensed partners.</p></div>
+            <div class="company-card"><h3>Q: TLS / transport?</h3><p>HTTPS / TLS on dashboard, checkout and API. See this page and the Privacy Policy.</p></div>
+            <div class="company-card"><h3>Q: Who holds card data?</h3><p>Licensed partners on their hosted pages. UniWeb does not store PAN/CVV. We do not claim UniWeb PCI Level 1.</p></div>
+            <div class="company-card"><h3>Q: Access control?</h3><p>Merchant team roles and staff roles. Partner keys stay on Super Admin / Ops Partner Registry — not Support or KYC staff.</p></div>
+            <div class="company-card"><h3>Q: Audit trail?</h3><p>Immutable money-action log. Checker on Live KYC where wired. Export by date from Admin → Audit Log when needed.</p></div>
+            <div class="company-card"><h3>Q: Webhooks?</h3><p>HMAC-SHA256 <code>X-UniWeb-Signature</code>. Copy-paste verify on API Settings. Test vs Live API keys are separate.</p></div>
+            <div class="company-card"><h3>Q: Data residency?</h3><p>Personal data processed in India under the DPDP Act, 2023. KYC files are not on the public web root.</p></div>
+            <div class="company-card"><h3>Q: Certifications / badges?</h3><p>We do not display PCI DSS, ISO 27001 or SOC 2 until an independent assessment exists. Card rails sit with licensed partners.</p></div>
+            <div class="company-card"><h3>Q: Dual control?</h3><p>Staff roles + audit log today. Expand dual-approve only for a named contract (see branding / deal checklist WL-14).</p></div>
         </div>
     </div></section>
 

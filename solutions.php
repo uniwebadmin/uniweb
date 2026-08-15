@@ -1,8 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
 $pageTitle = 'Payment Solutions for Indian Businesses';
-$pageDescription = 'UniWeb payment gateway India: UPI, QR codes, payment links, cards, net banking, settlements, payouts, API and merchant onboarding for startups and SMEs.';
-$pageKeywords = 'payment gateway India, UPI payment gateway, payment aggregator India, QR code payment, payment links, net banking payment, merchant onboarding, fintech platform India';
+$pageDescription = 'UniWeb for Indian merchants: UPI, QR, payment links and hosted checkout. Live cards and net banking only when partner rails are activated. Settlements and API after KYC.';
+$pageKeywords = 'payment gateway India, UPI payment gateway, QR code payment, payment links, merchant onboarding, fintech India';
 $canonicalUrl = APP_URL . '/solutions.php';
 require_once __DIR__ . '/header.php';
 
@@ -11,7 +11,7 @@ $products = [
         'id' => 'checkout',
         'eyebrow' => 'Checkout',
         'title' => 'Hosted payment gateway',
-        'body' => 'Customers pay on a secure UniWeb checkout with UPI, cards, net banking and wallets via Razorpay, Cashfree or PayU when your Live rails are activated. Test Mode uses Instant Test Pay so you can demo without real money.',
+        'body' => 'Customers pay on a secure UniWeb checkout. UPI, QR and payment links work in Test Mode. Live cards, net banking and other partner methods appear only after Partner Registry keys and merchant activation — we do not fake full PayU/Worldline coverage.',
         'points' => ['Test vs Live mode like major Indian gateways', 'Method tabs with clear amount and fee split', 'Customer name/phone captured for receipt lookup'],
         'cta' => ['demo.php', 'Try ₹1 demo'],
     ],

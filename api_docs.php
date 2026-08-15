@@ -75,7 +75,7 @@ require_once __DIR__ . '/header.php';
 
         <div class="glass rounded-xl p-6 border border-amber-500/20">
             <h2 class="font-semibold mb-2">Merchant onboarding API</h2>
-            <p class="text-sm text-gray-400">There is no public REST action to create a merchant. Signup, admin invite and KYC stay on the website until a written deal needs a documented onboarding API.</p>
+            <p class="text-sm text-gray-400">Written exception (parked): there is <strong class="text-gray-300">no public REST</strong> action to create a merchant or poll KYC status. Until a named bank/fintech deal requires it, onboarding stays on the website — signup, admin invite, and KYC UI. When that deal starts, we extend this page and OpenAPI — we do not invent a second onboarding product.</p>
         </div>
 
         <div class="glass rounded-xl p-6">

@@ -41,7 +41,7 @@ require_once __DIR__ . '/header.php';
 <div class="mb-6 flex flex-wrap items-center justify-between gap-3 pb-24 lg:pb-0">
     <div>
         <h1 class="text-xl font-bold">Payout Enable Requests</h1>
-        <p class="text-sm text-gray-500 mt-1">Approve merchant access to the payout scaffold. Live money movement stays gated until licensed partner keys are added.</p>
+        <p class="text-sm text-gray-500 mt-1">Approve merchant access to the payout scaffold. Live money stays gated until licensed partner keys. Easy Split / Route is not a live UniWeb marketplace product.</p>
     </div>
     <div class="flex gap-2 text-xs flex-wrap">
         <?php foreach (['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'all' => 'All', 'reversals' => 'Reversal queue'] as $sk => $sl): ?>

@@ -551,6 +551,14 @@ $assert(str_contains($gsP6, 'FROM admins') && str_contains($gsP6, 'FROM support_
 $assert(str_contains($gsP6, 'pan_hash') && str_contains($gsP6, 'gstin_hash') && str_contains($gsP6, 'mandate_ref'), 'p6_search_gstin_pan_mandates');
 $assert(str_contains($gsP6, 'function_exists(\'uwDetectIdKind\')') || str_contains($gsP6, 'uwDetectIdKind'), 'p6_search_id_prefixes');
 $assert(str_contains($gsP6, 'mb_strlen($q) < $minLen') && str_contains($gsP6, '$minLen = 2'), 'p6_search_min_two_chars');
+// SRCH-04 — staff search loops gated by canPage / staffCanAccess
+$assert(str_contains($gsP6, "\$canRefunds = \$canPage('admin_refunds.php')") && str_contains($gsP6, "\$canKyc = \$canPage('admin_kyc.php')"), 'srch04_refunds_kyc_gated');
+$assert(str_contains($gsP6, "\$canForward = \$canPage('admin_forward_queue.php')") && str_contains($gsP6, 'if ($canForward)'), 'srch04_forward_gated');
+$assert(str_contains($gsP6, 'if ($canRefunds)') && str_contains($gsP6, 'if ($canKyc)') && str_contains($gsP6, 'if ($canChargebacks)'), 'srch04_money_loops_gated');
+// SRCH-06 — high-value money / risk entities (program coverage step)
+$assert(str_contains($gsP6, 'FROM chargebacks') && str_contains($gsP6, 'FROM payout_orders') && str_contains($gsP6, 'FROM merchant_virtual_accounts'), 'srch06_money_entities');
+$assert(str_contains($gsP6, 'FROM merchant_method_requests') && str_contains($gsP6, 'FROM aml_flags') && str_contains($gsP6, 'FROM disputes'), 'srch06_kyc_risk_entities');
+$assert(str_contains($gsP6, "'chargebacks'") && str_contains($gsP6, "'virtual accounts'") && str_contains($gsP6, "'api docs'"), 'srch06_settings_nicknames');
 $assert(str_contains($gsUiP6, 'Ctrl K') && str_contains($gsUiP6, 'GSTIN') && str_contains($gsUiP6, 'q.length<2'), 'p6_search_visible_examples');
 preg_match_all("/\\['([a-zA-Z0-9_\\/-]+\\.php)'/", $navLibP6, $p6NavHits);
 $p6NavUrls = array_values(array_unique($p6NavHits[1] ?? []));
@@ -629,6 +637,21 @@ $assert(str_contains((string)file_get_contents($root . '/includes/page_ux.php'),
 $assert(str_contains((string)file_get_contents($root . '/footer.php'), 'compare.php') && str_contains((string)file_get_contents($root . '/sitemap.xml'), 'compare.php'), 'p9_compare_linked_footer_sitemap');
 $assert(!str_contains($cmpP9, 'nbfc.php') || str_contains($cmpP9, 'Not a UniWeb product'), 'p9_nbfc_not_sold');
 
+// P9-04…08 honesty (market peers) — no fake orchestrator / coverage / licence / brand blur
+$regP9 = (string)file_get_contents($root . '/admin_gateway_registry.php');
+$assert(str_contains($regP9, 'Partner Registry') && !str_contains($regP9, 'Gateway Orchestrator'), 'p9_04_no_orchestrator_product_title');
+$assert(str_contains((string)file_get_contents($root . '/status.php'), 'Partner Registry') && str_contains((string)file_get_contents($root . '/status.php'), 'orchestrator app'), 'p9_04_status_honest_routing');
+$payMsg = (string)file_get_contents($root . '/includes/payout.php');
+$assert(str_contains($payMsg, 'Easy Split') && str_contains($payMsg, 'Collect first'), 'p9_05_payout_honesty_message');
+$assert(str_contains((string)file_get_contents($root . '/merchant_payout.php'), 'Easy Split') && str_contains((string)file_get_contents($root . '/admin_payout.php'), 'Easy Split'), 'p9_05_payout_ui_banners');
+$assert(str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'isGatewayConfigured') && str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'isPartnerMethodEnabled'), 'p9_06_methods_hard_gated');
+$assert(str_contains((string)file_get_contents($root . '/solutions.php'), 'do not fake full PayU') || str_contains((string)file_get_contents($root . '/solutions.php'), 'only after Partner Registry'), 'p9_06_public_coverage_honest');
+$assert(!str_contains((string)file_get_contents($root . '/includes/demo_tour.php'), 'UPI · Cards · Netbanking · Wallets'), 'p9_06_demo_no_fake_catalogue');
+$gwDetailP9 = (string)file_get_contents($root . '/admin_gateway_detail.php');
+$assert(str_contains($gwDetailP9, 'Test / Sandbox') && str_contains($gwDetailP9, 'Live / Production') && str_contains($gwDetailP9, 'Decentro is a'), 'p9_07_sandbox_vs_live_labels');
+$assert(str_contains((string)file_get_contents($root . '/trust.php'), 'do not claim') && str_contains((string)file_get_contents($root . '/trust.php'), 'RBI Payment Aggregator'), 'p9_08_trust_licence_factual');
+$assert(!str_contains((string)file_get_contents($root . '/index.php'), 'payment aggregator'), 'p9_08_homepage_no_pa_keyword_claim');
+
 $wlMd = (string)file_get_contents($root . '/WHITE_LABEL_CHECKLIST.md');
 $assert(is_file($root . '/WHITE_LABEL_CHECKLIST.md'), 'p10_white_label_checklist_file');
 foreach (['WL-01', 'WL-02', 'WL-03', 'WL-04', 'WL-05', 'WL-12'] as $wlId) {
@@ -663,6 +686,25 @@ $assert(str_contains((string)file_get_contents($root . '/includes/schema_ensure.
 $assert(str_contains((string)file_get_contents($root . '/admin_reconciliation.php'), 'Runbook:'), 'p10_wl11_recon_runbook');
 $assert(str_contains((string)file_get_contents($root . '/admin_audit_log.php'), "export'] === 'csv'") && str_contains((string)file_get_contents($root . '/includes/audit_log.php'), 'function auditLogFilterWhere'), 'p10_wl12_audit_date_csv');
 $assert(str_contains($wlMd, '## WL-06') && str_contains($wlMd, '## WL-12'), 'p10_checklist_wl06_wl12_sections');
+
+// WL-13…15 + EXIST + LIVE-01 (park / honesty — no white-label product)
+$assert(str_contains($wlMd, '## WL-13') && str_contains($wlMd, 'admin_gateway_matrix.php'), 'wl13_matrix_in_checklist');
+$assert(str_contains($wlMd, '## WL-14') && str_contains($wlMd, 'named contract'), 'wl14_dual_control_parked');
+$assert(str_contains($wlMd, '## WL-15') && str_contains($wlMd, 'Not a UniWeb product'), 'wl15_portal_shell_not_sold');
+$assert(str_contains($wlMd, '## WL-EXIST') && str_contains($wlMd, 'hide_powered_by') && str_contains($wlMd, 'HMAC'), 'wl_exist_buyer_have_table');
+$assert(str_contains($wlMd, '## LIVE-01') && str_contains($wlMd, 'Instant Test Pay'), 'live01_owner_smoke_in_checklist');
+$assert(str_contains($wlMd, '## LIVE-02') && str_contains($wlMd, '062') && str_contains($wlMd, 'Encrypt PII'), 'live02_migrations_pii_checklist');
+$assert(str_contains($wlMd, '## LIVE-03') && str_contains($wlMd, 'BLOCK_A_CLEANUP.md'), 'live03_backup_before_cleanup_checklist');
+$assert(is_file($root . '/migrations/062_widen_merchant_pii_cipher.sql') && is_file($root . '/migrations/063_payment_link_amount_type.sql'), 'live02_migrations_062_063_present');
+$assert(str_contains((string)file_get_contents($root . '/admin_encrypt_pii.php'), 'LIVE-02 order') && str_contains((string)file_get_contents($root . '/gateway_settings.php'), '062'), 'live02_admin_ui_order_hints');
+$assert(str_contains((string)file_get_contents($root . '/BLOCK_A_CLEANUP.md'), 'Never hard-delete money') && !str_contains((string)file_get_contents($root . '/BLOCK_A_CLEANUP.md'), 'NBFC pages (hidden, parked)'), 'live03_block_a_no_nbfc_keep');
+$assert(is_file($root . '/_inbox/chat/LIVE_02_migrations_pii.txt') && is_file($root . '/_inbox/chat/LIVE_03_backup_before_cleanup.txt'), 'live02_03_owner_inbox_notes');
+$assert(is_file($root . '/admin_gateway_matrix.php') && str_contains((string)file_get_contents($root . '/admin_gateway_matrix.php'), 'multi-MID'), 'wl13_matrix_page_honest');
+$assert(str_contains((string)file_get_contents($root . '/trust.php'), 'Q: Who holds card data?') && str_contains((string)file_get_contents($root . '/trust.php'), 'do not claim UniWeb PCI Level 1'), 'wl09_trust_q_map');
+$pciDss = (string)file_get_contents($root . '/pci_dss.php');
+$assert(str_contains($pciDss, 'do not claim an independent PCI Level 1') && !str_contains($pciDss, 'UniWeb operates as a payment aggregator'), 'wl09_pci_no_fake_pa_badge');
+$assert(!str_contains($pciDss, '>Compliant<') && str_contains($pciDss, 'Readiness map'), 'wl09_pci_no_compliant_badge_cells');
+$assert(str_contains((string)file_get_contents($root . '/api_docs.php'), 'Written exception (parked)'), 'wl07_docs_written_exception');
 
 $p11 = (string)file_get_contents($root . '/PHASE11_ROUTE.md');
 $assert(is_file($root . '/PHASE11_ROUTE.md') && str_contains($p11, 'P11-01') && str_contains($p11, 'P11-02'), 'p11_route_reference_file');

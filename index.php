@@ -4,8 +4,8 @@ if (function_exists('opcache_invalidate')) { opcache_invalidate(__DIR__ . '/conf
 require_once __DIR__ . '/config.php';
 $publicStats = getPublicStats();
 $pageTitle = 'Digital Fintech Payment Solutions';
-$pageDescription = 'UniWeb — best payment gateway for Indian merchants. UPI, QR code payments, payment links, cards, net banking, API, KYC and settlements. Start free in Test Mode.';
-$pageKeywords = 'payment gateway India, best payment gateway, UPI payment gateway, payment aggregator, QR payment India, fintech platform, merchant onboarding India';
+$pageDescription = 'UniWeb — payment links, QR and UPI for Indian merchants. Cards and other rails appear only after partner keys and merchant activation. Start free in Test Mode.';
+$pageKeywords = 'payment gateway India, UPI payment gateway, QR payment India, payment links, merchant KYC India, fintech platform';
 $canonicalUrl = APP_URL . '/';
 if (!is_file(__DIR__ . '/header.php')) {
     http_response_code(503);
@@ -83,7 +83,7 @@ require_once __DIR__ . '/header.php';
         <div class="text-center mb-10">
             <p class="text-violet-400 text-sm font-semibold uppercase tracking-wider mb-2">Platform Preview</p>
             <h2 class="text-2xl sm:text-3xl font-bold mb-3">See <span class="gradient-text">UniWeb</span> in Action</h2>
-            <p class="text-gray-400 text-sm sm:text-base max-w-xl mx-auto">Multi-gateway checkout, merchant dashboard, settlements, and KYC — built for Indian businesses.</p>
+            <p class="text-gray-400 text-sm sm:text-base max-w-xl mx-auto">Checkout, merchant dashboard, settlements and KYC — partner methods show only when enabled for that merchant.</p>
         </div>
 
 
