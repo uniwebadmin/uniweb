@@ -140,7 +140,8 @@ Owner asked to **read + note here** (2026-08-15). Implementation order from the 
 | **A** | Safe Hostinger + DB cleanup (proven unused only; never DROP DB; never hard-delete money txns) | After B+C |
 | **E** | Owner verification checklist on live | After deploy |
 
-**Tickets:** A-01…A-04 · B-01…B-07 · C-01…C-08 · D · E.
+**Tickets:** A-01…A-04 · B-01…B-07 · C-01…C-08 · D · E.  
+**Block A runbook:** `BLOCK_A_CLEANUP.md` (backup-first; Hostinger deletes = Owner).
 
 **Related park:** P0-04 live `config.php` `$__includes` sync — Owner parked until **this** addendum is done; then remind Owner (see `_inbox/chat/REMIND_P0_04_live_config.txt`).
 

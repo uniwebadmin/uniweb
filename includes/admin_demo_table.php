@@ -62,7 +62,7 @@ foreach ($packLinks as $pl) {
                 <tr class="hover:bg-white/[0.02]">
                     <td class="px-5 py-3 font-medium">Platform Tour</td>
                     <td class="px-5 py-3 text-gray-400 text-xs">Public product walkthrough</td>
-                    <td class="px-5 py-3 text-right"><a href="platform_demo.php" target="_blank" class="text-brand-400 hover:text-brand-300 text-xs font-medium">Open Tour ↗</a></td>
+                    <td class="px-5 py-3 text-right"><a href="demo.php" target="_blank" class="text-brand-400 hover:text-brand-300 text-xs font-medium">Open Tour ↗</a></td>
                 </tr>
                 <?php if (!empty($packLinks)): ?>
                 <tr>

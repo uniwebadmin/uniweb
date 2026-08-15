@@ -58,6 +58,12 @@ ErrorDocument 500 /error.php
 # Block entire dev_local directory from web access
 <IfModule mod_rewrite.c>
     RewriteRule ^dev_local/ - [F]
+    RewriteRule ^tests/ - [F]
+    RewriteRule ^scripts/ - [F]
+    RewriteRule ^training/ - [F]
+    RewriteRule ^docs/ - [F]
+    RewriteRule ^archive/ - [F]
+    RewriteRule ^_inbox/ - [F]
     # Block direct access to private storage (KYC docs, evidence packs)
     RewriteRule ^storage/ - [F]
 </IfModule>

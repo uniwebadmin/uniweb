@@ -42,7 +42,7 @@ function getMerchantOnboardingSteps(array $merchant): array
             'id' => 'test_pay',
             'label' => 'Run a ₹1 test payment',
             'done' => $wallet['success_txns'] > 0,
-            'url' => 'merchant_launch_test.php',
+            'url' => 'merchant_payment_pack.php',
             'hint' => $wallet['success_txns'] . ' success payment(s)',
         ],
         [

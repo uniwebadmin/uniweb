@@ -75,7 +75,7 @@ jobs:
 
           # Temporary full sync: root files are missing on live, incremental skip was
           # the cause. Sync the entire tracked tree this run, then revert to incremental.
-          mapfile -t FILES < <(git ls-files | grep -vE '^(tests/|\.github/|\.vscode/|_inbox/|.*\.md$)' || true)
+          mapfile -t FILES < <(git ls-files | grep -vE '^(tests/|scripts/|dev_local/|training/|docs/|archive/|_inbox/|\.github/|\.vscode/|\.cursor/|\.devin/|tools/|.*\.md$)' || true)
           MODE="full (temporary)"
           echo "Uploading ${#FILES[@]} files to ftp://${HOST}/${BASE}/ (mode=${MODE}, parallel=3 + retry)"
 
