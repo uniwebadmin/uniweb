@@ -287,7 +287,11 @@ function createTransactionFromPayment(array $link, string $method, string $statu
 function finalizePaymentLink(int $linkDbId, int $merchantId, float $amount, string $message): void
 {
     getDB()->prepare("UPDATE payment_links SET status = 'paid', paid_at = NOW() WHERE id = ?")->execute([$linkDbId]);
-    createNotification($merchantId, 'Payment Received', $message);
+    if (function_exists('notifyMerchant')) {
+        notifyMerchant($merchantId, 'Payment Received', $message, 'pay_link_' . $linkDbId);
+    } else {
+        createNotification($merchantId, 'Payment Received', $message);
+    }
 }
 
 /**

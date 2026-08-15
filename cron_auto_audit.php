@@ -22,11 +22,18 @@ $webhookQueue = processMerchantWebhookQueue(25);
 $kycScans = processPendingKycScans(10);
 
 $settleStep = $report['steps']['settlement'] ?? null;
+$failedList = is_array($report['failed_list'] ?? null) ? $report['failed_list'] : [];
+if ($failedList === [] && function_exists('collectAutoAuditFailedChecks')) {
+    $failedList = collectAutoAuditFailedChecks($report);
+}
+$failLabels = array_values(array_filter(array_map(static fn($row) => is_array($row) ? (string)($row['label'] ?? '') : '', $failedList)));
 $payload = [
     'ok' => !empty($report['ok']),
     'skipped' => !empty($report['skipped']),
     'ran_at' => $report['ran_at'] ?? date('c'),
-    'failed' => $report['failed'] ?? 0,
+    'failed' => $report['failed'] ?? count($failedList),
+    'failed_checks' => $failedList,
+    'key_masked' => true,
     'broken_links' => $report['broken_links'] ?? 0,
     'errors' => $report['error_count'] ?? 0,
     'errors_cleared' => $report['errors_cleared'] ?? 0,
@@ -40,7 +47,7 @@ $payload = [
     'kyc_scans' => $kycScans,
     'help_en' => !empty($report['ok'])
         ? 'All clear — cron runs audit every 10 min. Pending KYC: verify in admin_kyc.php.'
-        : 'Cron ran but some checks failed — open Admin → Link Watchdog.',
+        : ('Cron ran but checks failed: ' . ($failLabels !== [] ? implode('; ', array_slice($failLabels, 0, 8)) : 'open Admin → Link Watchdog → Auto Audit.')),
 ];
 
 if ($verbose && function_exists('runFullLinkWatchdog')) {

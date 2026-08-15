@@ -204,4 +204,4 @@ Owner's explicit standing instruction: continue autonomously through phases with
 
 ## Latest Status (2026-08-15)
 
-Owner delivered ordered Deep Audit PDF. Live Hostinger has 10-min auto-audit + backup cron. Phases 0–4.4 are in repo. Phase 4.5–4.7 coded: Merchant Team invite + role matrix + activity log (including Support role); customer portal stays payments + complaints only (not PPI wallet); nav crawl asserts every menu URL has a file. Owner still verifies on live after Hostinger Git + hard refresh. Do not start Phase 5 until that live click-check.
+Owner delivered ordered Deep Audit PDF. Live Hostinger has 10-min auto-audit + backup cron. Phases 0–4.7 are in repo. Phase 5 coded: Watchdog/cron failed checks show labels and the cron key is masked; KYC/Live enqueue always leaves a Forward Queue row; notification `event_key` dedup + archive; AML `kyc_pending` skips if open and clears on verify. Owner still verifies on live after Hostinger Git + hard refresh. Do not start Phase 6 until that live click-check.

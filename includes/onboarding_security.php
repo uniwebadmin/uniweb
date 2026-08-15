@@ -348,7 +348,14 @@ function verifyMerchantKycNow(int $merchantId, string $reason): void
             $reason . ' [super_solo_ops]'
         );
     }
-    if (function_exists('createNotification')) {
+    if (function_exists('notifyMerchant')) {
+        notifyMerchant(
+            $merchantId,
+            'KYC Verified',
+            'Your KYC was verified. Live money still needs a separate Live activation step.',
+            'kyc_verified_' . $merchantId
+        );
+    } elseif (function_exists('createNotification')) {
         createNotification(
             $merchantId,
             'KYC Verified',

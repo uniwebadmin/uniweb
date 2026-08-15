@@ -679,7 +679,11 @@ function captureVerifiedPaymentOrder(array $verification): array
 
     try {
         addTransactionToSettlementBatch($transactionId, (int)$link['merchant_id']);
-        createNotification((int)$link['merchant_id'], 'Payment Received', formatMoney((float)$link['amount']) . ' payment verified.');
+        if (function_exists('notifyMerchant')) {
+            notifyMerchant((int)$link['merchant_id'], 'Payment Received', formatMoney((float)$link['amount']) . ' payment verified.', 'pay_txn_' . $txnRef);
+        } else {
+            createNotification((int)$link['merchant_id'], 'Payment Received', formatMoney((float)$link['amount']) . ' payment verified.');
+        }
         if (function_exists('sendTemplatedEmail')) {
             sendTemplatedEmail((int)$link['merchant_id'], 'payment_received', [
                 'amount' => formatMoney((float)$link['amount']),

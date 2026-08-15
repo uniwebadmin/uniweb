@@ -216,7 +216,11 @@ function activateMerchantLive(int $merchantId): void
     if (($row['collection_mode'] ?? '') === 'axis_va') {
         ensureAxisVirtualAccount($merchantId);
     }
-    createNotification($merchantId, 'Account Live!', 'Your KYC is approved. Your dashboard is now in LIVE mode — accept real payments.');
+    if (function_exists('notifyMerchant')) {
+        notifyMerchant($merchantId, 'Account Live!', 'Your KYC is approved. Your dashboard is now in LIVE mode — accept real payments.', 'account_live_' . $merchantId);
+    } else {
+        createNotification($merchantId, 'Account Live!', 'Your KYC is approved. Your dashboard is now in LIVE mode — accept real payments.');
+    }
     notifyMerchantEmail(
         $merchantId,
         'KYC approved — Live mode enabled',

@@ -60,8 +60,9 @@ function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payl
              LIMIT 1"
         );
         $check->execute([$merchantId, $partnerKey]);
-        if ($check->fetchColumn()) {
-            return 0; // already queued — do not flood duplicates
+        $existingId = (int)$check->fetchColumn();
+        if ($existingId > 0) {
+            return $existingId; // already queued — do not flood duplicates
         }
     } catch (Throwable $e) { /* table may not exist yet — continue to insert */ }
 
@@ -140,7 +141,9 @@ function processPerPartnerForwardQueue(int $limit = 20): array
                         $itemId,
                     ]);
                 $results['success']++;
-                if (function_exists('createNotification')) {
+                if (function_exists('notifyMerchant')) {
+                    notifyMerchant($merchantId, 'KYC Forwarded', 'Your KYC package has been submitted to ' . ucfirst($partnerKey) . '.', 'kyc_fwd_' . $merchantId . '_' . $partnerKey);
+                } elseif (function_exists('createNotification')) {
                     createNotification($merchantId, 'KYC Forwarded', 'Your KYC package has been submitted to ' . ucfirst($partnerKey) . '.');
                 }
             } else {
@@ -148,7 +151,9 @@ function processPerPartnerForwardQueue(int $limit = 20): array
                     $db->prepare("UPDATE partner_forward_queue SET status='failed', error_message=? WHERE id=?")
                         ->execute([$result['error'] ?? 'Unknown error', $itemId]);
                     $results['failed']++;
-                    if (function_exists('createNotification')) {
+                    if (function_exists('notifyMerchant')) {
+                        notifyMerchant($merchantId, 'KYC Forward Failed', 'KYC submission to ' . ucfirst($partnerKey) . ' failed after ' . $attempts . ' attempts. Staff will assist manually.', 'kyc_fwd_fail_' . $merchantId . '_' . $partnerKey);
+                    } elseif (function_exists('createNotification')) {
                         createNotification($merchantId, 'KYC Forward Failed', 'KYC submission to ' . ucfirst($partnerKey) . ' failed after ' . $attempts . ' attempts. Staff will assist manually.');
                     }
                 } else {

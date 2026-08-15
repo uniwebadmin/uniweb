@@ -6,11 +6,21 @@ requireLogin();
 
 $merchant = getMerchant();
 
+if (function_exists('ensureNotificationSchema')) {
+    ensureNotificationSchema();
+}
+
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_all_read']) && verifyCsrf($_POST['csrf_token'] ?? '')) {
-    $db->prepare('UPDATE notifications SET is_read = 1 WHERE merchant_id = ?')->execute([$merchant['id']]);
+    $db->prepare('UPDATE notifications SET is_read = 1 WHERE merchant_id = ? AND archived_at IS NULL')->execute([$merchant['id']]);
     flash('success', 'All notifications marked as read.');
+    redirect('notifications.php');
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['archive_read']) && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    $n = function_exists('archiveOldNotifications') ? archiveOldNotifications((int)$merchant['id'], 30) : 0;
+    flash('success', $n > 0 ? $n . ' read notification(s) archived.' : 'Nothing to archive yet (read items older than 30 days).');
     redirect('notifications.php');
 }
 
@@ -29,7 +39,7 @@ if (isset($_GET['read']) && ctype_digit((string)$_GET['read'])) {
 $notifQ = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
 $readFilter = trim($_GET['filter'] ?? 'all');
 $listParams = listPageParams(25);
-$where = 'merchant_id = ?';
+$where = 'merchant_id = ? AND archived_at IS NULL';
 $params = [$merchant['id']];
 if ($notifQ !== '') {
     $like = '%' . strtolower($notifQ) . '%';
@@ -71,6 +81,11 @@ require_once __DIR__ . '/header.php';
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="mark_all_read" value="1">
             <button type="submit" class="text-sm text-brand-400">Mark all as read</button>
+        </form>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="archive_read" value="1">
+            <button type="submit" class="text-sm text-gray-500">Archive read (30+ days)</button>
         </form>
     </div>
 </div>

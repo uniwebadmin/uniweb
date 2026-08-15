@@ -257,6 +257,31 @@ if ($unresolvedErrors > 0 && $recentFatals):
     </div>
 </div>
 
+<?php
+$failedList = [];
+if (is_array($lastAuto)) {
+    $failedList = $lastAuto['failed_list'] ?? ($lastAuto['summary']['failed_list'] ?? []);
+    if (!is_array($failedList)) {
+        $failedList = [];
+    }
+}
+if ($failedList !== []):
+?>
+<div class="glass rounded-xl p-5 mb-8 border border-amber-500/40">
+    <h2 class="font-semibold text-amber-300 mb-3">Failed checks</h2>
+    <ul class="space-y-2 text-sm">
+        <?php foreach ($failedList as $fc): ?>
+        <li>
+            <span class="text-amber-400 font-medium"><?= e((string)($fc['label'] ?? $fc['id'] ?? 'Check')) ?></span>
+            <?php if (!empty($fc['detail'])): ?>
+            <span class="text-gray-500"> — <?= e(maskAuditSecrets((string)$fc['detail'])) ?></span>
+            <?php endif; ?>
+        </li>
+        <?php endforeach; ?>
+    </ul>
+</div>
+<?php endif; ?>
+
 <div class="glass rounded-xl overflow-hidden mb-8">
     <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3">
         <h2 class="font-semibold">Auto-audit history</h2>
@@ -300,7 +325,9 @@ if ($unresolvedErrors > 0 && $recentFatals):
     <?php endif; ?>
 </div>
 
-<p class="text-xs text-gray-600 mb-8">Cron URL pattern: <code class="text-sky-400"><?= e(APP_URL) ?>/cron_auto_audit.php?key=…</code> · Key lives in Gateway Settings.</p>
+<p class="text-xs text-gray-600 mb-8">Cron URL pattern: <code class="text-sky-400"><?= e(APP_URL) ?>/cron_auto_audit.php?key=****</code>
+    · Key (masked): <code class="font-mono text-gray-400"><?= e(function_exists('maskSecretKey') ? maskSecretKey(autoAuditWatchdogKey()) : '****') ?></code>
+    · Full key lives in Gateway Settings (show only when you need to paste Hostinger).</p>
 
 <?php else: /* rules */ ?>
 

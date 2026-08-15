@@ -373,6 +373,8 @@ function ensureMissingColumns(): void
     // 059: notification dedup — event_key for idempotent notification creation
     schemaExecQuiet('ALTER TABLE notifications ADD COLUMN event_key VARCHAR(120) DEFAULT NULL');
     schemaExecQuiet('ALTER TABLE notifications ADD INDEX idx_notif_event (merchant_id, event_key)');
+    schemaExecQuiet('ALTER TABLE notifications ADD COLUMN archived_at DATETIME DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE notifications ADD INDEX idx_notif_archived (merchant_id, archived_at)');
 
     // 044 / reason maps — partner_key required by INSERT seed
     schemaExecQuiet("CREATE TABLE IF NOT EXISTS gateway_reason_maps (

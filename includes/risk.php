@@ -187,14 +187,14 @@ function recordAmlFlag(int $merchantId, ?int $transactionId, string $flagType, s
 {
     ensureAmlFlagsTable();
     $db = getDB();
-    // 2.14: Dedup — skip if an open flag already exists for same merchant + type + transaction
+    // Skip if an open flag already exists for same merchant + type (+ transaction when set)
     try {
-        if ($transactionId !== null) {
+        if ($flagType === 'kyc_pending' || $transactionId === null) {
+            $check = $db->prepare('SELECT 1 FROM aml_flags WHERE merchant_id=? AND flag_type=? AND status="open" LIMIT 1');
+            $check->execute([$merchantId, $flagType]);
+        } else {
             $check = $db->prepare('SELECT 1 FROM aml_flags WHERE merchant_id=? AND flag_type=? AND transaction_id=? AND status="open" LIMIT 1');
             $check->execute([$merchantId, $flagType, $transactionId]);
-        } else {
-            $check = $db->prepare('SELECT 1 FROM aml_flags WHERE merchant_id=? AND flag_type=? AND transaction_id IS NULL AND status="open" LIMIT 1');
-            $check->execute([$merchantId, $flagType]);
         }
         if ($check->fetchColumn()) {
             return; // already flagged — do not duplicate
@@ -219,6 +219,41 @@ function resolveKycPendingFlags(int $merchantId): int
     } catch (Throwable $e) {
         return 0;
     }
+}
+
+/**
+ * One open kyc_pending flag per unverified active merchant; clear flags after KYC verify.
+ */
+function syncKycPendingAmlFlags(): int
+{
+    ensureAmlFlagsTable();
+    $cleared = 0;
+    $opened = 0;
+    try {
+        $st = getDB()->prepare(
+            "UPDATE aml_flags af
+             INNER JOIN merchants m ON m.id=af.merchant_id AND m.kyc_status='verified'
+             SET af.status='cleared', af.description=CONCAT(af.description, ' [auto-resolved: KYC verified]')
+             WHERE af.flag_type='kyc_pending' AND af.status='open'"
+        );
+        $st->execute();
+        $cleared = $st->rowCount();
+    } catch (Throwable $e) { /* ok */ }
+    try {
+        $rows = getDB()->query(
+            "SELECT m.id FROM merchants m
+             WHERE m.kyc_status NOT IN ('verified') AND m.status='active'
+               AND NOT EXISTS (
+                   SELECT 1 FROM aml_flags af
+                   WHERE af.merchant_id=m.id AND af.flag_type='kyc_pending' AND af.status='open'
+               )"
+        )->fetchAll();
+        foreach ($rows as $row) {
+            recordAmlFlag((int)$row['id'], null, 'kyc_pending', 'medium', 'Merchant operating with incomplete KYC');
+            $opened++;
+        }
+    } catch (Throwable $e) { /* ok */ }
+    return $opened + $cleared;
 }
 
 function screenAmlWatchlist(int $merchantId, ?int $transactionId, array $customer = []): array

@@ -82,7 +82,7 @@ require_once __DIR__ . '/header.php';
             </thead>
             <tbody>
                 <?php if (empty($matrix)): ?>
-                <tr><td colspan="9" class="px-4 py-8 text-center text-gray-500">No items in queue. Rows appear automatically when a merchant's KYC is approved or live activation is completed.</td></tr>
+                <tr><td colspan="9" class="px-4 py-8 text-center text-gray-500">No items in queue yet. A row is created when KYC is approved or Live is switched on (even if partner keys are still pending).</td></tr>
                 <?php else: foreach ($matrix as $row): ?>
                 <tr class="border-t border-gray-800/50">
                     <td class="px-4 py-3">

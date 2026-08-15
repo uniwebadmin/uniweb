@@ -14,10 +14,9 @@ $db->exec("INSERT IGNORE INTO aml_flags (merchant_id, transaction_id, flag_type,
     LEFT JOIN aml_flags af ON af.transaction_id = t.id AND af.flag_type = 'high_value'
     WHERE t.amount >= " . (int)$threshold . " AND t.amount <= " . (int)livePaymentAmountCap() . " AND t.status = 'success' AND af.id IS NULL");
 
-$db->exec("INSERT IGNORE INTO aml_flags (merchant_id, flag_type, severity, description)
-    SELECT m.id, 'kyc_pending', 'medium', 'Merchant operating with incomplete KYC'
-    FROM merchants m LEFT JOIN aml_flags af ON af.merchant_id = m.id AND af.flag_type = 'kyc_pending' AND af.status = 'open'
-    WHERE m.kyc_status NOT IN ('verified') AND m.status = 'active' AND af.id IS NULL");
+if (function_exists('syncKycPendingAmlFlags')) {
+    syncKycPendingAmlFlags();
+}
 
 if (isset($_GET['action'], $_GET['id']) && verifyCsrf($_GET['token'] ?? '')) {
     $db->prepare("UPDATE aml_flags SET status = ? WHERE id = ?")->execute([$_GET['action'] === 'clear' ? 'cleared' : 'reviewed', (int)$_GET['id']]);

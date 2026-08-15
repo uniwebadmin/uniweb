@@ -77,6 +77,115 @@ function unlockAutoAudit(): void
     saveAutoAuditMeta('auto_audit_lock_until', '0');
 }
 
+function autoAuditStepLabel(string $key): string
+{
+    $map = [
+        'verified_live' => 'Verified merchants to Live',
+        'watchdog' => 'Platform watchdog',
+        'settlement' => 'Settlement batches',
+        'morning_ops' => 'Morning ops',
+        'qr_alerts' => 'QR health alerts',
+        'va_counters' => 'Virtual account counters',
+        'auto_kyc' => 'Auto KYC engine',
+        'reconciliation' => 'Reconciliation',
+        'mandates' => 'Mandate debits',
+        'order_expiry' => 'Stale order expiry',
+        'test_live_isolation' => 'Test / Live isolation',
+        'payout_worker' => 'Payout worker',
+        'rolling_reserve' => 'Rolling reserve release',
+        'grievance_escalation' => 'Grievance SLA',
+        'scheduled_settlements' => 'Scheduled settlements',
+        'webhook_retries' => 'Webhook retries',
+        'success_rate_alert' => 'Success rate (last 10 min)',
+        'recurring_charges' => 'Recurring charges',
+        'recurring_mandate_charges' => 'Recurring mandate charges',
+        'partner_forward' => 'Partner forward queue',
+        'transfer_failure_alert' => 'Transfer failure alerts',
+        'link_scan' => 'Link scan',
+        'broken_links' => 'Broken links',
+        'unresolved_errors' => 'Unresolved Error Log',
+    ];
+    return $map[$key] ?? ucwords(str_replace('_', ' ', $key));
+}
+
+/** Hide cron/API secrets in audit text (JSON, UI, error details). */
+function maskAuditSecrets(string $text): string
+{
+    $text = preg_replace('/(key=)[^&\s\'"]+/i', '$1****', $text) ?? $text;
+    $text = preg_replace('/(?i)\b(password|secret|token|api[_-]?key|watchdog_key)\s*[:=]\s*\S+/', '$1=****', $text) ?? $text;
+    return $text;
+}
+
+function maskAuditReportSecrets(mixed $value): mixed
+{
+    if (is_string($value)) {
+        return maskAuditSecrets($value);
+    }
+    if (is_array($value)) {
+        $out = [];
+        foreach ($value as $k => $v) {
+            $out[$k] = maskAuditReportSecrets($v);
+        }
+        return $out;
+    }
+    return $value;
+}
+
+/**
+ * Flatten failed auto-audit / watchdog steps into labeled rows for cron JSON + Watchdog UI.
+ *
+ * @return list<array{id:string,label:string,detail:string}>
+ */
+function collectAutoAuditFailedChecks(array $report): array
+{
+    $out = [];
+    $seen = [];
+    $add = static function (string $id, string $label, string $detail) use (&$out, &$seen): void {
+        $id = $id !== '' ? $id : $label;
+        if (isset($seen[$id])) {
+            return;
+        }
+        $seen[$id] = true;
+        $out[] = [
+            'id' => $id,
+            'label' => $label !== '' ? $label : autoAuditStepLabel($id),
+            'detail' => maskAuditSecrets($detail),
+        ];
+    };
+
+    $steps = is_array($report['steps'] ?? null) ? $report['steps'] : [];
+    $watchChecks = $steps['watchdog']['checks'] ?? null;
+    if (is_array($watchChecks)) {
+        foreach ($watchChecks as $c) {
+            if (!is_array($c) || !empty($c['ok'])) {
+                continue;
+            }
+            $add((string)($c['id'] ?? 'watchdog'), (string)($c['label'] ?? 'Watchdog check'), (string)($c['detail'] ?? 'Failed'));
+        }
+    }
+
+    foreach ($steps as $key => $step) {
+        if ($key === 'watchdog' || !is_array($step)) {
+            continue;
+        }
+        if (array_key_exists('ok', $step) && $step['ok'] === false) {
+            $detail = (string)($step['error'] ?? $step['alert'] ?? $step['detail'] ?? 'Failed');
+            $add((string)$key, autoAuditStepLabel((string)$key), $detail);
+        }
+    }
+
+    $broken = (int)($report['broken_links'] ?? 0);
+    if ($broken > 0) {
+        $add('broken_links', autoAuditStepLabel('broken_links'), $broken . ' broken link(s) — open Link Watchdog');
+    }
+    $errors = (int)($report['error_count'] ?? 0);
+    if ($errors > 0) {
+        $add('unresolved_errors', autoAuditStepLabel('unresolved_errors'), $errors . ' unresolved — open Error Log');
+    }
+
+    return $out;
+}
+
 /** Full background audit + auto-fixes */
 function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto'): array
 {
@@ -351,26 +460,15 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
         }
 
         $errorCount = function_exists('countUnresolvedPlatformErrors') ? countUnresolvedPlatformErrors() : 0;
-        $failed = 0;
-        if (!empty($report['steps']['watchdog']['failed'])) {
-            $failed = (int)$report['steps']['watchdog']['failed'];
-        }
-        if (!empty($report['steps']['morning_ops']['failed'])) {
-            $failed = max($failed, (int)$report['steps']['morning_ops']['failed']);
-        }
-        if ($brokenLinks > 0) {
-            $failed = max($failed, 1);
-        }
-        if ($errorCount > 0) {
-            $failed = max($failed, 1);
-        }
-
-        $report['ok'] = $failed === 0;
-        $report['failed'] = $failed;
         $report['broken_links'] = $brokenLinks;
         $report['error_count'] = $errorCount;
         $report['merchants_fixed'] = $merchantsFixed;
         $report['errors_cleared'] = $errorsCleared;
+        $report['failed_list'] = collectAutoAuditFailedChecks($report);
+        $failed = count($report['failed_list']);
+        $report['ok'] = $failed === 0;
+        $report['failed'] = $failed;
+        $report = maskAuditReportSecrets($report);
 
         ensureAutoAuditEngine();
         getDB()->prepare('INSERT INTO platform_audit_runs
@@ -391,6 +489,7 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
             'ran_at' => $report['ran_at'],
             'ok' => $report['ok'],
             'failed' => $failed,
+            'failed_list' => $report['failed_list'],
             'broken_links' => $brokenLinks,
             'errors' => $errorCount,
             'merchants_fixed' => $merchantsFixed,
@@ -460,6 +559,7 @@ function getLastAutoAuditRun(): ?array
             'merchants_fixed' => (int)$row['merchants_fixed'],
             'run_type' => $row['run_type'],
             'summary' => is_array($summary) ? $summary : [],
+            'failed_list' => is_array($summary['failed_list'] ?? null) ? $summary['failed_list'] : [],
         ];
     } catch (Throwable $e) {
         return null;

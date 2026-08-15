@@ -456,6 +456,37 @@ foreach ($navPhpRefs as $ref) {
 $assert($navMissing === [], 'p4_nav_urls_resolve', $navMissing === [] ? (string)count($navPhpRefs) . ' urls' : implode(', ', $navMissing));
 $assert(count($navPhpRefs) >= 80, 'p4_nav_crawl_coverage', (string)count($navPhpRefs));
 
+// P5-01 — failed checks have labels; cron key masked
+$autoP5 = (string)file_get_contents($root . '/includes/auto_audit.php');
+$assert(str_contains($autoP5, 'function collectAutoAuditFailedChecks') && str_contains($autoP5, 'function maskAuditSecrets'), 'p5_auto_audit_failed_labels_helpers');
+$assert(str_contains($autoP5, "'failed_list'"), 'p5_auto_audit_stores_failed_list');
+$cronP5 = (string)file_get_contents($root . '/cron_auto_audit.php');
+$assert(str_contains($cronP5, "'failed_checks'") && str_contains($cronP5, "'key_masked'"), 'p5_cron_json_lists_failed_checks');
+$wdP5 = (string)file_get_contents($root . '/admin_watchdog.php');
+$assert(str_contains($wdP5, 'Failed checks') && str_contains($wdP5, 'maskSecretKey'), 'p5_watchdog_ui_failed_labels_key_masked');
+$assert(!str_contains($wdP5, 'cron_auto_audit.php?key=' . '<?=') && str_contains($wdP5, 'cron_auto_audit.php?key=****'), 'p5_watchdog_cron_url_key_masked');
+
+// P5-02 — KYC/live enqueue always leaves a queue row (idempotent)
+$fwdP5 = (string)file_get_contents($root . '/includes/auto_kyc.php');
+$assert(str_contains($fwdP5, "\$targets = ['unassigned']") && str_contains($fwdP5, 'enqueuePartnerForward'), 'p5_forward_enqueue_fallback_row');
+$assert(str_contains($fwdP5, 'resolveKycPendingFlags'), 'p5_auto_kyc_clears_aml_on_verify');
+$qP5 = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
+$assert(str_contains($qP5, "status IN ('queued','retry','processing')"), 'p5_forward_enqueue_idempotent');
+$assert(str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), 'enqueueMerchantToAllEnabledPartners'), 'p5_kyc_verify_enqueues_forward');
+
+// P5-03 — event_key dedup + optional archive
+$nP5 = (string)file_get_contents($root . '/includes/notifications.php');
+$assert(str_contains($nP5, 'function notifyMerchant') && str_contains($nP5, 'event_key'), 'p5_notify_event_key_dedup');
+$assert(str_contains($nP5, 'function archiveOldNotifications') && str_contains($nP5, 'archived_at'), 'p5_notify_archive_helper');
+$assert(str_contains((string)file_get_contents($root . '/notifications.php'), 'archive_read'), 'p5_notify_archive_button');
+
+// P5-04 — kyc_pending skip if open; clear on verify
+$amlP5 = (string)file_get_contents($root . '/includes/risk.php');
+$assert(str_contains($amlP5, 'function recordAmlFlag') && str_contains($amlP5, 'already flagged'), 'p5_aml_record_dedup');
+$assert(str_contains($amlP5, 'function syncKycPendingAmlFlags') && str_contains($amlP5, 'function resolveKycPendingFlags'), 'p5_aml_kyc_pending_sync_and_clear');
+$assert(str_contains((string)file_get_contents($root . '/admin_aml.php'), 'syncKycPendingAmlFlags'), 'p5_aml_page_uses_sync_helper');
+$assert(str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), 'resolveKycPendingFlags'), 'p5_kyc_verify_clears_aml');
+
 $assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');
 
 // Auth portal redesign (all four logins — presentation only).

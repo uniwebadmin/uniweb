@@ -245,12 +245,28 @@ function autoVerifyMerchantKyc(int $merchantId): bool
             );
         }
 
-        if (function_exists('createNotification')) {
+        if (function_exists('notifyMerchant')) {
+            notifyMerchant(
+                $merchantId,
+                'KYC Auto-Verified',
+                'Your KYC documents have been automatically verified. No manual review was needed. Your documents are being prepared for partner submission.',
+                'kyc_auto_' . $merchantId
+            );
+        } elseif (function_exists('createNotification')) {
             createNotification(
                 $merchantId,
                 'KYC Auto-Verified',
                 'Your KYC documents have been automatically verified. No manual review was needed. Your documents are being prepared for partner submission.'
             );
+        }
+
+        if (!function_exists('resolveKycPendingFlags') && is_file(__DIR__ . '/risk.php')) {
+            require_once __DIR__ . '/risk.php';
+        }
+        if (function_exists('resolveKycPendingFlags')) {
+            try {
+                resolveKycPendingFlags($merchantId);
+            } catch (Throwable $e) { /* ok */ }
         }
 
         // Trigger post-KYC automation
@@ -283,8 +299,8 @@ function autoVerifyMerchantKyc(int $merchantId): bool
 }
 
 /**
- * D3: Enqueue merchant to all enabled + configured partners.
- * Uses partner_forward_queue.php (Block B) for per-partner queue rows.
+ * D3: Enqueue merchant to enabled partners (idempotent).
+ * If no partner has keys yet, still insert one visible queue row so the UI is not empty.
  */
 function enqueueMerchantToAllEnabledPartners(int $merchantId): void
 {
@@ -302,21 +318,45 @@ function enqueueMerchantToAllEnabledPartners(int $merchantId): void
     }
 
     $registry = getPartnerRegistry();
-    $enqueued = 0;
+    $targets = [];
     foreach (array_keys($registry) as $partnerKey) {
-        // D3 rule: forward only to Enabled partners from Block B registry
-        if (!partnerIsConfigured($partnerKey)) {
-            continue;
+        $partnerKey = (string)$partnerKey;
+        if (function_exists('isPartnerChargeable') && isPartnerChargeable($partnerKey)) {
+            $targets[] = $partnerKey;
         }
-        // Check if partner is chargeable (active + has credentials + has enabled methods)
-        if (function_exists('isPartnerChargeable') && !isPartnerChargeable($partnerKey)) {
-            continue;
+    }
+    if ($targets === []) {
+        foreach (array_keys($registry) as $partnerKey) {
+            $partnerKey = (string)$partnerKey;
+            if (partnerIsConfigured($partnerKey)) {
+                $targets[] = $partnerKey;
+            }
         }
+    }
+    if ($targets === []) {
+        foreach (array_keys($registry) as $partnerKey) {
+            $partnerKey = (string)$partnerKey;
+            if (function_exists('isGatewayActive') && isGatewayActive($partnerKey)) {
+                $targets[] = $partnerKey;
+            }
+        }
+    }
+    if ($targets === []) {
+        $targets = ['unassigned'];
+    }
+    $targets = array_values(array_unique($targets));
+
+    $enqueued = 0;
+    foreach ($targets as $partnerKey) {
         try {
-            $payload = build_partner_onboarding_payload($merchantId);
-            // Store only redacted version in the queue — no raw PAN/GST/secrets at rest
-            if (function_exists('redactPartnerPayload')) {
-                $payload = redactPartnerPayload($payload);
+            $payload = ['merchant_id' => $merchantId, 'partner' => $partnerKey];
+            if ($partnerKey !== 'unassigned' && function_exists('build_partner_onboarding_payload')) {
+                $payload = build_partner_onboarding_payload($merchantId);
+                if (function_exists('redactPartnerPayload')) {
+                    $payload = redactPartnerPayload($payload);
+                }
+            } elseif ($partnerKey === 'unassigned') {
+                $payload = ['reason' => 'No enabled partner yet — row kept so KYC Forward Queue is not empty'];
             }
             $queueId = enqueuePartnerForward($merchantId, $partnerKey, $payload);
             if ($queueId > 0) {
@@ -329,8 +369,7 @@ function enqueueMerchantToAllEnabledPartners(int $merchantId): void
     }
 
     if ($enqueued === 0) {
-        // No enabled partners — still queue as internal record
-        logAutoKycRun($merchantId, 'partner_enqueue_skip', 'No enabled/configured partners found');
+        logAutoKycRun($merchantId, 'partner_enqueue_skip', 'Already queued or insert skipped (idempotent)');
     }
 }
 
