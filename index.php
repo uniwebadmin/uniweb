@@ -23,7 +23,7 @@ require_once __DIR__ . '/header.php';
     <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <div class="inline-flex items-center gap-2 bg-brand-500/10 border border-brand-500/20 rounded-full px-4 py-1.5 text-sm text-brand-400 mb-8 animate-in">
             <span class="w-2 h-2 bg-brand-400 rounded-full animate-pulse"></span>
-            Test Mode Available · Live Activation After Approval
+            Collect with UPI, QR &amp; links · Test free · Live after KYC
         </div>
         <h1 class="text-4xl sm:text-5xl lg:text-7xl font-extrabold leading-tight mb-6 animate-in">
             <?= __('hero_title') ?><br><span class="gradient-text"><?= __('hero_highlight') ?></span>
@@ -33,8 +33,7 @@ require_once __DIR__ . '/header.php';
         </p>
         <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
             <a href="merchant_register.php" class="w-full sm:w-auto bg-brand-600 hover:bg-brand-500 text-white px-10 py-4 rounded-xl font-semibold text-lg transition shadow-lg shadow-brand-600/25">Start Test Mode — free →</a>
-            <a href="contact.php" class="w-full sm:w-auto glass text-gray-200 hover:text-white px-8 py-4 rounded-xl font-semibold text-lg transition border border-gray-700">Request commercial terms</a>
-            <a href="tour_videos.php" class="w-full sm:w-auto text-gray-400 hover:text-white px-6 py-4 rounded-xl font-semibold text-lg transition">Watch platform tour</a>
+            <a href="contact.php" class="w-full sm:w-auto glass text-gray-200 hover:text-white px-8 py-4 rounded-xl font-semibold text-lg transition border border-gray-700">Talk to sales</a>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-3xl mx-auto">
             <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= formatPublicVolume($publicStats['volume']) ?></div><div class="text-xs text-gray-500 mt-1">Verified Live Volume</div></div>
@@ -72,7 +71,7 @@ require_once __DIR__ . '/header.php';
             </div>
             <div class="glass rounded-2xl p-8">
                 <h3 class="text-xl font-semibold mb-3">Settle</h3>
-                <p class="text-gray-400 text-sm leading-relaxed mb-4">Wallet, batch tracking and UTR on the commercial schedule you approve. Timing follows banks and partners — we do not invent instant settlement.</p>
+                <p class="text-gray-400 text-sm leading-relaxed mb-4">Settlement balance, batch tracking and UTR on the commercial schedule you approve. Timing follows banks and partners — we do not invent instant settlement.</p>
                 <a href="pricing.php" class="text-sm text-brand-400">How fees work →</a>
             </div>
         </div>

@@ -33,8 +33,17 @@ Copy the real command from Admin → Gateway Settings (logged-in reveal). Do not
 
 Separate `cron_auto_kyc.php` / `cron_settlements.php` / `cron_mandates.php` jobs are **not required** — the 10-minute job already runs them. They still accept the same UniWeb watchdog key if you add extras.
 
+## Browser “Forbidden” text (expected)
+
+If a human opens a `cron_*.php` URL in the browser without the secret key, the script prints a short **Forbidden** message and stops. That is intentional for machines (Hostinger cron / wget).
+
+- **Do not** add cron scripts to the admin sidebar.
+- Humans check health in **Admin → Link Watchdog** and **Platform Status + Cron Jobs**.
+- Cron keys stay in Gateway Settings; never put them in menus or public pages.
+
 ## After saving the Hostinger job
 
 1. Gateway Settings → **Test cron now**
 2. Wait 10–15 min
 3. Admin → Platform Status — Auto Audit should show last run, not NEVER
+
