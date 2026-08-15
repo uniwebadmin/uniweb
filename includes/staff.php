@@ -291,6 +291,7 @@ function staffNavForRole(string $role): array
         'admin_pg_webhooks.php' => ['PG Webhooks', ['super', 'ceo', 'ops']],
         'admin_reconciliation.php' => ['PG Reconciliation', ['super', 'ceo', 'finance', 'ops']],
         'admin_risk.php' => ['Risk & AML', ['super', 'ceo', 'ops', 'finance']],
+        'admin_risk_engine.php' => ['Risk Engine', ['super', 'ceo', 'ops', 'finance']],
         'admin_nodal_accounts.php' => ['Nodal Accounts', ['super', 'ceo', 'finance']],
     ];
     if (staffCanManageStaff()) {

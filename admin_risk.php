@@ -65,9 +65,10 @@ $pageTitle = 'Risk Rules';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6">
+    <?= riskHubNavHtml('rules') ?>
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-            <h2 class="text-xl font-bold">Risk &amp; AML</h2>
+            <h2 class="text-xl font-bold">Risk &amp; AML — Rules</h2>
             <p class="text-sm text-gray-400 mt-1">Merchant risk scores, chargeback ratios, watchlist and blacklist management.</p>
         </div>
         <form method="POST" class="inline-block">

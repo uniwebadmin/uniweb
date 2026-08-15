@@ -79,7 +79,8 @@ $capLabels = [
     <div class="glass rounded-xl p-5 mb-6 border border-sky-500/20">
         <p class="text-xs text-sky-400 uppercase tracking-wider">Merchant team</p>
         <h1 class="font-semibold text-lg mt-1">Invite teammates and assign roles</h1>
-        <p class="text-sm text-gray-500 mt-2">Colleagues sign in with their email and only see what their role allows. Owner: <?= e($merchant['email'] ?? '') ?></p>
+        <p class="text-sm text-gray-500 mt-2">Team Members = people who log into this merchant portal (Owner / Admin / Finance / …). Not Agents (franchise child merchants) and not UniWeb Employees / Staff.</p>
+        <p class="text-sm text-gray-500 mt-1">Owner: <?= e($merchant['email'] ?? '') ?></p>
         <?php if (!$isOwner): ?>
         <p class="text-xs text-amber-400 mt-2">You are signed in as <?= e(merchantTeamRoleLabel(currentMerchantTeamRole())) ?>. Owners and admins can manage invites, roles, and revoke.</p>
         <?php endif; ?>

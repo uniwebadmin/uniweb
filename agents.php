@@ -16,8 +16,9 @@ $pageTitle = __('agents');
 require_once __DIR__ . '/header.php';
 ?>
 <div class="bg-sky-500/10 border border-sky-500/30 rounded-xl p-4 mb-6 text-sm">
-    <p class="text-sky-200 font-medium">Agents collect payments under your account.</p>
-    <p class="text-xs text-gray-500 mt-1">This is not a customer wallet. Branch or franchise links are set by UniWeb admin, not from this page.</p>
+    <p class="text-sky-200 font-medium">Agents = franchise / branch child merchants</p>
+    <p class="text-xs text-gray-500 mt-1">Not the same as <a href="merchant_team.php" class="text-sky-400 underline">Team Members</a> (people who log into your portal). Admin links parent/child trees under Sub-Merchant Hierarchy. This page is hidden from the main menu until franchise ops need it — open via search or this bookmark.</p>
+    <p class="text-xs text-gray-500 mt-1">This is not a customer PPI wallet.</p>
 </div>
 <div class="grid grid-cols-2 gap-4 mb-8 max-w-lg">
     <div class="stat-card border border-gray-800 rounded-xl p-5">

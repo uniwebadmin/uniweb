@@ -398,6 +398,15 @@ $assert(str_contains($langP4, "'wallet_title' => 'Settlement Balance'"), 'p4_wal
 $assert(str_contains($langP4, "'agents' => 'Agents'"), 'p4_agents_label_not_submerchant');
 $agentsP4 = (string)file_get_contents($root . '/agents.php');
 $assert(str_contains($agentsP4, 'Your Agents') && !str_contains($agentsP4, 'Your Sub-Merchants / Agents'), 'p4_agents_page_not_submerchant_heading');
+$assert(str_contains($agentsP4, 'franchise') && str_contains($agentsP4, 'Team Members'), 'pnl_sm01_agents_documented_vs_team');
+$assert(!str_contains($navSrc, "\$t('agents', 'Agents')") && str_contains($navSrc, 'Agents (franchise children)'), 'pnl_sm01_agents_hidden_from_nav');
+$assert(str_contains((string)file_get_contents($root . '/merchant_instant_settlement.php'), 'Not a live instant bank payout') && str_contains((string)file_get_contents($root . '/merchant_instant_settlement.php'), 'partner keys'), 'pnl_m02_instant_settlement_honest');
+$assert(!preg_match("/requireStaffAccess\(\[[^\]]*'\s*risk\s*'/", (string)file_get_contents($root . '/admin_risk_engine.php')), 'pnl_st02_no_phantom_risk_role');
+$assert(str_contains((string)file_get_contents($root . '/includes/risk.php'), 'function riskHubNavHtml'), 'pnl_st03_risk_hub_helper');
+$assert(str_contains((string)file_get_contents($root . '/admin_risk.php'), "riskHubNavHtml('rules')") && str_contains((string)file_get_contents($root . '/admin_aml.php'), "riskHubNavHtml('flags')") && str_contains((string)file_get_contents($root . '/admin_risk_engine.php'), "riskHubNavHtml('engine')"), 'pnl_st03_risk_hub_on_pages');
+$staffNavSrcPnl = (string)file_get_contents($root . '/includes/staff.php');
+$assert(str_contains($staffNavSrcPnl, 'admin_payment_links.php') && str_contains($staffNavSrcPnl, 'Do not add gateway_settings.php'), 'pnl_st01_staff_has_links_no_registry');
+$assert(str_contains((string)file_get_contents($root . '/contact.php'), 'recordPublicContactInquiry'), 'pnl_pub01_contact_saves_ticket');
 $subP4 = (string)file_get_contents($root . '/admin_sub_merchants.php');
 $assert(str_contains($subP4, 'How this works') && str_contains($subP4, 'not a customer PPI wallet'), 'p4_submerchant_rules_documented');
 $assert(str_contains($subP4, 'Only UniWeb admin can add or remove'), 'p4_submerchant_admin_only_crud');

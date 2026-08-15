@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
-requireStaffAccess(['super', 'ceo', 'finance', 'ops', 'risk']);
+requireStaffAccess(['super', 'ceo', 'finance', 'ops']);
 if (!function_exists('getMerchantHealthRanking') && is_file(__DIR__ . '/includes/merchant_health.php')) {
     require_once __DIR__ . '/includes/merchant_health.php';
 }

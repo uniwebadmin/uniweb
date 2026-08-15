@@ -36,6 +36,8 @@ $pageTitle = 'AML Compliance';
 require_once __DIR__ . '/header.php';
 ?>
 
+<?= riskHubNavHtml('flags') ?>
+
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
     <?php foreach ([['Open Flags',$stats['open'],'text-red-400'],['High Severity',$stats['high'],'text-red-400'],['KYC Pending',$stats['kyc_pending'],'text-amber-400'],['Month Volume',formatMoney($stats['volume']),'text-brand-400']] as [$l,$v,$c]): ?>
     <div class="stat-card border border-gray-800 rounded-xl p-3 sm:p-5 min-w-0"><p class="text-xs text-gray-500"><?= $l ?></p><p class="text-xl sm:text-2xl font-bold <?= $c ?> mt-1 break-words"><?= $v ?></p></div>

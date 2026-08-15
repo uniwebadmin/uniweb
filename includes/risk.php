@@ -1276,3 +1276,26 @@ function exportRiskReport(int $days = 30): string
 
     return $csv;
 }
+
+/**
+ * Shared Risk hub tabs (Rules / Flags / Engine) — PNL-ST03.
+ */
+function riskHubNavHtml(string $active): string
+{
+    $tabs = [
+        'rules' => ['admin_risk.php', 'Rules'],
+        'flags' => ['admin_aml.php', 'Flags'],
+        'engine' => ['admin_risk_engine.php', 'Engine'],
+    ];
+    $html = '<div class="flex flex-wrap gap-2 mb-4 text-xs" role="navigation" aria-label="Risk hub">'
+        . '<span class="text-gray-500 self-center mr-1">Risk hub:</span>';
+    foreach ($tabs as $key => [$url, $label]) {
+        $on = $active === $key;
+        $cls = $on
+            ? 'px-3 py-1.5 rounded-lg bg-brand-600/20 text-brand-400 border border-brand-500/30'
+            : 'px-3 py-1.5 rounded-lg text-gray-400 hover:text-white border border-gray-800';
+        $html .= '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="' . $cls . '">'
+            . htmlspecialchars($label, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>';
+    }
+    return $html . '</div>';
+}

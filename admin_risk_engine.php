@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
-requireStaffAccess(['super', 'ceo', 'finance', 'ops', 'risk']);
+requireStaffAccess(['super', 'ceo', 'finance', 'ops']);
 
 $adminId = (int)($_SESSION['admin_id'] ?? 0);
 $activeTab = $_GET['tab'] ?? 'dashboard';
@@ -83,8 +83,9 @@ $pageTitle = 'Risk Engine';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6">
+    <?= riskHubNavHtml('engine') ?>
     <div class="flex flex-wrap gap-3 items-center justify-between">
-        <p class="text-sm text-gray-400">Transaction risk scoring, velocity rules, auto-actions</p>
+        <p class="text-sm text-gray-400">Transaction risk scoring, velocity rules, auto-actions. Not a live payout product.</p>
         <div class="flex gap-2 text-xs">
             <a href="?tab=dashboard" class="px-3 py-1.5 rounded-lg <?= $activeTab === 'dashboard' ? 'bg-brand-600/20 text-brand-400' : 'text-gray-400 hover:text-white border border-gray-800' ?>">Dashboard</a>
             <a href="?tab=events" class="px-3 py-1.5 rounded-lg <?= $activeTab === 'events' ? 'bg-brand-600/20 text-brand-400' : 'text-gray-400 hover:text-white border border-gray-800' ?>">Risk Events</a>
