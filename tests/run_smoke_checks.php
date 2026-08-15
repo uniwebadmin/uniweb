@@ -569,6 +569,25 @@ $gwDetailKeys = (string)file_get_contents($root . '/admin_gateway_detail.php');
 $assert(str_contains($gwDetailKeys, "\$_GET['env'] ?? 'live'") && str_contains($gwDetailKeys, 'copy_test_keys_to_live'), 'keys_tab_defaults_live_and_can_copy_test');
 $assert(str_contains((string)file_get_contents($root . '/includes/partner_control.php'), 'function copyPartnerCredentialsToLive'), 'copy_test_keys_to_live_helper');
 
+// P2-01 / P2-02 / P2-03 — checkout methods, QR PNG, payment-link public URL
+$collP2 = (string)file_get_contents($root . '/includes/collection.php');
+$assert(str_contains($collP2, 'function buildCheckoutPaymentMethods'), 'p2_checkout_methods_wrapped');
+$assert(str_contains($collP2, "if (\$pa === '')"), 'p2_upi_intent_empty_vpa_returns_blank');
+$provP2 = (string)file_get_contents($root . '/includes/provision.php');
+$assert(str_contains($provP2, "if (!in_array('upi_p2m', \$methods, true))"), 'p2_pack_always_enables_upi');
+$assert(str_contains($checkoutSrc, 'Card / Netbanking need partner keys'), 'p2_checkout_soft_keys_banner');
+$assert(str_contains($checkoutSrc, 'This method is enabled, but partner keys are not set yet'), 'p2_checkout_empty_method_state');
+$assert(str_contains($qrImg, 'UPI ID missing'), 'p2_qr_image_upi_missing_png');
+$assert(str_contains($qrImg, 'function qrFlushAllBuffers'), 'p2_qr_image_flushes_output_buffers');
+$assert(str_contains((string)file_get_contents($root . '/includes/qr_svg.php'), 'require_upi=1'), 'p2_upi_qr_url_requires_pa');
+$plP2 = (string)file_get_contents($root . '/payment_links.php');
+$assert(str_contains($plP2, "payment_links.php?created="), 'p2_create_redirects_with_public_url');
+$assert(str_contains($plP2, 'data-copy-url='), 'p2_copy_uses_data_copy_url');
+$assert(!str_contains($plP2, "writeText('<?= e(\$payUrl) ?>')"), 'p2_copy_not_html_encoded_js');
+$assert(str_contains($plP2, 'Open checkout'), 'p2_created_banner_opens_checkout');
+$packP2 = (string)file_get_contents($root . '/merchant_payment_pack.php');
+$assert(str_contains($packP2, 'data-copy-url='), 'p2_pack_copy_uses_data_copy_url');
+
 // Instant printable UPI QR (direct P2M) — page + helper must exist and be honest about routing.
 $assert(is_file($root . '/qr_upi_print.php'), 'file_qr_upi_print_php', 'qr_upi_print.php');
 $upiQrPage = (string)file_get_contents($root . '/qr_upi_print.php');

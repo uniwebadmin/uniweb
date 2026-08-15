@@ -297,8 +297,12 @@ function finalizePaymentLink(int $linkDbId, int $merchantId, float $amount, stri
  */
 function buildUpiPayIntent(string $payeeVpa, string $payeeName, ?float $amount = null, string $note = ''): string
 {
+    $pa = trim($payeeVpa);
+    if ($pa === '') {
+        return '';
+    }
     $params = [
-        'pa' => trim($payeeVpa),
+        'pa' => $pa,
         'pn' => trim($payeeName) !== '' ? trim($payeeName) : 'Merchant',
         'cu' => 'INR',
     ];
@@ -414,6 +418,18 @@ function resolveCheckoutHandlerForLink(array $link): string
 
 function getCheckoutPaymentMethods(array $link): array
 {
+    try {
+        return buildCheckoutPaymentMethods($link);
+    } catch (Throwable $e) {
+        if (function_exists('logPlatformError')) {
+            logPlatformError('error', 'Checkout method list failed: ' . $e->getMessage(), ['link_id' => $link['link_id'] ?? '']);
+        }
+        return [['key' => 'upi', 'label' => 'UPI / QR', 'sub' => 'Google Pay · PhonePe · Paytm', 'icon' => '📱', 'type' => 'p2m']];
+    }
+}
+
+function buildCheckoutPaymentMethods(array $link): array
+{
     $handler = resolveCheckoutHandlerForLink($link);
     $isTest = !empty($link['is_test']) || merchantAccountMode($link) === 'test';
     $payuConfigured = isGatewayConfigured('payu');
@@ -482,11 +498,11 @@ function getCheckoutPaymentMethods(array $link): array
     if ($allow('payu_upi')) {
         $methods[] = ['key' => 'payu_upi', 'label' => 'UPI (Gateway)', 'sub' => $payuConfigured ? 'Pay via PayU' : ($isTest ? 'Test Mode — Instant Pay' : 'Provider keys not configured'), 'icon' => '⚡', 'type' => 'payu', 'pg' => 'UPI'];
     }
-    if (($allow('razorpay') || $handler === 'razorpay_route') && ($rzpConfigured || $isTest)) {
-        $methods[] = ['key' => 'razorpay', 'label' => 'Cards & UPI', 'sub' => $rzpConfigured ? 'Razorpay Checkout' : 'Test Mode — Instant Pay', 'icon' => '🔒', 'type' => 'razorpay'];
+    if ($allow('razorpay') || $handler === 'razorpay_route') {
+        $methods[] = ['key' => 'razorpay', 'label' => 'Cards & UPI', 'sub' => $rzpConfigured ? 'Razorpay Checkout' : ($isTest ? 'Test Mode — Instant Pay' : 'Provider keys not configured'), 'icon' => '🔒', 'type' => 'razorpay'];
     }
-    if (($allow('cashfree') || $handler === 'cashfree_route') && ($cfConfigured || $isTest)) {
-        $methods[] = ['key' => 'cashfree', 'label' => 'Cashfree Pay', 'sub' => $cfConfigured ? 'Cards · UPI · NB' : 'Test Mode — Instant Pay', 'icon' => '💰', 'type' => 'cashfree'];
+    if ($allow('cashfree') || $handler === 'cashfree_route') {
+        $methods[] = ['key' => 'cashfree', 'label' => 'Cashfree Pay', 'sub' => $cfConfigured ? 'Cards · UPI · NB' : ($isTest ? 'Test Mode — Instant Pay' : 'Provider keys not configured'), 'icon' => '💰', 'type' => 'cashfree'];
     }
 
     // Dedicated method link — only that checkout tab

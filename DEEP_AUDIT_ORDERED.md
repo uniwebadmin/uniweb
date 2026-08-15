@@ -308,10 +308,11 @@ Code landed on `main` around this audit (Owner still verifies live):
 | P0-03 | Done in repo: catcher, Error Log probe, header badge from DB | Confirmed: Test error capture row appeared |
 | P0-04 | Open | Live `config.php` includes vs `config.dev.php` |
 | P0-05 | Prior commit: mailer loads templates | Keep grep |
-| P1-* | Not started as a phase | Keys only in Partner Registry |
-| P2-01/02 | Done in repo: methods from merchant JSON; QR PNG hardening | Open one payment link + QR page on live |
-| P2-03 | Open | Create link → public checkout |
+| P1-* | Done in repo: keys only Partner Registry; commercial UPSERT; new-merchant template | Paste Live keys on Partner Detail → Keys |
+| P2-01 | Done in repo: amount always shown; methods soft-fail to UPI; keys missing = soft banner | Open one live checkout link |
+| P2-02 | Done in repo: QR PNG flush + “UPI ID missing” image | Open QR / checkout QR on live |
+| P2-03 | Done in repo: create → public checkout URL + Copy uses real URL | Create link → Copy → Open |
 | P5-01 | Hostinger: 10-min auto-audit + backup cron exist | Do not add extra settlement/KYC/migration crons |
 | Backup email | Default `startelecom620@gmail.com`; PHP dump if no mysqldump | SMTP in Gateway Settings; Hostinger Files → Backups for **full site** (Gmail cannot hold whole website) |
 
-Next agent: continue **Phase 0 remaining (P0-02, P0-04) then Phase 1**, not public-site redesign or white-label.
+Next agent: Owner verifies Phase 2 on **live** (checkout + QR + Copy link). Then Phase 3 KYC. Do not start Phase 3 until that live click-check.

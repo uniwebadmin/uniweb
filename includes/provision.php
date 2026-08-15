@@ -318,6 +318,14 @@ function generateMerchantPaymentPack(int $merchantId, float $amount = 1.0, ?bool
     if (!$merchant) return ['ok' => false, 'links' => []];
 
     $methods = getMerchantEnabledMethods($merchant);
+    if (!in_array('upi_p2m', $methods, true)) {
+        array_unshift($methods, 'upi_p2m');
+        try {
+            $db->prepare('UPDATE merchants SET enabled_methods=? WHERE id=?')->execute([json_encode(array_values($methods)), $merchantId]);
+        } catch (Throwable $e) {
+            /* column may be missing */
+        }
+    }
     $packId = generateId('PACK');
     // Dashboard Test/Live view (not only account_mode) — Instant Test Pay needs is_test=1
     $isTest = $forceTest ?? isMerchantPaymentTest($merchant);

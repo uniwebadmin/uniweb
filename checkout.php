@@ -161,7 +161,10 @@ $brandName = COMPANY_LEGAL_NAME;
 $displayMerchant = $link['business_name'];
 $logoUrl = APP_URL . '/assets/img/uniweb-logo.svg';
 $upiData = buildMerchantUpiIntent($link);
-$upiPa = trim((string)($link['upi_id'] ?? $link['axis_va_upi'] ?? ''));
+$upiPa = trim((string)($link['upi_id'] ?? ''));
+if ($upiPa === '') {
+    $upiPa = trim((string)($link['axis_va_upi'] ?? ''));
+}
 $whatsappLink = buildWhatsAppPaymentLink($link);
 $paymentMethods = [];
 try {
@@ -246,6 +249,10 @@ if ($handler === 'axis_va') {
     if ($axisVa) {
         $link['axis_va_upi'] = $axisVa['va_upi'] ?? $link['axis_va_upi'];
         $upiData = buildMerchantUpiIntent($link);
+        $upiPa = trim((string)($link['axis_va_upi'] ?? $link['upi_id'] ?? ''));
+        if ($upiPa === '') {
+            $upiPa = trim((string)($link['upi_id'] ?? ''));
+        }
     }
 }
 
@@ -410,6 +417,15 @@ endif;
                     <p class="text-sm text-gray-500 mb-1">Amount Payable</p>
                     <p class="text-4xl font-bold text-sky-400"><?= formatMoney($payAmount) ?></p>
                     <p class="text-xs text-gray-600 mt-1 font-mono">Ref: <?= e($link['link_id']) ?></p>
+                    <?php
+                    $pgKeysMissing = !$isTestCheckout
+                        && !isGatewayConfigured('payu')
+                        && !isGatewayConfigured('razorpay')
+                        && !isGatewayConfigured('cashfree');
+                    ?>
+                    <?php if ($pgKeysMissing): ?>
+                    <p class="text-xs text-amber-300/90 mt-3">Card / Netbanking need partner keys. UPI / QR still works if a UPI ID is set.</p>
+                    <?php endif; ?>
                     <?php if (!$isTestCheckout && $split['platform_fee'] > 0): ?>
                     <details class="mt-3">
                         <summary class="text-xs text-gray-600 cursor-pointer hover:text-gray-400">Fee breakdown</summary>
@@ -612,7 +628,10 @@ endif;
                         </button>
                     </form>
                     <?php else: ?>
-                    <p class="text-center text-gray-500 text-sm py-6">This payment method needs gateway keys. Switch dashboard to <strong class="text-amber-300">Test Mode</strong> for Instant Test Pay, use a <strong class="text-white">UPI</strong> link, or paste PayU / Razorpay / Cashfree keys.</p>
+                    <div class="bg-dark-900/60 border border-gray-800 rounded-xl px-4 py-6 text-center">
+                        <p class="text-sm text-gray-300 mb-1">This method is enabled, but partner keys are not set yet.</p>
+                        <p class="text-xs text-gray-500">Use <strong class="text-white">UPI / QR</strong> if a UPI ID is set, or switch the merchant dashboard to <strong class="text-amber-300">Test Mode</strong> for Instant Test Pay.</p>
+                    </div>
                     <?php endif; ?>
                     <?php endif; ?>
                 </div>

@@ -204,6 +204,4 @@ Owner's explicit standing instruction: continue autonomously through phases with
 
 ## Latest Status (2026-08-15)
 
-Owner delivered ordered Deep Audit PDF. Saved in `DEEP_AUDIT_ORDERED.md` + this file.  
-Live Hostinger already has 10-min auto-audit cron + backup cron. Owner confirmed Error Log probe. Backup dump works without mysqldump; email needs SMTP.  
-Do not add extra settlement/KYC/migration crons. Next code: finish Phase 0 leftovers (schema/commercial smoke, live config includes), then Phase 1 keys plane.
+Owner delivered ordered Deep Audit PDF. Live Hostinger has 10-min auto-audit + backup cron. Phase 0 leftovers and Phase 1 keys plane are in repo. Phase 2 (P2-01/02/03) coded: checkout always shows amount + methods (UPI fallback; soft banner if partner keys missing); payment pack always turns UPI/QR on; `qr_image.php` emits a real PNG or “UPI ID missing”; Payment Links Copy uses the public `checkout.php?link=…` URL and create redirects with `?created=`. Owner still verifies Phase 2 on live after Hostinger Git deploy. Do not start Phase 3 until that live click-check.

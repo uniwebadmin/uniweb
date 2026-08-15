@@ -24,5 +24,9 @@ function qrSvg(string $text, int $size = 200): string
 
 function qrImageUrl(string $text, int $size = 200): string
 {
-    return APP_URL . '/qr_image.php?d=' . rtrim(strtr(base64_encode($text), '+/', '-_'), '=') . '&s=' . $size;
+    $url = APP_URL . '/qr_image.php?d=' . rtrim(strtr(base64_encode($text), '+/', '-_'), '=') . '&s=' . $size;
+    if (str_starts_with(strtolower($text), 'upi://pay')) {
+        $url .= '&require_upi=1';
+    }
+    return $url;
 }

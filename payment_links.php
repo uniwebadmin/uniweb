@@ -90,11 +90,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             $db->prepare('INSERT INTO payment_links (link_id,merchant_id,amount,description,customer_name,customer_phone,expires_at,is_test) VALUES (?,?,?,?,?,?,?,?)')
                 ->execute([$linkId, $merchant['id'], $amount, $description, $customerName, $customerPhone, $expiresAt, $isTestFlag]);
         }
-        flash('success', 'Payment link created' . ($label ? ' for ' . $label : '') . '!');
+        $createdMsg = 'Payment link created' . ($label ? ' for ' . $label : '') . '!';
         if ($isTest) {
-            flash('info', 'Test Mode — sandbox only, no real money.');
+            $createdMsg .= ' Test Mode — sandbox only, no real money.';
         }
-        redirect('payment_links.php');
+        flash('success', $createdMsg);
+        redirect('payment_links.php?created=' . rawurlencode($linkId));
     }
 }
 
@@ -129,7 +130,28 @@ require_once __DIR__ . '/header.php';
 $payuReady = isGatewayConfigured('payu');
 $rzpReady = isGatewayConfigured('razorpay');
 $cfReady = isGatewayConfigured('cashfree');
+$createdId = trim((string)($_GET['created'] ?? ''));
+$createdUrl = '';
+if ($createdId !== '') {
+    $createdStmt = $db->prepare('SELECT link_id, payment_method FROM payment_links WHERE link_id = ? AND merchant_id = ? LIMIT 1');
+    $createdStmt->execute([$createdId, $merchant['id']]);
+    $createdRow = $createdStmt->fetch();
+    if ($createdRow) {
+        $createdCat = $catalog[$createdRow['payment_method'] ?? ''] ?? null;
+        $createdUrl = buildPaymentLinkUrl((string)$createdRow['link_id'], $createdCat['pay_key'] ?? null);
+    }
+}
 ?>
+<?php if ($createdUrl !== ''): ?>
+<div class="bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-4 mb-6 text-sm">
+    <p class="text-emerald-300 font-semibold mb-2">Public checkout link (customer opens this URL)</p>
+    <p class="font-mono text-xs text-gray-300 break-all mb-3"><?= e($createdUrl) ?></p>
+    <div class="flex flex-wrap gap-2">
+        <a href="<?= e($createdUrl) ?>" target="_blank" rel="noopener" class="text-xs bg-sky-600 text-white px-3 py-1.5 rounded-lg">Open checkout</a>
+        <button type="button" data-copy-url="<?= e($createdUrl) ?>" onclick="copyPayUrl(this)" class="text-xs bg-brand-600/20 text-brand-400 px-3 py-1.5 rounded-lg">Copy</button>
+    </div>
+</div>
+<?php endif; ?>
 <?php if ($testMode): ?>
 <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-3 mb-6 text-sm text-amber-300">
     <?= accountModeBadge($merchant) ?> <?= merchantCanGoLive($merchant) ? 'Showing test payment links only. Switch to Live Mode for production links.' : 'Payment links are <strong>sandbox only</strong> until KYC is approved.' ?>
@@ -242,7 +264,7 @@ $cfReady = isGatewayConfigured('cashfree');
                                 $embedHtml = '<a href="' . e($payUrl) . '" target="_blank" style="display:inline-block;padding:12px 20px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">Pay Now</a>';
                             ?>
                             <a href="<?= e($payUrl) ?>" target="_blank" class="text-xs bg-sky-600/20 text-sky-400 px-3 py-1 rounded-lg mr-1">Open</a>
-                            <button type="button" onclick="navigator.clipboard.writeText('<?= e($payUrl) ?>');this.textContent='Copied!'" class="text-xs bg-brand-600/20 text-brand-400 px-3 py-1 rounded-lg mr-1">Copy</button>
+                            <button type="button" data-copy-url="<?= e($payUrl) ?>" onclick="copyPayUrl(this)" class="text-xs bg-brand-600/20 text-brand-400 px-3 py-1 rounded-lg mr-1">Copy</button>
                             <button type="button" onclick="openLinkShareModal(<?= (int)$link['id'] ?>)" class="text-xs bg-emerald-600/20 text-emerald-400 px-3 py-1 rounded-lg mr-1">Share</button>
                             <button type="button" onclick="openLinkWebsiteModal(<?= (int)$link['id'] ?>)" class="text-xs bg-violet-600/20 text-violet-400 px-3 py-1 rounded-lg">Website</button>
 
@@ -283,6 +305,15 @@ $cfReady = isGatewayConfigured('cashfree');
     </div>
 </div>
 <script>
+function copyPayUrl(btn) {
+    var url = btn.getAttribute('data-copy-url') || '';
+    if (!url) return;
+    var old = btn.textContent;
+    navigator.clipboard.writeText(url).then(function () {
+        btn.textContent = 'Copied!';
+        setTimeout(function () { btn.textContent = old; }, 1500);
+    });
+}
 function openLinkShareModal(id) {
     document.getElementById('link-share-' + id).classList.remove('hidden');
 }

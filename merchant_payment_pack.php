@@ -97,7 +97,7 @@ require_once __DIR__ . '/header.php';
                     <td class="px-5 py-3">
                         <?php if ($link['status'] === 'active'): ?>
                         <a href="<?= e($payUrl) ?>" target="_blank" class="text-xs text-sky-400 mr-2">Open</a>
-                        <button type="button" onclick="navigator.clipboard.writeText('<?= e($payUrl) ?>');this.textContent='<?= e(__('copy')) ?>'" class="text-xs text-brand-400"><?= __('copy') ?></button>
+                        <button type="button" data-copy-url="<?= e($payUrl) ?>" onclick="var u=this.getAttribute('data-copy-url')||''; if(u){navigator.clipboard.writeText(u); this.textContent='Copied!';}" class="text-xs text-brand-400"><?= __('copy') ?></button>
                         <?php endif; ?>
                     </td>
                 </tr>
