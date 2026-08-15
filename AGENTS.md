@@ -204,4 +204,4 @@ Owner's explicit standing instruction: continue autonomously through phases with
 
 ## Latest Status (2026-08-15)
 
-Owner delivered ordered Deep Audit PDF. Live Hostinger has 10-min auto-audit + backup cron. Phases 0–4.7 are in repo. Phase 5 coded: Watchdog/cron failed checks show labels and the cron key is masked; KYC/Live enqueue always leaves a Forward Queue row; notification `event_key` dedup + archive; AML `kyc_pending` skips if open and clears on verify. Owner still verifies on live after Hostinger Git + hard refresh. Do not start Phase 6 until that live click-check.
+Owner delivered ordered Deep Audit PDF. Live Hostinger has 10-min auto-audit + backup cron. Phases 0–9 are in repo. Phase 10 is **reference only** (`WHITE_LABEL_CHECKLIST.md`): checkout theme already exists; hide-UniWeb mark defaults OFF; Test/Live isolation already in settlement; webhook HMAC copy on API Settings; staff nav still has no Partner Registry keys. Do **not** sell white-label as the main product. Do **not** start Phase 11 Route/Split unless the Owner says start + keys + commercial.

@@ -43,7 +43,7 @@ $pageTitle = 'Webhook Reliability';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6">
-    <p class="text-sm text-gray-400">Idempotency, retry queue, dead letter management</p>
+    <p class="text-sm text-gray-400">Idempotency, retry queue, dead letter management. Merchant HMAC copy-paste lives on API Settings. Do not add a second cron — retries already run in the 10-minute auto-audit.</p>
 
     <div class="grid sm:grid-cols-2 lg:grid-cols-6 gap-4">
         <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Total Events</p><p class="text-2xl font-bold text-brand-400 mt-1"><?= number_format($stats['total']) ?></p></div>

@@ -155,9 +155,22 @@ require_once __DIR__ . '/header.php';
         </div>
         <div class="mt-4 text-xs text-gray-500 space-y-2">
             <p>We POST JSON with header <code class="text-gray-400">X-UniWeb-Signature</code> = HMAC-SHA256(body, signing secret).</p>
-            <p>Verify: <code class="text-gray-400">hash_hmac('sha256', $rawBody, $secret)</code></p>
             <p>Events: <code class="text-gray-400">webhook.test</code>, <code class="text-gray-400">payment.success</code>, <code class="text-gray-400">payment.failed</code>, <code class="text-gray-400">refund.completed</code></p>
+            <p>Failed rows below have Retry. Platform retries also run inside the existing 10-minute auto-audit — no extra cron.</p>
         </div>
+        <?php
+        $hmacSnippet = <<<'PHP'
+<?php
+$raw = file_get_contents('php://input');
+$sig = $_SERVER['HTTP_X_UNIWEB_SIGNATURE'] ?? '';
+$ok  = hash_equals(hash_hmac('sha256', $raw, $signingSecret), $sig);
+if (!$ok) { http_response_code(401); exit; }
+$event = json_decode($raw, true);
+PHP;
+        ?>
+        <p class="mt-4 text-xs text-gray-400 font-semibold">Copy: verify HMAC in PHP</p>
+        <pre class="mt-2 bg-dark-900 rounded-lg p-4 text-xs text-gray-400 overflow-x-auto" id="webhook-hmac-snippet"><?= e($hmacSnippet) ?></pre>
+        <button type="button" class="mt-2 text-xs text-sky-400 hover:underline" onclick="navigator.clipboard.writeText(document.getElementById('webhook-hmac-snippet').innerText); this.textContent='Copied'; setTimeout(()=>this.textContent='Copy snippet',2000)">Copy snippet</button>
         <?php if (!empty($webhookLogs)): ?>
         <div class="mt-6 border-t border-gray-800 pt-4">
             <h3 class="text-sm font-semibold mb-3">Delivery Log</h3>

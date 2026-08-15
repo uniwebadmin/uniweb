@@ -150,7 +150,7 @@ require_once __DIR__ . '/header.php';
             <button type="submit" class="w-full btn-primary py-3">Create Account</button>
         </form>
         <p class="text-xs text-gray-500 mt-4">Staff login: <a href="staff_login.php" class="text-sky-400">staff_login.php</a></p>
-        <p class="text-xs text-gray-600 mt-2">Field staff only see merchants assigned to them. Managers see team activity in Activity Log.</p>
+        <p class="text-xs text-gray-600 mt-2">Field staff only see merchants assigned to them. Managers see team activity in Activity Log. Partner Registry and Platform Settings (live keys) stay with Super Admin — do not give Support or KYC those pages.</p>
     </div>
     <div class="lg:col-span-2 space-y-4">
         <div class="glass rounded-xl overflow-hidden">

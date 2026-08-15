@@ -262,6 +262,8 @@ Do **not** implement parity before Phase 0–2.
 
 Not a command to sell white-label as UniWeb’s main product. Implement only if Owner’s own deals need a specific item — **after Phase 0–2**.
 
+**Full map (already-built vs when-a-deal-needs):** `WHITE_LABEL_CHECKLIST.md`
+
 | ID | Topic | Expectation |
 |----|--------|-------------|
 | WL-01 | Branding/domain | Configurable brand; theme + domain guide when needed |

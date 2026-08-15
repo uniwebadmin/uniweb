@@ -271,6 +271,8 @@ function requireMerchantAccess(int $merchantId): void
 
 function staffNavForRole(string $role): array
 {
+    // Partner Registry + Platform Settings (live keys) stay on Super Admin nav only.
+    // Do not add gateway_settings.php or admin_gateway_registry.php to this matrix.
     $all = [
         'staff_dashboard.php' => ['Dashboard', ['super', 'ceo', 'regional_manager', 'area_sales_manager', 'team_leader', 'staff_manager', 'field_staff', 'ops', 'support', 'kyc', 'finance']],
         'manage_merchant.php' => ['Merchants', ['super', 'ceo', 'regional_manager', 'area_sales_manager', 'team_leader', 'staff_manager', 'field_staff', 'ops', 'kyc']],

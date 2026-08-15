@@ -35,6 +35,7 @@ function ensureCheckoutCustomizeTable(): void
         getDB()->exec("ALTER TABLE merchant_checkout_customize ADD COLUMN success_message VARCHAR(300) DEFAULT NULL AFTER checkout_subtitle");
         getDB()->exec("ALTER TABLE merchant_checkout_customize ADD COLUMN failure_message VARCHAR(300) DEFAULT NULL AFTER success_message");
         getDB()->exec("ALTER TABLE merchant_checkout_customize ADD COLUMN redirect_url VARCHAR(500) DEFAULT NULL AFTER failure_message");
+        getDB()->exec("ALTER TABLE merchant_checkout_customize ADD COLUMN hide_powered_by TINYINT(1) NOT NULL DEFAULT 0 AFTER is_active");
     } catch (Throwable $e) { error_log('ensureCheckoutCustomizeTable: ' . $e->getMessage()); }
 }
 
@@ -56,11 +57,13 @@ function getMerchantCheckoutCustomize(int $merchantId): array
                 'checkout_subtitle' => null,
                 'custom_css' => null,
                 'is_active' => 0,
+                'hide_powered_by' => 0,
             ];
         }
+        $row['hide_powered_by'] = !empty($row['hide_powered_by']) ? 1 : 0;
         return $row;
     } catch (Throwable $e) {
-        return ['merchant_id' => $merchantId, 'is_active' => 0];
+        return ['merchant_id' => $merchantId, 'is_active' => 0, 'hide_powered_by' => 0];
     }
 }
 
@@ -78,6 +81,7 @@ function saveMerchantCheckoutCustomize(int $merchantId, array $data): array
     $redirectUrl = trim((string)($data['redirect_url'] ?? '')) ?: null;
     $customCss = trim((string)($data['custom_css'] ?? '')) ?: null;
     $isActive = !empty($data['is_active']) ? 1 : 0;
+    $hidePoweredBy = !empty($data['hide_powered_by']) ? 1 : 0;
 
     foreach ([['Primary', $primaryColor], ['Accent', $accentColor], ['Button', $buttonColor]] as [$label, $color]) {
         if ($color && !preg_match('/^#[0-9a-fA-F]{6}$/', $color)) {
@@ -95,16 +99,16 @@ function saveMerchantCheckoutCustomize(int $merchantId, array $data): array
 
     try {
         getDB()->prepare('INSERT INTO merchant_checkout_customize
-            (merchant_id, logo_url, primary_color, accent_color, button_color, checkout_title, checkout_subtitle, success_message, failure_message, redirect_url, custom_css, is_active)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+            (merchant_id, logo_url, primary_color, accent_color, button_color, checkout_title, checkout_subtitle, success_message, failure_message, redirect_url, custom_css, is_active, hide_powered_by)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON DUPLICATE KEY UPDATE
             logo_url=VALUES(logo_url), primary_color=VALUES(primary_color), accent_color=VALUES(accent_color),
             button_color=VALUES(button_color), checkout_title=VALUES(checkout_title), checkout_subtitle=VALUES(checkout_subtitle),
             success_message=VALUES(success_message), failure_message=VALUES(failure_message), redirect_url=VALUES(redirect_url),
-            custom_css=VALUES(custom_css), is_active=VALUES(is_active)')
+            custom_css=VALUES(custom_css), is_active=VALUES(is_active), hide_powered_by=VALUES(hide_powered_by)')
             ->execute([
                 $merchantId, $logoUrl, $primaryColor, $accentColor, $buttonColor,
-                $checkoutTitle, $checkoutSubtitle, $successMessage, $failureMessage, $redirectUrl, $customCss, $isActive,
+                $checkoutTitle, $checkoutSubtitle, $successMessage, $failureMessage, $redirectUrl, $customCss, $isActive, $hidePoweredBy,
             ]);
         return ['ok' => true, 'message' => 'Checkout customization saved.'];
     } catch (Throwable $e) {
@@ -160,11 +164,24 @@ function hexToRgba(string $hex, float $alpha): string
     return sprintf('rgba(%d,%d,%d,%.2f)', $r, $g, $b, $alpha);
 }
 
+function checkoutHidePoweredBy(array $brand): bool
+{
+    return !empty($brand['hide_powered_by']);
+}
+
 function resolveCheckoutCustomize(array $merchant): array
 {
     $cc = getMerchantCheckoutCustomize((int)$merchant['id']);
+    $hide = checkoutHidePoweredBy($cc);
     if (empty($cc['is_active'])) {
-        return ['active' => false, 'logo_url' => null, 'css' => '', 'checkout_title' => null, 'checkout_subtitle' => null];
+        return [
+            'active' => false,
+            'logo_url' => null,
+            'css' => '',
+            'checkout_title' => null,
+            'checkout_subtitle' => null,
+            'hide_powered_by' => $hide,
+        ];
     }
     return [
         'active' => true,
@@ -176,5 +193,6 @@ function resolveCheckoutCustomize(array $merchant): array
         'failure_message' => $cc['failure_message'] ?? null,
         'redirect_url' => $cc['redirect_url'] ?? null,
         'brand_name' => trim((string)($merchant['business_name'] ?? '')) ?: APP_NAME,
+        'hide_powered_by' => $hide,
     ];
 }

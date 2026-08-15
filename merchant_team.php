@@ -98,7 +98,7 @@ $capLabels = [
 
     <div class="glass rounded-xl p-5 mb-6 overflow-x-auto">
         <h2 class="font-semibold mb-3">Role matrix</h2>
-        <p class="text-xs text-gray-500 mb-3">Who can invite, settle, refund, handle complaints, use API, create links, and view.</p>
+        <p class="text-xs text-gray-500 mb-3">Who can invite, settle, refund, handle complaints, use API, create links, and view. Merchant API keys are for Admin/Developer only. Partner / bank keys stay with UniWeb Super Admin — they are never on this page.</p>
         <table class="min-w-[640px] w-full text-xs">
             <thead class="text-gray-500 uppercase bg-dark-900/50">
                 <tr>

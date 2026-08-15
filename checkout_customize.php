@@ -141,6 +141,17 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-6">
+            <h2 class="text-lg font-bold text-white mb-4">UniWeb mark on checkout</h2>
+            <label class="flex items-start gap-3 cursor-pointer">
+                <input type="checkbox" name="hide_powered_by" value="1" <?= !empty($cc['hide_powered_by']) ? 'checked' : '' ?> class="w-5 h-5 rounded mt-0.5">
+                <div>
+                    <span class="text-sm text-white font-semibold">Hide “Secured by UniWeb”</span>
+                    <p class="text-xs text-gray-500 mt-1">Default is OFF. Turn this on only if a written contract requires it. GST and CIN stay on the checkout footer. Partner names (PayU, Razorpay) stay.</p>
+                </div>
+            </label>
+        </div>
+
+        <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-6">
             <label class="flex items-center gap-3 cursor-pointer">
                 <input type="checkbox" name="is_active" value="1" <?= !empty($cc['is_active']) ? 'checked' : '' ?> class="w-5 h-5 rounded">
                 <div>
@@ -155,6 +166,16 @@ require_once __DIR__ . '/header.php';
             <a href="payment_links.php" class="text-sm text-gray-400 border border-gray-700 px-6 py-3 rounded-lg">Create Test Link →</a>
         </div>
     </form>
+
+    <div class="mt-8 bg-gray-900/60 border border-gray-800 rounded-xl p-6">
+        <h2 class="text-lg font-bold text-white mb-2">Platform domain (when a deal needs it)</h2>
+        <ol class="text-sm text-gray-400 space-y-2 list-decimal pl-5">
+            <li>Add the domain in Hostinger and turn on SSL.</li>
+            <li>Point it at this same UniWeb site — not a second app.</li>
+            <li>Set the live site URL in server config (never commit keys or that file).</li>
+            <li>Use this page for merchant logo and colours. UniWeb is not selling a separate white-label product from this screen.</li>
+        </ol>
+    </div>
 
     <?php if (!empty($cc['is_active'])): ?>
     <div class="mt-8 bg-gray-900/60 border border-gray-800 rounded-xl p-6">

@@ -514,7 +514,9 @@ endif;
                         <p class="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Scan &amp; Pay via UPI</p>
                         <img src="<?= e(qrImageUrl($upiData, 200)) ?>" alt="UPI QR" class="mx-auto rounded-lg" width="200" height="200">
                         <p class="text-dark-900 text-xs mt-3 font-mono break-all"><?= e($upiPa) ?></p>
+                        <?php if (!checkoutHidePoweredBy($wlBrand)): ?>
                         <p class="text-[10px] text-gray-400 mt-1">Secured by UniWeb</p>
+                        <?php endif; ?>
                     </div>
                     <?php endif; ?>
                     <p class="text-xs text-center text-gray-500 mb-3" id="upi-poll-status"><?= $allowInstantPay ? 'Sandbox — Instant Test Pay above marks this link paid.' : 'Waiting for verified bank or gateway confirmation. Do not close this page.' ?></p>
