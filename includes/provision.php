@@ -27,6 +27,7 @@ function ensurePaymentPackSchema(): void
         'ALTER TABLE payment_links ADD COLUMN pack_id VARCHAR(32) DEFAULT NULL',
         'ALTER TABLE payment_links ADD COLUMN link_label VARCHAR(128) DEFAULT NULL',
         'ALTER TABLE payment_links ADD COLUMN link_collection_mode VARCHAR(32) DEFAULT NULL',
+        "ALTER TABLE payment_links ADD COLUMN amount_type VARCHAR(16) NOT NULL DEFAULT 'fixed'",
     ];
     foreach (array_merge($merchantCols, $linkCols) as $sql) {
         try {
@@ -283,27 +284,46 @@ function merchantMethodPreview(array $merchant): array
     ];
 }
 
-function createMethodPaymentLink(int $merchantId, string $methodKey, float $amount, string $packId, string $label, bool $isTest): ?string
+function createMethodPaymentLink(int $merchantId, string $methodKey, float $amount, string $packId, string $label, bool $isTest, string $amountType = 'fixed'): ?string
 {
     ensurePaymentPackSchema();
     $catalog = getPaymentMethodCatalog();
-    if (!isset($catalog[$methodKey])) return null;
+    if (!isset($catalog[$methodKey])) {
+        return null;
+    }
 
     $cat = $catalog[$methodKey];
     $db = getDB();
     $linkId = generateId('LNK');
-    $expiresAt = date('Y-m-d H:i:s', time() + 168 * 3600);
+    $amountType = $amountType === 'open' ? 'open' : 'fixed';
+    $storeAmount = $amountType === 'open' ? 0.0 : max(1.0, $amount);
+    // Pack links must stay usable for demos — no accidental expiry
+    $expiresAt = null;
+    $desc = ($amountType === 'open' ? 'Open amount — ' : 'Fixed ₹' . number_format($storeAmount, 2) . ' — ') . $cat['label'];
 
     try {
-        $db->prepare('INSERT INTO payment_links (link_id, merchant_id, amount, description, expires_at, is_test, payment_method, gateway_code, pack_id, link_label, link_collection_mode) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+        $db->prepare('INSERT INTO payment_links (link_id, merchant_id, amount, description, expires_at, is_test, status, payment_method, gateway_code, pack_id, link_label, link_collection_mode, amount_type) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
             ->execute([
-                $linkId, $merchantId, $amount,
-                $label . ' — ' . $cat['label'],
-                $expiresAt, $isTest ? 1 : 0,
-                $methodKey, $cat['gateway'], $packId, $cat['label'], $cat['collection_mode'],
+                $linkId, $merchantId, $storeAmount,
+                $desc,
+                $expiresAt, $isTest ? 1 : 0, 'active',
+                $methodKey, $cat['gateway'], $packId,
+                $cat['label'] . ($amountType === 'open' ? ' (Open)' : ' (Fixed)'),
+                $cat['collection_mode'],
+                $amountType,
             ]);
     } catch (Throwable $e) {
-        return null;
+        try {
+            $db->prepare('INSERT INTO payment_links (link_id, merchant_id, amount, description, expires_at, is_test, status, payment_method, gateway_code, pack_id, link_label, link_collection_mode) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+                ->execute([
+                    $linkId, $merchantId, $storeAmount,
+                    $desc,
+                    $expiresAt, $isTest ? 1 : 0, 'active',
+                    $methodKey, $cat['gateway'], $packId, $cat['label'], $cat['collection_mode'],
+                ]);
+        } catch (Throwable $e2) {
+            return null;
+        }
     }
     return $linkId;
 }
@@ -315,7 +335,9 @@ function generateMerchantPaymentPack(int $merchantId, float $amount = 1.0, ?bool
     $stmt = $db->prepare('SELECT * FROM merchants WHERE id = ?');
     $stmt->execute([$merchantId]);
     $merchant = $stmt->fetch();
-    if (!$merchant) return ['ok' => false, 'links' => []];
+    if (!$merchant) {
+        return ['ok' => false, 'links' => []];
+    }
 
     $methods = getMerchantEnabledMethods($merchant);
     if (!in_array('upi_p2m', $methods, true)) {
@@ -327,21 +349,32 @@ function generateMerchantPaymentPack(int $merchantId, float $amount = 1.0, ?bool
         }
     }
     $packId = generateId('PACK');
-    // Dashboard Test/Live view (not only account_mode) — Instant Test Pay needs is_test=1
     $isTest = $forceTest ?? isMerchantPaymentTest($merchant);
     $created = [];
 
+    // Retire old pack links so broken/expired URLs stop showing
+    try {
+        $db->prepare("UPDATE payment_links SET status='inactive' WHERE merchant_id=? AND pack_id IS NOT NULL AND status='active'")
+            ->execute([$merchantId]);
+    } catch (Throwable $e) { /* ok */ }
+
     foreach ($methods as $methodKey) {
         $cat = getPaymentMethodCatalog()[$methodKey] ?? null;
-        if (!$cat) continue;
-        $linkId = createMethodPaymentLink($merchantId, $methodKey, $amount, $packId, 'Payment Pack', $isTest);
-        if ($linkId) {
-            $created[] = [
-                'method' => $methodKey,
-                'label' => $cat['label'],
-                'link_id' => $linkId,
-                'url' => buildPaymentLinkUrl($linkId, $cat['pay_key']),
-            ];
+        if (!$cat) {
+            continue;
+        }
+        // Fixed ₹1 (Instant Test Pay) + Open amount (customer enters)
+        foreach (['fixed' => $amount, 'open' => 0.0] as $amountType => $linkAmount) {
+            $linkId = createMethodPaymentLink($merchantId, $methodKey, (float)$linkAmount, $packId, 'Payment Pack', $isTest, $amountType);
+            if ($linkId) {
+                $created[] = [
+                    'method' => $methodKey,
+                    'label' => $cat['label'],
+                    'amount_type' => $amountType,
+                    'link_id' => $linkId,
+                    'url' => buildPaymentLinkUrl($linkId, $cat['pay_key']),
+                ];
+            }
         }
     }
 
@@ -419,11 +452,36 @@ function getMerchantPackLinks(int $merchantId, ?string $packId = null): array
     ensurePaymentPackSchema();
     $db = getDB();
     if ($packId) {
-        $stmt = $db->prepare('SELECT * FROM payment_links WHERE merchant_id=? AND pack_id=? ORDER BY link_label');
-        $stmt->execute([$merchantId, $packId]);
-        return $stmt->fetchAll();
+        $stmt = $db->prepare("SELECT * FROM payment_links
+            WHERE merchant_id=? AND pack_id=? AND status='active'
+              AND (expires_at IS NULL OR expires_at > NOW())
+            ORDER BY link_label, amount_type, id");
+        try {
+            $stmt->execute([$merchantId, $packId]);
+            return $stmt->fetchAll();
+        } catch (Throwable $e) {
+            $stmt = $db->prepare("SELECT * FROM payment_links
+                WHERE merchant_id=? AND pack_id=? AND status='active'
+                  AND (expires_at IS NULL OR expires_at > NOW())
+                ORDER BY link_label, id");
+            $stmt->execute([$merchantId, $packId]);
+            return $stmt->fetchAll();
+        }
     }
-    $stmt = $db->prepare('SELECT * FROM payment_links WHERE merchant_id=? AND pack_id IS NOT NULL ORDER BY created_at DESC');
+    $stmt = $db->prepare("SELECT * FROM payment_links
+        WHERE merchant_id=? AND pack_id IS NOT NULL AND status='active'
+          AND (expires_at IS NULL OR expires_at > NOW())
+        ORDER BY created_at DESC");
     $stmt->execute([$merchantId]);
     return $stmt->fetchAll();
+}
+
+/** True when the payer must type the amount (open-amount link). */
+function paymentLinkIsOpenAmount(array $link): bool
+{
+    $type = strtolower(trim((string)($link['amount_type'] ?? '')));
+    if ($type === 'open') {
+        return true;
+    }
+    return (float)($link['amount'] ?? $link['payment_amount'] ?? 0) <= 0;
 }

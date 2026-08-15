@@ -66,7 +66,8 @@ function ensureDemoMerchant(): array
         $db->prepare("UPDATE payment_links SET is_test=1 WHERE merchant_id=? AND status='active'")->execute([$merchantId]);
     } catch (Throwable $e) { /* ok */ }
 
-    $db->prepare("UPDATE payment_links SET status='expired' WHERE merchant_id=? AND status='active' AND (amount != 1 OR amount IS NULL)")->execute([$merchantId]);
+    // Only tidy DEMO* fixed links — never expire Payment Pack or open-amount merchant links
+    $db->prepare("UPDATE payment_links SET status='expired' WHERE merchant_id=? AND status='active' AND link_id LIKE 'DEMO%' AND (amount != 1 OR amount IS NULL)")->execute([$merchantId]);
 
     $link = $db->prepare("SELECT * FROM payment_links WHERE merchant_id = ? AND amount = 1 AND status='active' AND (payment_method='upi_p2m' OR payment_method IS NULL OR payment_method='') ORDER BY FIELD(COALESCE(payment_method,''),'upi_p2m') DESC, created_at DESC LIMIT 1");
     $link->execute([$merchantId]);
@@ -76,7 +77,7 @@ function ensureDemoMerchant(): array
         || ($activeLink['expires_at'] && strtotime($activeLink['expires_at']) < time());
 
     if ($needsNew) {
-        $db->prepare("UPDATE payment_links SET status='expired' WHERE merchant_id=? AND status='active' AND (payment_method IS NULL OR payment_method='' OR payment_method='upi_p2m')")->execute([$merchantId]);
+        $db->prepare("UPDATE payment_links SET status='expired' WHERE merchant_id=? AND status='active' AND link_id LIKE 'DEMO%'")->execute([$merchantId]);
         $linkId = 'DEMO' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 6));
         $expires = date('Y-m-d H:i:s', time() + 86400 * 365);
         try {

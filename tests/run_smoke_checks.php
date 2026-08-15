@@ -902,6 +902,13 @@ $assert(str_contains($qrImg, 'function qrFlushAllBuffers'), 'p2_qr_image_flushes
 $assert(str_contains((string)file_get_contents($root . '/includes/qr_svg.php'), 'require_upi=1'), 'p2_upi_qr_url_requires_pa');
 $plP2 = (string)file_get_contents($root . '/payment_links.php');
 $assert(str_contains($plP2, "payment_links.php?created="), 'p2_create_redirects_with_public_url');
+$assert(str_contains($plP2, "amount_type") && str_contains($plP2, 'Open amount'), 'payment_links_open_and_fixed_amount');
+$packPage = (string)file_get_contents($root . '/merchant_payment_pack.php');
+$assert(str_contains($packPage, 'Fixed') && str_contains($packPage, 'Open') && str_contains($packPage, 'Regenerate Pack'), 'payment_pack_shows_fixed_and_open');
+$provSrc = (string)file_get_contents($root . '/includes/provision.php');
+$assert(str_contains($provSrc, "\$amountType === 'open'") && str_contains($provSrc, 'paymentLinkIsOpenAmount'), 'payment_pack_creates_open_and_fixed');
+$assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'Enter Payment Amount') && str_contains((string)file_get_contents($root . '/checkout.php'), 'pay_amount'), 'checkout_open_amount_entry');
+$assert(is_file($root . '/migrations/063_payment_link_amount_type.sql'), 'migration_063_amount_type');
 $pmLib = (string)file_get_contents($root . '/includes/payment_methods.php');
 $assert(str_contains($pmLib, 'function get_available_pay_methods') && str_contains($pmLib, 'merchantEntitledMethods') && str_contains($pmLib, "gateway === 'direct'"), 'payment_links_methods_use_merchant_entitlement');
 $assert(str_contains($pmLib, 'function catalogKeyToPartnerMethodName'), 'catalog_to_partner_method_mapper');

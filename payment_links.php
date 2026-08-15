@@ -44,7 +44,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
     $amount = (float)($_POST['amount'] ?? 0);
     $isTest = isMerchantPaymentTest($merchant);
-    $amount = sanitizePaymentAmount($amount, $isTest);
+    $amountType = (($_POST['amount_type'] ?? 'fixed') === 'open') ? 'open' : 'fixed';
+    if ($amountType === 'open') {
+        $amount = 0.0;
+    } else {
+        $amount = sanitizePaymentAmount($amount, $isTest);
+    }
     $methodKey = trim((string)($_POST['payment_method'] ?? ''));
     if ($methodKey !== '' && !isset($methodChoices[$methodKey])) {
         $methodKey = '';
@@ -54,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         flash('error', 'Selected payment method is not available. Please choose from the enabled methods.');
         redirect('payment_links.php');
     }
-    if ($amount < 1) {
+    if ($amountType === 'fixed' && $amount < 1) {
         flash('error', $isTest ? 'Test mode: amount ₹1–₹100 only.' : 'Minimum amount is ₹1.');
     } else {
         if (!$isTest) {
@@ -75,22 +80,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             $label = $catalog[$methodKey]['label'];
             $collMode = $catalog[$methodKey]['collection_mode'];
             if ($description === '') {
-                $description = 'Payment — ' . $label;
+                $description = ($amountType === 'open' ? 'Open amount — ' : 'Payment — ') . $label;
             }
+        } elseif ($description === '' && $amountType === 'open') {
+            $description = 'Open amount payment';
         }
-        // E2: Idempotency key — prevent duplicate link creation on double-submit
-        $idempotencyKey = 'LNK_' . md5((int)$merchant['id'] . '_' . $amount . '_' . $methodKey . '_' . time() . '_' . random_bytes(4));
         try {
-            $db->prepare('INSERT INTO payment_links (link_id,merchant_id,amount,description,customer_name,customer_phone,expires_at,is_test,payment_method,gateway_code,link_label,link_collection_mode) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+            $db->prepare('INSERT INTO payment_links (link_id,merchant_id,amount,description,customer_name,customer_phone,expires_at,is_test,status,payment_method,gateway_code,link_label,link_collection_mode,amount_type) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
                 ->execute([
                     $linkId, $merchant['id'], $amount, $description, $customerName, $customerPhone,
-                    $expiresAt, $isTestFlag, $methodKey !== '' ? $methodKey : null, $gateway, $label, $collMode,
+                    $expiresAt, $isTestFlag, 'active', $methodKey !== '' ? $methodKey : null, $gateway, $label, $collMode, $amountType,
                 ]);
         } catch (Throwable $e) {
-            $db->prepare('INSERT INTO payment_links (link_id,merchant_id,amount,description,customer_name,customer_phone,expires_at,is_test) VALUES (?,?,?,?,?,?,?,?)')
-                ->execute([$linkId, $merchant['id'], $amount, $description, $customerName, $customerPhone, $expiresAt, $isTestFlag]);
+            try {
+                $db->prepare('INSERT INTO payment_links (link_id,merchant_id,amount,description,customer_name,customer_phone,expires_at,is_test,payment_method,gateway_code,link_label,link_collection_mode) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+                    ->execute([
+                        $linkId, $merchant['id'], $amount, $description, $customerName, $customerPhone,
+                        $expiresAt, $isTestFlag, $methodKey !== '' ? $methodKey : null, $gateway, $label, $collMode,
+                    ]);
+            } catch (Throwable $e2) {
+                $db->prepare('INSERT INTO payment_links (link_id,merchant_id,amount,description,customer_name,customer_phone,expires_at,is_test) VALUES (?,?,?,?,?,?,?,?)')
+                    ->execute([$linkId, $merchant['id'], $amount, $description, $customerName, $customerPhone, $expiresAt, $isTestFlag]);
+            }
         }
-        $createdMsg = 'Payment link created' . ($label ? ' for ' . $label : '') . '!';
+        $createdMsg = 'Payment link created' . ($label ? ' for ' . $label : '') . ($amountType === 'open' ? ' (open amount)' : '') . '!';
         if ($isTest) {
             $createdMsg .= ' Test Mode — sandbox only, no real money.';
         }
@@ -179,8 +192,16 @@ if ($createdId !== '') {
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div>
+                <label class="text-sm text-gray-400">Amount type *</label>
+                <select name="amount_type" id="pl-amount-type" class="input-field mt-1" onchange="var w=document.getElementById('pl-fixed-amount-wrap');var a=document.getElementById('pl-amount-input');if(this.value==='open'){w.classList.add('hidden');a.removeAttribute('required');}else{w.classList.remove('hidden');a.setAttribute('required','required');}">
+                    <option value="fixed" selected>Fixed amount</option>
+                    <option value="open">Open amount (customer enters)</option>
+                </select>
+                <p class="text-[11px] text-gray-600 mt-1">Fixed = you set ₹. Open = customer types amount on checkout.</p>
+            </div>
+            <div id="pl-fixed-amount-wrap">
                 <label class="text-sm text-gray-400">Amount (₹) *</label>
-                <input type="number" name="amount" required min="1" step="0.01" class="input-field mt-1" placeholder="<?= $testMode ? '1–100 (test)' : 'Min ₹1' ?>" value="1">
+                <input id="pl-amount-input" type="number" name="amount" required min="1" step="0.01" class="input-field mt-1" placeholder="<?= $testMode ? '1–100 (test)' : 'Min ₹1' ?>" value="1">
             </div>
             <div>
                 <label class="text-sm text-gray-400">Payment method *</label>
@@ -256,7 +277,13 @@ if ($createdId !== '') {
                             <a href="<?= e($payUrl) ?>" target="_blank" class="text-sky-400 hover:underline"<?= uiStopClick() ?>><?= e($link['link_id']) ?></a>
                         </td>
                         <td class="px-5 py-3 text-xs"><?= e($methodLabel) ?></td>
-                        <td class="px-5 py-3 font-semibold"><?= formatMoney(capStatAmount((float)$link['amount'])) ?></td>
+                        <td class="px-5 py-3 font-semibold"><?php
+                            if (function_exists('paymentLinkIsOpenAmount') && paymentLinkIsOpenAmount($link)) {
+                                echo '<span class="text-sky-400">Open</span>';
+                            } else {
+                                echo formatMoney(capStatAmount((float)$link['amount']));
+                            }
+                        ?></td>
                         <td class="px-5 py-3 text-xs text-gray-400"><?= (int)($link['view_count'] ?? 0) ?></td>
                         <td class="px-5 py-3 text-xs text-emerald-400"><?= (int)($link['paid_count'] ?? 0) ?></td>
                         <td class="px-5 py-3 text-xs text-gray-400"><?php $v = (int)($link['view_count'] ?? 0); $p = (int)($link['paid_count'] ?? 0); echo $v > 0 ? round($p / $v * 100) . '%' : '—'; ?></td>

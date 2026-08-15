@@ -103,11 +103,77 @@ if (!$link) {
         'This payment link has expired or does not exist. Please ask the merchant for a fresh link.'
     );
 }
-$amtOnly = $db->prepare('SELECT amount, status FROM payment_links WHERE link_id = ?');
-$amtOnly->execute([$linkId]);
-$plRow = $amtOnly->fetch();
+$amtOnly = $db->prepare('SELECT amount, status, amount_type FROM payment_links WHERE link_id = ?');
+try {
+    $amtOnly->execute([$linkId]);
+    $plRow = $amtOnly->fetch();
+} catch (Throwable $e) {
+    $amtOnly = $db->prepare('SELECT amount, status FROM payment_links WHERE link_id = ?');
+    $amtOnly->execute([$linkId]);
+    $plRow = $amtOnly->fetch();
+}
 $isTestCheckout = !empty($link['is_test']) || merchantAccountMode($link) === 'test';
-$payAmount = sanitizePaymentAmount(round((float)($plRow['amount'] ?? 0), 2), $isTestCheckout);
+$link['amount_type'] = $plRow['amount_type'] ?? ($link['amount_type'] ?? 'fixed');
+$isOpenAmount = function_exists('paymentLinkIsOpenAmount')
+    ? paymentLinkIsOpenAmount(array_merge($link, $plRow ?: []))
+    : ((float)($plRow['amount'] ?? 0) <= 0);
+
+// Open-amount links: customer must enter ₹ before Instant Test Pay / UPI / PG
+$openAmountError = '';
+if ($isOpenAmount) {
+    $enteredAmount = 0.0;
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pay_amount'])) {
+        if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
+            $openAmountError = 'Security token expired. Refresh and try again.';
+        } else {
+            $enteredAmount = (float)$_POST['pay_amount'];
+        }
+    } elseif (isset($_GET['amount']) && is_numeric($_GET['amount'])) {
+        $enteredAmount = (float)$_GET['amount'];
+    } elseif (!empty($_SESSION['checkout_open_amount'][$linkId])) {
+        $enteredAmount = (float)$_SESSION['checkout_open_amount'][$linkId];
+    }
+    $enteredAmount = sanitizePaymentAmount($enteredAmount, $isTestCheckout);
+    if ($enteredAmount < 1 || $openAmountError !== '') {
+        if ($openAmountError === '' && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pay_amount'])) {
+            $openAmountError = $isTestCheckout ? 'Enter ₹1–₹100 for Test Mode.' : 'Enter at least ₹1.';
+        }
+        $pageTitle = 'Enter Payment Amount';
+        $hideNav = true;
+        $footerVariant = 'checkout';
+        require_once __DIR__ . '/header.php';
+        ?>
+        <div class="min-h-screen flex items-center justify-center px-4 py-12">
+            <div class="w-full max-w-md glass rounded-2xl p-8">
+                <p class="text-xs text-sky-400 uppercase tracking-wider mb-1">Open amount link</p>
+                <h1 class="text-xl font-semibold mb-2"><?= e($link['business_name'] ?? 'Pay') ?></h1>
+                <?php if (!empty($link['description'])): ?>
+                <p class="text-sm text-gray-400 mb-4"><?= e($link['description']) ?></p>
+                <?php endif; ?>
+                <?php if ($openAmountError !== ''): ?>
+                <div class="bg-red-500/10 border border-red-500/30 text-red-300 text-sm px-4 py-3 rounded-lg mb-4"><?= e($openAmountError) ?></div>
+                <?php endif; ?>
+                <form method="POST" class="space-y-4">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <?php if (!empty($_GET['pay'])): ?><input type="hidden" name="pay" value="<?= e((string)$_GET['pay']) ?>"><?php endif; ?>
+                    <div>
+                        <label class="text-sm text-gray-400">Enter amount (₹)</label>
+                        <input type="number" name="pay_amount" required min="1" step="0.01" max="<?= $isTestCheckout ? '100' : '1000000' ?>" class="input-field mt-1 text-lg" placeholder="<?= $isTestCheckout ? '1–100' : 'Min 1' ?>" autofocus>
+                    </div>
+                    <button type="submit" class="w-full btn-primary py-3">Continue to pay →</button>
+                </form>
+                <p class="text-[11px] text-gray-600 mt-4 text-center font-mono">Ref: <?= e($linkId) ?></p>
+            </div>
+        </div>
+        <?php
+        require_once __DIR__ . '/footer.php';
+        exit;
+    }
+    $_SESSION['checkout_open_amount'][$linkId] = $enteredAmount;
+    $payAmount = $enteredAmount;
+} else {
+    $payAmount = sanitizePaymentAmount(round((float)($plRow['amount'] ?? 0), 2), $isTestCheckout);
+}
 $link['amount'] = $payAmount;
 $link['status'] = $plRow['status'] ?? 'active';
 // Checkout customization
