@@ -90,9 +90,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             $db->prepare('DELETE FROM admin_login_attempts WHERE username=? OR ip_address=?')
                 ->execute([strtolower((string)$admin['username']), $ipAddress]);
             flash('success', 'Welcome, ' . $admin['name']);
-            if (isSuperAdmin()) {
-                $_SESSION['force_auto_audit'] = true;
-            }
             redirect('admin_dashboard.php');
         }
     } elseif ($action === 'mfa_setup' && $mfaPending && $mfaSetup) {

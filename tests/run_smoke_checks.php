@@ -561,6 +561,14 @@ $assert(str_contains($gwLibP1, 'template/fallback for new merchants'), 'p1_activ
 $healthP1 = (string)file_get_contents($root . '/includes/platform_health.php');
 $assert(str_contains($healthP1, 'New-merchant template') && !str_contains($healthP1, 'Active primary'), 'p1_health_primary_relabel');
 
+$loginP1 = (string)file_get_contents($root . '/admin_login.php');
+$assert(!str_contains($loginP1, "force_auto_audit"), 'admin_login_does_not_force_audit_on_mfa');
+$autoP1 = (string)file_get_contents($root . '/includes/auto_audit.php');
+$assert(str_contains($autoP1, 'admin_login.php') && str_contains($autoP1, 'REQUEST_METHOD'), 'auto_audit_skips_login_and_post');
+$gwDetailKeys = (string)file_get_contents($root . '/admin_gateway_detail.php');
+$assert(str_contains($gwDetailKeys, "\$_GET['env'] ?? 'live'") && str_contains($gwDetailKeys, 'copy_test_keys_to_live'), 'keys_tab_defaults_live_and_can_copy_test');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_control.php'), 'function copyPartnerCredentialsToLive'), 'copy_test_keys_to_live_helper');
+
 // Instant printable UPI QR (direct P2M) — page + helper must exist and be honest about routing.
 $assert(is_file($root . '/qr_upi_print.php'), 'file_qr_upi_print_php', 'qr_upi_print.php');
 $upiQrPage = (string)file_get_contents($root . '/qr_upi_print.php');

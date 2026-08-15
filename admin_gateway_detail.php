@@ -48,16 +48,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
     if ($action === 'save_keys') {
         $keys = $_POST['keys'] ?? [];
-        $env = trim((string)($_POST['env'] ?? 'test'));
+        $env = trim((string)($_POST['env'] ?? 'live'));
+        if (!in_array($env, ['test', 'live'], true)) {
+            $env = 'live';
+        }
         $configKeys = $partner['config_keys'] ?? [];
+        if ($env === 'live' && !empty($partner['env_key'])) {
+            $keys[(string)$partner['env_key']] = function_exists('partnerLiveEnvironmentValue')
+                ? partnerLiveEnvironmentValue($partnerKey)
+                : ($partnerKey === 'cashfree' ? 'production' : 'live');
+        }
         $last4 = savePartnerCredentials($partnerKey, $env, $keys, $configKeys);
         if (function_exists('saveSetting') && !empty($partner['env_key'])) {
             $envSettingKey = (string)$partner['env_key'];
-            $envFromKeys = trim((string)($keys[$envSettingKey] ?? ''));
-            if ($envFromKeys !== '') {
-                saveSetting($envSettingKey, $envFromKeys);
-            } elseif ($env === 'live') {
-                saveSetting($envSettingKey, $partnerKey === 'cashfree' ? 'production' : 'live');
+            if ($env === 'live') {
+                saveSetting($envSettingKey, function_exists('partnerLiveEnvironmentValue') ? partnerLiveEnvironmentValue($partnerKey) : ($partnerKey === 'cashfree' ? 'production' : 'live'));
+            } else {
+                $envFromKeys = trim((string)($keys[$envSettingKey] ?? ''));
+                if ($envFromKeys !== '') {
+                    saveSetting($envSettingKey, $envFromKeys);
+                }
             }
         }
         $msg = $last4 && $last4 !== 'no_keys'
@@ -66,6 +76,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         flash($last4 === 'no_keys' ? 'warning' : 'success', $msg);
         if (function_exists('logStaffActivity')) { logStaffActivity('partner_keys_saved', 'Saved ' . $env . ' keys for ' . $partnerKey . ' (last4: ' . ($last4 ?: 'n/a') . ')', null, 'partner', $partnerKey); }
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=keys&env=' . $env);
+    }
+
+    if ($action === 'copy_test_keys_to_live') {
+        $last4 = copyPartnerCredentialsToLive($partnerKey);
+        flash($last4 === 'no_keys' ? 'warning' : 'success', $last4 === 'no_keys'
+            ? 'No Test keys to copy. Paste keys on the Live tab.'
+            : 'Copied Test keys to Live (last4 ***' . $last4 . ').');
+        if ($last4 !== 'no_keys' && function_exists('logStaffActivity')) {
+            logStaffActivity('partner_keys_copied_to_live', 'Copied test keys to live for ' . $partnerKey, null, 'partner', $partnerKey);
+        }
+        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=keys&env=live');
     }
 
     if ($action === 'activate') {
@@ -283,17 +304,30 @@ require_once __DIR__ . '/header.php';
 
     <?php if ($activeTab === 'keys'): ?>
     <?php
-        $keyEnv = preg_replace('/[^a-z]/', '', (string)($_GET['env'] ?? 'test'));
-        if (!in_array($keyEnv, ['test', 'live'], true)) $keyEnv = 'test';
+        $keyEnv = preg_replace('/[^a-z]/', '', (string)($_GET['env'] ?? 'live'));
+        if (!in_array($keyEnv, ['test', 'live'], true)) $keyEnv = 'live';
         $existingCreds = getPartnerCredentials($partnerKey, $keyEnv);
     ?>
     <div class="glass rounded-xl p-6 border border-gray-800">
         <h3 class="font-semibold mb-1">API Credentials</h3>
-        <p class="text-xs text-gray-500 mb-2">Secrets are encrypted at rest in <code class="text-gray-400">partner_credentials</code>. Only last4 is shown after save. Leave password fields blank to keep current value.</p>
+        <p class="text-xs text-gray-500 mb-2">Secrets are encrypted. Only last4 is shown after save. Leave password fields blank to keep current value.</p>
         <div class="flex gap-2 mb-4">
             <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=keys&env=test" class="text-xs px-3 py-1.5 rounded-lg <?= $keyEnv === 'test' ? 'bg-sky-500/20 text-sky-400' : 'glass text-gray-400' ?>">Test</a>
             <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=keys&env=live" class="text-xs px-3 py-1.5 rounded-lg <?= $keyEnv === 'live' ? 'bg-emerald-500/20 text-emerald-400' : 'glass text-gray-400' ?>">Live</a>
         </div>
+        <?php if ($keyEnv === 'live'): ?>
+        <div class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 mb-4 text-sm text-emerald-200">You are on <strong>LIVE</strong> keys (real money). Test keys are a separate tab.</div>
+        <?php else: ?>
+        <div class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 mb-4 text-sm text-amber-200">You are on <strong>TEST</strong> keys. Live Cashfree / Razorpay keys must be saved on the <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=keys&env=live" class="underline text-emerald-300">Live</a> tab.</div>
+        <?php endif; ?>
+        <?php if ($keyEnv === 'live' && !empty($credStatus['test']) && empty($credStatus['live'])): ?>
+        <form method="POST" class="mb-4">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="action" value="copy_test_keys_to_live">
+            <p class="text-xs text-amber-300 mb-2">Keys are currently saved under Test only. If those are production keys, copy them to Live.</p>
+            <button type="submit" class="text-xs px-4 py-2 rounded-lg bg-emerald-600/20 text-emerald-300 border border-emerald-500/40" onclick="return confirm('Copy Test keys into Live for this partner?')">Copy Test keys → Live</button>
+        </form>
+        <?php endif; ?>
         <?php if (!empty($configKeys)): ?>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -303,9 +337,20 @@ require_once __DIR__ . '/header.php';
             <div>
                 <label class="text-sm text-gray-400"><?= e($meta['label']) ?></label>
                 <?php if (($meta['type'] ?? 'text') === 'select'): ?>
+                <?php
+                    $opts = $meta['options'] ?? [];
+                    $livePick = isset($opts['production']) ? 'production' : (isset($opts['live']) ? 'live' : '');
+                    $testPick = isset($opts['sandbox']) ? 'sandbox' : (isset($opts['test']) ? 'test' : '');
+                    $sel = (string)($existingCreds[$key] ?? '');
+                    if ($keyEnv === 'live') {
+                        $sel = in_array($sel, ['live', 'production'], true) ? $sel : $livePick;
+                    } else {
+                        $sel = ($sel !== '' && isset($opts[$sel])) ? $sel : $testPick;
+                    }
+                ?>
                 <select name="keys[<?= e($key) ?>]" class="input-field mt-1">
-                    <?php foreach ($meta['options'] as $val => $label): ?>
-                    <option value="<?= e($val) ?>" <?= ($existingCreds[$key] ?? getSetting($key, '')) === $val ? 'selected' : '' ?>><?= e($label) ?></option>
+                    <?php foreach ($opts as $val => $label): ?>
+                    <option value="<?= e($val) ?>" <?= $sel === $val ? 'selected' : '' ?>><?= e($label) ?></option>
                     <?php endforeach; ?>
                 </select>
                 <?php else: ?>

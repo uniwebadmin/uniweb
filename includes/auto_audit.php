@@ -501,6 +501,13 @@ function bootstrapAutoAuditOnShutdown(): void
             if (!function_exists('maybeRunBackgroundAutoAudit')) {
                 return;
             }
+            $script = strtolower(basename((string)($_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '')));
+            if (in_array($script, ['admin_login.php', 'staff_login.php', 'login.php', 'admin_forgot_password.php'], true)) {
+                return;
+            }
+            if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? '')) === 'POST') {
+                return;
+            }
             $force = !empty($_SESSION['force_auto_audit']);
             if ($force) {
                 unset($_SESSION['force_auto_audit']);

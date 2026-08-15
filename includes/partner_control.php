@@ -389,6 +389,63 @@ function getPartnerCredentialStatus(string $partnerKey): array
     }
 }
 
+function partnerLiveEnvironmentValue(string $partnerKey): string
+{
+    return $partnerKey === 'cashfree' ? 'production' : 'live';
+}
+
+function partnerTestEnvironmentValue(string $partnerKey): string
+{
+    return $partnerKey === 'cashfree' ? 'sandbox' : 'test';
+}
+
+/**
+ * Copy Test-slot credentials into Live slot (owner pasted live keys on the Test tab).
+ */
+function copyPartnerCredentialsToLive(string $partnerKey): string
+{
+    ensurePartnerControlTables();
+    $creds = getPartnerCredentials($partnerKey, 'test');
+    unset($creds['_last4']);
+    if ($creds === []) {
+        return 'no_keys';
+    }
+    foreach ($creds as $k => $v) {
+        if (is_string($k) && str_ends_with($k, '_environment')) {
+            $creds[$k] = str_contains($k, 'cashfree') ? 'production' : 'live';
+        }
+    }
+    $last4 = '';
+    foreach ($creds as $key => $val) {
+        if (!is_string($val) || $val === '') {
+            continue;
+        }
+        $k = (string)$key;
+        if (str_contains($k, 'secret') || str_contains($k, 'salt') || str_contains($k, 'pass')) {
+            $last4 = substr($val, -4);
+            break;
+        }
+    }
+    if ($last4 === '') {
+        foreach ($creds as $val) {
+            if (is_string($val) && $val !== '') {
+                $last4 = substr($val, -4);
+                break;
+            }
+        }
+    }
+    $encrypted = function_exists('sensitiveEncrypt') ? sensitiveEncrypt(json_encode($creds)) : base64_encode(json_encode($creds));
+    getDB()->prepare(
+        "INSERT INTO partner_credentials (partner_key, env, encrypted_payload, last4) VALUES (?,?,?,?)
+         ON DUPLICATE KEY UPDATE encrypted_payload=VALUES(encrypted_payload), last4=VALUES(last4)"
+    )->execute([$partnerKey, 'live', $encrypted, $last4]);
+    if (function_exists('saveSetting')) {
+        $envKey = $partnerKey . '_environment';
+        saveSetting($envKey, partnerLiveEnvironmentValue($partnerKey));
+    }
+    return $last4 !== '' ? $last4 : 'saved';
+}
+
 /**
  * Get all partner_methods for a partner.
  */
