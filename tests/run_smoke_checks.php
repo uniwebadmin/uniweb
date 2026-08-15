@@ -135,6 +135,7 @@ $assert(is_file($root . '/migrations/010_customer_portal.sql'), 'customer_portal
 $assert(is_file($root . '/migrations/016_customer_ticket_roles.sql'), 'customer_ticket_roles_migration_present');
 $teamSrc = (string)file_get_contents($root . '/includes/merchant_team.php');
 $assert(str_contains($teamSrc, "'support'") && str_contains($teamSrc, 'customer complaints'), 'merchant_team_support_capability');
+$assert(str_contains($teamSrc, "'support' => ['label' => 'Support'"), 'merchant_team_support_selectable_role');
 
 // Transaction / settlement "exact reason" copy for fail / pending / success states.
 $txnLib = (string)file_get_contents($root . '/includes/transaction_detail.php');
@@ -396,6 +397,64 @@ $actPageP4 = (string)file_get_contents($root . '/admin_staff_activity.php');
 $assert(str_contains($actPageP4, 'admin_audit_log.php') && str_contains($actPageP4, 'getStaffActivityLogs'), 'p4_staff_activity_page_uses_staff_logs');
 $onboardP4 = (string)file_get_contents($root . '/includes/onboarding_security.php');
 $assert(str_contains($onboardP4, "logStaffActivity('approval_rejected'"), 'p4_approval_reject_logs_staff');
+
+// P4-TM01 — merchant team invite, roles, audit
+$teamSrcP4 = (string)file_get_contents($root . '/includes/merchant_team.php');
+$assert(str_contains($teamSrcP4, 'merchant_team_events'), 'p4_team_events_schema');
+$assert(str_contains($teamSrcP4, "'support' => ['label' => 'Support'"), 'p4_team_support_role');
+$assert(str_contains($teamSrcP4, 'function merchantTeamCapabilityMatrix') && str_contains($teamSrcP4, 'function logMerchantTeamEvent'), 'p4_team_matrix_and_audit_helpers');
+$teamPageP4 = (string)file_get_contents($root . '/merchant_team.php');
+$assert(str_contains($teamPageP4, 'Role matrix') && str_contains($teamPageP4, 'Team activity'), 'p4_team_page_matrix_and_audit');
+$assert(str_contains($teamPageP4, "action\" value=\"role\"") || str_contains($teamPageP4, "name=\"action\" value=\"role\""), 'p4_team_role_change_ui');
+$assert(str_contains($teamPageP4, 'data-copy-url='), 'p4_team_invite_copy_url');
+
+// P4-C01 — customer portal is pay/support, not PPI wallet
+$cpLibP4 = (string)file_get_contents($root . '/includes/customer_portal.php');
+$assert(str_contains($cpLibP4, 'function customerPortalScopeCopy') && str_contains($cpLibP4, 'not a PPI'), 'p4_customer_scope_copy_helper');
+$cpNavP4 = (string)file_get_contents($root . '/includes/customer_portal_nav.php');
+$assert(!str_contains($cpNavP4, 'wallet.php') && !str_contains($cpNavP4, 'customer_wallet'), 'p4_customer_nav_no_wallet');
+$assert(str_contains($cpNavP4, 'no PPI wallet'), 'p4_customer_nav_scope_comment');
+$assert(!is_file($root . '/customer_wallet.php'), 'p4_no_customer_wallet_page');
+$assert(str_contains((string)file_get_contents($root . '/customer_portal.php'), 'customerPortalScopeCopy()'), 'p4_customer_portal_shows_scope');
+$assert(str_contains((string)file_get_contents($root . '/customer_portal.php'), 'Wallet apps'), 'p4_customer_wallet_filter_is_payment_method');
+
+// P4-W01 — nav URLs resolve to files (or are removed)
+$navCrawlFiles = [
+    'header.php',
+    'footer.php',
+    'dashboard.php',
+    'staff_dashboard.php',
+    'global_search.php',
+    'includes/customer_portal_nav.php',
+    'includes/staff.php',
+];
+$navPhpRefs = [];
+foreach ($navCrawlFiles as $navFile) {
+    $navPath = $root . '/' . $navFile;
+    if (!is_file($navPath)) {
+        continue;
+    }
+    $navSrc = (string)file_get_contents($navPath);
+    if (preg_match_all('/href=["\']([a-zA-Z0-9_\\/-]+\\.php)/', $navSrc, $hrefHits)) {
+        foreach ($hrefHits[1] as $ref) {
+            $navPhpRefs[] = $ref;
+        }
+    }
+    if (preg_match_all("/\\['([a-zA-Z0-9_\\/-]+\\.php)'/", $navSrc, $arrHits)) {
+        foreach ($arrHits[1] as $ref) {
+            $navPhpRefs[] = $ref;
+        }
+    }
+}
+$navPhpRefs = array_values(array_unique($navPhpRefs));
+$navMissing = [];
+foreach ($navPhpRefs as $ref) {
+    if (!is_file($root . '/' . $ref)) {
+        $navMissing[] = $ref;
+    }
+}
+$assert($navMissing === [], 'p4_nav_urls_resolve', $navMissing === [] ? (string)count($navPhpRefs) . ' urls' : implode(', ', $navMissing));
+$assert(count($navPhpRefs) >= 80, 'p4_nav_crawl_coverage', (string)count($navPhpRefs));
 
 $assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');
 

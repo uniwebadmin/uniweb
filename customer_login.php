@@ -125,6 +125,7 @@ require_once __DIR__ . '/header.php';
             </form>
             <?php endif; ?>
             <p class="ap-foot">Need help? <a href="contact.php" class="ap-link">Contact support</a></p>
+            <p class="ap-foot" style="margin-top:.5rem;"><?= e(customerPortalScopeCopy()) ?></p>
         </div>
     </div>
 </div>

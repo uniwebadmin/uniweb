@@ -42,6 +42,7 @@ require_once __DIR__ . '/header.php';
                 <p class="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Customer portal</p>
                 <h1 class="cp-display text-3xl sm:text-4xl font-bold mt-2 text-slate-900">My payments</h1>
                 <p class="cp-muted mt-2 max-w-xl">Every payment made with +91 <?= e($phone) ?> across UniWeb merchants — filter, review status, and raise a complaint when needed.</p>
+                <p class="text-xs text-slate-500 mt-2 max-w-xl"><?= e(customerPortalScopeCopy()) ?></p>
             </div>
             <div class="cp-stat">
                 <p>Payments found</p>
@@ -76,7 +77,7 @@ require_once __DIR__ . '/header.php';
                 <div>
                     <label class="text-[10px] uppercase text-slate-500 font-semibold" for="cp-type">Type</label>
                     <select id="cp-type" name="type" class="cp-input mt-1 !py-2">
-                        <?php foreach (['all' => 'All types', 'upi' => 'UPI', 'card' => 'Card', 'netbanking' => 'Netbanking', 'wallet' => 'Wallet'] as $k => $lbl): ?>
+                        <?php foreach (['all' => 'All types', 'upi' => 'UPI', 'card' => 'Card', 'netbanking' => 'Netbanking', 'wallet' => 'Wallet apps'] as $k => $lbl): ?>
                         <option value="<?= e($k) ?>" <?= $filters['type'] === $k ? 'selected' : '' ?>><?= e($lbl) ?></option>
                         <?php endforeach; ?>
                     </select>

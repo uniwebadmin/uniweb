@@ -72,6 +72,7 @@ require_once __DIR__ . '/header.php';
 
     <main class="cp-main py-8 space-y-5 flex-1 w-full" style="max-width:720px">
         <a href="customer_portal.php#complaints" class="text-sm font-semibold text-teal-700 hover:underline">← Back to my payments</a>
+        <p class="text-xs text-slate-500 mt-2"><?= e(customerPortalScopeCopy()) ?></p>
         <?php if ($error): ?><div class="cp-alert cp-alert-error"><?= e($error) ?></div><?php endif; ?>
 
         <?php if ($ticket): ?>

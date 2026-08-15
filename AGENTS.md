@@ -204,4 +204,4 @@ Owner's explicit standing instruction: continue autonomously through phases with
 
 ## Latest Status (2026-08-15)
 
-Owner delivered ordered Deep Audit PDF. Live Hostinger has 10-min auto-audit + backup cron. Phases 0–4.3 are in repo. Phase 4.4 Staff (P4-ST01) coded: Staff Activity reads staff_activity_logs (empty-safe joins); high-value admin audit also writes here; empty table copies recent admin audit once. Owner still verifies on live after Hostinger Git + hard refresh. Do not start Phase 4.5 Team until that live click-check.
+Owner delivered ordered Deep Audit PDF. Live Hostinger has 10-min auto-audit + backup cron. Phases 0–4.4 are in repo. Phase 4.5–4.7 coded: Merchant Team invite + role matrix + activity log (including Support role); customer portal stays payments + complaints only (not PPI wallet); nav crawl asserts every menu URL has a file. Owner still verifies on live after Hostinger Git + hard refresh. Do not start Phase 5 until that live click-check.

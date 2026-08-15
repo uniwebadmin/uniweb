@@ -5,9 +5,16 @@ declare(strict_types=1);
  * Customer (payer) portal — passwordless WhatsApp/SMS OTP login, read-only
  * transaction history by mobile number (across merchants), and grievance tickets
  * visible to merchant / admin / staff with reply fan-out.
+ *
+ * Scope: pay + support only. Not a PPI / stored-value consumer wallet.
  */
 
 require_once __DIR__ . '/notify.php';
+
+function customerPortalScopeCopy(): string
+{
+    return 'This portal is for payments and complaints only. It is not a PPI or stored-value wallet.';
+}
 
 function ensureCustomerPortalSchema(): void
 {

@@ -99,6 +99,7 @@ require_once __DIR__ . '/header.php';
             <p class="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Customer portal</p>
             <h1 class="cp-display text-3xl font-bold mt-2 text-slate-900">Profile</h1>
             <p class="cp-muted mt-2">Your customer account is verified by mobile OTP. No merchant tools are available here.</p>
+            <p class="text-xs text-slate-500 mt-2"><?= e(customerPortalScopeCopy()) ?></p>
         </div>
         <section class="cp-panel p-6 space-y-4">
             <div>

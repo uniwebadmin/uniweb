@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-/** Shared top nav for logged-in customer portal pages (no Merchant Login). */
+/** Shared top nav for logged-in customer portal pages (pay + complaints only; no PPI wallet). */
 $cpNavActive = $cpNavActive ?? 'dashboard';
 $cpNavItems = [
     'dashboard' => ['href' => 'customer_portal.php', 'label' => 'Dashboard'],
