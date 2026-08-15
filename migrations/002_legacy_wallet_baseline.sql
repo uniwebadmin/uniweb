@@ -40,6 +40,17 @@ CREATE TABLE IF NOT EXISTS platform_settlements (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 044-style: table may pre-exist without seed columns. CREATE + ALTER before INSERT.
+CREATE TABLE IF NOT EXISTS gateway_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    setting_key VARCHAR(100) NOT NULL,
+    setting_value TEXT,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_setting_key (setting_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+ALTER TABLE gateway_settings ADD COLUMN setting_key VARCHAR(100) NOT NULL DEFAULT '';
+ALTER TABLE gateway_settings ADD COLUMN setting_value TEXT;
+
 INSERT INTO gateway_settings (setting_key, setting_value)
 VALUES ('platform_wallet_balance','0'),('min_platform_settlement','1'),('min_settlement_amount','100')
 ON DUPLICATE KEY UPDATE setting_value=setting_value;

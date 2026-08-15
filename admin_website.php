@@ -91,13 +91,13 @@ require_once __DIR__ . '/header.php';
 
             <p class="text-xs font-semibold uppercase tracking-wide text-violet-300 mb-2">Layer 1 — Platform (YOU / Admin)</p>
 
-            <p class="text-gray-400 text-xs leading-relaxed mb-3">Razorpay, Cashfree, PayU give <strong class="text-white">one parent merchant account</strong> to UniWeb. Keys live in <a href="gateway_settings.php" class="text-sky-400">Gateway Settings</a>. Used for checkout, UPI, cards, split settlement.</p>
+            <p class="text-gray-400 text-xs leading-relaxed mb-3">Razorpay, Cashfree, PayU give <strong class="text-white">one parent merchant account</strong> to UniWeb. Keys live in <a href="admin_gateway_registry.php" class="text-sky-400">Partner Registry → Partner Detail → Keys</a> (encrypted). Used for checkout, UPI, cards, split settlement.</p>
 
             <ul class="text-xs text-gray-500 space-y-1 list-disc list-inside">
 
                 <li>Received from: PayU / Razorpay / Cashfree after onboarding</li>
 
-                <li>Stored in: <code class="text-gray-400">gateway_settings</code> table</li>
+                <li>Stored in: encrypted Partner Registry credentials</li>
 
                 <li><strong class="text-amber-400">Never give these to merchants</strong></li>
 
@@ -195,7 +195,7 @@ require_once __DIR__ . '/header.php';
 
             <h2 class="font-semibold">Platform Payment Gateway Keys</h2>
 
-            <p class="text-xs text-gray-500 mt-1">From Razorpay / Cashfree / PayU — paste in Gateway Settings when received</p>
+            <p class="text-xs text-gray-500 mt-1">From Razorpay / Cashfree / PayU — paste in Partner Registry → Partner Detail → Keys</p>
 
         </div>
 
@@ -229,11 +229,11 @@ require_once __DIR__ . '/header.php';
 
                 <?php foreach ($gatewayKeys as $g): ?>
 
-                <tr<?= uiRowClick('gateway_settings.php') ?>>
+                <tr<?= uiRowClick('admin_gateway_detail.php?partner=' . urlencode((string)$g['id']) . '&tab=keys') ?>>
 
                     <td class="px-5 py-3 font-medium">
 
-                        <a href="gateway_settings.php" class="text-white hover:text-sky-300"><?= e($g['name']) ?></a>
+                        <a href="admin_gateway_detail.php?partner=<?= e($g['id']) ?>&tab=keys" class="text-white hover:text-sky-300"><?= e($g['name']) ?></a>
 
                     </td>
 
@@ -257,7 +257,7 @@ require_once __DIR__ . '/header.php';
 
                     <td class="px-5 py-3"<?= uiStopClick() ?>>
 
-                        <a href="gateway_settings.php" class="text-xs text-brand-400">Gateway Settings</a>
+                        <a href="admin_gateway_detail.php?partner=<?= e($g['id']) ?>&tab=keys" class="text-xs text-brand-400">Partner Keys</a>
 
                         · <a href="admin_partners.php" class="text-xs text-gray-500">Partners</a>
 
@@ -443,7 +443,7 @@ require_once __DIR__ . '/header.php';
 
             <li>Email partners (Partner Requests page) — ask for production keys</li>
 
-            <li>Paste in <a href="gateway_settings.php" class="text-sky-400">Gateway Settings</a> → Test connection</li>
+            <li>Paste in <a href="admin_gateway_registry.php" class="text-sky-400">Partner Registry → Partner Detail → Keys</a> → Test connection</li>
 
             <li>Set environment to <strong class="text-white">live</strong> when approved</li>
 

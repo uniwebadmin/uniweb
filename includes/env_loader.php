@@ -8,9 +8,15 @@ declare(strict_types=1);
  */
 function configureErrorDisplay(): void
 {
-    $display = envBool('UNIWEB_DISPLAY_ERRORS', false)
+    $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+    $isLiveHost = $host !== '' && (str_contains($host, 'uniweb.co.in') || str_ends_with($host, '.hostingersite.com'));
+    $display = !$isLiveHost && (
+        envBool('UNIWEB_DISPLAY_ERRORS', false)
         || envBool('APP_DEBUG', false)
-        || in_array(strtolower(env('APP_ENV', '')), ['dev', 'development', 'local', 'debug'], true);
+        || in_array(strtolower(env('APP_ENV', '')), ['dev', 'development', 'local', 'debug'], true)
+        || str_contains($host, 'localhost')
+        || str_starts_with($host, '127.')
+    );
     if ($display) {
         @ini_set('display_errors', '1');
         @ini_set('html_errors', '1');
@@ -18,6 +24,7 @@ function configureErrorDisplay(): void
         return;
     }
     @ini_set('display_errors', '0');
+    @ini_set('html_errors', '0');
     @ini_set('log_errors', '1');
     @error_reporting(E_ALL);
 }

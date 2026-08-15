@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+if (is_file(__DIR__ . '/release_helpers.php')) {
+    require_once __DIR__ . '/release_helpers.php';
+}
+
 function financialTablesReady(): bool
 {
     try {
@@ -676,10 +680,12 @@ function captureVerifiedPaymentOrder(array $verification): array
     try {
         addTransactionToSettlementBatch($transactionId, (int)$link['merchant_id']);
         createNotification((int)$link['merchant_id'], 'Payment Received', formatMoney((float)$link['amount']) . ' payment verified.');
-        sendTemplatedEmail((int)$link['merchant_id'], 'payment_received', [
-            'amount' => formatMoney((float)$link['amount']),
-            'txn_id' => $txnRef,
-        ]);
+        if (function_exists('sendTemplatedEmail')) {
+            sendTemplatedEmail((int)$link['merchant_id'], 'payment_received', [
+                'amount' => formatMoney((float)$link['amount']),
+                'txn_id' => $txnRef,
+            ]);
+        }
     } catch (Throwable $e) {
         logPlatformError('warning', 'Verified payment post-processing failed.', [
             'transaction_id' => $transactionId,

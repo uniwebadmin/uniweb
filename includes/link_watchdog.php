@@ -153,13 +153,14 @@ function getWatchdogPageRegistry(): array
         ['admin_partners.php', 'Partners'],
         ['admin_partner.php', 'Partner Detail'],
         ['admin_platform_status.php', 'Platform Status'],
+        ['admin_audit_plan.php', 'Deep Audit Plan'],
         ['admin_website.php', 'Website & API Keys'],
         ['admin_link_audit.php', 'Link Audit'],
         ['admin_watchdog.php', 'Link Watchdog'],
         ['admin_error_log.php', 'Error Log'],
         ['admin_axis.php', 'Axis UAT'],
         ['admin_stepup.php', 'Step-up Auth'],
-        ['gateway_settings.php', 'Gateway Settings'],
+        ['gateway_settings.php', 'Platform Settings'],
         ['admin_security.php', 'Security'],
         ['admin_partner_decentro.php', 'Decentro Checklist'],
         ['admin_customer_message.php', 'Customer Message'],
@@ -270,10 +271,50 @@ function watchdogClassifyFile(string $file, array $registryByFile): string
     if (str_starts_with($file, 'merchant_')) {
         return 'merchant';
     }
+    if (str_starts_with($file, 'cron_') || $file === 'platform_watchdog.php') {
+        return 'system';
+    }
     if (in_array($file, ['logout.php', 'payment_verify.php', 'payment_payu_return.php', 'payment_cashfree_return.php', 'checkout_upi_status.php', 'qr_image.php'], true)) {
         return 'system';
     }
     return 'other';
+}
+
+/** Auth class for files not listed in the registry (so 403/302 is graded correctly). */
+function watchdogDefaultAuth(string $file): string
+{
+    if (str_starts_with($file, 'cron_') || $file === 'platform_watchdog.php' || watchdogIsKeyGatedFile($file)) {
+        return 'system';
+    }
+    if (str_contains($file, 'webhook') || $file === 'api.php') {
+        return 'webhook';
+    }
+    if (str_starts_with($file, 'admin_')) {
+        return 'admin';
+    }
+    if (str_starts_with($file, 'staff_')) {
+        return 'staff';
+    }
+    if (str_starts_with($file, 'merchant_')) {
+        return 'merchant';
+    }
+    return 'none';
+}
+
+/** Cron / probe URLs that return 403 without the watchdog key — not public pages. */
+function watchdogIsKeyGatedFile(string $relFile): bool
+{
+    $base = basename($relFile);
+    if (str_starts_with($base, 'cron_')) {
+        return true;
+    }
+    return in_array($base, [
+        'platform_watchdog.php',
+        'cleanup2.php',
+        'db_probe.php',
+        'wallet_repair_once.php',
+        'migrate_release.php',
+    ], true);
 }
 
 function watchdogExtractLinksFromFile(string $absPath): array
@@ -425,7 +466,11 @@ function watchdogPhpSyntaxOk(string $absPath): ?bool
 
 function watchdogSkipHttpProbe(string $relFile): bool
 {
-    return in_array($relFile, [
+    $base = basename($relFile);
+    if (watchdogIsKeyGatedFile($base)) {
+        return true;
+    }
+    return in_array($base, [
         'config.php',
         'config.private.php',
         'header.php',
@@ -444,8 +489,6 @@ function watchdogExpectedHttpStatuses(string $relFile, string $auth): array
         'qr_upi_redirect.php' => [404],
         'api_qr_create.php' => [405, 401, 403],
         'ifsc_lookup.php' => [401],
-        'cron_db_backup.php' => [403],
-        'cron_bank_reconciliation.php' => [403],
         'global_search.php' => [401],
         'webhook.php' => [410],
         'wallet_repair_once.php' => [403],
@@ -456,6 +499,9 @@ function watchdogExpectedHttpStatuses(string $relFile, string $auth): array
         'error_404.php' => [400, 403, 404, 500],
     ];
     $expected = $routeSpecific[$relFile] ?? [];
+    if (watchdogIsKeyGatedFile($relFile)) {
+        $expected = array_merge($expected, [403]);
+    }
     if ($auth === 'api') {
         $expected = array_merge($expected, [400, 401, 403, 405]);
     } elseif ($auth === 'webhook') {
@@ -466,15 +512,12 @@ function watchdogExpectedHttpStatuses(string $relFile, string $auth): array
     return array_values(array_unique($expected));
 }
 
-function watchdogHttpProbe(string $relFile, string $auth = 'none'): array
+/**
+ * Hostinger shared hosting often 500s when the server curls its own public
+ * HTTPS/IPv6 URL. Force IPv4; on 0/500 retry without SSL verify, then HTTP.
+ */
+function watchdogCurlGet(string $url, bool $verifySsl): array
 {
-    if (watchdogSkipHttpProbe($relFile)) {
-        return ['ok' => null, 'status' => null, 'detail' => 'Include-only file — HTTP probe skipped'];
-    }
-    if (!function_exists('curl_init')) {
-        return ['ok' => null, 'status' => null, 'detail' => 'curl unavailable'];
-    }
-    $url = rtrim(APP_URL, '/') . '/' . ltrim($relFile, '/');
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
@@ -483,14 +526,51 @@ function watchdogHttpProbe(string $relFile, string $auth = 'none'): array
         CURLOPT_CONNECTTIMEOUT => 8,
         CURLOPT_NOBODY => false,
         CURLOPT_HEADER => true,
-        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_USERAGENT => 'UniWeb-Watchdog/1.0',
+        CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+        CURLOPT_SSL_VERIFYPEER => $verifySsl,
+        CURLOPT_SSL_VERIFYHOST => $verifySsl ? 2 : 0,
     ]);
     curl_exec($ch);
     $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $err = curl_error($ch);
+    $err = (string)curl_error($ch);
     curl_close($ch);
+    return ['status' => $status, 'err' => $err];
+}
 
-    if ($err !== '') {
+function watchdogHttpProbe(string $relFile, string $auth = 'none'): array
+{
+    if (watchdogIsKeyGatedFile($relFile)) {
+        return [
+            'ok' => true,
+            'status' => null,
+            'detail' => 'Key-gated cron — open URL without key is 403 (normal). Probe skipped.',
+        ];
+    }
+    if (watchdogSkipHttpProbe($relFile)) {
+        return ['ok' => null, 'status' => null, 'detail' => 'Include-only file — HTTP probe skipped'];
+    }
+    if (!function_exists('curl_init')) {
+        return ['ok' => null, 'status' => null, 'detail' => 'curl unavailable'];
+    }
+    $url = rtrim(APP_URL, '/') . '/' . ltrim($relFile, '/');
+    $hit = watchdogCurlGet($url, true);
+    if ($hit['err'] !== '' || $hit['status'] === 0 || $hit['status'] === 500) {
+        $retry = watchdogCurlGet($url, false);
+        if ($retry['err'] === '' && $retry['status'] > 0 && $retry['status'] !== 500) {
+            $hit = $retry;
+        } elseif (str_starts_with($url, 'https://')) {
+            $httpUrl = 'http://' . substr($url, strlen('https://'));
+            $httpHit = watchdogCurlGet($httpUrl, false);
+            if ($httpHit['err'] === '' && $httpHit['status'] >= 200 && $httpHit['status'] < 400) {
+                $hit = $httpHit;
+            }
+        }
+    }
+    $status = (int)$hit['status'];
+    $err = (string)$hit['err'];
+
+    if ($err !== '' && $status === 0) {
         return ['ok' => false, 'status' => 0, 'detail' => $err];
     }
 
@@ -543,7 +623,7 @@ function runFullLinkWatchdog(bool $httpProbe = true): array
             'file' => $file,
             'label' => $file,
             'portal' => watchdogClassifyFile($file, $registryByFile),
-            'auth' => 'none',
+            'auth' => watchdogDefaultAuth($file),
         ];
         $portal = $meta['portal'];
         $summary['by_portal'][$portal] = ($summary['by_portal'][$portal] ?? 0) + 1;

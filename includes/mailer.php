@@ -13,13 +13,25 @@ function sendPlatformEmail(string $to, string $subject, string $body, bool $isHt
     $headers .= $isHtml ? "MIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n" : "Content-Type: text/plain; charset=UTF-8\r\n";
 
     if ($smtpHost && $smtpUser && $smtpPass) {
-        return smtpSendMail($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromEmail, $fromName, $to, $subject, $body, $isHtml);
+        try {
+            return smtpSendMail($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromEmail, $fromName, $to, $subject, $body, $isHtml);
+        } catch (Throwable $e) {
+            if (function_exists('logPlatformError')) {
+                logPlatformError('warning', 'SMTP send failed: ' . $e->getMessage(), ['to' => $to]);
+            }
+            return false;
+        }
     }
-    return @mail($to, $subject, $body, $headers);
+    try {
+        return @mail($to, $subject, $body, $headers);
+    } catch (Throwable $e) {
+        return false;
+    }
 }
 
 function smtpSendMail(string $host, int $port, string $user, string $pass, string $fromEmail, string $fromName, string $to, string $subject, string $body, bool $isHtml): bool
 {
+    try {
     $socket = @stream_socket_client("tcp://{$host}:{$port}", $errno, $errstr, 15);
     if (!$socket) return false;
 
@@ -58,19 +70,31 @@ function smtpSendMail(string $host, int $port, string $user, string $pass, strin
     $send('QUIT');
     fclose($socket);
     return true;
+    } catch (Throwable $e) {
+        if (function_exists('logPlatformError')) {
+            logPlatformError('warning', 'SMTP send failed: ' . $e->getMessage());
+        }
+        return false;
+    }
 }
 
 function notifyMerchantEmail(int $merchantId, string $subject, string $message, ?string $event = null): void
 {
-    if ($event !== null && function_exists('merchantWantsNotify') && !merchantWantsNotify($merchantId, $event, 'email')) {
-        return;
-    }
-    $stmt = getDB()->prepare('SELECT email, name FROM merchants WHERE id = ?');
-    $stmt->execute([$merchantId]);
-    $m = $stmt->fetch();
-    if ($m && filter_var($m['email'], FILTER_VALIDATE_EMAIL)) {
-        $body = "Hi {$m['name']},\n\n{$message}\n\n— " . APP_NAME . " Team";
-        sendPlatformEmail($m['email'], $subject, $body);
+    try {
+        if ($event !== null && function_exists('merchantWantsNotify') && !merchantWantsNotify($merchantId, $event, 'email')) {
+            return;
+        }
+        $stmt = getDB()->prepare('SELECT email, name FROM merchants WHERE id = ?');
+        $stmt->execute([$merchantId]);
+        $m = $stmt->fetch();
+        if ($m && filter_var($m['email'], FILTER_VALIDATE_EMAIL)) {
+            $body = "Hi {$m['name']},\n\n{$message}\n\n— " . APP_NAME . " Team";
+            sendPlatformEmail($m['email'], $subject, $body);
+        }
+    } catch (Throwable $e) {
+        if (function_exists('logPlatformError')) {
+            logPlatformError('warning', 'Merchant email failed: ' . $e->getMessage(), ['merchant_id' => $merchantId]);
+        }
     }
 }
 
@@ -214,15 +238,24 @@ function sendPlatformEmailWithAttachment(string $to, string $subject, string $bo
         $fullMessage .= "MIME-Version: 1.0\r\n";
         $fullMessage .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n\r\n";
         $fullMessage .= $mailBody;
-        return smtpSendMailRaw($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromEmail, $to, $fullMessage);
+        try {
+            return smtpSendMailRaw($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromEmail, $to, $fullMessage);
+        } catch (Throwable $e) {
+            return false;
+        }
     }
 
-    return mail($to, $subject, $mailBody, $headers);
+    try {
+        return @mail($to, $subject, $mailBody, $headers);
+    } catch (Throwable $e) {
+        return false;
+    }
 }
 
 /** SMTP sender for a pre-built RFC 5322 message. */
 function smtpSendMailRaw(string $host, int $port, string $user, string $pass, string $fromEmail, string $to, string $message): bool
 {
+    try {
     $socket = @stream_socket_client("tcp://{$host}:{$port}", $errno, $errstr, 15);
     if (!$socket) {
         return false;
@@ -261,6 +294,12 @@ function smtpSendMailRaw(string $host, int $port, string $user, string $pass, st
     $send('QUIT');
     fclose($socket);
     return true;
+    } catch (Throwable $e) {
+        if (function_exists('logPlatformError')) {
+            logPlatformError('warning', 'SMTP raw send failed: ' . $e->getMessage());
+        }
+        return false;
+    }
 }
 
 require_once __DIR__ . '/email_templates.php';

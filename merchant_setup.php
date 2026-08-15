@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (is_file(__DIR__ . '/includes/release_helpers.php')) {
+    require_once __DIR__ . '/includes/release_helpers.php';
+}
 requireLogin();
 $merchant = getMerchant();
 if (!$merchant) {
@@ -95,8 +98,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             } catch (Throwable $e) { /* ok */ }
 
             notifyAdminNewMerchantSignup((int)$merchant['id']);
-            createNotification((int)$merchant['id'], __('setup_title'), __('notif_profile_saved'), 'profile_saved');
-            createNotification((int)$merchant['id'], 'Payment Pack Ready', 'Your test payment links are ready. Open Payment Pack to try ₹1 test payments.', 'payment_pack_ready');
+            notifyMerchant((int)$merchant['id'], __('setup_title'), __('notif_profile_saved'), 'profile_saved');
+            notifyMerchant((int)$merchant['id'], 'Payment Pack Ready', 'Your test payment links are ready. Open Payment Pack to try ₹1 test payments.', 'payment_pack_ready');
         }
 
         clearMerchantOnboardingDraft((int)$merchant['id']);

@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+if (!function_exists('sendPlatformEmail') && is_file(__DIR__ . '/mailer.php')) {
+    require_once __DIR__ . '/mailer.php';
+}
+
 /**
  * Branded HTML email templates for transactional emails.
  * Usage: sendTemplatedEmail($merchantId, 'payment_received', [...vars])

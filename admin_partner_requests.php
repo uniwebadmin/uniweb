@@ -60,7 +60,7 @@ require_once __DIR__ . '/header.php';
 <div class="bg-sky-500/10 border border-sky-500/30 rounded-xl p-5 mb-8 text-sm">
     <h2 class="font-semibold text-sky-300 mb-2">Sandbox vs Production</h2>
     <p class="text-gray-400 mb-3">Use <strong class="text-white">Sandbox / Test</strong> keys for testing now. Production keys, channel IDs, encryption keys, and IP whitelist are issued after partner approval. Axis and Digio can wait until those KAMs are ready.</p>
-    <p class="text-amber-200/90 text-xs mb-3">UniWeb cannot invent partner API keys. Open each partner Sign Up / Dashboard link below, create a merchant or partner account with your company email, then paste sandbox keys into <a href="gateway_settings.php" class="text-sky-400 underline">Gateway Settings</a>. After Test Connection works, show partners your sandbox traffic and request Live keys.</p>
+    <p class="text-amber-200/90 text-xs mb-3">UniWeb cannot invent partner API keys. Open each partner Sign Up / Dashboard link below, create a merchant or partner account with your company email, then paste sandbox keys into <a href="admin_gateway_registry.php" class="text-sky-400 underline">Partner Registry → Partner Detail → Keys</a>. After Test Connection works, show partners your sandbox traffic and request Live keys.</p>
     <div class="overflow-x-auto">
         <table class="w-full text-xs">
             <thead class="text-gray-500"><tr><th class="text-left py-2 pr-3">Product</th><th class="text-left py-2 pr-3">Ask partners for</th><th class="text-left py-2">Typical source</th></tr></thead>

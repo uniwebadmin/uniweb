@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+if (is_file(__DIR__ . '/release_helpers.php')) {
+    require_once __DIR__ . '/release_helpers.php';
+}
+
 if (!defined('UNIWEB_WALLET_CAP_V26')) {
     define('UNIWEB_WALLET_CAP_V26', true);
 }

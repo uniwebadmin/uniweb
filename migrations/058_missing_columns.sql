@@ -14,5 +14,21 @@ ALTER TABLE payout_orders ADD COLUMN IF NOT EXISTS processed_at DATETIME DEFAULT
 ALTER TABLE payout_orders ADD COLUMN IF NOT EXISTS utr VARCHAR(60) DEFAULT NULL;
 
 -- 4. gateway_events: provider_order_id (referenced by evidence_pack.php JOIN)
-ALTER TABLE gateway_events ADD COLUMN IF NOT EXISTS provider_order_id VARCHAR(120) DEFAULT NULL;
+-- P0-02: table may be missing. CREATE then ALTER (no FK — payment_orders may lag).
+CREATE TABLE IF NOT EXISTS gateway_events (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    provider VARCHAR(32) NOT NULL,
+    event_id VARCHAR(190) NOT NULL,
+    event_type VARCHAR(100) NOT NULL,
+    payload_hash CHAR(64) NOT NULL,
+    signature_valid TINYINT(1) NOT NULL DEFAULT 0,
+    processing_status VARCHAR(32) NOT NULL DEFAULT 'received',
+    payment_order_id BIGINT UNSIGNED DEFAULT NULL,
+    provider_order_id VARCHAR(120) DEFAULT NULL,
+    error_message VARCHAR(500) DEFAULT NULL,
+    received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    processed_at DATETIME DEFAULT NULL,
+    UNIQUE KEY uniq_gateway_event (provider, event_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+ALTER TABLE gateway_events ADD COLUMN provider_order_id VARCHAR(120) DEFAULT NULL;
 ALTER TABLE gateway_events ADD INDEX IF NOT EXISTS idx_gateway_event_provider_order (provider_order_id);

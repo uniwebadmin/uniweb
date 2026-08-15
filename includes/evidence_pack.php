@@ -107,11 +107,18 @@ function generateEvidencePack(int $merchantId): array
         $zip->addFromString('06_risk_flags_NA.txt', 'No risk flags table or data available.');
     }
 
-    // 7. Gateway events
+    // 7. Gateway events (P0-02: join by payment_order_id, fall back to provider_order_id)
     try {
+        if (function_exists('ensureMissingColumns')) {
+            ensureMissingColumns();
+        }
         $st = $db->prepare('SELECT ge.* FROM gateway_events ge
-            JOIN payment_orders po ON po.merchant_id = ?
-            WHERE ge.provider_order_id = po.provider_order_id
+            INNER JOIN payment_orders po ON po.merchant_id = ?
+            WHERE ge.payment_order_id = po.id
+               OR (
+                    ge.provider_order_id IS NOT NULL AND po.provider_order_id IS NOT NULL
+                    AND ge.provider_order_id COLLATE utf8mb4_unicode_ci = po.provider_order_id COLLATE utf8mb4_unicode_ci
+               )
             ORDER BY ge.id DESC LIMIT 5000');
         $st->execute([$merchantId]);
         $events = $st->fetchAll();

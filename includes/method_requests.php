@@ -750,9 +750,9 @@ function verifyMethodPartnerWebhookSecret(string $provided): bool
 {
     $secrets = array_values(array_unique(array_filter([
         trim((string)getSetting('method_partner_webhook_secret', '')),
-        trim((string)getSetting('razorpay_webhook_secret', '')),
-        trim((string)getSetting('payu_merchant_salt', '')),
-        trim((string)getSetting('cashfree_secret_key', '')),
+        trim((string)(function_exists('getPartnerSetting') ? getPartnerSetting('razorpay', 'razorpay_webhook_secret', '') : '')),
+        trim((string)(function_exists('getPartnerSetting') ? getPartnerSetting('payu', 'payu_merchant_salt', '') : '')),
+        trim((string)(function_exists('cashfreeSecretKey') ? cashfreeSecretKey() : '')),
     ], static fn(string $s): bool => $s !== '')));
     if ($secrets === [] || $provided === '') {
         return false;

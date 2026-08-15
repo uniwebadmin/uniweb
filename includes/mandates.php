@@ -907,8 +907,8 @@ function razorpayMandateDebitAdapter(array $mandate, array $debit): array
 
 function cashfreeMandateDebitAdapter(array $mandate, array $debit): array
 {
-    $appId = trim((string)getSetting('cashfree_app_id', ''));
-    $secretKey = trim((string)getSetting('cashfree_secret_key', ''));
+    $appId = trim((string)(function_exists('cashfreeAppId') ? cashfreeAppId() : getSetting('cashfree_app_id', '')));
+    $secretKey = trim((string)(function_exists('cashfreeSecretKey') ? cashfreeSecretKey() : getSetting('cashfree_secret_key', '')));
     $baseUrl = trim(getSetting('cashfree_base_url', 'https://api.cashfree.com'));
     $gatewayMandateId = $mandate['gateway_mandate_id'] ?? '';
     $amount = (float)$mandate['max_amount'];

@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+if (is_file(__DIR__ . '/release_helpers.php')) {
+    require_once __DIR__ . '/release_helpers.php';
+}
+
 function sendSMS(string $phone, string $message): bool
 {
     $apiKey = getSetting('sms_api_key', '');

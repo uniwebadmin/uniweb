@@ -91,7 +91,7 @@ function initiateDigilockerAuth(int $merchantId, string $callbackUrl): array
     ensureDigilockerTable();
     $provider = getDigilockerProvider();
     if ($provider === 'none') {
-        return ['ok' => false, 'error' => 'DigiLocker not configured. Add Decentro or DigiLocker API keys in Gateway Settings.'];
+        return ['ok' => false, 'error' => 'DigiLocker not configured. Add Decentro or DigiLocker API keys in Partner Registry → Keys.'];
     }
 
     $sessionId = generateDigilockerSessionId();

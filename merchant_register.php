@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (is_file(__DIR__ . '/includes/release_helpers.php')) {
+    require_once __DIR__ . '/includes/release_helpers.php';
+}
 require_once __DIR__ . '/includes/risk.php';
 if (isLoggedIn()) redirect('dashboard.php');
 ensureSignupVerificationSchema();
@@ -107,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 }
 
                 updateMerchantRiskScore($id);
-                createNotification($id, __('notif_welcome_title'), __('notif_welcome_body'), 'welcome');
+                notifyMerchant($id, __('notif_welcome_title'), __('notif_welcome_body'), 'welcome');
 
                 // Mark invite as used
                 if ($inviteData && !empty($inviteData['token'])) {

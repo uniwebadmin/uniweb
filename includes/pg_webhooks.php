@@ -69,7 +69,13 @@ function fulfillGatewayPayment(string $gateway, string $linkId, string $referenc
 
 function verifyRazorpayWebhookSignature(string $rawBody, string $signature): bool
 {
-    $secret = getSetting('razorpay_webhook_secret', '') ?: (function_exists('getPartnerSetting') ? getPartnerSetting('razorpay', 'razorpay_key_secret', '') : getSetting('razorpay_key_secret', ''));
+    $secret = '';
+    if (function_exists('getPartnerSetting')) {
+        $secret = trim((string)getPartnerSetting('razorpay', 'razorpay_webhook_secret', ''));
+        if ($secret === '') {
+            $secret = trim((string)getPartnerSetting('razorpay', 'razorpay_key_secret', ''));
+        }
+    }
     if (!$secret || $signature === '') {
         return false;
     }
@@ -79,7 +85,7 @@ function verifyRazorpayWebhookSignature(string $rawBody, string $signature): boo
 
 function verifyCashfreeWebhookSignature(string $rawBody, string $signature, string $timestamp): bool
 {
-    $secret = getSetting('cashfree_secret_key', '');
+    $secret = function_exists('cashfreeSecretKey') ? cashfreeSecretKey() : getSetting('cashfree_secret_key', '');
     if (!$secret || $signature === '' || $timestamp === '') {
         return false;
     }

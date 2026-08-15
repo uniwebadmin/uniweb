@@ -195,7 +195,7 @@ $cfReady = isGatewayConfigured('cashfree');
             <button type="submit" formnovalidate class="w-full btn-primary py-3">Generate Link</button>
         </form>
         <?php if (!$payuReady && !$rzpReady && !$cfReady): ?>
-        <p class="text-[11px] text-amber-400/90 mt-4">Card / Cashfree / Razorpay links need platform gateway keys in Admin → Gateway Settings. Until then use <strong>UPI</strong> or Test Instant Pay.</p>
+        <p class="text-[11px] text-amber-400/90 mt-4">Card / Cashfree / Razorpay links need platform partner keys (admin pastes them in Partner Registry). Until then use <strong>UPI</strong> or Test Instant Pay.</p>
         <?php endif; ?>
     </div>
     <div id="payment-link-results" class="lg:col-span-2 glass rounded-xl overflow-hidden">

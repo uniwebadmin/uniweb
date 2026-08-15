@@ -222,8 +222,8 @@ function createCashfreeOrder(string $orderId, float $amount, string $customerPho
     if (!isGatewayConfigured('cashfree')) {
         return null;
     }
-    $appId = getSetting('cashfree_app_id', '');
-    $secret = getSetting('cashfree_secret_key', '');
+    $appId = function_exists('cashfreeAppId') ? cashfreeAppId() : getSetting('cashfree_app_id', '');
+    $secret = function_exists('cashfreeSecretKey') ? cashfreeSecretKey() : getSetting('cashfree_secret_key', '');
     if (!$appId || !$secret) return null;
 
     $phone = preg_replace('/\D/', '', $customerPhone);
@@ -265,8 +265,8 @@ function createCashfreeOrder(string $orderId, float $amount, string $customerPho
 
 function fetchCashfreeOrder(string $orderId): ?array
 {
-    $appId = getSetting('cashfree_app_id', '');
-    $secret = getSetting('cashfree_secret_key', '');
+    $appId = function_exists('cashfreeAppId') ? cashfreeAppId() : getSetting('cashfree_app_id', '');
+    $secret = function_exists('cashfreeSecretKey') ? cashfreeSecretKey() : getSetting('cashfree_secret_key', '');
     if (!$appId || !$secret) return null;
 
     $ch = curl_init(cashfreeApiBase() . '/orders/' . rawurlencode($orderId));
@@ -286,8 +286,8 @@ function fetchCashfreeOrder(string $orderId): ?array
 
 function fetchCashfreeOrderPayments(string $orderId): array
 {
-    $appId = getSetting('cashfree_app_id', '');
-    $secret = getSetting('cashfree_secret_key', '');
+    $appId = function_exists('cashfreeAppId') ? cashfreeAppId() : getSetting('cashfree_app_id', '');
+    $secret = function_exists('cashfreeSecretKey') ? cashfreeSecretKey() : getSetting('cashfree_secret_key', '');
     if (!$appId || !$secret || $orderId === '') {
         return [];
     }
@@ -544,6 +544,7 @@ function getMerchantKycDocumentVersions(int $merchantId): array
 
 function getActivePaymentGateway(): string
 {
+    // Platform setting is a template/fallback for new merchants (P1-03), not a global live override.
     $preferred = trim((string)getSetting('active_payment_gateway', ''));
     // Prefer the admin-selected primary only when fully configured AND checkout-capable.
     if ($preferred !== ''
@@ -572,8 +573,7 @@ function isGatewayConfigured(string $gateway): bool
         'cashfree' => (bool)getPartnerSetting('cashfree', 'cashfree_app_id', '') && (bool)getPartnerSetting('cashfree', 'cashfree_secret_key', ''),
         'payu' => (bool)getPartnerSetting('payu', 'payu_merchant_key', '') && (bool)getPartnerSetting('payu', 'payu_merchant_salt', ''),
         'phonepe' => (bool)getPartnerSetting('phonepe', 'phonepe_merchant_id', '') && (bool)getPartnerSetting('phonepe', 'phonepe_salt_key', ''),
-        'axis' => (bool)(getPartnerSetting('axis', 'axis_client_id', '') && getPartnerSetting('axis', 'axis_client_secret', ''))
-            || (bool)(getSetting('axis_api_key', '') && getSetting('axis_api_secret', '')),
+        'axis' => (bool)(getPartnerSetting('axis', 'axis_client_id', '') && getPartnerSetting('axis', 'axis_client_secret', '')),
         'decentro' => (bool)getPartnerSetting('decentro', 'decentro_client_id', '') && (bool)getPartnerSetting('decentro', 'decentro_client_secret', ''),
         'pinelabs' => (bool)getPartnerSetting('pinelabs', 'pinelabs_merchant_id', '') && (bool)getPartnerSetting('pinelabs', 'pinelabs_access_code', '') && (bool)getPartnerSetting('pinelabs', 'pinelabs_secure_key', ''),
         'worldline' => (bool)getPartnerSetting('worldline', 'worldline_merchant_id', '') && (bool)getPartnerSetting('worldline', 'worldline_access_key', '') && (bool)getPartnerSetting('worldline', 'worldline_secret_key', ''),
@@ -597,7 +597,7 @@ function gatewayStatusLabel(string $gateway): string
         return 'Keys saved · checkout on roadmap';
     }
     if ($gateway === (getSetting('active_payment_gateway', 'razorpay'))) {
-        return 'Active primary';
+        return 'New-merchant template';
     }
     return 'Configured';
 }
@@ -638,8 +638,8 @@ function testRazorpayConnection(): array
 /** @return array{ok:bool,message:string} */
 function testCashfreeConnection(): array
 {
-    $appId = getSetting('cashfree_app_id', '');
-    $secret = getSetting('cashfree_secret_key', '');
+    $appId = function_exists('cashfreeAppId') ? cashfreeAppId() : getSetting('cashfree_app_id', '');
+    $secret = function_exists('cashfreeSecretKey') ? cashfreeSecretKey() : getSetting('cashfree_secret_key', '');
     if (!$appId || !$secret) {
         return ['ok' => false, 'message' => 'Cashfree App ID and Secret are required.'];
     }
@@ -754,8 +754,8 @@ function payuBaseUrl(): string
 function payuCredentials(): array
 {
     return [
-        'key' => getSetting('payu_merchant_key', ''),
-        'salt' => getSetting('payu_merchant_salt', ''),
+        'key' => function_exists('getPartnerSetting') ? getPartnerSetting('payu', 'payu_merchant_key', '') : '',
+        'salt' => function_exists('getPartnerSetting') ? getPartnerSetting('payu', 'payu_merchant_salt', '') : '',
     ];
 }
 
@@ -921,8 +921,8 @@ function createCashfreeOrderWithSplit(string $orderId, float $amount, array $mer
     if (!isGatewayConfigured('cashfree')) {
         return null;
     }
-    $appId = getSetting('cashfree_app_id', '');
-    $secret = getSetting('cashfree_secret_key', '');
+    $appId = function_exists('cashfreeAppId') ? cashfreeAppId() : getSetting('cashfree_app_id', '');
+    $secret = function_exists('cashfreeSecretKey') ? cashfreeSecretKey() : getSetting('cashfree_secret_key', '');
     if (!$appId || !$secret) return null;
 
     $split = calculateSplitBreakdown($amount, $merchant);

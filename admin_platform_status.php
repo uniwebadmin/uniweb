@@ -62,6 +62,8 @@ require_once __DIR__ . '/header.php';
 
     <a href="admin_website.php" class="glass px-4 py-2.5 rounded-xl text-sm text-violet-400 hover:text-violet-300">Website & API Keys</a>
 
+    <a href="admin_audit_plan.php" class="glass px-4 py-2.5 rounded-xl text-sm text-sky-400 hover:text-sky-300">Deep Audit Plan</a>
+
     <a href="admin_watchdog.php" class="glass px-4 py-2.5 rounded-xl text-sm text-amber-400 hover:text-amber-300">Link Watchdog</a>
 
     <a href="admin_incidents.php" class="glass px-4 py-2.5 rounded-xl text-sm text-amber-400 hover:text-amber-300">⭐ Incidents &amp; Uptime</a>
@@ -288,7 +290,7 @@ $cronHeartbeats = getCronHeartbeatStatus();
 
         <li>API Settings → configure webhook URL → Send Test Webhook</li>
 
-        <li>Admin → Gateway Settings → Test Connection per PG</li>
+        <li>Admin → Partner Registry → Partner Detail → Keys, then Test Connection per PG</li>
 
         <li>Admin → PG Webhook Log → retry unmatched events</li>
 

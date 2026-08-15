@@ -25,6 +25,18 @@ CREATE TABLE IF NOT EXISTS merchant_virtual_accounts (
     INDEX idx_va_merchant (merchant_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 044-style: table may pre-exist without these columns. ALTER before INSERT.
+ALTER TABLE merchant_virtual_accounts ADD COLUMN merchant_id INT NOT NULL DEFAULT 0;
+ALTER TABLE merchant_virtual_accounts ADD COLUMN gateway VARCHAR(32) NOT NULL DEFAULT 'axis';
+ALTER TABLE merchant_virtual_accounts ADD COLUMN va_id VARCHAR(64) DEFAULT NULL;
+ALTER TABLE merchant_virtual_accounts ADD COLUMN va_number VARCHAR(64) NOT NULL DEFAULT '';
+ALTER TABLE merchant_virtual_accounts ADD COLUMN ifsc VARCHAR(20) DEFAULT NULL;
+ALTER TABLE merchant_virtual_accounts ADD COLUMN upi_id VARCHAR(120) DEFAULT NULL;
+ALTER TABLE merchant_virtual_accounts ADD COLUMN label VARCHAR(120) DEFAULT NULL;
+ALTER TABLE merchant_virtual_accounts ADD COLUMN status VARCHAR(16) NOT NULL DEFAULT 'active';
+ALTER TABLE merchant_virtual_accounts ADD COLUMN is_primary TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE merchant_virtual_accounts ADD COLUMN counters_reset_on DATE DEFAULT NULL;
+
 ALTER TABLE merchant_qr_codes
     ADD COLUMN IF NOT EXISTS virtual_account_id INT UNSIGNED DEFAULT NULL AFTER payment_link_id;
 ALTER TABLE merchant_qr_codes ADD INDEX IF NOT EXISTS idx_qr_va (virtual_account_id);

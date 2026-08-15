@@ -188,7 +188,12 @@ function uniwebRenderCaughtError(?Throwable $e = null): never
 
     if (!headers_sent()) {
         http_response_code(500);
+        header('X-Content-Type-Options: nosniff');
     }
+
+    // Never print SQL / stack traces in the browser (P0-03).
+    @ini_set('display_errors', '0');
+    @ini_set('html_errors', '0');
 
     $uri = (string)($_SERVER['REQUEST_URI'] ?? '');
     $script = (string)($_SERVER['SCRIPT_NAME'] ?? '');
@@ -209,6 +214,19 @@ function uniwebRenderCaughtError(?Throwable $e = null): never
         exit;
     }
 
+    // Intentional admin "Test error capture" — log already stored; do not scare the owner with the public snag page.
+    if ($e && str_contains($e->getMessage(), 'Watchdog probe: error catcher test')) {
+        if (function_exists('flash')) {
+            flash('success', 'Test captured. A new row is listed below. Click Resolve — the site is fine.');
+        }
+        if (!headers_sent()) {
+            header('Location: admin_error_log.php?probe_ok=1', true, 302);
+            header('Cache-Control: no-store');
+        }
+        exit;
+    }
+
+    $home = defined('APP_URL') ? (string)APP_URL : '/';
     $safeMsg = 'Something went wrong on our side. The error was logged automatically — admin can review it in Error Log.';
     echo '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
         . '<title>UniWeb — Error</title>'
@@ -217,7 +235,7 @@ function uniwebRenderCaughtError(?Throwable $e = null): never
         . 'h1{font-size:1.25rem;margin:0 0 12px;color:#f87171}p{font-size:.9rem;line-height:1.5;color:#94a3b8;margin:0}'
         . 'a{color:#38bdf8;text-decoration:none}</style></head><body><div class="box">'
         . '<h1>We hit a snag</h1><p>' . htmlspecialchars($safeMsg, ENT_QUOTES, 'UTF-8') . '</p>'
-        . '<p style="margin-top:16px"><a href="' . htmlspecialchars(APP_URL, ENT_QUOTES, 'UTF-8') . '">← Back to UniWeb</a></p>'
+        . '<p style="margin-top:16px"><a href="' . htmlspecialchars($home, ENT_QUOTES, 'UTF-8') . '">← Back to UniWeb</a></p>'
         . '</div></body></html>';
     exit;
 }
@@ -228,6 +246,13 @@ function initErrorCatcher(): void
         return;
     }
     define('UNIWEB_ERROR_CATCHER_INIT', true);
+
+    $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+    if ($host === '' || str_contains($host, 'uniweb.co.in') || (!str_contains($host, 'localhost') && !str_starts_with($host, '127.'))) {
+        @ini_set('display_errors', '0');
+        @ini_set('html_errors', '0');
+        @ini_set('log_errors', '1');
+    }
 
     set_exception_handler(static function (Throwable $e): void {
         logPlatformError('exception', $e->getMessage(), [
@@ -305,6 +330,13 @@ function runPlatformWatchdog(): array
         } else {
             $fail('file_' . $rel, 'Missing file', $rel);
         }
+    }
+
+    try {
+        $n = countUnresolvedPlatformErrors();
+        $pass('error_log_db', 'Error Log from database', $n . ' unresolved — review Error Log, do not re-open crash URLs');
+    } catch (Throwable $e) {
+        $fail('error_log_db', 'Error Log from database', $e->getMessage());
     }
 
     if (function_exists('runAdminPlatformSelfChecks')) {

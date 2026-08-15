@@ -40,17 +40,21 @@ try {
     $result = applyPendingMigrations(__DIR__ . '/migrations');
     $appliedFiles = $result['applied_files'] ?? [];
     $appliedCount = (int)($result['applied'] ?? count($appliedFiles));
+    $pendingAfter = $result['pending_after'] ?? [];
+    $ok = empty($pendingAfter);
     echo json_encode([
-        'ok' => true,
+        'ok' => $ok,
         'applied' => $appliedCount,
         'applied_files' => $appliedFiles,
         'skipped' => (int)($result['skipped'] ?? 0),
         'details' => $result['details'] ?? [],
-        'pending_after' => $result['pending_after'] ?? [],
+        'pending_after' => $pendingAfter,
         'ran_at' => date('Y-m-d H:i:s'),
-        'message' => $appliedCount > 0
-            ? ('Applied ' . $appliedCount . ' migration(s).')
-            : 'No pending migrations — all up to date.',
+        'message' => !$ok
+            ? ('Still pending: ' . implode(', ', $pendingAfter) . '. Do not drop the database — click Apply pending migrations again.')
+            : ($appliedCount > 0
+                ? ('Applied ' . $appliedCount . ' migration(s).')
+                : 'No pending migrations — all up to date.'),
     ], JSON_PRETTY_PRINT);
 } catch (Throwable $e) {
     if (!$isCli && !headers_sent()) {
@@ -61,6 +65,13 @@ try {
     if (preg_match('/Migration failed:\s*(\S+)/', $msg, $m)) {
         $file = $m[1];
     }
+    $sqlstate = null;
+    if (function_exists('pdoSqlState')) {
+        $sqlstate = pdoSqlState($e);
+    }
+    if ($sqlstate === null && preg_match('/\[SQLSTATE\s+([A-Z0-9]+)\]/', $msg, $sm)) {
+        $sqlstate = $sm[1];
+    }
     $isConn = str_contains($msg, '[2002]')
         || str_contains($msg, '[2006]')
         || stripos($msg, 'connection refused') !== false
@@ -68,6 +79,7 @@ try {
     echo json_encode([
         'ok' => false,
         'migration' => $file,
+        'sqlstate' => $sqlstate,
         'error' => $msg,
         'message' => $isConn
             ? 'Database is not running or not reachable. Start MariaDB / MySQL, then open this same link again. Do not drop the database.'

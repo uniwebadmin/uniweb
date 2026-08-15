@@ -14,12 +14,13 @@ declare(strict_types=1);
  */
 
 error_reporting(E_ALL);
-ini_set('display_errors', getenv('UNIWEB_DISPLAY_ERRORS') === '0' ? '0' : '1');
+require_once __DIR__ . '/includes/boot_errors.php';
 date_default_timezone_set('Asia/Kolkata');
 
 // Load .env file if present (secrets management)
-require_once __DIR__ . '/includes/env_loader.php';
-loadEnvFile(__DIR__ . '/.env');
+if (function_exists('loadEnvFile')) {
+    loadEnvFile(__DIR__ . '/.env');
+}
 
 /* ------------------------------------------------------------------ *
  *  App / company constants
@@ -425,58 +426,11 @@ function getBusinessCategories(): array
 }
 
 /* ------------------------------------------------------------------ *
- *  Notifications
+ *  Notifications — implementation lives in includes/notifications.php
+ *  so live config.php drift cannot drop event_key dedup (P0-04).
  * ------------------------------------------------------------------ */
-function createNotification(int $merchantId, string $title, string $body, ?string $eventKey = null): void
-{
-    // Dedup: if event_key provided, skip when an equivalent notification already exists.
-    // One-shot events (e.g. "Payment Pack Ready") fire at most once per merchant.
-    // Without event_key, skip if an unread notification with the same title exists for this merchant.
-    try {
-        $db = getDB();
-        if ($eventKey !== null) {
-            $dup = $db->prepare('SELECT id FROM notifications WHERE merchant_id=? AND event_key=? LIMIT 1');
-            $dup->execute([$merchantId, $eventKey]);
-            if ($dup->fetch()) {
-                return; // already notified for this event
-            }
-        } else {
-            $dup = $db->prepare('SELECT id FROM notifications WHERE merchant_id=? AND title=? AND is_read=0 AND created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR) LIMIT 1');
-            $dup->execute([$merchantId, $title]);
-            if ($dup->fetch()) {
-                return; // recent unread duplicate — suppress
-            }
-        }
-        $db->prepare('INSERT INTO notifications (merchant_id, title, message, is_read, event_key, created_at) VALUES (?,?,?,?,?,NOW())')
-            ->execute([$merchantId, $title, $body, 0, $eventKey]);
-    } catch (Throwable $e) {
-        // notifications table may not have event_key column yet; fallback to original INSERT
-        try {
-            getDB()->prepare('INSERT INTO notifications (merchant_id, title, message, is_read, created_at) VALUES (?,?,?,0,NOW())')
-                ->execute([$merchantId, $title, $body]);
-        } catch (Throwable $e2) {
-            // notifications table may not be ready yet; non-fatal
-        }
-    }
-    if (function_exists('onMerchantNotificationCreated')) {
-        try {
-            onMerchantNotificationCreated($merchantId, $title, $body);
-        } catch (Throwable $e) {
-            // WhatsApp / channel fan-out must never break the request
-        }
-    }
-}
-
-function notificationActionUrl(array $row): string
-{
-    $title = strtolower((string)($row['title'] ?? ''));
-    if (str_contains($title, 'kyc')) {
-        return 'kyc.php';
-    }
-    if (str_contains($title, 'payment') || str_contains($title, 'settlement')) {
-        return 'transactions.php';
-    }
-    return 'dashboard.php';
+if (is_file(__DIR__ . '/includes/notifications.php')) {
+    require_once __DIR__ . '/includes/notifications.php';
 }
 
 /* ------------------------------------------------------------------ *
@@ -517,8 +471,8 @@ function formatPublicVolume(float $amount): string
  *  Load application engine includes (order matters: getDB first).
  * ------------------------------------------------------------------ */
 $__includes = [
-    'crypto', 'schema_ensure', 'migrations', 'financial_integrity', 'ops_security',
-    'kyc_entity', 'onboarding', 'onboarding_security', 'verification', 'totp', 'notify',
+    'crypto', 'boot_errors', 'env_loader', 'error_catcher', 'schema_ensure', 'migrations', 'financial_integrity', 'ops_security',
+    'notifications', 'release_helpers', 'kyc_entity', 'onboarding', 'onboarding_security', 'verification', 'totp', 'notify',
     'velocity_check', 'cron_guard', 'baas', 'gateways', 'smart_routing',
     'wallet', 'settlement_engine', 'reconciliation', 'refunds', 'chargebacks',
     'merchant_profile', 'contact_change', 'merchant_ui', 'page_ux', 'page_ux_compat', 'merchant_admin_view', 'merchant_website',

@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (is_file(__DIR__ . '/includes/release_helpers.php')) {
+    require_once __DIR__ . '/includes/release_helpers.php';
+}
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'area_sales_manager', 'team_leader', 'staff_manager', 'field_staff', 'ops', 'kyc']);
 ensureKycSchema();
 require_once __DIR__ . '/includes/auto_kyc.php';
@@ -79,7 +82,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             recordImmutableAudit('video_kyc_verified', $id, 'merchant', (string)$id, $reason);
             logStaffActivity('video_kyc_verified', $reason, $id, 'merchant', (string)$id);
             createNotification($id, 'Video KYC Verified', 'Your Video KYC was approved. Continue with remaining onboarding steps.');
-            sendTemplatedEmail($id, 'kyc_approved', []);
+            if (function_exists('sendTemplatedEmail')) {
+                sendTemplatedEmail($id, 'kyc_approved', []);
+            }
             flash('success', 'Video KYC marked verified.');
         } elseif ($action === 'reject_video') {
             requireMerchantAccess($id);
@@ -110,7 +115,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             logStaffActivity('video_kyc_rejected', $reason, $id, 'merchant', (string)$id);
             createNotification($id, 'Video KYC Needs Re-upload', 'Reason: ' . $reason);
-            sendTemplatedEmail($id, 'kyc_rejected', ['reason' => $reason]);
+            if (function_exists('sendTemplatedEmail')) {
+                sendTemplatedEmail($id, 'kyc_rejected', ['reason' => $reason]);
+            }
             flash('success', 'Video KYC rejected with reason shown to merchant.');
         } elseif ($action === 'reject_doc') {
             $doc = $db->prepare('SELECT merchant_id,doc_type FROM kyc_documents WHERE id=?');
@@ -130,7 +137,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             logStaffActivity('kyc_clarification_requested', $d['doc_type'] . ': ' . $reason, (int)$d['merchant_id'], 'kyc_document', (string)$id);
             $docLabel = str_replace('_', ' ', (string)$d['doc_type']);
             createNotification((int)$d['merchant_id'], 'KYC Document Rejected', ucfirst($docLabel) . ' — ' . $reason . ' Please re-upload a clearer copy.');
-            sendTemplatedEmail((int)$d['merchant_id'], 'kyc_rejected', ['reason' => ucfirst($docLabel) . ' — ' . $reason]);
+            if (function_exists('sendTemplatedEmail')) {
+                sendTemplatedEmail((int)$d['merchant_id'], 'kyc_rejected', ['reason' => ucfirst($docLabel) . ' — ' . $reason]);
+            }
             flash('success', 'Document rejected and clarification requested.');
         } elseif ($action === 'approve_request') {
             requireStepUpAuth();
@@ -181,7 +190,7 @@ try {
         "SELECT k.*, m.business_name, m.merchant_code, m.business_entity_type
          FROM kyc_documents k
          JOIN merchants m ON k.merchant_id = m.id
-         WHERE k.status = CONVERT('pending' USING utf8mb4)
+         WHERE k.status COLLATE utf8mb4_unicode_ci = 'pending'
          ORDER BY k.created_at ASC"
     )->fetchAll();
 } catch (Throwable $e) {
@@ -239,7 +248,7 @@ try {
          FROM merchants m
          INNER JOIN kyc_documents k ON k.id = (
              SELECT k2.id FROM kyc_documents k2
-             WHERE k2.merchant_id = m.id AND k2.doc_type = CONVERT('video_kyc' USING utf8mb4)
+             WHERE k2.merchant_id = m.id AND k2.doc_type COLLATE utf8mb4_unicode_ci = 'video_kyc'
              ORDER BY k2.created_at DESC LIMIT 1
          )
          WHERE m.status = 'active'

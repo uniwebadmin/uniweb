@@ -59,5 +59,5 @@ foreach ($rows as $r) {
     </div>
 </div>
 
-<p class="text-xs text-gray-600 mt-4 no-print">Owner action: paste partner keys in Gateway Settings when received. Axis live paths wait for RM/UAT.</p>
+<p class="text-xs text-gray-600 mt-4 no-print">Owner action: paste partner keys in Partner Registry → Partner Detail → Keys when received. Axis live paths wait for RM/UAT.</p>
 <?php require_once __DIR__ . '/footer.php'; ?>

@@ -299,6 +299,67 @@ function ensureMissingColumns(): void
     schemaExecQuiet('ALTER TABLE merchant_agreement_acceptances ADD COLUMN requires_resign TINYINT(1) NOT NULL DEFAULT 0');
     schemaExecQuiet('ALTER TABLE transactions ADD COLUMN metadata JSON DEFAULT NULL');
 
+    // P0-02: partner_commercial may be missing entirely — CREATE then ALTER (aligned with split_settlement).
+    schemaExecQuiet("CREATE TABLE IF NOT EXISTS partner_commercial (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        partner_key VARCHAR(40) NOT NULL UNIQUE,
+        base_mdr_percent DECIMAL(6,4) NOT NULL DEFAULT 0,
+        settlement_mode VARCHAR(40) NOT NULL DEFAULT 'standard_settle_mode',
+        route_enabled TINYINT(1) NOT NULL DEFAULT 0,
+        route_mode VARCHAR(20) NOT NULL DEFAULT 'off',
+        route_provider VARCHAR(30) NOT NULL DEFAULT 'none',
+        route_linked_account_hint VARCHAR(120) DEFAULT NULL,
+        route_split_on VARCHAR(20) NOT NULL DEFAULT 'capture',
+        route_status VARCHAR(20) NOT NULL DEFAULT 'scaffold',
+        updated_by VARCHAR(60) NOT NULL DEFAULT 'system',
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    schemaExecQuiet('ALTER TABLE partner_commercial ADD COLUMN partner_key VARCHAR(40) NOT NULL DEFAULT \'\'');
+    schemaExecQuiet('ALTER TABLE partner_commercial ADD COLUMN base_mdr_percent DECIMAL(6,4) NOT NULL DEFAULT 0');
+    schemaExecQuiet('ALTER TABLE partner_commercial ADD COLUMN settlement_mode VARCHAR(40) NOT NULL DEFAULT \'standard_settle_mode\'');
+
+    // P0-02: gateway_events table + evidence-pack JOIN column (no FK — payment_orders may lag).
+    schemaExecQuiet("CREATE TABLE IF NOT EXISTS gateway_events (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        provider VARCHAR(32) NOT NULL,
+        event_id VARCHAR(190) NOT NULL,
+        event_type VARCHAR(100) NOT NULL,
+        payload_hash CHAR(64) NOT NULL,
+        signature_valid TINYINT(1) NOT NULL DEFAULT 0,
+        processing_status VARCHAR(32) NOT NULL DEFAULT 'received',
+        payment_order_id BIGINT UNSIGNED DEFAULT NULL,
+        provider_order_id VARCHAR(120) DEFAULT NULL,
+        error_message VARCHAR(500) DEFAULT NULL,
+        received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        processed_at DATETIME DEFAULT NULL,
+        UNIQUE KEY uniq_gateway_event (provider, event_id),
+        INDEX idx_gateway_event_hash (provider, payload_hash),
+        INDEX idx_gateway_event_status (processing_status, received_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    schemaExecQuiet('ALTER TABLE gateway_events ADD COLUMN payment_order_id BIGINT UNSIGNED DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE payment_orders ADD COLUMN provider_order_id VARCHAR(120) DEFAULT NULL');
+
+    schemaExecQuiet("CREATE TABLE IF NOT EXISTS kyc_documents (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        merchant_id INT NOT NULL,
+        doc_type VARCHAR(50) NOT NULL,
+        file_name VARCHAR(255) DEFAULT NULL,
+        file_path VARCHAR(500) DEFAULT NULL,
+        storage_key VARCHAR(255) DEFAULT NULL,
+        sha256 CHAR(64) DEFAULT NULL,
+        mime_type VARCHAR(100) DEFAULT NULL,
+        file_size INT DEFAULT NULL,
+        scan_status VARCHAR(20) DEFAULT 'pending',
+        status VARCHAR(20) DEFAULT 'pending',
+        retention_until DATE DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_merchant (merchant_id, doc_type)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    if (function_exists('ensureSplitSettlementTable')) {
+        ensureSplitSettlementTable();
+    }
+
     // 058: schema drift — columns referenced by code but missing from original migrations
     schemaExecQuiet("ALTER TABLE platform_settlements ADD COLUMN mode VARCHAR(20) DEFAULT 'manual'");
     schemaExecQuiet('ALTER TABLE platform_settlements ADD COLUMN bank_account VARCHAR(30) DEFAULT NULL');
@@ -373,6 +434,11 @@ function ensureCollationConsistency(): void
     if ($done) return;
     $done = true;
 
+    $script = strtolower(basename((string)($_SERVER['SCRIPT_FILENAME'] ?? $_SERVER['PHP_SELF'] ?? '')));
+    if (in_array($script, ['admin_login.php', 'login.php', 'staff_login.php', 'admin_forgot_password.php', 'merchant_register.php'], true)) {
+        return;
+    }
+
     try {
         $db = getDB();
         $target = 'utf8mb4_unicode_ci';
@@ -407,3 +473,4 @@ if (!function_exists('initErrorCatcher') && is_file(__DIR__ . '/error_catcher.ph
 }
 
 ensureCollationConsistency();
+ensureMissingColumns();

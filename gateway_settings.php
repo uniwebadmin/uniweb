@@ -98,7 +98,7 @@ $cronFullUrl = (string)($cronHealth['cron_url'] ?? (rtrim(APP_URL, '/') . '/cron
 $cronWgetCmd = 'wget -q -O /dev/null "' . $cronFullUrl . '"';
 $backupUrl = rtrim(APP_URL, '/') . '/cron_db_backup.php?key=' . rawurlencode($cronKey);
 $backupWgetCmd = 'wget -q -O /dev/null "' . $backupUrl . '"';
-$pageTitle = 'Gateway Settings';
+$pageTitle = 'Platform Settings';
 require_once __DIR__ . '/header.php';
 $activePg = $settingsMap['active_payment_gateway'] ?? 'razorpay';
 $gatewayGaps = function_exists('getGatewaySetupGaps') ? getGatewaySetupGaps() : [];
@@ -117,8 +117,8 @@ $gatewayCards = [
 <div class="glass rounded-xl p-5 mb-6 border border-sky-500/40 bg-sky-500/5 max-w-4xl">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
-            <p class="font-semibold text-sky-300 text-sm">Money & Partner config lives in Partner Registry</p>
-            <p class="text-xs text-gray-400 mt-1">Partner API keys, payment methods, MDR, and Route/Split are configured only under <a href="admin_gateway_registry.php" class="text-sky-400 underline">Admin → Partner Registry → Partner Detail</a>. This page is platform-wide only (SMTP, feature flags, masked cron, non-secret defaults, collection-mode template for new merchants).</p>
+            <p class="font-semibold text-sky-300 text-sm">Money & partner keys live in Partner Registry</p>
+            <p class="text-xs text-gray-400 mt-1">Paste Razorpay / Cashfree / PayU keys only under <a href="admin_gateway_registry.php" class="text-sky-400 underline">Partner Registry → Partner Detail → Keys</a>. This page is platform-wide only: SMTP, cron, email templates, SEO, WhatsApp, and the collection-mode template for <strong>new merchants</strong>. This page does not accept live PG API keys.</p>
         </div>
         <a href="admin_gateway_registry.php" class="shrink-0 text-xs px-4 py-2 rounded-lg bg-sky-600/20 text-sky-400 hover:bg-sky-600/30">Partner Registry →</a>
     </div>
@@ -127,7 +127,7 @@ $gatewayCards = [
 <div class="glass rounded-xl p-5 mb-6 border border-amber-500/40 bg-amber-500/5 max-w-4xl">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
         <p class="font-semibold text-amber-300">Live launch — <?= count($gatewayGaps) ?> gateway(s) need keys</p>
-        <a href="admin_website.php" class="text-xs text-sky-400">API Keys guide →</a>
+        <a href="admin_gateway_registry.php" class="text-xs text-sky-400">Partner Registry → Keys</a>
     </div>
     <div class="grid sm:grid-cols-2 gap-2 text-xs">
         <?php foreach ($gatewayGaps as $gap): ?>
@@ -218,7 +218,7 @@ $gatewayCards = [
 </div>
 <div class="glass rounded-xl p-6">
     <?= settingsMainHeading('Gateway Status') ?>
-    <p class="text-xs text-gray-500 mb-4">Test connection for gateways configured in <a href="admin_gateway_registry.php" class="text-sky-400">Partner Registry</a>. Active checkout gateway: <span class="text-brand-400 font-medium"><?= e(ucfirst($activePg)) ?></span> (set in Payment Gateway Selection below — template for new merchants only)</p>
+    <p class="text-xs text-gray-500 mb-4">Test connection for gateways configured in <a href="admin_gateway_registry.php" class="text-sky-400">Partner Registry</a>. Default checkout gateway (new merchants only): <span class="text-brand-400 font-medium"><?= e(ucfirst($activePg)) ?></span></p>
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <?php foreach ($gatewayCards as $card):
             $configured = isGatewayConfigured($card['id']);
@@ -240,7 +240,7 @@ $gatewayCards = [
                     <?php if (!$checkoutReady && !empty($card['note'])): ?>
                     <p class="text-[10px] text-gray-500 mt-1"><?= e($card['note']) ?></p>
                     <?php elseif ($isActive && $card['id'] !== 'decentro' && $card['id'] !== 'axis'): ?>
-                    <p class="text-[10px] text-brand-400 mt-1 uppercase tracking-wide">Checkout default</p>
+                    <p class="text-[10px] text-brand-400 mt-1 uppercase tracking-wide">New-merchant template</p>
                     <?php endif; ?>
                 </div>
                 <?php if ($card['test']): ?>

@@ -89,7 +89,7 @@ if ($isMerchant) {
         ['admin_merchant_health.php', 'Merchant Health'],
         ['admin_customer_view.php', 'Customer Lookup'],
         ['admin_gateway_registry.php', 'Partner Registry'],
-        ['gateway_settings.php', 'Platform Integrations'],
+        ['gateway_settings.php', 'Platform Settings'],
         ['admin_method_requests.php', 'Method Requests'],
         ['admin_forward_queue.php', 'KYC Forward Queue'],
         ['admin_reason_map.php', 'Reason Maps'],

@@ -36,6 +36,10 @@ function logCronAuthFailure(string $reason): void
     if (!function_exists('logPlatformError')) {
         return;
     }
+    $ua = (string)($_SERVER['HTTP_USER_AGENT'] ?? '');
+    if (str_contains($ua, 'UniWeb-Watchdog')) {
+        return;
+    }
     $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
     logPlatformError('warning', 'Cron auth failed (' . $reason . ') from ' . $ip, [
         'uri' => $_SERVER['REQUEST_URI'] ?? '',

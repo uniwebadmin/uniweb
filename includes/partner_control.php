@@ -105,22 +105,42 @@ function savePartnerCredentials(string $partnerKey, string $env, array $keys, ar
     ensurePartnerControlTables();
     $db = getDB();
 
-    // Build payload from submitted keys
-    $payload = [];
-    $last4 = '';
+    $existing = getPartnerCredentials($partnerKey, $env);
+    unset($existing['_last4']);
+    $payload = is_array($existing) ? $existing : [];
+
+    $submitted = 0;
     foreach ($configKeys as $key => $meta) {
         if (!isset($keys[$key])) continue;
         $val = trim((string)$keys[$key]);
         if ($val === '') continue;
         $payload[$key] = $val;
-        // Track last4 of first secret-like field
-        if ($last4 === '' && (str_contains($key, 'secret') || str_contains($key, 'salt') || str_contains($key, 'pass'))) {
-            $last4 = substr($val, -4);
-        }
+        $submitted++;
     }
 
-    if (empty($payload)) {
+    if ($submitted === 0 || $payload === []) {
         return 'no_keys';
+    }
+
+    $last4 = '';
+    foreach ($payload as $key => $val) {
+        if (!is_string($val) || $val === '') {
+            continue;
+        }
+        $k = (string)$key;
+        if (str_contains($k, 'secret') || str_contains($k, 'salt') || str_contains($k, 'pass')) {
+            $last4 = substr($val, -4);
+            break;
+        }
+    }
+    if ($last4 === '') {
+        foreach ($payload as $key => $val) {
+            if (!is_string($val) || $val === '' || str_contains((string)$key, 'environment')) {
+                continue;
+            }
+            $last4 = substr($val, -4);
+            break;
+        }
     }
 
     $encrypted = function_exists('sensitiveEncrypt') ? sensitiveEncrypt(json_encode($payload)) : base64_encode(json_encode($payload));
@@ -154,9 +174,45 @@ function getPartnerCredentials(string $partnerKey, string $env = 'test'): array
 }
 
 /**
- * Bridge function: read a single partner key from partner_credentials (encrypted, source of truth).
- * Falls back to getSetting() (gateway_settings) only if no partner_credentials row exists yet.
- * This allows gradual migration without breaking live flows.
+ * Partner PG credential setting keys that must never live in gateway_settings.
+ * Platform Settings (SMTP / cron / templates) cannot save these.
+ *
+ * @return array<string, list<string>>
+ */
+function uniwebPartnerCredentialSettingMap(): array
+{
+    return [
+        'razorpay' => ['razorpay_key_id', 'razorpay_key_secret', 'razorpay_webhook_secret'],
+        'razorpayx' => ['razorpayx_key_id', 'razorpayx_key_secret', 'razorpayx_account_number'],
+        'cashfree' => ['cashfree_app_id', 'cashfree_secret_key'],
+        'payu' => ['payu_merchant_key', 'payu_merchant_salt'],
+        'phonepe' => ['phonepe_merchant_id', 'phonepe_salt_key'],
+        'pinelabs' => ['pinelabs_merchant_id', 'pinelabs_access_code', 'pinelabs_secure_key'],
+        'worldline' => ['worldline_merchant_id', 'worldline_access_key', 'worldline_secret_key'],
+        'decentro' => ['decentro_client_id', 'decentro_client_secret'],
+        'axis' => ['axis_client_id', 'axis_client_secret', 'axis_api_key', 'axis_api_secret'],
+        'rbl' => ['rbl_client_id', 'rbl_client_secret', 'rbl_api_key', 'rbl_api_secret'],
+    ];
+}
+
+function isPartnerCredentialSettingKey(string $key): bool
+{
+    foreach (uniwebPartnerCredentialSettingMap() as $keys) {
+        if (in_array($key, $keys, true)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function partnerDetailKeysUrl(string $partnerKey, string $env = 'live'): string
+{
+    return 'admin_gateway_detail.php?partner=' . rawurlencode($partnerKey) . '&tab=keys&env=' . rawurlencode($env);
+}
+
+/**
+ * Bridge: read a single partner key from encrypted partner_credentials only (P1-01).
+ * Does not read plaintext gateway_settings. Migrate-then-wipe runs first via ensurePartnerControlTables().
  */
 function getPartnerSetting(string $partnerKey, string $keyName, string $default = ''): string
 {
@@ -168,13 +224,16 @@ function getPartnerSetting(string $partnerKey, string $keyName, string $default 
 
     $env = 'test';
     if (function_exists('getSetting')) {
-        $envVal = getSetting($partnerKey . '_environment', '');
-        if ($envVal === 'live') {
+        $envVal = strtolower(trim((string)getSetting($partnerKey . '_environment', '')));
+        if (in_array($envVal, ['live', 'production'], true)) {
             $env = 'live';
         }
     }
 
     $creds = getPartnerCredentials($partnerKey, $env);
+    if (empty($creds) && $env === 'live') {
+        $creds = getPartnerCredentials($partnerKey, 'production');
+    }
     if (empty($creds)) {
         $creds = getPartnerCredentials($partnerKey, 'test');
     }
@@ -184,19 +243,24 @@ function getPartnerSetting(string $partnerKey, string $keyName, string $default 
         return $cache[$ck];
     }
 
-    if (function_exists('getSetting')) {
-        $cache[$ck] = getSetting($keyName, $default);
-        return $cache[$ck];
-    }
-
     $cache[$ck] = $default;
     return $default;
 }
 
+function cashfreeAppId(): string
+{
+    return getPartnerSetting('cashfree', 'cashfree_app_id', '');
+}
+
+function cashfreeSecretKey(): string
+{
+    return getPartnerSetting('cashfree', 'cashfree_secret_key', '');
+}
+
 /**
- * One-time migration: copy plaintext PG keys from gateway_settings into encrypted partner_credentials.
- * Only migrates if partner_credentials has no row for that partner+env yet.
- * Called once at load time from ensurePartnerControlTables().
+ * Copy leftover plaintext PG keys from gateway_settings into encrypted partner_credentials,
+ * then blank those gateway_settings rows (P1-01 — single keys plane).
+ * Called once from ensurePartnerControlTables().
  */
 function migrateGatewaySettingsToPartnerCredentials(): void
 {
@@ -208,49 +272,92 @@ function migrateGatewaySettingsToPartnerCredentials(): void
         return;
     }
 
-    $partners = [
-        'razorpay' => ['test' => ['razorpay_key_id', 'razorpay_key_secret']],
-        'razorpayx' => ['test' => ['razorpayx_key_id', 'razorpayx_key_secret', 'razorpayx_account_number']],
-        'cashfree' => ['test' => ['cashfree_app_id', 'cashfree_secret_key']],
-        'payu' => ['test' => ['payu_merchant_key', 'payu_merchant_salt']],
-        'phonepe' => ['test' => ['phonepe_merchant_id', 'phonepe_salt_key']],
-        'pinelabs' => ['test' => ['pinelabs_merchant_id', 'pinelabs_access_code', 'pinelabs_secure_key']],
-        'worldline' => ['test' => ['worldline_merchant_id', 'worldline_access_key', 'worldline_secret_key']],
-        'decentro' => ['test' => ['decentro_client_id', 'decentro_client_secret']],
-        'axis' => ['test' => ['axis_client_id', 'axis_client_secret']],
-    ];
-
+    $partners = uniwebPartnerCredentialSettingMap();
     $db = getDB();
-    foreach ($partners as $partnerKey => $envs) {
-        foreach ($envs as $env => $keys) {
-            try {
-                $st = $db->prepare("SELECT id FROM partner_credentials WHERE partner_key=? AND env=?");
-                $st->execute([$partnerKey, $env]);
-                if ($st->fetch()) continue;
+    $wiped = false;
 
-                $payload = [];
-                $last4 = '';
-                foreach ($keys as $k) {
-                    $val = trim((string)getSetting($k, ''));
-                    if ($val !== '') {
-                        $payload[$k] = $val;
-                        if ($last4 === '' && (str_contains($k, 'secret') || str_contains($k, 'salt') || str_contains($k, 'pass'))) {
-                            $last4 = substr($val, -4);
+    foreach ($partners as $partnerKey => $keys) {
+        try {
+            $envHint = function_exists('getSetting')
+                ? strtolower(trim((string)getSetting($partnerKey . '_environment', '')))
+                : '';
+            $targetEnv = in_array($envHint, ['live', 'production'], true) ? 'live' : 'test';
+            $firstId = trim((string)getSetting($keys[0], ''));
+            if ($partnerKey === 'razorpay' && str_starts_with($firstId, 'rzp_live_')) {
+                $targetEnv = 'live';
+            }
+
+            $existing = getPartnerCredentials($partnerKey, $targetEnv);
+            unset($existing['_last4']);
+            $payload = is_array($existing) ? $existing : [];
+            $last4 = '';
+            foreach ($keys as $k) {
+                $val = trim((string)getSetting($k, ''));
+                if ($val === '') {
+                    continue;
+                }
+                if (empty($payload[$k])) {
+                    $payload[$k] = $val;
+                }
+                if ($last4 === '' && (str_contains($k, 'secret') || str_contains($k, 'salt') || str_contains($k, 'pass'))) {
+                    $last4 = substr((string)$payload[$k], -4);
+                }
+            }
+            if ($partnerKey === 'axis') {
+                if (empty($payload['axis_client_id']) && !empty($payload['axis_api_key'])) {
+                    $payload['axis_client_id'] = (string)$payload['axis_api_key'];
+                }
+                if (empty($payload['axis_client_secret']) && !empty($payload['axis_api_secret'])) {
+                    $payload['axis_client_secret'] = (string)$payload['axis_api_secret'];
+                }
+            }
+
+            if ($payload !== []) {
+                if ($last4 === '') {
+                    foreach ($payload as $pv) {
+                        if (!is_string($pv) || $pv === '') {
+                            continue;
                         }
+                        $last4 = substr($pv, -4);
+                        break;
                     }
                 }
-                if (empty($payload)) continue;
-
                 $encrypted = sensitiveEncrypt(json_encode($payload));
                 $db->prepare(
                     "INSERT INTO partner_credentials (partner_key, env, encrypted_payload, last4) VALUES (?,?,?,?)
                      ON DUPLICATE KEY UPDATE encrypted_payload=VALUES(encrypted_payload), last4=VALUES(last4)"
-                )->execute([$partnerKey, $env, $encrypted, $last4]);
-                error_log("UniWeb: migrated {$partnerKey} {$env} keys from gateway_settings to partner_credentials");
-            } catch (Throwable $e) {
-                error_log("UniWeb: key migration failed for {$partnerKey} {$env}: " . $e->getMessage());
+                )->execute([$partnerKey, $targetEnv, $encrypted, $last4]);
             }
+
+            $credsNow = getPartnerCredentials($partnerKey, $targetEnv);
+            if ($credsNow === []) {
+                $credsNow = getPartnerCredentials($partnerKey, $targetEnv === 'live' ? 'test' : 'live');
+            }
+            foreach ($keys as $k) {
+                $plain = trim((string)getSetting($k, ''));
+                if ($plain === '') {
+                    continue;
+                }
+                $inCreds = !empty($credsNow[$k])
+                    || ($k === 'axis_api_key' && !empty($credsNow['axis_client_id']))
+                    || ($k === 'axis_api_secret' && !empty($credsNow['axis_client_secret']));
+                if (!$inCreds) {
+                    continue;
+                }
+                if (function_exists('saveSetting')) {
+                    saveSetting($k, '');
+                } else {
+                    $db->prepare('UPDATE gateway_settings SET setting_value=? WHERE setting_key=?')->execute(['', $k]);
+                }
+                $wiped = true;
+            }
+        } catch (Throwable $e) {
+            error_log('UniWeb: key migration failed for ' . $partnerKey . ': ' . $e->getMessage());
         }
+    }
+
+    if ($wiped && function_exists('clearSettingCache')) {
+        clearSettingCache();
     }
 }
 
@@ -266,8 +373,15 @@ function getPartnerCredentialStatus(string $partnerKey): array
         $rows = $st->fetchAll();
         $result = ['test' => false, 'live' => false, 'test_last4' => '', 'live_last4' => ''];
         foreach ($rows as $r) {
-            $result[$r['env']] = true;
-            $result[$r['env'] . '_last4'] = $r['last4'];
+            $envName = (string)$r['env'];
+            if ($envName === 'production') {
+                $envName = 'live';
+            }
+            if ($envName !== 'test' && $envName !== 'live') {
+                continue;
+            }
+            $result[$envName] = true;
+            $result[$envName . '_last4'] = $r['last4'];
         }
         return $result;
     } catch (Throwable $e) {

@@ -53,6 +53,17 @@ CREATE TABLE IF NOT EXISTS settlement_batch_items (
     INDEX idx_settlement_batch (batch_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 044-style: CREATE + ALTER before INSERT so a half-applied DB never hits Unknown column.
+CREATE TABLE IF NOT EXISTS gateway_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    setting_key VARCHAR(100) NOT NULL,
+    setting_value TEXT,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_setting_key (setting_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+ALTER TABLE gateway_settings ADD COLUMN setting_key VARCHAR(100) NOT NULL DEFAULT '';
+ALTER TABLE gateway_settings ADD COLUMN setting_value TEXT;
+
 INSERT INTO gateway_settings (setting_key,setting_value)
 VALUES
 ('default_settlement_mode','manual'),

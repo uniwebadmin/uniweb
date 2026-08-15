@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+if (is_file(__DIR__ . '/release_helpers.php')) {
+    require_once __DIR__ . '/release_helpers.php';
+}
+
 /** Background auto-audit — runs on cron + admin panel (every N minutes) */
 
 function ensureAutoAuditEngine(): void

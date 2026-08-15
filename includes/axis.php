@@ -461,7 +461,7 @@ function axisTestConnection(): array
     ];
 
     if (!$result['configured']) {
-        $result['message'] = 'Axis Client ID / Secret missing in Gateway Settings.';
+        $result['message'] = 'Axis Client ID / Secret missing in Partner Registry → Keys.';
         return $result;
     }
 

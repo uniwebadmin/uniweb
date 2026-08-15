@@ -51,6 +51,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $env = trim((string)($_POST['env'] ?? 'test'));
         $configKeys = $partner['config_keys'] ?? [];
         $last4 = savePartnerCredentials($partnerKey, $env, $keys, $configKeys);
+        if (function_exists('saveSetting') && !empty($partner['env_key'])) {
+            $envSettingKey = (string)$partner['env_key'];
+            $envFromKeys = trim((string)($keys[$envSettingKey] ?? ''));
+            if ($envFromKeys !== '') {
+                saveSetting($envSettingKey, $envFromKeys);
+            } elseif ($env === 'live') {
+                saveSetting($envSettingKey, $partnerKey === 'cashfree' ? 'production' : 'live');
+            }
+        }
         $msg = $last4 && $last4 !== 'no_keys'
             ? 'API keys saved for ' . e($gateway['gateway_name']) . " (env: {$env}, last4: ***{$last4})"
             : ($last4 === 'no_keys' ? 'No key values submitted — nothing changed.' : 'API keys saved for ' . e($gateway['gateway_name']) . " (env: {$env})");
@@ -130,21 +139,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     }
 
     if ($action === 'save_route_config') {
-        if (!function_exists('setPartnerRouteConfig')) {
-            require_once __DIR__ . '/includes/split_settlement.php';
+        try {
+            if (!function_exists('setPartnerRouteConfig')) {
+                require_once __DIR__ . '/includes/split_settlement.php';
+            }
+            $adminEmail = $_SESSION['staff_email'] ?? $_SESSION['admin_email'] ?? 'admin';
+            $cfg = [
+                'route_enabled' => isset($_POST['route_enabled']) ? 1 : 0,
+                'route_mode' => trim((string)($_POST['route_mode'] ?? 'off')),
+                'route_provider' => trim((string)($_POST['route_provider'] ?? 'none')),
+                'route_linked_account_hint' => trim((string)($_POST['route_linked_account_hint'] ?? '')),
+                'route_split_on' => trim((string)($_POST['route_split_on'] ?? 'capture')),
+                'route_status' => trim((string)($_POST['route_status'] ?? 'scaffold')),
+            ];
+            $ok = setPartnerRouteConfig($partnerKey, $cfg, $adminEmail);
+            flash($ok ? 'success' : 'error', $ok ? 'Route/split config saved.' : 'Failed to save route config.');
+            if ($ok && function_exists('logStaffActivity')) { logStaffActivity('partner_route_config_saved', 'Route config saved for ' . $partnerKey . ': mode=' . $cfg['route_mode'] . ', status=' . $cfg['route_status'], null, 'partner', $partnerKey); }
+        } catch (Throwable $e) {
+            if (function_exists('logPlatformError')) {
+                logPlatformError('route_tab_save', $e->getMessage(), ['partner_key' => $partnerKey]);
+            }
+            flash('error', 'Could not save route config. Error logged.');
         }
-        $adminEmail = $_SESSION['staff_email'] ?? $_SESSION['admin_email'] ?? 'admin';
-        $cfg = [
-            'route_enabled' => isset($_POST['route_enabled']) ? 1 : 0,
-            'route_mode' => trim((string)($_POST['route_mode'] ?? 'off')),
-            'route_provider' => trim((string)($_POST['route_provider'] ?? 'none')),
-            'route_linked_account_hint' => trim((string)($_POST['route_linked_account_hint'] ?? '')),
-            'route_split_on' => trim((string)($_POST['route_split_on'] ?? 'capture')),
-            'route_status' => trim((string)($_POST['route_status'] ?? 'scaffold')),
-        ];
-        $ok = setPartnerRouteConfig($partnerKey, $cfg, $adminEmail);
-        flash($ok ? 'success' : 'error', $ok ? 'Route/split config saved.' : 'Failed to save route config.');
-        if ($ok && function_exists('logStaffActivity')) { logStaffActivity('partner_route_config_saved', 'Route config saved for ' . $partnerKey . ': mode=' . $cfg['route_mode'] . ', status=' . $cfg['route_status'], null, 'partner', $partnerKey); }
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=commercial');
     }
 
@@ -362,9 +378,18 @@ require_once __DIR__ . '/header.php';
         </div>
     </div>
 
-    <?php elseif ($activeTab === 'commercial'):
+    <?php     elseif ($activeTab === 'commercial'):
+        if (function_exists('ensureMissingColumns')) {
+            ensureMissingColumns();
+        }
         if (!function_exists('getPartnerBaseMdr')) {
             require_once __DIR__ . '/includes/split_settlement.php';
+        }
+        if (function_exists('ensureSplitSettlementTable')) {
+            ensureSplitSettlementTable();
+        }
+        if (function_exists('ensurePartnerCommercialSeeded')) {
+            ensurePartnerCommercialSeeded($partnerKey, 'admin');
         }
         $pricingError = null;
         $defaultP = 0.0;

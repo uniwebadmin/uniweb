@@ -92,6 +92,18 @@ $registryFiles = array_column(getWatchdogPageRegistry(), 'file');
 foreach (['qr_pay.php', 'video_kyc.php', 'admin.php', 'blog_post.php', 'global_search.php', 'kyc_media_receiver.php'] as $mustCover) {
     $assert(in_array($mustCover, $registryFiles, true), 'watchdog_registry_covers_' . str_replace('.php', '', $mustCover));
 }
+$assert(watchdogSkipHttpProbe('cron_auto_kyc.php') && watchdogSkipHttpProbe('platform_watchdog.php') && watchdogSkipHttpProbe('cron_db_backup.php'), 'watchdog_skips_key_gated_crons');
+$assert(in_array(403, watchdogExpectedHttpStatuses('cron_mandates.php', 'system'), true), 'watchdog_cron_403_expected');
+$assert(in_array(404, watchdogExpectedHttpStatuses('checkout.php', 'none'), true), 'watchdog_checkout_404_expected');
+$assert(str_contains((string)file_get_contents($root . '/includes/link_watchdog.php'), 'CURL_IPRESOLVE_V4'), 'watchdog_http_probe_forces_ipv4');
+$assert(str_contains((string)file_get_contents($root . '/includes/cron_guard.php'), 'UniWeb-Watchdog'), 'cron_auth_skips_watchdog_ua_log');
+$assert(is_file($root . '/admin_audit_plan.php'), 'file_admin_audit_plan_php');
+$auditPlan = (string)file_get_contents($root . '/admin_audit_plan.php');
+$assert(str_contains($auditPlan, 'PHASE 0') && str_contains($auditPlan, 'APPENDIX'), 'audit_plan_has_phase0_and_appendix');
+$assert(str_contains($auditPlan, 'NBFC') && str_contains($auditPlan, 'PPI'), 'audit_plan_excludes_nbfc_ppi');
+$assert(str_contains($auditPlan, 'Reference only'), 'audit_plan_marks_market_whitelabel_reference');
+$assert(str_contains((string)file_get_contents($root . '/header.php'), 'admin_audit_plan.php'), 'admin_nav_has_audit_plan');
+$assert(in_array('admin_audit_plan.php', $registryFiles, true), 'watchdog_registry_covers_audit_plan');
 
 // Customer (payer) portal: passwordless OTP login + read-only history + grievance tickets.
 $custLib = (string)file_get_contents($root . '/includes/customer_portal.php');
@@ -352,7 +364,7 @@ $assert(str_contains((string)file_get_contents($root . '/includes/partner_contro
 $notifyLib = (string)file_get_contents($root . '/includes/notify.php');
 $assert(str_contains($notifyLib, 'function onMerchantNotificationCreated') && str_contains($notifyLib, 'function maybeSendWhatsAppMerchantAlert'), 'whatsapp_alert_hook_helpers');
 $cfgDev = (string)file_get_contents($root . '/config.dev.php');
-$assert(str_contains($cfgDev, 'onMerchantNotificationCreated'), 'config_dev_notification_hooks_whatsapp');
+$assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'onMerchantNotificationCreated'), 'config_dev_notification_hooks_whatsapp');
 $prefsUi = (string)file_get_contents($root . '/merchant_notify_settings.php');
 $assert(str_contains($prefsUi, 'whatsapp') && str_contains($prefsUi, 'WhatsApp'), 'merchant_notify_prefs_whatsapp_channel');
 $mui = (string)file_get_contents($root . '/includes/merchant_ui.php');
@@ -405,6 +417,25 @@ $autoKycLib = (string)file_get_contents($root . '/includes/auto_kyc.php');
 $assert(!str_contains($autoKycLib, "gateway_submit.php"), 'auto_kyc_no_missing_gateway_submit_require');
 $schemaEnsure = (string)file_get_contents($root . '/includes/schema_ensure.php');
 $assert(str_contains($schemaEnsure, 'onboarding_state'), 'schema_ensure_has_onboarding_state');
+$assert(str_contains($schemaEnsure, 'CREATE TABLE IF NOT EXISTS partner_commercial'), 'schema_ensure_creates_partner_commercial');
+$assert(str_contains($schemaEnsure, 'CREATE TABLE IF NOT EXISTS gateway_events'), 'schema_ensure_creates_gateway_events');
+$assert(str_contains($schemaEnsure, 'CREATE TABLE IF NOT EXISTS kyc_documents'), 'schema_ensure_creates_kyc_documents');
+$assert(str_contains($schemaEnsure, "ensureCollationConsistency();\nensureMissingColumns();")
+    || (str_contains($schemaEnsure, 'ensureCollationConsistency();') && substr_count($schemaEnsure, 'ensureMissingColumns();') >= 2), 'schema_ensure_runs_missing_columns_on_load');
+$mig060 = (string)file_get_contents($root . '/migrations/060_partner_route_scaffold.sql');
+$assert(strpos($mig060, 'CREATE TABLE IF NOT EXISTS partner_commercial') !== false
+    && strpos($mig060, 'CREATE TABLE IF NOT EXISTS partner_commercial') < strpos($mig060, 'ADD COLUMN IF NOT EXISTS route_enabled'), 'migration_060_create_before_alter');
+$mig058 = (string)file_get_contents($root . '/migrations/058_missing_columns.sql');
+$assert(strpos($mig058, 'CREATE TABLE IF NOT EXISTS gateway_events') !== false
+    && strpos($mig058, 'CREATE TABLE IF NOT EXISTS gateway_events') < strpos($mig058, 'ADD COLUMN provider_order_id'), 'migration_058_create_gateway_events_before_alter');
+$kycAdmin = (string)file_get_contents($root . '/admin_kyc.php');
+$assert(str_contains($kycAdmin, 'COLLATE utf8mb4_unicode_ci'), 'admin_kyc_joins_use_unicode_collation');
+$evPack = (string)file_get_contents($root . '/includes/evidence_pack.php');
+$assert(str_contains($evPack, 'ge.payment_order_id = po.id'), 'evidence_pack_joins_gateway_events_by_order_id');
+$gwDetail = (string)file_get_contents($root . '/admin_gateway_detail.php');
+$assert(str_contains($gwDetail, 'No commercial terms saved yet'), 'commercial_tab_empty_not_fatal');
+$splitLib = (string)file_get_contents($root . '/includes/split_settlement.php');
+$assert(str_contains($splitLib, 'return [];'), 'get_all_partner_commercial_empty_safe');
 $kycPage = (string)file_get_contents($root . '/kyc.php');
 $assert(str_contains($kycPage, 'KYC submit status update failed'), 'kyc_submit_status_update_soft_fails');
 $checkoutSrc = (string)file_get_contents($root . '/checkout.php');
@@ -417,13 +448,27 @@ $assert(str_contains($collLib, 'Merchant enabled_methods JSON is the product dat
 $assert(!str_contains($collLib, "partnerMethodOn('payu', 'debit_card')"), 'checkout_cards_not_hidden_by_empty_partner_row');
 $migLib = (string)file_get_contents($root . '/includes/migrations.php');
 $assert(str_contains($migLib, 'applied_files'), 'migrations_return_applied_files');
+$assert(str_contains($migLib, 'pending_after'), 'migrations_return_pending_after');
+$assert(str_contains($migLib, 'migrationSqlWithoutIfNotExists'), 'migrations_retry_without_if_not_exists');
+$assert(str_contains($migLib, 'pdoSqlState'), 'migrations_expose_sqlstate');
 $mig044 = (string)file_get_contents($root . '/migrations/044_gateway_reason_map_db.sql');
 $assert(str_contains($mig044, 'CREATE TABLE IF NOT EXISTS gateway_reason_maps'), 'migration_044_creates_table_before_insert');
 $assert(str_contains($mig044, 'ADD COLUMN partner_key'), 'migration_044_adds_partner_key_before_insert');
+$mig002 = (string)file_get_contents($root . '/migrations/002_legacy_wallet_baseline.sql');
+$assert(strpos($mig002, 'CREATE TABLE IF NOT EXISTS gateway_settings') !== false
+    && strpos($mig002, 'CREATE TABLE IF NOT EXISTS gateway_settings') < strpos($mig002, 'INSERT INTO gateway_settings'), 'migration_002_create_settings_before_insert');
+$mig031 = (string)file_get_contents($root . '/migrations/031_multi_virtual_accounts.sql');
+$assert(strpos($mig031, 'ADD COLUMN va_number') !== false
+    && strpos($mig031, 'ADD COLUMN va_number') < strpos($mig031, 'INSERT INTO merchant_virtual_accounts'), 'migration_031_alter_before_insert');
+$mig054 = (string)file_get_contents($root . '/migrations/054_payment_methods_orchestrator.sql');
+$assert(strpos($mig054, 'ADD COLUMN gateway_key') !== false
+    && strpos($mig054, 'ADD COLUMN gateway_key') < strpos($mig054, 'INSERT INTO gateway_registry'), 'migration_054_alter_before_insert');
 $assert(str_contains($migLib, 'Migration failed:'), 'migrations_name_failing_file');
 $assert(!str_contains($migLib, 'Applied migration checksum mismatch'), 'migrations_checksum_rebase_not_throw');
 $migRel = (string)file_get_contents($root . '/migrate_release.php');
 $assert(str_contains($migRel, "'migration' => \$file"), 'migrate_release_names_failed_file');
+$assert(str_contains($migRel, "'sqlstate'"), 'migrate_release_json_has_sqlstate');
+$assert(str_contains($migRel, 'empty($pendingAfter)'), 'migrate_release_ok_only_when_no_pending');
 $errCatch = (string)file_get_contents($root . '/includes/error_catcher.php');
 $assert(!str_contains($errCatch, '%checkout.php on line%'), 'error_catcher_does_not_auto_resolve_checkout');
 $assert(str_contains($errCatch, 'qr_image.php'), 'error_catcher_skips_html_on_qr_image');
@@ -432,6 +477,18 @@ $assert(str_contains($qrImg, "ini_set('display_errors', '0')"), 'qr_image_hides_
 $assert(str_contains($qrImg, "class_exists('QRcode'"), 'qr_image_requires_qrcode_class');
 $errLog = (string)file_get_contents($root . '/admin_error_log.php');
 $assert(str_contains($errLog, 'probe_catcher'), 'error_log_has_catcher_probe');
+$assert(str_contains($errCatch, 'admin_error_log.php?probe_ok=1'), 'error_catcher_probe_returns_to_error_log');
+$assert(str_contains($errCatch, 'error_log_db'), 'watchdog_reads_error_log_from_db');
+$assert(str_contains($errCatch, "defined('APP_URL')"), 'snag_page_guards_missing_app_url');
+$assert(is_file($root . '/includes/boot_errors.php'), 'file_boot_errors_php');
+$bootErr = (string)file_get_contents($root . '/includes/boot_errors.php');
+$assert(str_contains($bootErr, "ini_set('display_errors', '0')") && str_contains($bootErr, 'env_loader.php'), 'boot_errors_hides_php_and_loads_catcher');
+$cfgDevBoot = (string)file_get_contents($root . '/config.dev.php');
+$assert(strpos($cfgDevBoot, 'boot_errors.php') !== false
+    && strpos($cfgDevBoot, 'boot_errors.php') < strpos($cfgDevBoot, 'APP_NAME'), 'config_dev_loads_boot_errors_first');
+$envLoader = (string)file_get_contents($root . '/includes/env_loader.php');
+$assert(str_contains($envLoader, 'uniweb.co.in'), 'env_loader_forces_display_off_on_live_host');
+$assert(str_contains($errLog, 'probe_ok'), 'error_log_accepts_probe_ok_redirect');
 $hdr = (string)file_get_contents($root . '/header.php');
 $assert(str_contains($hdr, 'countUnresolvedPlatformErrors'), 'admin_header_error_badge_from_db');
 $gwSettings = (string)file_get_contents($root . '/gateway_settings.php');
@@ -448,6 +505,61 @@ $assert(str_contains($backupCron, 'uniwebSendBackupEmail'), 'backup_cron_sends_o
 $dbBackupLib = (string)file_get_contents($root . '/includes/db_backup.php');
 $assert(str_contains($dbBackupLib, 'startelecom620@gmail.com'), 'backup_email_defaults_to_owner_gmail');
 $assert(is_file($root . '/includes/db_backup.php'), 'file_includes_db_backup_php');
+
+// P0-04: notification dedup lives in includes, not only gitignored config.php
+$assert(is_file($root . '/includes/notifications.php'), 'file_notifications_php');
+$assert(is_file($root . '/includes/release_helpers.php'), 'file_release_helpers_php');
+$notifLib = (string)file_get_contents($root . '/includes/notifications.php');
+$assert(str_contains($notifLib, 'function notifyMerchant') && str_contains($notifLib, 'event_key'), 'notifyMerchant_dedup_uses_event_key');
+$cfgDevNotif = (string)file_get_contents($root . '/config.dev.php');
+$assert(str_contains($cfgDevNotif, "includes/notifications.php"), 'config_dev_requires_notifications_include');
+$assert(str_contains($cfgDevNotif, "'release_helpers'"), 'config_dev_includes_release_helpers');
+$assert(str_contains((string)file_get_contents($root . '/includes/notify.php'), 'release_helpers.php'), 'notify_php_loads_release_helpers');
+$assert(str_contains((string)file_get_contents($root . '/admin_kyc.php'), 'release_helpers.php'), 'admin_kyc_loads_release_helpers');
+$assert(str_contains((string)file_get_contents($root . '/merchant_register.php'), 'notifyMerchant'), 'signup_uses_notifyMerchant_not_4arg_createNotification');
+
+// P0-05: mailer loads templates; KYC/mail callers guard missing function; SMTP soft-fail
+$mailer = (string)file_get_contents($root . '/includes/mailer.php');
+$assert(str_contains($mailer, "require_once __DIR__ . '/email_templates.php'"), 'mailer_requires_email_templates');
+$assert(str_contains($mailer, 'SMTP send failed'), 'smtp_send_soft_fails');
+$emailTpl = (string)file_get_contents($root . '/includes/email_templates.php');
+$assert(str_contains($emailTpl, 'sendPlatformEmail') && str_contains($emailTpl, 'mailer.php'), 'email_templates_requires_mailer_if_missing');
+$assert(str_contains($emailTpl, 'Templated email skipped: SMTP not configured'), 'templated_email_skips_without_smtp');
+$kycSrc = (string)file_get_contents($root . '/admin_kyc.php');
+$assert(substr_count($kycSrc, "function_exists('sendTemplatedEmail')") >= 3, 'admin_kyc_guards_sendTemplatedEmail');
+$assert(str_contains((string)file_get_contents($root . '/includes/refunds.php'), "function_exists('sendTemplatedEmail')"), 'refunds_guard_templated_email');
+$assert(str_contains((string)file_get_contents($root . '/includes/settlement_engine.php'), "function_exists('sendTemplatedEmail')"), 'settlement_guard_templated_email');
+
+// P1-01: keys only in partner_credentials; Platform Settings cannot save live PG secrets
+$pCtrl = (string)file_get_contents($root . '/includes/partner_control.php');
+$assert(str_contains($pCtrl, 'function isPartnerCredentialSettingKey') && str_contains($pCtrl, 'function uniwebPartnerCredentialSettingMap'), 'p1_partner_credential_key_blocklist');
+$assert(str_contains($pCtrl, 'Does not read plaintext gateway_settings'), 'p1_getPartnerSetting_no_gateway_settings_fallback');
+$bannerLib = (string)file_get_contents($root . '/includes/checkout_mode_banner.php');
+$assert(str_contains($bannerLib, 'isPartnerCredentialSettingKey') && str_contains($bannerLib, 'never gateway_settings'), 'p1_platform_save_skips_pg_secrets');
+$gwP1 = (string)file_get_contents($root . '/gateway_settings.php');
+$assert(!preg_match('/name="settings\\[(razorpay_key_secret|cashfree_secret_key|payu_merchant_salt)\\]"/', $gwP1), 'p1_platform_form_has_no_pg_secret_inputs');
+$assert(str_contains($gwP1, 'This page does not accept live PG API keys'), 'p1_platform_banner_no_pg_keys');
+$assert(str_contains($gwP1, 'template for new merchants') || str_contains($gwP1, 'new merchants only'), 'p1_03_primary_pg_is_new_merchant_template');
+$hdrP1 = (string)file_get_contents($root . '/header.php');
+$assert(str_contains($hdrP1, "['gateway_settings.php','Platform Settings']"), 'p1_nav_platform_settings_not_integrations');
+$siteP1 = (string)file_get_contents($root . '/admin_website.php');
+$assert(str_contains($siteP1, 'Partner Registry → Partner Detail → Keys') && !str_contains($siteP1, 'paste in Gateway Settings'), 'p1_website_keys_guide_points_to_registry');
+
+// P1-02: commercial UPSERT + seed on first open; route is scaffold not live API
+$splitP1 = (string)file_get_contents($root . '/includes/split_settlement.php');
+$assert(str_contains($splitP1, 'function ensurePartnerCommercialSeeded'), 'p1_commercial_seed_helper');
+$assert(str_contains($splitP1, 'ON DUPLICATE KEY UPDATE base_mdr_percent=VALUES(base_mdr_percent)'), 'p1_commercial_upsert');
+$gwDetailP1 = (string)file_get_contents($root . '/admin_gateway_detail.php');
+$assert(str_contains($gwDetailP1, 'ensurePartnerCommercialSeeded'), 'p1_commercial_tab_seeds_on_open');
+$assert(str_contains($gwDetailP1, 'No provider API calls are made'), 'p1_route_scaffold_not_live_api');
+$assert(str_contains($gwDetailP1, 'No commercial terms saved yet'), 'commercial_tab_empty_not_fatal');
+
+// P1-03: platform primary label is template, not global
+$gwLibP1 = (string)file_get_contents($root . '/includes/gateways.php');
+$assert(str_contains($gwLibP1, 'New-merchant template'), 'p1_gateway_status_not_active_primary');
+$assert(str_contains($gwLibP1, 'template/fallback for new merchants'), 'p1_active_pg_comment_template_only');
+$healthP1 = (string)file_get_contents($root . '/includes/platform_health.php');
+$assert(str_contains($healthP1, 'New-merchant template') && !str_contains($healthP1, 'Active primary'), 'p1_health_primary_relabel');
 
 // Instant printable UPI QR (direct P2M) — page + helper must exist and be honest about routing.
 $assert(is_file($root . '/qr_upi_print.php'), 'file_qr_upi_print_php', 'qr_upi_print.php');

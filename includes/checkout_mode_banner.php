@@ -93,9 +93,16 @@ function renderCheckoutCustomerFields(array $link): void
 
 function saveGatewaySettingsPreservingSecrets(array $posted, PDO $db): void
 {
+    if (!function_exists('isPartnerCredentialSettingKey') && is_file(__DIR__ . '/partner_control.php')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
     foreach ($posted as $key => $value) {
         $key = preg_replace('/[^a-z0-9_]/', '', (string)$key);
         if ($key === '') {
+            continue;
+        }
+        // P1-01: live PG secrets belong in Partner Registry → Keys, never gateway_settings.
+        if (function_exists('isPartnerCredentialSettingKey') && isPartnerCredentialSettingKey($key)) {
             continue;
         }
         $val = trim((string)$value);

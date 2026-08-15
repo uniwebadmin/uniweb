@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (function_exists('ensureMissingColumns')) {
+    ensureMissingColumns();
+}
 requireStaffAccess(['super', 'ceo', 'finance', 'ops']);
 
 $days = (int)($_GET['days'] ?? 30);

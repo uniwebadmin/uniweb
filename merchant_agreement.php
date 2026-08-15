@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (is_file(__DIR__ . '/includes/release_helpers.php')) {
+    require_once __DIR__ . '/includes/release_helpers.php';
+}
 require_once __DIR__ . '/includes/public_legal_page.php';
 require_once __DIR__ . '/includes/agreement_pdf.php';
 require_once __DIR__ . '/includes/esign.php';
@@ -142,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($acceptance) {
         generateAndStoreMerchantAgreementPdf($merchant, $acceptance, $sections);
         emailMerchantAgreementAccepted($merchant, $acceptance);
-        createNotification($merchantId, 'Agreement accepted', 'Merchant Services Agreement v' . $version . ' recorded. Download your PDF copy anytime.', 'agreement_accepted_' . $version);
+        notifyMerchant($merchantId, 'Agreement accepted', 'Merchant Services Agreement v' . $version . ' recorded. Download your PDF copy anytime.', 'agreement_accepted_' . $version);
     }
     flash('success', 'Merchant Agreement accepted. A PDF copy has been emailed to you.');
     redirect('merchant_agreement.php');

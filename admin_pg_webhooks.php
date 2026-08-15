@@ -53,7 +53,7 @@ require_once __DIR__ . '/header.php';
         </table>
     </div>
     <div class="px-6 py-4 border-t border-gray-800 text-xs text-gray-500">
-        Configure webhook URLs in <a href="gateway_settings.php" class="text-brand-400 hover:underline">Gateway Settings</a>.
+        Configure webhook URLs in <a href="admin_gateway_registry.php" class="text-brand-400 hover:underline">Partner Registry → Webhooks</a>.
         Razorpay: <?= e(pgWebhookUrl('razorpay')) ?> · Cashfree: <?= e(pgWebhookUrl('cashfree')) ?> · PayU: <?= e(pgWebhookUrl('payu')) ?>
     </div>
 </div>

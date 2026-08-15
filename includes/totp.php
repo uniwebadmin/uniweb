@@ -101,9 +101,13 @@ function totpAuthUrl(string $base32Secret, string $accountLabel, string $issuer 
 function encryptTotpSecret(string $plainSecret): string
 {
     if (function_exists('sensitiveEncrypt')) {
-        $enc = sensitiveEncrypt($plainSecret);
-        if ($enc !== null && $enc !== '') {
-            return $enc;
+        try {
+            $enc = sensitiveEncrypt($plainSecret);
+            if ($enc !== null && $enc !== '') {
+                return $enc;
+            }
+        } catch (Throwable $e) {
+            error_log('UniWeb encryptTotpSecret failed: ' . $e->getMessage());
         }
     }
     return $plainSecret;
@@ -121,8 +125,12 @@ function decryptTotpSecret(?string $stored): string
     }
     if (function_exists('isSensitiveEncrypted') && isSensitiveEncrypted($stored)) {
         if (function_exists('sensitiveDecrypt')) {
-            $dec = sensitiveDecrypt($stored);
-            return $dec ?? '';
+            try {
+                return sensitiveDecrypt($stored) ?? '';
+            } catch (Throwable $e) {
+                error_log('UniWeb decryptTotpSecret failed: ' . $e->getMessage());
+                return '';
+            }
         }
     }
     // Legacy plaintext — return as-is
@@ -147,7 +155,12 @@ function decryptTotpSecretWithUpgrade(?string $stored, string $table, int $rowId
     // Already encrypted — just decrypt
     if (function_exists('isSensitiveEncrypted') && isSensitiveEncrypted($stored)) {
         if (function_exists('sensitiveDecrypt')) {
-            return sensitiveDecrypt($stored) ?? '';
+            try {
+                return sensitiveDecrypt($stored) ?? '';
+            } catch (Throwable $e) {
+                error_log('UniWeb decryptTotpSecretWithUpgrade failed: ' . $e->getMessage());
+                return '';
+            }
         }
         return '';
     }

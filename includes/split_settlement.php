@@ -194,6 +194,27 @@ function setPartnerCommercial(string $partnerKey, float $baseMdr, string $settle
 }
 
 /**
+ * P1-02: create a default partner_commercial row on first open so the form is never empty/fatal.
+ */
+function ensurePartnerCommercialSeeded(string $partnerKey, string $updatedBy = 'system'): void
+{
+    ensureSplitSettlementTable();
+    $partnerKey = strtolower((string)preg_replace('/[^a-z0-9_]/', '', $partnerKey));
+    if ($partnerKey === '') {
+        return;
+    }
+    try {
+        getDB()->prepare(
+            'INSERT INTO partner_commercial (partner_key, base_mdr_percent, settlement_mode, updated_by)
+             VALUES (?, 0, ?, ?)
+             ON DUPLICATE KEY UPDATE partner_key = partner_key'
+        )->execute([$partnerKey, 'standard_settle_mode', $updatedBy]);
+    } catch (Throwable $e) {
+        // non-fatal — save_commercial UPSERT still works
+    }
+}
+
+/**
  * F1: Get partner settlement mode (route_mode or standard_settle_mode).
  */
 function getPartnerSettlementMode(string $partnerKey): string

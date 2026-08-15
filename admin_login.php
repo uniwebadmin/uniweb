@@ -1,7 +1,15 @@
 <?php
 require_once __DIR__ . '/config.php';
-ensureAdminAuthSecurity();
-ensureAdminMfaColumns();
+try {
+    ensureAdminAuthSecurity();
+    ensureAdminMfaColumns();
+} catch (Throwable $e) {
+    if (function_exists('logPlatformError')) {
+        logPlatformError('exception', $e->getMessage(), ['file' => $e->getFile(), 'line' => $e->getLine()]);
+    } else {
+        error_log('admin_login bootstrap: ' . $e->getMessage());
+    }
+}
 if (isAdminLoggedIn()) {
     redirect(isSuperAdmin() ? 'admin_dashboard.php' : 'staff_dashboard.php');
 }
@@ -17,6 +25,7 @@ if (isset($_GET['cancel']) && verifyCsrf($_GET['token'] ?? '')) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    try {
     $db = getDB();
     $action = (string)($_POST['action'] ?? 'password');
 
@@ -103,6 +112,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             flash('success', 'MFA enabled. Welcome, ' . $admin['name']);
             redirect('admin_dashboard.php');
         }
+    }
+    } catch (Throwable $e) {
+        if (function_exists('logPlatformError')) {
+            logPlatformError('exception', $e->getMessage(), ['file' => $e->getFile(), 'line' => $e->getLine()]);
+        } else {
+            error_log('admin_login: ' . $e->getMessage());
+        }
+        $error = 'Login hit a temporary error. Wait 10 seconds and try again.';
     }
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $error = 'Security token expired. Refresh and try again.';

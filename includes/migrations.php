@@ -145,6 +145,30 @@ function canSkipMigrationDuplicateRow(PDOException $exception, string $statement
         );
 }
 
+/** MySQL rejects MariaDB "IF NOT EXISTS" on ADD COLUMN/INDEX — retry without it, then duplicate-skip. */
+function migrationSqlWithoutIfNotExists(string $statement): ?string
+{
+    if (!preg_match('/\bIF\s+NOT\s+EXISTS\b/i', $statement)) {
+        return null;
+    }
+    $retry = preg_replace('/\s+IF\s+NOT\s+EXISTS\b/i', '', $statement);
+    return is_string($retry) && $retry !== $statement ? $retry : null;
+}
+
+function pdoSqlState(Throwable $e): ?string
+{
+    $cur = $e;
+    while ($cur) {
+        if ($cur instanceof PDOException) {
+            $info = $cur->errorInfo ?? [];
+            $state = (string)($info[0] ?? $cur->getCode());
+            return $state !== '' ? $state : null;
+        }
+        $cur = $cur->getPrevious();
+    }
+    return null;
+}
+
 function applyPendingMigrations(string $directory): array
 {
     $db = getDB();
@@ -172,6 +196,16 @@ function applyPendingMigrations(string $directory): array
                         try {
                             $db->exec($statement);
                         } catch (PDOException $e) {
+                            $withoutIf = migrationSqlWithoutIfNotExists($statement);
+                            if ($withoutIf !== null) {
+                                try {
+                                    $db->exec($withoutIf);
+                                    continue;
+                                } catch (PDOException $retryEx) {
+                                    $e = $retryEx;
+                                    $statement = $withoutIf;
+                                }
+                            }
                             if (canSkipMigrationDuplicateColumn($e, $statement)) {
                                 error_log('UniWeb migration duplicate column skipped: ' . $version);
                                 continue;
@@ -205,13 +239,16 @@ function applyPendingMigrations(string $directory): array
                 $appliedFiles[] = $version;
                 $details[] = ['version' => $version, 'status' => 'applied'];
             } catch (Throwable $e) {
+                $state = pdoSqlState($e);
+                $suffix = $state ? ' [SQLSTATE ' . $state . ']' : '';
                 throw new RuntimeException(
-                    'Migration failed: ' . $version . ' — ' . $e->getMessage(),
+                    'Migration failed: ' . $version . ' — ' . $e->getMessage() . $suffix,
                     0,
                     $e
                 );
             }
         }
+        $pendingAfter = array_column(pendingMigrations($directory), 'version');
     } finally {
         $release = $db->prepare('SELECT RELEASE_LOCK(?)');
         $release->execute([$lockName]);
@@ -222,6 +259,6 @@ function applyPendingMigrations(string $directory): array
         'applied_files' => $appliedFiles,
         'skipped' => 0,
         'details' => $details,
-        'pending_after' => [],
+        'pending_after' => $pendingAfter ?? [],
     ];
 }

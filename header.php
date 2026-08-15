@@ -342,7 +342,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                 ]],
                 ['id' => 'partners', 'title' => 'Partners & Rails', 'items' => [
                     ['admin_gateway_registry.php','Partner Registry'],
-                    ['gateway_settings.php','Platform Integrations'],
+                    ['gateway_settings.php','Platform Settings'],
                     ['admin_method_requests.php','Method Requests'],
                     ['admin_forward_queue.php','KYC Forward Queue'],
                     ['admin_reason_map.php','Reason Maps'],
@@ -388,6 +388,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                 ]],
                 ['id' => 'platform', 'title' => 'Data & Platform', 'items' => [
                     ['admin_platform_status.php','Platform Status + Cron Jobs'],
+                    ['admin_audit_plan.php','Deep Audit Plan'],
                     ['admin_transaction_monitor.php','Transaction Monitor'],
                     ['admin_throughput.php','Throughput Monitor'],
                     ['admin_website.php','Website & API Keys'],

@@ -57,7 +57,7 @@ function getPartnerRegistry(): array
                 'Subscribe Virtual Account + Collections APIs on Axis portal',
                 'Whitelist server IP on Axis UAT',
                 'Configure webhook URL in portal',
-                'Paste Client ID + Secret in Gateway Settings',
+                'Paste Client ID + Secret in Partner Registry → Keys',
                 'Run Test Token on Axis UAT page',
             ],
         ],
@@ -114,7 +114,7 @@ function getPartnerRegistry(): array
                 'Create app on RBL sandbox portal',
                 'Subscribe to VA + UPI Collection + Payout products',
                 'Paste Client ID + Secret',
-                'Run Test Connection in Gateway Settings',
+                'Run Test Connection in Partner Registry → Test',
             ],
         ],
         'payu' => [
