@@ -381,6 +381,16 @@ $assert(!str_contains($navSrc, "['admin_link_audit.php'") && !str_contains($navS
 $assert(!str_contains($navSrc, "['video_kyc.php'"), 'sum_video_kyc_not_separate_nav');
 $assert(is_file($root . '/pci.php') && str_contains((string)file_get_contents($root . '/pci.php'), 'pci_dss.php'), 'sum_pci_alias_redirect');
 $assert(str_contains((string)file_get_contents($root . '/admin_throughput.php'), 'admin_transaction_monitor.php'), 'sum_throughput_redirects_to_monitor');
+$assert(str_contains((string)file_get_contents($root . '/chargebacks.php'), '>Chargebacks</h2>') && !str_contains((string)file_get_contents($root . '/chargebacks.php'), 'Disputes &amp; chargebacks'), 'dup05_chargebacks_title_only');
+$colSetDup = (string)file_get_contents($root . '/collection_settings.php');
+$assert(str_contains($colSetDup, 'do not dual-write enabled_methods') && !str_contains($colSetDup, 'enabled_methods=?'), 'dup02_collection_no_method_dual_write');
+$assert(str_contains((string)file_get_contents($root . '/admin_financial_reports.php'), 'Reports hub') && str_contains((string)file_get_contents($root . '/admin_reports.php'), 'Reports hub'), 'dup03_reports_hub_tabs');
+$walletIconPos = strpos($navSrc, "['wallet.php', 'Settlement Balance', '");
+$stlIconPos = strpos($navSrc, "['settlements.php'");
+$assert($walletIconPos !== false && $stlIconPos !== false, 'dup01_balance_and_settlements_in_nav');
+$walletIconSnippet = $walletIconPos !== false ? substr($navSrc, $walletIconPos, 220) : '';
+$stlIconSnippet = $stlIconPos !== false ? substr($navSrc, $stlIconPos, 280) : '';
+$assert(str_contains($walletIconSnippet, 'M17 9V7a2 2 0 00-2-2H5') && str_contains($stlIconSnippet, 'M9 5H7a2 2 0 00-2 2v12'), 'dup01_distinct_balance_settlements_icons');
 $assert(str_contains((string)file_get_contents($root . '/includes/page_ux.php'), 'function uxSoftErrorExit'), 'sum_soft_error_helper');
 $assert(str_contains((string)file_get_contents($root . '/invoice_pdf.php'), 'uxSoftErrorExit') && str_contains((string)file_get_contents($root . '/admin_kyc_doc.php'), 'uxSoftErrorExit'), 'sum_pdf_kyc_soft_errors');
 $assert(str_contains((string)file_get_contents($root . '/solutions.php'), 'Settlements & balance'), 'sum_public_wallet_wording');

@@ -18,37 +18,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $mode = $_POST['collection_mode'] ?? 'direct_upi';
     $modes = array_keys(getMerchantFacingCollectionModes($merchant));
     if (!in_array($mode, $modes, true)) $mode = getMerchantCollectionMode($merchant) ?: 'direct_upi';
-    // Payment methods now managed on payment_methods.php — but still save if posted
-    $enabledKeys = array_map('strval', $_POST['enabled_methods'] ?? []);
-    $enabled = array_values(array_intersect(
-        merchantEntitledMethods($merchant),
-        $enabledKeys
-    ));
-    if (empty($enabled)) $enabled = ['upi_p2m'];
+    // Payment methods ON/OFF live only on payment_methods.php — do not dual-write enabled_methods here (DUP-02).
     try {
-        $db->prepare('UPDATE merchants SET collection_mode=?, enabled_methods=?, payu_child_key=?, razorpay_linked_account_id=?, cashfree_vendor_id=? WHERE id=?')
+        $db->prepare('UPDATE merchants SET collection_mode=?, payu_child_key=?, razorpay_linked_account_id=?, cashfree_vendor_id=? WHERE id=?')
             ->execute([
                 $mode,
-                json_encode($enabled),
                 trim($_POST['payu_child_key'] ?? '') ?: null,
                 trim($_POST['razorpay_linked_account_id'] ?? '') ?: null,
                 trim($_POST['cashfree_vendor_id'] ?? '') ?: null,
                 $merchant['id'],
             ]);
     } catch (Throwable $e) {
-        try {
-            $db->prepare('UPDATE merchants SET collection_mode=?, payu_child_key=?, razorpay_linked_account_id=?, cashfree_vendor_id=? WHERE id=?')
-                ->execute([
-                    $mode,
-                    trim($_POST['payu_child_key'] ?? '') ?: null,
-                    trim($_POST['razorpay_linked_account_id'] ?? '') ?: null,
-                    trim($_POST['cashfree_vendor_id'] ?? '') ?: null,
-                    $merchant['id'],
-                ]);
-        } catch (Throwable $e2) {
-            flash('error', 'Could not save collection settings. Please try again.');
-            redirect('collection_settings.php');
-        }
+        flash('error', 'Could not save collection settings. Please try again.');
+        redirect('collection_settings.php');
     }
     if ($mode === 'axis_va' && empty($merchant['axis_va_number'])) {
         ensureAxisVirtualAccount((int)$merchant['id']);

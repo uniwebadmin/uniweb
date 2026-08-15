@@ -106,8 +106,13 @@ $pageTitle = 'Reports & Ops Dashboard';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6">
+    <div class="flex flex-wrap gap-2 text-xs" role="navigation" aria-label="Reports hub">
+        <span class="text-gray-500 self-center mr-1">Reports:</span>
+        <a href="admin_financial_reports.php" class="px-3 py-1.5 rounded-lg text-gray-400 hover:text-white border border-gray-800">Date range</a>
+        <a href="admin_reports.php" class="px-3 py-1.5 rounded-lg bg-brand-600/20 text-brand-400 border border-brand-500/30">Ops day summary</a>
+    </div>
     <div class="flex flex-wrap gap-3 items-center justify-between">
-        <p class="text-sm text-gray-400">Consolidated reporting across transactions, settlements, disputes, merchants. Primary date-range report: <a href="admin_financial_reports.php" class="text-brand-400 hover:text-brand-300">Financial Reports</a>.</p>
+        <p class="text-sm text-gray-400">Ops snapshot by day range. Primary money report: <a href="admin_financial_reports.php" class="text-brand-400 hover:text-brand-300">Financial Reports (date range)</a>.</p>
         <form method="GET" class="flex gap-2 items-center">
             <select name="days" class="input-field text-xs w-32" onchange="this.form.submit()">
                 <option value="7" <?= $days === 7 ? 'selected' : '' ?>>Last 7 days</option>
@@ -119,16 +124,16 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Transactions</p><p class="text-2xl font-bold text-brand-400 mt-1"><?= number_format($txSummary['total']) ?></p><p class="text-xs text-gray-500 mt-1"><?= $txSummary['success'] ?> success · <?= $txSummary['failed'] ?> failed</p></div>
+        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Transactions</p><p class="text-2xl font-bold text-brand-400 mt-1"><?= number_format($txSummary['total']) ?></p><p class="text-xs text-gray-500 mt-1"><?= $txSummary['success'] ?> success Â· <?= $txSummary['failed'] ?> failed</p></div>
         <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Volume</p><p class="text-2xl font-bold text-emerald-400 mt-1"><?= formatMoney($txSummary['volume']) ?></p><p class="text-xs text-gray-500 mt-1">Fees: <?= formatMoney($txSummary['fees']) ?></p></div>
-        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Settlements</p><p class="text-2xl font-bold text-sky-400 mt-1"><?= number_format($stlSummary['total']) ?></p><p class="text-xs text-gray-500 mt-1"><?= $stlSummary['completed'] ?> done · <?= $stlSummary['pending'] ?> pending</p></div>
-        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Merchants</p><p class="text-2xl font-bold text-violet-400 mt-1"><?= number_format($merchantSummary['total']) ?></p><p class="text-xs text-gray-500 mt-1"><?= $merchantSummary['new_this_period'] ?> new · <?= $merchantSummary['pending_kyc'] ?> KYC pending</p></div>
+        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Settlements</p><p class="text-2xl font-bold text-sky-400 mt-1"><?= number_format($stlSummary['total']) ?></p><p class="text-xs text-gray-500 mt-1"><?= $stlSummary['completed'] ?> done Â· <?= $stlSummary['pending'] ?> pending</p></div>
+        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Merchants</p><p class="text-2xl font-bold text-violet-400 mt-1"><?= number_format($merchantSummary['total']) ?></p><p class="text-xs text-gray-500 mt-1"><?= $merchantSummary['new_this_period'] ?> new Â· <?= $merchantSummary['pending_kyc'] ?> KYC pending</p></div>
     </div>
 
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Disputes (total)</p><p class="text-2xl font-bold <?= $disputeSummary['open'] > 0 ? 'text-red-400' : 'text-emerald-400' ?> mt-1"><?= number_format($disputeSummary['total']) ?></p><p class="text-xs text-gray-500 mt-1"><?= $disputeSummary['open'] ?> open · <?= $disputeSummary['resolved'] ?> resolved</p></div>
+        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Disputes (total)</p><p class="text-2xl font-bold <?= $disputeSummary['open'] > 0 ? 'text-red-400' : 'text-emerald-400' ?> mt-1"><?= number_format($disputeSummary['total']) ?></p><p class="text-xs text-gray-500 mt-1"><?= $disputeSummary['open'] ?> open Â· <?= $disputeSummary['resolved'] ?> resolved</p></div>
         <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Refunds</p><p class="text-2xl font-bold text-amber-400 mt-1"><?= number_format($refundSummary['total']) ?></p><p class="text-xs text-gray-500 mt-1"><?= formatMoney($refundSummary['amount']) ?></p></div>
-        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Support Tickets</p><p class="text-2xl font-bold <?= $supportSummary['open'] > 0 ? 'text-amber-400' : 'text-emerald-400' ?> mt-1"><?= number_format($supportSummary['open'] + $supportSummary['closed']) ?></p><p class="text-xs text-gray-500 mt-1"><?= $supportSummary['open'] ?> open · <?= $supportSummary['closed'] ?> closed</p></div>
+        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Support Tickets</p><p class="text-2xl font-bold <?= $supportSummary['open'] > 0 ? 'text-amber-400' : 'text-emerald-400' ?> mt-1"><?= number_format($supportSummary['open'] + $supportSummary['closed']) ?></p><p class="text-xs text-gray-500 mt-1"><?= $supportSummary['open'] ?> open Â· <?= $supportSummary['closed'] ?> closed</p></div>
         <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Success Rate</p><p class="text-2xl font-bold <?= ($txSummary['total'] > 0 ? ($txSummary['success'] / $txSummary['total'] * 100) : 100) >= 95 ? 'text-emerald-400' : 'text-amber-400' ?> mt-1"><?= $txSummary['total'] > 0 ? round($txSummary['success'] / $txSummary['total'] * 100, 1) : '100' ?>%</p></div>
     </div>
 

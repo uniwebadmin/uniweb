@@ -63,6 +63,11 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 $pageTitle = 'Financial Reports';
 require_once __DIR__ . '/header.php';
 ?>
+<div class="flex flex-wrap gap-2 mb-4 text-xs" role="navigation" aria-label="Reports hub">
+    <span class="text-gray-500 self-center mr-1">Reports:</span>
+    <a href="admin_financial_reports.php" class="px-3 py-1.5 rounded-lg bg-brand-600/20 text-brand-400 border border-brand-500/30">Date range</a>
+    <a href="admin_reports.php" class="px-3 py-1.5 rounded-lg text-gray-400 hover:text-white border border-gray-800">Ops day summary</a>
+</div>
 <div class="mb-6 flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end justify-between">
     <form method="get" class="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end w-full sm:w-auto">
         <div class="min-w-0"><label class="text-xs text-gray-500">From</label><input type="date" name="from" value="<?= e($from) ?>" class="input-field mt-1 w-full"></div>
@@ -71,7 +76,6 @@ require_once __DIR__ . '/header.php';
         <a href="?from=<?= e(urlencode($from)) ?>&to=<?= e(urlencode($to)) ?>&export=csv" class="glass px-4 py-2.5 rounded-xl text-sm text-center w-full sm:w-auto">Export CSV</a>
     </form>
     <a href="admin_chargebacks.php" class="glass px-4 py-2.5 rounded-xl text-sm text-center">Chargebacks</a>
-    <a href="admin_reports.php" class="glass px-4 py-2.5 rounded-xl text-sm text-center">Ops day summary</a>
 </div>
 
 <p class="text-xs text-gray-500 mb-4">Live (non-test) success/refund rows only. Staff access: super / CEO / ops / staff manager.</p>

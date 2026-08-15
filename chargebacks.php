@@ -26,7 +26,7 @@ require_once __DIR__ . '/header.php';
 ?>
 <div class="glass rounded-xl overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-800">
-        <h2 class="font-semibold">Disputes &amp; chargebacks</h2>
+        <h2 class="font-semibold">Chargebacks</h2>
         <p class="text-xs text-gray-500 mt-1">Submit evidence before the deadline. Partial notes are better than a missed deadline.</p>
     </div>
     <?php if (!$rows): ?>
