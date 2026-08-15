@@ -111,7 +111,7 @@ require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6">
     <div class="flex flex-wrap gap-3 items-center justify-between">
-        <p class="text-sm text-gray-400">Match gateway webhooks against settled transactions</p>
+        <p class="text-sm text-gray-400">Match gateway webhooks against settled transactions. After real volume: upload the partner settlement CSV, match unmatched rows, then generate the daily summary. Do not invent extra crons — auto-audit already marks obvious matches.</p>
         <div class="flex flex-wrap gap-2 items-center">
             <a href="admin_pg_webhooks.php" class="text-xs text-sky-400 hover:underline">Webhook log →</a>
             <a href="admin_bank_reconciliation.php" class="text-xs text-emerald-400 hover:underline">⭐ Bank Auto-Reconciliation →</a>
@@ -211,7 +211,7 @@ require_once __DIR__ . '/header.php';
                 </div>
                 <button type="submit" class="btn-primary px-6 py-2.5">Upload &amp; Match</button>
             </form>
-            <p class="text-xs text-gray-500 mt-2">CSV should have columns: UTR/Reference, Amount, Date, Merchant Code, Gateway Ref/Order ID</p>
+            <p class="text-xs text-gray-500 mt-2">Runbook: 1) Download the partner settlement file. 2) Upload CSV here (UTR, Amount, Date, Merchant Code, Gateway Ref). 3) Open unmatched and link or ignore. 4) Generate daily summary. Use after there is live volume — empty files are expected in Test.</p>
         </div>
 
         <div class="glass rounded-xl overflow-hidden">

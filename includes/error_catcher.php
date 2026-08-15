@@ -177,6 +177,14 @@ function resolveAllPlatformErrors(): int
     return getDB()->exec('UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0');
 }
 
+function resolvePlatformErrorsByMessageLike(string $like): int
+{
+    ensureErrorCatcher();
+    $st = getDB()->prepare('UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE ?');
+    $st->execute([$like]);
+    return $st->rowCount();
+}
+
 /** Clear repeat watchdog noise + very old warnings on each auto-audit run */
 function autoResolveAuditNoise(): int
 {
@@ -191,7 +199,6 @@ function autoResolveAuditNoise(): int
         $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'Call to undefined function renderMerchantModeToggle%'");
         $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'logPlatformError(): Argument #3%'");
         $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'Instant test pay failed: Call to undefined function recordAuditEvent%'");
-        $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'Test/Live isolation violations detected%' AND created_at < DATE_SUB(NOW(), INTERVAL 1 HOUR)");
         return $cleared;
     } catch (Throwable $e) {
         return 0;

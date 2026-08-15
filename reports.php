@@ -99,7 +99,7 @@ $hasData = !empty($dailyData) || !empty($methodData) || !empty($statusData) || !
     </div>
     <button type="submit" class="btn-primary px-4 py-2.5 text-sm">Filter</button>
     <a href="reports.php" class="text-sm text-gray-500 hover:text-white px-2 py-2.5">Reset</a>
-    <?= renderExportCsvLink('export_reports.php?' . http_build_query(['from' => $from, 'to' => $to, 'method' => $method])) ?>
+    <?= renderExportCsvLink('export_reports.php?' . http_build_query(['from' => $from, 'to' => $to, 'method' => $method]), 'Download CSV (date range)') ?>
     <a href="export_accounting.php?<?= http_build_query(['from' => $from, 'to' => $to]) ?>" class="text-xs text-violet-300 hover:text-violet-200 px-2 py-2.5">Tally Accounting CSV</a>
 </form>
 <?php

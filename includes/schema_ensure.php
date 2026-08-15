@@ -205,11 +205,14 @@ function ensureDisputesEngine(): void
         reason TEXT NOT NULL,
         status ENUM('open','under_review','resolved','closed') DEFAULT 'open',
         resolution TEXT,
+        sla_due_at DATETIME DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_merchant (merchant_id),
         INDEX idx_status (status),
         INDEX idx_txn (transaction_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    schemaExecQuiet('ALTER TABLE disputes ADD COLUMN sla_due_at DATETIME DEFAULT NULL AFTER resolution');
+    schemaExecQuiet("UPDATE disputes SET sla_due_at = DATE_ADD(created_at, INTERVAL 5 DAY) WHERE sla_due_at IS NULL");
 }
 
 function ensureMerchantAgreementSchema(): void

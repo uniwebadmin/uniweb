@@ -10,12 +10,38 @@ $adminSection = 'financial';
 
 $actionFilter = trim($_GET['action'] ?? '');
 $merchantFilter = (int)($_GET['merchant_id'] ?? 0);
+$from = trim($_GET['from'] ?? '');
+$to = trim($_GET['to'] ?? '');
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) $from = '';
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) $to = '';
 $page = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 50;
 $offset = ($page - 1) * $perPage;
 
-$auditEntries = getAllAuditLog($perPage, $offset, $actionFilter ?: null, $merchantFilter ?: null);
-$totalEntries = countAuditLog($actionFilter ?: null, $merchantFilter ?: null);
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    $rows = getAllAuditLog(5000, 0, $actionFilter ?: null, $merchantFilter ?: null, $from, $to);
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="audit-log-' . date('Y-m-d') . '.csv"');
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['Event ID', 'Action', 'Actor', 'Merchant', 'Resource', 'Reason', 'IP', 'Time']);
+    foreach ($rows as $a) {
+        fputcsv($out, [
+            $a['event_id'] ?? '',
+            $a['action'] ?? '',
+            trim(($a['actor_type'] ?? '') . ' #' . (int)($a['actor_id'] ?? 0)),
+            $a['merchant_id'] ? '#' . (int)$a['merchant_id'] : '',
+            trim(($a['resource_type'] ?? '') . ' ' . ($a['resource_id'] ?? '')),
+            $a['reason'] ?? '',
+            $a['ip_address'] ?? '',
+            $a['created_at'] ?? '',
+        ]);
+    }
+    fclose($out);
+    exit;
+}
+
+$auditEntries = getAllAuditLog($perPage, $offset, $actionFilter ?: null, $merchantFilter ?: null, $from, $to);
+$totalEntries = countAuditLog($actionFilter ?: null, $merchantFilter ?: null, $from, $to);
 $totalPages = max(1, (int)ceil($totalEntries / $perPage));
 
 // Get distinct actions for filter dropdown
@@ -39,8 +65,11 @@ require_once __DIR__ . '/header.php';
             <?php endforeach; ?>
         </select>
         <input type="number" name="merchant_id" placeholder="Merchant ID" value="<?= $merchantFilter ?: '' ?>" class="bg-gray-800 text-white rounded-lg px-3 py-2 text-sm border border-gray-700 w-32">
+        <input type="date" name="from" value="<?= e($from) ?>" class="bg-gray-800 text-white rounded-lg px-3 py-2 text-sm border border-gray-700">
+        <input type="date" name="to" value="<?= e($to) ?>" class="bg-gray-800 text-white rounded-lg px-3 py-2 text-sm border border-gray-700">
         <button type="submit" class="bg-sky-600 hover:bg-sky-700 text-white rounded-lg px-4 py-2 text-sm">Filter</button>
         <a href="admin_audit_log.php" class="text-gray-400 hover:text-white text-sm px-3 py-2">Reset</a>
+        <a href="admin_audit_log.php?<?= e(http_build_query(['action' => $actionFilter, 'merchant_id' => $merchantFilter ?: '', 'from' => $from, 'to' => $to, 'export' => 'csv'])) ?>" class="text-sky-400 hover:text-white text-sm px-3 py-2">Download CSV</a>
     </form>
 
     <div class="text-xs text-gray-500 mb-4"><?= number_format($totalEntries) ?> total entries · Page <?= $page ?> of <?= $totalPages ?></div>
@@ -75,7 +104,7 @@ require_once __DIR__ . '/header.php';
     <?php if ($totalPages > 1): ?>
     <div class="flex justify-center gap-2 mt-6">
         <?php for ($i = 1; $i <= min(10, $totalPages); $i++): ?>
-        <a href="?action=<?= urlencode($actionFilter) ?>&merchant_id=<?= $merchantFilter ?>&page=<?= $i ?>"
+        <a href="?action=<?= urlencode($actionFilter) ?>&merchant_id=<?= $merchantFilter ?>&from=<?= e($from) ?>&to=<?= e($to) ?>&page=<?= $i ?>"
            class="px-3 py-1.5 rounded-lg text-sm <?= $i === $page ? 'bg-sky-600 text-white' : 'glass text-gray-400 hover:text-white' ?>"><?= $i ?></a>
         <?php endfor; ?>
     </div>

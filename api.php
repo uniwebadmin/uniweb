@@ -133,13 +133,31 @@ switch ($action) {
     case 'list_transactions':
         $limit = min(100, max(1, (int)($input['limit'] ?? 20)));
         $offset = max(0, (int)($input['offset'] ?? 0));
-        $countStmt = $db->prepare("SELECT COUNT(*) FROM transactions WHERE merchant_id = ? AND COALESCE(is_test,0)=?");
-        $countStmt->execute([$merchant['id'], $modeFlag]);
+        $from = trim((string)($input['from'] ?? ''));
+        $to = trim((string)($input['to'] ?? ''));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) {
+            $from = '';
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
+            $to = '';
+        }
+        $listWhere = 'merchant_id = ? AND COALESCE(is_test,0)=?';
+        $listParams = [$merchant['id'], $modeFlag];
+        if ($from !== '') {
+            $listWhere .= ' AND DATE(created_at) >= ?';
+            $listParams[] = $from;
+        }
+        if ($to !== '') {
+            $listWhere .= ' AND DATE(created_at) <= ?';
+            $listParams[] = $to;
+        }
+        $countStmt = $db->prepare("SELECT COUNT(*) FROM transactions WHERE {$listWhere}");
+        $countStmt->execute($listParams);
         $totalCount = (int)$countStmt->fetchColumn();
-        $stmt = $db->prepare("SELECT txn_id, amount, status, payment_method, created_at FROM transactions WHERE merchant_id = ? AND COALESCE(is_test,0)=? ORDER BY created_at DESC LIMIT $limit OFFSET $offset");
-        $stmt->execute([$merchant['id'], $modeFlag]);
+        $stmt = $db->prepare("SELECT txn_id, amount, status, payment_method, created_at FROM transactions WHERE {$listWhere} ORDER BY created_at DESC LIMIT $limit OFFSET $offset");
+        $stmt->execute($listParams);
         $rows = $stmt->fetchAll();
-        jsonResponse(['success' => true, 'api_version' => API_VERSION, 'transactions' => $rows, 'has_more' => ($offset + count($rows)) < $totalCount, 'total_count' => $totalCount, 'offset' => $offset, 'limit' => $limit]);
+        jsonResponse(['success' => true, 'api_version' => API_VERSION, 'transactions' => $rows, 'has_more' => ($offset + count($rows)) < $totalCount, 'total_count' => $totalCount, 'offset' => $offset, 'limit' => $limit, 'from' => $from ?: null, 'to' => $to ?: null]);
         break;
 
     case 'get_balance':

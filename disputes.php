@@ -21,8 +21,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $txn->execute([$txnId, $merchant['id']]);
     if ($txn->fetch() && $reason !== '') {
         $disputeId = generateId('DSP');
-        $db->prepare('INSERT INTO disputes (dispute_id, merchant_id, transaction_id, reason) VALUES (?,?,?,?)')
-            ->execute([$disputeId, $merchant['id'], $txnId, $reason]);
+        try {
+            $db->prepare('INSERT INTO disputes (dispute_id, merchant_id, transaction_id, reason, sla_due_at) VALUES (?,?,?,?, DATE_ADD(NOW(), INTERVAL 5 DAY))')
+                ->execute([$disputeId, $merchant['id'], $txnId, $reason]);
+        } catch (Throwable $e) {
+            $db->prepare('INSERT INTO disputes (dispute_id, merchant_id, transaction_id, reason) VALUES (?,?,?,?)')
+                ->execute([$disputeId, $merchant['id'], $txnId, $reason]);
+        }
         flash('success', 'Dispute raised: ' . $disputeId);
         redirect('disputes.php');
     }
@@ -78,7 +83,7 @@ require_once __DIR__ . '/header.php';
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
                 <th class="px-5 py-3 text-left">ID</th><th class="px-5 py-3 text-left">Txn</th>
                 <th class="px-5 py-3 text-left">Amount</th><th class="px-5 py-3 text-left">Reason</th>
-                <th class="px-5 py-3 text-left">Status</th><th class="px-5 py-3 text-left">Date</th>
+                <th class="px-5 py-3 text-left">Due</th><th class="px-5 py-3 text-left">Status</th><th class="px-5 py-3 text-left">Date</th>
             </tr></thead>
             <tbody class="divide-y divide-gray-800">
                 <?php foreach ($disputeList as $d): ?>
@@ -87,6 +92,12 @@ require_once __DIR__ . '/header.php';
                     <td class="px-5 py-3 font-mono text-xs"><?= txnDetailLink((string)$d['txn_id']) ?></td>
                     <td class="px-5 py-3"><?= formatMoney(capStatAmount((float)$d['amount'])) ?></td>
                     <td class="px-5 py-3 text-xs text-gray-400 max-w-[12rem] truncate" title="<?= e($d['reason']) ?>"><?= e($d['reason']) ?></td>
+                    <?php
+                    $dueTs = strtotime((string)($d['sla_due_at'] ?? ''));
+                    $openD = in_array((string)$d['status'], ['open', 'under_review'], true);
+                    $overdue = $dueTs && $openD && $dueTs < time();
+                    ?>
+                    <td class="px-5 py-3 text-xs <?= $overdue ? 'text-red-400 font-semibold' : 'text-gray-500' ?>"><?= !empty($d['sla_due_at']) ? e(formatDate($d['sla_due_at'])) : '—' ?></td>
                     <td class="px-5 py-3"><?= statusBadge($d['status']) ?></td>
                     <td class="px-5 py-3 text-xs text-gray-500"><?= formatDate($d['created_at']) ?></td>
                 </tr>

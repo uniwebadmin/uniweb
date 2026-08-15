@@ -36,6 +36,19 @@ require_once __DIR__ . '/header.php';
     </div></section>
 
     <section class="company-section" style="padding-top:0"><div class="company-shell">
+        <div class="company-kicker">Security questionnaire</div>
+        <h2 class="company-title">Where the evidence already lives</h2>
+        <div class="company-grid">
+            <div class="company-card"><h3>Transport</h3><p>HTTPS / TLS on dashboard, checkout and API. See this page and the Privacy Policy.</p></div>
+            <div class="company-card"><h3>Access control</h3><p>Merchant team roles and staff roles. Partner keys stay on Super Admin Platform Settings — not Support or KYC staff.</p></div>
+            <div class="company-card"><h3>Audit trail</h3><p>Immutable money-action log. Maker-checker on Live KYC. Export by date from Admin → Audit Log when needed.</p></div>
+            <div class="company-card"><h3>Webhooks</h3><p>HMAC-SHA256 <code>X-UniWeb-Signature</code>. Copy-paste verify on API Settings. Test vs Live API keys are separate.</p></div>
+            <div class="company-card"><h3>Data residency</h3><p>Personal data processed in India under the DPDP Act, 2023. KYC files are not on the public web root.</p></div>
+            <div class="company-card"><h3>PCI / ISO badges</h3><p>We do not display PCI DSS, ISO 27001 or SOC 2 until an independent assessment exists. Card rails sit with licensed partners.</p></div>
+        </div>
+    </div></section>
+
+    <section class="company-section" style="padding-top:0"><div class="company-shell">
         <div class="company-kicker">Certifications</div>
         <h2 class="company-title">Badges we will show only when true</h2>
         <p class="company-lead">We do not display PCI DSS, ISO 27001 or SOC 2 badges until an independent assessment is completed. Partner gateways (Razorpay, Cashfree, PayU and banks) maintain their own PCI and network certifications for card-present and card-not-present rails.</p>

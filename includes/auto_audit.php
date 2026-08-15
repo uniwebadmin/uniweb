@@ -300,9 +300,12 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
         try {
             if (function_exists('auditTestLiveIsolation')) {
                 $isolationViolations = auditTestLiveIsolation();
-                $report['steps']['test_live_isolation'] = ['ok' => true, 'violations' => count($isolationViolations)];
-                if (count($isolationViolations) > 0) {
+                $nIso = count($isolationViolations);
+                $report['steps']['test_live_isolation'] = ['ok' => $nIso === 0, 'violations' => $nIso];
+                if ($nIso > 0) {
                     logPlatformError('warning', 'Test/Live isolation violations detected', ['violations' => $isolationViolations]);
+                } elseif (function_exists('resolvePlatformErrorsByMessageLike')) {
+                    resolvePlatformErrorsByMessageLike('Test/Live isolation violations detected%');
                 }
             }
         } catch (Throwable $e) {

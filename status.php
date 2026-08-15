@@ -27,7 +27,8 @@ $overall = $health['operational'] && !$health['maintenance'] && empty($openIncid
         </div>
         <h1 class="text-3xl font-bold mb-2"><?= e(APP_NAME) ?> Platform Status</h1>
         <p class="text-gray-500 text-sm">Named components below. Partner credentials do not prove a merchant’s Live rail is healthy.</p>
-        <p class="text-xs text-gray-600 mt-2">Last updated <?= e(date('d M Y, H:i')) ?> IST</p>
+        <p class="text-xs text-gray-600 mt-2">Last updated <?= e(date('d M Y, H:i')) ?> IST · Uptime probe: <a href="health.php" class="text-sky-400 hover:underline">health.php</a> (plain OK)</p>
+        <p class="text-xs text-gray-600 mt-1">Support acknowledgement target: 1 business day. Payment or bank issues wait on the partner.</p>
     </div>
 
     <?php

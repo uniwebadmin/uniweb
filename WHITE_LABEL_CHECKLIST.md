@@ -75,17 +75,51 @@
 
 **When a deal asks:** add a role only if it cannot see live partner keys.
 
-## WL-06 … WL-12 (later / already mapped)
+## WL-06 Settlement / reports export
 
-| ID | Do now? | Note |
-|----|---------|------|
-| WL-06 Settlement export | Mapped | `reports.php` already has date-range + Tally CSV |
-| WL-07 Onboarding API | Later | Documented REST only if a deal needs programmatic KYC |
-| WL-08 Status/SLA | Mapped | Honest `status.php` — content, not a new SLA product |
-| WL-09 Security pack | Mapped | Trust / legal pages already exist |
-| WL-10 Disputes | After payments | Do not polish empty dispute UX as a white-label SKU |
-| WL-11 Reconciliation | After volume | `admin_reconciliation.php` — after real PG files |
-| WL-12 Audit export | Later | Log exists; date CSV only if a deal asks |
+**Problem:** CSV/API reports.  
+**Expectation:** Date-range export.  
+**Today:** Merchant **Reports** — From/To dates, **Download CSV (date range)**, Tally Accounting CSV. API `list_transactions` accepts optional `from` / `to` (`YYYY-MM-DD`).
+
+**When a deal asks:** use Reports CSV. Do not build a second report product.
+
+## WL-07 Onboarding API
+
+**Problem:** API merchant create.  
+**Expectation:** Documented REST.  
+**Today:** **Later.** `api_docs.php` states there is no public create-merchant action. Signup / admin invite / KYC stay on the website.
+
+**When a deal asks:** document REST then — do not invent a second onboarding app.
+
+## WL-08 Status / SLA
+
+**Problem:** Public status.  
+**Expectation:** Honest `status.php`.  
+**Today:** Named components, 90-day uptime, incident list, partner credentials labelled as credentials (not Live-rail health). `health.php` is the uptime probe (plain OK). Support acknowledgement: 1 business day.
+
+## WL-09 Security pack
+
+**Problem:** Questionnaires.  
+**Expectation:** Evidence on trust pages.  
+**Today:** `trust.php` — HTTPS, KYC Live gate, HMAC, audit, DPDP, no fake PCI/ISO badges, grievance contacts. Questionnaire answers map to those cards.
+
+## WL-10 Disputes
+
+**Problem:** Thin SLA.  
+**Expectation:** Timers end-to-end.  
+**Today:** Merchant raises a dispute; admin queue shows a **5-day due** (overdue in red). Chargebacks already have evidence due dates. Full bank SLA polish waits on real payments.
+
+## WL-11 Reconciliation
+
+**Problem:** Tables exist.  
+**Expectation:** Runbook + ingest.  
+**Today:** Admin **PG Reconciliation** — upload partner CSV, match unmatched, daily summary. Auto-audit already marks obvious matches. Use after live volume.
+
+## WL-12 Audit export
+
+**Problem:** Audit log present.  
+**Expectation:** Date export.  
+**Today:** Admin **Audit Log** — From/To + **Download CSV** (max 5,000 rows). Immutable log stays; this is the small export tool.
 
 ## Never from this checklist
 

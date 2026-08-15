@@ -1275,21 +1275,54 @@ function enforceSettlementModeIsolation(int $merchantId, string $mode): void
 }
 
 /**
- * B6: Audit check — find any cross-contamination between test and live money.
+ * Mark sandbox Instant Test Pay rows as is_test=1 when the merchant is still in Test.
+ * Live merchants keeping old test rows is expected — they went Live after sandbox.
+ */
+function healTestLiveIsolationFlags(): int
+{
+    try {
+        return (int)getDB()->exec(
+            "UPDATE transactions t
+             JOIN merchants m ON m.id = t.merchant_id
+             SET t.is_test = 1
+             WHERE COALESCE(t.is_test, 0) = 0
+             AND (m.account_mode = 'test' OR m.email = 'demo@uniweb.co.in')
+             AND (
+                t.utr LIKE 'TEST%'
+                OR t.utr LIKE 'SIM%'
+                OR t.utr LIKE 'PG-TEST%'
+                OR t.payment_method IN ('sandbox', 'test', 'instant')
+             )"
+        );
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+/**
+ * B6: Audit check — real mix only. Do not alarm because a Live merchant still has older Test payments.
  */
 function auditTestLiveIsolation(): array
 {
     $db = getDB();
     $violations = [];
+    healTestLiveIsolationFlags();
 
     try {
         $st = $db->query(
             "SELECT t.id, t.merchant_id, t.txn_id, t.is_test, m.account_mode, m.email
              FROM transactions t
              JOIN merchants m ON m.id = t.merchant_id
-             WHERE t.is_test = 0
+             WHERE COALESCE(t.is_test, 0) = 0
+             AND t.status = 'success'
              AND (m.account_mode = 'test' OR m.email = 'demo@uniweb.co.in')
-             LIMIT 100"
+             AND NOT (
+                t.utr LIKE 'TEST%'
+                OR t.utr LIKE 'SIM%'
+                OR t.utr LIKE 'PG-TEST%'
+                OR t.payment_method IN ('sandbox', 'test', 'instant')
+             )
+             LIMIT 50"
         );
         foreach ($st->fetchAll() as $row) {
             $violations[] = [
@@ -1297,27 +1330,7 @@ function auditTestLiveIsolation(): array
                 'transaction_id' => (int)$row['id'],
                 'merchant_id' => (int)$row['merchant_id'],
                 'txn_id' => $row['txn_id'],
-                'detail' => 'Test merchant has live transaction',
-            ];
-        }
-    } catch (Throwable $e) {}
-
-    try {
-        $st = $db->query(
-            "SELECT t.id, t.merchant_id, t.txn_id, t.is_test, m.account_mode
-             FROM transactions t
-             JOIN merchants m ON m.id = t.merchant_id
-             WHERE t.is_test = 1
-             AND m.account_mode = 'live'
-             LIMIT 100"
-        );
-        foreach ($st->fetchAll() as $row) {
-            $violations[] = [
-                'type' => 'live_merchant_test_txn',
-                'transaction_id' => (int)$row['id'],
-                'merchant_id' => (int)$row['merchant_id'],
-                'txn_id' => $row['txn_id'],
-                'detail' => 'Live merchant has test transaction',
+                'detail' => 'Test merchant has a live (non-sandbox) success payment',
             ];
         }
     } catch (Throwable $e) {}
@@ -1328,6 +1341,9 @@ function auditTestLiveIsolation(): array
              FROM settlements s
              JOIN merchants m ON m.id = s.merchant_id
              WHERE m.account_mode = 'test' AND s.amount > 100
+             AND COALESCE(s.utr, '') NOT LIKE 'SIM%'
+             AND COALESCE(s.utr, '') NOT LIKE 'PG-TEST%'
+             AND COALESCE(s.api_status, '') NOT IN ('simulated', 'sandbox')
              LIMIT 50"
         );
         foreach ($st->fetchAll() as $row) {
@@ -1336,7 +1352,7 @@ function auditTestLiveIsolation(): array
                 'settlement_id' => $row['settlement_id'],
                 'merchant_id' => (int)$row['merchant_id'],
                 'amount' => (float)$row['amount'],
-                'detail' => 'Test merchant has suspiciously large settlement',
+                'detail' => 'Test merchant has a large non-sandbox settlement',
             ];
         }
     } catch (Throwable $e) {}

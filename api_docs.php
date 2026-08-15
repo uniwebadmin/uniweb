@@ -56,7 +56,7 @@ require_once __DIR__ . '/header.php';
         $endpoints = [
             ['create_payment_link', 'Create Payment Link', '{"action":"create_payment_link","amount":500,"description":"Order #123","customer_phone":"9876543210"}', 'Write call — send a unique Idempotency-Key header. Returns payment_url on success'],
             ['check_status', 'Check Status', '{"action":"check_status","txn_id":"TXN..."}', 'Transaction status and UTR'],
-            ['list_transactions', 'List Transactions', '{"action":"list_transactions","limit":20,"offset":0}', 'Paginated — use limit (max 100) and offset. Response includes has_more, total_count.'],
+            ['list_transactions', 'List Transactions', '{"action":"list_transactions","from":"2026-08-01","to":"2026-08-15","limit":20,"offset":0}', 'Date-range optional (from/to as YYYY-MM-DD). Paginated — limit (max 100) and offset. Response includes has_more, total_count.'],
             ['get_balance', 'Get Balance', '{"action":"get_balance"}', 'Collected, settled, available balance'],
             ['create_refund', 'Create Refund', '{"action":"create_refund","txn_id":"TXN...","amount":100,"reason":"Customer request"}', 'Write call — send a unique Idempotency-Key header. Amount optional — full refund if omitted'],
             ['list_refunds', 'List Refunds', '{"action":"list_refunds","limit":20,"offset":0}', 'Paginated — use limit (max 100) and offset. Response includes has_more, total_count.'],
@@ -72,6 +72,11 @@ require_once __DIR__ . '/header.php';
             <p class="text-sm text-gray-500 mt-2"><?= $desc ?></p>
         </div>
         <?php endforeach; ?>
+
+        <div class="glass rounded-xl p-6 border border-amber-500/20">
+            <h2 class="font-semibold mb-2">Merchant onboarding API</h2>
+            <p class="text-sm text-gray-400">There is no public REST action to create a merchant. Signup, admin invite and KYC stay on the website until a written deal needs a documented onboarding API.</p>
+        </div>
 
         <div class="glass rounded-xl p-6">
             <h2 class="font-semibold mb-3">Outbound Webhooks (to your server)</h2>

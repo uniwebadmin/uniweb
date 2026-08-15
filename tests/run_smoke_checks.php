@@ -603,6 +603,18 @@ $assert(str_contains((string)file_get_contents($root . '/includes/baas.php'), 'f
 $homeSrc = (string)file_get_contents($root . '/index.php');
 $assert(!str_contains($homeSrc, 'White-label your gateway') && !str_contains($homeSrc, 'Buy white-label'), 'p10_homepage_does_not_sell_wl');
 
+$finIso = (string)file_get_contents($root . '/includes/financial_integrity.php');
+$assert(str_contains($finIso, 'function healTestLiveIsolationFlags') && !str_contains($finIso, 'live_merchant_test_txn'), 'p10_isolation_does_not_flag_old_test_on_live');
+$assert(str_contains((string)file_get_contents($root . '/includes/auto_audit.php'), 'resolvePlatformErrorsByMessageLike'), 'p10_isolation_clears_when_clean');
+$assert(str_contains((string)file_get_contents($root . '/api.php'), 'DATE(created_at) >= ?') && str_contains((string)file_get_contents($root . '/reports.php'), 'Download CSV (date range)'), 'p10_wl06_date_range_csv_and_api');
+$assert(str_contains((string)file_get_contents($root . '/api_docs.php'), 'Merchant onboarding API') && str_contains((string)file_get_contents($root . '/api_docs.php'), 'no public REST'), 'p10_wl07_onboarding_parked');
+$assert(str_contains((string)file_get_contents($root . '/status.php'), 'health.php') && str_contains((string)file_get_contents($root . '/status.php'), '1 business day'), 'p10_wl08_status_health_sla');
+$assert(str_contains((string)file_get_contents($root . '/trust.php'), 'Security questionnaire'), 'p10_wl09_trust_questionnaire');
+$assert(str_contains((string)file_get_contents($root . '/includes/schema_ensure.php'), 'sla_due_at') && str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'overdue'), 'p10_wl10_dispute_timers');
+$assert(str_contains((string)file_get_contents($root . '/admin_reconciliation.php'), 'Runbook:'), 'p10_wl11_recon_runbook');
+$assert(str_contains((string)file_get_contents($root . '/admin_audit_log.php'), "export'] === 'csv'") && str_contains((string)file_get_contents($root . '/includes/audit_log.php'), 'function auditLogFilterWhere'), 'p10_wl12_audit_date_csv');
+$assert(str_contains($wlMd, '## WL-06') && str_contains($wlMd, '## WL-12'), 'p10_checklist_wl06_wl12_sections');
+
 $assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');
 
 // Auth portal redesign (all four logins — presentation only).
