@@ -23,84 +23,97 @@ $opsAllClear = false;
 $todayVol = 0;
 $monthVol = 0;
 
-try {
-ensureDisputesEngine();
-$db = getDB();
-
-$totalMerchants = (int)$db->query("SELECT COUNT(*) as c FROM merchants WHERE status != 'deleted'")->fetch()['c'];
-$activeMerchants = (int)$db->query("SELECT COUNT(*) as c FROM merchants WHERE status = 'active'")->fetch()['c'];
-$pendingKyc = (int)$db->query("SELECT COUNT(*) as c FROM merchants WHERE kyc_status IN ('pending','submitted')")->fetch()['c'];
-$todayTxn = $db->query("SELECT COALESCE(SUM(amount),0) as t, COUNT(*) as c FROM transactions WHERE status='success' AND DATE(created_at)=CURDATE()")->fetch();
-$monthTxn = $db->query("SELECT COALESCE(SUM(amount),0) as t, COUNT(*) as c FROM transactions WHERE status='success' AND MONTH(created_at)=MONTH(CURDATE())")->fetch();
-$pendingSettlements = (int)$db->query("SELECT COUNT(*) as c FROM settlements WHERE status='pending'")->fetch()['c'];
-$openDisputes = (int)$db->query("SELECT COUNT(*) as c FROM disputes WHERE status='open'")->fetch()['c'];
-$agedSettlements = (int)$db->query("SELECT COUNT(*) FROM settlements WHERE status IN ('pending','processing') AND created_at < DATE_SUB(NOW(), INTERVAL 1 DAY)")->fetchColumn();
-try {
-    ensureRefundsEngine();
-    $agedRefunds = (int)$db->query("SELECT COUNT(*) FROM refunds WHERE status IN ('pending','processing') AND created_at < DATE_SUB(NOW(), INTERVAL 3 DAY)")->fetchColumn();
-} catch (Throwable $e) {
-    $agedRefunds = 0;
+if (!function_exists('adminDashWidget')) {
+    function adminDashWidget(string $widget, callable $fn, $fallback)
+    {
+        try {
+            return $fn();
+        } catch (Throwable $e) {
+            if (function_exists('logPlatformError')) {
+                logPlatformError('warning', 'admin_dashboard ' . $widget . ': ' . $e->getMessage(), ['file' => $e->getFile(), 'line' => $e->getLine()]);
+            }
+            return $fallback;
+        }
+    }
 }
-$unresolvedErrors = countUnresolvedPlatformErrors();
-$lastAutoAudit = getLastAutoAuditRun();
-$gatewayGaps = getGatewaySetupGaps();
+
+$db = adminDashWidget('db', static fn() => getDB(), null);
+adminDashWidget('disputes_engine', static function () {
+    ensureDisputesEngine();
+    return true;
+}, false);
+
+if ($db) {
+    $totalMerchants = (int)adminDashWidget('total_merchants', static fn() => $db->query("SELECT COUNT(*) as c FROM merchants WHERE status != 'deleted'")->fetch()['c'] ?? 0, 0);
+    $activeMerchants = (int)adminDashWidget('active_merchants', static fn() => $db->query("SELECT COUNT(*) as c FROM merchants WHERE status = 'active'")->fetch()['c'] ?? 0, 0);
+    $pendingKyc = (int)adminDashWidget('pending_kyc', static fn() => $db->query("SELECT COUNT(*) as c FROM merchants WHERE kyc_status IN ('pending','submitted')")->fetch()['c'] ?? 0, 0);
+    $todayTxn = adminDashWidget('today_txn', static fn() => $db->query("SELECT COALESCE(SUM(amount),0) as t, COUNT(*) as c FROM transactions WHERE status='success' AND DATE(created_at)=CURDATE()")->fetch() ?: ['t' => 0, 'c' => 0], ['t' => 0, 'c' => 0]);
+    $monthTxn = adminDashWidget('month_txn', static fn() => $db->query("SELECT COALESCE(SUM(amount),0) as t, COUNT(*) as c FROM transactions WHERE status='success' AND MONTH(created_at)=MONTH(CURDATE())")->fetch() ?: ['t' => 0, 'c' => 0], ['t' => 0, 'c' => 0]);
+    $pendingSettlements = (int)adminDashWidget('pending_settlements', static fn() => $db->query("SELECT COUNT(*) as c FROM settlements WHERE status='pending'")->fetch()['c'] ?? 0, 0);
+    $openDisputes = (int)adminDashWidget('open_disputes', static fn() => $db->query("SELECT COUNT(*) as c FROM disputes WHERE status='open'")->fetch()['c'] ?? 0, 0);
+    $agedSettlements = (int)adminDashWidget('aged_settlements', static fn() => $db->query("SELECT COUNT(*) FROM settlements WHERE status IN ('pending','processing') AND created_at < DATE_SUB(NOW(), INTERVAL 1 DAY)")->fetchColumn(), 0);
+    $agedRefunds = (int)adminDashWidget('aged_refunds', static function () use ($db) {
+        ensureRefundsEngine();
+        return $db->query("SELECT COUNT(*) FROM refunds WHERE status IN ('pending','processing') AND created_at < DATE_SUB(NOW(), INTERVAL 3 DAY)")->fetchColumn();
+    }, 0);
+    $recentTxns = adminDashWidget('recent_txns', static fn() => $db->query('SELECT t.*, m.business_name FROM transactions t JOIN merchants m ON t.merchant_id=m.id ORDER BY t.created_at DESC LIMIT 10')->fetchAll() ?: [], []);
+    $recentMerchants = adminDashWidget('recent_merchants', static fn() => $db->query('SELECT * FROM merchants WHERE status != "deleted" ORDER BY created_at DESC LIMIT 5')->fetchAll() ?: [], []);
+}
+
+$unresolvedErrors = (int)adminDashWidget('unresolved_errors', static fn() => countUnresolvedPlatformErrors(), 0);
+$lastAutoAudit = adminDashWidget('last_auto_audit', static fn() => getLastAutoAuditRun(), null);
+$gatewayGaps = adminDashWidget('gateway_gaps', static fn() => getGatewaySetupGaps(), []);
 $quickWatchdog = $_SESSION['watchdog_quick_scan'] ?? null;
 $watchdogIssues = $quickWatchdog ? (
     (int)($quickWatchdog['summary']['broken_links'] ?? 0)
     + (int)($quickWatchdog['summary']['missing_files'] ?? 0)
     + (int)($quickWatchdog['summary']['syntax_fail'] ?? 0)
 ) : 0;
-
-$recentTxns = $db->query('SELECT t.*, m.business_name FROM transactions t JOIN merchants m ON t.merchant_id=m.id ORDER BY t.created_at DESC LIMIT 10')->fetchAll();
-$recentMerchants = $db->query('SELECT * FROM merchants WHERE status != "deleted" ORDER BY created_at DESC LIMIT 5')->fetchAll();
-
-$platformWallet = getPlatformWalletBalance();
-$readiness = getPlatformReadiness();
+$platformWallet = (float)adminDashWidget('platform_wallet', static fn() => getPlatformWalletBalance(), 0);
+$readiness = adminDashWidget('readiness', static fn() => getPlatformReadiness(), ['pct' => 0, 'done' => 0, 'total' => 0, 'merchants' => 0, 'transactions' => 0]);
 $opsAllClear = ($unresolvedErrors === 0 && $watchdogIssues === 0 && $pendingKyc === 0 && ($lastAutoAudit && !empty($lastAutoAudit['ok'])));
-$todayVol = capStatAmount((float)$todayTxn['t']);
-$monthVol = capStatAmount((float)$monthTxn['t']);
-} catch (Throwable $e) {
-    if (function_exists('logPlatformError')) {
-        logPlatformError('error', 'admin_dashboard data load failed: ' . $e->getMessage(), ['file' => $e->getFile(), 'line' => $e->getLine()]);
-    }
-    if (function_exists('flash')) {
-        flash('warning', 'Dashboard loaded in safe mode. Some widgets may be empty.');
-    }
-}
+$todayVol = capStatAmount((float)($todayTxn['t'] ?? 0));
+$monthVol = capStatAmount((float)($monthTxn['t'] ?? 0));
 $pageTitle = 'Admin Dashboard';
 require_once __DIR__ . '/header.php';
 ?>
 
-<div class="flex flex-wrap gap-2 sm:gap-3 mb-6 sm:mb-8">
-    <a href="admin_partners.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-violet-400 hover:text-violet-300">All Partners</a>
-    <a href="admin_platform_status.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-emerald-400 hover:text-emerald-300">Platform Status</a>
+<div class="flex flex-wrap gap-2 sm:gap-3 mb-4">
+    <a href="admin_gateway_registry.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-violet-400 hover:text-violet-300">Partner Registry</a>
+    <a href="admin_kyc.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-amber-400 hover:text-amber-300">KYC Review</a>
+    <a href="admin_transactions.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-sky-400 hover:text-sky-300">Transactions</a>
+    <a href="admin_settlements.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-emerald-400 hover:text-emerald-300">Settlements</a>
     <a href="admin_error_log.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm <?= $unresolvedErrors > 0 ? 'text-red-400 border border-red-500/30' : 'text-gray-400' ?>">Error Log<?= $unresolvedErrors > 0 ? " ($unresolvedErrors)" : '' ?></a>
-    <a href="admin_watchdog.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-amber-400">Link Watchdog</a>
-    <a href="admin_link_audit.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-sky-400">Link Audit</a>
-    <a href="admin_partner_decentro.php" class="bg-violet-600/20 border border-violet-500/30 text-violet-300 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium hover:bg-violet-600/30">Decentro Checklist</a>
-    <a href="demo.php" target="_blank" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-violet-400">Platform Tour ↗</a>
-    <a href="admin_reconciliation.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-sky-400 hover:text-sky-300">Reconciliation</a>
-    <a href="admin_risk_engine.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-red-400 hover:text-red-300">Risk Engine</a>
-    <a href="admin_rolling_reserve.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-amber-400 hover:text-amber-300">Rolling Reserve</a>
-    <a href="admin_grievance.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-orange-400 hover:text-orange-300">Grievance</a>
-    <a href="admin_partner_commercial.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-violet-400 hover:text-violet-300">Partner Stats</a>
-    <a href="admin_merchant_health.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-emerald-400 hover:text-emerald-300">Health Scores</a>
-    <a href="admin_security_hardening.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-red-400 hover:text-red-300">Security</a>
-    <a href="admin_gateway_matrix.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-sky-400 hover:text-sky-300">Gateway Matrix</a>
-    <a href="admin_webhook_reliability.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-amber-400 hover:text-amber-300">Webhooks</a>
-    <a href="admin_reports.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-sky-400 hover:text-sky-300">Reports</a>
-    <a href="admin_circuit_breaker.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-red-400 hover:text-red-300">Circuit Breaker</a>
-    <a href="admin_throughput.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-emerald-400 hover:text-emerald-300">Throughput</a>
-    <a href="admin_sub_merchants.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-violet-400 hover:text-violet-300">Sub-Merchants</a>
-    <a href="admin_integration_matrix.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-sky-400 hover:text-sky-300">Integration Matrix</a>
-    <a href="admin_ledger_state.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-emerald-400 hover:text-emerald-300">Ledger State</a>
-    <a href="admin_audit_log.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-amber-400 hover:text-amber-300">Audit Log</a>
-    <a href="admin_reason_map.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-violet-400 hover:text-violet-300">Reason Maps</a>
-    <a href="admin_platform_wallet.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-emerald-400 hover:text-emerald-300">Platform Wallet</a>
-    <a href="gateway_settings.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-gray-300 hover:text-white">Gateway Keys</a>
-    <a href="demo.php" target="_blank" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-brand-400">Live Demo ↗</a>
-    <a href="<?= APP_URL ?>/demo" target="_blank" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-gray-400">/demo</a>
+    <a href="admin_watchdog.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-amber-400">Watchdog</a>
+    <a href="admin_platform_status.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-emerald-400 hover:text-emerald-300">Platform Status</a>
 </div>
+<details class="mb-6 sm:mb-8">
+    <summary class="cursor-pointer text-xs text-gray-500 hover:text-gray-300">Advanced pages</summary>
+    <div class="flex flex-wrap gap-2 sm:gap-3 mt-3">
+        <a href="admin_link_audit.php" class="glass px-3 py-2 rounded-xl text-xs text-sky-400">Link Audit</a>
+        <a href="admin_partner_decentro.php" class="glass px-3 py-2 rounded-xl text-xs text-violet-300">Decentro Checklist</a>
+        <a href="admin_reconciliation.php" class="glass px-3 py-2 rounded-xl text-xs text-sky-400">Reconciliation</a>
+        <a href="admin_risk_engine.php" class="glass px-3 py-2 rounded-xl text-xs text-red-400">Risk Engine</a>
+        <a href="admin_rolling_reserve.php" class="glass px-3 py-2 rounded-xl text-xs text-amber-400">Rolling Reserve</a>
+        <a href="admin_grievance.php" class="glass px-3 py-2 rounded-xl text-xs text-orange-400">Grievance</a>
+        <a href="admin_partner_commercial.php" class="glass px-3 py-2 rounded-xl text-xs text-violet-400">Partner Stats</a>
+        <a href="admin_merchant_health.php" class="glass px-3 py-2 rounded-xl text-xs text-emerald-400">Health Scores</a>
+        <a href="admin_security_hardening.php" class="glass px-3 py-2 rounded-xl text-xs text-red-400">Security</a>
+        <a href="admin_gateway_matrix.php" class="glass px-3 py-2 rounded-xl text-xs text-sky-400">Gateway Matrix</a>
+        <a href="admin_webhook_reliability.php" class="glass px-3 py-2 rounded-xl text-xs text-amber-400">Webhooks</a>
+        <a href="admin_reports.php" class="glass px-3 py-2 rounded-xl text-xs text-sky-400">Reports</a>
+        <a href="admin_circuit_breaker.php" class="glass px-3 py-2 rounded-xl text-xs text-red-400">Circuit Breaker</a>
+        <a href="admin_throughput.php" class="glass px-3 py-2 rounded-xl text-xs text-emerald-400">Throughput</a>
+        <a href="admin_sub_merchants.php" class="glass px-3 py-2 rounded-xl text-xs text-violet-400">Sub-Merchants</a>
+        <a href="admin_integration_matrix.php" class="glass px-3 py-2 rounded-xl text-xs text-sky-400">Integration Matrix</a>
+        <a href="admin_ledger_state.php" class="glass px-3 py-2 rounded-xl text-xs text-emerald-400">Ledger State</a>
+        <a href="admin_audit_log.php" class="glass px-3 py-2 rounded-xl text-xs text-amber-400">Audit Log</a>
+        <a href="admin_reason_map.php" class="glass px-3 py-2 rounded-xl text-xs text-violet-400">Reason Maps</a>
+        <a href="admin_platform_wallet.php" class="glass px-3 py-2 rounded-xl text-xs text-emerald-400">Platform Fee Ledger</a>
+        <a href="gateway_settings.php" class="glass px-3 py-2 rounded-xl text-xs text-gray-300">Platform Settings</a>
+        <a href="demo.php" target="_blank" class="glass px-3 py-2 rounded-xl text-xs text-brand-400">Live Demo ↗</a>
+    </div>
+</details>
 
 <div class="glass rounded-xl p-5 mb-8 border border-sky-500/30">
     <div class="flex flex-wrap justify-between items-center gap-3 mb-4"><div><p class="font-semibold text-white">Decision Center</p><p class="text-xs text-gray-500 mt-1">Prioritize by risk, money impact and age. Review queues before routine work.</p></div><a href="admin_reconciliation.php" class="text-xs text-sky-400">Reconciliation queue →</a></div>
@@ -167,7 +180,9 @@ require_once __DIR__ . '/header.php';
 </div>
 
 <?php if ($pendingKyc > 0):
-    $kycQueue = getPendingKycQueue(min(5, $pendingKyc));
+    $kycQueue = function_exists('getPendingKycQueue')
+        ? adminDashWidget('kyc_queue', static fn() => getPendingKycQueue(min(5, max(1, $pendingKyc))), [])
+        : [];
 ?>
 <div class="glass rounded-xl p-5 mb-8 border border-amber-500/40 bg-amber-500/5">
     <div class="flex flex-wrap items-center justify-between gap-3">
@@ -248,13 +263,15 @@ require_once __DIR__ . '/header.php';
         <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex justify-between"><h2 class="font-semibold">Recent Transactions</h2><a href="admin_transactions.php" class="text-xs text-brand-400">View All</a></div>
         <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
             <tbody class="divide-y divide-gray-800">
-                <?php foreach ($recentTxns as $t): ?>
+                <?php if (empty($recentTxns)): ?>
+                <tr><td class="px-4 sm:px-5 py-8 text-sm text-gray-500 text-center" colspan="3">No recent transactions.</td></tr>
+                <?php else: foreach ($recentTxns as $t): ?>
                 <tr class="hover:bg-white/5 cursor-pointer" onclick="location.href='<?= e(transactionDetailUrl($t['txn_id'])) ?>'">
                     <td class="px-4 sm:px-5 py-3"><p class="font-mono text-xs"><a href="<?= e(transactionDetailUrl($t['txn_id'])) ?>" class="text-sky-400 hover:underline"><?= e($t['txn_id']) ?></a></p><p class="text-xs text-gray-500"><?= e($t['business_name']) ?></p></td>
                     <td class="px-4 sm:px-5 py-3 font-semibold"><?= formatMoney(capStatAmount((float)$t['amount'])) ?></td>
                     <td class="px-4 sm:px-5 py-3"><?= statusBadge($t['status']) ?></td>
                 </tr>
-                <?php endforeach; ?>
+                <?php endforeach; endif; ?>
             </tbody>
         </table></div>
     </div>
@@ -262,7 +279,9 @@ require_once __DIR__ . '/header.php';
         <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex justify-between"><h2 class="font-semibold">New Merchants</h2><a href="manage_merchant.php" class="text-xs text-brand-400">View All</a></div>
         <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
             <tbody class="divide-y divide-gray-800">
-                <?php foreach ($recentMerchants as $m): ?>
+                <?php if (empty($recentMerchants)): ?>
+                <tr><td class="px-4 sm:px-5 py-8 text-sm text-gray-500 text-center" colspan="4">No new merchants.</td></tr>
+                <?php else: foreach ($recentMerchants as $m): ?>
                 <tr<?= uiRowClick(adminMerchantUrl((int)$m['id'])) ?>>
                     <td class="px-4 sm:px-5 py-3">
                         <a href="<?= e(adminMerchantUrl((int)$m['id'])) ?>" class="font-medium text-white hover:text-sky-300" onclick="event.stopPropagation()"><?= e($m['business_name']) ?></a>
@@ -272,7 +291,7 @@ require_once __DIR__ . '/header.php';
                     <td class="px-4 sm:px-5 py-3"><?= statusBadge($m['status']) ?></td>
                     <td class="px-4 sm:px-5 py-3 text-right" onclick="event.stopPropagation()"><a href="admin_view_merchant.php?id=<?= (int)$m['id'] ?>" class="text-xs text-emerald-400 hover:text-emerald-300 font-semibold">View</a></td>
                 </tr>
-                <?php endforeach; ?>
+                <?php endforeach; endif; ?>
             </tbody>
         </table></div>
     </div>

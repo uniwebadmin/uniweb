@@ -93,27 +93,39 @@ function fixVerifiedMerchantsNotLive(): int
     return 0;
 }
 
-function getRecentSignupQueue(int $limit = 15): array
-{
-    $db = getDB();
-    $stmt = $db->prepare("SELECT id, merchant_code, business_name, name, email, phone, business_entity_type,
-        kyc_status, account_mode, status, created_at
-        FROM merchants WHERE status != 'deleted' ORDER BY created_at DESC LIMIT ?");
-    $stmt->execute([$limit]);
-    return $stmt->fetchAll();
+if (!function_exists('getRecentSignupQueue')) {
+    function getRecentSignupQueue(int $limit = 15): array
+    {
+        try {
+            $db = getDB();
+            $stmt = $db->prepare("SELECT id, merchant_code, business_name, name, email, phone, business_entity_type,
+                kyc_status, account_mode, status, created_at
+                FROM merchants WHERE status != 'deleted' ORDER BY created_at DESC LIMIT ?");
+            $stmt->execute([max(1, min(50, $limit))]);
+            return $stmt->fetchAll() ?: [];
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
 }
 
 /** Merchants waiting for admin KYC verify — Individual / Freelancer first */
-function getPendingKycQueue(int $limit = 15): array
-{
-    $db = getDB();
-    $stmt = $db->prepare("SELECT id, merchant_code, business_name, name, email, phone, business_entity_type,
-        kyc_status, account_mode, status, created_at
-        FROM merchants
-        WHERE status != 'deleted' AND kyc_status IN ('pending','submitted')
-        ORDER BY FIELD(COALESCE(business_entity_type,''), 'individual','freelancer','sole_proprietorship','sole_proprietor','proprietor','partnership','private_limited','public_limited','llp','opc','trust','society','huf','other'),
-        created_at ASC
-        LIMIT ?");
-    $stmt->execute([max(1, min(50, $limit))]);
-    return $stmt->fetchAll();
+if (!function_exists('getPendingKycQueue')) {
+    function getPendingKycQueue(int $limit = 15): array
+    {
+        try {
+            $db = getDB();
+            $stmt = $db->prepare("SELECT id, merchant_code, business_name, name, email, phone, business_entity_type,
+                kyc_status, account_mode, status, created_at
+                FROM merchants
+                WHERE status != 'deleted' AND kyc_status IN ('pending','submitted')
+                ORDER BY FIELD(COALESCE(business_entity_type,''), 'individual','freelancer','sole_proprietorship','sole_proprietor','proprietor','partnership','private_limited','public_limited','llp','opc','trust','society','huf','other'),
+                created_at ASC
+                LIMIT ?");
+            $stmt->execute([max(1, min(50, $limit))]);
+            return $stmt->fetchAll() ?: [];
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
 }

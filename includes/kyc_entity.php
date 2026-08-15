@@ -280,3 +280,55 @@ if (!function_exists('kycNormalizeRejectReason')) {
         return ['ok' => true, 'reason' => $trimmed, 'error' => ''];
     }
 }
+
+if (!function_exists('getPendingKycQueue')) {
+    function getPendingKycQueue(int $limit = 20): array
+    {
+        $limit = max(1, min(100, $limit));
+        try {
+            $stmt = getDB()->prepare(
+                "SELECT id, merchant_code, business_name, name, email, phone, business_entity_type,
+                        kyc_status, account_mode, status, created_at
+                 FROM merchants
+                 WHERE status != 'deleted'
+                   AND kyc_status IN ('pending','submitted')
+                   AND email <> 'demo@uniweb.co.in'
+                 ORDER BY FIELD(COALESCE(business_entity_type,''), 'individual','freelancer','sole_proprietorship','sole_proprietor','proprietor','partnership','private_limited','public_limited','llp','opc','trust','society','huf','other'),
+                          created_at ASC
+                 LIMIT ?"
+            );
+            $stmt->execute([$limit]);
+            return $stmt->fetchAll() ?: [];
+        } catch (Throwable $e) {
+            if (function_exists('logPlatformError')) {
+                logPlatformError('warning', 'getPendingKycQueue failed: ' . $e->getMessage());
+            }
+            return [];
+        }
+    }
+}
+
+if (!function_exists('getRecentSignupQueue')) {
+    function getRecentSignupQueue(int $limit = 12): array
+    {
+        $limit = max(1, min(50, $limit));
+        try {
+            $stmt = getDB()->prepare(
+                "SELECT id, merchant_code, business_name, name, email, phone, business_entity_type,
+                        kyc_status, account_mode, status, created_at
+                 FROM merchants
+                 WHERE status != 'deleted'
+                   AND email <> 'demo@uniweb.co.in'
+                 ORDER BY created_at DESC
+                 LIMIT ?"
+            );
+            $stmt->execute([$limit]);
+            return $stmt->fetchAll() ?: [];
+        } catch (Throwable $e) {
+            if (function_exists('logPlatformError')) {
+                logPlatformError('warning', 'getRecentSignupQueue failed: ' . $e->getMessage());
+            }
+            return [];
+        }
+    }
+}

@@ -353,6 +353,21 @@ $assert(!preg_match('/^function getBusinessEntityTypes\(/m', $cfgDev), 'config_d
 $assert(str_contains($cfgDev, "'kyc_entity'"), 'config_dev_loads_kyc_entity_include');
 $kycEnt = (string)file_get_contents($root . '/includes/kyc_entity.php');
 $assert(str_contains($kycEnt, "function_exists('getBusinessEntityTypes')"), 'kyc_entity_guards_redeclare');
+$assert(str_contains($kycEnt, 'function getPendingKycQueue'), 'p4_pending_kyc_queue_helper');
+$assert(str_contains($adminDash, 'function adminDashWidget'), 'p4_admin_dash_widget_helper');
+$assert(str_contains($adminDash, 'No recent transactions.') && str_contains($adminDash, 'No new merchants.'), 'p4_admin_dash_empty_table_states');
+$pcP4 = (string)file_get_contents($root . '/includes/partner_control.php');
+$assert(str_contains($pcP4, 'function partnerGoLiveChecklist'), 'p4_go_live_checklist_helper');
+$assert(str_contains($pcP4, 'Save commercial MDR first'), 'p4_go_live_requires_mdr');
+$gwDetailP4 = (string)file_get_contents($root . '/admin_gateway_detail.php');
+$assert(str_contains($gwDetailP4, "'golive' => 'Go-live'"), 'p4_partner_golive_tab');
+$assert(str_contains($gwDetailP4, 'data-copy-url='), 'p4_webhook_copy_uses_data_copy_url');
+$assert(!str_contains($gwDetailP4, "writeText('<?= e(\$webhookUrl) ?>')"), 'p4_webhook_copy_not_html_encoded_js');
+$assert(str_contains($gwDetailP4, 'complete required items first'), 'p4_go_live_button_gated');
+$assert(str_contains($header, "'collapsed' => true") && str_contains($header, "'title' => 'Advanced'"), 'p4_admin_nav_advanced_collapsed');
+$assert(!str_contains($header, "['admin_nbfc.php','"), 'p4_admin_nav_hides_nbfc');
+$morningP4 = (string)file_get_contents($root . '/includes/morning_ops.php');
+$assert(str_contains($morningP4, "function_exists('getPendingKycQueue')"), 'p4_morning_ops_no_queue_redeclare');
 $assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');
 
 // Auth portal redesign (all four logins — presentation only).

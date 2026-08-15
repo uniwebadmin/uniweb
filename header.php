@@ -336,19 +336,40 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     ['admin_kyc.php','KYC Review'],
                     ['admin_onboarding_invite.php','Onboarding Invites'],
                     ['admin_website_reviews.php','Website Reviews'],
-                    ['admin_sub_merchants.php','Sub Merchants'],
-                    ['admin_merchant_health.php','Merchant Health'],
-                    ['admin_customer_view.php','Customer Lookup'],
                 ]],
-                ['id' => 'partners', 'title' => 'Partners & Rails', 'items' => [
+                ['id' => 'partners', 'title' => 'Partners', 'items' => [
                     ['admin_gateway_registry.php','Partner Registry'],
                     ['gateway_settings.php','Platform Settings'],
                     ['admin_method_requests.php','Method Requests'],
                     ['admin_forward_queue.php','KYC Forward Queue'],
+                ]],
+                ['id' => 'payments', 'title' => 'Transactions & Refunds', 'items' => [
+                    ['admin_transactions.php','Transactions'],
+                    ['admin_refunds.php','Refunds'],
+                    ['admin_disputes.php','Disputes'],
+                ]],
+                ['id' => 'settlements', 'title' => 'Settlements & Payouts', 'items' => [
+                    ['admin_settlements.php','Settlements'],
+                    ['admin_bulk_payout.php','Bulk Payout'],
+                    ['admin_payout.php','Payout Requests'],
+                ]],
+                ['id' => 'support', 'title' => 'Support', 'items' => [
+                    ['admin_support.php','Support Tickets'],
+                ]],
+                ['id' => 'ops', 'title' => 'Ops', 'items' => [
+                    ['admin_platform_status.php','Platform Status + Cron Jobs'],
+                    ['admin_watchdog.php','Link Watchdog'],
+                    ['admin_error_log.php','Error Log'],
+                ]],
+                ['id' => 'staff', 'title' => 'Staff', 'items' => [
+                    ['admin_manage_staff.php','Staff / Employees'],
+                ]],
+                ['id' => 'advanced', 'title' => 'Advanced', 'collapsed' => true, 'items' => [
+                    ['admin_sub_merchants.php','Sub Merchants'],
+                    ['admin_merchant_health.php','Merchant Health'],
+                    ['admin_customer_view.php','Customer Lookup'],
                     ['admin_reason_map.php','Reason Maps'],
                     ['admin_auto_kyc.php','Auto KYC Engine'],
-                ]],
-                ['id' => 'partner_ops', 'title' => 'Partner Ops (Advanced)', 'items' => [
                     ['admin_gateway_submit.php','KYC Submissions'],
                     ['admin_integration_matrix.php','Integration Status Board'],
                     ['admin_gateway_matrix.php','Gateway Routing Matrix'],
@@ -358,36 +379,20 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     ['admin_partner_commercial.php','Partner Commercial'],
                     ['admin_circuit_breaker.php','Circuit Breaker'],
                     ['admin_webhook_reliability.php','Webhook Reliability'],
-                ]],
-                ['id' => 'payments', 'title' => 'Transactions & Refunds', 'items' => [
-                    ['admin_transactions.php','Transactions'],
-                    ['admin_refunds.php','Refunds'],
-                    ['admin_disputes.php','Disputes'],
                     ['admin_chargebacks.php','Chargebacks'],
                     ['admin_financial_reports.php','Financial Reports'],
                     ['admin_pg_webhooks.php','PG Webhooks'],
                     ['admin_reconciliation.php','PG Reconciliation'],
-                ]],
-                ['id' => 'settlements', 'title' => 'Settlements & Payouts', 'items' => [
-                    ['admin_settlements.php','Settlements'],
                     ['admin_settlement_settings.php','Settlement Engine'],
                     ['admin_settlement_batches.php','Settlement Batches'],
-                    ['admin_bulk_payout.php','Bulk Payout'],
-                    ['admin_payout.php','Payout Requests'],
                     ['admin_bank_reconciliation.php','Bank Reconciliation'],
                     ['admin_bank_holidays.php','Bank Holidays'],
                     ['admin_rolling_reserve.php','Rolling Reserve'],
-                ]],
-                ['id' => 'support', 'title' => 'Support & Risk', 'items' => [
-                    ['admin_support.php','Support Tickets'],
                     ['admin_customer_tickets.php','Customer Complaints'],
                     ['admin_aml.php','AML Compliance'],
                     ['admin_risk.php','Risk Rules'],
                     ['admin_risk_engine.php','Risk Engine'],
                     ['admin_grievance.php','Grievance Officer'],
-                ]],
-                ['id' => 'platform', 'title' => 'Data & Platform', 'items' => [
-                    ['admin_platform_status.php','Platform Status + Cron Jobs'],
                     ['admin_audit_plan.php','Deep Audit Plan'],
                     ['admin_transaction_monitor.php','Transaction Monitor'],
                     ['admin_throughput.php','Throughput Monitor'],
@@ -397,20 +402,22 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     ['admin_nodal_accounts.php','Nodal Accounts'],
                     ['admin_reports.php','Reports'],
                     ['admin_incidents.php','Incidents'],
-                    ['admin_watchdog.php','Link Watchdog'],
                     ['admin_link_audit.php','Link Audit'],
-                    ['admin_error_log.php','Error Log'],
                     ['admin_audit_log.php','Audit Log'],
                     ['admin_ledger_state.php','Ledger State Machine'],
                     ['admin_encrypt_pii.php','Encrypt PII Backfill'],
-                ]],
-                ['id' => 'staff', 'title' => 'Staff & Security', 'items' => [
-                    ['admin_manage_staff.php','Staff / Employees'],
                     ['admin_staff_activity.php','Staff Activity Log'],
                     ['admin_security.php','Security & Password'],
                     ['admin_security_hardening.php','Security Hardening'],
                 ]],
             ];
+            $adminHiddenUrls = ['admin_nbfc.php'];
+            foreach ($adminNav as &$group) {
+                $group['items'] = array_values(array_filter($group['items'], static function ($item) use ($adminHiddenUrls) {
+                    return !in_array($item[0] ?? '', $adminHiddenUrls, true);
+                }));
+            }
+            unset($group);
             $cur = basename($_SERVER['PHP_SELF']);
             foreach ($adminNav as $group):
                 $isOpen = false;
@@ -418,12 +425,12 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     if (isset($item[0]) && $cur === $item[0]) { $isOpen = true; break; }
                 }
             ?>
-            <div class="admin-sidebar-group mb-1" data-group-id="<?= e($group['id']) ?>" data-open="<?= $isOpen ? '1' : '0' ?>">
+            <div class="admin-sidebar-group mb-1" data-group-id="<?= e($group['id']) ?>" data-open="<?= $isOpen ? '1' : '0' ?>"<?= !empty($group['collapsed']) ? ' data-collapsed="1"' : '' ?>>
                 <button type="button" class="admin-group-toggle w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition" aria-expanded="<?= $isOpen ? 'true' : 'false' ?>">
                     <span><?= e($group['title']) ?></span>
                     <svg class="admin-group-chevron flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:1rem;height:1rem;pointer-events:none;transition:transform .3s;transform:rotate(<?= $isOpen ? '90' : '0' ?>deg);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </button>
-                <div class="admin-group-panel" style="overflow:hidden;transition:max-height .3s;max-height:<?= $isOpen ? '1200' : '0' ?>px;">
+                <div class="admin-group-panel" style="overflow:hidden;transition:max-height .3s;max-height:<?= $isOpen ? (!empty($group['collapsed']) ? '5000' : '1200') : '0' ?>px;">
                     <div class="py-1 pl-4 space-y-0.5">
                         <?php foreach ($group['items'] as [$url, $label]): ?>
                         <a href="<?= $url ?>" class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition <?= $cur===$url?'bg-red-500/10 text-red-400':'' ?>"><?= e($label) ?></a>

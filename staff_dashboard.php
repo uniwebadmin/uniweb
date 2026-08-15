@@ -45,7 +45,14 @@ $assignedCount = count(getStaffAssignedMerchants((int)($admin['id'] ?? 0)));
 </div>
 <?php endif; ?>
 <?php if (staffCanAccess('admin_kyc.php') && $pendingKyc > 0):
-    $queue = getPendingKycQueue(5);
+    $queue = [];
+    if (function_exists('getPendingKycQueue')) {
+        try {
+            $queue = getPendingKycQueue(5);
+        } catch (Throwable $e) {
+            $queue = [];
+        }
+    }
 ?>
 <div class="glass rounded-xl overflow-hidden mb-8 border border-amber-500/30">
     <div class="px-5 py-3 border-b border-gray-800 flex justify-between items-center">
@@ -53,7 +60,9 @@ $assignedCount = count(getStaffAssignedMerchants((int)($admin['id'] ?? 0)));
         <a href="admin_kyc.php" class="text-xs text-sky-400">Open KYC →</a>
     </div>
     <div class="divide-y divide-gray-800">
-        <?php foreach ($queue as $m): ?>
+        <?php if (empty($queue)): ?>
+        <p class="px-5 py-4 text-sm text-gray-500">KYC queue could not be loaded. Open KYC Review to continue.</p>
+        <?php else: foreach ($queue as $m): ?>
         <div class="px-5 py-3 flex flex-wrap items-center justify-between gap-2 text-sm">
             <div>
                 <p class="font-medium"><?= e($m['business_name'] ?: $m['merchant_code']) ?></p>
@@ -64,7 +73,7 @@ $assignedCount = count(getStaffAssignedMerchants((int)($admin['id'] ?? 0)));
                 <a href="admin_view_merchant.php?id=<?= (int)$m['id'] ?>" class="text-xs text-emerald-400">View</a>
             </div>
         </div>
-        <?php endforeach; ?>
+        <?php endforeach; endif; ?>
     </div>
 </div>
 <?php endif; ?>

@@ -727,6 +727,15 @@ function setPartnerGoLive(int $gatewayId, bool $goLive, string $adminEmail): arr
             if (!$cred['live']) return ['ok' => false, 'error' => 'Live credentials required. Save live keys first.'];
             $methods = getEnabledPartnerMethods($pk);
             if (empty($methods)) return ['ok' => false, 'error' => 'At least one payment method must be enabled.'];
+            try {
+                $mdr = getDB()->prepare('SELECT id FROM partner_commercial WHERE partner_key=? LIMIT 1');
+                $mdr->execute([$pk]);
+                if (!$mdr->fetchColumn()) {
+                    return ['ok' => false, 'error' => 'Save commercial MDR first (Commercial tab).'];
+                }
+            } catch (Throwable $e) {
+                return ['ok' => false, 'error' => 'Save commercial MDR first (Commercial tab).'];
+            }
         }
         $db = getDB();
         $db->prepare("UPDATE gateway_registry SET public_go_live=?, public_go_live_at=?, public_go_live_by=? WHERE id=?")
@@ -738,6 +747,48 @@ function setPartnerGoLive(int $gatewayId, bool $goLive, string $adminEmail): arr
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => $e->getMessage()];
     }
+}
+
+/**
+ * UI checklist for Partner Registry Go-live (keys, methods, MDR, webhook).
+ * @return array{items:array,ready:bool}
+ */
+function partnerGoLiveChecklist(string $partnerKey, array $gateway = [], string $webhookUrl = ''): array
+{
+    $active = (int)($gateway['is_active'] ?? 0) === 1;
+    $cred = function_exists('getPartnerCredentialStatus') ? getPartnerCredentialStatus($partnerKey) : ['live' => false];
+    $liveKeys = !empty($cred['live']);
+    $methodsOn = false;
+    try {
+        $enabled = function_exists('getEnabledPartnerMethods') ? getEnabledPartnerMethods($partnerKey) : [];
+        $methodsOn = !empty($enabled);
+    } catch (Throwable $e) {
+        $methodsOn = false;
+    }
+    $mdr = false;
+    try {
+        $st = getDB()->prepare('SELECT id FROM partner_commercial WHERE partner_key=? LIMIT 1');
+        $st->execute([$partnerKey]);
+        $mdr = (bool)$st->fetchColumn();
+    } catch (Throwable $e) {
+        $mdr = false;
+    }
+    $webhook = trim($webhookUrl) !== '';
+    $items = [
+        ['key' => 'active', 'label' => 'Partner is Active', 'ok' => $active, 'tab' => 'keys', 'required' => true],
+        ['key' => 'live_keys', 'label' => 'Live API keys saved', 'ok' => $liveKeys, 'tab' => 'keys', 'required' => true],
+        ['key' => 'methods', 'label' => 'At least one payment method ON', 'ok' => $methodsOn, 'tab' => 'methods', 'required' => true],
+        ['key' => 'mdr', 'label' => 'Commercial MDR saved', 'ok' => $mdr, 'tab' => 'commercial', 'required' => true],
+        ['key' => 'webhook', 'label' => 'Webhook URL ready to copy', 'ok' => $webhook, 'tab' => 'webhooks', 'required' => false],
+    ];
+    $ready = true;
+    foreach ($items as $item) {
+        if (!empty($item['required']) && empty($item['ok'])) {
+            $ready = false;
+            break;
+        }
+    }
+    return ['items' => $items, 'ready' => $ready];
 }
 
 /**

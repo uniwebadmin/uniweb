@@ -115,11 +115,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     }
 
     if ($action === 'toggle_go_live') {
-        $goLive = isset($_POST['go_live']);
+        $goLive = ((string)($_POST['go_live'] ?? '')) === '1';
         $adminEmail = $_SESSION['staff_email'] ?? $_SESSION['admin_email'] ?? 'admin';
         $result = setPartnerGoLive($gatewayId, $goLive, $adminEmail);
         flash($result['ok'] ? 'success' : 'error', $result['ok'] ? ($goLive ? 'Partner is now live on public website.' : 'Partner removed from public website.') : ($result['error'] ?? 'Failed'));
-        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=' . $activeTab);
+        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=golive');
     }
 
     if ($action === 'save_method_mdr') {
@@ -213,7 +213,12 @@ $methodLabels = [
     'netbanking' => 'Net Banking', 'emi' => 'EMI',
     'emandate_upi' => 'E-Mandate UPI', 'emandate_card' => 'E-Mandate Card', 'emandate_nb' => 'E-Mandate NB',
 ];
-$tabs = ['keys' => 'Keys', 'methods' => 'Methods', 'commercial' => 'Commercial & Split', 'webhooks' => 'Webhooks', 'test' => 'Test', 'logs' => 'Logs'];
+$tabs = ['keys' => 'Keys', 'methods' => 'Methods', 'commercial' => 'Commercial & Split', 'webhooks' => 'Webhooks', 'golive' => 'Go-live', 'test' => 'Test', 'logs' => 'Logs'];
+$webhookUrl = trim((string)($gateway['webhook_url'] ?: ($partner['webhook'] ?? '')));
+$goLiveChecklist = function_exists('partnerGoLiveChecklist')
+    ? partnerGoLiveChecklist($partnerKey, $gateway, $webhookUrl)
+    : ['items' => [], 'ready' => false];
+$isGoLive = (int)($gateway['public_go_live'] ?? 0) === 1;
 
 $pageTitle = $gateway['gateway_name'] . ' — Partner Detail';
 require_once __DIR__ . '/header.php';
@@ -269,34 +274,7 @@ require_once __DIR__ . '/header.php';
         </div>
     </div>
 
-    <div class="glass rounded-xl p-6 border border-gray-800">
-        <h3 class="font-semibold mb-1">Public Website</h3>
-        <p class="text-xs text-gray-500 mb-4">Control whether this partner appears on the public homepage "Our Partners" section. Go Live requires: partner active, live credentials saved, and at least one payment method enabled.</p>
-        <div class="flex flex-wrap items-center gap-4">
-            <form method="POST" class="inline">
-                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                <input type="hidden" name="action" value="toggle_go_live">
-                <?php $isGoLive = (int)($gateway['public_go_live'] ?? 0) === 1; ?>
-                <?php if ($isGoLive): ?>
-                <input type="hidden" name="go_live" value="0">
-                <button type="submit" class="text-xs px-4 py-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" onclick="return confirm('Remove from public website?')">● Go Live ON — Click to turn OFF</button>
-                <?php else: ?>
-                <input type="hidden" name="go_live" value="1">
-                <button type="submit" class="text-xs px-4 py-2.5 rounded-lg bg-gray-700/50 text-gray-400 border border-gray-600" onclick="return confirm('Show this partner on public website?')">○ Go Live OFF — Click to turn ON</button>
-                <?php endif; ?>
-            </form>
-            <div class="text-xs text-gray-500 space-y-0.5">
-                <div>Active: <span class="<?= $isActive ? 'text-emerald-400' : 'text-red-400' ?>"><?= $isActive ? 'Yes' : 'No' ?></span></div>
-                <div>Live keys: <span class="<?= $credStatus['live'] ? 'text-emerald-400' : 'text-red-400' ?>"><?= $credStatus['live'] ? 'Yes' : 'No' ?></span></div>
-                <div>Methods enabled: <span class="<?= !empty(array_filter($partnerMethods, fn($m) => (int)$m['is_enabled'] === 1)) ? 'text-emerald-400' : 'text-red-400' ?>"><?= count(array_filter($partnerMethods, fn($m) => (int)$m['is_enabled'] === 1)) ?></span></div>
-                <?php if ($isGoLive && !empty($gateway['public_go_live_at'])): ?>
-                <div class="text-gray-600">Go Live since: <?= e((string)$gateway['public_go_live_at']) ?> by <?= e((string)($gateway['public_go_live_by'] ?? '')) ?></div>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
-
-    <div class="flex gap-1 border-b border-gray-800">
+    <div class="flex gap-1 border-b border-gray-800 overflow-x-auto">
         <?php foreach ($tabs as $tabKey => $tabLabel): ?>
         <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=<?= $tabKey ?>" class="px-4 py-2.5 text-sm font-medium <?= $activeTab === $tabKey ? 'text-brand-400 border-b-2 border-brand-500' : 'text-gray-400 hover:text-gray-200' ?>"><?= $tabLabel ?></a>
         <?php endforeach; ?>
@@ -580,13 +558,13 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl p-6 border border-gray-800">
         <h3 class="font-semibold mb-1">Webhook Configuration</h3>
         <p class="text-xs text-gray-500 mb-4">Configure this URL at the partner's dashboard. UniWeb verifies signatures and processes events idempotently.</p>
-        <?php $webhookUrl = $gateway['webhook_url'] ?: ($partner['webhook'] ?? ''); ?>
+        <?php $webhookUrl = $webhookUrl ?? ($gateway['webhook_url'] ?: ($partner['webhook'] ?? '')); ?>
         <?php if ($webhookUrl): ?>
         <div class="bg-dark-900/50 rounded-lg p-3 mb-4">
             <p class="text-xs text-gray-500">Webhook URL</p>
             <p class="text-xs font-mono text-sky-400 break-all mt-1"><?= e($webhookUrl) ?></p>
         </div>
-        <button onclick="navigator.clipboard.writeText('<?= e($webhookUrl) ?>'); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy URL',2000)" class="text-xs px-3 py-2 rounded-lg border border-gray-700 text-gray-300 hover:text-white">Copy URL</button>
+        <button type="button" data-copy-url="<?= e($webhookUrl) ?>" onclick="var u=this.getAttribute('data-copy-url')||''; if(u){navigator.clipboard.writeText(u); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy URL',2000);}" class="text-xs px-3 py-2 rounded-lg border border-gray-700 text-gray-300 hover:text-white">Copy URL</button>
         <?php else: ?>
         <p class="text-sm text-gray-500 py-4">No webhook URL configured for this partner.</p>
         <?php endif; ?>
@@ -616,6 +594,53 @@ require_once __DIR__ . '/header.php';
             </div>
         </div>
         <?php endif; ?>
+    </div>
+
+    <?php elseif ($activeTab === 'golive'): ?>
+    <div class="glass rounded-xl p-6 border border-gray-800">
+        <h3 class="font-semibold mb-1">Go-live</h3>
+        <p class="text-xs text-gray-500 mb-4">Checklist before this partner appears on the public homepage. Complete required items, then turn Go Live ON. Live Route API stays locked until a later ticket.</p>
+        <ul class="space-y-2 mb-5">
+            <?php foreach (($goLiveChecklist['items'] ?? []) as $item): ?>
+            <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-800 px-3 py-2.5 text-sm">
+                <span class="<?= !empty($item['ok']) ? 'text-emerald-400' : 'text-amber-400' ?>">
+                    <?= !empty($item['ok']) ? '● Ready' : '○ Missing' ?>
+                    <span class="text-gray-200 ml-1"><?= e((string)$item['label']) ?></span>
+                    <?php if (empty($item['required'])): ?><span class="text-gray-600 text-xs ml-1">(optional)</span><?php endif; ?>
+                </span>
+                <?php if (empty($item['ok']) && !empty($item['tab'])): ?>
+                <a href="admin_gateway_detail.php?id=<?= (int)$gatewayId ?>&tab=<?= e((string)$item['tab']) ?>" class="text-xs text-sky-400">Open <?= e((string)$item['tab']) ?> →</a>
+                <?php endif; ?>
+            </li>
+            <?php endforeach; ?>
+        </ul>
+        <?php if ($webhookUrl): ?>
+        <div class="bg-dark-900/50 rounded-lg p-3 mb-4">
+            <p class="text-xs text-gray-500">Webhook URL</p>
+            <p class="text-xs font-mono text-sky-400 break-all mt-1"><?= e($webhookUrl) ?></p>
+            <button type="button" data-copy-url="<?= e($webhookUrl) ?>" onclick="var u=this.getAttribute('data-copy-url')||''; if(u){navigator.clipboard.writeText(u); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy URL',2000);}" class="mt-2 text-xs px-3 py-2 rounded-lg border border-gray-700 text-gray-300 hover:text-white">Copy URL</button>
+        </div>
+        <?php endif; ?>
+        <div class="flex flex-wrap items-center gap-4">
+            <form method="POST" class="inline">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="toggle_go_live">
+                <?php if ($isGoLive): ?>
+                <input type="hidden" name="go_live" value="0">
+                <button type="submit" class="text-xs px-4 py-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" onclick="return confirm('Remove from public website?')">● Go Live ON — Click to turn OFF</button>
+                <?php elseif (!empty($goLiveChecklist['ready'])): ?>
+                <input type="hidden" name="go_live" value="1">
+                <button type="submit" class="text-xs px-4 py-2.5 rounded-lg bg-gray-700/50 text-gray-400 border border-gray-600" onclick="return confirm('Show this partner on public website?')">○ Go Live OFF — Click to turn ON</button>
+                <?php else: ?>
+                <button type="button" disabled class="text-xs px-4 py-2.5 rounded-lg bg-gray-800 text-gray-500 border border-gray-700 cursor-not-allowed">○ Go Live OFF — complete required items first</button>
+                <?php endif; ?>
+            </form>
+            <div class="text-xs text-gray-500 space-y-0.5">
+                <?php if ($isGoLive && !empty($gateway['public_go_live_at'])): ?>
+                <div class="text-gray-600">Go Live since: <?= e((string)$gateway['public_go_live_at']) ?> by <?= e((string)($gateway['public_go_live_by'] ?? '')) ?></div>
+                <?php endif; ?>
+            </div>
+        </div>
     </div>
 
     <?php elseif ($activeTab === 'test'): ?>

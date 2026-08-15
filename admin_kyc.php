@@ -218,8 +218,18 @@ try {
         $pendingDocs = [];
     }
 }
-$pendingMerchants = getPendingKycQueue(50);
-$recentSignups = getRecentSignupQueue(12);
+$pendingMerchants = [];
+$recentSignups = [];
+try {
+    $pendingMerchants = function_exists('getPendingKycQueue') ? getPendingKycQueue(50) : [];
+} catch (Throwable $e) {
+    $pendingMerchants = [];
+}
+try {
+    $recentSignups = function_exists('getRecentSignupQueue') ? getRecentSignupQueue(12) : [];
+} catch (Throwable $e) {
+    $recentSignups = [];
+}
 $approvalQueue = [];
 try {
     $approvalQueue = $db->query(
