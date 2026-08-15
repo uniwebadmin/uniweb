@@ -6,12 +6,19 @@ declare(strict_types=1);
  * Returns plain "OK" or HTTP 503.
  */
 
+if (!defined('UNIWEB_HEALTH_PROBE')) {
+    define('UNIWEB_HEALTH_PROBE', true);
+}
+
 header('Content-Type: text/plain; charset=UTF-8');
 header('Cache-Control: no-store');
 
 try {
     require_once __DIR__ . '/config.php';
     getDB()->query('SELECT 1');
+    if (!defined('UNIWEB_HEALTH_ANSWERED')) {
+        define('UNIWEB_HEALTH_ANSWERED', true);
+    }
     echo 'OK';
 } catch (Throwable $e) {
     if (!headers_sent()) {

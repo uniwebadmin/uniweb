@@ -495,14 +495,16 @@ $__includes = [
     'partner_forward_queue',
 ];
 $__loaded = [];
-foreach ($__includes as $__inc) {
-    if (isset($__loaded[$__inc])) {
-        continue;
-    }
-    $__loaded[$__inc] = true;
-    $__path = __DIR__ . '/includes/' . $__inc . '.php';
-    if (is_file($__path)) {
-        require_once $__path;
+if (!(defined('UNIWEB_HEALTH_PROBE') && UNIWEB_HEALTH_PROBE)) {
+    foreach ($__includes as $__inc) {
+        if (isset($__loaded[$__inc])) {
+            continue;
+        }
+        $__loaded[$__inc] = true;
+        $__path = __DIR__ . '/includes/' . $__inc . '.php';
+        if (is_file($__path)) {
+            require_once $__path;
+        }
     }
 }
 unset($__includes, $__inc, $__path, $__loaded);

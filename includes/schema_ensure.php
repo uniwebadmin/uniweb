@@ -5,6 +5,9 @@ declare(strict_types=1);
 
 function schemaEnsureSkipHeavy(): bool
 {
+    if (defined('UNIWEB_HEALTH_PROBE') && UNIWEB_HEALTH_PROBE) {
+        return true;
+    }
     $script = strtolower(basename((string)($_SERVER['SCRIPT_FILENAME'] ?? $_SERVER['PHP_SELF'] ?? '')));
     return $script === 'health.php';
 }

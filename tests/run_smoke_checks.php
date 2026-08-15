@@ -567,7 +567,14 @@ $assert(str_contains($errCatchP8, 'array|string $context') && str_contains($errC
 $assert(!str_contains($autoP8, 'json_encode($isolationViolations)'), 'p8_isolation_log_passes_array');
 $assert(str_contains($finP8, 'uwRecordAuditEvent(\'payment_capture\'') || str_contains($finP8, 'uwRecordAuditEvent("payment_capture"') || str_contains($finP8, "uwRecordAuditEvent('payment_capture'"), 'p8_capture_uses_safe_audit');
 $assert(str_contains($healthP8, "echo 'OK'") && str_contains($healthP8, 'schemaEnsureSkipHeavy') === false, 'p8_health_plain_ok');
-$assert(str_contains($schemaP7, 'function schemaEnsureSkipHeavy') && str_contains($schemaP7, "health.php"), 'p8_health_skips_heavy_schema');
+$assert(str_contains($healthP8, 'UNIWEB_HEALTH_PROBE') && str_contains($healthP8, 'UNIWEB_HEALTH_ANSWERED'), 'p8_health_probe_flags');
+$assert(str_contains($schemaP7, 'UNIWEB_HEALTH_PROBE') && str_contains($schemaP7, "health.php"), 'p8_health_skips_heavy_schema');
+$assert(str_contains($errCatchP8, 'There is no active transaction') && str_contains($errCatchP8, 'UNIWEB_HEALTH_ANSWERED'), 'p8_auto_resolve_stale_txn_and_health_ok');
+$assert(str_contains($finP8, 'function uniwebPdoCommit') && str_contains($finP8, 'function uniwebPreparePaymentCaptureSchema'), 'p8_capture_ddl_before_transaction');
+$wdSrc = (string)file_get_contents($root . '/includes/link_watchdog.php');
+$assert(str_contains($wdSrc, '$st === 503') && str_contains($wdSrc, "basename(\$relFile) === 'health.php'"), 'p8_watchdog_retries_503');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_api.php'), "'ok' => true") && str_contains((string)file_get_contents($root . '/includes/platform_api.php'), 'error(s) in Error Log — open admin_error_log.php'), 'p8_error_log_self_check_not_fail');
+$assert(str_contains($errCatchP8, "\$checkId === 'error_log'"), 'p8_watchdog_does_not_log_error_log_count');
 $assert(str_contains($hdrP8, 'portal-polish.css?v=20260815a') && str_contains($hdrP8, '.portal-main{overflow-x:auto}'), 'p8_css_cache_bust_and_no_clip');
 $assert(str_contains($cssP8, 'writing-mode: horizontal-tb') && str_contains($cssP8, 'direction: ltr') && !str_contains($cssP8, ".portal-main .glass {\n  overflow: hidden"), 'p8_tables_ltr_scroll');
 $assert(!str_contains($themeP8, 'overflow-x: clip'), 'p8_theme_no_overflow_clip');

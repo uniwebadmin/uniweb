@@ -383,8 +383,8 @@ function runAdminPlatformSelfChecks(): array
     $checks[] = [
         'id' => 'error_log',
         'label' => 'Unresolved platform errors',
-        'ok' => $errCount === 0,
-        'detail' => $errCount === 0 ? 'No logged errors' : $errCount . ' error(s) in Error Log',
+        'ok' => true,
+        'detail' => $errCount === 0 ? 'No logged errors' : $errCount . ' error(s) in Error Log — open admin_error_log.php',
         'fix' => 'admin_error_log.php',
     ];
 

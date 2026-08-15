@@ -556,16 +556,27 @@ function watchdogHttpProbe(string $relFile, string $auth = 'none'): array
         return ['ok' => null, 'status' => null, 'detail' => 'curl unavailable'];
     }
     $url = rtrim(APP_URL, '/') . '/' . ltrim($relFile, '/');
+    $transient = static function (array $hit): bool {
+        $st = (int)($hit['status'] ?? 0);
+        return ($hit['err'] ?? '') !== '' || $st === 0 || $st === 500 || $st === 503;
+    };
     $hit = watchdogCurlGet($url, true);
-    if ($hit['err'] !== '' || $hit['status'] === 0 || $hit['status'] === 500) {
+    if ($transient($hit)) {
         $retry = watchdogCurlGet($url, false);
-        if ($retry['err'] === '' && $retry['status'] > 0 && $retry['status'] !== 500) {
+        if (!$transient($retry) && (int)$retry['status'] > 0) {
             $hit = $retry;
         } elseif (str_starts_with($url, 'https://')) {
             $httpUrl = 'http://' . substr($url, strlen('https://'));
             $httpHit = watchdogCurlGet($httpUrl, false);
             if ($httpHit['err'] === '' && $httpHit['status'] >= 200 && $httpHit['status'] < 400) {
                 $hit = $httpHit;
+            }
+        }
+        // Hostinger often 503s the first self-curl of health.php; one extra retry.
+        if ($transient($hit) && basename($relFile) === 'health.php') {
+            $extra = watchdogCurlGet($url, false);
+            if (!$transient($extra) && (int)$extra['status'] > 0) {
+                $hit = $extra;
             }
         }
     }

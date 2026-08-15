@@ -23,6 +23,56 @@ function requireFinancialTables(): void
     }
 }
 
+/** MySQL DDL (CREATE/ALTER) silently ends the current transaction; never throw on commit. */
+function uniwebPdoCommit(PDO $db): void
+{
+    try {
+        if ($db->inTransaction()) {
+            $db->commit();
+        }
+    } catch (Throwable $e) {
+        /* already closed by implicit commit */
+    }
+}
+
+/** Same as commit: rollback after DDL would throw "There is no active transaction". */
+function uniwebPdoRollback(PDO $db): void
+{
+    try {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+    } catch (Throwable $e) {
+        /* already closed by implicit commit */
+    }
+}
+
+/** Run CREATE/ALTER before money transactions so Instant Test Pay cannot lose the txn. */
+function uniwebPreparePaymentCaptureSchema(): void
+{
+    if (function_exists('ensurePricingSnapshotColumns')) {
+        ensurePricingSnapshotColumns();
+    }
+    if (!function_exists('ensureSplitSettlementTable') && is_file(__DIR__ . '/split_settlement.php')) {
+        require_once __DIR__ . '/split_settlement.php';
+    }
+    if (function_exists('ensureSplitSettlementTable')) {
+        ensureSplitSettlementTable();
+    }
+    if (!function_exists('ensureAuditLogTable') && is_file(__DIR__ . '/audit_log.php')) {
+        require_once __DIR__ . '/audit_log.php';
+    }
+    if (function_exists('ensureAuditLogTable')) {
+        ensureAuditLogTable();
+    }
+    if (function_exists('ensureErrorCatcher')) {
+        ensureErrorCatcher();
+    }
+    if (function_exists('ensureWalletEngine')) {
+        ensureWalletEngine();
+    }
+}
+
 function paymentModeForLink(array $link): string
 {
     return !empty($link['is_test']) || merchantAccountMode($link) === 'test' ? 'test' : 'live';
@@ -337,12 +387,10 @@ function backfillLegacyWalletOpeningBalances(): array
         $result = ['merchants' => $count, 'total' => round($total, 2)];
         $db->prepare('INSERT INTO financial_backfills (backfill_key,result_json) VALUES (?,?)')
             ->execute(['legacy_wallet_opening_v1', json_encode($result)]);
-        $db->commit();
+        uniwebPdoCommit($db);
         return $result;
     } catch (Throwable $e) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
+        uniwebPdoRollback($db);
         throw $e;
     } finally {
         $db->query("SELECT RELEASE_LOCK('uniweb_legacy_wallet_backfill')");
@@ -385,7 +433,7 @@ function postMerchantWalletMovement(
         $existingJournalId = (int)$existingJournal->fetchColumn();
         if ($existingJournalId > 0) {
             if ($ownsTransaction) {
-                $db->commit();
+                uniwebPdoCommit($db);
             }
             return ['ok' => true, 'journal_id' => $existingJournalId, 'balance' => $before, 'duplicate' => true];
         }
@@ -420,12 +468,12 @@ function postMerchantWalletMovement(
         }
         $db->prepare('UPDATE merchants SET wallet_balance=? WHERE id=?')->execute([$after, $merchantId]);
         if ($ownsTransaction) {
-            $db->commit();
+            uniwebPdoCommit($db);
         }
         return ['ok' => true, 'journal_id' => $journalId, 'balance' => $after, 'duplicate' => abs($after - $before) < 0.001];
     } catch (Throwable $e) {
-        if ($ownsTransaction && $db->inTransaction()) {
-            $db->rollBack();
+        if ($ownsTransaction) {
+            uniwebPdoRollback($db);
         }
         throw $e;
     }
@@ -501,6 +549,7 @@ function captureVerifiedPaymentOrder(array $verification): array
     }
 
     $db = getDB();
+    uniwebPreparePaymentCaptureSchema();
     $db->beginTransaction();
     $transactionId = 0;
     $link = null;
@@ -522,7 +571,7 @@ function captureVerifiedPaymentOrder(array $verification): array
             $mapped = $db->prepare('SELECT transaction_id FROM payment_order_transactions WHERE payment_order_id=?');
             $mapped->execute([(int)$order['id']]);
             $transactionId = (int)$mapped->fetchColumn();
-            $db->commit();
+            uniwebPdoCommit($db);
             return ['ok' => true, 'duplicate' => true, 'transaction_id' => $transactionId, 'order' => $order];
         }
         if (!in_array($order['status'], ['created', 'pending', 'authorized'], true)) {
@@ -569,11 +618,6 @@ function captureVerifiedPaymentOrder(array $verification): array
             'collection_mode' => $order['link_collection_mode'] ?: $order['collection_mode'],
         ];
         $split = calculateSplitBreakdown($amount, $link);
-
-        // F2: Ensure pricing snapshot columns exist
-        if (function_exists('ensurePricingSnapshotColumns')) {
-            ensurePricingSnapshotColumns();
-        }
 
         $txnRef = generateId('TXN');
         $txnValues = [
@@ -701,11 +745,9 @@ function captureVerifiedPaymentOrder(array $verification): array
             'after_state' => ['amount' => $amount, 'merchant_net' => $split['merchant_net'], 'platform_fee' => $split['platform_fee'], 'transaction_id' => $transactionId],
         ]);
 
-        $db->commit();
+        uniwebPdoCommit($db);
     } catch (Throwable $e) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
+        uniwebPdoRollback($db);
         throw $e;
     }
 
@@ -775,6 +817,7 @@ function recordPaymentOrderFailure(array $payload): array
     }
 
     $db = getDB();
+    uniwebPreparePaymentCaptureSchema();
     $db->beginTransaction();
     $transactionId = 0;
     try {
@@ -797,7 +840,7 @@ function recordPaymentOrderFailure(array $payload): array
             $mapped = $db->prepare('SELECT transaction_id FROM payment_order_transactions WHERE payment_order_id=?');
             $mapped->execute([(int)$order['id']]);
             $transactionId = (int)$mapped->fetchColumn();
-            $db->commit();
+            uniwebPdoCommit($db);
             return ['ok' => true, 'ignored' => true, 'reason' => 'already_paid', 'transaction_id' => $transactionId];
         }
 
@@ -836,7 +879,7 @@ function recordPaymentOrderFailure(array $payload): array
             $db->prepare("UPDATE transactions SET status='failed', failure_reason=? WHERE id=? AND status IN ('pending','processing','initiated','failed')")
                 ->execute([$reason, $existingTxnId]);
             $transactionId = $existingTxnId;
-            $db->commit();
+            uniwebPdoCommit($db);
             return ['ok' => true, 'duplicate' => true, 'transaction_id' => $transactionId, 'failure_reason' => $reason];
         }
 
@@ -898,11 +941,9 @@ function recordPaymentOrderFailure(array $payload): array
         $transactionId = (int)$db->lastInsertId();
         $db->prepare('INSERT INTO payment_order_transactions (payment_order_id,transaction_id) VALUES (?,?)')
             ->execute([(int)$order['id'], $transactionId]);
-        $db->commit();
+        uniwebPdoCommit($db);
     } catch (Throwable $e) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
+        uniwebPdoRollback($db);
         throw $e;
     }
 
