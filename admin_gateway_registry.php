@@ -144,7 +144,7 @@ require_once __DIR__ . '/header.php';
                             <?php if ($credStat['live']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Live</span><?php endif; ?>
                             <?php if (!empty($enabledMethods)): ?><span class="text-[10px] px-2 py-0.5 rounded bg-violet-500/10 text-violet-400"><?= count($enabledMethods) ?> methods</span><?php endif; ?>
                         </div>
-                        <p class="text-xs text-gray-500 font-mono mt-0.5"><?= e($g['gateway_key']) ?></p>
+                        <p class="text-xs text-gray-500 font-mono mt-0.5"><a href="<?= e(adminPartnerDetailUrl((string)$g['gateway_key'])) ?>" class="hover:text-sky-300"><?= e($g['gateway_key']) ?></a></p>
                         <div class="flex gap-1.5 mt-1">
                             <?php if ((int)$g['supports_collection']): ?><span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Collection</span><?php endif; ?>
                             <?php if ((int)$g['supports_payout']): ?><span class="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400">Payout</span><?php endif; ?>

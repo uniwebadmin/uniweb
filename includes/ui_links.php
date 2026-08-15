@@ -33,6 +33,32 @@ function adminMerchantWebsiteUrl(int $merchantId): string
     return adminMerchantEditUrl($merchantId) . '#website';
 }
 
+function adminStaffDetailUrl(int $staffId): string
+{
+    return 'admin_manage_staff.php?id=' . max(0, $staffId);
+}
+
+function adminStaffActivityUrl(int $staffId = 0): string
+{
+    if ($staffId > 0) {
+        return 'admin_staff_activity.php?staff_id=' . $staffId;
+    }
+    return 'admin_staff_activity.php';
+}
+
+function adminPartnerDetailUrl(string $partnerKey): string
+{
+    return 'admin_gateway_detail.php?partner=' . rawurlencode($partnerKey);
+}
+
+function adminStaffLink(int $staffId, string $label, string $class = 'text-sky-400 hover:underline'): string
+{
+    if ($staffId <= 0 || trim($label) === '') {
+        return e($label);
+    }
+    return '<a href="' . e(adminStaffDetailUrl($staffId)) . '" class="' . e($class) . '">' . e($label) . '</a>';
+}
+
 function merchantWhatsAppUrl(?string $phone): ?string
 {
     $digits = preg_replace('/\D+/', '', (string)$phone);

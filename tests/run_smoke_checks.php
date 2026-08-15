@@ -642,6 +642,11 @@ $assert(str_contains($cryptoCleanup, 'function encryptSensitive') && str_contain
 $assert(str_contains((string)file_get_contents($root . '/my_account.php'), 'sensitiveUiPlain') && str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'sensitiveUiPlain'), 'cleanup_b_merchant_admin_show_plain');
 $assert(is_file($root . '/CLEANUP_SENSITIVE_CLICKABLE_AUDIT.md') && str_contains((string)file_get_contents($root . '/AGENTS.md'), 'CLEANUP_SENSITIVE_CLICKABLE_AUDIT.md'), 'cleanup_audit_noted_in_agents');
 $assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'admin_disputes.php') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'Open Disputes'), 'cleanup_c_disputes_card_clickable');
+$assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'admin_transactions.php?status=failed') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), "Today's Volume"), 'cleanup_c05_volume_and_failed_cards');
+$assert(str_contains((string)file_get_contents($root . '/includes/ui_links.php'), 'function adminStaffLink') && str_contains((string)file_get_contents($root . '/includes/ui_links.php'), 'function adminPartnerDetailUrl'), 'cleanup_c_staff_partner_link_helpers');
+$assert(str_contains((string)file_get_contents($root . '/admin_manage_staff.php'), 'adminStaffActivityUrl') && str_contains((string)file_get_contents($root . '/admin_gateway_registry.php'), 'adminPartnerDetailUrl'), 'cleanup_c03_c04_staff_partner_click');
+$assert(str_contains((string)file_get_contents($root . '/global_search.php'), 'adminStaffDetailUrl') && str_contains((string)file_get_contents($root . '/dashboard.php'), 'transactions.php?range=today'), 'cleanup_c07_c08_search_and_merchant_cards');
+$assert(str_contains((string)file_get_contents($root . '/admin_kyc.php'), 'adminMerchantLink((int)$videoRow') && str_contains((string)file_get_contents($root . '/staff_dashboard.php'), 'admin_view_merchant.php?id='), 'cleanup_c01_kyc_staff_queue_names');
 
 $assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');
 

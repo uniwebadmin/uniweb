@@ -241,18 +241,22 @@ require_once __DIR__ . '/header.php';
     <?php endforeach; ?>
 </div>
 
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
-    <div class="stat-card border border-gray-800 rounded-xl p-4 sm:p-5 min-w-0">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+    <a href="admin_transactions.php?from=<?= e(date('Y-m-d')) ?>&to=<?= e(date('Y-m-d')) ?>" class="stat-card border border-gray-800 rounded-xl p-4 sm:p-5 min-w-0 block hover:border-brand-500/40 transition">
         <p class="text-xs text-gray-500">Today's Volume</p>
         <p class="text-xl sm:text-2xl font-bold text-brand-400 mt-1 break-words"><?= formatMoney($todayVol) ?></p>
         <p class="text-xs text-gray-600"><?= $todayTxn['c'] ?> transactions</p>
-    </div>
-    <div class="stat-card border border-gray-800 rounded-xl p-4 sm:p-5 min-w-0">
+    </a>
+    <a href="admin_transactions.php?from=<?= e(date('Y-m-01')) ?>&to=<?= e(date('Y-m-d')) ?>" class="stat-card border border-gray-800 rounded-xl p-4 sm:p-5 min-w-0 block hover:border-brand-500/40 transition">
         <p class="text-xs text-gray-500">This Month</p>
         <p class="text-xl sm:text-2xl font-bold text-cyan-400 mt-1 break-words"><?= formatMoney($monthVol) ?></p>
         <p class="text-xs text-gray-600"><?= $monthTxn['c'] ?> transactions</p>
-    </div>
-    <a href="admin_disputes.php" class="stat-card border border-gray-800 rounded-xl p-4 sm:p-5 min-w-0 sm:col-span-2 lg:col-span-1 block hover:border-brand-500/40 transition">
+    </a>
+    <a href="admin_transactions.php?status=failed" class="stat-card border border-gray-800 rounded-xl p-4 sm:p-5 min-w-0 block hover:border-brand-500/40 transition">
+        <p class="text-xs text-gray-500">Failed Transactions</p>
+        <p class="text-xl sm:text-2xl font-bold text-amber-400 mt-1">Open list →</p>
+    </a>
+    <a href="admin_disputes.php" class="stat-card border border-gray-800 rounded-xl p-4 sm:p-5 min-w-0 block hover:border-brand-500/40 transition">
         <p class="text-xs text-gray-500">Open Disputes</p>
         <p class="text-xl sm:text-2xl font-bold text-red-400 mt-1"><?= $openDisputes ?></p>
     </a>
@@ -267,7 +271,7 @@ require_once __DIR__ . '/header.php';
                 <tr><td class="px-4 sm:px-5 py-8 text-sm text-gray-500 text-center" colspan="3">No recent transactions.</td></tr>
                 <?php else: foreach ($recentTxns as $t): ?>
                 <tr class="hover:bg-white/5 cursor-pointer" onclick="location.href='<?= e(transactionDetailUrl($t['txn_id'])) ?>'">
-                    <td class="px-4 sm:px-5 py-3"><p class="font-mono text-xs"><a href="<?= e(transactionDetailUrl($t['txn_id'])) ?>" class="text-sky-400 hover:underline"><?= e($t['txn_id']) ?></a></p><p class="text-xs text-gray-500"><?= e($t['business_name']) ?></p></td>
+                    <td class="px-4 sm:px-5 py-3"><p class="font-mono text-xs"><a href="<?= e(transactionDetailUrl($t['txn_id'])) ?>" class="text-sky-400 hover:underline" onclick="event.stopPropagation()"><?= e($t['txn_id']) ?></a></p><p class="text-xs text-gray-500"><a href="<?= e(adminMerchantUrl((int)$t['merchant_id'])) ?>" class="hover:text-sky-300" onclick="event.stopPropagation()"><?= e($t['business_name']) ?></a></p></td>
                     <td class="px-4 sm:px-5 py-3 font-semibold"><?= formatMoney(capStatAmount((float)$t['amount'])) ?></td>
                     <td class="px-4 sm:px-5 py-3"><?= statusBadge($t['status']) ?></td>
                 </tr>

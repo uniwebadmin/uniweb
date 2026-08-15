@@ -183,6 +183,6 @@ Wherever a user reasonably expects click to open detail, the control must be an 
 - Owner delivered this PDF 2026-08-15 evening; noted in `AGENTS.md`.  
 - **P0-04 live `config.php`** stays parked until this cleanup addendum work is done — then remind Owner.  
 - Do not DROP production DB. Do not unhide NBFC / customer PPI.
-- **2026-08-15 progress:** Block B UI — merchant/admin profile fields use `sensitiveUiPlain` (real values on screen); DB still `enc:v1:` via encrypt on save. Partner webhook payload already decrypts before send. Block C partial — Open Disputes card linked; merchant list / txn ID / partner registry already had links.
+- **2026-08-15 progress:** Block B UI — merchant/admin profile fields use `sensitiveUiPlain` (real values on screen); DB still `enc:v1:` via encrypt on save. Partner webhook payload already decrypts before send. **Block C** — volume/failed/dispute cards linked; staff name→detail+activity; partner key→detail; search staff→`?id=`; merchant dashboard stats→transactions; KYC/staff queues clickable names.
 - **Owner still must (Block D-1):** Hostinger Files → Backups + phpMyAdmin SQL export before any Hostinger file delete (Block A).
 - **Owner verify (Block E)** after deploy + hard refresh.

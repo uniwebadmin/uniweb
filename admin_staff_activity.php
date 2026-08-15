@@ -76,7 +76,17 @@ require_once __DIR__ . '/header.php';
             <?php foreach ($logs as $log): ?>
             <tr class="hover:bg-white/5">
                 <td class="px-5 py-3 text-xs text-gray-500 whitespace-nowrap"><?= formatDate($log['created_at']) ?></td>
-                <td class="px-5 py-3 text-xs"><?= e($log['staff_name']) ?> <span class="text-gray-600">(<?= e($log['username']) ?>)</span></td>
+                <td class="px-5 py-3 text-xs"><?php
+                    $sid = (int)($log['admin_id'] ?? 0);
+                    if ($sid > 0) {
+                        echo adminStaffLink($sid, (string)($log['staff_name'] ?: $log['username'] ?: 'Staff'), 'text-sky-400 hover:underline');
+                        if (!empty($log['username'])) {
+                            echo ' <span class="text-gray-600">(' . e((string)$log['username']) . ')</span>';
+                        }
+                    } else {
+                        echo e((string)($log['staff_name'] ?? '')) . ' <span class="text-gray-600">(' . e((string)($log['username'] ?? '')) . ')</span>';
+                    }
+                ?></td>
                 <td class="px-5 py-3 font-mono text-xs text-sky-400"><?= e($log['action']) ?></td>
                 <td class="px-5 py-3 text-xs"><?= $log['merchant_id'] ? adminMerchantLink((int)$log['merchant_id'], $log['business_name'] ?? 'Merchant') : '—' ?></td>
                 <td class="px-5 py-3 text-xs text-gray-400 max-w-md truncate" title="<?= e($log['details'] ?? '') ?>"><?= e($log['details'] ?? '') ?></td>

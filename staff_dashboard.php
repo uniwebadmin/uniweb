@@ -65,8 +65,8 @@ $assignedCount = count(getStaffAssignedMerchants((int)($admin['id'] ?? 0)));
         <?php else: foreach ($queue as $m): ?>
         <div class="px-5 py-3 flex flex-wrap items-center justify-between gap-2 text-sm">
             <div>
-                <p class="font-medium"><?= e($m['business_name'] ?: $m['merchant_code']) ?></p>
-                <p class="text-xs text-gray-500 font-mono"><?= e($m['merchant_code']) ?> · <?= e(entityTypeLabel($m['business_entity_type'] ?? '')) ?></p>
+                <p class="font-medium"><a href="admin_view_merchant.php?id=<?= (int)$m['id'] ?>" class="hover:text-sky-300"><?= e($m['business_name'] ?: $m['merchant_code']) ?></a></p>
+                <p class="text-xs text-gray-500 font-mono"><a href="admin_view_merchant.php?id=<?= (int)$m['id'] ?>" class="hover:text-sky-300"><?= e($m['merchant_code']) ?></a> · <?= e(entityTypeLabel($m['business_entity_type'] ?? '')) ?></p>
             </div>
             <div class="flex items-center gap-2">
                 <?= statusBadge($m['kyc_status']) ?>

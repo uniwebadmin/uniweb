@@ -165,10 +165,17 @@ require_once __DIR__ . '/header.php';
                 <tbody class="divide-y divide-gray-800">
                     <?php foreach ($staff as $s): if ($s['role'] === 'ceo') continue; ?>
                     <tr class="hover:bg-white/5">
-                        <td class="px-5 py-3 font-mono text-xs"><a href="admin_manage_staff.php?id=<?= (int)$s['id'] ?>" class="text-sky-400 hover:underline"><?= e($s['username']) ?></a></td>
-                        <td class="px-5 py-3"><a href="admin_manage_staff.php?id=<?= (int)$s['id'] ?>" class="text-gray-200 hover:text-brand-400 hover:underline"><?= e($s['name']) ?></a></td>
+                        <td class="px-5 py-3 font-mono text-xs"><a href="<?= e(adminStaffDetailUrl((int)$s['id'])) ?>" class="text-sky-400 hover:underline"><?= e($s['username']) ?></a></td>
+                        <td class="px-5 py-3">
+                            <a href="<?= e(adminStaffDetailUrl((int)$s['id'])) ?>" class="text-gray-200 hover:text-brand-400 hover:underline"><?= e($s['name']) ?></a>
+                            <a href="<?= e(adminStaffActivityUrl((int)$s['id'])) ?>" class="block text-[10px] text-sky-500 hover:underline mt-0.5">Activity →</a>
+                        </td>
                         <td class="px-5 py-3 text-xs"><?= e(staffRoleLabel($s['role'])) ?></td>
-                        <td class="px-5 py-3 text-xs text-gray-500"><?= e($s['manager_name'] ?? '—') ?></td>
+                        <td class="px-5 py-3 text-xs text-gray-500">
+                            <?php if (!empty($s['reports_to']) && !empty($s['manager_name'])): ?>
+                            <?= adminStaffLink((int)$s['reports_to'], (string)$s['manager_name'], 'text-gray-400 hover:text-sky-300 hover:underline') ?>
+                            <?php else: ?>—<?php endif; ?>
+                        </td>
                         <td class="px-5 py-3"><?= ($s['is_active'] ?? 1) ? statusBadge('active') : statusBadge('suspended') ?></td>
                         <td class="px-5 py-3">
                             <?php if ((int)$s['id'] !== (int)($_SESSION['admin_id'] ?? 0)): ?>

@@ -371,7 +371,7 @@ require_once __DIR__ . '/header.php';
     <?php foreach ($videoQueue as $videoRow): ?>
     <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-between gap-3">
         <div class="min-w-0">
-            <p class="text-sm font-medium break-words"><?= e($videoRow['business_name']) ?> · <?= e($videoRow['merchant_code']) ?></p>
+            <p class="text-sm font-medium break-words"><?= adminMerchantLink((int)$videoRow['id'], (string)($videoRow['business_name'] ?: 'Merchant'), 'font-medium text-white hover:text-sky-300') ?> · <?= adminMerchantLink((int)$videoRow['id'], (string)$videoRow['merchant_code'], 'font-mono text-sky-400 text-xs') ?></p>
             <p class="text-xs text-gray-500">Video status: <?= e((string)($videoRow['video_kyc_status'] ?? 'pending')) ?> · KYC: <?= e((string)($videoRow['kyc_status'] ?? '')) ?><?php if (!empty($videoRow['video_uploaded_at'])): ?> · Uploaded <?= e(formatDate($videoRow['video_uploaded_at'])) ?><?php endif; ?><?php if (!empty($videoRow['video_ip'])): ?> · IP <?= e($videoRow['video_ip']) ?><?php endif; ?><?php if (!empty($videoRow['video_recorded_at'])): ?> · Recorded <?= e(formatDate($videoRow['video_recorded_at'])) ?><?php endif; ?></p>
         </div>
         <div class="flex flex-col sm:flex-row gap-2 flex-wrap w-full sm:w-auto">
@@ -399,7 +399,7 @@ require_once __DIR__ . '/header.php';
     <?php foreach ($manualAssistQueue as $ma): ?>
     <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-between gap-3">
         <div class="min-w-0">
-            <p class="text-sm font-medium break-words"><?= e($ma['business_name']) ?> · <?= e($ma['merchant_code']) ?></p>
+            <p class="text-sm font-medium break-words"><?= adminMerchantLink((int)$ma['id'], (string)($ma['business_name'] ?: 'Merchant'), 'font-medium text-white hover:text-sky-300') ?> · <?= adminMerchantLink((int)$ma['id'], (string)$ma['merchant_code'], 'font-mono text-sky-400 text-xs') ?></p>
             <p class="text-xs text-red-400">Failed <?= (int)$ma['fail_count'] ?> time(s) · State: <?= e($ma['onboarding_state']) ?></p>
         </div>
         <div class="flex gap-2">
@@ -428,7 +428,7 @@ require_once __DIR__ . '/header.php';
         }
     ?>
     <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-between gap-3">
-        <div class="min-w-0"><p class="text-sm font-medium break-words"><?= e($candidate['business_name']) ?> · <?= e($candidate['merchant_code']) ?></p><p class="text-xs <?= $gate['ok'] ? 'text-emerald-400' : 'text-amber-400' ?>"><?= $gate['ok'] ? 'All gates complete' : 'Missing: ' . e(implode(', ', $missingLabels)) ?></p></div>
+        <div class="min-w-0"><p class="text-sm font-medium break-words"><?= adminMerchantLink((int)$candidate['id'], (string)($candidate['business_name'] ?: 'Merchant'), 'font-medium text-white hover:text-sky-300') ?> · <?= adminMerchantLink((int)$candidate['id'], (string)$candidate['merchant_code'], 'font-mono text-sky-400 text-xs') ?></p><p class="text-xs <?= $gate['ok'] ? 'text-emerald-400' : 'text-amber-400' ?>"><?= $gate['ok'] ? 'All gates complete' : 'Missing: ' . e(implode(', ', $missingLabels)) ?></p></div>
         <div class="flex flex-col sm:flex-row gap-2 flex-wrap w-full sm:w-auto">
             <?php foreach ($opsLinks as $opsLink): ?>
             <a href="<?= e($opsLink['href']) ?>" class="text-xs bg-gray-700/40 text-gray-300 px-3 py-2 rounded-lg text-center"><?= e($opsLink['label']) ?></a>

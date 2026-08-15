@@ -127,22 +127,22 @@ if ($balanceBreakdown):
 <?php endif; ?>
 
 <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-    <div class="stat-card border border-sky-500/30 rounded-xl p-5 bg-sky-500/5 lg:col-span-1">
+    <a href="wallet.php" class="stat-card border border-sky-500/30 rounded-xl p-5 bg-sky-500/5 lg:col-span-1 block hover:border-sky-400/50 transition">
         <p class="text-xs text-gray-500">Available to settle</p>
         <p class="text-xl font-bold text-sky-400 mt-1"><?= formatMoney(safeDisplayBalance($wallet['available'], $viewTest)) ?></p>
         <p class="text-[11px] text-gray-600 mt-1"><?= $viewTest ? 'Test balance' : 'Live balance' ?></p>
-    </div>
+    </a>
     <?php foreach ([
-        [__('dash_today'), formatMoney($stats['today_amount']), $stats['today_count'].' '.__('dash_txns'), 'text-brand-400'],
-        [__('dash_month'), formatMoney($stats['month_amount']), $stats['month_count'].' '.__('dash_txns'), 'text-cyan-400'],
-        ['Success Rate', $stats['success_rate'].'%', 'Payment completion', 'text-emerald-400'],
-        [__('dash_all_time'), formatMoney($stats['total_amount']), $stats['total_count'].' '.__('dash_txns'), 'text-purple-400'],
-    ] as [$l,$v,$s,$c]): ?>
-    <div class="stat-card border border-gray-800 rounded-xl p-5">
+        [__('dash_today'), formatMoney($stats['today_amount']), $stats['today_count'].' '.__('dash_txns'), 'text-brand-400', 'transactions.php?range=today'],
+        [__('dash_month'), formatMoney($stats['month_amount']), $stats['month_count'].' '.__('dash_txns'), 'text-cyan-400', 'transactions.php?from=' . date('Y-m-01') . '&to=' . date('Y-m-d')],
+        ['Success Rate', $stats['success_rate'].'%', 'Payment completion', 'text-emerald-400', 'transactions.php?status=success'],
+        [__('dash_all_time'), formatMoney($stats['total_amount']), $stats['total_count'].' '.__('dash_txns'), 'text-purple-400', 'transactions.php'],
+    ] as [$l,$v,$s,$c,$href]): ?>
+    <a href="<?= e($href) ?>" class="stat-card border border-gray-800 rounded-xl p-5 block hover:border-brand-500/40 transition">
         <p class="text-xs text-gray-500"><?= $l ?></p>
         <p class="text-xl font-bold <?= $c ?> mt-1"><?= $v ?></p>
         <p class="text-xs text-gray-600 mt-1"><?= $s ?></p>
-    </div>
+    </a>
     <?php endforeach; ?>
 </div>
 
