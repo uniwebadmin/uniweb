@@ -3,7 +3,7 @@
 **Status (2026-08-15):** Code/UI safety fixes shipped. **Hostinger file deletes wait on Owner backup (LIVE-03).**  
 **Rule:** if unsure → leave it, mark REVIEW. Never hard-delete money rows. Never `DROP DATABASE`.
 
-**LIVE-03 order:** Files Backups + full SQL export → then delete junk only (lists below). See also `_inbox/chat/LIVE_03_backup_before_cleanup.txt`.
+**LIVE-03 order:** Files Backups + full SQL export → then delete junk only (lists below). See also `_inbox/chat/LIVE_03_backup_before_cleanup.txt` and **`HOSTINGER_CLEAN_NOW.md`** (why Git pull brings laptop folders).
 
 Related: `CLEANUP_SENSITIVE_CLICKABLE_AUDIT.md` · Block D order = backup → B → C → **A** → E.  
 **LIVE-02 (after Git pull):** Apply pending migrations (062/063) → Encrypt PII Backfill if needed — never DROP DATABASE.
