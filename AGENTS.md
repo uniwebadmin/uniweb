@@ -92,6 +92,7 @@ php -S localhost:8000
 
 **Owner file:** `UniWeb_Deep_Audit_Ordered_First_Things_First.pdf` (Downloads, generated 2026-08-15 03:54 UTC).  
 **Full text in repo:** `DEEP_AUDIT_ORDERED.md` (every ticket: Problem → Expectation → Solution).  
+**Full A–Z re-audit (2026-08-15 evening):** `DEEP_AUDIT_FULL_A_TO_Z.md` + PDF `C:/Users/start/Downloads/UniWeb_Deep_A_to_Z_Audit_*.pdf` (panels, duplicates, global search, market, white-label, doable/parked).  
 **Workspace:** `uniweb1` only. Local laptop. No cloud agents. No live Route SDK. No `*_v2` apps.
 
 Work **top-down**. Owner verifies each phase on **live** before the next. Phases 9–10 are reference only — they do **not** jump ahead of 0–2.
