@@ -252,10 +252,10 @@ require_once __DIR__ . '/header.php';
         <p class="text-xl sm:text-2xl font-bold text-cyan-400 mt-1 break-words"><?= formatMoney($monthVol) ?></p>
         <p class="text-xs text-gray-600"><?= $monthTxn['c'] ?> transactions</p>
     </div>
-    <div class="stat-card border border-gray-800 rounded-xl p-4 sm:p-5 min-w-0 sm:col-span-2 lg:col-span-1">
+    <a href="admin_disputes.php" class="stat-card border border-gray-800 rounded-xl p-4 sm:p-5 min-w-0 sm:col-span-2 lg:col-span-1 block hover:border-brand-500/40 transition">
         <p class="text-xs text-gray-500">Open Disputes</p>
         <p class="text-xl sm:text-2xl font-bold text-red-400 mt-1"><?= $openDisputes ?></p>
-    </div>
+    </a>
 </div>
 
 <div class="grid lg:grid-cols-2 gap-4 sm:gap-6">

@@ -194,3 +194,48 @@ function pii_hash(string $normalizedValue): string
     }
     return hash_hmac('sha256', $normalizedValue, _sensitiveKey());
 }
+
+/** PDF audit aliases — one encrypt/decrypt API for the whole app (B-06). */
+function encryptSensitive(?string $plain): ?string
+{
+    return sensitiveEncrypt($plain);
+}
+
+function decryptSensitive(?string $value): ?string
+{
+    return sensitiveDecrypt($value);
+}
+
+/**
+ * UI plaintext for authorized viewers (merchant own data, admin KYC/detail).
+ * Never returns enc:v1: blobs — empty string if decrypt fails.
+ */
+function sensitiveUiPlain(?string $stored): string
+{
+    if ($stored === null || $stored === '') {
+        return '';
+    }
+    $plain = sensitiveDecrypt($stored);
+    if ($plain === null || $plain === '') {
+        return isSensitiveEncrypted($stored) ? '' : (string)$stored;
+    }
+    return (string)$plain;
+}
+
+/**
+ * Persist a submitted PII field: encrypt new plaintext; keep existing ciphertext if masked/unchanged empty keep.
+ */
+function sensitiveUiSave(?string $submitted, ?string $existingStored): ?string
+{
+    $submitted = trim((string)$submitted);
+    if ($submitted === '') {
+        return $existingStored !== null && $existingStored !== '' ? $existingStored : null;
+    }
+    if (str_starts_with($submitted, '*') || str_starts_with($submitted, 'X')) {
+        return $existingStored;
+    }
+    if (isSensitiveEncrypted($submitted)) {
+        return $submitted;
+    }
+    return sensitiveEncrypt($submitted);
+}

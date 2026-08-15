@@ -98,7 +98,7 @@ Work **top-down**. Owner verifies each phase on **live** before the next. Phases
 
 | Phase | What | Do now? |
 |-------|------|---------|
-| **0** | DB, migrations, schema, snag/error capture | **FIRST** — remaining: P0-02 live smoke, P0-04 live `config.php` includes |
+| **0** | DB, migrations, schema, snag/error capture | **FIRST** — remaining: P0-02 live smoke; **P0-04 live `config.php` PARKED by Owner 2026-08-15** — do after the next phases Owner sends, then remind Owner to sync `$__includes` only (never overwrite DB/encryption secrets) |
 | **1** | Single money/keys plane (Partner Registry only) | After 0 green |
 | **2** | Checkout, QR, methods, payment links | After 1; code started (P2-01/02 in repo) |
 | **3** | KYC & onboarding (video = live camera + IP + time) | After 2 |
@@ -121,6 +121,28 @@ Backup notify email: `startelecom620@gmail.com`. Full website restore = Hostinge
 
 **Ticket IDs (see DEEP_AUDIT_ORDERED.md for full 1/2/3):**  
 P0-01…P0-05 · P1-01…P1-03 · P2-01…P2-03 · P3-01…P3-04 · P4-A01/A02/A03 · P4-M01/M02 · P4-SM01 · P4-ST01 · P4-TM01 · P4-C01 · P4-W01 · P5-01…P5-04 · P6-01/02 · P7-01…P7-04 · P8-01/02 · P9-01 · WL-01…WL-12 · P11-01/P11-02.
+
+---
+
+## Cleanup / Sensitive data / Clickable links (standing — 2026-08-15 evening)
+
+**Owner file:** `UniWeb_Cleanup_SensitiveData_ClickableLinks_Audit.pdf` (Downloads, generated 2026-08-15 12:50 UTC).  
+**Full text in repo:** `CLEANUP_SENSITIVE_CLICKABLE_AUDIT.md`  
+**Workspace:** `uniweb1` only. Local laptop. No cloud agents. No NBFC / no customer PPI wallet.
+
+Owner asked to **read + note here** (2026-08-15). Implementation order from the PDF (do not skip backup):
+
+| Block | What | Order |
+|-------|------|--------|
+| **D-1** | Hostinger backup + full SQL export | Owner / before deletes |
+| **B** | Sensitive data: encrypt at rest; decrypt for merchant (own), admin, customer (own), partner webhooks outbound | **First code** after backup |
+| **C** | Clickable names/IDs/cards — no dead ends (admin, merchant, staff, customer, search) | After B |
+| **A** | Safe Hostinger + DB cleanup (proven unused only; never DROP DB; never hard-delete money txns) | After B+C |
+| **E** | Owner verification checklist on live | After deploy |
+
+**Tickets:** A-01…A-04 · B-01…B-07 · C-01…C-08 · D · E.
+
+**Related park:** P0-04 live `config.php` `$__includes` sync — Owner parked until **this** addendum is done; then remind Owner (see `_inbox/chat/REMIND_P0_04_live_config.txt`).
 
 ---
 

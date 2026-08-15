@@ -75,31 +75,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         redirect('admin_edit_merchant.php?id=' . $id . '#payment-methods');
     }
 
-    $pan = strtoupper(trim($_POST['pan_number'] ?? ''));
-    // If field shows masked value (starts with *), keep existing
-    if ($pan && str_starts_with($pan, '*')) {
-        $pan = (string)($merchant['pan_number'] ?? '');
-        // Already encrypted in DB — skip re-encrypting
-        $panEncrypted = $pan ?: null;
-    } else {
-        if ($pan && !preg_match('/^[A-Z]{5}[0-9]{4}[A-Z]$/', $pan)) {
-            flash('error', 'Invalid PAN format.');
-            redirect('admin_edit_merchant.php?id=' . $id);
-        }
-        $panEncrypted = $pan ? sensitiveEncrypt($pan) : null;
+    $panEncrypted = sensitiveUiSave($_POST['pan_number'] ?? '', (string)($merchant['pan_number'] ?? ''));
+    $panCheck = sensitiveUiPlain($panEncrypted);
+    if ($panCheck !== '' && !preg_match('/^[A-Z]{5}[0-9]{4}[A-Z]$/', $panCheck)) {
+        flash('error', 'Invalid PAN format.');
+        redirect('admin_edit_merchant.php?id=' . $id);
     }
-    $gstinRaw = strtoupper(trim($_POST['gstin'] ?? ''));
-    if ($gstinRaw && str_starts_with($gstinRaw, '*')) {
-        $gstinEncrypted = (string)($merchant['gstin'] ?? '') ?: null;
-    } else {
-        $gstinEncrypted = $gstinRaw ? sensitiveEncrypt($gstinRaw) : null;
-    }
-    $cinRaw = strtoupper(trim($_POST['cin_llpin'] ?? ''));
-    if ($cinRaw && str_starts_with($cinRaw, '*')) {
-        $cinEncrypted = (string)($merchant['cin_llpin'] ?? '') ?: null;
-    } else {
-        $cinEncrypted = $cinRaw ? sensitiveEncrypt($cinRaw) : null;
-    }
+    $gstinEncrypted = sensitiveUiSave($_POST['gstin'] ?? '', (string)($merchant['gstin'] ?? ''));
+    $cinEncrypted = sensitiveUiSave($_POST['cin_llpin'] ?? '', (string)($merchant['cin_llpin'] ?? ''));
     $accountMode = $_POST['account_mode'] ?? 'test';
     $kycStatus = $_POST['kyc_status'] ?? 'pending';
     if (!in_array($accountMode, ['test', 'live'], true)) $accountMode = 'test';
@@ -242,18 +225,18 @@ $methodCatalog = getPaymentMethodCatalog();
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div><label class="text-sm text-gray-400">PAN</label><div class="flex gap-2 mt-1"><input type="text" name="pan_number" maxlength="10" class="input-field flex-1 uppercase" value="<?= e(sensitiveMask($merchant['pan_number'] ?? '', 'pan')) ?>" placeholder="Leave blank to keep existing"><button type="button" onclick="piiReveal('pan_number',<?= $id ?>,this)" class="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-sky-400">Reveal</button></div></div>
+                <div><label class="text-sm text-gray-400">PAN</label><input type="text" name="pan_number" maxlength="10" class="input-field mt-1 uppercase" value="<?= e(sensitiveUiPlain($merchant['pan_number'] ?? '')) ?>" placeholder="ABCDE1234F" autocomplete="off"></div>
                 <?php if (!empty($editTaxFields['gst'])): ?>
-                <div><label class="text-sm text-gray-400">GSTIN</label><div class="flex gap-2 mt-1"><input type="text" name="gstin" class="input-field flex-1" value="<?= e(sensitiveMask($merchant['gstin'] ?? '', 'gst')) ?>" placeholder="Leave blank to keep existing"><button type="button" onclick="piiReveal('gstin',<?= $id ?>,this)" class="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-sky-400">Reveal</button></div></div>
+                <div><label class="text-sm text-gray-400">GSTIN</label><input type="text" name="gstin" class="input-field mt-1" value="<?= e(sensitiveUiPlain($merchant['gstin'] ?? '')) ?>" placeholder="GSTIN" autocomplete="off"></div>
                 <?php else: ?>
                 <input type="hidden" name="gstin" value="">
                 <?php endif; ?>
                 <?php if (!empty($editTaxFields['cin'])): ?>
-                <div><label class="text-sm text-gray-400">CIN / LLPIN</label><div class="flex gap-2 mt-1"><input type="text" name="cin_llpin" class="input-field flex-1" value="<?= e(sensitiveMask($merchant['cin_llpin'] ?? '', 'gst')) ?>" placeholder="Leave blank to keep existing"><button type="button" onclick="piiReveal('cin_llpin',<?= $id ?>,this)" class="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-sky-400">Reveal</button></div></div>
+                <div><label class="text-sm text-gray-400">CIN / LLPIN</label><input type="text" name="cin_llpin" class="input-field mt-1" value="<?= e(sensitiveUiPlain($merchant['cin_llpin'] ?? '')) ?>" placeholder="CIN / LLPIN" autocomplete="off"></div>
                 <?php else: ?>
                 <input type="hidden" name="cin_llpin" value="">
                 <?php endif; ?>
-                <p class="sm:col-span-2 text-xs text-gray-500">GSTIN / CIN fields follow the selected entity type (Individual hides GST and CIN).</p>
+                <p class="sm:col-span-2 text-xs text-gray-500">Stored encrypted. Shown decrypted here for admin review (B-03). GSTIN / CIN follow entity type.</p>
             </div>
             <p class="text-xs text-brand-400 font-medium uppercase tracking-wide pt-2">Website & App</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

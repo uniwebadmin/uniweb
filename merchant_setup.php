@@ -178,11 +178,11 @@ require_once __DIR__ . '/header.php';
             </div>
             <div>
                 <label class="text-sm text-gray-400"><?= __('pan_optional') ?></label>
-                <input type="text" name="pan_number" maxlength="10" class="input-field mt-1 uppercase" value="<?= e(sensitiveMask($formData['pan_number'] ?? $merchant['pan_number'] ?? '', 'pan')) ?>" placeholder="Enter PAN to update">
+                <input type="text" name="pan_number" maxlength="10" class="input-field mt-1 uppercase" value="<?= e((isset($formData['pan_number']) && $formData['pan_number'] !== '' && !str_starts_with((string)$formData['pan_number'], '*') && !(function_exists('isSensitiveEncrypted') && isSensitiveEncrypted((string)$formData['pan_number']))) ? (string)$formData['pan_number'] : sensitiveUiPlain($merchant['pan_number'] ?? '')) ?>" placeholder="ABCDE1234F" autocomplete="off">
             </div>
             <div>
                 <label class="text-sm text-gray-400">GSTIN (optional)</label>
-                <input type="text" name="gstin" maxlength="15" class="input-field mt-1 uppercase" value="<?= e(sensitiveMask($formData['gstin'] ?? $merchant['gstin'] ?? '', 'gst')) ?>" placeholder="27ABCDE1234F1Z5">
+                <input type="text" name="gstin" maxlength="15" class="input-field mt-1 uppercase" value="<?= e((isset($formData['gstin']) && $formData['gstin'] !== '' && !str_starts_with((string)$formData['gstin'], '*') && !(function_exists('isSensitiveEncrypted') && isSensitiveEncrypted((string)$formData['gstin']))) ? (string)$formData['gstin'] : sensitiveUiPlain($merchant['gstin'] ?? '')) ?>" placeholder="27ABCDE1234F1Z5" autocomplete="off">
             </div>
         </div>
 
