@@ -419,7 +419,12 @@ $assert(str_contains($teamSrcP4, 'merchant_team_events'), 'p4_team_events_schema
 $assert(str_contains($teamSrcP4, "'support' => ['label' => 'Support'"), 'p4_team_support_role');
 $assert(str_contains($teamSrcP4, 'function merchantTeamCapabilityMatrix') && str_contains($teamSrcP4, 'function logMerchantTeamEvent'), 'p4_team_matrix_and_audit_helpers');
 $teamPageP4 = (string)file_get_contents($root . '/merchant_team.php');
-$assert(str_contains($teamPageP4, 'Role matrix') && str_contains($teamPageP4, 'Team activity'), 'p4_team_page_matrix_and_audit');
+$assert(str_contains($teamPageP4, 'Role matrix') && (str_contains($teamPageP4, 'Team member activity') || str_contains($teamPageP4, 'Team activity')), 'p4_team_page_matrix_and_audit');
+$assert(str_contains((string)file_get_contents($root . '/qr_upi_print.php'), 'bypass the UniWeb ledger') || str_contains((string)file_get_contents($root . '/qr_upi_print.php'), 'may bypass'), 'ia04_instant_upi_ledger_warning');
+$assert(str_contains($navSrc, "'Team Members'") || str_contains($navSrc, 'Team Members'), 'ia06_merchant_team_members_label');
+$assert(str_contains($navSrc, 'Employees / Staff'), 'ia06_admin_employees_staff_label');
+$assert(str_contains((string)file_get_contents($root . '/solutions.php'), 'Settlements & balance'), 'ia05_solutions_settlement_balance_copy');
+$assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Partner Registry → Partner Detail → Keys'), 'pnl_a01_keys_only_in_registry_banner');
 $assert(str_contains($teamPageP4, "action\" value=\"role\"") || str_contains($teamPageP4, "name=\"action\" value=\"role\""), 'p4_team_role_change_ui');
 $assert(str_contains($teamPageP4, 'data-copy-url='), 'p4_team_invite_copy_url');
 

@@ -56,13 +56,13 @@ if ($detailId > 0) {
     }
 }
 
-$pageTitle = 'Staff Control';
+$pageTitle = 'Employees / Staff';
 require_once __DIR__ . '/header.php';
 ?>
 <?php if ($detailStaff): ?>
 <div class="max-w-4xl space-y-6">
     <div class="mb-2">
-        <a href="admin_manage_staff.php" class="text-sm text-gray-400 hover:text-white">← Back to Staff list</a>
+        <a href="admin_manage_staff.php" class="text-sm text-gray-400 hover:text-white">← Back to Employees list</a>
     </div>
     <div class="glass rounded-xl p-6 border border-gray-800">
         <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
@@ -123,7 +123,7 @@ require_once __DIR__ . '/header.php';
 
 <div class="grid lg:grid-cols-3 gap-6 pb-24 lg:pb-6">
     <div class="glass rounded-xl p-6 lg:sticky lg:top-24 self-start max-h-[calc(100vh-7rem)] overflow-y-auto">
-        <h2 class="font-semibold mb-4">Add Team Member</h2>
+        <h2 class="font-semibold mb-4">Add Employee</h2>
         <form method="POST" class="space-y-4 text-sm">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="create">
@@ -155,7 +155,7 @@ require_once __DIR__ . '/header.php';
     <div class="lg:col-span-2 space-y-4">
         <div class="glass rounded-xl overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-800 flex justify-between items-center">
-                <h2 class="font-semibold">Team Hierarchy</h2>
+                <h2 class="font-semibold">Employees / Staff hierarchy</h2>
                 <a href="admin_staff_activity.php" class="text-xs text-sky-400">View full activity log →</a>
             </div>
             <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">

@@ -294,7 +294,7 @@ function staffNavForRole(string $role): array
         'admin_nodal_accounts.php' => ['Nodal Accounts', ['super', 'ceo', 'finance']],
     ];
     if (staffCanManageStaff()) {
-        $all['admin_manage_staff.php'] = ['Staff Control', ['super', 'ceo', 'regional_manager']];
+        $all['admin_manage_staff.php'] = ['Employees / Staff', ['super', 'ceo', 'regional_manager']];
         $all['admin_staff_activity.php'] = ['Staff Activity Log', ['super', 'ceo', 'regional_manager', 'area_sales_manager', 'team_leader', 'staff_manager']];
     }
     $nav = [];

@@ -143,7 +143,7 @@ $capLabels = [
 
     <div class="glass rounded-xl overflow-hidden mb-6">
         <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3">
-            <h2 class="font-semibold">Team</h2>
+            <h2 class="font-semibold">Team Members</h2>
             <form method="GET" class="flex gap-2 items-center">
                 <label class="sr-only" for="team-q">Search team</label>
                 <input id="team-q" type="search" name="q" value="<?= e($teamQ) ?>" placeholder="Name / email / role" class="input-field text-sm">
@@ -218,7 +218,7 @@ $capLabels = [
 
     <div class="glass rounded-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-800">
-            <h2 class="font-semibold">Team activity</h2>
+            <h2 class="font-semibold">Team member activity</h2>
             <p class="text-xs text-gray-500 mt-1">Invite, role change, accept, and revoke are logged here.</p>
         </div>
         <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">

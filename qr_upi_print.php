@@ -147,13 +147,21 @@ require_once __DIR__ . '/header.php';
 </style>
 
 <div class="max-w-3xl mx-auto space-y-6">
+    <div class="no-print rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+        <p class="font-semibold text-amber-200">Important — money may bypass the UniWeb ledger</p>
+        <p class="text-xs text-amber-100/80 mt-1 leading-relaxed">
+            Instant UPI QR opens the customer’s UPI app and pays your bank VPA directly (P2M).
+            Successful payments may <strong>not</strong> appear as UniWeb transactions, settlements, or refunds.
+            Use <a href="qr_code.php" class="text-sky-300 underline">QR Codes</a> or <a href="payment_links.php" class="text-sky-300 underline">Payment Links</a> when you need UniWeb checkout history and settlement balance.
+        </p>
+    </div>
     <div class="no-print flex flex-wrap items-center justify-between gap-3">
         <div>
             <a href="qr_code.php" class="text-sm text-brand-400 hover:text-brand-300">&larr; Back to QR Codes</a>
             <h1 class="text-2xl font-bold mt-2">Instant UPI QR</h1>
             <p class="text-sm text-gray-500 mt-1 max-w-xl">
                 A standard <span class="font-mono">upi://pay</span> QR that opens directly in GPay, PhonePe, Paytm or any UPI app.
-                Money settles straight into your UPI-linked bank account (P2M) &mdash; it is not routed through UniWeb checkout.
+                Money settles straight into your UPI-linked bank account — not through UniWeb checkout.
             </p>
         </div>
     </div>
@@ -211,8 +219,8 @@ require_once __DIR__ . '/header.php';
                 <p class="text-[10px] text-gray-400 mt-2">Powered by <?= e(APP_NAME) ?></p>
             </div>
             <p class="text-xs text-gray-500 mt-4 text-center no-print">
-                Scans are logged by UniWeb, but the money always goes straight to your bank UPI — not through UniWeb checkout.
-                For fully UniWeb-routed QRs (cards, netbanking, wallets &amp; payment history),
+                Scans are logged by UniWeb, but the money always goes straight to your bank UPI — it may bypass the UniWeb ledger.
+                For fully UniWeb-routed QRs (cards, netbanking, payment history and settlement balance),
                 use the <a href="qr_code.php" class="text-sky-400 hover:underline">QR Code Generator</a>.
             </p>
         </div>
