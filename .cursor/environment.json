@@ -1,7 +1,0 @@
-{
-  "install": "sudo apt-get update -y && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y php-cli php-mysql php-gd php-mbstring php-curl php-xml php-bcmath php-intl mariadb-server mariadb-client || true; php -v; git --version",
-  "start": "sudo service mariadb start || true; [ -f dev_local/bootstrap_db.sh ] && bash dev_local/bootstrap_db.sh || true",
-  "terminals": [
-    { "name": "php-dev-server", "command": "php -S 0.0.0.0:8000" }
-  ]
-}

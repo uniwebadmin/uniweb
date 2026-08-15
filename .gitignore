@@ -56,47 +56,24 @@ release_manifest_*.txt
 .DS_Store
 Thumbs.db
 
-# OneDrive conflict copies + local-only diagnostics (never ship)
-*-aaminalaptop.*
-*-aaminalaptop.php
-db_probe.php
-db_wizard.php
-_inbox/*.jpg
-_inbox/*.jpeg
-_inbox/*.png
-_inbox/*.webp
-_inbox/*.gif
-_inbox/*.docx
-_inbox/*.pdf
-_inbox/Screenshot/
-_inbox/chat/*
+# Personal owner<->agent inbox channel — NEVER ship or commit (Hostinger Git pull copies tracked files)
+_inbox/**
 !_inbox/README.txt
 !_inbox/PHOTO_NOTES.md
 !_inbox/chat/README.txt
 !_inbox/chat/THREAD.md
 !_inbox/chat/_TEMPLATE.txt
 
-# Personal owner<->agent inbox channel — reports/scratch/backups, never ship or commit
-_inbox/*.zip
-_inbox/_tmp_*
-_inbox/UniWeb_Master_Status_*
-_inbox/_gen_points.*
-_inbox/config_READY_TO_PASTE.php
-dev_local/inbox_view/
-Jump to Content*
+# Dev-local — laptop only. Hostinger Git still copies if tracked; keep untracked after cleanup.
+dev_local/**
+!dev_local/README.md
 
-# Locally downloaded build tools
-tools/*.exe
+# Cursor / Devin agent rules — keep rules in git for agents; Hostinger: delete .cursor/ after pull
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
+.devin/
 
-.cursor/
-
-# Dev-local diagnostic/test scripts (never deploy)
-dev_local/debug_*.php
-dev_local/test_a1.php
-dev_local/extract_pdfs*.php
-dev_local/dump_pdf*.php
-dev_local/encrypt_pii.php
-dev_local/check_files.php
-dev_local/find_orphans.php
-dev_local/reset_admin_pass.php
-
+# Training outlines & internal docs — not the live product
+training/
+docs/
