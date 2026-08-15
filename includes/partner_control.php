@@ -743,6 +743,9 @@ function setPartnerGoLive(int $gatewayId, bool $goLive, string $adminEmail): arr
         if (function_exists('logAudit')) {
             logAudit('partner_go_live', $adminEmail, "partner={$pk} go_live=" . ($goLive ? 'ON' : 'OFF'));
         }
+        if (function_exists('logStaffActivity')) {
+            logStaffActivity('partner_go_live', $pk . ' ' . ($goLive ? 'ON' : 'OFF'), null, 'partner', $pk);
+        }
         return ['ok' => true, 'go_live' => $goLive];
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => $e->getMessage()];

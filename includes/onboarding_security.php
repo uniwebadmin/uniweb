@@ -221,6 +221,9 @@ function rejectApprovalRequest(int $requestId, string $checkerReason): void
         "UPDATE approval_requests SET status='rejected',checked_by_type=?,checked_by_id=?,
          checker_reason=?,checked_at=NOW() WHERE id=? AND status='pending'"
     )->execute([$actor['type'], $actor['id'], $checkerReason, $requestId]);
+    if (function_exists('logStaffActivity')) {
+        logStaffActivity('approval_rejected', $checkerReason, null, 'approval_request', (string)$requestId);
+    }
 }
 
 function applyApprovedControlAction(array $request): void

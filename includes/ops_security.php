@@ -67,6 +67,9 @@ function recordImmutableAudit(
     } catch (Throwable $e) {
         logPlatformError('warning', 'Immutable audit write failed: ' . $e->getMessage(), ['action' => $action]);
     }
+    if ($adminId > 0 && function_exists('logStaffActivity')) {
+        logStaffActivity($action, (string)($reason ?? ''), $merchantId, $resourceType, $resourceId);
+    }
     return $eventId;
 }
 

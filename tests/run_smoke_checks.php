@@ -386,6 +386,17 @@ $subP4 = (string)file_get_contents($root . '/admin_sub_merchants.php');
 $assert(str_contains($subP4, 'How this works') && str_contains($subP4, 'not a customer PPI wallet'), 'p4_submerchant_rules_documented');
 $assert(str_contains($subP4, 'Only UniWeb admin can add or remove'), 'p4_submerchant_admin_only_crud');
 
+// P4-ST01 — staff activity reads staff_activity_logs, mirrors high-value admin audit
+$staffLibP4 = (string)file_get_contents($root . '/includes/staff.php');
+$assert(str_contains($staffLibP4, 'function seedStaffActivityFromAuditIfEmpty'), 'p4_staff_activity_seeds_from_audit');
+$assert(str_contains($staffLibP4, 'LEFT JOIN admins') && str_contains($staffLibP4, 'LEFT JOIN merchants'), 'p4_staff_activity_left_joins');
+$opsP4 = (string)file_get_contents($root . '/includes/ops_security.php');
+$assert(str_contains($opsP4, "function_exists('logStaffActivity')"), 'p4_audit_mirrors_staff_activity');
+$actPageP4 = (string)file_get_contents($root . '/admin_staff_activity.php');
+$assert(str_contains($actPageP4, 'admin_audit_log.php') && str_contains($actPageP4, 'getStaffActivityLogs'), 'p4_staff_activity_page_uses_staff_logs');
+$onboardP4 = (string)file_get_contents($root . '/includes/onboarding_security.php');
+$assert(str_contains($onboardP4, "logStaffActivity('approval_rejected'"), 'p4_approval_reject_logs_staff');
+
 $assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');
 
 // Auth portal redesign (all four logins — presentation only).

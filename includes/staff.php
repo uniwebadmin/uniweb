@@ -121,6 +121,14 @@ function logStaffActivity(string $action, string $details = '', ?int $merchantId
     if (!isAdminLoggedIn()) {
         return;
     }
+    $merchantId = ($merchantId !== null && $merchantId > 0) ? $merchantId : null;
+    $action = mb_substr($action, 0, 64);
+    static $seen = [];
+    $dedupe = $action . '|' . $details . '|' . (int)$merchantId . '|' . (string)$refType . '|' . (string)$refId;
+    if (isset($seen[$dedupe])) {
+        return;
+    }
+    $seen[$dedupe] = true;
     try {
         getDB()->prepare('INSERT INTO staff_activity_logs (admin_id, action, details, merchant_id, reference_type, reference_id, ip_address) VALUES (?,?,?,?,?,?,?)')
             ->execute([
@@ -132,7 +140,61 @@ function logStaffActivity(string $action, string $details = '', ?int $merchantId
                 $refId,
                 $_SERVER['REMOTE_ADDR'] ?? null,
             ]);
-    } catch (Throwable $e) { /* ok */ }
+    } catch (Throwable $e) {
+        if (function_exists('logPlatformError')) {
+            logPlatformError('warning', 'logStaffActivity failed: ' . $e->getMessage(), ['action' => $action]);
+        }
+    }
+}
+
+/**
+ * If Staff Activity is empty but Audit has admin rows, copy recent admin audit into staff_activity_logs.
+ */
+function seedStaffActivityFromAuditIfEmpty(int $limit = 200): void
+{
+    ensureStaffRoles();
+    $limit = max(1, min(500, $limit));
+    try {
+        $n = (int)getDB()->query('SELECT COUNT(*) FROM staff_activity_logs')->fetchColumn();
+        if ($n > 0) {
+            return;
+        }
+        $rows = getDB()->query(
+            "SELECT actor_id, action, merchant_id, resource_type, resource_id, reason, ip_address, created_at
+             FROM immutable_audit_log
+             WHERE actor_type='admin' AND actor_id IS NOT NULL AND actor_id > 0
+             ORDER BY id DESC
+             LIMIT " . $limit
+        )->fetchAll() ?: [];
+        if (!$rows) {
+            return;
+        }
+        $ins = getDB()->prepare(
+            'INSERT INTO staff_activity_logs (admin_id, action, details, merchant_id, reference_type, reference_id, ip_address, created_at)
+             VALUES (?,?,?,?,?,?,?,?)'
+        );
+        foreach (array_reverse($rows) as $row) {
+            try {
+                $mid = (int)($row['merchant_id'] ?? 0);
+                $ins->execute([
+                    (int)$row['actor_id'],
+                    mb_substr((string)$row['action'], 0, 64),
+                    (string)($row['reason'] ?? ''),
+                    $mid > 0 ? $mid : null,
+                    $row['resource_type'] ?? null,
+                    $row['resource_id'] ?? null,
+                    $row['ip_address'] ?? null,
+                    $row['created_at'] ?? date('Y-m-d H:i:s'),
+                ]);
+            } catch (Throwable $e) {
+                continue;
+            }
+        }
+    } catch (Throwable $e) {
+        if (function_exists('logPlatformError')) {
+            logPlatformError('warning', 'seedStaffActivityFromAuditIfEmpty failed: ' . $e->getMessage());
+        }
+    }
 }
 
 function assignMerchantToStaff(int $staffId, int $merchantId, ?string $note = null): bool
@@ -299,19 +361,40 @@ function requireStaffKycMutation(): void
 function getStaffActivityLogs(?int $adminId = null, int $limit = 50): array
 {
     ensureStaffRoles();
-    $sql = 'SELECT l.*, a.name AS staff_name, a.username, m.business_name FROM staff_activity_logs l JOIN admins a ON a.id=l.admin_id LEFT JOIN merchants m ON m.id=l.merchant_id';
+    seedStaffActivityFromAuditIfEmpty(200);
+    $limit = max(1, min(500, $limit));
+    $where = '';
     $params = [];
     if ($adminId) {
-        $sql .= ' WHERE l.admin_id = ?';
+        $where = ' WHERE l.admin_id = ?';
         $params[] = $adminId;
     }
-    $sql .= ' ORDER BY l.created_at DESC LIMIT ' . max(1, min(200, $limit));
+    $sql = 'SELECT l.*, COALESCE(NULLIF(TRIM(a.name), \'\'), a.username, CONCAT(\'Admin #\', l.admin_id)) AS staff_name,
+                   a.username, m.business_name
+            FROM staff_activity_logs l
+            LEFT JOIN admins a ON a.id = l.admin_id
+            LEFT JOIN merchants m ON m.id = l.merchant_id'
+        . $where
+        . ' ORDER BY l.created_at DESC, l.id DESC LIMIT ' . $limit;
     try {
         $st = getDB()->prepare($sql);
         $st->execute($params);
-        return $st->fetchAll();
+        return $st->fetchAll() ?: [];
     } catch (Throwable $e) {
-        return [];
+        if (function_exists('logPlatformError')) {
+            logPlatformError('warning', 'getStaffActivityLogs join failed: ' . $e->getMessage());
+        }
+        try {
+            $sql2 = 'SELECT l.*, CONCAT(\'Admin #\', l.admin_id) AS staff_name, \'\' AS username, NULL AS business_name
+                     FROM staff_activity_logs l'
+                . $where
+                . ' ORDER BY l.created_at DESC, l.id DESC LIMIT ' . $limit;
+            $st = getDB()->prepare($sql2);
+            $st->execute($params);
+            return $st->fetchAll() ?: [];
+        } catch (Throwable $e2) {
+            return [];
+        }
     }
 }
 

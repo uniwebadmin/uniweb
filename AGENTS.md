@@ -204,4 +204,4 @@ Owner's explicit standing instruction: continue autonomously through phases with
 
 ## Latest Status (2026-08-15)
 
-Owner delivered ordered Deep Audit PDF. Live Hostinger has 10-min auto-audit + backup cron. Phases 0–3 and 4.1 Admin are in repo. Phase 4.2–4.3 coded: merchant left menu shows full groups (NBFC hidden); wallet.php copy is Settlement Balance (not PPI); Agents vs admin Sub-Merchant Hierarchy rules are written. Owner still verifies on live after Hostinger Git deploy + hard refresh. Do not start Phase 4.4 Staff until that live click-check.
+Owner delivered ordered Deep Audit PDF. Live Hostinger has 10-min auto-audit + backup cron. Phases 0–4.3 are in repo. Phase 4.4 Staff (P4-ST01) coded: Staff Activity reads staff_activity_logs (empty-safe joins); high-value admin audit also writes here; empty table copies recent admin audit once. Owner still verifies on live after Hostinger Git + hard refresh. Do not start Phase 4.5 Team until that live click-check.

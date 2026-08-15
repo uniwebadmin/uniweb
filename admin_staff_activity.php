@@ -38,13 +38,18 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 }
 $paged = uxPaginateSlice($logs, $page, 50);
 $logs = $paged['rows'];
-$staffList = getDB()->query("SELECT id, name, username, role FROM admins WHERE role NOT IN ('super') ORDER BY name")->fetchAll();
+$staffList = [];
+try {
+    $staffList = getDB()->query("SELECT id, name, username, role FROM admins ORDER BY name")->fetchAll() ?: [];
+} catch (Throwable $e) {
+    $staffList = [];
+}
 $pageTitle = 'Staff Activity Log';
 require_once __DIR__ . '/header.php';
 ?>
 <?= uxListToolbar(uxExportCsvLink(array_filter(['staff_id' => $filterStaff ?: null, 'q' => $q ?: null]))) ?>
 <div class="mb-6 flex flex-wrap gap-3 items-center justify-between no-print">
-    <p class="text-sm text-gray-400">Full audit trail — who did what, when.</p>
+    <p class="text-sm text-gray-400">Who did what, when — KYC, Live, settlements, refunds, partners. Money audit stays on <a href="admin_audit_log.php" class="text-sky-400">Audit Log</a>.</p>
     <form method="GET" class="flex flex-wrap gap-2 items-end" aria-label="Filter staff activity">
         <div><?= uxLabel('staff-filter', 'Staff') ?>
         <select id="staff-filter" name="staff_id" class="input-field text-sm">
@@ -59,7 +64,7 @@ require_once __DIR__ . '/header.php';
 </div>
 <div class="glass rounded-xl overflow-hidden">
     <?php if (empty($logs) && $paged['total'] === 0): ?>
-    <?= uxEmptyState('No activity logged yet', 'Staff actions on merchants, KYC, settlements, and transactions appear here.') ?>
+    <?= uxEmptyState('No activity logged yet', 'Staff and admin actions on merchants, KYC, Live, settlements, refunds, and partners appear here. Older money events are on Audit Log.') ?>
     <?php else: ?>
     <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
         <?= uxTableCaption('Staff activity log') ?>
