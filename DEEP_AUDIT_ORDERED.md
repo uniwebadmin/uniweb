@@ -254,7 +254,7 @@ Do **not** implement parity before Phase 0–2.
 | Worldline | Acquiring POS+online | Online-first unless Owner adds POS |
 | Decentro | Banking/UPI APIs | Sandbox vs live labels clear |
 
-**P9-01 Packaging gap** — Features high; polish lags → educated empty states; actionable errors → polish after 0–2 green.
+**P9-01 Packaging gap** — Features high; polish lags → educated empty states; actionable errors → polish after 0–2 green. Public quality bar: `compare.php`. Internal: `MARKET_COMPARISON.md`. Do not implement Route/POS/split/PPI from this phase.
 
 ---
 

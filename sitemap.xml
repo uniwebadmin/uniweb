@@ -7,6 +7,7 @@
   <url><loc>https://uniweb.co.in/login.php</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://uniweb.co.in/about.php</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://uniweb.co.in/solutions.php</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://uniweb.co.in/compare.php</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://uniweb.co.in/roadmap.php</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://uniweb.co.in/pricing.php</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://uniweb.co.in/trust.php</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>

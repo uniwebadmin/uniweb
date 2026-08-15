@@ -574,6 +574,14 @@ $assert(!str_contains($themeP8, 'overflow-x: clip'), 'p8_theme_no_overflow_clip'
 $assert(str_contains($dashP8, 'Create a payment link') && str_contains((string)file_get_contents($root . '/includes/page_ux.php'), 'function uxEmptyCta'), 'p8_empty_states_next_action');
 $assert(str_contains($errCatchP8, 'Call to undefined function recordAuditEvent'), 'p8_auto_resolve_stale_test_pay_error');
 
+$cmpP9 = (string)file_get_contents($root . '/compare.php');
+$assert(is_file($root . '/compare.php') && is_file($root . '/MARKET_COMPARISON.md'), 'p9_compare_page_and_reference');
+$assert(str_contains($cmpP9, 'Razorpay') && str_contains($cmpP9, 'Cashfree') && str_contains($cmpP9, 'PayU') && str_contains($cmpP9, 'Juspay') && str_contains($cmpP9, 'Stripe') && str_contains($cmpP9, 'Worldline') && str_contains($cmpP9, 'Decentro'), 'p9_all_peers_named');
+$assert(str_contains($cmpP9, 'Route') && str_contains($cmpP9, 'Owner') && str_contains($cmpP9, 'PPI'), 'p9_no_parity_promises');
+$assert(str_contains((string)file_get_contents($root . '/includes/page_ux.php'), 'function userFacingError') && str_contains((string)file_get_contents($root . '/checkout.php'), 'userFacingError'), 'p9_actionable_errors_helper');
+$assert(str_contains((string)file_get_contents($root . '/footer.php'), 'compare.php') && str_contains((string)file_get_contents($root . '/sitemap.xml'), 'compare.php'), 'p9_compare_linked_footer_sitemap');
+$assert(!str_contains($cmpP9, 'nbfc.php') || str_contains($cmpP9, 'Not a UniWeb product'), 'p9_nbfc_not_sold');
+
 $assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');
 
 // Auth portal redesign (all four logins — presentation only).

@@ -25,6 +25,21 @@ if (!function_exists('uxEmptyState')) {
         return '<a href="' . e($url) . '" class="inline-block mt-4 btn-primary text-sm px-5 py-2.5">' . e($label) . '</a>';
     }
 
+    /** Never show PHP/SQL internals to merchants or customers. Log the raw error separately. */
+    function userFacingError(Throwable|string $error, string $fallback, string $nextStep = ''): string
+    {
+        $raw = is_string($error) ? $error : $error->getMessage();
+        $internal = $raw === '' || (bool)preg_match(
+            '/SQLSTATE|Call to undefined|TypeError|Argument #|Stack trace|PDOException|Fatal error|\/home\/|\/var\/www/i',
+            $raw
+        );
+        $msg = $internal ? $fallback : $raw;
+        if ($nextStep !== '') {
+            $msg = rtrim($msg, '.') . '. ' . $nextStep;
+        }
+        return $msg;
+    }
+
     function uxPrintToolbar(string $extraClass = ''): string
     {
         $cls = trim('no-print flex flex-wrap gap-2 mb-4 justify-end ' . $extraClass);

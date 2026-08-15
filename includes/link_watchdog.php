@@ -56,6 +56,7 @@ function getWatchdogPageRegistry(): array
         ['trust.php', 'Trust Centre', 'public'],
         ['solutions.php', 'Solutions', 'public'],
         ['roadmap.php', 'Roadmap', 'public'],
+        ['compare.php', 'Compare', 'public'],
         ['checkout.php', 'Checkout', 'public'],
         ['payment_status.php', 'Payment Status', 'public'],
         ['error_404.php', 'Branded 404 (alias)', 'public'],

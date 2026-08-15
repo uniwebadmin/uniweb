@@ -70,3 +70,20 @@ if (!function_exists('renderPrintStylesheet')) {
         return renderPagePrintStyles();
     }
 }
+
+if (!function_exists('userFacingError')) {
+    function userFacingError(Throwable|string $error, string $fallback, string $nextStep = ''): string
+    {
+        $raw = is_string($error) ? $error : $error->getMessage();
+        $internal = $raw === '' || (bool)preg_match(
+            '/SQLSTATE|Call to undefined|TypeError|Argument #|Stack trace|PDOException|Fatal error|\/home\/|\/var\/www/i',
+            $raw
+        );
+        $msg = $internal ? $fallback : $raw;
+        if ($nextStep !== '') {
+            $msg = rtrim($msg, '.') . '. ' . $nextStep;
+        }
+        return $msg;
+    }
+}
+

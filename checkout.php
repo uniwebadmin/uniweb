@@ -223,7 +223,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && ($_POST['a
         $successTxnId = $txnRow->fetchColumn() ?: null;
         $success = true;
         } catch (Throwable $e) {
-            $error = 'Test payment could not be recorded. Try again in a moment.';
+            $error = function_exists('userFacingError')
+                ? userFacingError($e, 'Test payment could not be recorded', 'Try again in a moment. If it repeats, open Support with this link ID.')
+                : 'Test payment could not be recorded. Try again in a moment.';
             logPlatformError('error', 'Instant test pay failed: ' . $e->getMessage(), ['link_id' => $linkId]);
         }
         }

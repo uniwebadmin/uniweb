@@ -9,7 +9,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         submitChargebackEvidence((int)($_POST['id'] ?? 0), $merchantId, (string)($_POST['evidence_notes'] ?? ''));
         flash('success', 'Evidence submitted for representment review.');
     } catch (Throwable $e) {
-        flash('error', $e->getMessage());
+        flash('error', function_exists('userFacingError')
+            ? userFacingError($e, 'Could not submit evidence', 'Add notes and try again, or open Support with the chargeback ID.')
+            : 'Could not submit evidence. Try again.');
     }
     redirect('chargebacks.php');
 }

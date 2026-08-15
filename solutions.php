@@ -110,6 +110,8 @@ $products = [
             <div class="company-card"><h3>Partner-dependent</h3><p>Live cards/UPI money movement, PhonePe native, EMI/BNPL, Instant Settlement — need partner keys and commercial approval.</p></div>
             <div class="company-card"><h3>Still building</h3><p>Payment Pages builder, full developer hub, case studies — see the <a href="roadmap.php" class="text-brand-400">roadmap</a>. Merchant team invites are live under Team in the dashboard.</p></div>
         </div>
+        <p class="company-lead mt-6"><a href="compare.php" class="text-brand-400">Full peer comparison (quality bar, not a copy of every feature) →</a></p>
+        </div>
     </div></section>
 
     <section class="company-section" style="padding-top:0"><div class="company-shell"><div class="company-cta">

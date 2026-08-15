@@ -83,7 +83,7 @@ require_once __DIR__ . '/header.php';
 }</pre>
             <p class="text-sm text-gray-500 mt-3">Verify signature header <code class="text-gray-400">X-UniWeb-Signature</code>:</p>
             <pre class="bg-dark-900 p-4 rounded-lg text-xs text-gray-300 mt-2 overflow-x-auto">hash_hmac('sha256', $rawRequestBody, $your_webhook_signing_secret)</pre>
-            <p class="text-xs text-gray-500 mt-2">Events: payment.success · payment.failed · refund.completed · webhook.test</p>
+            <p class="text-xs text-gray-500 mt-2">Events: payment.success · payment.failed · refund.completed · webhook.test. Failed deliveries retry with backoff — see Dashboard webhook settings. Always verify HMAC; never trust the body alone.</p>
         </div>
 
         <div class="glass rounded-xl p-6">
@@ -103,7 +103,7 @@ require_once __DIR__ . '/header.php';
                 <div class="rounded-lg border border-gray-800 p-3"><span class="text-emerald-400 font-medium">Test Mode</span><p class="text-xs text-gray-500 mt-1">No real charges. Payment links return a test checkout page. Webhooks fire with test data. Rate limited at 120 req/min.</p></div>
                 <div class="rounded-lg border border-gray-800 p-3"><span class="text-amber-400 font-medium">Live Mode</span><p class="text-xs text-gray-500 mt-1">Requires completed KYC + Live activation. Real money flows. Use <code class="text-gray-400">uw_live_…</code> keys.</p></div>
             </div>
-            <p class="text-xs text-gray-500 mt-3">Switch between Test and Live by using the respective API key. The mode is determined by the key prefix, not a separate header.</p>
+            <p class="text-xs text-gray-500 mt-3">Switch between Test and Live by using the respective API key. The mode is determined by the key prefix, not a separate header. A <code class="text-gray-400">uw_test_</code> key must never create a live capture. Partner sandbox (for example Decentro staging) is labelled Test — it is not a live bank confirmation.</p>
         </div>
 
         <div class="glass rounded-xl p-6">

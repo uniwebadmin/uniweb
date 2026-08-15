@@ -41,7 +41,7 @@ require_once __DIR__ . '/header.php';
             <div class="company-card"><h3>AI operations</h3><p>Velocity-based fraud scoring, anomaly alerts and reconciliation assist for ops teams.</p></div>
             <div class="company-card"><h3>Enterprise</h3><p>Marketplace splits, sub-merchants, granular API scopes and white-label options for larger partners.</p></div>
         </div>
-        <p class="company-lead mt-6">Regulatory licences (Payment Aggregator, PPI, NBFC partnerships) follow commercial traction and legal counsel — we do not claim licences we have not been granted.</p>
+        <p class="company-lead mt-6">Regulatory licences (Payment Aggregator, PPI, NBFC partnerships) follow commercial traction and legal counsel — we do not claim licences we have not been granted. We do not copy Razorpay Route, Cashfree Easy Split or Worldline POS until the Owner starts that deal. See <a href="compare.php" class="text-brand-400">how UniWeb compares</a>.</p>
     </div></section>
 
     <section class="company-section" style="padding-top:0"><div class="company-shell"><div class="company-cta">

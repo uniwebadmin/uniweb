@@ -6,6 +6,7 @@ require_once __DIR__ . '/header.php';
 $faqGroups = [
     'Getting started' => [
         ['What is UniWeb?', 'UniWeb is a merchant payment-operations technology platform. It combines onboarding, Test Mode, payment links, QR journeys, transaction reporting, refunds, settlements and support workflows. Live financial services depend on merchant approval and activated banking or payment partners.'],
+        ['How do you compare with Razorpay or Cashfree?', 'We match payment links and QR as the reliability bar. Live cards and UPI use those partners when keys are on. We do not copy Route, Easy Split, POS or a consumer wallet. See the Compare page for the honest table.'],
         ['Can I explore the platform before Live Mode?', 'Yes. Test Mode and the platform tour are designed for demos and integration checks. Test transactions do not move real money and must not be treated as real payment confirmation.'],
         ['Which business entities can apply?', 'Sole proprietorships, partnerships, LLPs, companies and other supported entities may apply. The required documents and final eligibility depend on the entity type, use case, business category and payment-partner policy.'],
         ['Does registration guarantee activation?', 'No. Registration creates an account. Live Mode requires complete KYC, business and website review, bank verification, risk acceptance, commercial setup and partner activation.'],

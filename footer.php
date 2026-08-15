@@ -46,6 +46,7 @@
                     <li><a href="tour_videos.php" class="hover:text-brand-400 transition">Platform Tour</a></li>
                     <li><a href="demo.php" class="hover:text-brand-400 transition">Live Demo</a></li>
                     <li><a href="solutions.php" class="hover:text-brand-400 transition">Solutions</a></li>
+                    <li><a href="compare.php" class="hover:text-brand-400 transition">Compare</a></li>
                     <li><a href="pricing.php" class="hover:text-brand-400 transition">Pricing</a></li>
                     <li><a href="api_docs.php" class="hover:text-brand-400 transition">API Docs</a></li>
                     <li><a href="status.php" class="hover:text-brand-400 transition">System Status</a></li>
@@ -57,6 +58,7 @@
                     <li><a href="about.php" class="hover:text-brand-400 transition">About</a></li>
                     <li><a href="solutions.php" class="hover:text-brand-400 transition">Solutions</a></li>
                     <li><a href="roadmap.php" class="hover:text-brand-400 transition">Roadmap</a></li>
+                    <li><a href="compare.php" class="hover:text-brand-400 transition">Compare</a></li>
                     <li><a href="blog.php" class="hover:text-brand-400 transition">Blog</a></li>
                     <li><a href="contact.php" class="hover:text-brand-400 transition">Contact</a></li>
                     <li><a href="faq.php" class="hover:text-brand-400 transition">FAQ</a></li>
