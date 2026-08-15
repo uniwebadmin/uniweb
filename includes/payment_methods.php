@@ -632,13 +632,11 @@ function getMerchantCheckoutGateways(int $merchantId): array
 }
 
 /**
- * E1: Single source of truth for available payment methods.
+ * Methods a merchant can put on a payment link / QR.
  *
- * Returns only methods where ALL of:
- *  1. Partner master is active (gateway_registry.is_active=1)
- *  2. partner_methods.enabled=1 (Block B partner control)
- *  3. Credentials present for current env (test/live)
- *  4. Merchant is allowed to collect (onboarding_state live/kyc_verified AND merchant enabled)
+ * Source of truth = merchants.enabled_methods (+ approved method requests).
+ * Do not hide Direct UPI just because gateway_registry has no "direct" row
+ * or partner_methods.is_enabled=0 (same idea as checkout tabs).
  *
  * @return array List of method descriptors with key, label, gateway, pay_key, type
  */
@@ -647,68 +645,106 @@ function get_available_pay_methods(int $merchantId): array
     $db = getDB();
     $methods = [];
 
-    // 4a. Merchant onboarding state check — must be live or kyc_verified
     try {
-        $mst = $db->prepare('SELECT onboarding_state, kyc_status, account_mode, status FROM merchants WHERE id=?');
+        $mst = $db->prepare('SELECT * FROM merchants WHERE id=?');
         $mst->execute([$merchantId]);
         $merchant = $mst->fetch();
-        if (!$merchant) return [];
-        if (in_array($merchant['status'], ['blocked', 'suspended', 'deleted'], true)) return [];
+        if (!$merchant) {
+            return [];
+        }
+        if (in_array((string)($merchant['status'] ?? ''), ['blocked', 'suspended', 'deleted'], true)) {
+            return [];
+        }
     } catch (Throwable $e) {
         return [];
     }
 
-    // 4b. Get merchant-enabled method keys
-    $enabledKeys = getMerchantEnabledMethodKeys($merchantId);
-
-    // Get catalog for labels/pay_keys
-    if (function_exists('getPaymentMethodCatalog')) {
-        $catalog = getPaymentMethodCatalog();
-    } else {
+    if (!function_exists('getPaymentMethodCatalog')) {
         return [];
     }
+    $catalog = getPaymentMethodCatalog();
 
-    // Load partner control helpers
-    if (!function_exists('isPartnerMethodEnabled')) {
+    if (!function_exists('getMerchantEnabledMethods') && is_file(__DIR__ . '/provision.php')) {
+        require_once __DIR__ . '/provision.php';
+    }
+    if (!function_exists('merchantEntitledMethods') && is_file(__DIR__ . '/method_requests.php')) {
+        require_once __DIR__ . '/method_requests.php';
+    }
+
+    if (function_exists('merchantEntitledMethods')) {
+        $enabledKeys = merchantEntitledMethods($merchant);
+    } elseif (function_exists('getMerchantEnabledMethods')) {
+        $enabledKeys = getMerchantEnabledMethods($merchant);
+    } else {
+        $enabledKeys = getMerchantEnabledMethodKeys($merchantId);
+    }
+    if (empty($enabledKeys)) {
+        $enabledKeys = ['upi_p2m'];
+    }
+
+    $isTest = function_exists('isMerchantPaymentTest')
+        ? isMerchantPaymentTest($merchant)
+        : !function_exists('isMerchantLive') || !isMerchantLive($merchant);
+
+    if (!function_exists('isPartnerMethodEnabled') && is_file(__DIR__ . '/partner_control.php')) {
         require_once __DIR__ . '/partner_control.php';
     }
-    if (!function_exists('isPartnerChargeable')) {
-        require_once __DIR__ . '/partner_control.php';
-    }
 
-    // Check each enabled method
     foreach ($enabledKeys as $methodKey) {
         $cat = $catalog[$methodKey] ?? null;
-        if (!$cat) continue;
-
-        $gateway = $cat['gateway'] ?? '';
-        $partnerKey = $gateway;
-
-        // 1. Gateway active in registry?
-        if (function_exists('isGatewayActive') && !isGatewayActive($partnerKey)) continue;
-
-        // 2. Partner method enabled (Block B)?
-        if (function_exists('isPartnerMethodEnabled') && !isPartnerMethodEnabled($partnerKey, $methodKey)) continue;
-
-        // 3. Credentials present for current env?
-        $credKey = $gateway . '_key_id';
-        $credKey2 = $gateway . '_key_secret';
-        $envSetting = getSetting($gateway . '_environment', '');
-        $hasCreds = false;
-        if ($gateway === 'direct' || $gateway === 'axis') {
-            // Direct UPI / Axis VA — check merchant UPI ID or VA
-            $hasCreds = true; // direct UPI doesn't need gateway credentials
-        } elseif (function_exists('isGatewayConfigured')) {
-            $hasCreds = isGatewayConfigured($gateway);
-        } else {
-            $hasCreds = getSetting($credKey, '') !== '' && getSetting($credKey2, '') !== '';
+        if (!$cat) {
+            continue;
         }
-        if (!$hasCreds) continue;
+        $gateway = (string)($cat['gateway'] ?? '');
 
-        // 4. Partner chargeable?
-        if (function_exists('isPartnerChargeable') && !isPartnerChargeable($partnerKey)) {
-            // Allow direct UPI which doesn't go through a chargeable partner
-            if ($gateway !== 'direct' && $gateway !== 'axis') continue;
+        // Platform Direct UPI — always list when merchant entitled
+        if ($gateway === 'direct') {
+            $methods[] = [
+                'key' => $methodKey,
+                'label' => $cat['label'],
+                'pay_key' => $cat['pay_key'] ?? $methodKey,
+                'gateway' => $gateway,
+                'collection_mode' => $cat['collection_mode'] ?? '',
+                'icon' => $cat['icon'] ?? '',
+                'type' => 'p2m',
+            ];
+            continue;
+        }
+
+        // Axis VA — test always; live needs Axis configured
+        if ($gateway === 'axis') {
+            if (!$isTest && function_exists('isGatewayConfigured') && !isGatewayConfigured('axis')) {
+                continue;
+            }
+            $methods[] = [
+                'key' => $methodKey,
+                'label' => $cat['label'],
+                'pay_key' => $cat['pay_key'] ?? $methodKey,
+                'gateway' => $gateway,
+                'collection_mode' => $cat['collection_mode'] ?? '',
+                'icon' => $cat['icon'] ?? '',
+                'type' => 'p2m',
+            ];
+            continue;
+        }
+
+        // Partner PG — in Test Mode show entitled methods (Instant Test Pay on checkout).
+        // Live Mode still requires active + configured + partner method ON.
+        if (!$isTest) {
+            if (function_exists('isGatewayActive') && !isGatewayActive($gateway)) {
+                continue;
+            }
+            if (function_exists('isGatewayConfigured') && !isGatewayConfigured($gateway)) {
+                continue;
+            }
+            if (function_exists('isPartnerMethodEnabled')) {
+                $partnerMethod = catalogKeyToPartnerMethodName($methodKey);
+                $methodOn = isPartnerMethodEnabled($gateway, $partnerMethod)
+                    || isPartnerMethodEnabled($gateway, $methodKey);
+                if (!$methodOn) {
+                    continue;
+                }
+            }
         }
 
         $methods[] = [
@@ -722,7 +758,37 @@ function get_available_pay_methods(int $merchantId): array
         ];
     }
 
+    if (empty($methods) && isset($catalog['upi_p2m'])) {
+        $cat = $catalog['upi_p2m'];
+        $methods[] = [
+            'key' => 'upi_p2m',
+            'label' => $cat['label'],
+            'pay_key' => $cat['pay_key'] ?? 'upi',
+            'gateway' => 'direct',
+            'collection_mode' => $cat['collection_mode'] ?? 'direct_upi',
+            'icon' => $cat['icon'] ?? '',
+            'type' => 'p2m',
+        ];
+    }
+
     return $methods;
+}
+
+/** Map catalog keys (upi_p2m, …) to partner_methods.method names (upi, …). */
+function catalogKeyToPartnerMethodName(string $methodKey): string
+{
+    return match ($methodKey) {
+        'upi_p2m', 'axis_va', 'payu_upi', 'razorpay_upi', 'cashfree_upi' => 'upi',
+        'debit_card' => 'debit_card',
+        'credit_card' => 'credit_card',
+        'netbanking' => 'netbanking',
+        'emi' => 'emi',
+        'wallet' => 'wallet',
+        'emandate_upi' => 'emandate_upi',
+        'emandate_card' => 'emandate_card',
+        'emandate_nb' => 'emandate_nb',
+        default => $methodKey,
+    };
 }
 
 /**

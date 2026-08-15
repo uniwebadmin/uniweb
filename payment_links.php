@@ -190,6 +190,11 @@ if ($createdId !== '') {
                     <?php endforeach; ?>
                 </select>
                 <p class="text-[11px] text-gray-600 mt-1">Dedicated method = customer sees only that option on checkout.</p>
+                <?php if (count($availableMethods) === 0): ?>
+                <p class="text-[11px] text-amber-400 mt-1">No methods unlocked yet. Open <a href="collection_settings.php" class="underline">Payment Methods</a> or use Payment Pack.</p>
+                <?php elseif (count($availableMethods) === 1): ?>
+                <p class="text-[11px] text-gray-500 mt-1">More methods: turn them ON under <a href="collection_settings.php" class="text-sky-400 hover:underline">Payment Methods</a>.</p>
+                <?php endif; ?>
             </div>
             <div>
                 <label class="text-sm text-gray-400">Description</label>

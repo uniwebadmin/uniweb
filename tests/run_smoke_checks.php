@@ -902,6 +902,9 @@ $assert(str_contains($qrImg, 'function qrFlushAllBuffers'), 'p2_qr_image_flushes
 $assert(str_contains((string)file_get_contents($root . '/includes/qr_svg.php'), 'require_upi=1'), 'p2_upi_qr_url_requires_pa');
 $plP2 = (string)file_get_contents($root . '/payment_links.php');
 $assert(str_contains($plP2, "payment_links.php?created="), 'p2_create_redirects_with_public_url');
+$pmLib = (string)file_get_contents($root . '/includes/payment_methods.php');
+$assert(str_contains($pmLib, 'function get_available_pay_methods') && str_contains($pmLib, 'merchantEntitledMethods') && str_contains($pmLib, "gateway === 'direct'"), 'payment_links_methods_use_merchant_entitlement');
+$assert(str_contains($pmLib, 'function catalogKeyToPartnerMethodName'), 'catalog_to_partner_method_mapper');
 $assert(str_contains($plP2, 'data-copy-url='), 'p2_copy_uses_data_copy_url');
 $assert(!str_contains($plP2, "writeText('<?= e(\$payUrl) ?>')"), 'p2_copy_not_html_encoded_js');
 $assert(str_contains($plP2, 'Open checkout'), 'p2_created_banner_opens_checkout');
