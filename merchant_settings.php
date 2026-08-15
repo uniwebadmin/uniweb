@@ -46,12 +46,12 @@ $productCards = [
 
 <div class="glass rounded-xl p-4 mb-8 border border-gray-800 flex flex-wrap items-center justify-between gap-3">
     <div>
-        <p class="text-xs text-gray-500 uppercase tracking-wide">Wallet</p>
+        <p class="text-xs text-gray-500 uppercase tracking-wide">Settlement</p>
         <p class="text-lg font-semibold text-sky-400"><?= walletMoney($wallet['available'], $wallet['is_test'] ?? true) ?> <span class="text-xs font-normal text-gray-500">available</span></p>
     </div>
     <div class="flex flex-wrap gap-2">
         <a href="settlements.php" class="text-xs px-3 py-2 rounded-lg border border-gray-700 text-gray-300 hover:text-white">Settlements</a>
-        <a href="wallet.php" class="text-xs px-3 py-2 rounded-lg border border-gray-700 text-gray-300 hover:text-white">Wallet</a>
+        <a href="wallet.php" class="text-xs px-3 py-2 rounded-lg border border-gray-700 text-gray-300 hover:text-white">Settlement Balance</a>
     </div>
 </div>
 

@@ -183,8 +183,10 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                 ['id' => 'collect', 'title' => 'Collect / P2M', 'items' => [
                     ['payment_links.php',__('payment_links'),'M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244'],
                     ['qr_code.php',__('qr_code'),'M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z'],
+                    ['qr_upi_print.php','Instant UPI QR','M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 3h2v2h-2v-2zm3 0h3v2h-3v-2z'],
                     ['payment_methods.php','Payment Methods','M11 3.055A5.001 5.001 0 005.055 9 5.001 5.001 0 0011 14.945 5.001 5.001 0 0016.945 9 5.001 5.001 0 0011 3.055z'],
                     ['orders.php','Orders','M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z'],
+                    ['merchant_payment_pack.php','Payment Pack','M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z'],
                 ]],
                 ['id' => 'payments', 'title' => 'Payments', 'items' => [
                     ['transactions.php',__('transactions'),'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01'],
@@ -196,6 +198,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                 ['id' => 'settlements', 'title' => 'Settlements', 'items' => [
                     ['wallet.php','Settlement Balance','M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z'],
                     ['settlements.php',__('settlements'),'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z'],
+                    ['add_bank.php','Settlement Bank','M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z'],
                     ['merchant_instant_settlement.php','Instant Settlement','M13 10V3L4 14h7v7l9-11h-7z'],
                     ['merchant_payout.php','Payouts','M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4'],
                     ['merchant_payout_keys.php','Payout API Keys','M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z'],
@@ -207,7 +210,6 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     ['kyc.php',__('kyc'),'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'],
                     ['video_kyc.php','Video KYC','M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z'],
                     ['merchant_shop_photos.php','Shop Photos','M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'],
-                    ['merchant_payment_pack.php','Payment Pack','M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z'],
                 ]],
                 ['id' => 'team', 'title' => 'Team & Customers', 'items' => [
                     ['merchant_team.php','Team','M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'],
@@ -231,7 +233,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                 ]],
             ];
             $merchantHiddenUrls = [
-                'merchant_nbfc.php','merchant_nbfc_loan.php',
+                'merchant_nbfc.php', 'merchant_nbfc_loan.php',
             ];
             foreach ($merchantNav as &$group) {
                 $group['items'] = array_values(array_filter($group['items'], function($item) use ($merchantHiddenUrls) {
@@ -245,17 +247,14 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
             }));
             $cur = basename($_SERVER['PHP_SELF']);
             foreach ($merchantNav as $group):
-                $isOpen = false;
-                foreach ($group['items'] as $item) {
-                    if (isset($item[0]) && $cur === $item[0]) { $isOpen = true; break; }
-                }
+                $isOpen = true;
             ?>
             <div class="merchant-sidebar-group mb-1" data-group-id="<?= e($group['id']) ?>" data-open="<?= $isOpen ? '1' : '0' ?>">
                 <button type="button" class="merchant-group-toggle w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition" aria-expanded="<?= $isOpen ? 'true' : 'false' ?>">
                     <span><?= e($group['title']) ?></span>
                     <svg class="merchant-group-chevron flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:1rem;height:1rem;pointer-events:none;transition:transform .3s;transform:rotate(<?= $isOpen ? '90' : '0' ?>deg);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </button>
-                <div class="merchant-group-panel" style="overflow:hidden;transition:max-height .3s;max-height:<?= $isOpen ? '1200' : '0' ?>px;">
+                <div class="merchant-group-panel" style="overflow:hidden;transition:max-height .3s;max-height:<?= $isOpen ? '2000' : '0' ?>px;">
                     <div class="py-1 pl-4 space-y-0.5">
                         <?php foreach ($group['items'] as [$url, $label, $icon]): ?>
                         <a href="<?= $url ?>" class="sidebar-link flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition <?= $cur===$url?'active':'' ?>">
@@ -365,7 +364,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                     ['admin_manage_staff.php','Staff / Employees'],
                 ]],
                 ['id' => 'advanced', 'title' => 'Advanced', 'collapsed' => true, 'items' => [
-                    ['admin_sub_merchants.php','Sub Merchants'],
+                    ['admin_sub_merchants.php','Sub-Merchant Hierarchy'],
                     ['admin_merchant_health.php','Merchant Health'],
                     ['admin_customer_view.php','Customer Lookup'],
                     ['admin_reason_map.php','Reason Maps'],

@@ -268,7 +268,7 @@ $exportQuery = http_build_query(['q' => $settlementQ, 'status' => $settlementSta
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer">
                     <input type="radio" name="settle_mode" value="wallet" class="accent-violet-500" onchange="toggleBeneficiary()">
-                    <span class="text-sm text-gray-300">Hold in Wallet (no bank move)</span>
+                    <span class="text-sm text-gray-300">Keep in settlement balance (no bank move)</span>
                 </label>
             </div>
 

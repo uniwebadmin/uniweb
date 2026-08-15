@@ -70,7 +70,7 @@ function getWatchdogPageRegistry(): array
         ['reports.php', 'Reports'],
         ['payment_links.php', 'Payment Links'],
         ['merchant_payment_pack.php', 'Payment Pack'],
-        ['wallet.php', 'Wallet'],
+        ['wallet.php', 'Settlement Balance'],
         ['collection_settings.php', 'Collection Settings'],
         ['merchant_nbfc.php', 'NBFC Finance'],
         ['merchant_nbfc_loan.php', 'NBFC Loan EMI'],

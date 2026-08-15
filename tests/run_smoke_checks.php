@@ -368,6 +368,24 @@ $assert(str_contains($header, "'collapsed' => true") && str_contains($header, "'
 $assert(!str_contains($header, "['admin_nbfc.php','"), 'p4_admin_nav_hides_nbfc');
 $morningP4 = (string)file_get_contents($root . '/includes/morning_ops.php');
 $assert(str_contains($morningP4, "function_exists('getPendingKycQueue')"), 'p4_morning_ops_no_queue_redeclare');
+
+// P4-M01 / P4-M02 / P4-SM01 — full merchant menu, settlement labels, sub-merchant rules
+$assert(str_contains($header, "['qr_upi_print.php','Instant UPI QR'"), 'p4_merchant_nav_instant_upi_qr');
+$assert(str_contains($header, "['add_bank.php','Settlement Bank'"), 'p4_merchant_nav_settlement_bank');
+$assert(str_contains($header, "title' => 'Collect / P2M'") && str_contains($header, "title' => 'Settlements'"), 'p4_merchant_nav_full_groups');
+$assert(str_contains($header, 'merchant-group-panel') && str_contains($header, "max-height:<?= \$isOpen ? '2000'"), 'p4_merchant_groups_open_full');
+$assert(!str_contains($header, "['merchant_nbfc.php',"), 'p4_merchant_nav_hides_nbfc');
+$walletP4 = (string)file_get_contents($root . '/wallet.php');
+$assert(str_contains($walletP4, 'Settlement Balance') && str_contains($walletP4, 'not a customer PPI wallet'), 'p4_wallet_settlement_not_ppi');
+$langP4 = (string)file_get_contents($root . '/lang/en.php');
+$assert(str_contains($langP4, "'wallet_title' => 'Settlement Balance'"), 'p4_wallet_title_settlement');
+$assert(str_contains($langP4, "'agents' => 'Agents'"), 'p4_agents_label_not_submerchant');
+$agentsP4 = (string)file_get_contents($root . '/agents.php');
+$assert(str_contains($agentsP4, 'Your Agents') && !str_contains($agentsP4, 'Your Sub-Merchants / Agents'), 'p4_agents_page_not_submerchant_heading');
+$subP4 = (string)file_get_contents($root . '/admin_sub_merchants.php');
+$assert(str_contains($subP4, 'How this works') && str_contains($subP4, 'not a customer PPI wallet'), 'p4_submerchant_rules_documented');
+$assert(str_contains($subP4, 'Only UniWeb admin can add or remove'), 'p4_submerchant_admin_only_crud');
+
 $assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');
 
 // Auth portal redesign (all four logins — presentation only).

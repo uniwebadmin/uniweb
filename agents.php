@@ -15,6 +15,10 @@ $stats = $agentStats->fetch();
 $pageTitle = __('agents');
 require_once __DIR__ . '/header.php';
 ?>
+<div class="bg-sky-500/10 border border-sky-500/30 rounded-xl p-4 mb-6 text-sm">
+    <p class="text-sky-200 font-medium">Agents collect payments under your account.</p>
+    <p class="text-xs text-gray-500 mt-1">This is not a customer wallet. Branch or franchise links are set by UniWeb admin, not from this page.</p>
+</div>
 <div class="grid grid-cols-2 gap-4 mb-8 max-w-lg">
     <div class="stat-card border border-gray-800 rounded-xl p-5">
         <p class="text-xs text-gray-500">Total Agents</p>
@@ -27,7 +31,7 @@ require_once __DIR__ . '/header.php';
 </div>
 
 <div class="flex justify-between items-center mb-6">
-    <h2 class="font-semibold">Your Sub-Merchants / Agents</h2>
+    <h2 class="font-semibold">Your Agents</h2>
     <a href="add_agent.php" class="btn-primary text-sm px-4 py-2">+ Add Agent</a>
 </div>
 

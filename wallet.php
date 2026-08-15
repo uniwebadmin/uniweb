@@ -34,7 +34,8 @@ require_once __DIR__ . '/header.php';
 
 <div class="bg-sky-500/10 border border-sky-500/30 rounded-xl p-4 mb-6 flex flex-wrap items-center justify-between gap-3 text-sm">
     <div>
-        <p class="text-sky-200 font-medium">Merchant Wallet</p>
+        <p class="text-sky-200 font-medium">Settlement Balance</p>
+        <p class="text-xs text-gray-500 mt-1">Money waiting to go to your bank. This is not a customer PPI wallet.</p>
         <p class="text-xs text-gray-500 mt-1"><?= e($merchant['email']) ?> · <?= accountModeBadge($merchant) ?> · <?= (int)$wallet['success_txns'] ?> successful payment(s)</p>
     </div>
     <a href="settlements.php" class="text-sm px-4 py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:text-white">Settlements →</a>
@@ -79,7 +80,7 @@ require_once __DIR__ . '/header.php';
 
 <?php if ($available < 0.01 && (int)$wallet['success_txns'] < 1): ?>
 <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
-    <p class="font-semibold text-amber-300">Wallet empty — complete a test payment first</p>
+    <p class="font-semibold text-amber-300">No settlement amount yet — complete a test payment first</p>
     <p class="text-sm text-amber-400/80 mt-2">After a ₹1 demo payment, your balance will appear here.</p>
     <a href="demo.php" class="inline-block mt-3 btn-primary text-sm px-5 py-2.5">Pay ₹1 test →</a>
 </div>
@@ -130,7 +131,7 @@ require_once __DIR__ . '/header.php';
             </tr></thead>
             <tbody class="divide-y divide-gray-800">
                 <?php if (empty($ledger)): ?>
-                <tr><td colspan="3" class="p-0"><?= renderMerchantEmptyState('No wallet activity yet', 'Complete a test or live payment to see ledger entries here.', 'demo.php', 'Try ₹1 demo →') ?></td></tr>
+                <tr><td colspan="3" class="p-0"><?= renderMerchantEmptyState('No settlement activity yet', 'Complete a test or live payment to see ledger entries here.', 'demo.php', 'Try ₹1 demo →') ?></td></tr>
                 <?php else: foreach ($ledger as $w):
                     $amt = safeDisplayBalance((float)$w['amount'], $isTest);
                     $balAfter = safeDisplayBalance((float)$w['balance_after'], $isTest);

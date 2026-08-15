@@ -47,7 +47,17 @@ $pageTitle = 'Sub-Merchant Hierarchy';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6">
-    <p class="text-sm text-gray-400">Manage parent/child merchant relationships (branches, franchises, outlets). Settlements and reports roll up to parent.</p>
+    <div class="glass rounded-xl p-5 border border-sky-500/30">
+        <h3 class="font-semibold mb-2">How this works</h3>
+        <ul class="text-sm text-gray-400 space-y-1.5 list-disc pl-5">
+            <li>Link two existing merchants: parent (head office) and child (branch, franchise, outlet, or store).</li>
+            <li>Settlements and reports can roll up to the parent. Each child keeps its own login and KYC.</li>
+            <li>This is not a customer PPI wallet and not an NBFC loan product.</li>
+            <li>Merchants add field collectors from Agents. Do not mix those two lists.</li>
+            <li>Only UniWeb admin can add or remove these links.</li>
+        </ul>
+    </div>
+    <p class="text-sm text-gray-400">Manage parent/child merchant relationships. Settlements and reports roll up to parent.</p>
 
     <div class="glass rounded-xl p-5">
         <h3 class="font-semibold mb-4">Add Sub-Merchant</h3>

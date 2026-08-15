@@ -39,7 +39,7 @@ $pageTitle = 'Add Agent';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="max-w-lg mx-auto w-full glass rounded-xl p-4 sm:p-6">
-    <h2 class="font-semibold mb-4">New Sub-Merchant / Agent</h2>
+    <h2 class="font-semibold mb-4">New Agent</h2>
     <?php if ($errors): ?><div class="bg-red-500/10 text-red-400 text-sm p-3 rounded-lg mb-4"><?php foreach ($errors as $e) echo '<p>' . e($e) . '</p>'; ?></div><?php endif; ?>
     <form method="POST" class="space-y-4">
         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
