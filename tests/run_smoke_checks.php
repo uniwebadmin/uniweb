@@ -554,6 +554,26 @@ $assert(str_contains($termsP7, 'PPI') && str_contains($termsP7, 'NBFC'), 'p7_ter
 $assert(str_contains($statusP7, 'Checkout') && str_contains($statusP7, 'Dashboard') && str_contains($statusP7, 'Webhooks') && str_contains($statusP7, 'KYC') && str_contains($statusP7, 'Settlements') && str_contains($statusP7, 'IST'), 'p7_status_named_components');
 $assert(str_contains((string)file_get_contents($root . '/faq.php'), '1 business day') && str_contains((string)file_get_contents($root . '/about.php'), 'Shop'), 'p7_faq_sla_and_about_segments');
 
+// Live checkout + Watchdog (P8 companion)
+$errCatchP8 = (string)file_get_contents($root . '/includes/error_catcher.php');
+$autoP8 = (string)file_get_contents($root . '/includes/auto_audit.php');
+$finP8 = (string)file_get_contents($root . '/includes/financial_integrity.php');
+$hdrP8 = (string)file_get_contents($root . '/header.php');
+$cssP8 = (string)file_get_contents($root . '/assets/css/portal-polish.css');
+$themeP8 = (string)file_get_contents($root . '/assets/css/theme-light.css');
+$healthP8 = (string)file_get_contents($root . '/health.php');
+$dashP8 = (string)file_get_contents($root . '/dashboard.php');
+$assert(str_contains($errCatchP8, 'array|string $context') && str_contains($errCatchP8, 'function uwRecordAuditEvent'), 'p8_log_error_accepts_string_and_safe_audit');
+$assert(!str_contains($autoP8, 'json_encode($isolationViolations)'), 'p8_isolation_log_passes_array');
+$assert(str_contains($finP8, 'uwRecordAuditEvent(\'payment_capture\'') || str_contains($finP8, 'uwRecordAuditEvent("payment_capture"') || str_contains($finP8, "uwRecordAuditEvent('payment_capture'"), 'p8_capture_uses_safe_audit');
+$assert(str_contains($healthP8, "echo 'OK'") && str_contains($healthP8, 'schemaEnsureSkipHeavy') === false, 'p8_health_plain_ok');
+$assert(str_contains($schemaP7, 'function schemaEnsureSkipHeavy') && str_contains($schemaP7, "health.php"), 'p8_health_skips_heavy_schema');
+$assert(str_contains($hdrP8, 'portal-polish.css?v=20260815a') && str_contains($hdrP8, '.portal-main{overflow-x:auto}'), 'p8_css_cache_bust_and_no_clip');
+$assert(str_contains($cssP8, 'writing-mode: horizontal-tb') && str_contains($cssP8, 'direction: ltr') && !str_contains($cssP8, ".portal-main .glass {\n  overflow: hidden"), 'p8_tables_ltr_scroll');
+$assert(!str_contains($themeP8, 'overflow-x: clip'), 'p8_theme_no_overflow_clip');
+$assert(str_contains($dashP8, 'Create a payment link') && str_contains((string)file_get_contents($root . '/includes/page_ux.php'), 'function uxEmptyCta'), 'p8_empty_states_next_action');
+$assert(str_contains($errCatchP8, 'Call to undefined function recordAuditEvent'), 'p8_auto_resolve_stale_test_pay_error');
+
 $assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');
 
 // Auth portal redesign (all four logins — presentation only).

@@ -74,7 +74,7 @@ require_once __DIR__ . '/header.php';
     <div class="space-y-6">
         <div class="glass rounded-xl p-6">
             <h2 class="font-semibold mb-4">Raise a Ticket</h2>
-            <form method="POST" class="space-y-4" aria-label="Raise support ticket">
+            <form id="raise-ticket" method="POST" class="space-y-4" aria-label="Raise support ticket">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <div>
                     <?= uxFormLabel('ticket-category', 'Category', true) ?>
@@ -123,7 +123,7 @@ require_once __DIR__ . '/header.php';
     <div class="lg:col-span-2 glass rounded-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Your Tickets</h2></div>
         <?php if (empty($ticketList)): ?>
-        <div class="p-6"><?= renderMerchantEmptyState('No support tickets yet', 'Raise a ticket for payment, settlement or KYC questions. We usually respond within one business day.', null, null) ?></div>
+        <div class="p-6"><?= renderMerchantEmptyState('No support tickets yet', 'Raise a ticket for payment, settlement or KYC questions. We usually respond within one business day.', '#raise-ticket', 'Raise a ticket →') ?></div>
         <?php else: ?>
         <div class="divide-y divide-gray-800">
             <?php foreach ($ticketList as $t):

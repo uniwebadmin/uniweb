@@ -106,7 +106,7 @@ require_once __DIR__ . '/header.php';
 </form>
 <div id="admin-transaction-results" class="glass rounded-xl overflow-hidden">
     <?php if (empty($transactions)): ?>
-    <?= uxEmptyState('No transactions match', 'Try clearing filters or widening the date range.') ?>
+    <?= uxEmptyState('No transactions match', 'Try clearing filters or widening the date range.', uxEmptyCta('admin_transactions.php', 'Clear filters')) ?>
     <?php else: ?>
     <div class="overflow-x-auto">
     <table class="w-full text-sm min-w-[640px]">

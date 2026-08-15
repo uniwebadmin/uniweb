@@ -124,7 +124,7 @@ $capLabels = [
     <?php if (merchantTeamCan('manage_team')): ?>
     <div class="glass rounded-xl p-6 mb-6">
         <h2 class="font-semibold mb-4">Invite teammate</h2>
-        <form method="POST" class="grid sm:grid-cols-2 gap-4">
+        <form id="invite-team" method="POST" class="grid sm:grid-cols-2 gap-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="invite">
             <div><label class="text-sm text-gray-400">Full name</label><input name="name" required maxlength="120" class="input-field mt-1" placeholder="Name"></div>
@@ -209,7 +209,7 @@ $capLabels = [
                     </td>
                 </tr>
                 <?php endforeach; if (empty($members) && $teamQ === ''): ?>
-                <tr><td colspan="4" class="px-5 py-8 text-center text-gray-500 text-xs">No invited teammates yet.</td></tr>
+                <tr><td colspan="4" class="p-0"><?= renderMerchantEmptyState('No invited teammates yet', 'Invite a colleague with the form above. They get a role and only see this merchant.', '#invite-team', 'Invite a teammate →') ?></td></tr>
                 <?php endif; endif; ?>
             </tbody>
         </table></div>

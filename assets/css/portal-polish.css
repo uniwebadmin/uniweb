@@ -170,17 +170,19 @@ body,
   white-space: nowrap;
 }
 
-/* Cards keep content inside borders. */
+/* Cards keep content inside borders, but tables must scroll sideways. */
 .portal-main .glass,
 .customer-portal-shell .cp-panel,
 .stat-card {
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 /* Allow auto overflow on scrollable card sections. */
 .portal-main .glass .overflow-x-auto,
 .portal-main .glass .overflow-auto {
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Table-responsive helper class — reuse everywhere. */
@@ -194,13 +196,31 @@ body,
 .table-responsive > table,
 .glass .overflow-x-auto > table,
 .card .overflow-x-auto > table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
 }
 
 /* Prevent word-break: break-all from splitting every character.
    Use overflow-wrap: anywhere instead — only breaks when needed. */
 * {
   word-break: normal;
+}
+
+table,
+table th,
+table td {
+  writing-mode: horizontal-tb;
+  direction: ltr;
+  text-orientation: mixed;
+  unicode-bidi: isolate;
+}
+
+table .font-mono,
+table td.font-mono,
+table th.font-mono {
+  overflow-wrap: normal;
+  word-break: keep-all;
+  white-space: nowrap;
 }
 
 /* Body must never scroll horizontally — only table wrappers scroll. */

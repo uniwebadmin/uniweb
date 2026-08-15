@@ -140,7 +140,7 @@ function markPayoutOrderSuccess(int $payoutOrderId, int $merchantId, string $utr
             createNotification($merchantId, 'Payout Successful', 'UTR: ' . $utr . ' — Amount: ' . formatMoney((float)$db->query('SELECT amount FROM payout_orders WHERE id=' . $payoutOrderId)->fetchColumn()));
         }
 
-        recordAuditEvent('payout_success', [
+        uwRecordAuditEvent('payout_success', [
             'merchant_id' => $merchantId,
             'resource_type' => 'payout_order',
             'resource_id' => (string)$payoutOrderId,
@@ -174,7 +174,7 @@ function markPayoutOrderFailed(int $payoutOrderId, int $merchantId, string $reas
             createNotification($merchantId, 'Payout Failed', $merchantReason);
         }
 
-        recordAuditEvent('payout_failed', [
+        uwRecordAuditEvent('payout_failed', [
             'merchant_id' => $merchantId,
             'resource_type' => 'payout_order',
             'resource_id' => (string)$payoutOrderId,

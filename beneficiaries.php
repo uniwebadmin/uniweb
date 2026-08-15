@@ -68,7 +68,7 @@ require_once __DIR__ . '/header.php';
         <!-- Add Bank -->
         <div class="glass rounded-xl p-6 border border-sky-500/20">
             <h2 class="text-lg font-semibold text-white mb-4">Add Bank Account</h2>
-            <form method="POST" class="space-y-3">
+            <form id="add-bank" method="POST" class="space-y-3">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="add_bank">
                 <div>
@@ -116,7 +116,7 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Your Beneficiaries</h2></div>
         <?php if (empty($beneficiaries)): ?>
-        <div class="p-8 text-center text-gray-500 text-sm">No beneficiaries added yet. Add a bank account or UPI ID above.</div>
+        <?= renderMerchantEmptyState('No beneficiaries yet', 'Add a bank account or UPI ID above so settlements and payouts have a destination.', '#add-bank', 'Add a bank account →') ?>
         <?php else: ?>
         <div class="overflow-x-auto"><table class="w-full text-sm">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>

@@ -214,7 +214,12 @@ if ($balanceBreakdown):
             </tr></thead>
             <tbody class="divide-y divide-gray-800">
                 <?php if (empty($transactions)): ?>
-                <tr><td colspan="5" class="px-5 py-12 text-center text-gray-500"><?= __('dash_no_txns') ?></td></tr>
+                <tr><td colspan="5" class="p-0"><?= renderMerchantEmptyState(
+                    'No transactions yet',
+                    'Create a payment link or try the ₹1 demo. Test Mode and Live Mode stay separate.',
+                    'payment_links.php',
+                    'Create a payment link →'
+                ) ?></td></tr>
                 <?php else: foreach ($transactions as $t): ?>
                 <tr class="hover:bg-white/5 cursor-pointer" onclick="location.href='<?= e(transactionDetailUrl($t['txn_id'])) ?>'">
                     <td class="px-5 py-3 font-mono text-xs"><a href="<?= e(transactionDetailUrl($t['txn_id'])) ?>" class="text-sky-400 hover:underline"><?= e($t['txn_id']) ?></a></td>

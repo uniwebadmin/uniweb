@@ -94,7 +94,7 @@ require_once __DIR__ . '/header.php';
 
     <?php if (empty($notifications)): ?>
 
-    <?= renderMerchantEmptyState('No notifications yet', 'Payment, settlement and account alerts will appear here.', null, null) ?>
+    <?= renderMerchantEmptyState('No notifications yet', 'Alerts appear after payments, settlements and account events. Open the dashboard to collect a test payment.', 'dashboard.php', 'Go to dashboard →') ?>
 
     <?php else: foreach ($notifications as $n):
 

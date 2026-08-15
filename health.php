@@ -2,19 +2,21 @@
 declare(strict_types=1);
 
 /**
- * Public health-check endpoint for external uptime monitors (UptimeRobot, etc.).
- * Returns plain "OK" if the app and database are reachable; otherwise HTTP 503.
+ * Public health-check for uptime monitors. Fast path: no heavy schema work.
+ * Returns plain "OK" or HTTP 503.
  */
 
-require_once __DIR__ . '/config.php';
-
 header('Content-Type: text/plain; charset=UTF-8');
+header('Cache-Control: no-store');
 
 try {
-    $db = getDB();
-    $db->query('SELECT 1');
+    require_once __DIR__ . '/config.php';
+    getDB()->query('SELECT 1');
     echo 'OK';
 } catch (Throwable $e) {
-    http_response_code(503);
-    echo 'ERROR: ' . $e->getMessage();
+    if (!headers_sent()) {
+        http_response_code(503);
+        header('Content-Type: text/plain; charset=UTF-8');
+    }
+    echo 'ERROR';
 }

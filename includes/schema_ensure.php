@@ -3,6 +3,12 @@ declare(strict_types=1);
 
 /** Runtime schema ensures — avoid one-time update_v*.php dependency on live */
 
+function schemaEnsureSkipHeavy(): bool
+{
+    $script = strtolower(basename((string)($_SERVER['SCRIPT_FILENAME'] ?? $_SERVER['PHP_SELF'] ?? '')));
+    return $script === 'health.php';
+}
+
 function schemaExecQuiet(string $sql): void
 {
     try {
@@ -438,7 +444,7 @@ function ensureCollationConsistency(): void
     $done = true;
 
     $script = strtolower(basename((string)($_SERVER['SCRIPT_FILENAME'] ?? $_SERVER['PHP_SELF'] ?? '')));
-    if (in_array($script, ['admin_login.php', 'login.php', 'staff_login.php', 'admin_forgot_password.php', 'merchant_register.php'], true)) {
+    if (in_array($script, ['admin_login.php', 'login.php', 'staff_login.php', 'admin_forgot_password.php', 'merchant_register.php', 'health.php'], true)) {
         return;
     }
 
@@ -553,4 +559,6 @@ function closePublicContactInquiry(string $inquiryId): bool
 }
 
 ensureCollationConsistency();
-ensureMissingColumns();
+if (!schemaEnsureSkipHeavy()) {
+    ensureMissingColumns();
+}

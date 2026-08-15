@@ -701,7 +701,7 @@ function processMerchantSettlement(int $merchantId, array $merchant, float $amou
             return ['ok' => false, 'error' => 'Wallet hold failed: ' . $e->getMessage()];
         }
         createNotification($merchantId, 'Wallet Hold Complete', formatMoney($amount) . ' held in wallet — ' . $settlementId);
-        recordAuditEvent('settlement_wallet_hold', [
+        uwRecordAuditEvent('settlement_wallet_hold', [
             'merchant_id' => $merchantId,
             'actor_type' => 'merchant',
             'actor_id' => $merchantId,
@@ -776,7 +776,7 @@ function processMerchantSettlement(int $merchantId, array $merchant, float $amou
         formatMoney($amount) . ($isTest ? ' transferred in sandbox — ' : ' reserved pending bank confirmation — ') . $settlementId
     );
 
-    recordAuditEvent('settlement_bank_transfer', [
+    uwRecordAuditEvent('settlement_bank_transfer', [
         'merchant_id' => $merchantId,
         'actor_type' => 'merchant',
         'actor_id' => $merchantId,
@@ -840,7 +840,7 @@ function creditPlatformFeeWallet(float $feeAmount, int $transactionId, string $d
         $newBalance = getPlatformWalletBalance() + round($feeAmount, 2);
         setPlatformWalletBalance($newBalance);
 
-        recordAuditEvent('platform_fee_credit', [
+        uwRecordAuditEvent('platform_fee_credit', [
             'actor_type' => 'system',
             'resource_type' => 'platform_wallet',
             'resource_id' => $ref,
@@ -939,7 +939,7 @@ function settlePlatformCommission(float $amount, string $mode, ?string $bankAcco
             setPlatformWalletBalance($balance - $amount);
         }
 
-        recordAuditEvent('platform_commission_settle', [
+        uwRecordAuditEvent('platform_commission_settle', [
             'actor_type' => 'admin',
             'actor_id' => $adminBy,
             'resource_type' => 'platform_settlement',

@@ -456,11 +456,9 @@ html[data-theme="light"] .checkout-footer-legal a {
  */
 html {
   overflow-x: hidden;
-  overflow-x: clip;
 }
 body {
   overflow-x: hidden;
-  overflow-x: clip;
   width: 100%;
   max-width: 100%;
 }
@@ -473,11 +471,12 @@ footer {
   max-width: 100%;
   box-sizing: border-box;
 }
-pre, table {
-  max-width: 100%;
-}
 pre {
+  max-width: 100%;
   overflow-x: auto;
+}
+table {
+  max-width: none;
 }
 
 /*

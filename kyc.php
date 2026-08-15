@@ -472,7 +472,12 @@ $docStatusMeta = static function (string $status): array {
             </form>
         </div>
         <?php if (empty($pagedDocuments)): ?>
-        <p class="text-gray-500 text-sm text-center py-8">No documents uploaded yet<?= $docFilter !== '' ? ' for this filter' : '' ?>.</p>
+        <?= renderMerchantEmptyState(
+            'No documents uploaded yet' . ($docFilter !== '' ? ' for this filter' : ''),
+            'Use the upload form on this page. Live collections wait until required files are verified.',
+            '#upload-doc',
+            'Upload a document →'
+        ) ?>
         <?php else: ?>
         <div class="overflow-x-auto">
         <table class="w-full text-sm table-auto">

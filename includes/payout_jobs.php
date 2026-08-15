@@ -82,7 +82,7 @@ function createPayoutJob(int $payoutOrderId, int $merchantId, float $amount, ?st
             'queued', $adapter, $payload ? json_encode($payload, JSON_UNESCAPED_SLASHES) : null,
         ]);
 
-        recordAuditEvent('payout_job_created', [
+        uwRecordAuditEvent('payout_job_created', [
             'merchant_id' => $merchantId,
             'resource_type' => 'payout_job',
             'resource_id' => $jobId,
@@ -127,7 +127,7 @@ function updatePayoutJobStatus(int $jobId, string $newStatus, ?string $errorMess
     $params[] = $jobId;
     $db->prepare($sql)->execute($params);
 
-    recordAuditEvent('payout_job_status', [
+    uwRecordAuditEvent('payout_job_status', [
         'resource_type' => 'payout_job',
         'resource_id' => (string)$jobId,
         'reason' => "Status: {$currentStatus} → {$newStatus}" . ($errorMessage ? " ({$errorMessage})" : ''),

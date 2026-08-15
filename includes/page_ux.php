@@ -20,6 +20,11 @@ if (!function_exists('uxEmptyState')) {
         return $html . '</div>';
     }
 
+    function uxEmptyCta(string $url, string $label): string
+    {
+        return '<a href="' . e($url) . '" class="inline-block mt-4 btn-primary text-sm px-5 py-2.5">' . e($label) . '</a>';
+    }
+
     function uxPrintToolbar(string $extraClass = ''): string
     {
         $cls = trim('no-print flex flex-wrap gap-2 mb-4 justify-end ' . $extraClass);

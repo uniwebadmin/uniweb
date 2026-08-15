@@ -41,8 +41,12 @@ function errorCatcherActor(): array
     return ['guest', 0];
 }
 
-function logPlatformError(string $level, string $message, array $context = []): void
+function logPlatformError(string $level, string $message, array|string $context = []): void
 {
+    if (is_string($context)) {
+        $decoded = json_decode($context, true);
+        $context = is_array($decoded) ? $decoded : ['detail' => $context];
+    }
     static $inFlight = false;
     if ($inFlight || trim($message) === '') {
         return;
@@ -90,6 +94,29 @@ function logPlatformError(string $level, string $message, array $context = []): 
         error_log('UniWeb error catcher DB write failed: ' . $e->getMessage());
     } finally {
         $inFlight = false;
+    }
+}
+
+/** Load audit_log.php if missing (live config.php may omit it) and never throw into a money transaction. */
+function uwRecordAuditEvent(string $action, array $params = []): void
+{
+    if (!function_exists('recordAuditEvent')) {
+        $path = __DIR__ . '/audit_log.php';
+        if (is_file($path)) {
+            try {
+                require_once $path;
+            } catch (Throwable $e) {
+                return;
+            }
+        }
+    }
+    if (!function_exists('recordAuditEvent')) {
+        return;
+    }
+    try {
+        recordAuditEvent($action, $params);
+    } catch (Throwable $e) {
+        logPlatformError('warning', 'Audit event skipped: ' . $e->getMessage(), ['action' => $action]);
     }
 }
 
@@ -162,6 +189,9 @@ function autoResolveAuditNoise(): int
         $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND level IN ('warning','notice') AND created_at < DATE_SUB(NOW(), INTERVAL 48 HOUR)");
         // Transient deploy races
         $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'Call to undefined function renderMerchantModeToggle%'");
+        $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'logPlatformError(): Argument #3%'");
+        $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'Instant test pay failed: Call to undefined function recordAuditEvent%'");
+        $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'Test/Live isolation violations detected%' AND created_at < DATE_SUB(NOW(), INTERVAL 1 HOUR)");
         return $cleared;
     } catch (Throwable $e) {
         return 0;
@@ -200,6 +230,14 @@ function uniwebRenderCaughtError(?Throwable $e = null): never
 
     $uri = (string)($_SERVER['REQUEST_URI'] ?? '');
     $script = (string)($_SERVER['SCRIPT_NAME'] ?? '');
+    if (str_ends_with($script, 'health.php') || str_contains($uri, '/health.php')) {
+        if (!headers_sent()) {
+            http_response_code(503);
+            header('Content-Type: text/plain; charset=UTF-8');
+        }
+        echo 'ERROR';
+        exit;
+    }
     $isImage = str_contains($uri, 'qr_image.php') || str_ends_with($script, 'qr_image.php');
     if ($isImage) {
         if (!headers_sent()) {

@@ -50,6 +50,7 @@ function getWatchdogPageRegistry(): array
         ['refund_policy.php', 'Refund Policy', 'public'],
         ['business_agreement.php', 'Merchant Agreement', 'public'],
         ['status.php', 'System Status', 'public'],
+        ['health.php', 'Health check', 'public'],
         ['mobile.php', 'Mobile', 'public'],
         ['pricing.php', 'Pricing', 'public'],
         ['trust.php', 'Trust Centre', 'public'],

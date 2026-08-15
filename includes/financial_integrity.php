@@ -692,7 +692,7 @@ function captureVerifiedPaymentOrder(array $verification): array
         $db->prepare("UPDATE payment_orders SET status='paid', paid_at=NOW() WHERE id=?")->execute([(int)$order['id']]);
         $db->prepare("UPDATE payment_links SET status='paid', paid_at=NOW() WHERE id=?")->execute([(int)$order['payment_link_id']]);
 
-        recordAuditEvent('payment_capture', [
+        uwRecordAuditEvent('payment_capture', [
             'merchant_id' => (int)$order['merchant_id'],
             'actor_type' => 'system',
             'resource_type' => 'transaction',
@@ -1054,7 +1054,7 @@ function rebuildMerchantBalanceFromLedger(int $merchantId): array
             ]);
     } catch (Throwable $e) { /* ok */ }
 
-    recordAuditEvent('balance_rebuild', [
+    uwRecordAuditEvent('balance_rebuild', [
         'merchant_id' => $merchantId,
         'actor_type' => 'admin',
         'resource_type' => 'merchant_balance',
@@ -1157,7 +1157,7 @@ function updatePaymentOrderStatus(int $orderId, string $newStatus, ?string $reas
     }
     $db->prepare($sql)->execute($params);
 
-    recordAuditEvent('order_status_change', [
+    uwRecordAuditEvent('order_status_change', [
         'resource_type' => 'payment_order',
         'resource_id' => (string)$orderId,
         'reason' => $reason ?? "Status: {$currentStatus} → {$newStatus}",

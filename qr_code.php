@@ -221,7 +221,7 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl p-6 lg:col-span-1">
         <h2 class="font-semibold mb-1">Create New QR</h2>
         <p class="text-xs text-gray-500 mb-5"><?= $isTest ? 'Sandbox QR — Instant Test Pay, no real money.' : 'Live QR — share once, receive UPI / card / wallet payments directly to your account.' ?></p>
-        <form method="POST" class="space-y-4">
+        <form id="create-qr" method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="create">
             <div>
@@ -346,11 +346,12 @@ require_once __DIR__ . '/header.php';
             <a href="qr_download_zip.php" class="glass px-3 py-2 rounded-lg text-xs text-emerald-400 hover:text-emerald-300 no-print">Download ZIP</a>
         </div>
         <?php if (empty($qrCodes)): ?>
-        <div class="glass rounded-xl p-10 text-center h-full flex flex-col items-center justify-center">
-            <p class="text-4xl mb-3">▦</p>
-            <h2 class="font-semibold">No <?= $isTest ? 'Test' : 'Live' ?> QR codes yet</h2>
-            <p class="text-sm text-gray-500 mt-2">Create your first fixed-amount QR from the form.</p>
-        </div>
+        <?= renderMerchantEmptyState(
+            'No ' . ($isTest ? 'Test' : 'Live') . ' QR codes yet',
+            'Create a fixed-amount QR from the form on this page. Share it at the counter or print it.',
+            '#create-qr',
+            'Create a QR →'
+        ) ?>
         <?php else: ?>
         <div class="grid sm:grid-cols-2 gap-4">
             <?php foreach ($qrCodes as $qr):

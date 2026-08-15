@@ -53,10 +53,10 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     <meta name="google-site-verification" content="<?= e($gscToken) ?>">
     <?php endif; ?>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/uniweb.min.css?v=20260724b">
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/theme-light.css?v=20260730c">
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/public-pages.css?v=20260724b">
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/portal-polish.css?v=20260812a">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/uniweb.min.css?v=20260815a">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/theme-light.css?v=20260815a">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/public-pages.css?v=20260815a">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/portal-polish.css?v=20260815a">
     <?php if (!empty($customerPortalUi)): ?>
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/customer-portal.css?v=20260724b">
     <?php endif; ?>
@@ -96,9 +96,9 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     .dash-quick-label{font-size:.75rem;line-height:1.2;color:#d1d5db;font-weight:500}
     /* Responsive fix: any rounded card that clips overflow but contains a wide table should
        scroll horizontally on small screens instead of squishing/cutting off columns. */
-    .overflow-hidden:has(table){overflow-x:auto}
+    .overflow-hidden:has(table){overflow-x:auto;-webkit-overflow-scrolling:touch}
     .portal-shell{min-width:0;width:100%;max-width:100%}
-    .portal-main{overflow-x:clip}
+    .portal-main{overflow-x:auto}
     @media (max-width:640px){
         table{font-size:.8125rem}
         .stat-card{padding:1rem!important}

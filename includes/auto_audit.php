@@ -302,7 +302,7 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
                 $isolationViolations = auditTestLiveIsolation();
                 $report['steps']['test_live_isolation'] = ['ok' => true, 'violations' => count($isolationViolations)];
                 if (count($isolationViolations) > 0) {
-                    logPlatformError('warning', 'Test/Live isolation violations detected', json_encode($isolationViolations));
+                    logPlatformError('warning', 'Test/Live isolation violations detected', ['violations' => $isolationViolations]);
                 }
             }
         } catch (Throwable $e) {
