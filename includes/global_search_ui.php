@@ -5,22 +5,23 @@ $searchHistoryScope = isset($_SESSION['admin_id'])
     ? 'admin_' . (int)$_SESSION['admin_id']
     : 'merchant_' . (int)($_SESSION['merchant_id'] ?? 0);
 ?>
-<button type="button" data-spotlight-open class="hidden sm:flex items-center gap-2 h-9 px-3 rounded-lg border border-gray-700 bg-dark-800/70 text-xs text-gray-400 hover:text-white hover:border-sky-500/50" title="Universal search (Ctrl+K)">
-    <span>⌕</span><span class="hidden lg:inline">Search anything</span><kbd class="hidden xl:inline text-[9px] border border-gray-700 rounded px-1">Ctrl K</kbd>
+<button type="button" data-spotlight-open class="hidden sm:flex items-center gap-2 h-9 px-3 rounded-lg border border-gray-700 bg-dark-800/70 text-xs text-gray-400 hover:text-white hover:border-sky-500/50" title="Search pages, IDs, GSTIN, PAN (Ctrl+K)">
+    <span>⌕</span><span class="hidden md:inline">Search</span><kbd class="hidden md:inline text-[9px] border border-gray-700 rounded px-1">Ctrl K</kbd>
 </button>
-<button type="button" data-spotlight-open class="sm:hidden theme-toggle-btn" aria-label="Universal search">⌕</button>
+<button type="button" data-spotlight-open class="sm:hidden theme-toggle-btn" aria-label="Search (Ctrl+K)">⌕</button>
+<span data-search-tip class="hidden lg:inline text-[10px] text-gray-500 max-w-[9rem] leading-tight">Try TXN… LNK… GSTIN PAN</span>
 
 <div id="uniweb-spotlight" class="hidden fixed inset-0 z-[100] bg-black/65 backdrop-blur-sm p-3 sm:p-10" role="dialog" aria-modal="true" aria-label="Universal search">
     <div class="max-w-2xl mx-auto mt-[8vh] rounded-2xl border border-gray-700 bg-dark-900 shadow-2xl overflow-hidden">
         <div class="flex items-center gap-3 px-4 border-b border-gray-700">
             <span class="text-gray-500 text-xl">⌕</span>
-            <input id="uniweb-spotlight-input" type="search" class="w-full bg-transparent py-4 text-base outline-none text-white placeholder:text-gray-500" placeholder="Search pages, transactions, merchants, PAN, GSTIN…" autocomplete="off">
+            <input id="uniweb-spotlight-input" type="search" class="w-full bg-transparent py-4 text-base outline-none text-white placeholder:text-gray-500" placeholder="Pages, TXN…, LNK…, GSTIN, PAN, name, phone…" autocomplete="off">
             <button type="button" data-spotlight-close class="text-xs text-gray-500 border border-gray-700 rounded px-2 py-1">ESC</button>
         </div>
         <div id="uniweb-spotlight-results" class="max-h-[60vh] overflow-y-auto p-2">
-            <p class="px-3 py-8 text-center text-sm text-gray-500">Type at least 3 characters</p>
+            <p class="px-3 py-6 text-center text-sm text-gray-500">Type 2+ characters. Examples: TXN…, LNK…, GSTIN, PAN, merchant name</p>
         </div>
-        <div class="px-4 py-2 border-t border-gray-800 text-[10px] text-gray-600">Case-insensitive · trims spaces · typo tolerant · recent searches stored only in this browser</div>
+        <div class="px-4 py-2 border-t border-gray-800 text-[10px] text-gray-600">Ctrl+K to open · examples: TXN… LNK… GSTIN PAN · recent searches stay in this browser only</div>
     </div>
 </div>
 
@@ -36,11 +37,11 @@ $searchHistoryScope = isset($_SESSION['admin_id'])
     const note=text=>{clear();const p=document.createElement('p');p.className='px-3 py-8 text-center text-sm text-gray-500';p.textContent=text;box.appendChild(p)};
     const showRecent=()=>{
         const rows=history(); clear();
-        if(!rows.length){note('Type at least 3 characters');return}
+        if(!rows.length){note('Type 2+ characters. Examples: TXN…, LNK…, GSTIN, PAN');return}
         const bar=document.createElement('div');bar.className='px-3 pt-2 pb-1 flex items-center justify-between';
         const h=document.createElement('p');h.className='text-[10px] uppercase tracking-wide text-gray-600';h.textContent='Recent searches';
         const clearBtn=document.createElement('button');clearBtn.type='button';clearBtn.className='text-[10px] text-gray-600 hover:text-red-400';clearBtn.textContent='Clear';
-        clearBtn.onclick=()=>{try{localStorage.removeItem(key)}catch(e){}note('Type at least 3 characters')};
+        clearBtn.onclick=()=>{try{localStorage.removeItem(key)}catch(e){}note('Type 2+ characters. Examples: TXN…, LNK…, GSTIN, PAN')};
         bar.append(h,clearBtn);box.appendChild(bar);
         rows.forEach(q=>{const b=document.createElement('button');b.type='button';b.className='block w-full text-left px-3 py-2.5 rounded-lg text-sm text-gray-300 hover:bg-white/5';b.textContent='↻  '+q;b.onclick=()=>{input.value=q;run(q)};box.appendChild(b)});
     };
@@ -51,7 +52,7 @@ $searchHistoryScope = isset($_SESSION['admin_id'])
         rows.forEach(r=>{
             const t=r.type; if(!groups[t]){groups[t]=[];order.push(t)} groups[t].push(r);
         });
-        const typeOrder=['Page','Merchant','Transaction','Settlement','Payment Link','QR Code','Refund','Mandate','Forward Queue','KYC'];
+        const typeOrder=['Page','ID','Merchant','Staff','Transaction','Settlement','Payment Link','QR Code','Refund','Invoice','Ticket','Complaint','Mandate','Dispute','Team','Forward Queue','KYC'];
         order.sort((a,b)=>{const ia=typeOrder.indexOf(a),ib=typeOrder.indexOf(b);return(ia===-1?99:ia)-(ib===-1?99:ib)});
         order.forEach(type=>{
             const items=groups[type];
@@ -67,7 +68,7 @@ $searchHistoryScope = isset($_SESSION['admin_id'])
         });
     };
     const run=q=>{
-        q=q.trim();if(q.length<3){showRecent();return}
+        q=q.trim();if(q.length<2){showRecent();return}
         if(controller)controller.abort();controller=new AbortController();note('Searching…');
         fetch('global_search.php?q='+encodeURIComponent(q),{headers:{'X-Requested-With':'XMLHttpRequest'},signal:controller.signal})
             .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})
@@ -80,7 +81,7 @@ $searchHistoryScope = isset($_SESSION['admin_id'])
     document.querySelectorAll('[data-spotlight-close]').forEach(b=>b.addEventListener('click',close));
     modal.addEventListener('click',e=>{if(e.target===modal)close()});
     input.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>run(input.value),250)});
-    input.addEventListener('keydown',e=>{if(e.key==='Enter'){const q=input.value.trim();if(q.length>=3){save(q);run(q)}}});
+    input.addEventListener('keydown',e=>{if(e.key==='Enter'){const q=input.value.trim();if(q.length>=2){save(q);run(q)}}});
     document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();modal.classList.contains('hidden')?open():close()}else if(e.key==='Escape'&&!modal.classList.contains('hidden'))close()});
 
     const bindLiveForms=()=>document.querySelectorAll('form[data-live-search-form]').forEach(form=>{

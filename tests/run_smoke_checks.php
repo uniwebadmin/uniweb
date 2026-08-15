@@ -84,6 +84,8 @@ $assert(!empty($scan['ok']) || ((int)($scan['summary']['broken_links'] ?? 0) ===
 );
 
 $header = (string)file_get_contents($root . '/header.php');
+$sidebarNav = (string)file_get_contents($root . '/includes/sidebar_nav.php');
+$navSrc = $header . "\n" . $sidebarNav;
 $assert(str_contains($header, 'favicon.svg') && str_contains($header, 'favicon.ico'), 'header_favicon_links');
 
 // Watchdog registry must cover the real launch pages so the live cron audit
@@ -102,7 +104,7 @@ $auditPlan = (string)file_get_contents($root . '/admin_audit_plan.php');
 $assert(str_contains($auditPlan, 'PHASE 0') && str_contains($auditPlan, 'APPENDIX'), 'audit_plan_has_phase0_and_appendix');
 $assert(str_contains($auditPlan, 'NBFC') && str_contains($auditPlan, 'PPI'), 'audit_plan_excludes_nbfc_ppi');
 $assert(str_contains($auditPlan, 'Reference only'), 'audit_plan_marks_market_whitelabel_reference');
-$assert(str_contains((string)file_get_contents($root . '/header.php'), 'admin_audit_plan.php'), 'admin_nav_has_audit_plan');
+$assert(str_contains($navSrc, 'admin_audit_plan.php'), 'admin_nav_has_audit_plan');
 $assert(in_array('admin_audit_plan.php', $registryFiles, true), 'watchdog_registry_covers_audit_plan');
 
 // Customer (payer) portal: passwordless OTP login + read-only history + grievance tickets.
@@ -124,8 +126,8 @@ $assert(in_array('customer_login.php', $registryFiles, true), 'watchdog_registry
 $assert(in_array('customer_portal.php', $registryFiles, true) && in_array('customer_ticket.php', $registryFiles, true), 'watchdog_registry_covers_customer_pages');
 $assert(in_array('merchant_customer_tickets.php', $registryFiles, true), 'watchdog_registry_covers_merchant_customer_tickets');
 $assert(in_array('admin_customer_tickets.php', $registryFiles, true), 'watchdog_registry_covers_admin_customer_tickets');
-$assert(str_contains($header, 'admin_customer_tickets.php'), 'admin_nav_has_customer_complaints');
-$assert(str_contains($header, 'merchant_customer_tickets.php'), 'merchant_nav_has_customer_complaints');
+$assert(str_contains($navSrc, 'admin_customer_tickets.php'), 'admin_nav_has_customer_complaints');
+$assert(str_contains($navSrc, 'merchant_customer_tickets.php'), 'merchant_nav_has_customer_complaints');
 $staffNavSrc = (string)file_get_contents($root . '/includes/staff.php');
 $assert(str_contains($staffNavSrc, "'admin_customer_tickets.php'") && str_contains($staffNavSrc, 'Customer Complaints'), 'staff_nav_has_customer_complaints');
 $assert(is_file($root . '/merchant_customer_tickets.php'), 'merchant_customer_tickets_page_present');
@@ -199,7 +201,7 @@ $assert(str_contains($colPage, 'payment_methods.php'), 'collection_settings_link
 $assert(str_contains($colPage, 'merchant_nbfc.php') || str_contains($pmPage, 'merchant_nbfc.php') || true, 'collection_settings_nbfc_instant_links');
 $assert(str_contains($colPage, 'merchantEntitledMethods(') || str_contains($colPage, 'enabled_methods'), 'collection_settings_gated_by_entitlement');
 $assert(is_file($root . '/admin_method_requests.php'), 'admin_method_requests_page_present');
-$assert(str_contains($header, 'admin_method_requests.php'), 'admin_nav_has_method_requests');
+$assert(str_contains($navSrc, 'admin_method_requests.php'), 'admin_nav_has_method_requests');
 $assert(in_array('admin_method_requests.php', $registryFiles, true), 'watchdog_registry_covers_method_requests');
 
 // IFSC -> bank/branch auto-fetch (free public Razorpay IFSC directory, no key).
@@ -324,8 +326,8 @@ $assert(str_contains($mp, 'payoutLiveMoneyAllowed') && str_contains($mp, 'keys p
 $assert(str_contains($mp, 'bulk_csv') && str_contains($payoutLib, 'function processPayoutBulkCsv'), 'payout_bulk_csv_scaffold');
 $assert(str_contains($mp, 'request_reversal') && str_contains($mp, 'approve_checker'), 'merchant_payout_reversal_checker_ui');
 $assert(str_contains($payoutLib, 'function parsePayoutBulkCsv') && str_contains($payoutLib, 'function payoutBulkCsvHeader'), 'payout_bulk_csv_helpers');
-$assert(str_contains($header, 'admin_payout.php') && str_contains($header, 'merchant_payout.php'), 'nav_has_payout_pages');
-$assert(str_contains($header, 'merchant_payout_keys.php'), 'nav_has_payout_api_keys');
+$assert(str_contains($navSrc, 'admin_payout.php') && str_contains($navSrc, 'merchant_payout.php'), 'nav_has_payout_pages');
+$assert(str_contains($navSrc, 'merchant_payout_keys.php'), 'nav_has_payout_api_keys');
 $assert(in_array('merchant_payout.php', $registryFiles, true) && in_array('admin_payout.php', $registryFiles, true), 'watchdog_registry_covers_payout');
 $assert(in_array('merchant_payout_keys.php', $registryFiles, true), 'watchdog_registry_covers_payout_keys');
 $assert(is_file($root . '/migrations/015_payout_scaffold.sql'), 'payout_migration_present');
@@ -365,15 +367,15 @@ $assert(str_contains($gwDetailP4, "'golive' => 'Go-live'"), 'p4_partner_golive_t
 $assert(str_contains($gwDetailP4, 'data-copy-url='), 'p4_webhook_copy_uses_data_copy_url');
 $assert(!str_contains($gwDetailP4, "writeText('<?= e(\$webhookUrl) ?>')"), 'p4_webhook_copy_not_html_encoded_js');
 $assert(str_contains($gwDetailP4, 'complete required items first'), 'p4_go_live_button_gated');
-$assert(str_contains($header, "'collapsed' => true") && str_contains($header, "'title' => 'Advanced'"), 'p4_admin_nav_advanced_collapsed');
+$assert(str_contains($navSrc, "'collapsed' => true") && str_contains($navSrc, "'title' => 'Advanced'"), 'p4_admin_nav_advanced_collapsed');
 $assert(!str_contains($header, "['admin_nbfc.php','"), 'p4_admin_nav_hides_nbfc');
 $morningP4 = (string)file_get_contents($root . '/includes/morning_ops.php');
 $assert(str_contains($morningP4, "function_exists('getPendingKycQueue')"), 'p4_morning_ops_no_queue_redeclare');
 
 // P4-M01 / P4-M02 / P4-SM01 — full merchant menu, settlement labels, sub-merchant rules
-$assert(str_contains($header, "['qr_upi_print.php','Instant UPI QR'"), 'p4_merchant_nav_instant_upi_qr');
-$assert(str_contains($header, "['add_bank.php','Settlement Bank'"), 'p4_merchant_nav_settlement_bank');
-$assert(str_contains($header, "title' => 'Collect / P2M'") && str_contains($header, "title' => 'Settlements'"), 'p4_merchant_nav_full_groups');
+$assert(str_contains($navSrc, 'qr_upi_print.php') && str_contains($navSrc, 'Instant UPI QR'), 'p4_merchant_nav_instant_upi_qr');
+$assert(str_contains($navSrc, 'add_bank.php') && str_contains($navSrc, 'Settlement Bank'), 'p4_merchant_nav_settlement_bank');
+$assert(str_contains($navSrc, 'Collect / P2M') && str_contains($navSrc, "'title' => 'Settlements'"), 'p4_merchant_nav_full_groups');
 $assert(str_contains($header, 'merchant-group-panel') && str_contains($header, "max-height:<?= \$isOpen ? '2000'"), 'p4_merchant_groups_open_full');
 $assert(!str_contains($header, "['merchant_nbfc.php',"), 'p4_merchant_nav_hides_nbfc');
 $walletP4 = (string)file_get_contents($root . '/wallet.php');
@@ -427,6 +429,7 @@ $navCrawlFiles = [
     'global_search.php',
     'includes/customer_portal_nav.php',
     'includes/staff.php',
+    'includes/sidebar_nav.php',
 ];
 $navPhpRefs = [];
 foreach ($navCrawlFiles as $navFile) {
@@ -498,6 +501,33 @@ $errLive = (string)file_get_contents($root . '/includes/error_catcher.php');
 $assert(str_contains($errLive, "message NOT LIKE 'Watchdog probe:%'"), 'live_error_count_skips_watchdog_probe');
 $coLive = (string)file_get_contents($root . '/checkout.php');
 $assert(str_contains($coLive, 'Instant test pay failed') && str_contains($coLive, 'is_array($cf)'), 'live_checkout_test_pay_and_cashfree_null_safe');
+
+$navLibP6 = (string)file_get_contents($root . '/includes/sidebar_nav.php');
+$gsP6 = (string)file_get_contents($root . '/global_search.php');
+$gsUiP6 = (string)file_get_contents($root . '/includes/global_search_ui.php');
+$hdrP6 = (string)file_get_contents($root . '/header.php');
+$assert(str_contains($navLibP6, 'function uniwebMerchantNavGroups') && str_contains($navLibP6, 'function uniwebAdminNavGroups'), 'p6_nav_catalog_helpers');
+$assert(str_contains($hdrP6, 'uniwebMerchantNavGroups()') && str_contains($hdrP6, 'uniwebAdminNavGroups()'), 'p6_header_uses_shared_nav');
+$assert(str_contains($gsP6, 'uniwebMerchantSearchPages()') && str_contains($gsP6, 'uniwebAdminSearchPages()'), 'p6_search_pages_1to1_header');
+$assert(str_contains($gsP6, 'staffNavForRole') && str_contains($gsP6, 'isSuperAdmin'), 'p6_search_role_scoped');
+$assert(str_contains($gsP6, 'FROM admins') && str_contains($gsP6, 'FROM support_tickets') && str_contains($gsP6, 'FROM customer_tickets'), 'p6_search_staff_and_tickets');
+$assert(str_contains($gsP6, 'pan_hash') && str_contains($gsP6, 'gstin_hash') && str_contains($gsP6, 'mandate_ref'), 'p6_search_gstin_pan_mandates');
+$assert(str_contains($gsP6, 'function_exists(\'uwDetectIdKind\')') || str_contains($gsP6, 'uwDetectIdKind'), 'p6_search_id_prefixes');
+$assert(str_contains($gsP6, 'mb_strlen($q) < $minLen') && str_contains($gsP6, '$minLen = 2'), 'p6_search_min_two_chars');
+$assert(str_contains($gsUiP6, 'Ctrl K') && str_contains($gsUiP6, 'GSTIN') && str_contains($gsUiP6, 'q.length<2'), 'p6_search_visible_examples');
+preg_match_all("/\\['([a-zA-Z0-9_\\/-]+\\.php)'/", $navLibP6, $p6NavHits);
+$p6NavUrls = array_values(array_unique($p6NavHits[1] ?? []));
+$p6Missing = [];
+foreach ($p6NavUrls as $ref) {
+    if (str_starts_with($ref, 'nbfc') || str_contains($ref, 'nbfc')) {
+        continue;
+    }
+    if (!is_file($root . '/' . $ref)) {
+        $p6Missing[] = $ref;
+    }
+}
+$assert($p6Missing === [], 'p6_nav_catalog_files_exist', $p6Missing === [] ? (string)count($p6NavUrls) . ' urls' : implode(', ', $p6Missing));
+$assert(count($p6NavUrls) >= 70, 'p6_nav_catalog_coverage', (string)count($p6NavUrls));
 
 $assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');
 
@@ -701,8 +731,7 @@ $gwP1 = (string)file_get_contents($root . '/gateway_settings.php');
 $assert(!preg_match('/name="settings\\[(razorpay_key_secret|cashfree_secret_key|payu_merchant_salt)\\]"/', $gwP1), 'p1_platform_form_has_no_pg_secret_inputs');
 $assert(str_contains($gwP1, 'This page does not accept live PG API keys'), 'p1_platform_banner_no_pg_keys');
 $assert(str_contains($gwP1, 'template for new merchants') || str_contains($gwP1, 'new merchants only'), 'p1_03_primary_pg_is_new_merchant_template');
-$hdrP1 = (string)file_get_contents($root . '/header.php');
-$assert(str_contains($hdrP1, "['gateway_settings.php','Platform Settings']"), 'p1_nav_platform_settings_not_integrations');
+$assert(str_contains($navSrc, 'gateway_settings.php') && str_contains($navSrc, 'Platform Settings'), 'p1_nav_platform_settings_not_integrations');
 $siteP1 = (string)file_get_contents($root . '/admin_website.php');
 $assert(str_contains($siteP1, 'Partner Registry → Partner Detail → Keys') && !str_contains($siteP1, 'paste in Gateway Settings'), 'p1_website_keys_guide_points_to_registry');
 
