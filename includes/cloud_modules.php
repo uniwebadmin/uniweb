@@ -2,34 +2,73 @@
 declare(strict_types=1);
 
 /**
- * Auto-loaded by config.php (via an is_file() bridge) at the end of the include
- * chain. Cloud agents register NEW include modules here so they load on live
- * WITHOUT editing the git-ignored config.php.
+ * Auto-loaded by live config.php (is_file bridge) at the end of the include chain.
+ * Registers modules so they load on Hostinger WITHOUT editing git-ignored config.php.
  *
  * Rules:
- * - Only list include files that are NOT already required by config.php.
- * - Each entry is loaded with an is_file() guard, so listing a not-yet-merged
- *   file is safe (it is simply skipped until the file exists on disk).
- * - Keep load order sane: list a module after anything it depends on.
+ * - Only list include files that may not already be required by an older live config.php.
+ * - is_file() guard: missing files are skipped safely.
+ * - Keep load order sane: dependencies first.
  */
 
 $__cloudModules = [
+    // Core / boot (older live configs often omit these)
+    'boot_errors.php',
+    'env_loader.php',
+    'notifications.php',
+    'release_helpers.php',
+
+    // Payout stack
     'payout.php',
+    'payout_jobs.php',
+    'payout_adapters.php',
+    'payout_worker.php',
+    'beneficiaries.php',
+    'nodal.php',
+
+    // Customer + UX
     'customer_portal.php',
-    // Strategy pack 2026-07-23 — load without editing gitignored live config.php
-    'gateway_reason_map.php',
     'contact_change.php',
     'page_ux.php',
-    // Defines listPageParams / print helpers even if an older page_ux was cached
     'page_ux_compat.php',
     'id_click.php',
+    'email_templates.php',
+    'client_context.php',
+    'multi_merchant.php',
+
+    // Methods / partners / forward
     'method_requests.php',
     'method_partner_adapters.php',
-    'nbfc.php',
-    // Overnight Agent E — UX + integration scaffolds (no partner live calls)
+    'payment_methods.php',
+    'partner_forward_queue.php',
+    'partner_payload.php',
+    'partner_control.php',
+    'gateway_reason_map.php',
+
+    // QR / VA / webhooks / reliability
+    'qr_events.php',
+    'va_manager.php',
+    'webhook_queue.php',
+    'webhook_reliability.php',
+    'circuit_breaker.php',
+    'rate_limiter.php',
+    'fast_qr_api.php',
+
+    // Ops / risk / ledger extras
+    'rolling_reserve.php',
+    'grievance_engine.php',
+    'merchant_health.php',
+    'risk.php',
+    'audit_log.php',
+    'recurring.php',
+    'sub_merchant.php',
+    'split_settlement.php',
+
+    // Strategy / scaffolds (no auto live money)
     'integration_matrix.php',
     'settlement_delay_spec.php',
     'kyc_timeline.php',
+    'nbfc.php',
 ];
 
 foreach ($__cloudModules as $__cloudModule) {
