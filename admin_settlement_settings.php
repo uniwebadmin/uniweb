@@ -21,10 +21,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     savePlatformSettlementDefaults([
         'mode' => $_POST['default_settlement_mode'] ?? 'manual',
         'rail' => $_POST['default_settlement_rail'] ?? 'platform_pg',
-        'interval_minutes' => (int)($_POST['default_batch_interval_minutes'] ?? 120),
+        'cycle' => $_POST['settlement_cycle'] ?? 'T+1',
+        'interval_minutes' => (int)($_POST['default_batch_interval_minutes'] ?? 0),
         'batch_enabled' => !empty($_POST['settlement_batch_enabled']),
     ]);
-    flash('success', 'Settlement defaults saved.');
+    flash('success', 'Settlement defaults saved (cycle ' . normalizeSettlementCycle((string)($_POST['settlement_cycle'] ?? 'T+1')) . ').');
     redirect('admin_settlement_settings.php');
 }
 
@@ -39,6 +40,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'run_batches' && verifyCsrf($_
 $defaults = getPlatformSettlementDefaults();
 $cronStatus = getSettlementCronStatus();
 $intervals = getSettlementBatchIntervals();
+$cycles = getSettlementCycleOptions();
 $rails = getSettlementRails();
 $modes = getSettlementModes();
 $recentBatches = $db->query('SELECT sb.*, m.business_name FROM settlement_batches sb JOIN merchants m ON sb.merchant_id=m.id ORDER BY sb.created_at DESC LIMIT 25')->fetchAll();
@@ -47,10 +49,15 @@ $pageTitle = 'Settlement Engine';
 require_once __DIR__ . '/header.php';
 ?>
 
+<div class="glass rounded-xl p-5 mb-6 border border-emerald-500/20 text-sm text-gray-300">
+    <p class="font-semibold text-emerald-300 mb-1">Settlement cycle: T+0 / T+1 / T+2</p>
+    <p class="text-xs text-gray-500">Admin decides the platform default (Owner recommendation: <strong class="text-gray-300">T+1</strong>). Merchants inherit it unless they override. Same settlement pages — no new product. Current default: <strong class="text-sky-300"><?= e($defaults['cycle_label']) ?></strong>.</p>
+</div>
+
 <div class="mb-6 flex flex-wrap gap-3">
     <a href="admin_settlements.php" class="glass px-4 py-2 rounded-xl text-sm text-gray-300 hover:text-white">All Settlements →</a>
     <a href="admin_settlement_batches.php" class="glass px-4 py-2 rounded-xl text-sm text-violet-300 hover:text-violet-200">Batch Ledger →</a>
-    <a href="gateway_settings.php" class="glass px-4 py-2 rounded-xl text-sm text-gray-400">Gateway Keys</a>
+    <a href="gateway_settings.php" class="glass px-4 py-2 rounded-xl text-sm text-gray-400">Platform Settings</a>
 </div>
 
 <div class="grid lg:grid-cols-3 gap-4 mb-8">
@@ -77,9 +84,18 @@ require_once __DIR__ . '/header.php';
 <div class="grid lg:grid-cols-2 gap-6 mb-8">
     <div class="glass rounded-xl p-6 border border-gray-800">
         <h2 class="font-semibold text-lg mb-1">Platform Defaults</h2>
-        <p class="text-xs text-gray-500 mb-6">New merchants inherit these unless they set their own.</p>
+        <p class="text-xs text-gray-500 mb-6">New merchants inherit these unless they set their own. Cycle binds to existing batch timing.</p>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <div>
+                <label class="text-sm text-gray-400">Settlement cycle (Admin decide)</label>
+                <select name="settlement_cycle" class="input-field mt-1">
+                    <?php foreach ($cycles as $code => $meta): ?>
+                    <option value="<?= e($code) ?>" <?= $defaults['cycle'] === $code ? 'selected' : '' ?>><?= e($meta['label']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <p class="text-[11px] text-gray-600 mt-1">Saves to <code class="text-gray-500">settlement_cycle</code> + matching batch minutes. Default for Owner: T+1.</p>
+            </div>
             <div>
                 <label class="text-sm text-gray-400">Default Settlement Mode</label>
                 <select name="default_settlement_mode" class="input-field mt-1">
@@ -96,14 +112,7 @@ require_once __DIR__ . '/header.php';
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div>
-                <label class="text-sm text-gray-400">Default Batch Interval</label>
-                <select name="default_batch_interval_minutes" class="input-field mt-1">
-                    <?php foreach ($intervals as $mins => $label): ?>
-                    <option value="<?= $mins ?>" <?= (int)$defaults['interval_minutes'] === $mins ? 'selected' : '' ?>><?= e($label) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
+            <input type="hidden" name="default_batch_interval_minutes" value="<?= (int)$defaults['interval_minutes'] ?>">
             <label class="flex items-center gap-2 text-sm text-gray-400">
                 <input type="checkbox" name="settlement_batch_enabled" value="1" <?= $defaults['batch_enabled'] ? 'checked' : '' ?> class="rounded border-gray-600">
                 Enable scheduled batching platform-wide

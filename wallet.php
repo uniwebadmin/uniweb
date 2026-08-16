@@ -36,6 +36,7 @@ require_once __DIR__ . '/header.php';
     <div>
         <p class="text-sky-200 font-medium">Settlement Balance</p>
         <p class="text-xs text-gray-500 mt-1">Money waiting to go to your bank. This is not a customer PPI wallet.</p>
+        <p class="text-xs text-gray-500 mt-1">Successful payments credit the merchant baaki (after Admin/partner cut from Admin-saved %). Open any transaction for the full split.</p>
         <p class="text-xs text-gray-500 mt-1"><?= e($merchant['email']) ?> · <?= accountModeBadge($merchant) ?> · <?= (int)$wallet['success_txns'] ?> successful payment(s)</p>
     </div>
     <a href="settlements.php" class="text-sm px-4 py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:text-white">Settlements →</a>

@@ -61,7 +61,7 @@ $products = [
     <section class="company-hero"><div class="company-shell">
         <div class="company-eyebrow">Products</div>
         <h1>Payment products Indian merchants actually use.</h1>
-        <p>Shop counters, online SMEs and developers share one UniWeb console: checkout, links, QR, API, settlements and KYC. Live rails stay partner-gated. We do not sell a consumer PPI wallet or an NBFC loan product.</p>
+        <p>Shop counters, online SMEs and developers share one UniWeb merchant console under Admin. Live rails stay partner-gated (keys in Partner Registry). We do not sell a consumer PPI wallet, an NBFC loan product, or a partner-owned merchant portal.</p>
         <div class="flex flex-wrap gap-3 mt-6">
             <a href="demo.php" class="btn-primary px-6 py-3">Try ₹1 demo payment</a>
             <a href="merchant_register.php" class="px-6 py-3 rounded-lg border border-gray-700">Create merchant account</a>

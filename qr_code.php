@@ -198,7 +198,7 @@ require_once __DIR__ . '/header.php';
 <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
     <div>
         <h1 class="text-2xl font-bold">QR Code Generator</h1>
-        <p class="text-sm text-gray-500 mt-1">Generate QR codes for in-store and online payments. Transaction limits follow your bank / UPI rail.</p>
+        <p class="text-sm text-gray-500 mt-1">Print for the counter or share online — customers pay into your UniWeb collect. Limits follow your bank / UPI rail. Not a full white-label UniWeb app.</p>
     </div>
     <div class="text-right text-xs">
         <p class="font-mono text-gray-400">MID <?= e($merchant['merchant_code'] ?? '') ?></p>
@@ -220,7 +220,7 @@ require_once __DIR__ . '/header.php';
 <div class="grid lg:grid-cols-3 gap-6 mb-8">
     <div class="glass rounded-xl p-6 lg:col-span-1">
         <h2 class="font-semibold mb-1">Create New QR</h2>
-        <p class="text-xs text-gray-500 mb-5"><?= $isTest ? 'Sandbox QR — Instant Test Pay, no real money.' : 'Live QR — share once, receive UPI / card / wallet payments directly to your account.' ?></p>
+        <p class="text-xs text-gray-500 mb-5"><?= $isTest ? 'Sandbox QR — Instant Test Pay, no real money.' : 'Live QR — print, WhatsApp, or put the scan URL on your website / invoice.' ?></p>
         <form id="create-qr" method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="create">

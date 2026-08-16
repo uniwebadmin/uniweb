@@ -81,6 +81,10 @@ $pageTitle = 'Grievance Redressal';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6">
+    <div class="glass rounded-xl p-4 border border-emerald-500/20 text-sm text-gray-300">
+        <p class="font-semibold text-emerald-300 mb-1">Admin first — grievance officer queue</p>
+        <p class="text-xs text-gray-500">Complaints are acknowledged and resolved here first. Payment disputes with partner forward: <a href="admin_disputes.php" class="text-sky-400 hover:underline">Disputes queue</a> (single forward V1). Bulk / smart route parked.</p>
+    </div>
     <div class="flex flex-wrap gap-3 items-center justify-between">
         <p class="text-sm text-gray-400">Complaint management, escalation, SLA tracking</p>
         <div class="flex gap-2 text-xs">

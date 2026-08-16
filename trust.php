@@ -42,7 +42,7 @@ require_once __DIR__ . '/header.php';
         <div class="company-grid">
             <div class="company-card"><h3>Q: TLS / transport?</h3><p>HTTPS / TLS on dashboard, checkout and API. See this page and the Privacy Policy.</p></div>
             <div class="company-card"><h3>Q: Who holds card data?</h3><p>Licensed partners on their hosted pages. UniWeb does not store PAN/CVV. We do not claim UniWeb PCI Level 1.</p></div>
-            <div class="company-card"><h3>Q: Access control?</h3><p>Merchant team roles and staff roles. Partner keys stay on Super Admin / Ops Partner Registry — not Support or KYC staff.</p></div>
+            <div class="company-card"><h3>Q: Access control?</h3><p>Merchants sit under UniWeb Admin only. Merchant team roles and staff roles. Partner keys stay on Super Admin / Ops Partner Registry — partners are rails, not merchant owners. No partner login portal.</p></div>
             <div class="company-card"><h3>Q: Audit trail?</h3><p>Immutable money-action log. Checker on Live KYC where wired. Export by date from Admin → Audit Log when needed.</p></div>
             <div class="company-card"><h3>Q: Webhooks?</h3><p>HMAC-SHA256 <code>X-UniWeb-Signature</code>. Copy-paste verify on API Settings. Test vs Live API keys are separate.</p></div>
             <div class="company-card"><h3>Q: Data residency?</h3><p>Personal data processed in India under the DPDP Act, 2023. KYC files are not on the public web root.</p></div>

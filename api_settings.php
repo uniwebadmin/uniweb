@@ -94,6 +94,9 @@ unset($_SESSION['new_webhook_secret']);
 require_once __DIR__ . '/header.php';
 ?>
 <div class="max-w-3xl space-y-6">
+    <div class="rounded-xl border border-sky-500/25 bg-sky-500/5 px-4 py-3 text-xs text-gray-400">
+        <strong class="text-sky-300">UniWeb merchant API keys</strong> — for your website / server. These are <em class="not-italic text-gray-300">not</em> Razorpay, Cashfree, PayU or Decentro partner keys. Partner rails stay with UniWeb Admin only.
+    </div>
     <div class="flex items-center justify-between flex-wrap gap-3">
         <div class="flex items-center gap-2 flex-wrap">
             <p class="text-sm text-gray-400">Account: <?= accountModeBadge($merchant) ?> · <span class="font-mono text-sky-400 text-xs">MID: <?= e($merchant['merchant_code'] ?? '') ?></span></p>

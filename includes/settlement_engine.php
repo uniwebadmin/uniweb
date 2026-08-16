@@ -30,13 +30,88 @@ function isValidBankTransferReference(string $utr): bool
 function getSettlementBatchIntervals(): array
 {
     return [
-        60 => '1 Hour',
+        60 => 'T+0 style — 1 Hour',
         90 => '1.5 Hours',
         120 => '2 Hours',
         180 => '3 Hours',
-        360 => '6 Hours',
-        1440 => '24 Hours (T+1 style)',
+        360 => '6 Hours (same-day / T+0)',
+        1440 => 'T+1 — 24 Hours (default)',
+        2880 => 'T+2 — 48 Hours',
     ];
+}
+
+/**
+ * PPT settlement cycles Admin decides: T+0 / T+1 / T+2.
+ * Bound to existing default_batch_interval_minutes + settlement_cycle settings.
+ *
+ * @return array<string, array{minutes:int,label:string}>
+ */
+function getSettlementCycleOptions(): array
+{
+    return [
+        'T+0' => ['minutes' => 60, 'label' => 'T+0 — same day (fast batch)'],
+        'T+1' => ['minutes' => 1440, 'label' => 'T+1 — next day (platform default)'],
+        'T+2' => ['minutes' => 2880, 'label' => 'T+2 — two days'],
+    ];
+}
+
+function settlementCycleFromMinutes(int $minutes): string
+{
+    if ($minutes >= 2880) {
+        return 'T+2';
+    }
+    if ($minutes >= 1440) {
+        return 'T+1';
+    }
+    return 'T+0';
+}
+
+function settlementMinutesFromCycle(string $cycle): int
+{
+    $cycle = strtoupper(trim($cycle));
+    $opts = getSettlementCycleOptions();
+    return $opts[$cycle]['minutes'] ?? 1440;
+}
+
+function normalizeSettlementCycle(string $cycle): string
+{
+    $cycle = strtoupper(trim($cycle));
+    return isset(getSettlementCycleOptions()[$cycle]) ? $cycle : 'T+1';
+}
+
+/** Platform default cycle — Owner default is T+1 when unset. */
+function getPlatformSettlementCycle(): string
+{
+    $raw = strtoupper(trim((string)getSetting('settlement_cycle', '')));
+    if (isset(getSettlementCycleOptions()[$raw])) {
+        return $raw;
+    }
+    return settlementCycleFromMinutes((int)getSetting('default_batch_interval_minutes', '1440'));
+}
+
+function settlementCycleLabel(string $cycle): string
+{
+    $cycle = normalizeSettlementCycle($cycle);
+    return getSettlementCycleOptions()[$cycle]['label'] ?? $cycle;
+}
+
+/** Persist cycle + matching batch minutes on existing gateway_settings keys. */
+function syncSettlementCycleSetting(string $cycle): void
+{
+    ensureSettlementEngine();
+    $cycle = normalizeSettlementCycle($cycle);
+    $minutes = settlementMinutesFromCycle($cycle);
+    $db = getDB();
+    foreach ([
+        'settlement_cycle' => $cycle,
+        'default_batch_interval_minutes' => (string)$minutes,
+    ] as $k => $v) {
+        $db->prepare('INSERT INTO gateway_settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=?')
+            ->execute([$k, $v, $v]);
+        if (function_exists('clearSettingCache')) {
+            clearSettingCache($k);
+        }
+    }
 }
 
 function getSettlementRails(): array
@@ -74,14 +149,21 @@ function getSettlementModes(): array
 function getPlatformSettlementDefaults(): array
 {
     ensureSettlementEngine();
-    $interval = (int)getSetting('default_batch_interval_minutes', '120');
+    $cycle = getPlatformSettlementCycle();
+    $interval = (int)getSetting('default_batch_interval_minutes', (string)settlementMinutesFromCycle($cycle));
     if (!isset(getSettlementBatchIntervals()[$interval])) {
-        $interval = 120;
+        $interval = settlementMinutesFromCycle($cycle);
+    }
+    // Keep cycle and minutes aligned (existing settings bind)
+    if (settlementCycleFromMinutes($interval) !== $cycle) {
+        $interval = settlementMinutesFromCycle($cycle);
     }
     return [
         'mode' => getSetting('default_settlement_mode', 'manual') === 'scheduled' ? 'scheduled' : 'manual',
         'rail' => (string)getSetting('default_settlement_rail', 'platform_pg'),
         'interval_minutes' => $interval,
+        'cycle' => $cycle,
+        'cycle_label' => settlementCycleLabel($cycle),
         'batch_enabled' => getSetting('settlement_batch_enabled', '1') === '1',
     ];
 }
@@ -94,10 +176,10 @@ function getMerchantSettlementPrefs(array $merchant): array
 
     $mode = $usePlatform ? $platform['mode'] : ($merchant['settlement_mode'] ?? 'manual');
     $rail = $usePlatform ? $platform['rail'] : ($merchant['settlement_rail'] ?? 'wallet');
-    $interval = $usePlatform ? $platform['interval_minutes'] : (int)($merchant['batch_interval_minutes'] ?? 120);
+    $interval = $usePlatform ? $platform['interval_minutes'] : (int)($merchant['batch_interval_minutes'] ?? $platform['interval_minutes']);
 
     if (!isset(getSettlementBatchIntervals()[$interval])) {
-        $interval = 120;
+        $interval = $platform['interval_minutes'];
     }
     if (!in_array($mode, ['manual', 'scheduled'], true)) {
         $mode = 'manual';
@@ -106,15 +188,22 @@ function getMerchantSettlementPrefs(array $merchant): array
         $rail = 'wallet';
     }
 
+    $cycle = $usePlatform ? $platform['cycle'] : settlementCycleFromMinutes($interval);
+
     return [
         'use_platform_default' => $usePlatform,
         'mode' => $mode,
         'rail' => $rail,
         'interval_minutes' => $interval,
-        'interval_label' => getSettlementBatchIntervals()[$interval],
+        'interval_label' => getSettlementBatchIntervals()[$interval] ?? settlementCycleLabel($cycle),
+        'cycle' => $cycle,
+        'cycle_label' => settlementCycleLabel($cycle),
         'next_batch_at' => $merchant['next_batch_at'] ?? null,
         'last_batch_at' => $merchant['last_batch_at'] ?? null,
         'batch_enabled' => $platform['batch_enabled'],
+        'status_line' => $mode === 'manual'
+            ? ('Cycle ' . $cycle . ' · Manual — you click Settle when ready')
+            : ('Cycle ' . $cycle . ' · Scheduled · ' . (getSettlementBatchIntervals()[$interval] ?? $cycle)),
     ];
 }
 
@@ -128,9 +217,14 @@ function saveMerchantSettlementPrefs(int $merchantId, array $data): void
     if (!isset(getSettlementRails()[$rail])) {
         $rail = 'wallet';
     }
-    $interval = (int)($data['interval_minutes'] ?? 120);
+
+    if (!empty($data['settlement_cycle'])) {
+        $interval = settlementMinutesFromCycle((string)$data['settlement_cycle']);
+    } else {
+        $interval = (int)($data['interval_minutes'] ?? getPlatformSettlementDefaults()['interval_minutes']);
+    }
     if (!isset(getSettlementBatchIntervals()[$interval])) {
-        $interval = 120;
+        $interval = settlementMinutesFromCycle('T+1');
     }
 
     $nextBatch = null;
@@ -146,15 +240,28 @@ function savePlatformSettlementDefaults(array $data): void
 {
     ensureSettlementEngine();
     $db = getDB();
+    if (!empty($data['cycle'])) {
+        syncSettlementCycleSetting((string)$data['cycle']);
+        $interval = settlementMinutesFromCycle(normalizeSettlementCycle((string)$data['cycle']));
+    } else {
+        $interval = (int)($data['interval_minutes'] ?? settlementMinutesFromCycle('T+1'));
+        if (!isset(getSettlementBatchIntervals()[$interval])) {
+            $interval = settlementMinutesFromCycle('T+1');
+        }
+        syncSettlementCycleSetting(settlementCycleFromMinutes($interval));
+    }
     $pairs = [
         'default_settlement_mode' => ($data['mode'] ?? 'manual') === 'scheduled' ? 'scheduled' : 'manual',
         'default_settlement_rail' => $data['rail'] ?? 'platform_pg',
-        'default_batch_interval_minutes' => (string)(int)($data['interval_minutes'] ?? 120),
+        'default_batch_interval_minutes' => (string)$interval,
         'settlement_batch_enabled' => !empty($data['batch_enabled']) ? '1' : '0',
     ];
     foreach ($pairs as $k => $v) {
         $db->prepare('INSERT INTO gateway_settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=?')
             ->execute([$k, $v, $v]);
+        if (function_exists('clearSettingCache')) {
+            clearSettingCache($k);
+        }
     }
 }
 

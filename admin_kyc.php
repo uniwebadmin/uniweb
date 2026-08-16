@@ -155,7 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (function_exists('sendTemplatedEmail')) {
                 sendTemplatedEmail((int)$d['merchant_id'], 'kyc_rejected', ['reason' => ucfirst($docLabel) . ' — ' . $reason]);
             }
-            flash('success', 'Document rejected and clarification requested.');
+            flash('success', 'Document rejected. Merchant sees: ' . $reason);
         } elseif ($action === 'approve_request') {
             requireStepUpAuth();
             approveApprovalRequest($id, $reason);
@@ -334,10 +334,16 @@ $pageTitle = 'KYC Review';
 require_once __DIR__ . '/header.php';
 ?>
 
+<div class="glass rounded-xl p-5 mb-6 border border-emerald-500/20 text-sm text-gray-300">
+    <p class="font-semibold text-emerald-300 mb-1">Go-live path: Signup → Docs → Verify → Live</p>
+    <p class="text-xs text-gray-500">Work this page top-down: Video queue → Pending documents → <a href="#verify-queue" class="text-sky-400 hover:underline">Verify queue</a> → Live activation gate. Reject reasons must be clear sentences (merchant sees the same text). Partner auto-forward runs on the existing queue when keys + commercial are set — no separate KYC product.</p>
+</div>
+
 <div class="mb-6 flex flex-col sm:flex-row flex-wrap gap-3">
     <?php if (isSuperAdmin()): ?>
     <a href="admin_watchdog.php" class="glass px-4 py-2 rounded-xl text-sm text-amber-400 text-center w-full sm:w-auto">Link Watchdog</a>
     <?php endif; ?>
+    <a href="admin_auto_kyc.php" class="glass px-4 py-2 rounded-xl text-sm text-violet-300 text-center w-full sm:w-auto">Auto KYC + Partner forward</a>
     <a href="manage_merchant.php" class="glass px-4 py-2 rounded-xl text-sm text-gray-300 text-center w-full sm:w-auto">All Merchants</a>
 </div>
 
@@ -524,13 +530,13 @@ require_once __DIR__ . '/header.php';
         <?php endforeach; endif; ?>
     </div>
 
-    <div class="glass rounded-xl overflow-hidden min-w-0">
+    <div id="verify-queue" class="glass rounded-xl overflow-hidden min-w-0">
         <div class="px-4 sm:px-6 py-4 border-b border-gray-800">
-            <h2 class="font-semibold">Pending KYC — verify or send to checker</h2>
-            <p class="text-xs text-gray-500 mt-1">Individual / Freelancer first · Prefer independent checker when a second ops user exists · Live activation is a separate step</p>
+            <h2 class="font-semibold">Verify queue — KYC approve</h2>
+            <p class="text-xs text-gray-500 mt-1">Use <strong class="text-emerald-400">Verify KYC now</strong> (super) or Send for KYC approval (checker). Then Live gate. Partner forward: keys + contract first — same Auto KYC queue, not a new product.</p>
         </div>
         <?php if (empty($pendingMerchants)): ?>
-        <p class="text-gray-500 text-sm text-center py-8">All caught up!</p>
+        <p class="text-gray-500 text-sm text-center py-8">Verify queue clear — no merchants waiting.</p>
         <?php else: foreach ($pendingMerchants as $m): ?>
         <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
             <div class="min-w-0">

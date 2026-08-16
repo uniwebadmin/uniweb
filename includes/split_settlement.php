@@ -591,6 +591,15 @@ function executePartnerRouteSplit(int $transactionId, int $merchantId, array $sp
     $merchantNet = (float)($split['merchant_net'] ?? 0);
     $platformFee = (float)($split['platform_fee'] ?? 0);
 
+    // Block 7: Route / Split SDK stays parked — ledger commission already applied via M/P; no live partner transfer API
+    if ($settlementMode === 'route_mode' && function_exists('canUsePartnerRoute') && !canUsePartnerRoute($partnerKey)) {
+        return [
+            'ok' => true,
+            'mode' => 'route_mode_parked',
+            'note' => 'Route/Split SDK parked until Owner + keys. Commission uses Admin-saved M/P on capture (standard ledger).',
+        ];
+    }
+
     // F3: Create merchant_leg transfer record (idempotent)
     $merchantTransfer = createPartnerTransfer($transactionId, $merchantId, $partnerKey, $merchantNet, 'merchant_leg', $linkedAccountId);
     if (!$merchantTransfer['ok']) {

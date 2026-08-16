@@ -280,20 +280,19 @@ require_once __DIR__ . '/header.php';
         <?php endif; ?>
 
         <div class="glass rounded-xl p-5 text-sm">
-            <h3 class="font-semibold mb-3">Amount Split</h3>
+            <h3 class="font-semibold mb-1">Amount Split</h3>
+            <p class="text-[11px] text-gray-500 mb-3">On success: Gross → Admin cut + Partner cut + Merchant baaki. Percents come from Admin-saved commercial (M/P) at capture — not a live Route SDK.</p>
             <div class="space-y-2 text-xs">
                 <div class="flex justify-between"><span class="text-gray-500">Gross</span><span><?= formatMoney($split['gross']) ?></span></div>
-                <?php if (!empty($txn['mdr_m'])): ?>
-                <div class="flex justify-between"><span class="text-gray-500">MDR (M)</span><span><?= e(number_format((float)$txn['mdr_m'], 2)) ?>%</span></div>
+                <?php if (!empty($txn['mdr_m']) && (float)$txn['mdr_m'] > 0): ?>
+                <div class="flex justify-between"><span class="text-gray-500">Merchant MDR (M)</span><span><?= e(number_format((float)$txn['mdr_m'], 2)) ?>%</span></div>
                 <?php endif; ?>
-                <?php if (!empty($txn['mdr_p'])): ?>
-                <div class="flex justify-between"><span class="text-gray-500">Partner Base (P)</span><span><?= e(number_format((float)$txn['mdr_p'], 2)) ?>%</span></div>
+                <?php if (!empty($txn['mdr_p']) && (float)$txn['mdr_p'] > 0): ?>
+                <div class="flex justify-between"><span class="text-gray-500">Partner MDR (P)</span><span><?= e(number_format((float)$txn['mdr_p'], 2)) ?>%</span></div>
                 <?php endif; ?>
-                <div class="flex justify-between"><span class="text-gray-500">Platform Fee</span><span class="text-amber-400">−<?= formatMoney($split['platform_fee']) ?></span></div>
-                <?php if (!empty($txn['partner_fee']) && (float)$txn['partner_fee'] > 0): ?>
-                <div class="flex justify-between"><span class="text-gray-500">Partner Fee (info)</span><span class="text-gray-400"><?= formatMoney((float)$txn['partner_fee']) ?></span></div>
-                <?php endif; ?>
-                <div class="flex justify-between border-t border-gray-800 pt-2 font-semibold"><span>Merchant Net</span><span class="text-emerald-400"><?= formatMoney($split['merchant_net']) ?></span></div>
+                <div class="flex justify-between"><span class="text-gray-500">Admin cut (UniWeb)</span><span class="text-amber-400">−<?= formatMoney($split['platform_fee']) ?></span></div>
+                <div class="flex justify-between"><span class="text-gray-500">Partner cut (info)</span><span class="text-gray-400"><?= formatMoney((float)($txn['partner_fee'] ?? 0)) ?></span></div>
+                <div class="flex justify-between border-t border-gray-800 pt-2 font-semibold"><span>Merchant baaki (settlement)</span><span class="text-emerald-400"><?= formatMoney($split['merchant_net']) ?></span></div>
             </div>
         </div>
 

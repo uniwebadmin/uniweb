@@ -117,7 +117,10 @@ require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6">
     <div class="flex flex-wrap gap-3 items-center justify-between">
-        <p class="text-sm text-gray-400">Pricing, success rate, settlement delay per partner</p>
+        <div>
+            <p class="text-sm text-gray-400">Commission earned on successful collections — by partner rail</p>
+            <p class="text-xs text-gray-600 mt-1">UniWeb does not sell a white-label package. Set Partner MDR on <a href="admin_gateway_registry.php" class="text-sky-400 hover:underline">Partner Registry → Commercial</a>.</p>
+        </div>
         <form method="GET" class="flex gap-2 items-center">
             <select name="days" class="input-field text-xs w-32" onchange="this.form.submit()">
                 <option value="7" <?= $days === 7 ? 'selected' : '' ?>>Last 7 days</option>
@@ -131,7 +134,7 @@ require_once __DIR__ . '/header.php';
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Total Transactions</p><p class="text-2xl font-bold text-brand-400 mt-1"><?= number_format($totals['txns']) ?></p></div>
         <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Total Volume</p><p class="text-2xl font-bold text-emerald-400 mt-1"><?= formatMoney($totals['volume']) ?></p></div>
-        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Total Fees Earned</p><p class="text-2xl font-bold text-violet-400 mt-1"><?= formatMoney($totals['fees']) ?></p></div>
+        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">UniWeb Commission</p><p class="text-2xl font-bold text-violet-400 mt-1"><?= formatMoney($totals['fees']) ?></p></div>
         <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Chargebacks</p><p class="text-2xl font-bold <?= $totals['chargebacks'] > 0 ? 'text-red-400' : 'text-emerald-400' ?> mt-1"><?= number_format($totals['chargebacks']) ?></p></div>
     </div>
 
@@ -145,7 +148,7 @@ require_once __DIR__ . '/header.php';
                 <th class="px-4 py-3 text-right">Success Rate</th>
                 <th class="px-4 py-3 text-right">Volume</th>
                 <th class="px-4 py-3 text-right">Avg Amount</th>
-                <th class="px-4 py-3 text-right">Fees Earned</th>
+                <th class="px-4 py-3 text-right">UniWeb Commission</th>
                 <th class="px-4 py-3 text-right">Avg Settlement</th>
                 <th class="px-4 py-3 text-right">Pending Stlm</th>
                 <th class="px-4 py-3 text-right">Chargebacks</th>
@@ -180,7 +183,10 @@ require_once __DIR__ . '/header.php';
     ];
     ?>
     <div class="glass rounded-xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Partner Pricing Reference</h2></div>
+        <div class="px-6 py-4 border-b border-gray-800">
+            <h2 class="font-semibold">Partner MDR reference (indicative)</h2>
+            <p class="text-xs text-gray-500 mt-1">Bank/PG cost bands — not a UniWeb product price list. Live rates come from Partner Detail → Commercial after you save.</p>
+        </div>
         <div class="overflow-x-auto"><table class="min-w-[640px] w-full text-sm">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr><th class="px-4 py-3 text-left">Partner</th><th class="px-4 py-3 text-left">MDR</th><th class="px-4 py-3 text-left">Fixed Fee</th><th class="px-4 py-3 text-left">Settlement</th><th class="px-4 py-3 text-left">Notes</th></tr></thead>
             <tbody class="divide-y divide-gray-800">

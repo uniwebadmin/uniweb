@@ -161,23 +161,26 @@ $exportQuery = http_build_query(['q' => $settlementQ, 'status' => $settlementSta
 <?php endif; ?>
 
 <!-- Settlement mode banner -->
-<div class="glass rounded-xl p-5 mb-6 border border-gray-800">
+<div class="glass rounded-xl p-5 mb-6 border border-sky-500/20">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-            <p class="text-xs text-gray-500 uppercase tracking-wide">Your Settlement Plan</p>
+            <p class="text-xs text-sky-400 uppercase tracking-wide">Settlement cycle status</p>
             <p class="text-lg font-semibold mt-1">
-                <?= $prefs['mode'] === 'scheduled' ? 'Scheduled Batch' : 'Manual' ?>
+                <?= e($prefs['cycle']) ?>
+                · <?= $prefs['mode'] === 'scheduled' ? 'Scheduled Batch' : 'Manual' ?>
                 · <?= settlementRailBadge(resolveSettlementRailForMerchant($merchant)) ?>
             </p>
+            <p class="text-xs text-gray-400 mt-2"><?= e($prefs['status_line']) ?></p>
             <p class="text-xs text-gray-500 mt-2">
                 <?php if ($prefs['mode'] === 'scheduled'): ?>
-                Interval: <strong class="text-gray-300"><?= e($prefs['interval_label']) ?></strong>
+                Timing: <strong class="text-gray-300"><?= e($prefs['interval_label']) ?></strong>
                 <?php if ($prefs['next_batch_at']): ?>
                 · Next batch: <strong class="text-sky-400"><?= formatDate($prefs['next_batch_at']) ?></strong>
                 <?php endif; ?>
                 <?php else: ?>
-                Click Settle Now whenever you want payout
+                Click Settle Now whenever you want payout (cycle <?= e($prefs['cycle']) ?> still describes your plan)
                 <?php endif; ?>
+                · <a href="merchant_settlement_settings.php" class="text-sky-400 hover:underline">Change settings</a>
             </p>
         </div>
         <?php if ($openBatch && (int)$openBatch['txn_count'] > 0): ?>

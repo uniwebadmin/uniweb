@@ -60,6 +60,34 @@ function calculatePlatformCommission(float $amount, array $merchant): float
 }
 
 /**
+ * Human labels for PPT-style ₹100 split (Admin cut + Partner cut + Merchant baaki).
+ * Uses Admin-saved M/P via calculateSplitBreakdown — same engine as capture.
+ *
+ * @return array{gross:float,admin_cut:float,partner_cut:float,merchant_net:float,mdr_m:float,mdr_p:float,lines:list<string>}
+ */
+function commissionSplitRealtimePreview(float $amount, array $merchant): array
+{
+    $split = calculateSplitBreakdown($amount, $merchant);
+    $admin = (float)($split['platform_fee'] ?? 0);
+    $partner = (float)($split['partner_fee'] ?? 0);
+    $merchantNet = (float)($split['merchant_net'] ?? 0);
+    return [
+        'gross' => (float)($split['gross'] ?? $amount),
+        'admin_cut' => $admin,
+        'partner_cut' => $partner,
+        'merchant_net' => $merchantNet,
+        'mdr_m' => (float)($split['mdr_m'] ?? 0),
+        'mdr_p' => (float)($split['mdr_p'] ?? 0),
+        'lines' => [
+            'Gross ' . formatMoney((float)($split['gross'] ?? $amount)),
+            'Admin cut ' . formatMoney($admin),
+            'Partner cut ' . formatMoney($partner),
+            'Merchant baaki ' . formatMoney($merchantNet),
+        ],
+    ];
+}
+
+/**
  * F2: Calculate split breakdown using M (merchant MDR) and P (partner base MDR).
  * Returns gross, mdr_m, mdr_p, platform_fee, merchant_net, partner_fee (informational),
  * and pricing_snapshot JSON.
@@ -156,9 +184,22 @@ function recordSplitPayment(int $transactionId, int $merchantId, array $split, s
             ->execute([$transactionId, $merchantId, $split['gross'] ?? $split['platform_fee'] + $split['merchant_net'], $split['platform_fee'], $split['merchant_net'], 'pending']);
     } catch (Throwable $e) { /* non-fatal */ }
     try {
-        $db->prepare('UPDATE transactions SET platform_fee = ?, split_amount = ? WHERE id = ?')
-            ->execute([$split['platform_fee'], $split['merchant_net'], $transactionId]);
-    } catch (Throwable $e) { /* non-fatal */ }
+        $db->prepare('UPDATE transactions SET platform_fee = ?, split_amount = ?, mdr_m = ?, mdr_p = ?, partner_fee = ?, pricing_snapshot = ? WHERE id = ?')
+            ->execute([
+                $split['platform_fee'],
+                $split['merchant_net'],
+                (float)($split['mdr_m'] ?? 0),
+                (float)($split['mdr_p'] ?? 0),
+                (float)($split['partner_fee'] ?? 0),
+                $split['pricing_snapshot'] ?? null,
+                $transactionId,
+            ]);
+    } catch (Throwable $e) {
+        try {
+            $db->prepare('UPDATE transactions SET platform_fee = ?, split_amount = ? WHERE id = ?')
+                ->execute([$split['platform_fee'], $split['merchant_net'], $transactionId]);
+        } catch (Throwable $e2) { /* non-fatal */ }
+    }
 }
 
 /**
@@ -239,19 +280,30 @@ function createTransactionFromPayment(array $link, string $method, string $statu
     $customerName = mb_substr(trim((string)($link['customer_name'] ?? '')), 0, 160) ?: null;
     $customerEmail = mb_substr(trim((string)($link['customer_email'] ?? '')), 0, 190) ?: null;
     $customerPhone = mb_substr(trim((string)($link['customer_phone'] ?? '')), 0, 32) ?: null;
+    $txnCore = [
+        $txnId, $link['merchant_id'], $amount, $status, $methodStored,
+        $link['description'] ?? '', $ref, $link['id'],
+        $split['platform_fee'], $split['merchant_net'], $isTest ? 1 : 0,
+        getMerchantCollectionMode($link),
+        $customerName, $customerEmail, $customerPhone,
+        (int)($link['qr_code_id'] ?? 0) > 0 ? (int)$link['qr_code_id'] : null,
+    ];
     try {
-        $db->prepare('INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, utr, payment_link_id, platform_fee, split_amount, is_test, collection_mode, customer_name, customer_email, customer_phone, qr_code_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-            ->execute([
-                $txnId, $link['merchant_id'], $amount, $status, $methodStored,
-                $link['description'] ?? '', $ref, $link['id'],
-                $split['platform_fee'], $split['merchant_net'], $isTest ? 1 : 0,
-                getMerchantCollectionMode($link),
-                $customerName, $customerEmail, $customerPhone,
-                (int)($link['qr_code_id'] ?? 0) > 0 ? (int)$link['qr_code_id'] : null,
-            ]);
+        $db->prepare('INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, utr, payment_link_id, platform_fee, split_amount, is_test, collection_mode, customer_name, customer_email, customer_phone, qr_code_id, mdr_m, mdr_p, partner_fee, pricing_snapshot) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+            ->execute(array_merge($txnCore, [
+                (float)($split['mdr_m'] ?? 0),
+                (float)($split['mdr_p'] ?? 0),
+                (float)($split['partner_fee'] ?? 0),
+                $split['pricing_snapshot'] ?? null,
+            ]));
     } catch (Throwable $e) {
-        $db->prepare('INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, utr, payment_link_id) VALUES (?,?,?,?,?,?,?,?)')
-            ->execute([$txnId, $link['merchant_id'], $amount, $status, $methodStored, $link['description'] ?? '', $ref, $link['id']]);
+        try {
+            $db->prepare('INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, utr, payment_link_id, platform_fee, split_amount, is_test, collection_mode, customer_name, customer_email, customer_phone, qr_code_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+                ->execute($txnCore);
+        } catch (Throwable $e2) {
+            $db->prepare('INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, utr, payment_link_id) VALUES (?,?,?,?,?,?,?,?)')
+                ->execute([$txnId, $link['merchant_id'], $amount, $status, $methodStored, $link['description'] ?? '', $ref, $link['id']]);
+        }
     }
     $id = (int)$db->lastInsertId();
     if ($status === 'success') {
@@ -486,28 +538,28 @@ function buildCheckoutPaymentMethods(array $link): array
 
     // Render tabs from merchant method flags. Live keys are not required to SHOW the UI.
     if ($allow('debit_card')) {
-        $methods[] = ['key' => 'dc', 'label' => 'Debit Card', 'sub' => $payuConfigured ? 'Visa · Mastercard · RuPay' : ($isTest ? 'Test Mode — Instant Pay' : 'Provider keys not configured'), 'icon' => '💳', 'type' => 'payu', 'pg' => 'DC'];
+        $methods[] = ['key' => 'dc', 'label' => 'Debit Card', 'sub' => $payuConfigured ? 'Visa · Mastercard · RuPay' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for partner keys'), 'icon' => '💳', 'type' => 'payu', 'pg' => 'DC'];
     }
     if ($allow('credit_card')) {
-        $methods[] = ['key' => 'cc', 'label' => 'Credit Card', 'sub' => $payuConfigured ? 'Visa · Mastercard · Amex' : ($isTest ? 'Test Mode — Instant Pay' : 'Provider keys not configured'), 'icon' => '💳', 'type' => 'payu', 'pg' => 'CC'];
+        $methods[] = ['key' => 'cc', 'label' => 'Credit Card', 'sub' => $payuConfigured ? 'Visa · Mastercard · Amex' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for partner keys'), 'icon' => '💳', 'type' => 'payu', 'pg' => 'CC'];
     }
     if ($allow('netbanking')) {
-        $methods[] = ['key' => 'nb', 'label' => 'Net Banking', 'sub' => $payuConfigured ? 'All major banks' : ($isTest ? 'Test Mode — Instant Pay' : 'Provider keys not configured'), 'icon' => '🏦', 'type' => 'payu', 'pg' => 'NB'];
+        $methods[] = ['key' => 'nb', 'label' => 'Net Banking', 'sub' => $payuConfigured ? 'All major banks' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for partner keys'), 'icon' => '🏦', 'type' => 'payu', 'pg' => 'NB'];
     }
     if ($allow('emi')) {
-        $methods[] = ['key' => 'emi', 'label' => 'EMI', 'sub' => $payuConfigured ? 'Card EMI · No Cost EMI' : ($isTest ? 'Test Mode — Instant Pay' : 'Provider keys not configured'), 'icon' => '📅', 'type' => 'payu', 'pg' => 'EMI'];
+        $methods[] = ['key' => 'emi', 'label' => 'EMI', 'sub' => $payuConfigured ? 'Card EMI · No Cost EMI' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for partner keys'), 'icon' => '📅', 'type' => 'payu', 'pg' => 'EMI'];
     }
     if ($allow('wallet')) {
-        $methods[] = ['key' => 'wallet', 'label' => 'Wallets', 'sub' => $payuConfigured ? 'Paytm · PhonePe · Amazon Pay' : ($isTest ? 'Test Mode — Instant Pay' : 'Provider keys not configured'), 'icon' => '👛', 'type' => 'payu', 'pg' => 'CASH'];
+        $methods[] = ['key' => 'wallet', 'label' => 'Wallets', 'sub' => $payuConfigured ? 'Paytm · PhonePe · Amazon Pay' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for partner keys'), 'icon' => '👛', 'type' => 'payu', 'pg' => 'CASH'];
     }
     if ($allow('payu_upi')) {
-        $methods[] = ['key' => 'payu_upi', 'label' => 'UPI (Gateway)', 'sub' => $payuConfigured ? 'Pay via PayU' : ($isTest ? 'Test Mode — Instant Pay' : 'Provider keys not configured'), 'icon' => '⚡', 'type' => 'payu', 'pg' => 'UPI'];
+        $methods[] = ['key' => 'payu_upi', 'label' => 'UPI (Gateway)', 'sub' => $payuConfigured ? 'Pay via PayU' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for partner keys'), 'icon' => '⚡', 'type' => 'payu', 'pg' => 'UPI'];
     }
     if ($allow('razorpay') || $handler === 'razorpay_route') {
-        $methods[] = ['key' => 'razorpay', 'label' => 'Cards & UPI', 'sub' => $rzpConfigured ? 'Razorpay Checkout' : ($isTest ? 'Test Mode — Instant Pay' : 'Provider keys not configured'), 'icon' => '🔒', 'type' => 'razorpay'];
+        $methods[] = ['key' => 'razorpay', 'label' => 'Cards & UPI', 'sub' => $rzpConfigured ? 'Razorpay Checkout' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for partner keys'), 'icon' => '🔒', 'type' => 'razorpay'];
     }
     if ($allow('cashfree') || $handler === 'cashfree_route') {
-        $methods[] = ['key' => 'cashfree', 'label' => 'Cashfree Pay', 'sub' => $cfConfigured ? 'Cards · UPI · NB' : ($isTest ? 'Test Mode — Instant Pay' : 'Provider keys not configured'), 'icon' => '💰', 'type' => 'cashfree'];
+        $methods[] = ['key' => 'cashfree', 'label' => 'Cashfree Pay', 'sub' => $cfConfigured ? 'Cards · UPI · NB' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for partner keys'), 'icon' => '💰', 'type' => 'cashfree'];
     }
 
     // Dedicated method link — only that checkout tab

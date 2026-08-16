@@ -29,6 +29,7 @@ function uniwebMerchantNavGroups(): array
             ['payment_links.php', $t('payment_links', 'Payment Links'), 'M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244'],
             ['qr_code.php', $t('qr_code', 'QR Code'), 'M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z'],
             ['qr_upi_print.php', 'Instant UPI QR', 'M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 3h2v2h-2v-2zm3 0h3v2h-3v-2z'],
+            ['merchant_website.php', 'Website / Pay button', 'M3 5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-5l-3 3-3-3H5a2 2 0 01-2-2V5z'],
             ['payment_methods.php', 'Payment Methods', 'M11 3.055A5.001 5.001 0 005.055 9 5.001 5.001 0 0011 14.945 5.001 5.001 0 0016.945 9 5.001 5.001 0 0011 3.055z'],
             ['orders.php', 'Orders', 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z'],
             ['merchant_payment_pack.php', 'Payment Pack', 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z'],
@@ -68,7 +69,6 @@ function uniwebMerchantNavGroups(): array
             ['merchant_settings.php', $t('nav_settings', 'Settings'), 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z'],
             ['merchant_2fa.php', '2FA Security', 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'],
             ['notifications.php', $t('nav_notifications', 'Notifications'), 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'],
-            ['merchant_website.php', 'Sales Website', 'M3 5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-5l-3 3-3-3H5a2 2 0 01-2-2V5z'],
             ['collection_settings.php', $t('nav_collection_mode', 'Collection Mode'), 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4'],
             ['qr_analytics.php', 'QR Analytics', 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'],
             ['merchant_launch.php', 'Launch Center', 'M13 10V3L4 14h7v7l9-11h-7z'],
@@ -90,7 +90,7 @@ function uniwebAdminNavGroups(): array
             ['admin_onboarding_invite.php', 'Onboarding Invites'],
             ['admin_website_reviews.php', 'Website Reviews'],
         ]],
-        ['id' => 'partners', 'title' => 'Partners', 'items' => [
+        ['id' => 'partners', 'title' => 'Partners (rails / keys)', 'items' => [
             ['admin_gateway_registry.php', 'Partner Registry'],
             ['gateway_settings.php', 'Platform Settings'],
             ['admin_method_requests.php', 'Method Requests'],

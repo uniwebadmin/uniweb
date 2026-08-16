@@ -390,6 +390,7 @@ function statusBadge(string $status): string
         'pending'   => 'bg-amber-500/10 text-amber-400',
         'submitted' => 'bg-amber-500/10 text-amber-400',
         'under_review' => 'bg-amber-500/10 text-amber-400',
+        'forwarded_partner' => 'bg-violet-500/10 text-violet-400',
         'failed'    => 'bg-red-500/10 text-red-400',
         'rejected'  => 'bg-red-500/10 text-red-400',
         'expired'   => 'bg-gray-500/10 text-gray-400',

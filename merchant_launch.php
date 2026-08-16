@@ -78,8 +78,8 @@ require_once __DIR__ . '/header.php';
     <section class="grid sm:grid-cols-2 gap-4">
         <div class="glass rounded-xl p-5 border border-gray-800">
             <p class="text-xs uppercase tracking-wider text-violet-400 font-semibold">Test safely first</p>
-            <p class="text-sm text-gray-400 mt-2">Use Test Mode to prove your payment flow before any live collection is enabled.</p>
-            <a href="merchant_payment_pack.php" class="inline-block mt-4 text-sm text-sky-400 hover:text-sky-300">Open Payment Pack →</a>
+            <p class="text-sm text-gray-400 mt-2">Stay in Test Mode. Open Payment Pack or a payment link, then use <strong class="text-amber-300">Instant Test Pay</strong> on checkout — no real money.</p>
+            <a href="merchant_payment_pack.php" class="inline-block mt-4 text-sm text-sky-400 hover:text-sky-300">Open Payment Pack → Instant Test Pay</a>
         </div>
         <div class="glass rounded-xl p-5 border border-gray-800">
             <p class="text-xs uppercase tracking-wider text-amber-400 font-semibold">Need help?</p>

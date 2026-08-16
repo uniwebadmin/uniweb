@@ -10,7 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         'use_platform_default' => !empty($_POST['use_platform_default']),
         'mode' => $_POST['settlement_mode'] ?? 'manual',
         'rail' => $_POST['settlement_rail'] ?? 'wallet',
-        'interval_minutes' => (int)($_POST['batch_interval_minutes'] ?? 120),
+        'settlement_cycle' => $_POST['settlement_cycle'] ?? '',
+        'interval_minutes' => (int)($_POST['batch_interval_minutes'] ?? 0),
     ]);
     flash('success', 'Settlement settings saved.');
     redirect('merchant_settlement_settings.php');
@@ -19,6 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 $prefs = getMerchantSettlementPrefs($merchant);
 $platform = getPlatformSettlementDefaults();
 $intervals = getSettlementBatchIntervals();
+$cycles = getSettlementCycleOptions();
 $rails = getSettlementRails();
 $modes = getSettlementModes();
 $collectionMode = getMerchantCollectionMode($merchant);
@@ -42,7 +44,16 @@ require_once __DIR__ . '/header.php';
 
     <div class="glass rounded-xl p-6 mb-6 border border-violet-500/20">
         <h1 class="text-xl font-bold mb-1"><?= $pageTitle ?></h1>
-        <p class="text-sm text-gray-500">Choose scheduled batching or manual settlement.</p>
+        <p class="text-sm text-gray-500">Choose scheduled batching or manual settlement. Cycle follows Admin default (T+0 / T+1 / T+2) unless you override.</p>
+    </div>
+
+    <div class="glass rounded-xl p-4 mb-6 border border-sky-500/20 text-sm">
+        <p class="font-medium text-sky-300">Your settlement status</p>
+        <p class="text-xs text-gray-400 mt-1"><?= e($prefs['status_line']) ?></p>
+        <p class="text-xs text-gray-500 mt-2">Platform default: <strong class="text-gray-300"><?= e($platform['cycle_label']) ?></strong><?= $prefs['use_platform_default'] ? ' (you are using this)' : ' · you overrode cycle to ' . e($prefs['cycle']) ?>.</p>
+        <?php if ($prefs['mode'] === 'scheduled' && !empty($prefs['next_batch_at'])): ?>
+        <p class="text-xs text-emerald-400 mt-1">Next batch: <?= e(formatDate($prefs['next_batch_at'])) ?></p>
+        <?php endif; ?>
     </div>
 
     <?php if (!$showRailPicker): ?>
@@ -62,8 +73,8 @@ require_once __DIR__ . '/header.php';
                 <p class="font-medium text-sm">Use platform defaults</p>
                 <p class="text-xs text-gray-500 mt-1">
                     Current:
+                    <?= e($platform['cycle']) ?> ·
                     <?= e($modes[$platform['mode']] ?? $platform['mode']) ?> ·
-                    <?= e($intervals[$platform['interval_minutes']] ?? '') ?> ·
                     <?= e($rails[$platform['rail']]['label'] ?? $platform['rail']) ?>
                 </p>
             </div>
@@ -86,13 +97,15 @@ require_once __DIR__ . '/header.php';
             </div>
             <?php endif; ?>
             <div>
-                <label class="text-sm text-gray-400">Batch Interval</label>
-                <select name="batch_interval_minutes" class="input-field mt-1">
-                    <?php foreach ($intervals as $mins => $label): ?>
-                    <option value="<?= $mins ?>" <?= (int)$prefs['interval_minutes'] === $mins ? 'selected' : '' ?>><?= e($label) ?></option>
+                <label class="text-sm text-gray-400">Settlement cycle</label>
+                <select name="settlement_cycle" class="input-field mt-1">
+                    <?php foreach ($cycles as $code => $meta): ?>
+                    <option value="<?= e($code) ?>" <?= $prefs['cycle'] === $code ? 'selected' : '' ?>><?= e($meta['label']) ?></option>
                     <?php endforeach; ?>
                 </select>
+                <p class="text-[11px] text-gray-600 mt-1">Same engine as Admin — T+0 / T+1 / T+2. No separate settlement product.</p>
             </div>
+            <input type="hidden" name="batch_interval_minutes" value="<?= (int)$prefs['interval_minutes'] ?>">
         </div>
 
         <button type="submit" class="btn-primary w-full py-3 font-semibold"><?= __('save') ?></button>

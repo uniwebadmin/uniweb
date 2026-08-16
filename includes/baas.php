@@ -287,7 +287,9 @@ function formatMdr(?float $pct, bool $custom = false, bool $withGst = false): st
 function merchantCommercialSchedule(array $merchant): array
 {
     $commission = (float)($merchant['commission_rate'] ?? getSetting('default_commission', '1.50'));
-    $cycle = getSetting('settlement_cycle', 'T+1');
+    $cycle = function_exists('getPlatformSettlementCycle')
+        ? getPlatformSettlementCycle()
+        : (string)getSetting('settlement_cycle', 'T+1');
     $minSettle = (float)getSetting('min_settlement_amount', '100');
     $prefs = function_exists('getMerchantSettlementPrefs') ? getMerchantSettlementPrefs($merchant) : [];
     $mode = (string)($prefs['mode'] ?? 'manual');

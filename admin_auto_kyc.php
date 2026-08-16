@@ -70,7 +70,10 @@ require_once __DIR__ . '/header.php';
 ?>
 <div class="max-w-5xl mx-auto px-4 py-8">
     <h1 class="text-2xl font-bold text-white mb-2">Zero-Touch Auto KYC Engine</h1>
-    <p class="text-sm text-gray-500 mb-6">Automatically approves clean KYC documents and verifies eligible merchants without manual intervention.</p>
+    <p class="text-sm text-gray-500 mb-4">Automatically approves clean KYC documents and verifies eligible merchants — same KYC Review pages, not a new product.</p>
+    <div class="glass rounded-xl p-4 mb-6 border border-violet-500/20 text-xs text-gray-400">
+        <strong class="text-violet-300">Partner auto-KYC / forward:</strong> runs on this existing queue after Admin Verify when partner <strong class="text-gray-300">keys + commercial</strong> are set. Without keys, rows stay queued / unassigned until you paste credentials in Partner Registry.
+    </div>
 
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div class="glass rounded-xl p-5 stat-card border border-emerald-500/20">
@@ -121,7 +124,7 @@ require_once __DIR__ . '/header.php';
     <?php if (!empty($forwardQueue)): ?>
     <div class="glass rounded-xl p-6 border border-violet-500/20 mb-8">
         <h2 class="font-semibold text-lg mb-2">Partner Forward Queue</h2>
-        <p class="text-xs text-gray-500 mb-4">Auto-forwards verified merchants to partner gateways after hold window (75 min) or next day 11 AM if after 6 PM. Admin can Pause / Resume / Cancel.</p>
+        <p class="text-xs text-gray-500 mb-4">Forwards verified merchants when partner keys + contract path are ready. Hold window applies. Pause / Resume / Cancel stay here — not a separate KYC product.</p>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="text-xs text-gray-500 uppercase">

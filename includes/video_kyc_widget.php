@@ -39,7 +39,7 @@ $vkwRejected = $vkwStatus === 'rejected';
         <div class="flex-1 min-w-0">
             <p class="text-xs text-violet-400 uppercase tracking-wider mb-1">Identity check</p>
             <h2 class="text-lg font-bold">Video KYC</h2>
-            <p class="text-xs text-gray-500 mt-0.5">Live camera recording with IP, location and timestamp overlay</p>
+            <p class="text-xs text-gray-500 mt-0.5">Live camera recording only (no gallery upload) · IP + date/time recorded with each session</p>
         </div>
         <?= statusBadge($vkwStatus) ?>
     </div>
@@ -89,7 +89,7 @@ $vkwRejected = $vkwStatus === 'rejected';
 
 <div class="glass rounded-xl p-6 mb-6">
     <h3 class="font-semibold mb-2"><?= $vkwRejected ? 'Re-record your Video KYC' : 'Record your Video KYC' ?></h3>
-    <p class="text-sm text-gray-400 mb-4">15–30 seconds · camera + microphone required · upload happens after you stop.</p>
+    <p class="text-sm text-gray-400 mb-4">15–30 seconds · live camera + microphone required · no file picker · IP and date/time saved when you upload after stop.</p>
 
     <div id="vkw-camera-error" class="hidden bg-red-500/10 border border-red-500/30 text-red-300 text-sm px-4 py-3 rounded-xl mb-4"></div>
 

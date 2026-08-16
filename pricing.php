@@ -12,7 +12,7 @@ require_once __DIR__ . '/header.php';
     <section class="company-hero"><div class="company-shell">
         <div class="company-eyebrow">Pricing</div>
         <h1>Clear commercial terms for Indian merchants.</h1>
-        <p>Test Mode is free. Live fees are partner MDR + UniWeb platform fee + GST. Settlement follows the written T+N schedule — not a public “0% UPI forever” or “instant settlement” slogan.</p>
+        <p>Test Mode is free. Live fees are partner MDR + UniWeb platform commission + GST. We do not sell a white-label software package — revenue is a cut on successful collections. Settlement follows the written T+N schedule.</p>
         <div class="flex flex-wrap gap-3 mt-6">
             <a href="demo.php" class="btn-primary px-6 py-3">Try ₹1 demo</a>
             <a href="merchant_register.php" class="px-6 py-3 rounded-lg border border-gray-700">Create merchant account</a>
@@ -70,7 +70,7 @@ require_once __DIR__ . '/header.php';
         <h2 class="company-title">What you actually pay on a Live capture</h2>
         <div class="company-grid">
             <div class="company-card"><h3>1. Partner MDR</h3><p>Bank or gateway charge for UPI, cards, net banking or wallets. Set by the activated rail, MCC and volume.</p></div>
-            <div class="company-card"><h3>2. UniWeb platform fee</h3><p>Our commission on successful collections, shown per merchant in the Portal. Not a hidden “convenience fee” on the customer unless you configure one.</p></div>
+            <div class="company-card"><h3>2. UniWeb platform commission</h3><p>Our fee on successful collections, shown per merchant in the Portal. Not a sold white-label licence. Not a hidden “convenience fee” on the customer unless you configure one.</p></div>
             <div class="company-card"><h3>3. GST on fees</h3><p>GST applies on applicable fee components as per Indian tax rules. Settlement is net of fees, refunds, reserves and holds.</p></div>
         </div>
     </div></section>

@@ -827,6 +827,14 @@ function creditPlatformFeeWallet(float $feeAmount, int $transactionId, string $d
     ensureWalletEngine();
     $db = getDB();
     try {
+        // Block 7: never double-credit platform fee for the same success txn
+        if ($transactionId > 0) {
+            $dup = $db->prepare('SELECT COUNT(*) FROM platform_wallet_transactions WHERE transaction_id=? AND amount > 0');
+            $dup->execute([$transactionId]);
+            if ((int)$dup->fetchColumn() > 0) {
+                return;
+            }
+        }
         $ref = generateId('PFEE');
         $db->prepare('INSERT INTO platform_wallet_transactions (amount, type, reference, description, transaction_id, balance_after) VALUES (?,?,?,?,?,?)')
             ->execute([
@@ -1018,6 +1026,16 @@ function creditPlatformWallet(float $amount, string $type, ?int $transactionId, 
     $cap = walletCreditCap($isTest);
     if ($amount > $cap) {
         $amount = $isTest ? 1.0 : $cap;
+    }
+    // Block 7: same success txn must not credit platform wallet twice (legacy + capture paths)
+    if ($transactionId !== null && $transactionId > 0) {
+        try {
+            $dup = getDB()->prepare('SELECT COUNT(*) FROM platform_wallet_transactions WHERE transaction_id=? AND amount > 0');
+            $dup->execute([$transactionId]);
+            if ((int)$dup->fetchColumn() > 0) {
+                return true;
+            }
+        } catch (Throwable $e) { /* proceed */ }
     }
     $newBalance = getPlatformWalletBalance() + $amount;
     setPlatformWalletBalance($newBalance);

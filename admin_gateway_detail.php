@@ -224,6 +224,9 @@ $pageTitle = $gateway['gateway_name'] . ' — Partner Detail';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="max-w-4xl space-y-6">
+    <div class="rounded-xl border border-sky-500/25 bg-sky-500/5 px-4 py-3 text-xs text-gray-400">
+        <strong class="text-sky-300">Roles:</strong> Admin controls all merchants. This partner is a payment/KYC <em class="text-gray-300 not-italic">rail</em> (keys + methods). There is no separate partner merchant portal.
+    </div>
     <div class="flex items-center gap-3 mb-2">
         <a href="admin_gateway_registry.php" class="text-sm text-gray-400 hover:text-white">← Partner Registry</a>
     </div>
@@ -287,11 +290,17 @@ require_once __DIR__ . '/header.php';
         $existingCreds = getPartnerCredentials($partnerKey, $keyEnv);
     ?>
     <div class="glass rounded-xl p-6 border border-gray-800">
-        <h3 class="font-semibold mb-1">API Credentials</h3>
-        <p class="text-xs text-gray-500 mb-2">Secrets are encrypted. Only last4 is shown after save. Leave password fields blank to keep current value. UniWeb is the merchant console — partners (for example Decentro) are banks/PGs, not UniWeb-as-bank.</p>
+        <h3 class="font-semibold mb-1">Partner API credentials (Admin pipe)</h3>
+        <ol class="text-xs text-gray-400 mb-3 space-y-1 list-decimal list-inside">
+            <li><strong class="text-gray-300">Paste Test / Sandbox</strong> keys from the partner dashboard → Save</li>
+            <li>Open the <a href="admin_gateway_detail.php?id=<?= (int)$gatewayId ?>&amp;tab=test" class="text-sky-400 hover:underline">Test</a> tab → Run Test Connection</li>
+            <li>When production keys arrive → paste on <strong class="text-emerald-300">Live</strong> → Save → Test again</li>
+        </ol>
+        <p class="text-xs text-gray-500 mb-2">Encrypted at rest; only last4 shown after save. Leave password fields blank to keep the current value. Merchants never receive these partner keys — they use UniWeb API keys only (<code class="text-gray-400">api_settings.php</code>).</p>
         <div class="flex gap-2 mb-4">
-            <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=keys&env=test" class="text-xs px-3 py-1.5 rounded-lg <?= $keyEnv === 'test' ? 'bg-sky-500/20 text-sky-400' : 'glass text-gray-400' ?>">Test / Sandbox</a>
-            <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=keys&env=live" class="text-xs px-3 py-1.5 rounded-lg <?= $keyEnv === 'live' ? 'bg-emerald-500/20 text-emerald-400' : 'glass text-gray-400' ?>">Live / Production</a>
+            <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=keys&env=test" class="text-xs px-3 py-1.5 rounded-lg <?= $keyEnv === 'test' ? 'bg-sky-500/20 text-sky-400' : 'glass text-gray-400' ?>">1 · Test / Sandbox</a>
+            <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=keys&env=live" class="text-xs px-3 py-1.5 rounded-lg <?= $keyEnv === 'live' ? 'bg-emerald-500/20 text-emerald-400' : 'glass text-gray-400' ?>">2 · Live / Production</a>
+            <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=test" class="text-xs px-3 py-1.5 rounded-lg glass text-violet-300 hover:text-violet-200">3 · Test Connection →</a>
         </div>
         <?php if ($keyEnv === 'live'): ?>
         <div class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 mb-4 text-sm text-emerald-200">You are on <strong>LIVE / PRODUCTION</strong> keys (real money). Sandbox keys stay on the Test tab — never treat staging as live.</div>
@@ -344,6 +353,7 @@ require_once __DIR__ . '/header.php';
             </div>
             <?php endforeach; ?>
             <button type="submit" class="btn-primary px-6 py-2.5">Save <?= e(ucfirst($keyEnv)) ?> Keys</button>
+            <a href="admin_gateway_detail.php?id=<?= (int)$gatewayId ?>&amp;tab=test" class="inline-block ml-2 text-sm text-sky-400 hover:underline">Next: Test Connection →</a>
         </form>
         <?php if ($credStatus['test'] || $credStatus['live']): ?>
         <p class="text-[11px] text-gray-600 mt-3">
@@ -367,9 +377,13 @@ require_once __DIR__ . '/header.php';
     <?php endif; ?>
 
     <?php elseif ($activeTab === 'methods'): ?>
+    <div class="glass rounded-xl p-6 border border-emerald-500/20 text-sm text-gray-300 mb-4">
+        <p class="font-semibold text-emerald-300 mb-1">Go-live order: UPI → Card → Net Banking</p>
+        <p class="text-xs text-gray-500">1) Paste Test/Live keys → 2) Turn methods ON here → 3) Merchant toggles on Payment Methods. Checkout stays the same page — no new app. Soft “waiting for keys” text clears when this partner’s keys are live.</p>
+    </div>
     <div class="glass rounded-xl p-6 border border-gray-800">
         <h3 class="font-semibold mb-1">Payment Methods</h3>
-        <p class="text-xs text-gray-500 mb-4">Enable/disable methods for <?= e($gateway['gateway_name']) ?>. Only enabled methods appear at checkout. Priority: lower = higher preference.</p>
+        <p class="text-xs text-gray-500 mb-4">Enable/disable methods for <?= e($gateway['gateway_name']) ?>. Only partner-ON methods can appear at live checkout. Priority: lower number = prefer first (UPI should stay near 10).</p>
         <div class="space-y-3">
             <?php if (empty($partnerMethods)): ?>
             <p class="text-sm text-gray-500 py-4 text-center">No methods seeded. Run sync from Partner Registry.</p>
@@ -385,6 +399,7 @@ require_once __DIR__ . '/header.php';
                 <label class="flex items-center gap-2 text-sm text-gray-300 min-w-[140px]">
                     <input type="checkbox" name="enabled" <?= $enabled ? 'checked' : '' ?> class="rounded border-gray-600" onchange="this.form.submit()">
                     <?= e($label) ?>
+                    <?php if ($methodKey === 'upi'): ?><span class="text-[10px] text-emerald-500">start here</span><?php endif; ?>
                 </label>
                 <div class="flex items-center gap-2 text-xs">
                     <label class="text-gray-500">Priority</label>
@@ -436,8 +451,21 @@ require_once __DIR__ . '/header.php';
         $routeCfg = getPartnerRouteConfig($partnerKey);
     ?>
     <div class="glass rounded-xl p-6 border border-gray-800">
-        <h3 class="font-semibold mb-1">Commercial &amp; Route scaffold — <?= e($gateway['gateway_name']) ?></h3>
-        <p class="text-xs text-gray-500 mb-4">Partner MDR (P) here. Route / Easy Split stays scaffold — not live marketplace split until Owner + commercial + keys.</p>
+        <h3 class="font-semibold mb-1">Commercial — <?= e($gateway['gateway_name']) ?></h3>
+        <div class="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3 mb-4 text-xs text-gray-300 space-y-1">
+            <p class="font-medium text-emerald-300">Revenue model: commission on successful transactions</p>
+            <p class="text-gray-500">UniWeb does not sell a white-label software package. You set partner cost (P) and merchant schedule (M); UniWeb earns the platform margin on live captures.</p>
+            <?php
+            $exGross = 100.0;
+            $exP = (float)$defaultP;
+            $exM = max($exP, defined('DEFAULT_MDR_PERCENT') ? (float)DEFAULT_MDR_PERCENT : 2.0);
+            $exPartner = round($exGross * $exP / 100, 2);
+            $exAdmin = round($exGross * max(0, $exM - $exP) / 100, 2);
+            $exMerch = round($exGross - ($exGross * $exM / 100), 2);
+            ?>
+            <p class="text-sky-300/90 pt-1">Example on ₹100 (current P <?= e(number_format($exP, 2)) ?>%, sample M <?= e(number_format($exM, 2)) ?>%): Admin cut <?= formatMoney($exAdmin) ?> · Partner cut <?= formatMoney($exPartner) ?> · Merchant baaki <?= formatMoney($exMerch) ?>. Same math posts to ledger on success.</p>
+        </div>
+        <p class="text-xs text-gray-500 mb-4">Save Partner MDR below. Route / Easy Split SDK stays <strong class="text-amber-400">parked</strong> until Owner + keys — commission still applies via standard settle on this engine.</p>
 
         <?php if ($pricingError): ?>
         <div class="rounded-lg border border-amber-700/50 bg-amber-900/20 p-3 mb-4 text-sm text-amber-300">
@@ -445,30 +473,30 @@ require_once __DIR__ . '/header.php';
         </div>
         <?php elseif (!$commercialRow): ?>
         <div class="rounded-lg border border-gray-700 bg-gray-800/30 p-3 mb-4 text-sm text-gray-400">
-            No commercial terms saved yet for <?= e($gateway['gateway_name']) ?>. Set the default MDR and settlement mode below and click Save.
+            No commercial terms saved yet for <?= e($gateway['gateway_name']) ?>. Set default Partner MDR (P) and settlement mode, then Save.
         </div>
         <?php endif; ?>
 
         <!-- Section A: Partner Commercial (MDR) -->
         <div class="rounded-lg border border-gray-800 p-4 mb-6">
             <h4 class="text-sm font-semibold mb-1">Section A — Partner MDR (P)</h4>
-            <p class="text-xs text-gray-600 mb-3">Partner cost (P). Platform margin = Merchant MDR (M) − P. If per-method P is 0, the default below is used.</p>
+            <p class="text-xs text-gray-600 mb-3">P = bank/PG cost. M = merchant MDR (merchant schedule). UniWeb commission ≈ M − P when both are set. If per-method P is 0, the default below applies.</p>
 
             <form method="POST" class="flex flex-wrap items-end gap-3 mb-4">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="save_commercial">
                 <div>
-                    <label class="text-gray-500 text-xs block mb-1">Default P %</label>
-                    <input type="number" name="base_mdr_percent" value="<?= e(number_format($defaultP, 4)) ?>" class="input-field w-32" step="0.01" min="0" max="100">
+                    <label class="text-gray-500 text-xs block mb-1">Default Partner MDR (P) %</label>
+                    <input type="number" name="base_mdr_percent" value="<?= e(number_format($defaultP, 4)) ?>" class="input-field w-32" step="0.01" min="0" max="100" title="Partner cost percent">
                 </div>
                 <div>
                     <label class="text-gray-500 text-xs block mb-1">Settlement mode</label>
                     <select name="settlement_mode" class="input-field w-48">
-                        <option value="standard_settle_mode" <?= ($commercialRow['settlement_mode'] ?? '') === 'standard_settle_mode' ? 'selected' : '' ?>>Standard settle</option>
-                        <option value="route_mode" <?= ($commercialRow['settlement_mode'] ?? '') === 'route_mode' ? 'selected' : '' ?>>Route mode</option>
+                        <option value="standard_settle_mode" <?= ($commercialRow['settlement_mode'] ?? '') === 'standard_settle_mode' ? 'selected' : '' ?>>Standard settle (commission on capture)</option>
+                        <option value="route_mode" <?= ($commercialRow['settlement_mode'] ?? '') === 'route_mode' ? 'selected' : '' ?>>Route mode (scaffold)</option>
                     </select>
                 </div>
-                <button type="submit" class="btn-primary px-4 py-2 text-sm">Save default</button>
+                <button type="submit" class="btn-primary px-4 py-2 text-sm">Save commercial</button>
             </form>
 
             <h5 class="text-xs font-semibold text-gray-500 uppercase mb-2">Per-method Partner MDR (P)</h5>
@@ -489,8 +517,8 @@ require_once __DIR__ . '/header.php';
 
         <!-- Section B: Route / Split Scaffold -->
         <div class="rounded-lg border border-gray-800 p-4">
-            <h4 class="text-sm font-semibold mb-1">Section B — Route / Split Scaffold</h4>
-            <p class="text-xs text-gray-600 mb-3">Save-only configuration. No provider API calls are made. Route status stays <code class="text-amber-400">scaffold</code> until a future ticket implements live API integration.</p>
+            <h4 class="text-sm font-semibold mb-1">Section B — Route / Split (scaffold)</h4>
+            <p class="text-xs text-gray-600 mb-3">Optional partner programme credentials only — not a UniWeb product for sale. Save-only; No provider API calls are made. Status stays <code class="text-amber-400">scaffold</code> until Owner unlocks Route.</p>
 
             <form method="POST" class="space-y-4">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -552,7 +580,7 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <div class="mt-6 pt-4 border-t border-gray-800 text-xs text-gray-500">
-            <p><strong class="text-gray-400">P</strong> = Partner MDR (Section A) · <strong class="text-gray-400">M</strong> = Merchant MDR (admin_edit_merchant) · Platform margin = M − P</p>
+            <p><strong class="text-gray-400">P</strong> = Partner MDR (Section A) · <strong class="text-gray-400">M</strong> = Merchant MDR · <strong class="text-gray-400">UniWeb commission</strong> ≈ M − P on successful captures</p>
             <p class="mt-1">Route scaffold: <strong class="text-gray-400"><?= e($routeCfg['route_status']) ?></strong> · canUsePartnerRoute(): <strong class="<?= canUsePartnerRoute($partnerKey) ? 'text-emerald-400' : 'text-gray-600' ?>"><?= canUsePartnerRoute($partnerKey) ? 'true' : 'false' ?></strong></p>
         </div>
     </div>
@@ -649,7 +677,14 @@ require_once __DIR__ . '/header.php';
     <?php elseif ($activeTab === 'test'): ?>
     <div class="glass rounded-xl p-6 border border-gray-800">
         <h3 class="font-semibold mb-1">Connection Test</h3>
-        <p class="text-xs text-gray-500 mb-4">Test API connectivity with saved credentials.</p>
+        <p class="text-xs text-gray-500 mb-2">Uses the credentials currently saved for this partner (prefer Test keys first, then Live). No new vault — same encrypted Partner Registry store.</p>
+        <p class="text-xs text-gray-600 mb-4">
+            Saved now:
+            <?php if ($credStatus['test']): ?><span class="text-sky-400">Test ***<?= e($credStatus['test_last4']) ?></span><?php else: ?><span class="text-amber-400">Test missing</span><?php endif; ?>
+            ·
+            <?php if ($credStatus['live']): ?><span class="text-emerald-400">Live ***<?= e($credStatus['live_last4']) ?></span><?php else: ?><span class="text-gray-500">Live not set</span><?php endif; ?>
+            · <a href="admin_gateway_detail.php?id=<?= (int)$gatewayId ?>&amp;tab=keys&amp;env=test" class="text-sky-400 hover:underline">Edit keys</a>
+        </p>
         <div class="bg-dark-900/50 rounded-lg p-4 mb-4">
             <p class="text-sm <?= $testResult['ok'] ? 'text-emerald-400' : 'text-amber-400' ?>"><?= e($testResult['message']) ?></p>
         </div>

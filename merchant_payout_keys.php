@@ -31,7 +31,7 @@ require_once __DIR__ . '/header.php';
 ?>
 <div class="max-w-3xl space-y-6">
     <div>
-        <p class="text-sm text-gray-400">Generate / rotate / revoke merchant payout API credentials (same security pattern as collection API keys). Live payout API calls stay gated until partner keys + <code class="text-xs">payout_live_enabled</code>.</p>
+        <p class="text-sm text-gray-400">Generate / rotate / revoke <strong class="text-gray-300">UniWeb</strong> merchant payout API credentials (same pattern as collection API keys). These are not bank/PG partner secrets. Live payout API calls stay gated until Admin pastes partner keys + <code class="text-xs">payout_live_enabled</code>.</p>
         <p class="text-xs text-amber-400 mt-2"><?= e(payoutActivationMessage()) ?></p>
         <p class="text-xs mt-2"><a href="merchant_payout.php" class="text-sky-400 hover:underline">← Back to Payouts</a> · <a href="api_settings.php" class="text-sky-400 hover:underline">Collection API keys</a></p>
     </div>

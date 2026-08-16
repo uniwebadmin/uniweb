@@ -39,7 +39,7 @@ require_once __DIR__ . '/header.php';
             <div class="company-card"><h3>BNPL &amp; EMI</h3><p>Partner-led EMI and Buy Now Pay Later with merchant-configurable eligibility rules.</p></div>
             <div class="company-card"><h3>Neo-banking layer</h3><p>Vendor payouts, expense cards and virtual accounts via BaaS partners.</p></div>
             <div class="company-card"><h3>AI operations</h3><p>Velocity-based fraud scoring, anomaly alerts and reconciliation assist for ops teams.</p></div>
-            <div class="company-card"><h3>Enterprise</h3><p>Marketplace splits, sub-merchants, granular API scopes, and partner-led rails for larger merchants — not a separate white-label product.</p></div>
+            <div class="company-card"><h3>Enterprise</h3><p>Marketplace splits, merchant branch hierarchy, granular API scopes, and bank/PG rails under Admin — not a partner-owned merchant book, not a separate white-label product.</p></div>
         </div>
         <p class="company-lead mt-6">Regulatory licences (Payment Aggregator, PPI, NBFC partnerships) follow commercial traction and legal counsel — we do not claim licences we have not been granted. We do not copy Razorpay Route, Cashfree Easy Split or Worldline POS until the Owner starts that deal. See <a href="compare.php" class="text-brand-400">how UniWeb compares</a>.</p>
     </div></section>

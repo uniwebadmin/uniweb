@@ -75,7 +75,7 @@ require_once __DIR__ . '/header.php';
             <div>
                 <label class="text-sm text-gray-400 block mb-2">Payment Methods</label>
                 <div class="bg-dark-900/50 rounded-xl p-4 border border-gray-800">
-                    <p class="text-xs text-gray-400 mb-3">Manage your payment methods (ON/OFF toggles) on the dedicated Payment Methods page.</p>
+                    <p class="text-xs text-gray-400 mb-3">ON/OFF toggles live on Payment Methods. Recommended go-live order: <strong class="text-gray-300">UPI → Card → Net Banking</strong>.</p>
                     <a href="payment_methods.php" class="inline-block text-sm bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg font-semibold">Manage Payment Methods →</a>
                 </div>
             </div>
@@ -110,9 +110,19 @@ require_once __DIR__ . '/header.php';
     <?php endif; ?>
 
     <div class="glass rounded-xl p-6 text-sm">
-        <h3 class="font-semibold mb-2">Commission Preview</h3>
-        <?php $demo = calculateSplitBreakdown(1000, $merchant); ?>
-        <p class="text-gray-400">On ₹1,000 payment: Merchant <?= formatMoney($demo['merchant_net']) ?> · Platform <?= formatMoney($demo['platform_fee']) ?></p>
+        <h3 class="font-semibold mb-2">Commission Preview (realtime feel)</h3>
+        <?php
+        $demo = function_exists('commissionSplitRealtimePreview')
+            ? commissionSplitRealtimePreview(100, $merchant)
+            : calculateSplitBreakdown(100, $merchant);
+        ?>
+        <p class="text-gray-400 mb-2">On ₹100 success payment (Admin-saved %):</p>
+        <ul class="text-xs text-gray-500 space-y-1">
+            <li>Admin cut: <span class="text-amber-400"><?= formatMoney((float)($demo['admin_cut'] ?? $demo['platform_fee'] ?? 0)) ?></span></li>
+            <li>Partner cut: <span class="text-gray-300"><?= formatMoney((float)($demo['partner_cut'] ?? $demo['partner_fee'] ?? 0)) ?></span></li>
+            <li>Merchant baaki: <span class="text-emerald-400"><?= formatMoney((float)($demo['merchant_net'] ?? 0)) ?></span></li>
+        </ul>
+        <p class="text-[11px] text-gray-600 mt-3">Route/Split SDK is parked. This preview uses the same settlement engine as live capture.</p>
     </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

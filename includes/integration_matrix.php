@@ -55,7 +55,7 @@ function integrationMatrixCellStatus(string $gateway, string $operation): array
 
     if (in_array($operation, ['live_mode_call', 'test_mode_call'], true)) {
         if (!$configured) {
-            return ['status' => 'blocked_owner', 'note' => 'Partner keys not configured — owner paste in gateway_settings.php'];
+            return ['status' => 'blocked_owner', 'note' => 'Partner keys not configured — owner paste in Partner Registry → Partner Detail → Keys'];
         }
         if ($operation === 'live_mode_call' && $gateway === 'axis') {
             return ['status' => 'blocked_axis_uat', 'note' => 'Axis live blocked until RM/UAT package (bucket 6)'];

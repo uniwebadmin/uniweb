@@ -35,15 +35,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 }
 
 $methods = getMerchantPaymentMethods($merchantId);
+$payuReady = function_exists('isGatewayConfigured') && isGatewayConfigured('payu');
+$rzpReady = function_exists('isGatewayConfigured') && isGatewayConfigured('razorpay');
+$cfReady = function_exists('isGatewayConfigured') && isGatewayConfigured('cashfree');
 $pageTitle = 'Payment Methods';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="max-w-2xl space-y-6">
+    <div class="glass rounded-xl p-6 border border-emerald-500/20 text-sm text-gray-300">
+        <p class="font-semibold text-emerald-300 mb-1">Collect order: UPI first, then Card, then Net Banking</p>
+        <p class="text-xs text-gray-500">Turn ON the methods customers should see. Live Card / Net Banking need partner keys in Admin (Partner Registry). Until then, Test Mode can still use Instant Test Pay.</p>
+    </div>
+
+    <?php if (!$payuReady && !$rzpReady && !$cfReady): ?>
+    <div class="glass rounded-xl p-4 border border-amber-500/20 text-xs text-amber-200/90">
+        Partner Card / Net Banking rails are waiting on Admin keys. <strong class="text-amber-100">UPI P2M</strong> can still collect when you turn it ON.
+    </div>
+    <?php else: ?>
+    <div class="glass rounded-xl p-4 border border-sky-500/20 text-xs text-gray-400">
+        Partner rails ready:
+        <?= $payuReady ? '<span class="text-emerald-400">PayU</span> ' : '' ?>
+        <?= $rzpReady ? '<span class="text-emerald-400">Razorpay</span> ' : '' ?>
+        <?= $cfReady ? '<span class="text-emerald-400">Cashfree</span> ' : '' ?>
+        — soft “keys not configured” notes stay off checkout for those partners.
+    </div>
+    <?php endif; ?>
+
     <div class="glass rounded-xl p-6 border border-gray-800">
         <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
             <div>
                 <h2 class="font-semibold text-lg">Payment Methods</h2>
-                <p class="text-xs text-gray-500 mt-1">Toggle ON/OFF which payment methods customers see at checkout.</p>
+                <p class="text-xs text-gray-500 mt-1">Toggle ON/OFF which payment methods customers see at checkout. List is UPI → Card → Net Banking.</p>
             </div>
             <div class="text-center">
                 <p class="text-2xl font-bold text-emerald-400"><?= count(array_filter($methods, fn($m) => (int)$m['is_enabled'] === 1)) ?></p>
@@ -54,7 +76,7 @@ require_once __DIR__ . '/header.php';
         <?php if (empty($methods)): ?>
         <div class="bg-dark-900/50 rounded-xl p-8 text-center border border-gray-800">
             <p class="text-sm text-gray-400 mb-2">No payment methods available yet.</p>
-            <p class="text-xs text-gray-600">Admin needs to activate a payment gateway first. Once activated, methods will appear here for you to toggle ON/OFF.</p>
+            <p class="text-xs text-gray-600">Admin activates partners in Partner Registry first. Then methods appear here for you to toggle ON/OFF.</p>
         </div>
         <?php else: ?>
         <form method="POST" id="bulkForm" class="space-y-3">
@@ -86,6 +108,11 @@ require_once __DIR__ . '/header.php';
                             if ((int)$m['supports_refund']) $caps[] = 'Refund';
                             if ((int)$m['supports_recurring']) $caps[] = 'Recurring';
                             echo e(implode(' · ', $caps));
+                            if (in_array($m['gateway_key'], ['upi_p2m', 'qr_code'], true)) {
+                                echo ' · <span class="text-emerald-500">Start here</span>';
+                            } elseif (in_array($m['gateway_key'], ['credit_card', 'debit_card', 'net_banking'], true) && !$payuReady && !$rzpReady && !$cfReady) {
+                                echo ' · <span class="text-amber-500">Needs partner keys (Admin)</span>';
+                            }
                             ?>
                         </p>
                     </div>
@@ -103,7 +130,7 @@ require_once __DIR__ . '/header.php';
 
     <div class="glass rounded-xl p-4 border border-gray-800">
         <p class="text-xs text-gray-500">
-            <strong class="text-gray-400">How it works:</strong> Admin activates payment gateways → methods appear here → you toggle ON the ones you want → customers see only enabled methods at checkout. If a gateway goes down, the system automatically routes to the next best available gateway.
+            <strong class="text-gray-400">How it works:</strong> Admin pastes partner keys (Partner Registry) → turns partner methods ON → you toggle methods here → checkout shows them in UPI → Card → Net Banking order. No second checkout app.
         </p>
     </div>
 </div>

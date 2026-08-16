@@ -171,6 +171,11 @@ if ($createdId !== '') {
 </div>
 <?php endif; ?>
 
+<div class="glass rounded-xl p-4 mb-6 border border-emerald-500/20 text-sm text-gray-300">
+    <p class="font-semibold text-emerald-300 mb-1">Collect on your site — like a Razorpay payment link</p>
+    <p class="text-xs text-gray-500">Create a link → Share / WhatsApp, or open <strong class="text-gray-400">Add to Website</strong> and paste the HTML button on your page. Branding stays: your domain + <a href="checkout_customize.php" class="text-sky-400 hover:underline">Checkout Customize</a> only — not a full rebranded UniWeb.</p>
+</div>
+
 <div class="glass rounded-xl p-4 mb-6 border border-sky-500/20 text-xs text-gray-400 flex flex-wrap items-center justify-between gap-3">
     <p>
         <strong class="text-sky-300">Tip:</strong> Choose <strong class="text-white">UPI</strong> for QR.
@@ -315,14 +320,15 @@ if ($createdId !== '') {
 
                             <div id="link-website-<?= (int)$link['id'] ?>" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onclick="if(event.target===this) this.classList.add('hidden')">
                                 <div class="glass rounded-xl p-5 max-w-md w-full">
-                                    <h3 class="font-semibold mb-3">Add to Website — <?= e($link['link_id']) ?></h3>
-                                    <label class="text-[11px] text-gray-500 uppercase">Direct Link</label>
+                                    <h3 class="font-semibold mb-1">Put this on your website</h3>
+                                    <p class="text-xs text-gray-500 mb-3">Paste into your HTML / WordPress / Shopify page — customers pay on UniWeb checkout. Link ID: <?= e($link['link_id']) ?></p>
+                                    <label class="text-[11px] text-gray-500 uppercase">1 · Checkout URL</label>
                                     <input type="text" value="<?= e($payUrl) ?>" readonly class="input-field text-xs w-full mb-3" onclick="this.select()">
-                                    <label class="text-[11px] text-gray-500 uppercase">HTML Button</label>
+                                    <label class="text-[11px] text-gray-500 uppercase">2 · HTML Pay button (copy-paste)</label>
                                     <textarea readonly rows="3" class="input-field text-xs w-full mb-3 font-mono" onclick="this.select()"><?= e($embedHtml) ?></textarea>
-                                    <label class="text-[11px] text-gray-500 uppercase">QR Image URL</label>
+                                    <label class="text-[11px] text-gray-500 uppercase">3 · QR image URL (optional)</label>
                                     <input type="text" value="<?= e($qrImgUrl) ?>" readonly class="input-field text-xs w-full mb-3" onclick="this.select()">
-                                    <p class="text-[11px] text-gray-500">Paste the link or button code on your website, blog or invoice.</p>
+                                    <p class="text-[11px] text-gray-500">This is collect-on-your-site — not a white-label UniWeb portal. Logo/colours: <a href="checkout_customize.php" class="text-sky-400 hover:underline">Checkout Customize</a>.</p>
                                     <button type="button" onclick="this.closest('.fixed').classList.add('hidden')" class="mt-4 w-full py-2 rounded-lg border border-gray-700 text-gray-400">Close</button>
                                 </div>
                             </div>

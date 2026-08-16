@@ -85,13 +85,22 @@ function seedPartnerMethods(): void
     }
     $db = getDB();
     $registry = getPartnerRegistry();
-    $defaultMethods = ['upi', 'credit_card', 'debit_card', 'netbanking', 'emi', 'emandate_upi', 'emandate_card', 'emandate_nb'];
+    $defaultMethods = [
+        ['upi', 10],
+        ['debit_card', 30],
+        ['credit_card', 31],
+        ['netbanking', 40],
+        ['emi', 50],
+        ['emandate_upi', 60],
+        ['emandate_card', 61],
+        ['emandate_nb', 62],
+    ];
 
     foreach ($registry as $key => $p) {
-        foreach ($defaultMethods as $method) {
+        foreach ($defaultMethods as [$method, $priority]) {
             try {
-                $db->prepare("INSERT IGNORE INTO partner_methods (partner_key, method, is_enabled, priority) VALUES (?,?,0,50)")
-                    ->execute([$key, $method]);
+                $db->prepare("INSERT IGNORE INTO partner_methods (partner_key, method, is_enabled, priority) VALUES (?,?,0,?)")
+                    ->execute([$key, $method, $priority]);
             } catch (Throwable $e) { /* ok */ }
         }
     }
@@ -455,7 +464,11 @@ function getPartnerMethods(string $partnerKey): array
     try {
         $st = getDB()->prepare("SELECT * FROM partner_methods WHERE partner_key=? ORDER BY priority ASC, method ASC");
         $st->execute([$partnerKey]);
-        return $st->fetchAll();
+        $rows = $st->fetchAll();
+        if (function_exists('sortPaymentMethodsUpiFirst')) {
+            return sortPaymentMethodsUpiFirst($rows, 'method');
+        }
+        return $rows;
     } catch (Throwable $e) {
         return [];
     }

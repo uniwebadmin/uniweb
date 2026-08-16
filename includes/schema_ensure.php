@@ -206,7 +206,7 @@ function ensureDisputesEngine(): void
         merchant_id INT NOT NULL,
         transaction_id INT NOT NULL,
         reason TEXT NOT NULL,
-        status ENUM('open','under_review','resolved','closed') DEFAULT 'open',
+        status ENUM('open','under_review','forwarded_partner','resolved','closed') DEFAULT 'open',
         resolution TEXT,
         sla_due_at DATETIME DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -216,6 +216,57 @@ function ensureDisputesEngine(): void
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     schemaExecQuiet('ALTER TABLE disputes ADD COLUMN sla_due_at DATETIME DEFAULT NULL AFTER resolution');
     schemaExecQuiet("UPDATE disputes SET sla_due_at = DATE_ADD(created_at, INTERVAL 5 DAY) WHERE sla_due_at IS NULL");
+    // Block 9 V1: Admin-first single partner forward (bulk / smart route later)
+    schemaExecQuiet("ALTER TABLE disputes MODIFY COLUMN status ENUM('open','under_review','forwarded_partner','resolved','closed') DEFAULT 'open'");
+    schemaExecQuiet('ALTER TABLE disputes ADD COLUMN forwarded_partner_key VARCHAR(40) DEFAULT NULL AFTER resolution');
+    schemaExecQuiet('ALTER TABLE disputes ADD COLUMN forwarded_at DATETIME DEFAULT NULL AFTER forwarded_partner_key');
+    schemaExecQuiet('ALTER TABLE disputes ADD COLUMN forwarded_note VARCHAR(500) DEFAULT NULL AFTER forwarded_at');
+}
+
+/**
+ * Block 9 V1: forward one dispute to a partner (Admin first). No bulk / smart route yet.
+ *
+ * @return array{ok:bool,message:string}
+ */
+function forwardDisputeToPartner(int $disputeId, string $partnerKey, string $note, int $adminId = 0): array
+{
+    ensureDisputesEngine();
+    $partnerKey = preg_replace('/[^a-z0-9_]/', '', strtolower(trim($partnerKey))) ?? '';
+    if ($partnerKey === '') {
+        return ['ok' => false, 'message' => 'Select a partner to forward this dispute.'];
+    }
+    $note = mb_substr(trim($note), 0, 500);
+    if ($note === '') {
+        $note = 'Forwarded by Admin for partner review';
+    }
+    try {
+        $db = getDB();
+        $st = $db->prepare('SELECT d.*, m.business_name FROM disputes d JOIN merchants m ON m.id=d.merchant_id WHERE d.id=? LIMIT 1');
+        $st->execute([$disputeId]);
+        $row = $st->fetch();
+        if (!$row) {
+            return ['ok' => false, 'message' => 'Dispute not found.'];
+        }
+        if (!in_array((string)$row['status'], ['open', 'under_review', 'forwarded_partner'], true)) {
+            return ['ok' => false, 'message' => 'This dispute is already closed or resolved.'];
+        }
+        $db->prepare("UPDATE disputes SET status='forwarded_partner', forwarded_partner_key=?, forwarded_at=NOW(), forwarded_note=?, resolution=? WHERE id=?")
+            ->execute([$partnerKey, $note, 'Forwarded to ' . $partnerKey . ' — ' . $note, $disputeId]);
+        if (function_exists('logStaffActivity')) {
+            logStaffActivity('dispute_forward_partner', $row['dispute_id'] . ' → ' . $partnerKey, (int)$row['merchant_id'], 'dispute', (string)$row['dispute_id']);
+        }
+        if (function_exists('createNotification')) {
+            createNotification(
+                (int)$row['merchant_id'],
+                'Dispute forwarded',
+                'Admin forwarded ' . $row['dispute_id'] . ' to partner (' . $partnerKey . '). You will be updated when it is resolved.',
+                'dispute_' . $disputeId
+            );
+        }
+        return ['ok' => true, 'message' => 'Dispute forwarded to ' . $partnerKey . ' (single forward — bulk later).'];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'message' => 'Could not forward dispute.'];
+    }
 }
 
 function ensureMerchantAgreementSchema(): void

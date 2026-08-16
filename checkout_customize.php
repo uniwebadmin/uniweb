@@ -30,8 +30,8 @@ require_once __DIR__ . '/header.php';
 <div class="max-w-3xl mx-auto px-4 py-8">
     <div class="flex items-center justify-between mb-6">
         <div>
-            <h1 class="text-2xl font-bold text-white">Customize Checkout Page</h1>
-            <p class="text-sm text-gray-500 mt-1">Apna logo, colors, aur theme lagayein checkout page par.</p>
+            <h1 class="text-2xl font-bold text-white">Customize Checkout</h1>
+            <p class="text-sm text-gray-500 mt-1">Logo, colours and titles on your payment page — same UniWeb checkout. Own domain + this look only; not a full white-label portal.</p>
         </div>
         <a href="dashboard.php" class="text-sm text-gray-400 border border-gray-700 px-4 py-2 rounded-lg">← Dashboard</a>
     </div>
@@ -40,7 +40,7 @@ require_once __DIR__ . '/header.php';
     <div class="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 mb-6 flex items-center justify-between">
         <div class="flex items-center gap-3">
             <span class="w-2 h-2 bg-emerald-400 rounded-full"></span>
-            <span class="text-sm text-emerald-400">Customization is <strong>ON</strong> — checkout page ab aapke colors aur logo ke saath dikhega.</span>
+            <span class="text-sm text-emerald-400">Customization is <strong>ON</strong> — checkout shows your logo and colours.</span>
         </div>
         <form method="POST" class="inline">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -50,7 +50,7 @@ require_once __DIR__ . '/header.php';
     </div>
     <?php else: ?>
     <div class="bg-gray-800/30 border border-gray-700 rounded-xl p-4 mb-6">
-        <p class="text-sm text-gray-400">Customization is <strong class="text-gray-500">OFF</strong>. Save settings aur "Enable" checkbox tick karein to activate.</p>
+        <p class="text-sm text-gray-400">Customization is <strong class="text-gray-500">OFF</strong>. Save settings and tick <strong class="text-gray-300">Enable</strong> to activate.</p>
     </div>
     <?php endif; ?>
 
@@ -63,7 +63,7 @@ require_once __DIR__ . '/header.php';
             <div class="mb-4">
                 <label class="block text-sm text-gray-400 mb-2">Logo Image URL</label>
                 <input type="url" name="logo_url" value="<?= e($cc['logo_url'] ?? '') ?>" placeholder="https://example.com/logo.png" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm">
-                <p class="text-xs text-gray-600 mt-1">Apne logo ka URL paste karein. PNG/SVG recommended. Size: max 180px wide.</p>
+                <p class="text-xs text-gray-600 mt-1">Paste your logo image URL. PNG/SVG recommended. Max width ~180px.</p>
             </div>
             <?php if (!empty($cc['logo_url'])): ?>
             <div class="bg-gray-800/50 rounded-lg p-4 flex items-center gap-3">
@@ -108,7 +108,7 @@ require_once __DIR__ . '/header.php';
             <div class="mb-4">
                 <label class="block text-sm text-gray-400 mb-2">Checkout Page Title (optional)</label>
                 <input type="text" name="checkout_title" value="<?= e($cc['checkout_title'] ?? '') ?>" placeholder="e.g. Pay to Acme Store" maxlength="200" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm">
-                <p class="text-xs text-gray-600 mt-1">Browser tab title aur header text. Leave blank for default.</p>
+                <p class="text-xs text-gray-600 mt-1">Browser tab title and header text. Leave blank for default.</p>
             </div>
             <div class="mb-4">
                 <label class="block text-sm text-gray-400 mb-2">Checkout Subtitle (optional)</label>
@@ -156,7 +156,7 @@ require_once __DIR__ . '/header.php';
                 <input type="checkbox" name="is_active" value="1" <?= !empty($cc['is_active']) ? 'checked' : '' ?> class="w-5 h-5 rounded">
                 <div>
                     <span class="text-sm text-white font-semibold">Enable Customization</span>
-                    <p class="text-xs text-gray-500">Tick karein to checkout page par aapke settings apply hon.</p>
+                    <p class="text-xs text-gray-500">Tick to apply your settings on the checkout page.</p>
                 </div>
             </label>
         </div>
@@ -170,17 +170,18 @@ require_once __DIR__ . '/header.php';
     <div class="mt-8 bg-gray-900/60 border border-gray-800 rounded-xl p-6">
         <h2 class="text-lg font-bold text-white mb-2">Your domain + this checkout look</h2>
         <ol class="text-sm text-gray-400 space-y-2 list-decimal pl-5">
-            <li>Add your domain in Hostinger and turn on SSL (same UniWeb site — not a second app).</li>
-            <li>Point DNS at this site; set the live site URL in server config (never commit keys).</li>
-            <li>Use this page for your logo, colours, and checkout titles.</li>
-            <li>UniWeb does not sell a white-label program. Partner banks/PGs are separate from merchant branding.</li>
+            <li>Point your own domain at this UniWeb site (Hostinger + SSL) — same app, not a second product.</li>
+            <li>Use this page for logo, colours, and checkout titles.</li>
+            <li>Collect with Payment Links, QR, or API embed on your website.</li>
+            <li>Stop here: UniWeb does not sell a rebranded portal. Revenue is commission on payments.</li>
         </ol>
+        <p class="text-xs text-gray-600 mt-4"><a href="payment_links.php" class="text-sky-400 hover:underline">Payment Links</a> · <a href="qr_code.php" class="text-sky-400 hover:underline">QR</a> · <a href="merchant_website.php" class="text-sky-400 hover:underline">Website / Pay button</a> · <a href="api_settings.php" class="text-sky-400 hover:underline">API keys</a></p>
     </div>
 
     <?php if (!empty($cc['is_active'])): ?>
     <div class="mt-8 bg-gray-900/60 border border-gray-800 rounded-xl p-6">
         <h2 class="text-lg font-bold text-white mb-2">Live Preview</h2>
-        <p class="text-sm text-gray-500 mb-4">Aapke checkout page ka preview (approximate):</p>
+        <p class="text-sm text-gray-500 mb-4">Approximate preview of your checkout page:</p>
         <div class="bg-dark-950 border border-gray-800 rounded-xl overflow-hidden">
             <div class="border-b border-gray-800 bg-dark-900/95 px-4 py-4">
                 <div class="max-w-lg mx-auto flex items-center justify-between">

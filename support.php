@@ -73,7 +73,8 @@ require_once __DIR__ . '/header.php';
 <div class="grid lg:grid-cols-3 gap-6">
     <div class="space-y-6">
         <div class="glass rounded-xl p-6">
-            <h2 class="font-semibold mb-4">Raise a Ticket</h2>
+            <h2 class="font-semibold mb-2">Raise a Ticket</h2>
+            <p class="text-xs text-sky-400/90 mb-3">Admin replies first. For payment chargebacks use <a href="disputes.php" class="underline">Disputes</a> — Admin reviews, then resolve or forward.</p>
             <form id="raise-ticket" method="POST" class="space-y-4" aria-label="Raise support ticket">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <div>

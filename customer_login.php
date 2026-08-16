@@ -126,6 +126,7 @@ require_once __DIR__ . '/header.php';
             <?php endif; ?>
             <p class="ap-foot">Need help? <a href="contact.php" class="ap-link">Contact support</a></p>
             <p class="ap-foot" style="margin-top:.5rem;"><?= e(customerPortalScopeCopy()) ?></p>
+            <p class="ap-foot" style="margin-top:.35rem;font-size:.75rem;opacity:.85">Customer portal only. Merchants use <a href="login.php" class="ap-text-link">merchant login</a>.</p>
         </div>
     </div>
 </div>

@@ -84,6 +84,11 @@ $pageTitle = 'Support Tickets';
 require_once __DIR__ . '/header.php';
 ?>
 
+<div class="glass rounded-xl p-4 mb-6 border border-emerald-500/20 text-sm text-gray-300">
+    <p class="font-semibold text-emerald-300 mb-1">Admin first — support queue</p>
+    <p class="text-xs text-gray-500">Merchant tickets land here for Admin/staff reply. Payment chargeback disputes: use <a href="admin_disputes.php" class="text-sky-400 hover:underline">Disputes</a> (resolve or single partner forward). Bulk routing later — no new app.</p>
+</div>
+
 <?= uxListToolbar(uxExportCsvLink(array_filter(['q' => $q ?: null, 'status' => $statusFilter !== 'all' ? $statusFilter : null]))) ?>
 
 <?php if (!empty($websiteInquiries)): ?>

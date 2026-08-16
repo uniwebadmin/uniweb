@@ -158,7 +158,7 @@ if ($step1Done && !$step2Done) {
 $kycSteps = [
     1 => ['title' => 'Verify identity numbers', 'hint' => kycStepOneHint($verifyFields)],
     2 => ['title' => 'Upload documents', 'hint' => 'Only files required for ' . entityTypeLabel($entityType)],
-    3 => ['title' => 'Video KYC & agreement', 'hint' => 'Selfie video + contract'],
+    3 => ['title' => 'Video KYC & agreement', 'hint' => 'Live camera only · IP + date/time saved'],
 ];
 
 $docStatusMeta = static function (string $status): array {
@@ -187,9 +187,9 @@ $docStatusMeta = static function (string $status): array {
 <div class="kyc-root">
     <div class="kyc-main space-y-6">
     <div class="glass rounded-2xl p-5 border border-sky-500/20">
-        <p class="text-xs text-sky-400 uppercase tracking-wider mb-1">KYC Verification</p>
-        <h1 class="text-xl font-bold mb-3">Complete your compliance checklist</h1>
-        <p class="text-sm text-gray-400 mb-4">Each document shows its live status. If a file is rejected, the exact reason appears so you can fix and re-upload.</p>
+        <p class="text-xs text-sky-400 uppercase tracking-wider mb-1">KYC → Go-live</p>
+        <h1 class="text-xl font-bold mb-3">Signup → Docs → Verify → Live</h1>
+        <p class="text-sm text-gray-400 mb-4">Upload documents, complete live camera Video KYC, wait for Admin Verify. Rejected items show the exact reason so you can fix and re-upload. Real money starts only after Live activation.</p>
         <div class="grid sm:grid-cols-3 gap-3">
             <?php foreach ($kycSteps as $num => $step):
                 $done = $num === 1 ? $step1Done : ($num === 2 ? $step2Done : $step3Ready);
@@ -202,7 +202,7 @@ $docStatusMeta = static function (string $status): array {
             </div>
             <?php endforeach; ?>
         </div>
-        <p class="text-xs text-gray-500 mt-3">Complete all steps for faster Live Mode activation. Real-time registry checks run when verification API keys are configured.</p>
+        <p class="text-xs text-gray-500 mt-3">After Verify, partners receive your pack only when Admin has partner keys + commercial set — same forward queue, no extra portal.</p>
     </div>
 
     <?php if (!empty($rejectedDocs)): ?>
@@ -328,7 +328,7 @@ $docStatusMeta = static function (string $status): array {
                     <p class="font-semibold text-violet-200">Video KYC</p>
                     <?= statusBadge($vkStatus) ?>
                 </div>
-                <p class="text-xs text-gray-500 mt-0.5">Live camera recording with your name, shop name and address</p>
+                <p class="text-xs text-gray-500 mt-0.5">Live camera only — IP and recording date/time are saved (no gallery file upload)</p>
                 <?php if ($vkRejected): ?>
                 <p class="text-xs text-red-300 mt-2">Reason: <?= e(kycRejectionDisplay((string)($vkLatest['rejection_reason'] ?? ''))) ?></p>
                 <?php endif; ?>
@@ -648,7 +648,7 @@ $docStatusMeta = static function (string $status): array {
                 </div>
                 <?php endforeach; ?>
             </div>
-            <p class="text-xs text-gray-500 mt-3">Documents are scheduled for partner submission. You will be notified on progress.</p>
+            <p class="text-xs text-gray-500 mt-3">Queued for partner submission when Admin has keys + commercial. You get notified on progress — same UniWeb queue, not a second KYC app.</p>
         </div>
         <?php elseif ($onboardingState === 'kyc_verified' || $onboardingState === 'queue_forward'): ?>
         <div class="glass rounded-2xl p-5 border border-gray-800">
@@ -660,7 +660,7 @@ $docStatusMeta = static function (string $status): array {
         <div class="glass rounded-2xl p-5 border border-gray-800 text-xs text-gray-500 space-y-2">
             <p class="font-medium text-gray-300">Tips</p>
             <p>Upload clear JPG/PNG/PDF under 15MB. Rejected files show the exact reason and reappear in the upload list.</p>
-            <p>Video KYC is a separate step after documents when Live Mode is requested.</p>
+            <p>Video KYC must use the live camera (not a gallery file). Your IP and exact recording date/time are saved with the session.</p>
         </div>
     </aside>
 </div>

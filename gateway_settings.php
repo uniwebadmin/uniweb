@@ -51,6 +51,10 @@ if (isset($_GET['rotate_cron_key']) && verifyCsrf($_GET['csrf'] ?? '')) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     require_once __DIR__ . '/includes/checkout_mode_banner.php';
     saveGatewaySettingsPreservingSecrets($_POST['settings'] ?? [], $db);
+    $cyclePosted = trim((string)(($_POST['settings']['settlement_cycle'] ?? '')));
+    if ($cyclePosted !== '' && function_exists('syncSettlementCycleSetting')) {
+        syncSettlementCycleSetting($cyclePosted);
+    }
     flash('success', 'Settings saved.');
     redirect('gateway_settings.php');
 }
@@ -118,10 +122,19 @@ $gatewayCards = [
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
             <p class="font-semibold text-sky-300 text-sm">Money & partner keys live in Partner Registry</p>
-            <p class="text-xs text-gray-400 mt-1">Paste Razorpay / Cashfree / PayU keys only under <a href="admin_gateway_registry.php" class="text-sky-400 underline">Partner Registry → Partner Detail → Keys</a>. This page is platform-wide only: SMTP, cron, email templates, SEO, WhatsApp, and the collection-mode template for <strong>new merchants</strong>. This page does not accept live PG API keys.</p>
+            <p class="text-xs text-gray-400 mt-1">Paste Razorpay / Cashfree / PayU / Decentro / Axis keys only under <a href="admin_gateway_registry.php" class="text-sky-400 underline">Partner Registry → Partner Detail → Keys</a> (Test first, then Live). Merchants never see partner secrets. This page is platform-wide only: SMTP, cron, email, SEO, WhatsApp — it does not accept live PG API keys.</p>
         </div>
         <a href="admin_gateway_registry.php" class="shrink-0 text-xs px-4 py-2 rounded-lg bg-sky-600/20 text-sky-400 hover:bg-sky-600/30">Partner Registry →</a>
     </div>
+</div>
+<div class="glass rounded-xl p-4 mb-6 border border-emerald-500/25 max-w-4xl text-xs text-gray-400">
+    <p class="font-semibold text-emerald-300 text-sm mb-2">Live corridor (soft launch) — do these before advertise</p>
+    <ul class="space-y-1 list-disc list-inside">
+        <li>CR-01 on live Hostinger <code class="text-gray-500">config.php</code> (notifications) — never overwrite DB password / encryption key.</li>
+        <li>Below: <strong class="text-gray-300">Apply pending migrations</strong> → <code class="text-sky-300">ok: true</code>.</li>
+        <li>Partner Test keys + Test Connection → merchant Test Mode → <strong class="text-gray-300">Instant Test Pay</strong> once.</li>
+        <li>SMTP section + backup notify email on this page.</li>
+    </ul>
 </div>
 <?php if (!empty($gatewayGaps)): ?>
 <div class="glass rounded-xl p-5 mb-6 border border-amber-500/40 bg-amber-500/5 max-w-4xl">
@@ -263,12 +276,12 @@ $gatewayCards = [
             ['support_phone', 'Support Phone', 'text'],
             ['support_whatsapp', 'Support WhatsApp Number (with country code)', 'text'],
             ['min_settlement_amount', 'Min Settlement (₹)', 'number'],
-            ['settlement_cycle', 'Settlement Cycle', 'text'],
-            ['upi_mdr', 'UPI MDR (%) — platform default, overridden by Partner Detail', 'number'],
-            ['card_mdr', 'Card MDR (%) — platform default, overridden by Partner Detail', 'number'],
-            ['netbanking_mdr', 'Netbanking MDR (%) — platform default, overridden by Partner Detail', 'number'],
-            ['wallet_mdr', 'Wallet MDR (%) — platform default, overridden by Partner Detail', 'number'],
-            ['default_commission', 'Default Commission (%) — platform default, overridden by Partner Detail', 'number'],
+            // settlement_cycle rendered as select below
+            ['upi_mdr', 'UPI MDR (%) — platform default (overridden by Partner Detail → Commercial)', 'number'],
+            ['card_mdr', 'Card MDR (%) — platform default (overridden by Partner Detail → Commercial)', 'number'],
+            ['netbanking_mdr', 'Netbanking MDR (%) — platform default (overridden by Partner Detail → Commercial)', 'number'],
+            ['wallet_mdr', 'Wallet MDR (%) — platform default (overridden by Partner Detail → Commercial)', 'number'],
+            ['default_commission', 'Default UniWeb commission (%) — on successful txns; overridden by Partner Detail / merchant schedule', 'number'],
             ['aml_high_value_threshold', 'AML High Value Threshold (₹)', 'number'],
             ['maintenance_mode', 'Maintenance Mode (0/1)', 'number'],
             ['auto_audit_interval_minutes', 'Auto-audit interval (minutes, 5–120)', 'number'],
@@ -280,6 +293,22 @@ $gatewayCards = [
             <input type="<?= e($attrs['type']) ?>" name="settings[<?= $key ?>]" value="<?= e($attrs['value']) ?>" placeholder="<?= e($attrs['placeholder']) ?>" class="input-field mt-1" <?= $attrs['autocomplete'] ? 'autocomplete="' . e($attrs['autocomplete']) . '"' : '' ?> <?= $type==='number' ? 'step="0.01"' : '' ?>>
         </div>
         <?php endforeach; ?>
+        <?php
+        $cycleOpts = function_exists('getSettlementCycleOptions') ? getSettlementCycleOptions() : ['T+0' => ['label' => 'T+0'], 'T+1' => ['label' => 'T+1'], 'T+2' => ['label' => 'T+2']];
+        $cycleVal = strtoupper(trim((string)($settingsMap['settlement_cycle'] ?? 'T+1')));
+        if (!isset($cycleOpts[$cycleVal])) {
+            $cycleVal = 'T+1';
+        }
+        ?>
+        <div>
+            <label class="text-sm text-gray-400">Settlement Cycle (T+0 / T+1 / T+2)</label>
+            <select name="settings[settlement_cycle]" class="input-field mt-1">
+                <?php foreach ($cycleOpts as $code => $meta): ?>
+                <option value="<?= e($code) ?>" <?= $cycleVal === $code ? 'selected' : '' ?>><?= e($meta['label'] ?? $code) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <p class="text-[11px] text-gray-600 mt-1">Binds to Settlement Engine batch timing. Prefer editing under <a href="admin_settlement_settings.php" class="text-sky-400 hover:underline">Settlement Engine</a>. Owner default: T+1.</p>
+        </div>
         <?= settingsSectionHeading('SMTP Email Settings', 'amber') ?>
         <p class="text-xs text-gray-500">Leave SMTP host empty to use PHP mail(). For Hostinger use smtp.hostinger.com</p>
         <?php foreach ([
@@ -298,7 +327,7 @@ $gatewayCards = [
             ['support_youtube', 'YouTube URL', 'text'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <?= settingsSectionHeading('B2B Collection Engine (template for new merchants)', 'teal') ?>
-        <p class="text-xs text-gray-500 mb-3">These defaults apply to <strong>new merchants only</strong> and do not override per-partner commercial or split settings in Partner Detail.</p>
+        <p class="text-xs text-gray-500 mb-3">Defaults for <strong>new merchants only</strong>. UniWeb revenue is <strong>commission on successful collections</strong> — not a sold white-label package. Per-partner MDR and margin live in Partner Detail → Commercial.</p>
         <div><label class="text-sm text-gray-400">Default Collection Mode (new merchants)</label>
             <select name="settings[default_collection_mode]" class="input-field mt-1">
                 <?php foreach (getCollectionModes() as $k => $label): ?>
@@ -306,8 +335,9 @@ $gatewayCards = [
                 <?php endforeach; ?>
             </select>
         </div>
-        <div><label class="text-sm text-gray-400">Platform Margin (%)</label>
-            <input type="number" step="0.01" name="settings[platform_margin_pct]" value="<?= e($settingsMap['platform_margin_pct'] ?? '0.10') ?>" class="input-field mt-1">
+        <div><label class="text-sm text-gray-400">Platform margin (%) — UniWeb commission default</label>
+            <input type="number" step="0.01" name="settings[platform_margin_pct]" value="<?= e($settingsMap['platform_margin_pct'] ?? '0.10') ?>" class="input-field mt-1" title="Default UniWeb cut on successful collections">
+            <p class="text-[11px] text-gray-600 mt-1">Used when a merchant has no custom schedule. Partner Detail MDR still overrides method pricing.</p>
         </div>
         <?= settingsSectionHeading('Payment Gateway Selection (template for new merchants)', 'slate') ?>
         <p class="text-xs text-gray-500 mb-3">This sets the default checkout gateway for <strong>new merchants only</strong>. Per-merchant gateway routing and live API keys are managed in <a href="admin_gateway_registry.php" class="text-sky-400">Partner Registry → Partner Detail → Keys</a>.</p>
@@ -319,8 +349,8 @@ $gatewayCards = [
             </select>
         </div>
         <div class="rounded-xl border border-sky-500/30 bg-sky-500/5 p-4 my-4 text-sm text-gray-400 space-y-2">
-            <p class="font-medium text-sky-300">Partner API keys, methods, MDR & Split → Partner Registry</p>
-            <p>Per-partner credentials (Razorpay, Cashfree, PayU, PhonePe, Pine Labs, Worldline, Axis, RBL, Decentro, Digio) are managed in the <a href="admin_gateway_registry.php" class="text-sky-400 underline">Partner Registry</a>. Click any partner → Configure to add keys, enable methods, set MDR, and configure split.</p>
+            <p class="font-medium text-sky-300">Partner keys, methods &amp; MDR → Partner Registry</p>
+            <p>Per-partner credentials and <strong class="text-gray-300">commission math (Partner MDR + UniWeb margin)</strong> are managed in the <a href="admin_gateway_registry.php" class="text-sky-400 underline">Partner Registry</a> → Configure → Commercial. This page does not sell or configure a white-label product.</p>
             <p class="text-xs text-gray-500">This page does NOT accept live PG API keys. Platform-wide settings (SMTP, WhatsApp, SEO, cron) remain here. Method partner webhook URL is configured in Partner Detail → Webhooks tab.</p>
             <p class="text-xs text-gray-600">Method partner webhook endpoint: <code class="text-gray-400"><?= e(rtrim(APP_URL, '/')) ?>/method_partner_webhook.php</code></p>
         </div>

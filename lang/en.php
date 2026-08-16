@@ -28,7 +28,7 @@ return [
     'track_payment' => 'Track Payment',
     'hero_title' => 'Collect payments with UPI, QR and links',
     'hero_highlight' => 'one merchant console',
-    'hero_sub' => 'Create payment links and QR in Test Mode free. Go Live after KYC and partner activation. Settlements and support in the same console — not a consumer wallet, not white-label, not live Route.',
+    'hero_sub' => 'Create payment links and QR in Test Mode free. Go Live after KYC and partner activation. UniWeb earns commission on successful collections — not a consumer wallet, not a white-label package for sale, not live Route.',
     'export_csv' => 'Export CSV',
     'download_pdf' => 'Download PDF',
     'save' => 'Save',

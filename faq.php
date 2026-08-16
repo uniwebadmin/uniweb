@@ -30,6 +30,8 @@ $faqGroups = [
         ['Who decides a chargeback?', 'The merchant submits evidence through the available workflow, but the issuer, bank, card network or payment partner may make the final decision under its rules and deadlines.'],
     ],
     'Account and security' => [
+        ['Who controls merchants vs partners?', 'UniWeb Admin (and scoped staff) own every merchant account. Bank and PG partners are tech rails — keys and methods in Partner Registry. Partners do not get a UniWeb merchant-management portal and do not “own” your merchants.'],
+        ['Which login do I use?', 'Merchants: login.php. Customers: customer_login.php. Super Admin: admin_login.php. Staff/ops: staff_login.php. There is no separate partner login for banks or gateways.'],
         ['How long does a login session remain active?', 'The Portal displays an IST clock and session countdown. Idle and maximum session limits are enforced by portal type. Save work before expiry and sign out on shared devices.'],
         ['Can I enable two-factor authentication?', 'Yes. Merchants can enable optional authenticator-app verification from Settings. Admin and staff accounts use their configured security controls and role permissions.'],
         ['What should I do if credentials are exposed?', 'Change the password, revoke other sessions if available, rotate API and webhook secrets, review staff access and contact support with the incident time. Never send the exposed secret itself.'],

@@ -101,6 +101,47 @@ function getAllPaymentMethods(): array
 }
 
 /**
+ * Display order for collect methods: UPI first, then QR/VA, then cards, then netbanking, then rest.
+ */
+function paymentMethodDisplayPriority(string $methodKey): int
+{
+    $key = strtolower(trim($methodKey));
+    return match ($key) {
+        'upi_p2m', 'upi', 'payu_upi', 'razorpay_upi', 'cashfree_upi' => 10,
+        'qr_code', 'axis_va' => 20,
+        'debit_card', 'dc' => 30,
+        'credit_card', 'cc' => 31,
+        'net_banking', 'netbanking', 'nb' => 40,
+        'emi' => 50,
+        'wallet' => 60,
+        'razorpay', 'cashfree' => 70,
+        'payout', 'recurring' => 90,
+        default => 80,
+    };
+}
+
+/**
+ * Stable sort: UPI → cards → netbanking → other (Block 5 live order).
+ *
+ * @param list<array<string,mixed>> $rows
+ * @return list<array<string,mixed>>
+ */
+function sortPaymentMethodsUpiFirst(array $rows, string $keyField = 'gateway_key'): array
+{
+    usort($rows, static function (array $a, array $b) use ($keyField): int {
+        $ka = (string)($a[$keyField] ?? $a['key'] ?? '');
+        $kb = (string)($b[$keyField] ?? $b['key'] ?? '');
+        $pa = paymentMethodDisplayPriority($ka);
+        $pb = paymentMethodDisplayPriority($kb);
+        if ($pa !== $pb) {
+            return $pa <=> $pb;
+        }
+        return strcmp($ka, $kb);
+    });
+    return $rows;
+}
+
+/**
  * Get a merchant's payment method settings.
  * Returns only ACTIVE gateways with their ON/OFF status.
  * Inactive gateways are hidden from merchants.
@@ -120,7 +161,7 @@ function getMerchantPaymentMethods(int $merchantId): array
              ORDER BY g.id ASC"
         );
         $st->execute([$merchantId]);
-        return $st->fetchAll();
+        return sortPaymentMethodsUpiFirst($st->fetchAll(), 'gateway_key');
     } catch (Throwable $e) {
         return [];
     }
@@ -772,7 +813,7 @@ function get_available_pay_methods(int $merchantId): array
         ];
     }
 
-    return $methods;
+    return sortPaymentMethodsUpiFirst($methods, 'key');
 }
 
 /** Map catalog keys (upi_p2m, …) to partner_methods.method names (upi, …). */

@@ -46,14 +46,15 @@ require_once __DIR__ . '/header.php';
 </div>
 
 <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-5 mb-8 text-sm">
-    <h2 class="font-semibold text-emerald-300 mb-3">Charge Summary (MIN → MAX per txn)</h2>
+    <h2 class="font-semibold text-emerald-300 mb-3">Fee stack (partner cost + UniWeb commission)</h2>
+    <p class="text-xs text-gray-500 mb-3">UniWeb earns a cut on successful transactions — we do not sell a white-label software package.</p>
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs text-gray-400">
-        <div class="bg-dark-900/50 rounded-lg p-3"><strong class="text-white">Direct UPI P2M</strong><br>₹0 partner fee</div>
-        <div class="bg-dark-900/50 rounded-lg p-3"><strong class="text-white">PayU/Razorpay UPI</strong><br>₹2–3 flat or ~2%+GST</div>
-        <div class="bg-dark-900/50 rounded-lg p-3"><strong class="text-white">Cards</strong><br>1.75%–2.5%+GST</div>
-        <div class="bg-dark-900/50 rounded-lg p-3"><strong class="text-white">Decentro KYC</strong><br>₹3–15 per verify</div>
-        <div class="bg-dark-900/50 rounded-lg p-3"><strong class="text-white">Decentro Payout</strong><br>₹2–8 per IMPS</div>
-        <div class="bg-dark-900/50 rounded-lg p-3"><strong class="text-white">UniWeb Commission</strong><br>~1.5% (your margin)</div>
+        <div class="bg-dark-900/50 rounded-lg p-3"><strong class="text-white">Direct UPI P2M</strong><br>₹0 partner fee (where applicable)</div>
+        <div class="bg-dark-900/50 rounded-lg p-3"><strong class="text-white">PayU/Razorpay UPI</strong><br>₹2–3 flat or ~2%+GST (partner)</div>
+        <div class="bg-dark-900/50 rounded-lg p-3"><strong class="text-white">Cards</strong><br>1.75%–2.5%+GST (partner)</div>
+        <div class="bg-dark-900/50 rounded-lg p-3"><strong class="text-white">Decentro KYC</strong><br>₹3–15 per verify (partner)</div>
+        <div class="bg-dark-900/50 rounded-lg p-3"><strong class="text-white">Decentro Payout</strong><br>₹2–8 per IMPS (partner)</div>
+        <div class="bg-dark-900/50 rounded-lg p-3"><strong class="text-white">UniWeb commission</strong><br>Your margin on successful collections (set in Commercial)</div>
     </div>
 </div>
 
@@ -67,7 +68,7 @@ require_once __DIR__ . '/header.php';
             <tbody class="divide-y divide-gray-800 text-gray-400">
                 <tr><td class="py-2 pr-3 text-white">UPI / P2M collect</td><td class="py-2 pr-3">Key ID + Secret (test), webhook secret</td><td class="py-2">Razorpay / Cashfree / PayU / Decentro sandbox</td></tr>
                 <tr><td class="py-2 pr-3 text-white">Cards (CC/DC) + EMI + Netbanking + Wallet</td><td class="py-2 pr-3">Same PG test keys with those methods enabled</td><td class="py-2">PayU / Razorpay / Cashfree merchant dashboard → Test mode</td></tr>
-                <tr><td class="py-2 pr-3 text-white">White-label / Route / Easy Split</td><td class="py-2 pr-3">Platform / partner MID, route or child keys</td><td class="py-2">Partner programme signup (not standard merchant keys)</td></tr>
+                <tr><td class="py-2 pr-3 text-white">Route / Easy Split (parked)</td><td class="py-2 pr-3">Platform / route credentials only if a deal needs them — not sold as a UniWeb product</td><td class="py-2">Partner programme (scaffold in Partner Detail → Commercial)</td></tr>
                 <tr><td class="py-2 pr-3 text-white">Payouts</td><td class="py-2 pr-3">Payout client ID/secret or payoutMerchantId</td><td class="py-2">RazorpayX / Cashfree Payouts / PayU Payouts / Decentro</td></tr>
                 <tr><td class="py-2 pr-3 text-white">Virtual Account</td><td class="py-2 pr-3">VA / collection account credentials</td><td class="py-2">Decentro / Axis API portal (UAT)</td></tr>
             </tbody>
@@ -121,7 +122,7 @@ require_once __DIR__ . '/header.php';
     <h3 class="font-semibold text-white mb-3">PayU — Collections vs Payouts</h3>
     <ul class="space-y-2 text-xs list-disc list-inside">
         <li><strong class="text-gray-300">Payment Gateway:</strong> Collect from customers — Cards, UPI, Net Banking (onboarding.payu.in)</li>
-        <li><strong class="text-gray-300">Split Settlement:</strong> Auto commission deduction — net amount to merchant</li>
+        <li><strong class="text-gray-300">Split Settlement:</strong> Partner feature for net settlement — UniWeb still earns commission on successful collections</li>
         <li><strong class="text-gray-300">PayU Payouts (separate product):</strong> Transfer to beneficiaries via IMPS/NEFT/RTGS/UPI — <a href="https://docs.payu.in/docs/introduction-to-payouts" class="text-sky-400" target="_blank" rel="noopener">docs.payu.in/payouts</a></li>
         <li><strong class="text-gray-300">Settlement cycle:</strong> T+1 standard (negotiate same-day with KAM)</li>
         <li><strong class="text-gray-300">UniWeb wallet transfer:</strong> Internal ledger — automate bank transfer via PayU Payouts API in production</li>

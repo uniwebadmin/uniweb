@@ -140,9 +140,9 @@ $status = merchantWebsiteStatus($merchant);
     <div class="glass rounded-xl p-6 border border-violet-500/25">
         <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
             <div>
-                <p class="text-xs uppercase tracking-wider text-violet-400 font-semibold">UniWeb Sales Page</p>
-                <h3 class="font-semibold text-white mt-1">Publish a simple branded sales page</h3>
-                <p class="text-xs text-gray-500 mt-1">No developer or external website needed. Buyers see your business and an active payment action.</p>
+                <p class="text-xs uppercase tracking-wider text-violet-400 font-semibold">Collect on the web</p>
+                <h3 class="font-semibold text-white mt-1">Your sales page + pay button</h3>
+                <p class="text-xs text-gray-500 mt-1">Optional UniWeb sales page if you have no site yet — or keep your own domain and only embed a Pay button. Branding limit: own domain + checkout look — not a rebranded UniWeb.</p>
             </div>
             <?php if (!empty($storefront['is_published']) && $storefrontUrl !== ''): ?>
             <a href="<?= e($storefrontUrl) ?>" target="_blank" rel="noopener" class="text-sm text-sky-400 hover:text-sky-300">Open sales page ↗</a>
@@ -214,10 +214,15 @@ $status = merchantWebsiteStatus($merchant);
     <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 text-sm text-emerald-300 mb-6">
         ✓ Your website is verified. You can quote this URL in PayU/Razorpay/Cashfree onboarding emails.
     </div>
+    <?php elseif ($status === 'pending'): ?>
+    <div class="bg-sky-500/10 border border-sky-500/30 rounded-xl p-4 text-sm text-sky-300 mb-6">
+        Verification in process — our team will review <strong><?= e($merchant['website_url'] ?? '') ?></strong> shortly. You can still copy a Pay button below for your site.
+    </div>
+    <?php endif; ?>
 
     <div class="glass rounded-xl p-6 border border-violet-500/20">
-        <h3 class="font-semibold text-violet-400 mb-2">Add a Pay Button to Your Website</h3>
-        <p class="text-xs text-gray-500 mb-4">Copy a UniWeb payment link / QR and paste it on your verified website.</p>
+        <h3 class="font-semibold text-violet-400 mb-2">Put a Pay button on your website</h3>
+        <p class="text-xs text-gray-500 mb-4">Same pattern as Razorpay: copy the checkout URL or HTML below → paste on your site. Customers pay on UniWeb checkout; you keep your domain.</p>
         <?php
         $firstLink = getDB()->prepare("SELECT link_id, amount, status FROM payment_links WHERE merchant_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1");
         $firstLink->execute([$merchant['id']]);
@@ -228,20 +233,15 @@ $status = merchantWebsiteStatus($merchant);
             $buttonHtml = '<a href="' . e($payUrl) . '" target="_blank" style="display:inline-block;padding:12px 24px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">Pay Now</a>';
         ?>
         <div class="space-y-3 text-xs">
-            <div><label class="text-[10px] text-gray-500 uppercase">Payment Link</label><input type="text" value="<?= e($payUrl) ?>" readonly class="input-field w-full text-xs" onclick="this.select()"></div>
-            <div><label class="text-[10px] text-gray-500 uppercase">HTML Button</label><textarea readonly rows="3" class="input-field w-full text-xs font-mono" onclick="this.select()"><?= e($buttonHtml) ?></textarea></div>
-            <div><label class="text-[10px] text-gray-500 uppercase">QR Image URL</label><input type="text" value="<?= e($qrImg) ?>" readonly class="input-field w-full text-xs" onclick="this.select()"></div>
-            <a href="payment_links.php" class="text-sky-400 hover:underline">Manage more payment links →</a>
+            <div><label class="text-[10px] text-gray-500 uppercase">1 · Checkout URL</label><input type="text" value="<?= e($payUrl) ?>" readonly class="input-field w-full text-xs" onclick="this.select()"></div>
+            <div><label class="text-[10px] text-gray-500 uppercase">2 · HTML Pay button</label><textarea readonly rows="3" class="input-field w-full text-xs font-mono" onclick="this.select()"><?= e($buttonHtml) ?></textarea></div>
+            <div><label class="text-[10px] text-gray-500 uppercase">3 · QR image URL</label><input type="text" value="<?= e($qrImg) ?>" readonly class="input-field w-full text-xs" onclick="this.select()"></div>
+            <p class="text-[11px] text-gray-600">Checkout colours/logo: <a href="checkout_customize.php" class="text-sky-400 hover:underline">Checkout Customize</a> · More links: <a href="payment_links.php" class="text-sky-400 hover:underline">Payment Links</a></p>
         </div>
         <?php else: ?>
         <p class="text-xs text-gray-400">No active payment link yet. <a href="payment_links.php" class="text-sky-400 hover:underline">Create a payment link →</a></p>
         <?php endif; ?>
     </div>
-    <?php elseif ($status === 'pending'): ?>
-    <div class="bg-sky-500/10 border border-sky-500/30 rounded-xl p-4 text-sm text-sky-300">
-        Verification in process — our team will review <strong><?= e($merchant['website_url'] ?? '') ?></strong> shortly.
-    </div>
-    <?php endif; ?>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

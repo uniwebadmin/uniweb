@@ -131,7 +131,7 @@ require_once __DIR__ . '/header.php';
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-16">
             <h2 class="text-3xl font-bold mb-4">Honest <span class="gradient-text">pricing</span></h2>
-            <p class="text-gray-400 max-w-xl mx-auto">No “0% forever” card. Test Mode is free. Live fees are partner MDR + UniWeb platform fee + GST, written in your commercial schedule.</p>
+            <p class="text-gray-400 max-w-xl mx-auto">No “0% forever” card. Test Mode is free. Live fees are partner MDR + UniWeb commission + GST in your commercial schedule — not a white-label package for sale.</p>
         </div>
 
         <?php $publicPricingApproved = getSetting('public_pricing_approved', '0') === '1'; ?>

@@ -78,6 +78,17 @@ $pageTitle = 'Admin Dashboard';
 require_once __DIR__ . '/header.php';
 ?>
 
+<div class="glass rounded-xl p-5 mb-6 border border-emerald-500/25 text-sm text-gray-300">
+    <p class="font-semibold text-emerald-300 mb-1">Live corridor — soft launch checklist (before advertise)</p>
+    <ol class="text-xs text-gray-500 list-decimal list-inside space-y-1.5 mt-2">
+        <li>CR-01: live <code class="text-gray-400">config.php</code> — remove old <code class="text-gray-400">createNotification</code>; keep <code class="text-gray-400">includes/notifications.php</code> (Hostinger File Manager; never overwrite secrets).</li>
+        <li><a href="gateway_settings.php#cron-security" class="text-sky-400 hover:underline">Apply pending migrations</a> → JSON <code class="text-sky-300">ok: true</code> (never DROP database).</li>
+        <li><a href="admin_gateway_registry.php" class="text-sky-400 hover:underline">Partner Registry → Keys</a>: paste Test keys → Test Connection → then one merchant <strong class="text-gray-300">Instant Test Pay</strong> on a Test Mode link.</li>
+        <li><a href="gateway_settings.php" class="text-sky-400 hover:underline">SMTP</a> + backup notify email — so backup mail arrives.</li>
+        <li>Then soft launch. Disputes queue stays <a href="admin_disputes.php" class="text-sky-400 hover:underline">Admin first</a>.</li>
+    </ol>
+</div>
+
 <div class="flex flex-wrap gap-2 sm:gap-3 mb-4">
     <a href="admin_gateway_registry.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-violet-400 hover:text-violet-300">Partner Registry</a>
     <a href="admin_kyc.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-amber-400 hover:text-amber-300">KYC Review</a>
