@@ -106,6 +106,26 @@ if (!function_exists('createNotification')) {
     {
         notifyMerchant($merchantId, $title, $body, $eventKey);
     }
+} else {
+    // CR-01: live config.php may still define the old 3-arg body without event_key.
+    // We cannot redefine it in PHP — flag once for ops.
+    static $uniwebStaleCreateNotificationLogged = false;
+    if (!$uniwebStaleCreateNotificationLogged && function_exists('logPlatformError')) {
+        try {
+            $ref = new ReflectionFunction('createNotification');
+            $file = str_replace('\\', '/', (string)$ref->getFileName());
+            if ($file !== '' && str_ends_with($file, '/config.php')) {
+                $uniwebStaleCreateNotificationLogged = true;
+                logPlatformError(
+                    'stale_createNotification',
+                    'createNotification is defined in config.php (stale). Remove that function and keep includes/notifications.php — see REMIND_CR01.',
+                    ['file' => $file, 'params' => $ref->getNumberOfParameters()]
+                );
+            }
+        } catch (Throwable $e) {
+            /* ignore */
+        }
+    }
 }
 
 if (!function_exists('notificationActionUrl')) {

@@ -1040,6 +1040,9 @@ $assert(str_contains($htaccess, 'ErrorDocument 403 /error.php'), 'htaccess_error
 $assert(str_contains($htaccess, 'ErrorDocument 500 /error.php'), 'htaccess_error_document_500');
 $assert(str_contains($htaccess, 'ErrorDocument 404 /error.php'), 'htaccess_points_to_branded_404');
 $assert(str_contains($htaccess, 'X-Content-Type-Options'), 'htaccess_security_headers');
+$assert(str_contains($htaccess, '\\.(env|log|sql|md)$') || str_contains($htaccess, '.md)$'), 'cr02_htaccess_denies_markdown');
+$assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'stale_createNotification'), 'cr01_stale_createNotification_detector');
+$assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "includes/notifications.php"), 'cr01_config_dev_loads_notifications');
 $errorPage = (string)file_get_contents($root . '/error.php');
 $assert(str_contains($errorPage, 'Page not found') && str_contains($errorPage, 'demo.php'), 'branded_error_has_nav_links');
 $error404 = (string)file_get_contents($root . '/error_404.php');

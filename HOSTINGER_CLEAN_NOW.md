@@ -34,6 +34,14 @@
 
 A file under `_inbox` with live DB settings was **removed from Git**. After you delete `_inbox/` on Hostinger, **change the Hostinger database password** in hPanel and update **only** `config.php` on the server (do not commit the new password).
 
+## From Latest Status Audit PDF (backup 15 Aug) — also do
+
+1. **CR-01:** In live `config.php`, **delete** old `function createNotification...` (keep `require_once .../includes/notifications.php`). Note: `_inbox/chat/REMIND_CR01_config_notification.txt`
+2. **CR-02:** Delete root `*.md` from public_html OR rely on `.htaccess` deny for `.md` after pull (still cleaner to delete).
+3. **CR-03:** Remove nested `public_html/public_html` copies after backup.
+4. **CR-04/05:** Partner Detail → Commercial save once + paste Test keys; SMTP.
+5. **CR-06:** Apply pending migrations → `ok: true`.
+
 ## Next (Owner)
 
 Partner keys → Partner Registry → Test collect → then advertise for new merchants.
