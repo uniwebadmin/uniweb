@@ -79,7 +79,7 @@ require_once __DIR__ . '/header.php';
     <section class="company-section" style="padding-top:0"><div class="company-shell"><div class="company-cta">
         <h2>Want to see UniWeb in action?</h2>
         <div class="flex flex-wrap gap-3">
-            <a href="demo.php" class="btn-primary px-6 py-3">Try the live demo</a>
+            <a href="merchant_register.php" class="btn-primary px-6 py-3">Try the live demo</a>
             <a href="contact.php" class="px-6 py-3 rounded-lg border border-gray-700">Talk to us</a>
         </div>
     </div></div></section>

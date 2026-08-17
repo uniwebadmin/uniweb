@@ -253,7 +253,7 @@ $exportQuery = http_build_query(['q' => $settlementQ, 'status' => $settlementSta
     <div class="glass rounded-xl p-6 border border-gray-800">
         <h2 class="font-semibold mb-4">Custom Amount</h2>
         <?php if (!$canTransfer): ?>
-        <p class="text-xs text-amber-400 mb-3"><?= __('wallet_low_balance') ?> <a href="demo.php" class="text-sky-400 underline"><?= __('wallet_demo_pay') ?></a></p>
+        <p class="text-xs text-amber-400 mb-3"><?= __('wallet_low_balance') ?> <a href="merchant_register.php" class="text-sky-400 underline"><?= __('wallet_demo_pay') ?></a></p>
         <?php endif; ?>
         <form method="POST" class="space-y-3" novalidate>
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">

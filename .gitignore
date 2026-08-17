@@ -72,8 +72,11 @@ dev_local/**
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
+!.cursor/AGENTS.md
 .devin/
 
 # Training outlines & internal docs — not the live product
 training/
-docs/
+# Internal docs (tracked in git; FTP deploy already excludes docs/ and *.md)
+# docs/
+

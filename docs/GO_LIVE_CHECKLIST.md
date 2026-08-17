@@ -32,15 +32,15 @@
 ## Owner-Done (requires Owner action)
 
 ### Partner Keys & Methods
-- [ ] Paste all production partner keys in Admin → Gateway Settings (test vs live separated)
-- [ ] Decentro staging keys → paste and test connectivity first
+- [ ] Paste all production partner keys in Admin ΓåÆ Gateway Settings (test vs live separated)
+- [ ] Decentro staging keys ΓåÆ paste and test connectivity first
 - [ ] Methods enabled only where contract + keys OK
-- [ ] Reason maps filled for top failure codes (Admin → Reason Maps)
+- [ ] Reason maps filled for top failure codes (Admin ΓåÆ Reason Maps)
 - [ ] MDR defaults set + at least one test merchant M (commission rate) set
 - [ ] Route/split mode confirmed per partner commercial (or standard settle documented)
 
 ### Webhooks
-- [ ] Webhook URLs set on partner side (Razorpay/Cashfree/PayU/Axis/Decentro dashboards) — see CRON_INVENTORY.md
+- [ ] Webhook URLs set on partner side (Razorpay/Cashfree/PayU/Axis/Decentro dashboards) ΓÇö see CRON_INVENTORY.md
 - [ ] Webhook secrets configured in Gateway Settings for each partner
 - [ ] Test webhook: trigger a test payment and confirm webhook reaches server
 
@@ -49,18 +49,18 @@
 - [ ] APP_URL set to production domain in config.php
 
 ### Cron Jobs
-- [ ] All 7 cron jobs scheduled in Hostinger hPanel — see CRON_INVENTORY.md
+- [ ] All 7 cron jobs scheduled in Hostinger hPanel ΓÇö see CRON_INVENTORY.md
 - [ ] Cron keys set in Gateway Settings: platform_watchdog_key, cron_auto_kyc_key, settlement_cron_key, cron_mandates_key, bank_reconciliation_cron_key
-- [ ] Verify cron health shows "24/7 ON" in Admin → Platform Status after first run
+- [ ] Verify cron health shows "24/7 ON" in Admin ΓåÆ Platform Status after first run
 
 ### Communications
-- [ ] Support email tested (send test from Admin → Support)
+- [ ] Support email tested (send test from Admin ΓåÆ Support)
 - [ ] WhatsApp OTP tested (if WhatsApp enabled)
 - [ ] SMS gateway tested (if SMS enabled)
 
 ### Data Cleanup
 - [ ] Demo/junk PII removed from public site (demo merchant, test data)
-- [ ] Demo ₹1 pay path works (demo.php)
+- [ ] Demo Γé╣1 pay path works (demo.php)
 
 ### Legal
 - [ ] Terms page reviewed and accurate

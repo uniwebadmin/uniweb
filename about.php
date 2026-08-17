@@ -64,7 +64,7 @@ require_once __DIR__ . '/header.php';
     <section class="company-section" style="padding-top:0"><div class="company-shell"><div class="company-cta">
         <h2>Explore UniWeb before applying.</h2>
         <p>Use the platform tour and Test Mode to understand the workflow. Live activation follows merchant verification and partner approval.</p>
-        <div class="flex flex-wrap gap-3"><a href="demo.php" class="btn-primary px-6 py-3">View platform tour</a><a href="merchant_register.php" class="px-6 py-3 rounded-lg border border-gray-700">Create merchant account</a></div>
+        <div class="flex flex-wrap gap-3"><a href="merchant_register.php" class="btn-primary px-6 py-3">View platform tour</a><a href="merchant_register.php" class="px-6 py-3 rounded-lg border border-gray-700">Create merchant account</a></div>
     </div></div></section>
 </main>
 <?php require_once __DIR__ . '/footer.php'; ?>

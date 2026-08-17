@@ -122,7 +122,7 @@ $checkoutConversion = $checkoutViews > 0 ? round($checkoutPaid / $checkoutViews 
     <?= renderMerchantEmptyState(
         'No report data yet',
         'Complete a ₹1 test payment to see daily collections, methods, and trends here.',
-        'demo.php',
+        'merchant_register.php',
         'Pay ₹1 test →'
     ) ?>
 </div>

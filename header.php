@@ -129,7 +129,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
             <?php $logoHref = 'index.php'; $logoSize = 'md'; require __DIR__ . '/includes/brand_logo.php'; ?>
             <div class="hidden md:flex items-center gap-8 text-sm text-gray-300">
                 <a href="tour_videos.php" class="hover:text-brand-400 transition">Tour</a>
-                <a href="demo.php" class="hover:text-brand-400 transition">Demo</a>
+                <a href="merchant_register.php" class="hover:text-brand-400 transition">Demo</a>
                 <a href="solutions.php" class="hover:text-brand-400 transition">Solutions</a>
                 <a href="pricing.php" class="hover:text-brand-400 transition"><?= __('pricing') ?></a>
                 <a href="trust.php" class="hover:text-brand-400 transition">Trust</a>
@@ -150,7 +150,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     </div>
     <div id="public-mobile-menu" class="hidden md:hidden border-t border-gray-800 bg-dark-900/95 px-4 py-4 space-y-2 text-sm">
         <a href="tour_videos.php" class="block py-2 text-violet-400 font-medium">▶ Platform Tour</a>
-        <a href="demo.php" class="block py-2 text-sky-400 font-medium">⚡ Demo Payment</a>
+        <a href="merchant_register.php" class="block py-2 text-sky-400 font-medium">⚡ Demo Payment</a>
         <a href="solutions.php" class="block py-2 text-gray-300 hover:text-brand-400">Solutions</a>
         <a href="pricing.php" class="block py-2 text-gray-300 hover:text-brand-400"><?= __('pricing') ?></a>
         <a href="trust.php" class="block py-2 text-gray-300 hover:text-brand-400">Trust &amp; Security</a>

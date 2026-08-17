@@ -74,11 +74,33 @@ if (isset($_GET['action'], $_GET['id']) && verifyCsrf($_GET['token'] ?? '')) {
     redirect('admin_disputes.php');
 }
 
-$openCount = (int)$db->query("SELECT COUNT(*) FROM disputes WHERE status IN ('open','under_review','forwarded_partner')")->fetchColumn();
+$filterMerchantId = (int)($_GET['merchant_id'] ?? 0);
+$openCountSql = "SELECT COUNT(*) FROM disputes WHERE status IN ('open','under_review','forwarded_partner')";
+$openCountParams = [];
+if ($filterMerchantId > 0) {
+    $openCountSql .= ' AND merchant_id = ?';
+    $openCountParams[] = $filterMerchantId;
+}
+$openSt = $db->prepare($openCountSql);
+$openSt->execute($openCountParams);
+$openCount = (int)$openSt->fetchColumn();
+
+$listSql = 'SELECT d.*, m.business_name, m.id AS merchant_row_id, t.txn_id, t.amount FROM disputes d JOIN merchants m ON d.merchant_id=m.id JOIN transactions t ON t.id=d.transaction_id';
+$listParams = [];
+if ($filterMerchantId > 0) {
+    $listSql .= ' WHERE d.merchant_id = ?';
+    $listParams[] = $filterMerchantId;
+}
 try {
-    $disputes = $db->query('SELECT d.*, m.business_name, m.id AS merchant_row_id, t.txn_id, t.amount FROM disputes d JOIN merchants m ON d.merchant_id=m.id JOIN transactions t ON t.id=d.transaction_id ORDER BY FIELD(d.status,"open","under_review","forwarded_partner","resolved","closed"), d.created_at DESC LIMIT 80')->fetchAll();
+    $order = ' ORDER BY FIELD(d.status,"open","under_review","forwarded_partner","resolved","closed"), d.created_at DESC LIMIT 80';
+    $st = $db->prepare($listSql . $order);
+    $st->execute($listParams);
+    $disputes = $st->fetchAll();
 } catch (Throwable $e) {
-    $disputes = $db->query('SELECT d.*, m.business_name, m.id AS merchant_row_id, t.txn_id, t.amount FROM disputes d JOIN merchants m ON d.merchant_id=m.id JOIN transactions t ON t.id=d.transaction_id ORDER BY d.created_at DESC LIMIT 80')->fetchAll();
+    $order = ' ORDER BY d.created_at DESC LIMIT 80';
+    $st = $db->prepare($listSql . $order);
+    $st->execute($listParams);
+    $disputes = $st->fetchAll();
 }
 $pageTitle = 'Disputes';
 require_once __DIR__ . '/header.php';
@@ -93,6 +115,13 @@ require_once __DIR__ . '/header.php';
         <a href="admin_customer_tickets.php" class="px-3 py-1.5 rounded-lg border border-gray-700 text-amber-300 hover:bg-white/5">Customer complaints</a>
     </div>
 </div>
+
+<?php if ($filterMerchantId > 0): ?>
+<div class="glass rounded-xl p-3 mb-4 border border-sky-500/30 text-xs text-sky-200 flex flex-wrap items-center justify-between gap-2">
+    <span>Filtered to merchant #<?= (int)$filterMerchantId ?><?php if (!empty($disputes[0]['business_name'])): ?> — <?= e($disputes[0]['business_name']) ?><?php endif; ?></span>
+    <a href="admin_disputes.php" class="text-sky-400 hover:underline">Clear filter</a>
+</div>
+<?php endif; ?>
 
 <div class="glass rounded-xl p-4 mb-6 border border-amber-500/20 text-xs text-amber-200/90">
     Bulk select + smart partner route: <strong class="text-amber-100">parked</strong>. Use one row → Forward to partner.

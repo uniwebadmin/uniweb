@@ -14,7 +14,7 @@ require_once __DIR__ . '/header.php';
         <h1>Clear commercial terms for Indian merchants.</h1>
         <p>Test Mode is free. Live fees are partner MDR + UniWeb platform commission + GST. We do not sell a white-label software package — revenue is a cut on successful collections. Settlement follows the written T+N schedule.</p>
         <div class="flex flex-wrap gap-3 mt-6">
-            <a href="demo.php" class="btn-primary px-6 py-3">Try ₹1 demo</a>
+            <a href="merchant_register.php" class="btn-primary px-6 py-3">Try ₹1 demo</a>
             <a href="merchant_register.php" class="px-6 py-3 rounded-lg border border-gray-700">Create merchant account</a>
         </div>
     </div></section>

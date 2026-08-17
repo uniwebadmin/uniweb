@@ -196,7 +196,7 @@ function getWatchdogPageRegistry(): array
         ['platform_watchdog.php', 'Cron Watchdog', 'system', 'system'],
         ['cron_auto_audit.php', 'Auto Audit Cron', 'system', 'system'],
         ['cron_settlements.php', 'Settlement Cron', 'system', 'system'],
-        ['ping.php', 'Ping', 'system', 'system'],
+        ['health.php', 'Health', 'system', 'system'],
     ] as $row) {
         $add($row[0], $row[1], $row[2], $row[3] ?? 'none');
     }

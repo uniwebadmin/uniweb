@@ -76,7 +76,7 @@ require_once __DIR__ . '/header.php';
 
     <a href="admin_gateway_registry.php" class="glass px-4 py-2.5 rounded-xl text-sm text-gray-300 hover:text-white">Partner Registry</a>
 
-    <a href="demo.php" target="_blank" class="glass px-4 py-2.5 rounded-xl text-sm text-brand-400">Live Demo ↗</a>
+    <a href="merchant_register.php" target="_blank" class="glass px-4 py-2.5 rounded-xl text-sm text-brand-400">Live Demo ↗</a>
 
 </div>
 

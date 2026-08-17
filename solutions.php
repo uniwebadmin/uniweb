@@ -13,7 +13,7 @@ $products = [
         'title' => 'Hosted payment gateway',
         'body' => 'Customers pay on a secure UniWeb checkout. UPI, QR and payment links work in Test Mode. Live cards, net banking and other partner methods appear only after Partner Registry keys and merchant activation — we do not fake full PayU/Worldline coverage.',
         'points' => ['Test vs Live mode like major Indian gateways', 'Method tabs with clear amount and fee split', 'Customer name/phone captured for receipt lookup'],
-        'cta' => ['demo.php', 'Try ₹1 demo'],
+        'cta' => ['merchant_register.php', 'Try ₹1 demo'],
     ],
     [
         'id' => 'links',
@@ -63,7 +63,7 @@ $products = [
         <h1>Payment products Indian merchants actually use.</h1>
         <p>Shop counters, online SMEs and developers share one UniWeb merchant console under Admin. Live rails stay partner-gated (keys in Partner Registry). We do not sell a consumer PPI wallet, an NBFC loan product, or a partner-owned merchant portal.</p>
         <div class="flex flex-wrap gap-3 mt-6">
-            <a href="demo.php" class="btn-primary px-6 py-3">Try ₹1 demo payment</a>
+            <a href="merchant_register.php" class="btn-primary px-6 py-3">Try ₹1 demo payment</a>
             <a href="merchant_register.php" class="px-6 py-3 rounded-lg border border-gray-700">Create merchant account</a>
         </div>
     </div></section>

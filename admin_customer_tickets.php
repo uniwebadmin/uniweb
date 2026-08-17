@@ -29,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 $viewId = (int)($_GET['id'] ?? 0);
 $view = $viewId ? getCustomerTicketById($viewId) : null;
 $statusFilter = (string)($_GET['status'] ?? '');
+$filterMerchantId = (int)($_GET['merchant_id'] ?? 0);
 $ticketQ = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
 if (!$view && $ticketQ !== '' && preg_match('/^CT/i', $ticketQ)) {
     try {
@@ -36,11 +37,23 @@ if (!$view && $ticketQ !== '' && preg_match('/^CT/i', $ticketQ)) {
         $st->execute([$ticketQ]);
         $found = (int)($st->fetchColumn() ?: 0);
         if ($found > 0) {
-            redirect('admin_customer_tickets.php?id=' . $found . ($statusFilter !== '' ? '&status=' . rawurlencode($statusFilter) : ''));
+            $extra = '';
+            if ($statusFilter !== '') {
+                $extra .= '&status=' . rawurlencode($statusFilter);
+            }
+            if ($filterMerchantId > 0) {
+                $extra .= '&merchant_id=' . $filterMerchantId;
+            }
+            redirect('admin_customer_tickets.php?id=' . $found . $extra);
         }
     } catch (Throwable $e) { /* ok */ }
 }
 $tickets = getAllCustomerTickets($statusFilter ?: null);
+if ($filterMerchantId > 0) {
+    $tickets = array_values(array_filter($tickets, static function ($tk) use ($filterMerchantId) {
+        return (int)($tk['merchant_id'] ?? 0) === $filterMerchantId;
+    }));
+}
 if ($ticketQ !== '') {
     $tickets = array_values(array_filter($tickets, static function ($tk) use ($ticketQ) {
         $hay = strtolower(($tk['ticket_id'] ?? '') . ' ' . ($tk['subject'] ?? '') . ' ' . ($tk['customer_phone'] ?? '') . ' ' . ($tk['txn_reference'] ?? '') . ' ' . ($tk['business_name'] ?? ''));
@@ -73,11 +86,22 @@ require_once __DIR__ . '/header.php';
     <div class="flex flex-wrap items-center justify-between gap-3">
         <p class="text-sm text-gray-400">Grievances raised by payers from the Customer Portal. Visible to admin &amp; ops/support staff. Merchant sees only their own tickets.</p>
         <div class="flex gap-2 text-xs flex-wrap">
-            <?php foreach (['' => 'All', 'open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'closed' => 'Closed'] as $k => $lbl): ?>
-            <a href="?status=<?= e($k) ?>" class="px-3 py-1.5 rounded-lg <?= $statusFilter === $k ? 'bg-brand-600/20 text-brand-400' : 'text-gray-400 hover:text-white border border-gray-800' ?>"><?= e($lbl) ?></a>
+            <?php foreach (['' => 'All', 'open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'closed' => 'Closed'] as $k => $lbl):
+                $href = '?status=' . rawurlencode($k);
+                if ($filterMerchantId > 0) {
+                    $href .= '&merchant_id=' . $filterMerchantId;
+                }
+            ?>
+            <a href="<?= e($href) ?>" class="px-3 py-1.5 rounded-lg <?= $statusFilter === $k ? 'bg-brand-600/20 text-brand-400' : 'text-gray-400 hover:text-white border border-gray-800' ?>"><?= e($lbl) ?></a>
             <?php endforeach; ?>
         </div>
     </div>
+    <?php if ($filterMerchantId > 0): ?>
+    <div class="glass rounded-xl p-3 border border-sky-500/30 text-xs text-sky-200 flex flex-wrap items-center justify-between gap-2">
+        <span>Filtered to merchant #<?= (int)$filterMerchantId ?> <?= adminMerchantLink($filterMerchantId, 'Open merchant') ?></span>
+        <a href="admin_customer_tickets.php<?= $statusFilter !== '' ? '?status=' . rawurlencode($statusFilter) : '' ?>" class="text-sky-400 hover:underline">Clear filter</a>
+    </div>
+    <?php endif; ?>
 
     <?php if ($view): ?>
     <div class="glass rounded-xl p-4 sm:p-6 min-w-0">
@@ -87,7 +111,9 @@ require_once __DIR__ . '/header.php';
                 <h2 class="text-lg font-semibold mt-1 break-words"><?= e($view['subject']) ?></h2>
                 <p class="text-xs text-gray-500 mt-1 break-words">
                     <a href="<?= e(adminCustomerHistoryUrl((string)$view['customer_phone'])) ?>" class="text-sky-400 hover:underline">+91 <?= e($view['customer_phone']) ?></a>
-                    <?php if ($view['business_name']): ?> · <?= e($view['business_name']) ?><?php endif; ?>
+                    <?php if (!empty($view['merchant_id'])): ?>
+                    · <?= adminMerchantLink((int)$view['merchant_id'], $view['business_name'] ?: ('Merchant #' . (int)$view['merchant_id'])) ?>
+                    <?php elseif ($view['business_name']): ?> · <?= e($view['business_name']) ?><?php endif; ?>
                 </p>
             </div>
             <?= statusBadge((string)$view['status']) ?>
@@ -197,13 +223,27 @@ require_once __DIR__ . '/header.php';
                 <tbody class="divide-y divide-gray-800">
                     <?php if (empty($tickets)): ?>
                     <tr><td colspan="7" class="px-5 py-12 text-center text-gray-500">No customer complaints<?= $statusFilter ? ' in this status' : '' ?>.</td></tr>
-                    <?php else: foreach ($tickets as $tk): ?>
-                    <tr class="hover:bg-white/5 cursor-pointer" onclick="location.href='?id=<?= (int)$tk['id'] ?><?= $statusFilter !== '' ? '&status=' . urlencode($statusFilter) : '' ?>'">
+                    <?php else: foreach ($tickets as $tk):
+                        $rowHref = '?id=' . (int)$tk['id'];
+                        if ($statusFilter !== '') {
+                            $rowHref .= '&status=' . rawurlencode($statusFilter);
+                        }
+                        if ($filterMerchantId > 0) {
+                            $rowHref .= '&merchant_id=' . $filterMerchantId;
+                        }
+                    ?>
+                    <tr class="hover:bg-white/5 cursor-pointer" onclick="location.href='<?= e($rowHref) ?>'">
                         <td class="px-5 py-3 font-mono text-xs text-sky-400"><?= e($tk['ticket_id']) ?></td>
                         <td class="px-5 py-3 text-xs" onclick="event.stopPropagation()"><a href="<?= e(adminCustomerHistoryUrl((string)$tk['customer_phone'])) ?>" class="text-sky-400 hover:underline">+91 <?= e($tk['customer_phone']) ?></a></td>
                         <td class="px-5 py-3 font-mono text-xs" onclick="event.stopPropagation()"><?= !empty($tk['txn_reference']) ? txnDetailLink((string)$tk['txn_reference']) : '—' ?></td>
                         <td class="px-5 py-3 max-w-[240px] truncate"><?= e($tk['subject']) ?></td>
-                        <td class="px-5 py-3 text-xs text-gray-400"><?= e($tk['business_name'] ?: '—') ?></td>
+                        <td class="px-5 py-3 text-xs text-gray-400" onclick="event.stopPropagation()">
+                            <?php if (!empty($tk['merchant_id'])): ?>
+                            <?= adminMerchantLink((int)$tk['merchant_id'], $tk['business_name'] ?: ('#' . (int)$tk['merchant_id'])) ?>
+                            <?php else: ?>
+                            —
+                            <?php endif; ?>
+                        </td>
                         <td class="px-5 py-3"><?= statusBadge((string)$tk['status']) ?></td>
                         <td class="px-5 py-3 text-xs text-gray-500 whitespace-nowrap"><?= formatDate($tk['updated_at']) ?></td>
                     </tr>

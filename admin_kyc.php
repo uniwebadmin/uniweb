@@ -242,6 +242,8 @@ try {
 } catch (Throwable $e) {
     $approvalQueue = [];
 }
+
+$filterMerchantId = (int)($_GET['merchant_id'] ?? 0);
 $liveCandidates = [];
 try {
     $liveCandidates = $db->query(
@@ -329,6 +331,15 @@ try {
 } catch (Throwable $e) {
     $manualAssistQueue = [];
 }
+if ($filterMerchantId > 0) {
+    $pendingDocs = array_values(array_filter($pendingDocs, static fn(array $row): bool => (int)($row['merchant_id'] ?? 0) === $filterMerchantId));
+    $pendingMerchants = array_values(array_filter($pendingMerchants, static fn(array $row): bool => (int)($row['id'] ?? 0) === $filterMerchantId));
+    $recentSignups = array_values(array_filter($recentSignups, static fn(array $row): bool => (int)($row['id'] ?? 0) === $filterMerchantId));
+    $approvalQueue = array_values(array_filter($approvalQueue, static fn(array $row): bool => (int)($row['merchant_id'] ?? 0) === $filterMerchantId));
+    $liveCandidates = array_values(array_filter($liveCandidates, static fn(array $row): bool => (int)($row['id'] ?? 0) === $filterMerchantId));
+    $videoQueue = array_values(array_filter($videoQueue, static fn(array $row): bool => (int)($row['id'] ?? 0) === $filterMerchantId));
+    $manualAssistQueue = array_values(array_filter($manualAssistQueue, static fn(array $row): bool => (int)($row['id'] ?? 0) === $filterMerchantId));
+}
 
 $pageTitle = 'KYC Review';
 require_once __DIR__ . '/header.php';
@@ -338,6 +349,12 @@ require_once __DIR__ . '/header.php';
     <p class="font-semibold text-emerald-300 mb-1">Go-live path: Signup → Docs → Verify → Live</p>
     <p class="text-xs text-gray-500">Work this page top-down: Video queue → Pending documents → <a href="#verify-queue" class="text-sky-400 hover:underline">Verify queue</a> → Live activation gate. Reject reasons must be clear sentences (merchant sees the same text). Partner auto-forward runs on the existing queue when keys + commercial are set — no separate KYC product.</p>
 </div>
+<?php if ($filterMerchantId > 0): ?>
+<div class="glass rounded-xl p-3 mb-4 border border-sky-500/30 text-xs text-sky-200 flex flex-wrap items-center justify-between gap-2">
+    <span>Filtered to merchant #<?= (int)$filterMerchantId ?> — <?= adminMerchantLink($filterMerchantId, 'Open merchant') ?></span>
+    <a href="admin_kyc.php" class="text-sky-400 hover:underline">Show full KYC queue</a>
+</div>
+<?php endif; ?>
 
 <div class="mb-6 flex flex-col sm:flex-row flex-wrap gap-3">
     <?php if (isSuperAdmin()): ?>

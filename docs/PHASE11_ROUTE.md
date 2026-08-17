@@ -1,4 +1,4 @@
-# UniWeb — Phase 11 (later optional)
+# UniWeb ΓÇö Phase 11 (later optional)
 
 **Status:** parked. Do **not** go live with Route/Split. Do **not** sell NBFC or a customer PPI wallet.
 
@@ -14,7 +14,7 @@
 
 | Piece | Where | Live? |
 |-------|--------|--------|
-| Route config save | Partner Detail → Commercial & Split | Status `live` is locked in the form. Save remaps `live` → `ready_for_api` unless Owner setting `route_split_live_enabled=1` |
+| Route config save | Partner Detail ΓåÆ Commercial & Split | Status `live` is locked in the form. Save remaps `live` ΓåÆ `ready_for_api` unless Owner setting `route_split_live_enabled=1` |
 | `canUsePartnerRoute()` | `includes/split_settlement.php` | **false** until that setting is 1 **and** mode=`partner_api` **and** status=`live` |
 | Partner API call | `executePartnerRouteSplit()` | Records a pending transfer. **Does not** call Razorpay Route / Cashfree Easy Split / PayU split SDK |
 | Merchant collection picker | Setup + Collection Settings | Only Direct UPI and Platform PG. Route/Easy Split are not offered as a live choice |
@@ -24,7 +24,7 @@
 
 1. Partner Route keys + commercial terms exist.  
 2. Owner explicitly says start (not this document).  
-3. Then set `route_split_live_enabled=1` and implement the partner SDK — not before.
+3. Then set `route_split_live_enabled=1` and implement the partner SDK ΓÇö not before.
 
 ## P11-02 NBFC & customer PPI (EXCLUDED)
 
@@ -40,7 +40,7 @@
 
 Do **not** recreate those pages. Do **not** add a customer wallet page.
 
-## Appendix — audit evidence (PDF)
+## Appendix ΓÇö audit evidence (PDF)
 
 Site tar + SQL 14 Aug 2026; ~434 PHP under `public_html`; migrations through 060; `checkout.php`; `global_search`; `header.php` full merchant nav in repo. Live HTTP/SMTP were not executed offline in the PDF.
 

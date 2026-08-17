@@ -40,7 +40,7 @@ $requiredFiles = [
     'index.php',
     'signup.php',
     'merchant_register.php',
-    'demo.php',
+    'merchant_register.php',
     'checkout.php',
     'admin_website.php',
     'admin_kyc.php',
@@ -590,7 +590,7 @@ $assert(str_contains($enP7, 'Collect payments with UPI, QR and links') && str_co
 $assert(str_contains($idxP7, 'Collect. Operate. Settle.') && str_contains($idxP7, 'Start Test Mode — free'), 'p7_homepage_pillars_and_cta');
 $assert(str_contains($idxP7, 'Talk to sales') && !str_contains($idxP7, 'Watch platform tour'), 'ia01_homepage_two_ctas');
 $assert(str_contains($idxP7, 'Settlement balance') && str_contains($idxP7, 'not a consumer wallet'), 'ia01_homepage_no_ppi_wallet_claim');
-$assert(str_contains((string)file_get_contents($root . '/CRON_INVENTORY.md'), 'Forbidden') && str_contains((string)file_get_contents($root . '/CRON_INVENTORY.md'), 'Do not** add cron scripts'), 'tech08_cron_forbidden_documented');
+$assert(str_contains((string)file_get_contents($root . '/docs/CRON_INVENTORY.md'), 'Forbidden') && str_contains((string)file_get_contents($root . '/docs/CRON_INVENTORY.md'), 'Do not** add cron scripts'), 'tech08_cron_forbidden_documented');
 $assert(!str_contains($idxP7, 'Starter') && !preg_match('/0% UPI forever/i', $idxP7), 'p7_homepage_no_fake_starter_tier');
 $assert(str_contains($priceP7, 'Partner MDR') && (str_contains($priceP7, 'UniWeb platform commission') || str_contains($priceP7, 'UniWeb platform fee')) && str_contains($priceP7, 'GST'), 'p7_pricing_fee_stack');
 $assert(str_contains($priceP7, 'commission') && str_contains($priceP7, 'white-label software package'), 'b1_pricing_commission_only_copy');
@@ -654,6 +654,17 @@ $assert(str_contains((string)file_get_contents($root . '/includes/schema_ensure.
 $assert(str_contains((string)file_get_contents($root . '/disputes.php'), 'Admin reviews first') && str_contains((string)file_get_contents($root . '/disputes.php'), 'Admin will review first'), 'b9_merchant_admin_first_copy');
 $assert(str_contains((string)file_get_contents($root . '/admin_support.php'), 'Admin first — support queue') && str_contains((string)file_get_contents($root . '/admin_grievance.php'), 'Admin first — grievance officer queue'), 'b9_support_grievance_hub_banners');
 $assert(!is_file($root . '/admin_dispute_bulk.php') && !is_file($root . '/dispute_app.php'), 'b9_no_new_dispute_app');
+// WIRING-C1-C2-HYGIENE-ORDERED
+$assert(!is_file($root . '/demo.php') && !is_file($root . '/ping.php'), 'wiring_demo_ping_deleted');
+$assert(!is_file($root . '/AGENTS.md') && is_file($root . '/.cursor/AGENTS.md'), 'wiring_root_md_agents_moved_off_webroot');
+$assert(str_contains((string)file_get_contents($root . '/mobile.php'), "redirect('index.php')"), 'wiring_mobile_redirect_home');
+$assert(str_contains((string)file_get_contents($root . '/cust.php'), "redirect('index.php"), 'wiring_cust_redirect_home');
+$assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), "filterMerchantId") && str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'merchant_id'), 'wiring_disputes_merchant_id_filter');
+$assert(str_contains((string)file_get_contents($root . '/admin_customer_tickets.php'), '$filterMerchantId') && str_contains((string)file_get_contents($root . '/admin_customer_tickets.php'), 'adminMerchantLink'), 'wiring_customer_tickets_filter_and_open_merchant');
+$assert(str_contains((string)file_get_contents($root . '/admin_support.php'), '$filterMerchantId'), 'wiring_support_merchant_id_filter');
+$assert(str_contains((string)file_get_contents($root . '/admin_view_merchant.php'), 'admin_disputes.php?merchant_id=') && str_contains((string)file_get_contents($root . '/admin_view_merchant.php'), 'admin_customer_tickets.php?merchant_id=') && str_contains((string)file_get_contents($root . '/admin_view_merchant.php'), 'admin_support.php?merchant_id='), 'wiring_merchant_profile_chips');
+$assert(str_contains((string)file_get_contents($root . '/admin_kyc.php'), '$filterMerchantId') && str_contains((string)file_get_contents($root . '/admin_view_merchant.php'), 'admin_kyc.php?merchant_id='), 'wiring_kyc_merchant_deep_link');
+$assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'adminMerchantLink'), 'wiring_disputes_open_merchant');
 // Block 10 — Live corridor soft-launch checklist (owner clicks; no new app)
 $assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'Live corridor — soft launch checklist'), 'b10_admin_live_corridor_checklist');
 $assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Live corridor (soft launch)') && str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Apply pending migrations'), 'b10_gateway_soft_launch_banner');
@@ -697,7 +708,7 @@ $assert(str_contains($dashP8, 'Create a payment link') && str_contains((string)f
 $assert(str_contains($errCatchP8, 'Call to undefined function recordAuditEvent'), 'p8_auto_resolve_stale_test_pay_error');
 
 $cmpP9 = (string)file_get_contents($root . '/compare.php');
-$assert(is_file($root . '/compare.php') && is_file($root . '/MARKET_COMPARISON.md'), 'p9_compare_page_and_reference');
+$assert(is_file($root . '/compare.php') && is_file($root . '/docs/MARKET_COMPARISON.md'), 'p9_compare_page_and_reference');
 $assert(str_contains($cmpP9, 'Razorpay') && str_contains($cmpP9, 'Cashfree') && str_contains($cmpP9, 'PayU') && str_contains($cmpP9, 'Juspay') && str_contains($cmpP9, 'Stripe') && str_contains($cmpP9, 'Worldline') && str_contains($cmpP9, 'Decentro'), 'p9_all_peers_named');
 $assert(str_contains($cmpP9, 'Route') && str_contains($cmpP9, 'Owner') && str_contains($cmpP9, 'PPI'), 'p9_no_parity_promises');
 $assert(str_contains((string)file_get_contents($root . '/includes/page_ux.php'), 'function userFacingError') && str_contains((string)file_get_contents($root . '/checkout.php'), 'userFacingError'), 'p9_actionable_errors_helper');
@@ -719,13 +730,13 @@ $assert(str_contains($gwDetailP9, 'Test / Sandbox') && str_contains($gwDetailP9,
 $assert(str_contains((string)file_get_contents($root . '/trust.php'), 'do not claim') && str_contains((string)file_get_contents($root . '/trust.php'), 'RBI Payment Aggregator'), 'p9_08_trust_licence_factual');
 $assert(!str_contains((string)file_get_contents($root . '/index.php'), 'payment aggregator'), 'p9_08_homepage_no_pa_keyword_claim');
 
-$wlMd = (string)file_get_contents($root . '/WHITE_LABEL_CHECKLIST.md');
-$assert(is_file($root . '/WHITE_LABEL_CHECKLIST.md'), 'p10_white_label_checklist_file');
+$wlMd = (string)file_get_contents($root . '/docs/WHITE_LABEL_CHECKLIST.md');
+$assert(is_file($root . '/docs/WHITE_LABEL_CHECKLIST.md'), 'p10_white_label_checklist_file');
 foreach (['WL-01', 'WL-02', 'WL-03', 'WL-04', 'WL-05', 'WL-12'] as $wlId) {
     $assert(str_contains($wlMd, $wlId), 'p10_checklist_has_' . strtolower($wlId));
 }
 $assert(str_contains($wlMd, 'no white-label program') || str_contains($wlMd, 'Not a command to sell') || str_contains($wlMd, 'Do **not** sell white-label'), 'p10_not_a_product_launch');
-$assert(str_contains((string)file_get_contents($root . '/DEEP_AUDIT_ORDERED.md'), 'WHITE_LABEL_CHECKLIST.md'), 'p10_audit_points_at_checklist');
+$assert(str_contains((string)file_get_contents($root . '/docs/DEEP_AUDIT_ORDERED.md'), 'WHITE_LABEL_CHECKLIST.md'), 'p10_audit_points_at_checklist');
 $ccLib = (string)file_get_contents($root . '/includes/checkout_customize.php');
 $assert(str_contains($ccLib, 'hide_powered_by') && str_contains($ccLib, 'function checkoutHidePoweredBy'), 'p10_hide_powered_by_helper');
 $assert(str_contains($ccLib, 'NOT NULL DEFAULT 0'), 'p10_hide_powered_by_default_off');
@@ -764,7 +775,7 @@ $assert(str_contains($wlMd, '## LIVE-02') && str_contains($wlMd, '062') && str_c
 $assert(str_contains($wlMd, '## LIVE-03') && str_contains($wlMd, 'BLOCK_A_CLEANUP.md'), 'live03_backup_before_cleanup_checklist');
 $assert(is_file($root . '/migrations/062_widen_merchant_pii_cipher.sql') && is_file($root . '/migrations/063_payment_link_amount_type.sql'), 'live02_migrations_062_063_present');
 $assert(str_contains((string)file_get_contents($root . '/admin_encrypt_pii.php'), 'LIVE-02 order') && str_contains((string)file_get_contents($root . '/gateway_settings.php'), '062'), 'live02_admin_ui_order_hints');
-$assert(str_contains((string)file_get_contents($root . '/BLOCK_A_CLEANUP.md'), 'Never hard-delete money') && !str_contains((string)file_get_contents($root . '/BLOCK_A_CLEANUP.md'), 'NBFC pages (hidden, parked)'), 'live03_block_a_no_nbfc_keep');
+$assert(str_contains((string)file_get_contents($root . '/docs/BLOCK_A_CLEANUP.md'), 'Never hard-delete money') && !str_contains((string)file_get_contents($root . '/docs/BLOCK_A_CLEANUP.md'), 'NBFC pages (hidden, parked)'), 'live03_block_a_no_nbfc_keep');
 $assert(is_file($root . '/_inbox/chat/LIVE_02_migrations_pii.txt') && is_file($root . '/_inbox/chat/LIVE_03_backup_before_cleanup.txt'), 'live02_03_owner_inbox_notes');
 $assert(is_file($root . '/admin_gateway_matrix.php') && str_contains((string)file_get_contents($root . '/admin_gateway_matrix.php'), 'multi-MID'), 'wl13_matrix_page_honest');
 $assert(str_contains((string)file_get_contents($root . '/trust.php'), 'Q: Who holds card data?') && str_contains((string)file_get_contents($root . '/trust.php'), 'do not claim UniWeb PCI Level 1'), 'wl09_trust_q_map');
@@ -773,8 +784,8 @@ $assert(str_contains($pciDss, 'do not claim an independent PCI Level 1') && !str
 $assert(!str_contains($pciDss, '>Compliant<') && str_contains($pciDss, 'Readiness map'), 'wl09_pci_no_compliant_badge_cells');
 $assert(str_contains((string)file_get_contents($root . '/api_docs.php'), 'Written exception (parked)'), 'wl07_docs_written_exception');
 
-$p11 = (string)file_get_contents($root . '/PHASE11_ROUTE.md');
-$assert(is_file($root . '/PHASE11_ROUTE.md') && str_contains($p11, 'P11-01') && str_contains($p11, 'P11-02'), 'p11_route_reference_file');
+$p11 = (string)file_get_contents($root . '/docs/PHASE11_ROUTE.md');
+$assert(is_file($root . '/docs/PHASE11_ROUTE.md') && str_contains($p11, 'P11-01') && str_contains($p11, 'P11-02'), 'p11_route_reference_file');
 $assert(str_contains($p11, 'No SDK') || str_contains($p11, 'Does not** call'), 'p11_no_sdk_early');
 $splitLib = (string)file_get_contents($root . '/includes/split_settlement.php');
 $assert(str_contains($splitLib, 'route_split_live_enabled') && str_contains($splitLib, "partner API call pending integration"), 'p11_route_gated_no_sdk');
@@ -786,7 +797,7 @@ $assert(!str_contains($navLib, 'merchant_nbfc.php') && !str_contains($navLib, 'a
 $assert(!is_file($root . '/customer_wallet.php'), 'p11_no_customer_ppi_page');
 $assert(is_file($root . '/.cursor/rules/owner-hard-nbfc-ppi-existing-only.mdc'), 'owner_hard_rule_nbfc_ppi_existing');
 $assert(str_contains((string)file_get_contents($root . '/collection_settings.php'), 'does not turn Razorpay Route live'), 'p11_collection_route_ids_parked');
-$assert(str_contains((string)file_get_contents($root . '/DEEP_AUDIT_ORDERED.md'), 'PHASE11_ROUTE.md'), 'p11_audit_points_at_map');
+$assert(str_contains((string)file_get_contents($root . '/docs/DEEP_AUDIT_ORDERED.md'), 'PHASE11_ROUTE.md'), 'p11_audit_points_at_map');
 $assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'locked — future ticket'), 'p11_live_status_locked_in_ui');
 
 $cryptoCleanup = (string)file_get_contents($root . '/includes/crypto.php');
@@ -798,12 +809,12 @@ $assert(str_contains((string)file_get_contents($root . '/includes/partner_payloa
 $assert(is_file($root . '/migrations/062_widen_merchant_pii_cipher.sql') && str_contains((string)file_get_contents($root . '/includes/schema_ensure.php'), 'ensureSensitivePiiColumnWidths'), 'cleanup_b02_widen_cipher_columns');
 $assert(str_contains((string)file_get_contents($root . '/admin_encrypt_pii.php'), "'address'") && str_contains((string)file_get_contents($root . '/my_account.php'), 'sensitiveUiSave(trim((string)($_POST[\'address\']'), 'cleanup_b_address_encrypt_paths');
 $assert(str_contains((string)file_get_contents($root . '/customer_profile.php'), 'sensitiveUiPlain'), 'cleanup_b05_customer_profile_plain');
-$assert(is_file($root . '/BLOCK_A_CLEANUP.md') && str_contains((string)file_get_contents($root . '/BLOCK_A_CLEANUP.md'), 'Never hard-delete money'), 'cleanup_a_runbook_present');
+$assert(is_file($root . '/docs/BLOCK_A_CLEANUP.md') && str_contains((string)file_get_contents($root . '/docs/BLOCK_A_CLEANUP.md'), 'Never hard-delete money'), 'cleanup_a_runbook_present');
 $assert(str_contains((string)file_get_contents($root . '/includes/onboarding.php'), "url' => 'merchant_payment_pack.php'") && !str_contains((string)file_get_contents($root . '/includes/onboarding.php'), 'merchant_launch_test.php'), 'cleanup_a03_test_pay_link_fixed');
-$assert(str_contains((string)file_get_contents($root . '/includes/admin_demo_table.php'), 'demo.php') && !str_contains((string)file_get_contents($root . '/includes/admin_demo_table.php'), 'platform_demo.php'), 'cleanup_a03_demo_tour_link_fixed');
+$assert(str_contains((string)file_get_contents($root . '/includes/admin_demo_table.php'), 'merchant_register.php') && !str_contains((string)file_get_contents($root . '/includes/admin_demo_table.php'), 'platform_demo.php'), 'cleanup_a03_demo_tour_link_fixed');
 $assert(str_contains((string)file_get_contents($root . '/.htaccess'), 'RewriteRule ^tests/') && str_contains((string)file_get_contents($root . '/.htaccess'), 'RewriteRule ^scripts/'), 'cleanup_a01_htaccess_blocks_junk_dirs');
 $assert(str_contains((string)file_get_contents($root . '/.github/workflows/deploy.yml'), 'dev_local/') && str_contains((string)file_get_contents($root . '/.github/workflows/deploy.yml'), 'scripts/'), 'cleanup_a01_ftp_excludes_junk');
-$assert(is_file($root . '/CLEANUP_SENSITIVE_CLICKABLE_AUDIT.md') && str_contains((string)file_get_contents($root . '/AGENTS.md'), 'CLEANUP_SENSITIVE_CLICKABLE_AUDIT.md'), 'cleanup_audit_noted_in_agents');
+$assert(is_file($root . '/docs/CLEANUP_SENSITIVE_CLICKABLE_AUDIT.md') && str_contains((string)file_get_contents($root . '/.cursor/AGENTS.md'), 'CLEANUP_SENSITIVE_CLICKABLE_AUDIT.md'), 'cleanup_audit_noted_in_agents');
 $assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'admin_disputes.php') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'Open Disputes'), 'cleanup_c_disputes_card_clickable');
 $assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'admin_transactions.php?status=failed') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), "Today's Volume"), 'cleanup_c05_volume_and_failed_cards');
 $assert(str_contains((string)file_get_contents($root . '/includes/ui_links.php'), 'function adminStaffLink') && str_contains((string)file_get_contents($root . '/includes/ui_links.php'), 'function adminPartnerDetailUrl'), 'cleanup_c_staff_partner_link_helpers');
@@ -1110,7 +1121,7 @@ $assert(str_contains($htaccess, '\\.(env|log|sql|md)$') || str_contains($htacces
 $assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'stale_createNotification'), 'cr01_stale_createNotification_detector');
 $assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "includes/notifications.php"), 'cr01_config_dev_loads_notifications');
 $errorPage = (string)file_get_contents($root . '/error.php');
-$assert(str_contains($errorPage, 'Page not found') && str_contains($errorPage, 'demo.php'), 'branded_error_has_nav_links');
+$assert(str_contains($errorPage, 'Page not found') && str_contains($errorPage, 'merchant_register.php'), 'branded_error_has_nav_links');
 $error404 = (string)file_get_contents($root . '/error_404.php');
 $assert(str_contains($error404, 'error.php'), 'error_404_aliases_to_error_php');
 
@@ -1148,7 +1159,6 @@ if ($liveBase) {
         ['index.php', [200]],
         ['signup.php', [200]],
         ['merchant_register.php', [200]],
-        ['demo.php', [200]],
         ['checkout.php', [200, 404]], // 404 without link id is expected branded page
         ['admin_website.php', [200, 302]], // login redirect ok
         ['admin_kyc.php', [200, 302]],
@@ -1166,13 +1176,9 @@ if ($liveBase) {
         $assert($r['ok'], 'live_' . ($path === '' ? 'home' : str_replace(['/', '.', '?'], '_', $path)), $r['code'] . ' ' . $r['url'] . ($r['err'] ? ' ' . $r['err'] : ''));
     }
 
-    $demo = $probe('demo.php', [200]);
-    if ($demo['ok'] && preg_match('/checkout\\.php\\?link=([A-Z0-9]+)/i', $demo['body'], $m)) {
-        $pay = $probe('checkout.php?link=' . $m[1] . '&pay=upi', [200]);
-        $assert($pay['ok'], 'live_demo_checkout', $pay['code'] . ' link=' . $m[1]);
-    } else {
-        $assert(false, 'live_demo_checkout', 'Could not extract demo payment link from demo.php');
-    }
+    // Instant Test Pay path: merchant signup still public; demo.php removed (hygiene).
+    $reg = $probe('merchant_register.php', [200]);
+    $assert($reg['ok'], 'live_merchant_register_after_demo_removed', $reg['code'] . ' ' . $reg['url']);
 }
 
 $payload = [

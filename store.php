@@ -2,25 +2,16 @@
 require_once __DIR__ . '/config.php';
 
 $slug = strtolower(trim((string)($_GET['s'] ?? '')));
+// Bare / invalid hub → home. Published storefront ?s=slug stays (merchant sales page).
 if (!preg_match('/^[a-z0-9-]{3,80}$/', $slug) || !merchantStorefrontTableAvailable()) {
-    http_response_code(404);
-    $pageTitle = 'Sales page not found';
-    require_once __DIR__ . '/header.php';
-    echo '<main class="max-w-xl mx-auto px-4 py-24 text-center"><div class="glass rounded-2xl p-8"><h1 class="text-2xl font-bold text-white">Sales page not found</h1><p class="text-sm text-gray-400 mt-3">This page is unavailable or no longer published.</p><a href="index.php" class="inline-block mt-6 text-sky-400">Go to UniWeb →</a></div></main>';
-    require_once __DIR__ . '/footer.php';
-    exit;
+    redirect('index.php');
 }
 
 $stmt = getDB()->prepare('SELECT sf.*, m.id AS merchant_id, m.business_name, m.name, m.email, m.phone FROM merchant_storefronts sf JOIN merchants m ON m.id=sf.merchant_id WHERE sf.storefront_slug=? AND sf.is_published=1 AND m.status != \'deleted\' LIMIT 1');
 $stmt->execute([$slug]);
 $store = $stmt->fetch();
 if (!$store) {
-    http_response_code(404);
-    $pageTitle = 'Sales page not found';
-    require_once __DIR__ . '/header.php';
-    echo '<main class="max-w-xl mx-auto px-4 py-24 text-center"><div class="glass rounded-2xl p-8"><h1 class="text-2xl font-bold text-white">Sales page not found</h1><p class="text-sm text-gray-400 mt-3">This page is unavailable or no longer published.</p><a href="index.php" class="inline-block mt-6 text-sky-400">Go to UniWeb →</a></div></main>';
-    require_once __DIR__ . '/footer.php';
-    exit;
+    redirect('index.php');
 }
 
 $linkStmt = getDB()->prepare("SELECT link_id, amount, description FROM payment_links WHERE merchant_id=? AND status='active' AND is_test=0 AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY created_at DESC LIMIT 12");

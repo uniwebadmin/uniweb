@@ -122,7 +122,7 @@ require_once __DIR__ . '/header.php';
         <a href="admin_reason_map.php" class="glass px-3 py-2 rounded-xl text-xs text-violet-400">Reason Maps</a>
         <a href="admin_platform_wallet.php" class="glass px-3 py-2 rounded-xl text-xs text-emerald-400">Platform Fee Ledger</a>
         <a href="gateway_settings.php" class="glass px-3 py-2 rounded-xl text-xs text-gray-300">Platform Settings</a>
-        <a href="demo.php" target="_blank" class="glass px-3 py-2 rounded-xl text-xs text-brand-400">Live Demo ↗</a>
+        <a href="merchant_register.php" target="_blank" class="glass px-3 py-2 rounded-xl text-xs text-brand-400">Live Demo ↗</a>
     </div>
 </details>
 

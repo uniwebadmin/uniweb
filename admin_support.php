@@ -50,9 +50,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
 $q = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
 $statusFilter = trim($_GET['status'] ?? 'all');
+$filterMerchantId = (int)($_GET['merchant_id'] ?? 0);
 $sql = 'SELECT t.*, m.business_name, m.email FROM support_tickets t JOIN merchants m ON t.merchant_id=m.id';
 $params = [];
 $where = [];
+if ($filterMerchantId > 0) {
+    $where[] = 't.merchant_id = ?';
+    $params[] = $filterMerchantId;
+}
 if ($statusFilter !== 'all' && in_array($statusFilter, ['open', 'in_progress', 'resolved', 'closed'], true)) {
     $where[] = 't.status = ?';
     $params[] = $statusFilter;
@@ -88,8 +93,14 @@ require_once __DIR__ . '/header.php';
     <p class="font-semibold text-emerald-300 mb-1">Admin first — support queue</p>
     <p class="text-xs text-gray-500">Merchant tickets land here for Admin/staff reply. Payment chargeback disputes: use <a href="admin_disputes.php" class="text-sky-400 hover:underline">Disputes</a> (resolve or single partner forward). Bulk routing later — no new app.</p>
 </div>
+<?php if ($filterMerchantId > 0): ?>
+<div class="glass rounded-xl p-3 mb-4 border border-sky-500/30 text-xs text-sky-200 flex flex-wrap items-center justify-between gap-2">
+    <span>Filtered to merchant #<?= (int)$filterMerchantId ?></span>
+    <a href="admin_support.php" class="text-sky-400 hover:underline">Clear filter</a>
+</div>
+<?php endif; ?>
 
-<?= uxListToolbar(uxExportCsvLink(array_filter(['q' => $q ?: null, 'status' => $statusFilter !== 'all' ? $statusFilter : null]))) ?>
+<?= uxListToolbar(uxExportCsvLink(array_filter(['q' => $q ?: null, 'status' => $statusFilter !== 'all' ? $statusFilter : null, 'merchant_id' => $filterMerchantId > 0 ? $filterMerchantId : null]))) ?>
 
 <?php if (!empty($websiteInquiries)): ?>
 <div class="glass rounded-xl p-6 mb-6 border border-sky-500/20">

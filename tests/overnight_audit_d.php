@@ -74,7 +74,7 @@ function pageAuditProfile(string $page): string
         'qr_image.php' => 'binary',
         'logout.php' => 'redirect',
         'merchant_toggle_mode.php' => 'redirect_action',
-        'ping.php' => 'health',
+        'health.php' => 'health',
         'migrate_release.php' => 'cron',
         'platform_watchdog.php' => 'cron',
         'morning_ops.php' => 'cron',

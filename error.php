@@ -47,7 +47,7 @@ if (PHP_SAPI !== 'cli') {
             . '<h1 class="text-xl font-semibold mb-2">' . e($heading) . '</h1>'
             . '<p class="text-sm text-gray-400 mb-6">' . e($detail) . '</p>'
             . '<a href="index.php" class="inline-block btn-primary px-5 py-2.5 text-sm">Home</a>'
-            . ' <a href="demo.php" class="inline-block ml-2 text-sm text-gray-400 hover:text-white">Demo</a>'
+            . ' <a href="merchant_register.php" class="inline-block ml-2 text-sm text-gray-400 hover:text-white">Demo</a>'
             . ' <a href="support.php" class="inline-block ml-2 text-sm text-gray-400 hover:text-white">Support</a>'
             . '</div></section>';
         require __DIR__ . '/footer.php';
@@ -74,7 +74,7 @@ if (!$rendered) {
         . 'a.alt{background:transparent;color:#94a3b8}</style></head><body><div class="box">'
         . '<p class="code">' . (int)$code . '</p>'
         . '<h1>' . $safeHeading . '</h1><p>' . $safeDetail . '</p>'
-        . '<a href="/index.php">Home</a> <a class="alt" href="/demo.php">Demo</a> <a class="alt" href="/support.php">Support</a>'
+        . '<a href="/index.php">Home</a> <a class="alt" href="/merchant_register.php">Demo</a> <a class="alt" href="/support.php">Support</a>'
         . '</div></body></html>';
 }
 exit;

@@ -125,9 +125,12 @@ require_once __DIR__ . '/header.php';
     <a href="<?= e(adminMerchantRefundsUrl($id)) ?>" class="glass px-3 py-2 rounded-lg text-amber-400 hover:text-amber-300">Refunds</a>
     <a href="<?= e(adminMerchantTransactionsUrl($id)) ?>" class="glass px-3 py-2 rounded-lg text-gray-300 hover:text-white">Transactions</a>
     <?php if (isSuperAdmin() || in_array(adminRole(), ['ceo','regional_manager','finance','ops'], true)): ?><a href="admin_merchant_banks.php?id=<?= $id ?>" class="glass px-3 py-2 rounded-lg text-sky-500 hover:text-sky-400">Bank Accounts</a><?php endif; ?>
-    <a href="<?= e(adminMerchantApiUrl($id)) ?>" class="glass px-3 py-2 rounded-lg text-brand-400 hover:text-brand-300">API Keys</a>
+    <a href="<?= e(adminMerchantApiUrl($id)) ?>" class="glass px-3 py-2 rounded-lg text-brand-400 hover:text-brand-300">Merchant API</a>
     <a href="<?= e(adminMerchantWebsiteUrl($id)) ?>" class="glass px-3 py-2 rounded-lg text-violet-400 hover:text-violet-300">Website</a>
-    <a href="admin_kyc.php" class="glass px-3 py-2 rounded-lg text-gray-500 hover:text-white">KYC Queue</a>
+    <a href="admin_disputes.php?merchant_id=<?= (int)$id ?>" class="glass px-3 py-2 rounded-lg text-red-400 hover:text-red-300">Disputes</a>
+    <a href="admin_customer_tickets.php?merchant_id=<?= (int)$id ?>" class="glass px-3 py-2 rounded-lg text-amber-400 hover:text-amber-300">Customer tickets</a>
+    <a href="admin_support.php?merchant_id=<?= (int)$id ?>" class="glass px-3 py-2 rounded-lg text-sky-400 hover:text-sky-300">Merchant support</a>
+    <a href="admin_kyc.php?merchant_id=<?= (int)$id ?>" class="glass px-3 py-2 rounded-lg text-gray-500 hover:text-white">KYC</a>
 </div>
 
 <div class="grid lg:grid-cols-3 gap-6 mb-8">
@@ -289,7 +292,7 @@ require_once __DIR__ . '/header.php';
             <h3 class="font-semibold mb-2">Gateway IDs</h3>
             <p class="text-xs text-gray-500">PayU</p><p class="font-mono text-xs break-all"><?= e($m['payu_child_key'] ?: '—') ?></p>
             <p class="text-xs text-gray-500 mt-2">Razorpay</p><p class="font-mono text-xs break-all"><?= e($m['razorpay_linked_account_id'] ?: '—') ?></p>
-            <a href="admin_kyc.php" class="inline-block mt-3 text-xs text-brand-400">Review KYC →</a>
+            <a href="admin_kyc.php?merchant_id=<?= (int)$id ?>" class="inline-block mt-3 text-xs text-brand-400">Review KYC →</a>
         </div>
     </div>
 </div>

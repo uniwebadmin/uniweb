@@ -5,7 +5,7 @@ declare(strict_types=1);
 
 function getDemoTourSlides(?array $demo = null): array
 {
-    $payUrl = $demo['pay_url'] ?? (APP_URL . '/demo.php');
+    $payUrl = $demo['pay_url'] ?? (APP_URL . '/merchant_register.php');
     return [
         [
             'id' => 'checkout',

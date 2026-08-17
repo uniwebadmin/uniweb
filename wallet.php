@@ -83,7 +83,7 @@ require_once __DIR__ . '/header.php';
 <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
     <p class="font-semibold text-amber-300">No settlement amount yet — complete a test payment first</p>
     <p class="text-sm text-amber-400/80 mt-2">After a ₹1 demo payment, your balance will appear here.</p>
-    <a href="demo.php" class="inline-block mt-3 btn-primary text-sm px-5 py-2.5">Pay ₹1 test →</a>
+    <a href="merchant_register.php" class="inline-block mt-3 btn-primary text-sm px-5 py-2.5">Pay ₹1 test →</a>
 </div>
 <?php elseif ($available > 0 && !$canTransfer): ?>
 <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6 text-sm text-amber-300">
@@ -103,7 +103,7 @@ require_once __DIR__ . '/header.php';
         <p class="text-xs text-amber-400">Your team role cannot initiate settlements. Ask Admin/Finance.</p>
         <?php else: ?>
         <?php if (!$canTransfer): ?>
-        <p class="text-xs text-amber-400 mb-2"><?= __('wallet_low_balance') ?> <a href="demo.php" class="text-sky-400 underline"><?= __('wallet_demo_pay') ?></a></p>
+        <p class="text-xs text-amber-400 mb-2"><?= __('wallet_low_balance') ?> <a href="merchant_register.php" class="text-sky-400 underline"><?= __('wallet_demo_pay') ?></a></p>
         <?php endif; ?>
         <form method="POST" class="space-y-2" novalidate aria-label="Quick bank transfer">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -132,7 +132,7 @@ require_once __DIR__ . '/header.php';
             </tr></thead>
             <tbody class="divide-y divide-gray-800">
                 <?php if (empty($ledger)): ?>
-                <tr><td colspan="3" class="p-0"><?= renderMerchantEmptyState('No settlement activity yet', 'Complete a test or live payment to see ledger entries here.', 'demo.php', 'Try ₹1 demo →') ?></td></tr>
+                <tr><td colspan="3" class="p-0"><?= renderMerchantEmptyState('No settlement activity yet', 'Complete a test or live payment to see ledger entries here.', 'merchant_register.php', 'Try ₹1 demo →') ?></td></tr>
                 <?php else: foreach ($ledger as $w):
                     $amt = safeDisplayBalance((float)$w['amount'], $isTest);
                     $balAfter = safeDisplayBalance((float)$w['balance_after'], $isTest);

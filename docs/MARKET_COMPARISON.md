@@ -1,4 +1,4 @@
-# UniWeb — market comparison (Phase 9 reference)
+# UniWeb ΓÇö market comparison (Phase 9 reference)
 
 **Status:** quality bar only. Do **not** implement peer parity (Route, Easy Split, POS, orchestrator, PPI, NBFC) unless the Owner explicitly says start.
 
@@ -25,7 +25,7 @@ Merchant console for Indian **collections**: payment links, QR, hosted checkout,
 
 **Problem:** Many screens exist; empty tables and raw PHP errors feel broken.  
 **Expectation:** Educated empty states (next click) and actionable errors (what to do, not SQLSTATE).  
-**Action:** Polish after Phase 0–2 green. Empty states shipped in Phase 8. Actionable `userFacingError()` hides internals from merchants/customers.
+**Action:** Polish after Phase 0ΓÇô2 green. Empty states shipped in Phase 8. Actionable `userFacingError()` hides internals from merchants/customers.
 
 ## Never from this comparison
 
@@ -37,7 +37,7 @@ Merchant console for Indian **collections**: payment links, QR, hosted checkout,
 
 ## Owner clicks (when comparing on live)
 
-1. Create Test payment link + QR — same reliability bar as Razorpay Links/QR.  
-2. Open `status.php` — Juspay-style honesty is uptime, not a second product.  
-3. Open `api_docs.php` — Stripe-style test vs live keys.  
+1. Create Test payment link + QR ΓÇö same reliability bar as Razorpay Links/QR.  
+2. Open `status.php` ΓÇö Juspay-style honesty is uptime, not a second product.  
+3. Open `api_docs.php` ΓÇö Stripe-style test vs live keys.  
 4. Do **not** enable Route, POS, or payout automation from this document alone.
