@@ -144,7 +144,7 @@ require_once __DIR__ . '/header.php';
                 $openD = in_array((string)$d['status'], ['open', 'under_review', 'forwarded_partner'], true);
             ?>
             <tr>
-                <td class="px-4 sm:px-5 py-3 font-mono text-xs"><a href="<?= e(transactionDetailUrl($d['txn_id'])) ?>" class="text-sky-400 hover:underline"><?= e($d['dispute_id']) ?></a></td>
+                <td class="px-4 sm:px-5 py-3 font-mono text-xs text-gray-300"><?= e($d['dispute_id']) ?></td>
                 <td class="px-4 sm:px-5 py-3 text-xs"><?= adminMerchantLink((int)$d['merchant_row_id'], $d['business_name']) ?></td>
                 <td class="px-4 sm:px-5 py-3 font-mono text-xs"><?= txnDetailLink($d['txn_id']) ?></td>
                 <td class="px-4 sm:px-5 py-3"><?= formatMoney(capStatAmount((float)$d['amount'])) ?></td>

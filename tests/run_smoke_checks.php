@@ -665,6 +665,8 @@ $assert(str_contains((string)file_get_contents($root . '/admin_support.php'), '$
 $assert(str_contains((string)file_get_contents($root . '/admin_view_merchant.php'), 'admin_disputes.php?merchant_id=') && str_contains((string)file_get_contents($root . '/admin_view_merchant.php'), 'admin_customer_tickets.php?merchant_id=') && str_contains((string)file_get_contents($root . '/admin_view_merchant.php'), 'admin_support.php?merchant_id='), 'wiring_merchant_profile_chips');
 $assert(str_contains((string)file_get_contents($root . '/admin_kyc.php'), '$filterMerchantId') && str_contains((string)file_get_contents($root . '/admin_view_merchant.php'), 'admin_kyc.php?merchant_id='), 'wiring_kyc_merchant_deep_link');
 $assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'adminMerchantLink'), 'wiring_disputes_open_merchant');
+$assert(!str_contains((string)file_get_contents($root . '/admin_disputes.php'), "transactionDetailUrl(\$d['txn_id'])"), 'phase1_a2_dispute_id_not_txn_link');
+$assert(str_contains((string)file_get_contents($root . '/admin_view_merchant.php'), '>Merchant API<'), 'phase1_a4_merchant_api_chip_label');
 // Block 10 — Live corridor soft-launch checklist (owner clicks; no new app)
 $assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'Live corridor — soft launch checklist'), 'b10_admin_live_corridor_checklist');
 $assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Live corridor (soft launch)') && str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Apply pending migrations'), 'b10_gateway_soft_launch_banner');
