@@ -695,6 +695,10 @@ $im4a = (string)file_get_contents($root . '/admin_integration_matrix.php');
 $assert(str_contains($im4a, 'Status board only') && str_contains($im4a, 'partner keys are not pasted here'), 'p4a_integration_board_keys_not_here');
 $assert(str_contains($im4a, 'admin_gateway_registry.php') && str_contains($im4a, 'Open Partner Registry'), 'p4a_integration_board_registry_cta');
 $assert(str_contains($im4a, 'Integration Status Board') && !str_contains($im4a, 'Gateway × Operation Matrix'), 'p4a_integration_board_title_clear');
+// 4b: Gateway Routing Matrix — keys not pasted here; CTA to Partner Registry
+$gm4b = (string)file_get_contents($root . '/admin_gateway_matrix.php');
+$assert(str_contains($gm4b, 'partner keys are not pasted here') && str_contains($gm4b, 'Open Partner Registry'), 'p4b_gateway_matrix_keys_not_here');
+$assert(str_contains($gm4b, 'admin_gateway_registry.php') && str_contains($gm4b, 'Merchant rail / onboarding status'), 'p4b_gateway_matrix_registry_cta');
 $assert(str_contains((string)file_get_contents($root . '/admin_support.php'), 'Admin first — support queue') && str_contains((string)file_get_contents($root . '/admin_grievance.php'), 'Admin first — grievance officer queue'), 'b9_support_grievance_hub_banners');
 $assert(!is_file($root . '/admin_dispute_bulk.php') && !is_file($root . '/dispute_app.php'), 'b9_no_new_dispute_app');
 // WIRING-C1-C2-HYGIENE-ORDERED

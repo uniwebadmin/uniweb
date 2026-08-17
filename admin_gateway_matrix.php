@@ -113,9 +113,18 @@ $pageTitle = 'Gateway Routing Matrix';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="space-y-6">
+    <div class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100" role="status">
+        <p class="font-semibold text-amber-200">Merchant rail / onboarding status — partner keys are not pasted here.</p>
+        <p class="text-xs text-amber-100/80 mt-1">This page shows which partner each merchant is on and forward status. Paste Razorpay / Cashfree / PayU / Axis keys in <strong class="text-white">Partner Registry → partner → Keys</strong>. Method ON/OFF is also in Partner Registry.</p>
+        <p class="mt-3 flex flex-wrap gap-2">
+            <a href="admin_gateway_registry.php" class="inline-flex items-center px-3 py-1.5 rounded-lg bg-violet-600/80 hover:bg-violet-500 text-white text-xs font-medium">Open Partner Registry →</a>
+            <a href="admin_integration_matrix.php" class="inline-flex items-center px-3 py-1.5 rounded-lg border border-gray-600 text-gray-300 hover:text-white text-xs">Integration Status Board</a>
+        </p>
+    </div>
     <div>
-        <p class="text-sm text-gray-400">Ops view: which partner rail each merchant is on. Partner Registry holds keys and method ON/OFF. Deep multi-MID / multi-acquirer UI only if the Owner names that deal.</p>
-        <p class="text-xs text-gray-600 mt-1">UniWeb merchant code is the platform MID label. Partner sub-MID appears after forward / activation with that partner.</p>
+        <h1 class="text-xl font-bold">Gateway Routing Matrix</h1>
+        <p class="text-sm text-gray-400 mt-1">Ops view: which partner rail each merchant is on. No key fields on this page.</p>
+        <p class="text-xs text-gray-600 mt-1">UniWeb merchant code is the platform MID label. Partner sub-MID appears after forward / activation with that partner. Deep multi-MID / multi-acquirer UI only if the Owner names that deal.</p>
     </div>
 
     <div class="glass rounded-xl p-4 sm:p-6">
