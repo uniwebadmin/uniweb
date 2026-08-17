@@ -56,7 +56,7 @@ function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payl
     try {
         $check = $db->prepare(
             "SELECT id FROM partner_forward_queue
-             WHERE merchant_id=? AND partner_key=? AND status IN ('queued','retry','processing')
+             WHERE merchant_id=? AND partner_key=? AND status IN ('queued','retry','processing','staged','success')
              LIMIT 1"
         );
         $check->execute([$merchantId, $partnerKey]);
@@ -146,20 +146,32 @@ function processPerPartnerForwardQueue(int $limit = 20): array
                 } elseif (function_exists('createNotification')) {
                     createNotification($merchantId, 'KYC Forwarded', 'Your KYC package has been submitted to ' . ucfirst($partnerKey) . '.');
                 }
+            } elseif (!empty($result['staged'])) {
+                // 5b: keys OK + package built, but live partner API adapter not live yet — do not fake success or fail-retry spam
+                $db->prepare("UPDATE partner_forward_queue SET status='staged', partner_reference=?, partner_response=?, error_message=? WHERE id=?")
+                    ->execute([
+                        $result['reference'] ?? null,
+                        json_encode($result),
+                        $result['message'] ?? 'Package ready — partner API adapter pending',
+                        $itemId,
+                    ]);
+                $results['staged'] = ($results['staged'] ?? 0) + 1;
             } else {
-                if ($attempts >= (int)$item['max_attempts']) {
+                $err = (string)($result['error'] ?? 'Unknown error');
+                $terminal = !empty($result['terminal']);
+                if ($terminal || $attempts >= (int)$item['max_attempts']) {
                     $db->prepare("UPDATE partner_forward_queue SET status='failed', error_message=? WHERE id=?")
-                        ->execute([$result['error'] ?? 'Unknown error', $itemId]);
+                        ->execute([$err, $itemId]);
                     $results['failed']++;
-                    if (function_exists('notifyMerchant')) {
+                    if (!$terminal && function_exists('notifyMerchant')) {
                         notifyMerchant($merchantId, 'KYC Forward Failed', 'KYC submission to ' . ucfirst($partnerKey) . ' failed after ' . $attempts . ' attempts. Staff will assist manually.', 'kyc_fwd_fail_' . $merchantId . '_' . $partnerKey);
-                    } elseif (function_exists('createNotification')) {
+                    } elseif (!$terminal && function_exists('createNotification')) {
                         createNotification($merchantId, 'KYC Forward Failed', 'KYC submission to ' . ucfirst($partnerKey) . ' failed after ' . $attempts . ' attempts. Staff will assist manually.');
                     }
                 } else {
                     $nextRetry = date('Y-m-d H:i:s', time() + ($attempts * 1800));
                     $db->prepare("UPDATE partner_forward_queue SET status='retry', error_message=?, schedule_at=? WHERE id=?")
-                        ->execute([$result['error'] ?? 'Unknown error', $nextRetry, $itemId]);
+                        ->execute([$err, $nextRetry, $itemId]);
                     $results['retry']++;
                 }
             }
@@ -274,9 +286,9 @@ function getPartnerForwardQueue(int $limit = 50): array
             m.business_name, m.merchant_code, m.kyc_status
             FROM partner_forward_queue q
             JOIN merchants m ON q.merchant_id = m.id
-            WHERE q.status IN ('queued','paused','retry','processing','success','failed','cancelled')
+            WHERE q.status IN ('queued','paused','retry','processing','staged','success','failed','cancelled')
             ORDER BY
-                CASE q.status WHEN 'queued' THEN 0 WHEN 'retry' THEN 1 WHEN 'paused' THEN 2 WHEN 'failed' THEN 3 ELSE 4 END,
+                CASE q.status WHEN 'queued' THEN 0 WHEN 'retry' THEN 1 WHEN 'paused' THEN 2 WHEN 'staged' THEN 3 WHEN 'failed' THEN 4 ELSE 5 END,
                 q.schedule_at DESC
             LIMIT ?");
         $st->execute([$limit]);
@@ -289,21 +301,37 @@ function getPartnerForwardQueue(int $limit = 50): array
 
 /**
  * Push KYC package to a partner API.
- * Stub for now — real adapter will be built when partner keys are configured.
+ * 5b: use real Partner Registry key check (partnerIsConfigured). Until adapters exist,
+ * mark queue rows as staged (package ready) instead of a fake "keys missing" loop.
  */
 function pushPackageToPartner(string $partnerKey, int $merchantId, array $payload): array
 {
+    $partnerKey = strtolower(trim($partnerKey));
+    if ($partnerKey === '' || $partnerKey === 'unassigned') {
+        return [
+            'success' => false,
+            'terminal' => true,
+            'error' => 'No partner keys yet — paste keys in Partner Registry, then re-queue.',
+        ];
+    }
+
     if (!function_exists('getPartnerRegistry')) {
         require_once __DIR__ . '/partner_engine.php';
     }
-    $registry = getPartnerRegistry();
-    if (!isset($registry[$partnerKey])) {
-        return ['success' => false, 'error' => 'Unknown partner: ' . $partnerKey];
+    if (!function_exists('partnerIsConfigured')) {
+        require_once __DIR__ . '/partner_engine.php';
     }
 
-    $partner = $registry[$partnerKey];
-    if (empty($partner['keys_configured'])) {
-        return ['success' => false, 'error' => 'Partner keys not configured yet'];
+    $registry = getPartnerRegistry();
+    if (!isset($registry[$partnerKey])) {
+        return ['success' => false, 'terminal' => true, 'error' => 'Unknown partner: ' . $partnerKey];
+    }
+
+    if (!partnerIsConfigured($partnerKey)) {
+        return [
+            'success' => false,
+            'error' => 'Partner keys not configured in Partner Registry → Keys',
+        ];
     }
 
     // Rebuild full payload at push time — the stored queue payload is redacted
@@ -311,8 +339,18 @@ function pushPackageToPartner(string $partnerKey, int $merchantId, array $payloa
         require_once __DIR__ . '/partner_payload.php';
     }
     $fullPayload = build_partner_onboarding_payload($merchantId);
+    $payloadReady = !empty($fullPayload['merchant']);
 
-    return ['success' => false, 'error' => 'Partner adapter not yet implemented for ' . $partnerKey, 'payload_ready' => !empty($fullPayload['merchant'])];
+    // Honest staging until a live partner adapter is wired (5c)
+    return [
+        'success' => false,
+        'staged' => true,
+        'payload_ready' => $payloadReady,
+        'reference' => 'STAGED-' . strtoupper($partnerKey) . '-' . $merchantId,
+        'message' => $payloadReady
+            ? 'Keys OK — KYC package ready. Partner API adapter not live yet (manual / next step).'
+            : 'Keys OK — package incomplete (merchant payload empty). Check KYC docs.',
+    ];
 }
 
 /**

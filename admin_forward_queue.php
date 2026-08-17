@@ -49,12 +49,13 @@ require_once __DIR__ . '/header.php';
             </form>
             <?php endif; ?>
         </div>
-        <p class="text-xs text-gray-500 mb-3">After Admin Verify: one queue row per partner that already has keys in Partner Registry. No keys yet → one <code class="text-gray-400">unassigned</code> row. Real partner API push is still staged (see queue errors until adapters go live).</p>
+        <p class="text-xs text-gray-500 mb-3">After Admin Verify: one queue row per partner that already has keys in Partner Registry. No keys yet → one <code class="text-gray-400">unassigned</code> row. <strong class="text-gray-400">Staged</strong> = keys OK + package ready, partner API adapter not live yet (honest hold — not a fake fail).</p>
         <div class="flex flex-wrap gap-2 text-xs mb-3">
             <a href="?status=" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === '' ? 'bg-brand-500 text-white' : 'bg-dark-700 text-gray-400' ?>">All</a>
             <a href="?status=queued" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'queued' ? 'bg-brand-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Queued</a>
             <a href="?status=processing" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'processing' ? 'bg-brand-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Processing</a>
             <a href="?status=success" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'success' ? 'bg-emerald-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Success</a>
+            <a href="?status=staged" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'staged' ? 'bg-sky-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Staged</a>
             <a href="?status=retry" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'retry' ? 'bg-amber-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Retry</a>
             <a href="?status=failed" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'failed' ? 'bg-red-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Failed</a>
         </div>

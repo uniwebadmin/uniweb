@@ -519,8 +519,12 @@ $assert(str_contains($fwdP5, 'partnerIsConfigured($partnerKey)') && !str_contain
 $assert(!str_contains($fwdP5, 'isGatewayActive($partnerKey)'), 'p5a_enqueue_no_active_without_keys_tier');
 $assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'one queue row per partner that already has keys'), 'p5a_forward_queue_copy_keys');
 $qP5 = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
-$assert(str_contains($qP5, "status IN ('queued','retry','processing')"), 'p5_forward_enqueue_idempotent');
+$assert(str_contains($qP5, "status IN ('queued','retry','processing','staged','success')"), 'p5_forward_enqueue_idempotent');
 $assert(str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), 'enqueueMerchantToAllEnabledPartners'), 'p5_kyc_verify_enqueues_forward');
+// 5b: push uses partnerIsConfigured (not fake keys_configured); staged outcome until adapters
+$assert(str_contains($qP5, 'function pushPackageToPartner') && str_contains($qP5, 'partnerIsConfigured($partnerKey)') && !str_contains($qP5, "keys_configured"), 'p5b_push_uses_partnerIsConfigured');
+$assert(str_contains($qP5, "'staged'") && str_contains($qP5, "status='staged'"), 'p5b_push_staged_when_adapter_pending');
+$assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'status=staged') && str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), '>Staged<'), 'p5b_forward_queue_staged_filter');
 
 // P5-03 — event_key dedup + optional archive
 $nP5 = (string)file_get_contents($root . '/includes/notifications.php');
