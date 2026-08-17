@@ -675,6 +675,11 @@ $assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), '
 $assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'Bulk select + smart partner route') && str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'parked'), 'b9_bulk_smart_route_parked');
 $assert(str_contains((string)file_get_contents($root . '/includes/schema_ensure.php'), 'function forwardDisputeToPartner') && str_contains((string)file_get_contents($root . '/includes/schema_ensure.php'), 'forwarded_partner'), 'b9_forward_helper_and_status');
 $assert(str_contains((string)file_get_contents($root . '/disputes.php'), 'Admin reviews first') && str_contains((string)file_get_contents($root . '/disputes.php'), 'Admin will review first'), 'b9_merchant_admin_first_copy');
+// 3a: merchant disputes honour ?q=/?id= and open a detail panel (DSP deep links)
+$disp3a = (string)file_get_contents($root . '/disputes.php');
+$assert(str_contains($disp3a, "\$_GET['q']") && str_contains($disp3a, "\$_GET['id']"), 'p3a_disputes_reads_q_and_id');
+$assert(str_contains($disp3a, 'dispute-detail') && str_contains($disp3a, 'disputes.php?id='), 'p3a_disputes_row_opens_detail');
+$assert(str_contains($disp3a, 'name="q"') && str_contains($disp3a, 'Admin note / resolution'), 'p3a_disputes_search_and_detail_panel');
 $assert(str_contains((string)file_get_contents($root . '/admin_support.php'), 'Admin first — support queue') && str_contains((string)file_get_contents($root . '/admin_grievance.php'), 'Admin first — grievance officer queue'), 'b9_support_grievance_hub_banners');
 $assert(!is_file($root . '/admin_dispute_bulk.php') && !is_file($root . '/dispute_app.php'), 'b9_no_new_dispute_app');
 // WIRING-C1-C2-HYGIENE-ORDERED
