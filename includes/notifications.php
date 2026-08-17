@@ -129,13 +129,37 @@ if (!function_exists('createNotification')) {
 }
 
 if (!function_exists('notificationActionUrl')) {
+    /**
+     * Where to send the merchant after they open a notification.
+     * Point 3c: dispute / support deep-link to the same pages as search (DSP / TKT).
+     */
     function notificationActionUrl(array $row): string
     {
-        $title = strtolower((string)($row['title'] ?? ''));
-        if (str_contains($title, 'kyc')) {
+        $title = (string)($row['title'] ?? '');
+        $message = (string)($row['message'] ?? ($row['body'] ?? ''));
+        $hay = $title . ' ' . $message;
+        $titleLower = strtolower($title);
+
+        // Support reply: "Support Reply: TKT…" → ticket detail
+        if (preg_match('/\b(TKT[A-F0-9]{8,})\b/i', $hay, $m)) {
+            return 'support_ticket.php?id=' . rawurlencode(strtoupper($m[1]));
+        }
+        if (str_contains($titleLower, 'support') || str_contains($titleLower, 'ticket')) {
+            return 'support.php';
+        }
+
+        // Dispute status: message/title carries DSP… → disputes detail
+        if (preg_match('/\b(DSP[A-F0-9]{8,})\b/i', $hay, $m)) {
+            return 'disputes.php?id=' . rawurlencode(strtoupper($m[1]));
+        }
+        if (str_contains($titleLower, 'dispute')) {
+            return 'disputes.php';
+        }
+
+        if (str_contains($titleLower, 'kyc')) {
             return 'kyc.php';
         }
-        if (str_contains($title, 'payment') || str_contains($title, 'settlement')) {
+        if (str_contains($titleLower, 'payment') || str_contains($titleLower, 'settlement')) {
             return 'transactions.php';
         }
         return 'dashboard.php';

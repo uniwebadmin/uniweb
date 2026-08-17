@@ -686,6 +686,10 @@ $assert(str_contains($sup3b, "\$_GET['q']") && str_contains($sup3b, 'support_tic
 $assert(str_contains($sup3b, 'name="q"') && str_contains($sup3b, 'Search tickets'), 'p3b_support_has_search_box');
 $gs3b = (string)file_get_contents($root . '/global_search.php');
 $assert(str_contains($gs3b, "support_ticket.php?id=") && !str_contains($gs3b, "'support.php?q='") && !str_contains($gs3b, '"support.php?q='), 'p3b_search_ticket_opens_detail');
+// 3c: notification click opens dispute/support detail (not just dashboard)
+$n3c = (string)file_get_contents($root . '/includes/notifications.php');
+$assert(str_contains($n3c, 'function notificationActionUrl') && str_contains($n3c, 'support_ticket.php?id=') && str_contains($n3c, 'disputes.php?id='), 'p3c_notif_action_urls_dispute_support');
+$assert(str_contains($n3c, 'TKT[A-F0-9]') && str_contains($n3c, 'DSP[A-F0-9]'), 'p3c_notif_extracts_tkt_and_dsp');
 $assert(str_contains((string)file_get_contents($root . '/admin_support.php'), 'Admin first — support queue') && str_contains((string)file_get_contents($root . '/admin_grievance.php'), 'Admin first — grievance officer queue'), 'b9_support_grievance_hub_banners');
 $assert(!is_file($root . '/admin_dispute_bulk.php') && !is_file($root . '/dispute_app.php'), 'b9_no_new_dispute_app');
 // WIRING-C1-C2-HYGIENE-ORDERED
