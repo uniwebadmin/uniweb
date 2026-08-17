@@ -605,6 +605,13 @@ $assert(str_contains((string)file_get_contents($root . '/header.php'), "force_op
 $assert(str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), "'money_more'") && str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), "['merchant_launch.php', 'Launch Center'"), 'g2_merchant_launch_and_money_fold');
 $assert(str_contains((string)file_get_contents($root . '/admin_login.php'), 'Owner / Admin sign in') && str_contains((string)file_get_contents($root . '/staff_login.php'), 'Employee / Staff sign in'), 'g3_admin_staff_login_labels');
 $assert(str_contains((string)file_get_contents($root . '/login.php'), 'Shop / Merchant portal') && str_contains((string)file_get_contents($root . '/customer_login.php'), 'Customer — pay & complaints'), 'g3_shop_customer_login_labels');
+// C5 — global search feature catalog must include every sidebar_nav URL
+require_once $root . '/includes/sidebar_nav.php';
+$c5AdminMissing = uniwebNavSearchMissingUrls('admin');
+$c5MerchantMissing = uniwebNavSearchMissingUrls('merchant');
+$assert($c5AdminMissing === [], 'c5_admin_nav_all_in_search' . ($c5AdminMissing ? (':' . implode(',', $c5AdminMissing)) : ''));
+$assert($c5MerchantMissing === [], 'c5_merchant_nav_all_in_search' . ($c5MerchantMissing ? (':' . implode(',', $c5MerchantMissing)) : ''));
+$assert(str_contains((string)file_get_contents($root . '/global_search.php'), 'uniwebAdminSearchPages') && str_contains((string)file_get_contents($root . '/global_search.php'), "'today'"), 'c5_search_uses_nav_helpers_and_today_alias');
 $assert(str_contains((string)file_get_contents($root . '/login.php'), 'No partner login portal'), 'b2_merchant_login_no_partner_portal');
 $assert(str_contains((string)file_get_contents($root . '/admin_login.php'), 'Partners (banks/PGs) have no UniWeb login'), 'b2_admin_login_no_partner_login');
 $assert(str_contains((string)file_get_contents($root . '/faq.php'), 'Which login do I use?'), 'b2_faq_login_matrix');

@@ -212,7 +212,32 @@ function uniwebMerchantSearchPages(): array
 
 function uniwebAdminSearchPages(): array
 {
+    // C5: admin search pages === sidebar_nav flatten (no parallel list).
     return uniwebFlattenNavPages(uniwebAdminNavGroups(), uniwebAdminHiddenUrls());
+}
+
+/**
+ * C5 helper — every sidebar URL must appear in the matching search catalog.
+ * Search may include extras (merchant my_account / agents); nav may not omit any search-required primary URL.
+ *
+ * @return list<string> missing URLs (empty = OK)
+ */
+function uniwebNavSearchMissingUrls(string $portal = 'admin'): array
+{
+    if ($portal === 'merchant') {
+        $navUrls = array_column(uniwebFlattenNavPages(uniwebMerchantNavGroups(), uniwebMerchantHiddenUrls()), 0);
+        $searchUrls = array_column(uniwebMerchantSearchPages(), 0);
+    } else {
+        $navUrls = array_column(uniwebFlattenNavPages(uniwebAdminNavGroups(), uniwebAdminHiddenUrls()), 0);
+        $searchUrls = array_column(uniwebAdminSearchPages(), 0);
+    }
+    $missing = [];
+    foreach ($navUrls as $url) {
+        if (!in_array($url, $searchUrls, true)) {
+            $missing[] = $url;
+        }
+    }
+    return $missing;
 }
 
 /** TXN / LNK / STL / GSTIN-style prefixes — short queries are allowed. */
