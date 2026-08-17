@@ -374,7 +374,7 @@ $assert(str_contains($morningP4, "function_exists('getPendingKycQueue')"), 'p4_m
 $assert(str_contains($navSrc, 'qr_upi_print.php') && str_contains($navSrc, 'Instant UPI QR'), 'p4_merchant_nav_instant_upi_qr');
 $assert(str_contains($navSrc, 'add_bank.php') && str_contains($navSrc, 'Settlement Bank'), 'p4_merchant_nav_settlement_bank');
 $assert(str_contains($navSrc, 'Collect / P2M') && str_contains($navSrc, "'title' => 'Settlements'"), 'p4_merchant_nav_full_groups');
-$assert(str_contains($header, 'merchant-group-panel') && str_contains($header, "max-height:<?= \$isOpen ? '2000'"), 'p4_merchant_groups_open_full');
+$assert(str_contains($header, 'merchant-group-panel') && (str_contains($header, "max-height:<?= \$isOpen ? '2000'") || str_contains($header, "max-height:<?= \$isOpen ? (!empty(\$group['collapsed'])")), 'p4_merchant_groups_open_full');
 $assert(!str_contains($navSrc, 'merchant_nbfc.php') && !str_contains($navSrc, 'admin_nbfc.php'), 'p4_nav_has_no_nbfc_urls');
 $assert(str_contains($navSrc, "['admin_payment_links.php', 'Payment Links']") && str_contains($navSrc, "['admin_qr_codes.php', 'QR Codes']"), 'sum_admin_payment_links_qr_in_nav');
 $assert(!str_contains($navSrc, "['admin_link_audit.php'") && !str_contains($navSrc, "['admin_throughput.php'"), 'sum_no_dup_watchdog_throughput_nav');
@@ -602,6 +602,9 @@ $assert(str_contains((string)file_get_contents($root . '/includes/sidebar_nav.ph
 $assert(str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), "'owner_today'") && str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), "'title' => 'Today'"), 'g1_admin_today_group');
 $assert(str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), 'Platform Settings (SMTP / cron)'), 'g1_platform_settings_not_keys_home');
 $assert(str_contains((string)file_get_contents($root . '/header.php'), "force_open"), 'g1_today_force_open_in_header');
+$assert(str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), "'money_more'") && str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), "['merchant_launch.php', 'Launch Center'"), 'g2_merchant_launch_and_money_fold');
+$assert(str_contains((string)file_get_contents($root . '/admin_login.php'), 'Owner / Admin sign in') && str_contains((string)file_get_contents($root . '/staff_login.php'), 'Employee / Staff sign in'), 'g3_admin_staff_login_labels');
+$assert(str_contains((string)file_get_contents($root . '/login.php'), 'Shop / Merchant portal') && str_contains((string)file_get_contents($root . '/customer_login.php'), 'Customer — pay & complaints'), 'g3_shop_customer_login_labels');
 $assert(str_contains((string)file_get_contents($root . '/login.php'), 'No partner login portal'), 'b2_merchant_login_no_partner_portal');
 $assert(str_contains((string)file_get_contents($root . '/admin_login.php'), 'Partners (banks/PGs) have no UniWeb login'), 'b2_admin_login_no_partner_login');
 $assert(str_contains((string)file_get_contents($root . '/faq.php'), 'Which login do I use?'), 'b2_faq_login_matrix');

@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $pendingPhone = (string)($_SESSION['customer_pending_phone'] ?? '');
-$pageTitle = 'Customer Login';
+$pageTitle = 'Customer — pay & complaints';
 $hideNav = true;
 $hideFooter = true;
 $footerVariant = 'auth';
@@ -86,7 +86,7 @@ require_once __DIR__ . '/header.php';
             <div class="ap-logo">
                 <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
             </div>
-            <p class="ap-title"><?= $otpStep ? 'Enter OTP' : 'Sign in with mobile' ?></p>
+            <p class="ap-title"><?= $otpStep ? 'Enter OTP' : 'Customer — pay &amp; complaints' ?></p>
             <p class="ap-sub"><?= $otpStep
                 ? 'We sent a 6-digit code to your phone. Valid for 10 minutes.'
                 : 'Use the same 10-digit number you paid with. No password needed.' ?></p>
@@ -126,7 +126,7 @@ require_once __DIR__ . '/header.php';
             <?php endif; ?>
             <p class="ap-foot">Need help? <a href="contact.php" class="ap-link">Contact support</a></p>
             <p class="ap-foot" style="margin-top:.5rem;"><?= e(customerPortalScopeCopy()) ?></p>
-            <p class="ap-foot" style="margin-top:.35rem;font-size:.75rem;opacity:.85">Customer portal only. Merchants use <a href="login.php" class="ap-text-link">merchant login</a>.</p>
+            <p class="ap-foot" style="margin-top:.35rem;font-size:.75rem;opacity:.85">Customer pay &amp; complaints only. Shops use <a href="login.php" class="ap-text-link">Shop / Merchant login</a>.</p>
         </div>
     </div>
 </div>

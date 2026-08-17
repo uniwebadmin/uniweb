@@ -106,7 +106,7 @@ $mfaPending = !empty($_SESSION['pending_admin_id']) && (($_SESSION['pending_admi
 $mfaSetup = $mfaPending && !empty($_SESSION['pending_admin_mfa_setup']);
 $setupSecret = (string)($_SESSION['pending_admin_totp_secret'] ?? '');
 
-$pageTitle = 'Staff Login';
+$pageTitle = 'Employee / Staff Login';
 $hideNav = true;
 $hideFooter = true;
 $authPortalUi = true;
@@ -120,7 +120,7 @@ require_once __DIR__ . '/header.php';
             <div class="ap-logo">
                 <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
             </div>
-            <p class="ap-title"><?= $mfaSetup ? 'Mandatory MFA enrollment' : ($mfaPending ? 'Authenticator challenge' : 'Staff sign in') ?></p>
+            <p class="ap-title"><?= $mfaSetup ? 'Mandatory MFA enrollment' : ($mfaPending ? 'Authenticator challenge' : 'Employee / Staff sign in') ?></p>
             <p class="ap-sub">Policy: Staff MFA is mandatory. First login enrolls authenticator.</p>
             <?php if ($error): ?><div class="ap-alert ap-alert-error"><?= e($error) ?></div><?php endif; ?>
             <?php if ($mfaSetup && $setupSecret !== ''): ?>
@@ -153,7 +153,7 @@ require_once __DIR__ . '/header.php';
                 <a href="login.php" class="ap-link">Merchant login</a> ·
                 <a href="index.php" class="ap-text-link">Website</a>
             </p>
-            <p class="ap-foot" style="margin-top:.35rem;font-size:.75rem;opacity:.85">Staff / ops portal — not a bank partner login.</p>
+            <p class="ap-foot" style="margin-top:.35rem;font-size:.75rem;opacity:.85">Employee / ops portal — not Owner-Admin, not bank partner login.</p>
         </div>
     </div>
 </div>

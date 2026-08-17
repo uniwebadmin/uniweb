@@ -193,14 +193,17 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
             }));
             $cur = basename($_SERVER['PHP_SELF']);
             foreach ($merchantNav as $group):
-                $isOpen = true;
+                $isOpen = empty($group['collapsed']);
+                foreach ($group['items'] as $item) {
+                    if (isset($item[0]) && $cur === $item[0]) { $isOpen = true; break; }
+                }
             ?>
-            <div class="merchant-sidebar-group mb-1" data-group-id="<?= e($group['id']) ?>" data-open="<?= $isOpen ? '1' : '0' ?>">
+            <div class="merchant-sidebar-group mb-1" data-group-id="<?= e($group['id']) ?>" data-open="<?= $isOpen ? '1' : '0' ?>"<?= !empty($group['collapsed']) ? ' data-collapsed="1"' : '' ?>>
                 <button type="button" class="merchant-group-toggle w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition" aria-expanded="<?= $isOpen ? 'true' : 'false' ?>">
                     <span><?= e($group['title']) ?></span>
                     <svg class="merchant-group-chevron flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:1rem;height:1rem;pointer-events:none;transition:transform .3s;transform:rotate(<?= $isOpen ? '90' : '0' ?>deg);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </button>
-                <div class="merchant-group-panel" style="overflow:hidden;transition:max-height .3s;max-height:<?= $isOpen ? '2000' : '0' ?>px;">
+                <div class="merchant-group-panel" style="overflow:hidden;transition:max-height .3s;max-height:<?= $isOpen ? (!empty($group['collapsed']) ? '5000' : '2000') : '0' ?>px;">
                     <div class="py-1 pl-4 space-y-0.5">
                         <?php foreach ($group['items'] as [$url, $label, $icon]): ?>
                         <a href="<?= $url ?>" class="sidebar-link flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition <?= $cur===$url?'active':'' ?>">
