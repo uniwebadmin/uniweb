@@ -982,6 +982,15 @@ $assert(substr_count($pmLib2a, 'syncMerchantEnabledMethodsFromToggles($merchantI
 $assert(str_contains($pmLib2a, 'function normalizeCheckoutMethodKey') && str_contains($pmLib2a, "'net_banking', 'nb' => 'netbanking'"), 'p2b_normalize_netbanking_alias');
 $assert(str_contains((string)file_get_contents($root . '/includes/provision.php'), 'normalizeCheckoutMethodKeys'), 'p2b_enabled_methods_normalized');
 $assert(str_contains((string)file_get_contents($root . '/includes/collection.php'), 'normalizeCheckoutMethodKeys'), 'p2b_checkout_allow_normalized');
+// 2c: checkout must build Card/NB/EMI/Wallet tabs from allow(); normalize runtime + checkout wiring
+$assert(str_contains($collLib, "\$allow('debit_card')") && str_contains($collLib, "\$allow('credit_card')") && str_contains($collLib, "\$allow('netbanking')"), 'p2c_checkout_builds_card_nb_tabs');
+$assert(str_contains($collLib, "\$allow('emi')") && str_contains($collLib, "\$allow('wallet')"), 'p2c_checkout_builds_emi_wallet_tabs');
+$assert(str_contains($checkoutSrc, 'getCheckoutPaymentMethods($link)'), 'p2c_checkout_calls_method_builder');
+$assert(str_contains($pmLib2a, 'normalizeCheckoutMethodKeys(getMerchantEnabledMethodKeys'), 'p2c_sync_writes_normalized_keys');
+require_once $root . '/includes/payment_methods.php';
+$assert(function_exists('normalizeCheckoutMethodKey') && normalizeCheckoutMethodKey('net_banking') === 'netbanking', 'p2c_runtime_net_banking_to_netbanking');
+$normKeys = normalizeCheckoutMethodKeys(['upi_p2m', 'net_banking', 'debit_card']);
+$assert(in_array('netbanking', $normKeys, true) && !in_array('net_banking', $normKeys, true) && in_array('debit_card', $normKeys, true), 'p2c_runtime_keys_list_normalized');
 $assert(!str_contains($collLib, "partnerMethodOn('payu', 'debit_card')"), 'checkout_cards_not_hidden_by_empty_partner_row');
 $migLib = (string)file_get_contents($root . '/includes/migrations.php');
 $assert(str_contains($migLib, 'applied_files'), 'migrations_return_applied_files');
