@@ -11,10 +11,18 @@ foreach ($rows as $r) {
     $counts[$r['status']] = ($counts[$r['status']] ?? 0) + 1;
 }
 ?>
+<div class="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100" role="status">
+    <p class="font-semibold text-amber-200">Status board only — partner keys are not pasted here.</p>
+    <p class="text-xs text-amber-100/80 mt-1">Paste Razorpay / Cashfree / PayU / Axis keys in <strong class="text-white">Partner Registry → partner → Keys</strong>. This page only shows which gateway × operation rows are scaffold / blocked / pending.</p>
+    <p class="mt-3 flex flex-wrap gap-2">
+        <a href="admin_gateway_registry.php" class="inline-flex items-center px-3 py-1.5 rounded-lg bg-violet-600/80 hover:bg-violet-500 text-white text-xs font-medium">Open Partner Registry →</a>
+        <a href="gateway_settings.php" class="inline-flex items-center px-3 py-1.5 rounded-lg border border-gray-600 text-gray-300 hover:text-white text-xs">Platform Settings (SMTP / cron)</a>
+    </p>
+</div>
 <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
     <div>
-        <h1 class="text-xl font-bold">Gateway × Operation Matrix</h1>
-        <p class="text-sm text-gray-500 mt-1">Scaffold registry only — no live partner API calls from this overnight run.</p>
+        <h1 class="text-xl font-bold">Integration Status Board</h1>
+        <p class="text-sm text-gray-500 mt-1">Read-only scaffold view — no live partner API calls and no key fields on this page.</p>
     </div>
     <?= renderPrintButton() ?>
 </div>
@@ -59,5 +67,5 @@ foreach ($rows as $r) {
     </div>
 </div>
 
-<p class="text-xs text-gray-600 mt-4 no-print">Owner action: paste partner keys in Partner Registry → Partner Detail → Keys when received. Axis live paths wait for RM/UAT.</p>
+<p class="text-xs text-gray-600 mt-4 no-print">Still need keys? Use <a href="admin_gateway_registry.php" class="text-sky-400 hover:underline">Partner Registry → Keys</a> — not this board. Axis live paths wait for RM/UAT.</p>
 <?php require_once __DIR__ . '/footer.php'; ?>

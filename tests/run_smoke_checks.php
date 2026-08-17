@@ -690,6 +690,11 @@ $assert(str_contains($gs3b, "support_ticket.php?id=") && !str_contains($gs3b, "'
 $n3c = (string)file_get_contents($root . '/includes/notifications.php');
 $assert(str_contains($n3c, 'function notificationActionUrl') && str_contains($n3c, 'support_ticket.php?id=') && str_contains($n3c, 'disputes.php?id='), 'p3c_notif_action_urls_dispute_support');
 $assert(str_contains($n3c, 'TKT[A-F0-9]') && str_contains($n3c, 'DSP[A-F0-9]'), 'p3c_notif_extracts_tkt_and_dsp');
+// 4a: Integration Status Board is status-only — keys CTA points to Partner Registry
+$im4a = (string)file_get_contents($root . '/admin_integration_matrix.php');
+$assert(str_contains($im4a, 'Status board only') && str_contains($im4a, 'partner keys are not pasted here'), 'p4a_integration_board_keys_not_here');
+$assert(str_contains($im4a, 'admin_gateway_registry.php') && str_contains($im4a, 'Open Partner Registry'), 'p4a_integration_board_registry_cta');
+$assert(str_contains($im4a, 'Integration Status Board') && !str_contains($im4a, 'Gateway × Operation Matrix'), 'p4a_integration_board_title_clear');
 $assert(str_contains((string)file_get_contents($root . '/admin_support.php'), 'Admin first — support queue') && str_contains((string)file_get_contents($root . '/admin_grievance.php'), 'Admin first — grievance officer queue'), 'b9_support_grievance_hub_banners');
 $assert(!is_file($root . '/admin_dispute_bulk.php') && !is_file($root . '/dispute_app.php'), 'b9_no_new_dispute_app');
 // WIRING-C1-C2-HYGIENE-ORDERED
