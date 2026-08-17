@@ -186,6 +186,24 @@ function getMerchantEnabledMethodKeys(int $merchantId): array
 }
 
 /**
+ * Keep merchants.enabled_methods JSON in sync with Payment Methods toggles.
+ * Checkout tabs read that JSON — toggles alone used to leave checkout on UPI only.
+ */
+function syncMerchantEnabledMethodsFromToggles(int $merchantId): void
+{
+    if ($merchantId <= 0) {
+        return;
+    }
+    $keys = getMerchantEnabledMethodKeys($merchantId);
+    try {
+        getDB()->prepare('UPDATE merchants SET enabled_methods=? WHERE id=?')
+            ->execute([json_encode(array_values($keys), JSON_UNESCAPED_UNICODE), $merchantId]);
+    } catch (Throwable $e) {
+        error_log('syncMerchantEnabledMethodsFromToggles: ' . $e->getMessage());
+    }
+}
+
+/**
  * Toggle a payment method ON/OFF for a merchant.
  */
 function toggleMerchantPaymentMethod(int $merchantId, string $methodKey, bool $enabled, string $updatedBy = 'merchant'): array
@@ -212,6 +230,7 @@ function toggleMerchantPaymentMethod(int $merchantId, string $methodKey, bool $e
             $updatedBy,
         ]);
 
+        syncMerchantEnabledMethodsFromToggles($merchantId);
         return ['ok' => true, 'enabled' => $enabled];
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => $e->getMessage()];
@@ -241,6 +260,7 @@ function setMerchantPaymentMethods(int $merchantId, array $enabledKeys, string $
                 $updatedBy,
             ]);
         }
+        syncMerchantEnabledMethodsFromToggles($merchantId);
         return ['ok' => true];
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => $e->getMessage()];

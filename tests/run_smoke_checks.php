@@ -974,6 +974,10 @@ $assert(str_contains($checkoutSrc, 'm.enabled_methods'), 'checkout_selects_enabl
 $assert(str_contains($checkoutSrc, 'Checkout method list failed'), 'checkout_methods_soft_fail');
 $collLib = (string)file_get_contents($root . '/includes/collection.php');
 $assert(str_contains($collLib, 'Merchant enabled_methods JSON is the product data model'), 'checkout_methods_use_merchant_json');
+// 2a: Payment Methods toggles must sync merchants.enabled_methods (checkout source of truth)
+$pmLib2a = (string)file_get_contents($root . '/includes/payment_methods.php');
+$assert(str_contains($pmLib2a, 'function syncMerchantEnabledMethodsFromToggles') && str_contains($pmLib2a, 'UPDATE merchants SET enabled_methods=?'), 'p2a_sync_enabled_methods_helper');
+$assert(substr_count($pmLib2a, 'syncMerchantEnabledMethodsFromToggles($merchantId)') >= 2, 'p2a_toggle_and_bulk_call_sync');
 $assert(!str_contains($collLib, "partnerMethodOn('payu', 'debit_card')"), 'checkout_cards_not_hidden_by_empty_partner_row');
 $migLib = (string)file_get_contents($root . '/includes/migrations.php');
 $assert(str_contains($migLib, 'applied_files'), 'migrations_return_applied_files');
