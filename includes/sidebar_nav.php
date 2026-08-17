@@ -79,20 +79,27 @@ function uniwebMerchantNavGroups(): array
 
 function uniwebAdminNavGroups(): array
 {
+    // G1: Owner "Today" first — daily work; Advanced stays collapsed.
     return [
         ['id' => 'dashboard', 'title' => 'Dashboard', 'items' => [
             ['admin_dashboard.php', 'Overview'],
         ]],
-        ['id' => 'merchants', 'title' => 'Merchants & KYC', 'items' => [
+        ['id' => 'owner_today', 'title' => 'Today', 'force_open' => true, 'items' => [
+            ['admin_kyc.php', 'KYC Review'],
+            ['admin_gateway_registry.php', 'Partner Registry'],
+            ['admin_support.php', 'Support Tickets'],
+            ['admin_customer_tickets.php', 'Customer Complaints'],
+            ['admin_disputes.php', 'Disputes'],
+            ['admin_error_log.php', 'Error Log'],
+        ]],
+        ['id' => 'merchants', 'title' => 'Merchants', 'items' => [
             ['manage_merchant.php', 'All Merchants'],
             ['add_merchant.php', 'Add Merchant'],
-            ['admin_kyc.php', 'KYC Review'],
             ['admin_onboarding_invite.php', 'Onboarding Invites'],
             ['admin_website_reviews.php', 'Website Reviews'],
         ]],
         ['id' => 'partners', 'title' => 'Partners (rails / keys)', 'items' => [
-            ['admin_gateway_registry.php', 'Partner Registry'],
-            ['gateway_settings.php', 'Platform Settings'],
+            ['gateway_settings.php', 'Platform Settings (SMTP / cron)'],
             ['admin_method_requests.php', 'Method Requests'],
             ['admin_forward_queue.php', 'KYC Forward Queue'],
         ]],
@@ -101,20 +108,15 @@ function uniwebAdminNavGroups(): array
             ['admin_payment_links.php', 'Payment Links'],
             ['admin_qr_codes.php', 'QR Codes'],
             ['admin_refunds.php', 'Refunds'],
-            ['admin_disputes.php', 'Disputes'],
         ]],
         ['id' => 'settlements', 'title' => 'Settlements & Payouts', 'items' => [
             ['admin_settlements.php', 'Settlements'],
             ['admin_bulk_payout.php', 'Bulk Payout'],
             ['admin_payout.php', 'Payout Requests'],
         ]],
-        ['id' => 'support', 'title' => 'Support', 'items' => [
-            ['admin_support.php', 'Support Tickets'],
-        ]],
         ['id' => 'ops', 'title' => 'Ops', 'items' => [
             ['admin_platform_status.php', 'Platform Status + Cron Jobs'],
             ['admin_watchdog.php', 'Link Watchdog'],
-            ['admin_error_log.php', 'Error Log'],
         ]],
         ['id' => 'staff', 'title' => 'Employees / Staff', 'items' => [
             ['admin_manage_staff.php', 'Employees / Staff'],
@@ -146,7 +148,6 @@ function uniwebAdminNavGroups(): array
             ['admin_sub_merchants.php', 'Sub-Merchant Hierarchy'],
             ['admin_merchant_health.php', 'Merchant Health'],
             ['admin_customer_view.php', 'Customer Lookup'],
-            ['admin_customer_tickets.php', 'Customer Complaints'],
             ['admin_reason_map.php', 'Reason Maps'],
             ['admin_auto_kyc.php', 'Auto KYC Engine'],
             ['admin_gateway_submit.php', 'KYC Submissions'],

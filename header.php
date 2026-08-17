@@ -284,7 +284,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
             unset($group);
             $cur = basename($_SERVER['PHP_SELF']);
             foreach ($adminNav as $group):
-                $isOpen = false;
+                $isOpen = !empty($group['force_open']);
                 foreach ($group['items'] as $item) {
                     if (isset($item[0]) && $cur === $item[0]) { $isOpen = true; break; }
                 }

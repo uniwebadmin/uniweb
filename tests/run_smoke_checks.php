@@ -599,6 +599,9 @@ $assert(!str_contains((string)file_get_contents($root . '/admin_partner_requests
 $assert(str_contains((string)file_get_contents($root . '/admin_gateway_registry.php'), 'Partners do not own merchants'), 'b2_registry_partners_not_merchant_owners');
 $assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'no separate partner merchant portal'), 'b2_detail_no_partner_merchant_portal');
 $assert(str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), 'Partners (rails / keys)'), 'b2_nav_partners_rails_keys');
+$assert(str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), "'owner_today'") && str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), "'title' => 'Today'"), 'g1_admin_today_group');
+$assert(str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), 'Platform Settings (SMTP / cron)'), 'g1_platform_settings_not_keys_home');
+$assert(str_contains((string)file_get_contents($root . '/header.php'), "force_open"), 'g1_today_force_open_in_header');
 $assert(str_contains((string)file_get_contents($root . '/login.php'), 'No partner login portal'), 'b2_merchant_login_no_partner_portal');
 $assert(str_contains((string)file_get_contents($root . '/admin_login.php'), 'Partners (banks/PGs) have no UniWeb login'), 'b2_admin_login_no_partner_login');
 $assert(str_contains((string)file_get_contents($root . '/faq.php'), 'Which login do I use?'), 'b2_faq_login_matrix');
