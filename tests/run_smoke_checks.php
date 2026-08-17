@@ -637,6 +637,12 @@ $assert(str_contains((string)file_get_contents($root . '/includes/sidebar_nav.ph
 $assert(str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'function paymentMethodDisplayPriority'), 'b5_upi_first_priority_helper');
 $assert(str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'sortPaymentMethodsUpiFirst'), 'b5_upi_first_sort_helper');
 $assert(str_contains((string)file_get_contents($root . '/payment_methods.php'), 'Collect order: UPI first, then Card, then Net Banking'), 'b5_methods_page_upi_first_banner');
+// 1c: merchant Payment Methods copy must not name PayU/Razorpay/Cashfree or Partner Registry
+$pm1c = (string)file_get_contents($root . '/payment_methods.php');
+$assert(!str_contains($pm1c, 'Partner Registry') && !str_contains($pm1c, 'Needs partner keys') && !str_contains($pm1c, 'Partner rails ready'), 'p1c_methods_no_partner_registry_copy');
+$assert(!str_contains($pm1c, '>PayU<') && !str_contains($pm1c, '>Razorpay<') && !str_contains($pm1c, '>Cashfree<'), 'p1c_methods_no_partner_brand_badges');
+$assert(str_contains($pm1c, 'Waiting on Admin') || str_contains($pm1c, 'waiting on Admin'), 'p1c_methods_admin_wait_wording');
+$assert(str_contains($pm1c, 'Admin connects the payment network once'), 'p1c_methods_how_it_works_merchant_facing');
 $assert(str_contains((string)file_get_contents($root . '/includes/collection.php'), 'Waiting for partner keys'), 'b5_checkout_soft_waiting_keys');
 $assert(!str_contains((string)file_get_contents($root . '/includes/collection.php'), 'Provider keys not configured'), 'b5_checkout_no_harsh_keys_copy');
 $assert(str_contains((string)file_get_contents($root . '/collection_settings.php'), 'UPI → Card → Net Banking'), 'b5_collection_settings_order_hint');

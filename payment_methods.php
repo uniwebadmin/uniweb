@@ -44,20 +44,16 @@ require_once __DIR__ . '/header.php';
 <div class="max-w-2xl space-y-6">
     <div class="glass rounded-xl p-6 border border-emerald-500/20 text-sm text-gray-300">
         <p class="font-semibold text-emerald-300 mb-1">Collect order: UPI first, then Card, then Net Banking</p>
-        <p class="text-xs text-gray-500">Turn ON the methods customers should see. Live Card / Net Banking need partner keys in Admin (Partner Registry). Until then, Test Mode can still use Instant Test Pay.</p>
+        <p class="text-xs text-gray-500">Turn ON what customers should see on checkout. Card / Net Banking go live after Admin enables the network. Until then, Test Mode can still use Instant Test Pay.</p>
     </div>
 
     <?php if (!$payuReady && !$rzpReady && !$cfReady): ?>
     <div class="glass rounded-xl p-4 border border-amber-500/20 text-xs text-amber-200/90">
-        Partner Card / Net Banking rails are waiting on Admin keys. <strong class="text-amber-100">UPI P2M</strong> can still collect when you turn it ON.
+        Card / Net Banking are waiting on Admin. <strong class="text-amber-100">UPI</strong> can still collect when you turn it ON.
     </div>
     <?php else: ?>
     <div class="glass rounded-xl p-4 border border-sky-500/20 text-xs text-gray-400">
-        Partner rails ready:
-        <?= $payuReady ? '<span class="text-emerald-400">PayU</span> ' : '' ?>
-        <?= $rzpReady ? '<span class="text-emerald-400">Razorpay</span> ' : '' ?>
-        <?= $cfReady ? '<span class="text-emerald-400">Cashfree</span> ' : '' ?>
-        — soft “keys not configured” notes stay off checkout for those partners.
+        Card / Net Banking network is ready on the platform. Turn methods ON below so they appear on your checkout.
     </div>
     <?php endif; ?>
 
@@ -76,7 +72,7 @@ require_once __DIR__ . '/header.php';
         <?php if (empty($methods)): ?>
         <div class="bg-dark-900/50 rounded-xl p-8 text-center border border-gray-800">
             <p class="text-sm text-gray-400 mb-2">No payment methods available yet.</p>
-            <p class="text-xs text-gray-600">Admin activates partners in Partner Registry first. Then methods appear here for you to toggle ON/OFF.</p>
+            <p class="text-xs text-gray-600">Ask Admin to unlock methods for your shop. Then they appear here for you to toggle ON/OFF.</p>
         </div>
         <?php else: ?>
         <form method="POST" id="bulkForm" class="space-y-3">
@@ -111,7 +107,7 @@ require_once __DIR__ . '/header.php';
                             if (in_array($m['gateway_key'], ['upi_p2m', 'qr_code'], true)) {
                                 echo ' · <span class="text-emerald-500">Start here</span>';
                             } elseif (in_array($m['gateway_key'], ['credit_card', 'debit_card', 'net_banking'], true) && !$payuReady && !$rzpReady && !$cfReady) {
-                                echo ' · <span class="text-amber-500">Needs partner keys (Admin)</span>';
+                                echo ' · <span class="text-amber-500">Waiting on Admin</span>';
                             }
                             ?>
                         </p>
@@ -130,7 +126,7 @@ require_once __DIR__ . '/header.php';
 
     <div class="glass rounded-xl p-4 border border-gray-800">
         <p class="text-xs text-gray-500">
-            <strong class="text-gray-400">How it works:</strong> Admin pastes partner keys (Partner Registry) → turns partner methods ON → you toggle methods here → checkout shows them in UPI → Card → Net Banking order. No second checkout app.
+            <strong class="text-gray-400">How it works:</strong> You turn methods ON/OFF here. Admin connects the payment network once. Checkout shows enabled methods in UPI → Card → Net Banking order.
         </p>
     </div>
 </div>
