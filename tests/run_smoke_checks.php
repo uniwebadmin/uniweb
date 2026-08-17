@@ -833,7 +833,13 @@ $assert(is_file($root . '/docs/CLEANUP_SENSITIVE_CLICKABLE_AUDIT.md') && str_con
 $assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'admin_disputes.php') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'Open Disputes'), 'cleanup_c_disputes_card_clickable');
 $assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'admin_transactions.php?status=failed') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), "Today's Volume"), 'cleanup_c05_volume_and_failed_cards');
 $assert(str_contains((string)file_get_contents($root . '/includes/ui_links.php'), 'function adminStaffLink') && str_contains((string)file_get_contents($root . '/includes/ui_links.php'), 'function adminPartnerDetailUrl'), 'cleanup_c_staff_partner_link_helpers');
-$assert(str_contains((string)file_get_contents($root . '/admin_manage_staff.php'), 'adminStaffActivityUrl') && str_contains((string)file_get_contents($root . '/admin_gateway_registry.php'), 'adminPartnerDetailUrl'), 'cleanup_c03_c04_staff_partner_click');
+// C6: staff name → Staff Activity (filtered)
+$uiLinksC6 = (string)file_get_contents($root . '/includes/ui_links.php');
+$assert(str_contains($uiLinksC6, 'adminStaffActivityUrl($staffId)') && str_contains($uiLinksC6, 'function adminStaffProfileLink'), 'c6_staff_name_link_goes_to_activity');
+$assert(str_contains((string)file_get_contents($root . '/admin_manage_staff.php'), 'adminStaffLink((int)$s[\'id\']') && str_contains((string)file_get_contents($root . '/admin_manage_staff.php'), 'Profile →'), 'c6_manage_staff_name_to_activity');
+$assert(str_contains((string)file_get_contents($root . '/global_search.php'), 'adminStaffActivityUrl((int)$row[\'id\'])'), 'c6_search_staff_opens_activity');
+$assert(str_contains((string)file_get_contents($root . '/admin_audit_log.php'), 'adminStaffLink') && str_contains((string)file_get_contents($root . '/admin_error_log.php'), 'adminStaffLink'), 'c6_audit_error_actor_to_activity');
+$assert(str_contains((string)file_get_contents($root . '/admin_manage_staff.php'), 'adminStaffLink') && str_contains((string)file_get_contents($root . '/admin_gateway_registry.php'), 'adminPartnerDetailUrl'), 'cleanup_c03_c04_staff_partner_click');
 // A3: Partner Detail entry points open Keys (Test) first
 $uiLinksA3 = (string)file_get_contents($root . '/includes/ui_links.php');
 $gwDetailA3 = (string)file_get_contents($root . '/admin_gateway_detail.php');
@@ -842,7 +848,7 @@ $assert(str_contains($uiLinksA3, "tab=keys&env=") && str_contains($uiLinksA3, "\
 $assert(str_contains($gwDetailA3, "\$_GET['tab'] ?? 'keys'") && str_contains($gwDetailA3, "\$_GET['env'] ?? 'test'"), 'a3_detail_page_defaults_keys_test_env');
 $assert(str_contains($registryA3, 'adminPartnerDetailUrl') && !preg_match('/admin_gateway_detail\.php\?partner=<\?=\s*urlencode\(\$g\[\'gateway_key\'\]\)\s*\?>"/', $registryA3), 'a3_registry_configure_uses_keys_url');
 $assert(str_contains((string)file_get_contents($root . '/admin_partner.php'), 'adminPartnerDetailUrl') || str_contains((string)file_get_contents($root . '/admin_partner.php'), 'tab=keys&env=test'), 'a3_admin_partner_redirect_keys');
-$assert(str_contains((string)file_get_contents($root . '/global_search.php'), 'adminStaffDetailUrl') && str_contains((string)file_get_contents($root . '/dashboard.php'), 'transactions.php?range=today'), 'cleanup_c07_c08_search_and_merchant_cards');
+$assert(str_contains((string)file_get_contents($root . '/global_search.php'), 'adminStaffActivityUrl') && str_contains((string)file_get_contents($root . '/dashboard.php'), 'transactions.php?range=today'), 'cleanup_c07_c08_search_and_merchant_cards');
 $assert(str_contains((string)file_get_contents($root . '/admin_kyc.php'), 'adminMerchantLink((int)$videoRow') && str_contains((string)file_get_contents($root . '/staff_dashboard.php'), 'admin_view_merchant.php?id='), 'cleanup_c01_kyc_staff_queue_names');
 
 $assert(str_contains($invPdf, "defined('CURRENCY_SYMBOL')"), 'invoice_pdf_currency_fallback');

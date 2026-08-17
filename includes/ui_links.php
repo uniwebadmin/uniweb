@@ -58,6 +58,15 @@ function adminStaffLink(int $staffId, string $label, string $class = 'text-sky-4
     if ($staffId <= 0 || trim($label) === '') {
         return e($label);
     }
+    // C6: staff name opens filtered Staff Activity Log (profile stays via username / Profile link)
+    return '<a href="' . e(adminStaffActivityUrl($staffId)) . '" class="' . e($class) . '">' . e($label) . '</a>';
+}
+
+function adminStaffProfileLink(int $staffId, string $label, string $class = 'text-sky-400 hover:underline'): string
+{
+    if ($staffId <= 0 || trim($label) === '') {
+        return e($label);
+    }
     return '<a href="' . e(adminStaffDetailUrl($staffId)) . '" class="' . e($class) . '">' . e($label) . '</a>';
 }
 

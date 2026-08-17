@@ -647,7 +647,7 @@ if ($isMerchant) {
             ORDER BY name ASC LIMIT 10",
             [$like, $like, $like, $like, $like]
         ) as $row) {
-            $add('Staff', (string)($row['name'] ?: $row['username']), ucfirst((string)$row['role']) . ' · ' . ($row['email'] ?: $row['username']), adminStaffDetailUrl((int)$row['id']));
+            $add('Staff', (string)($row['name'] ?: $row['username']), ucfirst((string)$row['role']) . ' · ' . ($row['email'] ?: $row['username']), adminStaffActivityUrl((int)$row['id']));
         }
     }
 

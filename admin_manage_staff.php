@@ -88,7 +88,13 @@ require_once __DIR__ . '/header.php';
         <div class="grid sm:grid-cols-2 gap-4 text-sm">
             <div><span class="text-gray-500 text-xs">Email</span><p class="text-gray-300"><?= e($detailStaff['email'] ?? '—') ?></p></div>
             <div><span class="text-gray-500 text-xs">Phone</span><p class="text-gray-300"><?= e($detailStaff['phone'] ?? '—') ?></p></div>
-            <div><span class="text-gray-500 text-xs">Manager</span><p class="text-gray-300"><?= e($detailStaff['manager_name'] ?? '—') ?></p></div>
+            <div><span class="text-gray-500 text-xs">Manager</span><p class="text-gray-300"><?php
+                if (!empty($detailStaff['reports_to']) && !empty($detailStaff['manager_name'])) {
+                    echo adminStaffLink((int)$detailStaff['reports_to'], (string)$detailStaff['manager_name']);
+                } else {
+                    echo e((string)($detailStaff['manager_name'] ?? '—'));
+                }
+            ?></p></div>
             <div><span class="text-gray-500 text-xs">Last Login</span><p class="text-gray-300"><?= !empty($detailStaff['last_login_at']) ? e(formatDate($detailStaff['last_login_at'])) : 'Never' ?></p></div>
             <div><span class="text-gray-500 text-xs">Last Login IP</span><p class="text-gray-300 font-mono"><?= e($detailStaff['last_login_ip'] ?? '—') ?></p></div>
             <div><span class="text-gray-500 text-xs">Created</span><p class="text-gray-300"><?= e(formatDate($detailStaff['created_at'] ?? '')) ?></p></div>
@@ -167,8 +173,8 @@ require_once __DIR__ . '/header.php';
                     <tr class="hover:bg-white/5">
                         <td class="px-5 py-3 font-mono text-xs"><a href="<?= e(adminStaffDetailUrl((int)$s['id'])) ?>" class="text-sky-400 hover:underline"><?= e($s['username']) ?></a></td>
                         <td class="px-5 py-3">
-                            <a href="<?= e(adminStaffDetailUrl((int)$s['id'])) ?>" class="text-gray-200 hover:text-brand-400 hover:underline"><?= e($s['name']) ?></a>
-                            <a href="<?= e(adminStaffActivityUrl((int)$s['id'])) ?>" class="block text-[10px] text-sky-500 hover:underline mt-0.5">Activity →</a>
+                            <?= adminStaffLink((int)$s['id'], (string)$s['name'], 'text-gray-200 hover:text-brand-400 hover:underline') ?>
+                            <a href="<?= e(adminStaffDetailUrl((int)$s['id'])) ?>" class="block text-[10px] text-gray-500 hover:text-sky-400 hover:underline mt-0.5">Profile →</a>
                         </td>
                         <td class="px-5 py-3 text-xs"><?= e(staffRoleLabel($s['role'])) ?></td>
                         <td class="px-5 py-3 text-xs text-gray-500">

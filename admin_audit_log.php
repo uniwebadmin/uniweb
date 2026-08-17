@@ -89,7 +89,16 @@ require_once __DIR__ . '/header.php';
                 <tr>
                     <td class="px-4 py-3 font-mono text-xs text-gray-400"><?= e(mb_substr($a['event_id'], 0, 20)) ?>...</td>
                     <td class="px-4 py-3 text-xs"><span class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-400"><?= e($a['action']) ?></span></td>
-                    <td class="px-4 py-3 text-xs text-gray-400"><?= e($a['actor_type']) ?> #<?= (int)$a['actor_id'] ?></td>
+                    <td class="px-4 py-3 text-xs text-gray-400"><?php
+                        $actorType = strtolower(trim((string)($a['actor_type'] ?? '')));
+                        $actorId = (int)($a['actor_id'] ?? 0);
+                        $actorLabel = trim((string)($a['actor_type'] ?? '')) . ' #' . $actorId;
+                        if ($actorId > 0 && in_array($actorType, ['admin', 'staff'], true) && function_exists('adminStaffLink')) {
+                            echo adminStaffLink($actorId, $actorLabel, 'text-sky-400 hover:underline');
+                        } else {
+                            echo e($actorLabel);
+                        }
+                    ?></td>
                     <td class="px-4 py-3 text-xs text-gray-400"><?= $a['merchant_id'] ? '#' . (int)$a['merchant_id'] : '—' ?></td>
                     <td class="px-4 py-3 text-xs text-gray-400"><?= e($a['resource_type'] ?? '') ?> <?= e($a['resource_id'] ?? '') ?></td>
                     <td class="px-4 py-3 text-xs text-gray-500 max-w-xs truncate" title="<?= e($a['reason'] ?? '') ?>"><?= e(mb_substr($a['reason'] ?? '', 0, 60)) ?></td>

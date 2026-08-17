@@ -128,9 +128,16 @@ require_once __DIR__ . '/header.php';
                     <td class="px-4 sm:px-5 py-3 text-xs text-gray-500 font-mono">
                         <?= e(basename($err['file'] ?? '')) ?><?= !empty($err['line']) ? ':' . (int)$err['line'] : '' ?>
                     </td>
-                    <td class="px-4 sm:px-5 py-3 text-xs text-gray-500">
-                        <?= e($err['actor_type'] ?? 'guest') ?><?= !empty($err['actor_id']) ? ' #' . (int)$err['actor_id'] : '' ?>
-                    </td>
+                    <td class="px-4 sm:px-5 py-3 text-xs text-gray-500"><?php
+                        $actorType = strtolower(trim((string)($err['actor_type'] ?? 'guest')));
+                        $actorId = (int)($err['actor_id'] ?? 0);
+                        $actorLabel = trim((string)($err['actor_type'] ?? 'guest')) . ($actorId > 0 ? (' #' . $actorId) : '');
+                        if ($actorId > 0 && in_array($actorType, ['admin', 'staff'], true) && function_exists('adminStaffLink')) {
+                            echo adminStaffLink($actorId, $actorLabel, 'text-sky-400 hover:underline');
+                        } else {
+                            echo e($actorLabel);
+                        }
+                    ?></td>
                     <td class="px-4 sm:px-5 py-3 whitespace-nowrap">
                         <?php if (empty($err['is_resolved'])): ?>
                         <a href="?resolve=<?= (int)$err['id'] ?>&csrf=<?= e(csrfToken()) ?>" class="text-xs text-emerald-400">Resolve</a>
