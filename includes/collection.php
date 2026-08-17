@@ -527,9 +527,15 @@ function buildCheckoutPaymentMethods(array $link): array
     if (!empty($availableKeys)) {
         $enabled = array_values(array_unique(array_merge($fromJson, $availableKeys)));
     }
+    if (function_exists('normalizeCheckoutMethodKeys')) {
+        $enabled = normalizeCheckoutMethodKeys($enabled);
+    }
     $catalog = getPaymentMethodCatalog();
     $allow = function (string $methodKey) use ($enabled): bool {
-        return in_array($methodKey, $enabled, true);
+        $want = function_exists('normalizeCheckoutMethodKey')
+            ? normalizeCheckoutMethodKey($methodKey)
+            : $methodKey;
+        return in_array($want, $enabled, true) || in_array($methodKey, $enabled, true);
     };
 
     if ($allow('upi_p2m') || in_array($handler, ['direct_upi', 'axis_va'], true) || empty($link['payment_method'])) {

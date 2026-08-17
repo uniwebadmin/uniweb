@@ -226,14 +226,19 @@ function getMerchantEnabledMethods(array $merchant): array
     if ($raw) {
         $decoded = json_decode($raw, true);
         if (is_array($decoded) && $decoded) {
-            return array_values(array_unique(array_map('strval', $decoded)));
+            $keys = array_values(array_unique(array_map('strval', $decoded)));
+            return function_exists('normalizeCheckoutMethodKeys')
+                ? normalizeCheckoutMethodKeys($keys)
+                : $keys;
         }
     }
     // Check new merchant_payment_methods table
     if (function_exists('getMerchantEnabledMethodKeys')) {
         $pmEnabled = getMerchantEnabledMethodKeys((int)$merchant['id']);
         if (!empty($pmEnabled)) {
-            return $pmEnabled;
+            return function_exists('normalizeCheckoutMethodKeys')
+                ? normalizeCheckoutMethodKeys($pmEnabled)
+                : $pmEnabled;
         }
     }
     // New merchants: only UPI P2M until partner/admin unlocks more.

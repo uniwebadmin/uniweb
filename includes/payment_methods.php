@@ -186,6 +186,35 @@ function getMerchantEnabledMethodKeys(int $merchantId): array
 }
 
 /**
+ * Map merchant toggle / registry keys onto checkout catalog keys.
+ * gateway_registry seeds Net Banking as net_banking; checkout allow() expects netbanking.
+ */
+function normalizeCheckoutMethodKey(string $methodKey): string
+{
+    $key = strtolower(trim($methodKey));
+    return match ($key) {
+        'net_banking', 'nb' => 'netbanking',
+        default => $key,
+    };
+}
+
+/**
+ * @param list<string|int|float> $keys
+ * @return list<string>
+ */
+function normalizeCheckoutMethodKeys(array $keys): array
+{
+    $out = [];
+    foreach ($keys as $k) {
+        $n = normalizeCheckoutMethodKey((string)$k);
+        if ($n !== '') {
+            $out[$n] = true;
+        }
+    }
+    return array_keys($out);
+}
+
+/**
  * Keep merchants.enabled_methods JSON in sync with Payment Methods toggles.
  * Checkout tabs read that JSON — toggles alone used to leave checkout on UPI only.
  */
@@ -194,7 +223,10 @@ function syncMerchantEnabledMethodsFromToggles(int $merchantId): void
     if ($merchantId <= 0) {
         return;
     }
-    $keys = getMerchantEnabledMethodKeys($merchantId);
+    $keys = normalizeCheckoutMethodKeys(getMerchantEnabledMethodKeys($merchantId));
+    if ($keys === []) {
+        $keys = ['upi_p2m'];
+    }
     try {
         getDB()->prepare('UPDATE merchants SET enabled_methods=? WHERE id=?')
             ->execute([json_encode(array_values($keys), JSON_UNESCAPED_UNICODE), $merchantId]);

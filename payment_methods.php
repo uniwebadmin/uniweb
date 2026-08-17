@@ -106,7 +106,7 @@ require_once __DIR__ . '/header.php';
                             echo e(implode(' · ', $caps));
                             if (in_array($m['gateway_key'], ['upi_p2m', 'qr_code'], true)) {
                                 echo ' · <span class="text-emerald-500">Start here</span>';
-                            } elseif (in_array($m['gateway_key'], ['credit_card', 'debit_card', 'net_banking'], true) && !$payuReady && !$rzpReady && !$cfReady) {
+                            } elseif (in_array($m['gateway_key'], ['credit_card', 'debit_card', 'net_banking', 'netbanking'], true) && !$payuReady && !$rzpReady && !$cfReady) {
                                 echo ' · <span class="text-amber-500">Waiting on Admin</span>';
                             }
                             ?>

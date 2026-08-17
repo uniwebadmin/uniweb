@@ -978,6 +978,10 @@ $assert(str_contains($collLib, 'Merchant enabled_methods JSON is the product dat
 $pmLib2a = (string)file_get_contents($root . '/includes/payment_methods.php');
 $assert(str_contains($pmLib2a, 'function syncMerchantEnabledMethodsFromToggles') && str_contains($pmLib2a, 'UPDATE merchants SET enabled_methods=?'), 'p2a_sync_enabled_methods_helper');
 $assert(substr_count($pmLib2a, 'syncMerchantEnabledMethodsFromToggles($merchantId)') >= 2, 'p2a_toggle_and_bulk_call_sync');
+// 2b: net_banking (registry/toggles) must normalize to netbanking (checkout catalog)
+$assert(str_contains($pmLib2a, 'function normalizeCheckoutMethodKey') && str_contains($pmLib2a, "'net_banking', 'nb' => 'netbanking'"), 'p2b_normalize_netbanking_alias');
+$assert(str_contains((string)file_get_contents($root . '/includes/provision.php'), 'normalizeCheckoutMethodKeys'), 'p2b_enabled_methods_normalized');
+$assert(str_contains((string)file_get_contents($root . '/includes/collection.php'), 'normalizeCheckoutMethodKeys'), 'p2b_checkout_allow_normalized');
 $assert(!str_contains($collLib, "partnerMethodOn('payu', 'debit_card')"), 'checkout_cards_not_hidden_by_empty_partner_row');
 $migLib = (string)file_get_contents($root . '/includes/migrations.php');
 $assert(str_contains($migLib, 'applied_files'), 'migrations_return_applied_files');
