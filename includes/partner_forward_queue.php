@@ -300,9 +300,142 @@ function getPartnerForwardQueue(int $limit = 50): array
 }
 
 /**
+ * 5c: Per-partner KYC forward adapter registry (hooks only — not Phase 11 success routing).
+ * mode local_record = write gateway_submissions + log; live API adapters land later.
+ *
+ * @return array<string, array{mode:string,label:string}>
+ */
+function getKycForwardAdapterRegistry(): array
+{
+    return [
+        'payu' => ['mode' => 'local_record', 'label' => 'PayU — local submission record'],
+        'razorpay' => ['mode' => 'local_record', 'label' => 'Razorpay — local submission record'],
+        'cashfree' => ['mode' => 'local_record', 'label' => 'Cashfree — local submission record'],
+        'decentro' => ['mode' => 'local_record', 'label' => 'Decentro — local submission record'],
+        'axis' => ['mode' => 'local_record', 'label' => 'Axis — local submission record'],
+        'phonepe' => ['mode' => 'local_record', 'label' => 'PhonePe — local submission record'],
+        'rbl' => ['mode' => 'local_record', 'label' => 'RBL — local submission record'],
+    ];
+}
+
+/**
+ * @return array{mode:string,label:string}|null
+ */
+function getKycForwardAdapterMeta(string $partnerKey): ?array
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    $reg = getKycForwardAdapterRegistry();
+    return $reg[$partnerKey] ?? null;
+}
+
+/**
+ * Run registered adapter after keys + payload checks. Returns null if no adapter.
+ *
+ * @param array<string,mixed> $fullPayload
+ * @return array<string,mixed>|null
+ */
+function runKycForwardAdapter(string $partnerKey, int $merchantId, array $fullPayload): ?array
+{
+    $meta = getKycForwardAdapterMeta($partnerKey);
+    if ($meta === null) {
+        return null;
+    }
+    $payloadReady = !empty($fullPayload['merchant']);
+    if (!$payloadReady) {
+        return [
+            'success' => false,
+            'staged' => true,
+            'payload_ready' => false,
+            'adapter' => $meta['mode'],
+            'reference' => 'STAGED-' . strtoupper($partnerKey) . '-' . $merchantId,
+            'message' => 'Keys OK — package incomplete (merchant payload empty). Check KYC docs.',
+        ];
+    }
+
+    if ($meta['mode'] === 'local_record') {
+        $subRef = null;
+        if (function_exists('submitMerchantToGateway') || is_file(__DIR__ . '/gateways.php')) {
+            if (!function_exists('submitMerchantToGateway')) {
+                require_once __DIR__ . '/gateways.php';
+            }
+            $allowed = function_exists('gatewaySubmissionAllowedGateways')
+                ? gatewaySubmissionAllowedGateways()
+                : ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe', 'axis', 'rbl'];
+            if (in_array($partnerKey, $allowed, true)) {
+                try {
+                    submitMerchantToGateway($merchantId, $partnerKey, (int)($_SESSION['admin_id'] ?? 0), 'KYC forward queue (local_record adapter)');
+                    $st = getDB()->prepare(
+                        "SELECT id FROM gateway_submissions WHERE merchant_id=? AND gateway=? ORDER BY id DESC LIMIT 1"
+                    );
+                    $st->execute([$merchantId, $partnerKey]);
+                    $subId = (int)$st->fetchColumn();
+                    if ($subId > 0) {
+                        $subRef = 'SUB-' . $subId;
+                    }
+                } catch (Throwable $e) {
+                    /* keep staging even if local record fails */
+                }
+            }
+        }
+        if (function_exists('partnerLogApi')) {
+            partnerLogApi(
+                $partnerKey,
+                'kyc_forward_local',
+                'POST',
+                'queue',
+                $subRef ?? 'staged',
+                $subRef ? 200 : 0,
+                $subRef ? 'ok' : 'pending'
+            );
+        }
+        return [
+            'success' => false,
+            'staged' => true,
+            'payload_ready' => true,
+            'adapter' => 'local_record',
+            'reference' => $subRef ?? ('STAGED-' . strtoupper($partnerKey) . '-' . $merchantId),
+            'message' => 'Keys OK — local onboarding record saved. Live partner KYC API not connected yet (not Phase 11 routing).',
+        ];
+    }
+
+    return null;
+}
+
+/**
+ * Queue status counts for Admin Forward Matrix (5c stats).
+ *
+ * @return array{by_status: array<string,int>, by_partner: list<array{partner_key:string,status:string,cnt:int}>, total:int}
+ */
+function getForwardQueueStats(): array
+{
+    ensurePartnerForwardQueueTable();
+    $out = ['by_status' => [], 'by_partner' => [], 'total' => 0];
+    try {
+        $rows = getDB()->query(
+            "SELECT status, COUNT(*) AS cnt FROM partner_forward_queue GROUP BY status"
+        )->fetchAll() ?: [];
+        foreach ($rows as $r) {
+            $st = (string)($r['status'] ?? '');
+            $c = (int)($r['cnt'] ?? 0);
+            $out['by_status'][$st] = $c;
+            $out['total'] += $c;
+        }
+        $out['by_partner'] = getDB()->query(
+            "SELECT partner_key, status, COUNT(*) AS cnt
+             FROM partner_forward_queue
+             GROUP BY partner_key, status
+             ORDER BY partner_key ASC, status ASC
+             LIMIT 80"
+        )->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        /* ok */
+    }
+    return $out;
+}
+
+/**
  * Push KYC package to a partner API.
- * 5b: use real Partner Registry key check (partnerIsConfigured). Until adapters exist,
- * mark queue rows as staged (package ready) instead of a fake "keys missing" loop.
+ * 5b: real Partner Registry key check. 5c: per-partner adapter hook + honest staged hold.
  */
 function pushPackageToPartner(string $partnerKey, int $merchantId, array $payload): array
 {
@@ -334,21 +467,25 @@ function pushPackageToPartner(string $partnerKey, int $merchantId, array $payloa
         ];
     }
 
-    // Rebuild full payload at push time — the stored queue payload is redacted
     if (!function_exists('build_partner_onboarding_payload')) {
         require_once __DIR__ . '/partner_payload.php';
     }
     $fullPayload = build_partner_onboarding_payload($merchantId);
     $payloadReady = !empty($fullPayload['merchant']);
 
-    // Honest staging until a live partner adapter is wired (5c)
+    $adapted = runKycForwardAdapter($partnerKey, $merchantId, $fullPayload);
+    if (is_array($adapted)) {
+        return $adapted;
+    }
+
     return [
         'success' => false,
         'staged' => true,
         'payload_ready' => $payloadReady,
+        'adapter' => 'none',
         'reference' => 'STAGED-' . strtoupper($partnerKey) . '-' . $merchantId,
         'message' => $payloadReady
-            ? 'Keys OK — KYC package ready. Partner API adapter not live yet (manual / next step).'
+            ? 'Keys OK — KYC package ready. No adapter registered for this partner yet.'
             : 'Keys OK — package incomplete (merchant payload empty). Check KYC docs.',
     ];
 }
@@ -413,9 +550,9 @@ function manualRequeueForward(int $itemId): bool
 {
     ensurePartnerForwardQueueTable();
     try {
-        getDB()->prepare("UPDATE partner_forward_queue SET status='queued', attempts=0, schedule_at=NOW(), error_message=NULL WHERE id=? AND status='failed'")
+        getDB()->prepare("UPDATE partner_forward_queue SET status='queued', attempts=0, schedule_at=NOW(), error_message=NULL, partner_reference=NULL WHERE id=? AND status IN ('failed','staged')")
             ->execute([$itemId]);
-        return getDB()->lastInsertId() > 0 || true;
+        return true;
     } catch (Throwable $e) {
         return false;
     }

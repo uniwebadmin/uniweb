@@ -525,6 +525,11 @@ $assert(str_contains((string)file_get_contents($root . '/includes/onboarding_sec
 $assert(str_contains($qP5, 'function pushPackageToPartner') && str_contains($qP5, 'partnerIsConfigured($partnerKey)') && !str_contains($qP5, "keys_configured"), 'p5b_push_uses_partnerIsConfigured');
 $assert(str_contains($qP5, "'staged'") && str_contains($qP5, "status='staged'"), 'p5b_push_staged_when_adapter_pending');
 $assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'status=staged') && str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), '>Staged<'), 'p5b_forward_queue_staged_filter');
+// 5c: adapter registry + queue stats on existing forward page (no Phase 11 route)
+$assert(str_contains($qP5, 'function getKycForwardAdapterRegistry') && str_contains($qP5, 'function runKycForwardAdapter') && str_contains($qP5, 'local_record'), 'p5c_kyc_forward_adapter_registry');
+$assert(str_contains($qP5, 'function getForwardQueueStats') && str_contains($qP5, 'by_status'), 'p5c_forward_queue_stats_helper');
+$assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'getForwardQueueStats') && str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'Partner adapters'), 'p5c_forward_queue_stats_ui');
+$assert(!str_contains($qP5, 'success-rate route') && str_contains($qP5, 'not Phase 11'), 'p5c_no_phase11_success_routing');
 
 // P5-03 — event_key dedup + optional archive
 $nP5 = (string)file_get_contents($root . '/includes/notifications.php');

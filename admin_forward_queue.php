@@ -26,13 +26,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $result = processPerPartnerForwardQueue(50);
             flash('success', 'Queue processed: ' . ($result['processed'] ?? 0) . ' items, '
-                . ($result['success'] ?? 0) . ' success, ' . ($result['failed'] ?? 0) . ' failed.');
+                . ($result['success'] ?? 0) . ' success, '
+                . ($result['staged'] ?? 0) . ' staged, '
+                . ($result['failed'] ?? 0) . ' failed, '
+                . ($result['retry'] ?? 0) . ' retry.');
         }
     }
     redirect('admin_forward_queue.php?status=' . urlencode($statusFilter));
 }
 
 $matrix = getAdminForwardMatrix($statusFilter, $q);
+$fwdStats = getForwardQueueStats();
+$adapterRegistry = getKycForwardAdapterRegistry();
 
 $pageTitle = 'KYC Forward Queue';
 require_once __DIR__ . '/header.php';
@@ -49,7 +54,24 @@ require_once __DIR__ . '/header.php';
             </form>
             <?php endif; ?>
         </div>
-        <p class="text-xs text-gray-500 mb-3">After Admin Verify: one queue row per partner that already has keys in Partner Registry. No keys yet → one <code class="text-gray-400">unassigned</code> row. <strong class="text-gray-400">Staged</strong> = keys OK + package ready, partner API adapter not live yet (honest hold — not a fake fail).</p>
+        <p class="text-xs text-gray-500 mb-3">After Admin Verify: one queue row per partner that already has keys. <strong class="text-gray-400">Staged</strong> = keys OK + local record / package ready — live partner KYC API and success-rate routing stay parked (not Phase 11).</p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-4">
+            <?php
+            $statOrder = ['queued', 'processing', 'staged', 'success', 'retry', 'failed', 'paused'];
+            foreach ($statOrder as $sk):
+                $n = (int)($fwdStats['by_status'][$sk] ?? 0);
+            ?>
+            <a href="?status=<?= e($sk) ?>" class="rounded-lg border border-gray-800 bg-dark-900/40 px-3 py-2 hover:border-gray-600">
+                <p class="text-[10px] uppercase text-gray-500"><?= e($sk) ?></p>
+                <p class="text-lg font-bold text-gray-100"><?= $n ?></p>
+            </a>
+            <?php endforeach; ?>
+        </div>
+        <div class="mb-4 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-[11px] text-gray-400">
+            <p class="font-semibold text-violet-300 mb-1">Partner adapters (hooks)</p>
+            <p class="mb-1">Registered: <?= count($adapterRegistry) ?> · Mode <code class="text-gray-300">local_record</code> saves onboarding row + API log. Live partner push comes later — not checkout success-rate routing.</p>
+            <p class="text-gray-500"><?= e(implode(' · ', array_map(static fn($k, $m) => $k . '=' . ($m['mode'] ?? ''), array_keys($adapterRegistry), $adapterRegistry))) ?></p>
+        </div>
         <div class="flex flex-wrap gap-2 text-xs mb-3">
             <a href="?status=" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === '' ? 'bg-brand-500 text-white' : 'bg-dark-700 text-gray-400' ?>">All</a>
             <a href="?status=queued" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'queued' ? 'bg-brand-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Queued</a>
@@ -111,7 +133,7 @@ require_once __DIR__ . '/header.php';
                     <td class="px-4 py-3 text-gray-400 text-xs"><?= e($row['partner_reference'] ?? '—') ?></td>
                     <td class="px-4 py-3 text-gray-500 text-xs max-w-xs truncate" title="<?= e($row['error_message'] ?? '') ?>"><?= e($row['error_message'] ?? '—') ?></td>
                     <td class="px-4 py-3">
-                        <?php if ($row['status'] === 'failed'): ?>
+                        <?php if (in_array((string)$row['status'], ['failed', 'staged'], true)): ?>
                         <form method="POST" action="admin_forward_queue.php" onsubmit="return confirm('Re-queue this item?')">
                             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                             <input type="hidden" name="action" value="requeue">
