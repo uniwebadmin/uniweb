@@ -261,7 +261,7 @@ if ($isMerchant) {
         ORDER BY created_at DESC LIMIT 10",
         [$merchantId, $like, $like, $like]
     ) as $row) {
-        $add('Ticket', (string)$row['ticket_id'], ucfirst((string)$row['status']) . ' · ' . (string)$row['subject'], 'support.php?q=' . rawurlencode((string)$row['ticket_id']));
+        $add('Ticket', (string)$row['ticket_id'], ucfirst((string)$row['status']) . ' · ' . (string)$row['subject'], 'support_ticket.php?id=' . rawurlencode((string)$row['ticket_id']));
     }
 
     foreach ($fetchRows(

@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             $db->prepare('INSERT INTO support_tickets (ticket_id, merchant_id, category, subject, message, txn_reference, priority) VALUES (?,?,?,?,?,?,?)')
                 ->execute([$ticketId, $merchant['id'], $category, $subject, $message, $txnRef, $priority]);
             flash('success', 'Support ticket created: ' . $ticketId);
-            redirect('support.php');
+            redirect('support_ticket.php?id=' . rawurlencode($ticketId));
         } catch (Throwable $e) {
             flash('error', 'Could not create ticket. Please email ' . COMPANY_SUPPORT_EMAIL);
             redirect('support.php');
@@ -38,7 +38,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
 $tickets = $db->prepare('SELECT * FROM support_tickets WHERE merchant_id = ? ORDER BY created_at DESC LIMIT 20');
 $tickets->execute([$merchant['id']]);
-$ticketList = $tickets->fetchAll();
+$ticketList = $tickets->fetchAll() ?: [];
+
+// 3b: search / deep-link — TKT… opens detail; other q filters the list
+$ticketQ = mb_substr(trim((string)($_GET['q'] ?? '')), 0, 100);
+if ($ticketQ !== '') {
+    if (preg_match('/^TKT[A-F0-9]{8,}$/i', $ticketQ)) {
+        redirect('support_ticket.php?id=' . rawurlencode($ticketQ));
+    }
+    $qLower = strtolower($ticketQ);
+    $ticketList = array_values(array_filter($ticketList, static function (array $t) use ($qLower): bool {
+        $hay = strtolower(
+            (string)($t['ticket_id'] ?? '') . ' ' .
+            (string)($t['subject'] ?? '') . ' ' .
+            (string)($t['message'] ?? '') . ' ' .
+            (string)($t['txn_reference'] ?? '') . ' ' .
+            (string)($t['status'] ?? '')
+        );
+        return str_contains($hay, $qLower);
+    }));
+}
 
 $supportWhatsapp = preg_replace('/[^0-9]/', '', (string)getSetting('support_whatsapp', defined('SUPPORT_WHATSAPP') ? SUPPORT_WHATSAPP : '9000000000'));
 $supportChannels = [
@@ -122,9 +141,19 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <div class="lg:col-span-2 glass rounded-xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Your Tickets</h2></div>
+        <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="font-semibold">Your Tickets</h2>
+            <form method="GET" class="flex gap-2">
+                <label class="sr-only" for="ticket-q">Search tickets</label>
+                <input id="ticket-q" type="search" name="q" value="<?= e($ticketQ) ?>" placeholder="TKT… / subject" class="input-field text-sm w-44 max-w-full" autocomplete="off">
+                <button type="submit" class="btn-primary px-3 py-2 text-xs">Search</button>
+                <?php if ($ticketQ !== ''): ?>
+                <a href="support.php" class="text-xs text-gray-400 hover:text-white px-2 py-2">Reset</a>
+                <?php endif; ?>
+            </form>
+        </div>
         <?php if (empty($ticketList)): ?>
-        <div class="p-6"><?= renderMerchantEmptyState('No support tickets yet', 'Raise a ticket for payment, settlement or KYC questions. We usually respond within one business day.', '#raise-ticket', 'Raise a ticket →') ?></div>
+        <div class="p-6"><?= renderMerchantEmptyState($ticketQ !== '' ? 'No matching tickets' : 'No support tickets yet', $ticketQ !== '' ? 'Try another ticket id or clear search.' : 'Raise a ticket for payment, settlement or KYC questions. We usually respond within one business day.', '#raise-ticket', 'Raise a ticket →') ?></div>
         <?php else: ?>
         <div class="divide-y divide-gray-800">
             <?php foreach ($ticketList as $t):

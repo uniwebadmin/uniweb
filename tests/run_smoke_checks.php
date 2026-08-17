@@ -680,6 +680,12 @@ $disp3a = (string)file_get_contents($root . '/disputes.php');
 $assert(str_contains($disp3a, "\$_GET['q']") && str_contains($disp3a, "\$_GET['id']"), 'p3a_disputes_reads_q_and_id');
 $assert(str_contains($disp3a, 'dispute-detail') && str_contains($disp3a, 'disputes.php?id='), 'p3a_disputes_row_opens_detail');
 $assert(str_contains($disp3a, 'name="q"') && str_contains($disp3a, 'Admin note / resolution'), 'p3a_disputes_search_and_detail_panel');
+// 3b: merchant support ?q=TKT… opens ticket detail; search results link to support_ticket.php
+$sup3b = (string)file_get_contents($root . '/support.php');
+$assert(str_contains($sup3b, "\$_GET['q']") && str_contains($sup3b, 'support_ticket.php?id=') && str_contains($sup3b, 'TKT[A-F0-9]'), 'p3b_support_q_redirects_to_ticket');
+$assert(str_contains($sup3b, 'name="q"') && str_contains($sup3b, 'Search tickets'), 'p3b_support_has_search_box');
+$gs3b = (string)file_get_contents($root . '/global_search.php');
+$assert(str_contains($gs3b, "support_ticket.php?id=") && !str_contains($gs3b, "'support.php?q='") && !str_contains($gs3b, '"support.php?q='), 'p3b_search_ticket_opens_detail');
 $assert(str_contains((string)file_get_contents($root . '/admin_support.php'), 'Admin first — support queue') && str_contains((string)file_get_contents($root . '/admin_grievance.php'), 'Admin first — grievance officer queue'), 'b9_support_grievance_hub_banners');
 $assert(!is_file($root . '/admin_dispute_bulk.php') && !is_file($root . '/dispute_app.php'), 'b9_no_new_dispute_app');
 // WIRING-C1-C2-HYGIENE-ORDERED
