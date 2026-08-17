@@ -514,6 +514,10 @@ $assert(!str_contains($wdP5, 'cron_auto_audit.php?key=' . '<?=') && str_contains
 $fwdP5 = (string)file_get_contents($root . '/includes/auto_kyc.php');
 $assert(str_contains($fwdP5, "\$targets = ['unassigned']") && str_contains($fwdP5, 'enqueuePartnerForward'), 'p5_forward_enqueue_fallback_row');
 $assert(str_contains($fwdP5, 'resolveKycPendingFlags'), 'p5_auto_kyc_clears_aml_on_verify');
+// 5a: fan-out = every partner with keys (partnerIsConfigured), not chargeable-only / active-without-keys
+$assert(str_contains($fwdP5, 'partnerIsConfigured($partnerKey)') && !str_contains($fwdP5, 'isPartnerChargeable'), 'p5a_enqueue_all_partners_with_keys');
+$assert(!str_contains($fwdP5, 'isGatewayActive($partnerKey)'), 'p5a_enqueue_no_active_without_keys_tier');
+$assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'one queue row per partner that already has keys'), 'p5a_forward_queue_copy_keys');
 $qP5 = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
 $assert(str_contains($qP5, "status IN ('queued','retry','processing')"), 'p5_forward_enqueue_idempotent');
 $assert(str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), 'enqueueMerchantToAllEnabledPartners'), 'p5_kyc_verify_enqueues_forward');

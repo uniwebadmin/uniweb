@@ -299,8 +299,8 @@ function autoVerifyMerchantKyc(int $merchantId): bool
 }
 
 /**
- * D3: Enqueue merchant to enabled partners (idempotent).
- * If no partner has keys yet, still insert one visible queue row so the UI is not empty.
+ * Enqueue merchant KYC package to every partner that already has keys (idempotent).
+ * 5a: do not stop at “chargeable” only — keys pasted = queue row. No keys → one unassigned row.
  */
 function enqueueMerchantToAllEnabledPartners(int $merchantId): void
 {
@@ -313,32 +313,13 @@ function enqueueMerchantToAllEnabledPartners(int $merchantId): void
     if (!function_exists('partnerIsConfigured')) {
         require_once __DIR__ . '/partner_engine.php';
     }
-    if (!function_exists('isPartnerChargeable')) {
-        require_once __DIR__ . '/partner_control.php';
-    }
 
     $registry = getPartnerRegistry();
     $targets = [];
     foreach (array_keys($registry) as $partnerKey) {
         $partnerKey = (string)$partnerKey;
-        if (function_exists('isPartnerChargeable') && isPartnerChargeable($partnerKey)) {
+        if (partnerIsConfigured($partnerKey)) {
             $targets[] = $partnerKey;
-        }
-    }
-    if ($targets === []) {
-        foreach (array_keys($registry) as $partnerKey) {
-            $partnerKey = (string)$partnerKey;
-            if (partnerIsConfigured($partnerKey)) {
-                $targets[] = $partnerKey;
-            }
-        }
-    }
-    if ($targets === []) {
-        foreach (array_keys($registry) as $partnerKey) {
-            $partnerKey = (string)$partnerKey;
-            if (function_exists('isGatewayActive') && isGatewayActive($partnerKey)) {
-                $targets[] = $partnerKey;
-            }
         }
     }
     if ($targets === []) {
@@ -356,7 +337,7 @@ function enqueueMerchantToAllEnabledPartners(int $merchantId): void
                     $payload = redactPartnerPayload($payload);
                 }
             } elseif ($partnerKey === 'unassigned') {
-                $payload = ['reason' => 'No enabled partner yet — row kept so KYC Forward Queue is not empty'];
+                $payload = ['reason' => 'No partner keys yet — row kept so KYC Forward Queue is not empty'];
             }
             $queueId = enqueuePartnerForward($merchantId, $partnerKey, $payload);
             if ($queueId > 0) {

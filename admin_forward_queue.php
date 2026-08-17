@@ -49,6 +49,7 @@ require_once __DIR__ . '/header.php';
             </form>
             <?php endif; ?>
         </div>
+        <p class="text-xs text-gray-500 mb-3">After Admin Verify: one queue row per partner that already has keys in Partner Registry. No keys yet → one <code class="text-gray-400">unassigned</code> row. Real partner API push is still staged (see queue errors until adapters go live).</p>
         <div class="flex flex-wrap gap-2 text-xs mb-3">
             <a href="?status=" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === '' ? 'bg-brand-500 text-white' : 'bg-dark-700 text-gray-400' ?>">All</a>
             <a href="?status=queued" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'queued' ? 'bg-brand-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Queued</a>
@@ -82,7 +83,7 @@ require_once __DIR__ . '/header.php';
             </thead>
             <tbody>
                 <?php if (empty($matrix)): ?>
-                <tr><td colspan="9" class="px-4 py-8 text-center text-gray-500">No items in queue yet. A row is created when KYC is approved or Live is switched on (even if partner keys are still pending).</td></tr>
+                <tr><td colspan="9" class="px-4 py-8 text-center text-gray-500">No items in queue yet. Rows appear when KYC is verified — one per partner with keys (or unassigned if none).</td></tr>
                 <?php else: foreach ($matrix as $row): ?>
                 <tr class="border-t border-gray-800/50">
                     <td class="px-4 py-3">
