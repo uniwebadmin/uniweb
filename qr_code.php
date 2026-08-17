@@ -53,6 +53,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('qr_code.php');
     }
 
+    if ($action === 'delete') {
+        $id = (int)($_POST['id'] ?? 0);
+        $row = $db->prepare('SELECT id, qr_code, payment_link_id FROM merchant_qr_codes WHERE id=? AND merchant_id=? LIMIT 1');
+        $row->execute([$id, $merchantId]);
+        $qr = $row->fetch();
+        if (!$qr) {
+            flash('error', 'QR not found.');
+            redirect('qr_code.php');
+        }
+        try {
+            $db->beginTransaction();
+            try {
+                $db->prepare('DELETE FROM qr_code_events WHERE qr_code_id=?')->execute([$id]);
+            } catch (Throwable $e) {
+                /* events table optional */
+            }
+            if (!empty($qr['payment_link_id'])) {
+                $db->prepare("UPDATE payment_links SET status='cancelled' WHERE id=? AND merchant_id=?")
+                    ->execute([(int)$qr['payment_link_id'], $merchantId]);
+            }
+            $db->prepare('DELETE FROM merchant_qr_codes WHERE id=? AND merchant_id=?')->execute([$id, $merchantId]);
+            $db->commit();
+            flash('success', 'QR deleted: ' . (string)$qr['qr_code']);
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            logPlatformError('error', 'Merchant QR delete failed: ' . $e->getMessage(), ['qr_id' => $id, 'merchant_id' => $merchantId]);
+            flash('error', 'Could not delete QR. Try again.');
+        }
+        redirect('qr_code.php');
+    }
+
     if ($action === 'bulk_create') {
         $qrType = (string)($_POST['qr_type'] ?? 'fixed');
         if (!in_array($qrType, ['all_methods', 'upi_dynamic', 'fixed'], true)) {
@@ -428,15 +461,21 @@ require_once __DIR__ . '/header.php';
                     <a href="<?= e($mailto) ?>" class="text-center border border-gray-800 py-1.5 rounded-lg text-amber-400 hover:bg-white/5">Email</a>
                     <a href="<?= e($sms) ?>" class="text-center border border-gray-800 py-1.5 rounded-lg text-violet-400 hover:bg-white/5">SMS</a>
                 </div>
-                <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="grid grid-cols-3 gap-2 text-xs">
                     <a href="transactions.php?qr_id=<?= (int)$qr['id'] ?>" class="text-center border border-violet-500/30 py-2 rounded-lg text-violet-300">View payments</a>
                     <form method="POST">
                         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <input type="hidden" name="action" value="toggle">
                         <input type="hidden" name="id" value="<?= (int)$qr['id'] ?>">
-                        <button class="w-full border border-gray-700 py-2 rounded-lg <?= $qr['status'] === 'active' ? 'text-red-400' : 'text-emerald-400' ?>">
+                        <button class="w-full border border-gray-700 py-2 rounded-lg <?= $qr['status'] === 'active' ? 'text-amber-400' : 'text-emerald-400' ?>">
                             <?= $qr['status'] === 'active' ? 'Disable' : 'Enable' ?>
                         </button>
+                    </form>
+                    <form method="POST" onsubmit="return confirm('Delete this QR permanently? Past payments stay in Transactions.');">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="id" value="<?= (int)$qr['id'] ?>">
+                        <button type="submit" class="w-full border border-red-500/40 py-2 rounded-lg text-red-400 hover:bg-red-500/10">Delete</button>
                     </form>
                 </div>
             </div>

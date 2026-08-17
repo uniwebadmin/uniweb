@@ -98,8 +98,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
     if ($action === 'deactivate') {
         $result = deactivateGateway($gatewayId);
-        flash($result['ok'] ? 'success' : 'error', $result['ok'] ? 'Partner deactivated.' : ($result['error'] ?? 'Error'));
+        flash($result['ok'] ? 'success' : 'error', $result['ok'] ? 'Partner turned OFF (hidden from merchant checkout).' : ($result['error'] ?? 'Error'));
         if ($result['ok'] && function_exists('logStaffActivity')) { logStaffActivity('partner_deactivated', 'Deactivated partner ' . $partnerKey, null, 'partner', $partnerKey); }
+        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=' . $activeTab);
+    }
+
+    if ($action === 'delete') {
+        $result = deleteInactiveGateway($gatewayId);
+        if ($result['ok']) {
+            if (function_exists('logStaffActivity')) {
+                logStaffActivity('partner_deleted', 'Deleted inactive partner ' . ($result['gateway_key'] ?? $partnerKey), null, 'partner', (string)($result['gateway_key'] ?? $partnerKey));
+            }
+            flash('success', ($result['gateway_name'] ?? 'Partner') . ' deleted from registry.');
+            redirect('admin_gateway_registry.php');
+        }
+        flash('error', $result['error'] ?? 'Could not delete.');
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=' . $activeTab);
     }
 
@@ -261,13 +274,19 @@ require_once __DIR__ . '/header.php';
                 <input type="hidden" name="action" value="activate">
                 <button type="submit" class="btn-primary px-6 py-2.5" onclick="return confirm('Activate <?= e($gateway['gateway_name']) ?>?')">⚡ Activate</button>
             </form>
+            <form method="POST" class="inline" onsubmit="return confirm('Permanently delete this inactive partner from the registry? Built-in rails (PayU, cards, UPI…) cannot be deleted.');">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="delete">
+                <button type="submit" class="text-xs px-4 py-2.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30">Delete</button>
+            </form>
             <?php else: ?>
             <form method="POST" class="inline">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="deactivate">
-                <button type="submit" class="text-xs px-4 py-2.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30" onclick="return confirm('Deactivate this partner?')">Deactivate</button>
+                <button type="submit" class="text-xs px-4 py-2.5 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/30" onclick="return confirm('Turn OFF this partner? Merchants will no longer see its methods on checkout.')">Turn OFF</button>
             </form>
             <?php endif; ?>
+            <a href="admin_gateway_detail.php?id=<?= (int)$gatewayId ?>&amp;tab=keys&amp;env=test" class="glass px-5 py-2.5 rounded-xl text-sm text-sky-300 hover:text-sky-200">Change keys →</a>
             <?php if ($partner && $partner['docs']): ?>
             <a href="<?= e($partner['docs']) ?>" target="_blank" rel="noopener" class="glass px-5 py-2.5 rounded-xl text-sm">API Docs ↗</a>
             <?php endif; ?>
@@ -275,6 +294,7 @@ require_once __DIR__ . '/header.php';
             <a href="<?= e($partner['dashboard']) ?>" target="_blank" rel="noopener" class="glass px-5 py-2.5 rounded-xl text-sm">Dashboard ↗</a>
             <?php endif; ?>
         </div>
+        <p class="text-[11px] text-gray-600 mt-3">Change keys = Keys tab (Test then Live). Turn OFF hides methods. Delete only works after Turn OFF, and only for custom partners (not PayU / cards / UPI).</p>
     </div>
 
     <div class="flex gap-1 border-b border-gray-800 overflow-x-auto">

@@ -502,6 +502,57 @@ function deactivateGateway(int $gatewayId): array
 }
 
 /**
+ * Hard-delete an inactive partner / method row from Partner Registry.
+ * Built-in rails (PayU, cards, UPI, …) cannot be deleted — only Turn OFF.
+ */
+function deleteInactiveGateway(int $gatewayId): array
+{
+    ensurePaymentMethodsTable();
+    $db = getDB();
+    try {
+        $st = $db->prepare('SELECT id, gateway_key, gateway_name, is_active FROM gateway_registry WHERE id=? LIMIT 1');
+        $st->execute([$gatewayId]);
+        $gw = $st->fetch();
+        if (!$gw) {
+            return ['ok' => false, 'error' => 'Partner not found.'];
+        }
+        if ((int)$gw['is_active'] === 1) {
+            return ['ok' => false, 'error' => 'Turn OFF (Deactivate) first, then Delete.'];
+        }
+        $key = strtolower(trim((string)$gw['gateway_key']));
+        $protected = [
+            'payu', 'razorpay', 'cashfree', 'axis', 'decentro', 'phonepe', 'paytm',
+            'upi_p2m', 'qr_code', 'credit_card', 'debit_card', 'net_banking', 'netbanking',
+            'wallet', 'emi', 'payout', 'recurring',
+        ];
+        if (in_array($key, $protected, true)) {
+            return ['ok' => false, 'error' => 'Built-in partners/methods cannot be deleted. Use Deactivate (Turn OFF) instead.'];
+        }
+        $db->beginTransaction();
+        try {
+            $db->prepare('DELETE FROM gateway_method_map WHERE gateway_id=?')->execute([$gatewayId]);
+        } catch (Throwable $e) { /* optional */ }
+        try {
+            $db->prepare('DELETE FROM merchant_payment_methods WHERE method_key=?')->execute([$key]);
+        } catch (Throwable $e) { /* optional */ }
+        try {
+            $db->prepare('DELETE FROM partner_credentials WHERE partner_key=?')->execute([$key]);
+        } catch (Throwable $e) { /* optional */ }
+        try {
+            $db->prepare('DELETE FROM partner_methods WHERE partner_key=?')->execute([$key]);
+        } catch (Throwable $e) { /* optional */ }
+        $db->prepare('DELETE FROM gateway_registry WHERE id=? AND is_active=0')->execute([$gatewayId]);
+        $db->commit();
+        return ['ok' => true, 'gateway_name' => (string)$gw['gateway_name'], 'gateway_key' => $key];
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        return ['ok' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
  * Get gateway details by ID.
  */
 function getGatewayById(int $gatewayId): ?array

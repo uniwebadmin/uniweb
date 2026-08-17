@@ -699,6 +699,13 @@ $assert(str_contains($im4a, 'Integration Status Board') && !str_contains($im4a, 
 $gm4b = (string)file_get_contents($root . '/admin_gateway_matrix.php');
 $assert(str_contains($gm4b, 'partner keys are not pasted here') && str_contains($gm4b, 'Open Partner Registry'), 'p4b_gateway_matrix_keys_not_here');
 $assert(str_contains($gm4b, 'admin_gateway_registry.php') && str_contains($gm4b, 'Merchant rail / onboarding status'), 'p4b_gateway_matrix_registry_cta');
+// Merchant QR delete + Admin partner Turn OFF / Change keys / Delete inactive
+$qrDel = (string)file_get_contents($root . '/qr_code.php');
+$assert(str_contains($qrDel, "action === 'delete'") && str_contains($qrDel, 'DELETE FROM merchant_qr_codes') && str_contains($qrDel, '>Delete</button>'), 'merchant_qr_has_delete');
+$pmDel = (string)file_get_contents($root . '/includes/payment_methods.php');
+$assert(str_contains($pmDel, 'function deleteInactiveGateway') && str_contains($pmDel, 'Built-in partners/methods cannot be deleted'), 'partner_delete_inactive_helper');
+$gdDel = (string)file_get_contents($root . '/admin_gateway_detail.php');
+$assert(str_contains($gdDel, "action === 'delete'") && str_contains($gdDel, 'Change keys') && str_contains($gdDel, 'Turn OFF'), 'partner_detail_change_keys_and_turn_off');
 $assert(str_contains((string)file_get_contents($root . '/admin_support.php'), 'Admin first — support queue') && str_contains((string)file_get_contents($root . '/admin_grievance.php'), 'Admin first — grievance officer queue'), 'b9_support_grievance_hub_banners');
 $assert(!is_file($root . '/admin_dispute_bulk.php') && !is_file($root . '/dispute_app.php'), 'b9_no_new_dispute_app');
 // WIRING-C1-C2-HYGIENE-ORDERED
