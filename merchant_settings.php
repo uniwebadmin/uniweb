@@ -21,7 +21,8 @@ $globalCards = [
 ];
 
 $productCards = [
-    ['collection_settings.php', 'Payment Methods', 'Collection mode and enabled methods', 'Configure', 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z'],
+    ['payment_methods.php', 'Payment Methods', 'Turn UPI, Card, Net Banking and more ON or OFF for checkout', 'Configure', 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z'],
+    ['collection_settings.php', 'Collection Mode', 'How UniWeb collects for you (partners stay with Admin)', 'Configure', 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4'],
     ['merchant_settlement_settings.php', 'Settlement Preferences', 'Scheduled batch or manual payout', 'Change', 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'],
     ['merchant_payout.php', 'Payouts', 'Enable request, beneficiaries, gated drafts (partner keys pending)', 'Open payouts', 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4'],
     ['merchant_website.php', 'Website & App', 'URLs for gateway / KYC review', 'Update', 'M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9'],

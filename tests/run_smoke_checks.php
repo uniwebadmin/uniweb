@@ -194,6 +194,10 @@ $assert(str_contains($mReq, 'function merchantEntitledMethods') && str_contains(
 $colPage = (string)file_get_contents($root . '/collection_settings.php');
 $pmPage = (string)file_get_contents($root . '/payment_methods.php');
 $assert(str_contains($pmPage, 'Payment Methods') && str_contains($pmPage, 'pm-toggle'), 'payment_methods_page_has_toggles');
+// 1b: Settings hub "Payment Methods" card must open payment_methods.php (not Collection Mode)
+$ms1b = (string)file_get_contents($root . '/merchant_settings.php');
+$assert(str_contains($ms1b, "['payment_methods.php', 'Payment Methods'") && str_contains($ms1b, "['collection_settings.php', 'Collection Mode'"), 'p1b_settings_payment_methods_card_correct');
+$assert(str_contains((string)file_get_contents($root . '/payment_links.php'), 'href="payment_methods.php"') && !str_contains((string)file_get_contents($root . '/payment_links.php'), 'href="collection_settings.php" class="underline">Payment Methods'), 'p1b_payment_links_methods_href');
 $assert(str_contains($colPage, 'payment_methods.php'), 'collection_settings_links_to_payment_methods');
 $assert(!str_contains($colPage, 'merchant_nbfc.php') && !str_contains($pmPage, 'merchant_nbfc.php'), 'no_nbfc_links_in_method_uis');
 $assert(str_contains($colPage, 'merchantEntitledMethods(') || str_contains($colPage, 'enabled_methods'), 'collection_settings_gated_by_entitlement');
