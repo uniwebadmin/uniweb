@@ -69,6 +69,7 @@ function seedDefaultGateways(): void
         ['debit_card', 'Debit Card', 0, 1, 0, 1, 0],
         ['net_banking', 'Net Banking', 0, 1, 0, 1, 0],
         ['wallet', 'Wallet', 0, 1, 0, 1, 0],
+        ['emi', 'EMI', 0, 1, 0, 1, 0],
         ['payout', 'Payout', 0, 0, 1, 0, 0],
         ['recurring', 'Recurring / AutoPay', 0, 1, 0, 0, 1],
     ];

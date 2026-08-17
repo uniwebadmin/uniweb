@@ -44,7 +44,7 @@ require_once __DIR__ . '/header.php';
 <div class="max-w-2xl space-y-6">
     <div class="glass rounded-xl p-6 border border-emerald-500/20 text-sm text-gray-300">
         <p class="font-semibold text-emerald-300 mb-1">Collect order: UPI first, then Card, then Net Banking</p>
-        <p class="text-xs text-gray-500">Turn ON what customers should see on checkout. Card / Net Banking go live after Admin enables the network. Until then, Test Mode can still use Instant Test Pay.</p>
+        <p class="text-xs text-gray-500">Turn ON what customers should see on checkout. Card / Net Banking / Wallet / EMI go live after Admin enables the network. Until then, Test Mode can still use Instant Test Pay.</p>
     </div>
 
     <?php if (!$payuReady && !$rzpReady && !$cfReady): ?>
@@ -87,8 +87,9 @@ require_once __DIR__ . '/header.php';
                             'qr_code' => '🔳',
                             'credit_card' => '💳',
                             'debit_card' => '💳',
-                            'net_banking' => '🏦',
+                            'net_banking', 'netbanking' => '🏦',
                             'wallet' => '👛',
+                            'emi' => '📅',
                             'payout' => '💸',
                             'recurring' => '🔄',
                             default => '⚙️',
@@ -106,7 +107,7 @@ require_once __DIR__ . '/header.php';
                             echo e(implode(' · ', $caps));
                             if (in_array($m['gateway_key'], ['upi_p2m', 'qr_code'], true)) {
                                 echo ' · <span class="text-emerald-500">Start here</span>';
-                            } elseif (in_array($m['gateway_key'], ['credit_card', 'debit_card', 'net_banking', 'netbanking'], true) && !$payuReady && !$rzpReady && !$cfReady) {
+                            } elseif (in_array($m['gateway_key'], ['credit_card', 'debit_card', 'net_banking', 'netbanking', 'wallet', 'emi'], true) && !$payuReady && !$rzpReady && !$cfReady) {
                                 echo ' · <span class="text-amber-500">Waiting on Admin</span>';
                             }
                             ?>

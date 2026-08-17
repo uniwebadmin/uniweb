@@ -1015,6 +1015,10 @@ $assert(str_contains((string)file_get_contents($root . '/includes/collection.php
 // 2c: checkout must build Card/NB/EMI/Wallet tabs from allow(); normalize runtime + checkout wiring
 $assert(str_contains($collLib, "\$allow('debit_card')") && str_contains($collLib, "\$allow('credit_card')") && str_contains($collLib, "\$allow('netbanking')"), 'p2c_checkout_builds_card_nb_tabs');
 $assert(str_contains($collLib, "\$allow('emi')") && str_contains($collLib, "\$allow('wallet')"), 'p2c_checkout_builds_emi_wallet_tabs');
+// EMI must exist in gateway_registry seed so Admin can Activate and merchant can toggle (checkout allow already supports emi)
+$assert(str_contains($pmLib2a, "['emi', 'EMI'") || str_contains($pmLib2a, "['emi', 'EMI',"), 'emi_seeded_in_gateway_registry');
+$assert(str_contains((string)file_get_contents($root . '/payment_methods.php'), "'emi' => '📅'") && str_contains((string)file_get_contents($root . '/payment_methods.php'), "'emi'"), 'emi_merchant_toggle_ui');
+$assert(str_contains((string)file_get_contents($root . '/includes/provision.php'), "'emi' =>"), 'emi_in_payment_method_catalog');
 $assert(str_contains($checkoutSrc, 'getCheckoutPaymentMethods($link)'), 'p2c_checkout_calls_method_builder');
 $assert(str_contains($pmLib2a, 'normalizeCheckoutMethodKeys(getMerchantEnabledMethodKeys'), 'p2c_sync_writes_normalized_keys');
 require_once $root . '/includes/payment_methods.php';
