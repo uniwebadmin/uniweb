@@ -75,6 +75,10 @@ if (isset($_GET['action'], $_GET['id']) && verifyCsrf($_GET['token'] ?? '')) {
 }
 
 $filterMerchantId = (int)($_GET['merchant_id'] ?? 0);
+$statusFilter = preg_replace('/[^a-z_]/', '', strtolower(trim((string)($_GET['status'] ?? 'all'))));
+if (!in_array($statusFilter, ['all', 'open', 'under_review', 'forwarded_partner', 'resolved', 'closed'], true)) {
+    $statusFilter = 'all';
+}
 $openCountSql = "SELECT COUNT(*) FROM disputes WHERE status IN ('open','under_review','forwarded_partner')";
 $openCountParams = [];
 if ($filterMerchantId > 0) {
@@ -86,10 +90,20 @@ $openSt->execute($openCountParams);
 $openCount = (int)$openSt->fetchColumn();
 
 $listSql = 'SELECT d.*, m.business_name, m.id AS merchant_row_id, t.txn_id, t.amount FROM disputes d JOIN merchants m ON d.merchant_id=m.id JOIN transactions t ON t.id=d.transaction_id';
+$listWhere = [];
 $listParams = [];
 if ($filterMerchantId > 0) {
-    $listSql .= ' WHERE d.merchant_id = ?';
+    $listWhere[] = 'd.merchant_id = ?';
     $listParams[] = $filterMerchantId;
+}
+if ($statusFilter === 'open') {
+    $listWhere[] = "d.status IN ('open','under_review','forwarded_partner')";
+} elseif ($statusFilter !== 'all') {
+    $listWhere[] = 'd.status = ?';
+    $listParams[] = $statusFilter;
+}
+if ($listWhere !== []) {
+    $listSql .= ' WHERE ' . implode(' AND ', $listWhere);
 }
 try {
     $order = ' ORDER BY FIELD(d.status,"open","under_review","forwarded_partner","resolved","closed"), d.created_at DESC LIMIT 80';
@@ -116,9 +130,18 @@ require_once __DIR__ . '/header.php';
     </div>
 </div>
 
-<?php if ($filterMerchantId > 0): ?>
+<?php if ($filterMerchantId > 0 || $statusFilter !== 'all'): ?>
 <div class="glass rounded-xl p-3 mb-4 border border-sky-500/30 text-xs text-sky-200 flex flex-wrap items-center justify-between gap-2">
-    <span>Filtered to merchant #<?= (int)$filterMerchantId ?><?php if (!empty($disputes[0]['business_name'])): ?> — <?= e($disputes[0]['business_name']) ?><?php endif; ?></span>
+    <span><?php
+        $bits = [];
+        if ($filterMerchantId > 0) {
+            $bits[] = 'merchant #' . (int)$filterMerchantId . (!empty($disputes[0]['business_name']) ? (' — ' . (string)$disputes[0]['business_name']) : '');
+        }
+        if ($statusFilter !== 'all') {
+            $bits[] = 'status: ' . $statusFilter;
+        }
+        echo 'Filtered to ' . e(implode(' · ', $bits));
+    ?></span>
     <a href="admin_disputes.php" class="text-sky-400 hover:underline">Clear filter</a>
 </div>
 <?php endif; ?>
@@ -130,7 +153,10 @@ require_once __DIR__ . '/header.php';
 <div class="glass rounded-xl overflow-hidden min-w-0">
     <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex flex-wrap justify-between items-center gap-2">
         <h2 class="font-semibold">Admin dispute queue (<?= $openCount ?> open)</h2>
-        <p class="text-[11px] text-gray-500">Open → Review → Resolve or Forward (single)</p>
+        <div class="flex flex-wrap gap-2 text-[11px]">
+            <a href="admin_disputes.php?status=open<?= $filterMerchantId > 0 ? '&merchant_id=' . (int)$filterMerchantId : '' ?>" class="<?= $statusFilter === 'open' ? 'text-sky-300' : 'text-gray-500 hover:text-sky-300' ?>">Open only</a>
+            <a href="admin_disputes.php<?= $filterMerchantId > 0 ? ('?merchant_id=' . (int)$filterMerchantId) : '' ?>" class="<?= $statusFilter === 'all' ? 'text-sky-300' : 'text-gray-500 hover:text-sky-300' ?>">All</a>
+        </div>
     </div>
     <div class="overflow-x-auto">
     <table class="min-w-[720px] w-full text-sm">

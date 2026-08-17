@@ -30,6 +30,10 @@ if ($canManageAll && isset($_GET['action'], $_GET['id']) && verifyCsrf($_GET['to
 }
 
 $search = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
+$statusFilter = preg_replace('/[^a-z_]/', '', strtolower(trim((string)($_GET['status'] ?? 'all'))));
+if (!in_array($statusFilter, ['all', 'active', 'suspended', 'pending'], true)) {
+    $statusFilter = 'all';
+}
 $adminId = (int)($_SESSION['admin_id'] ?? 0);
 $defs = staffRoleDefinitions()[$role] ?? null;
 
@@ -42,6 +46,13 @@ if (!empty($defs['all_merchants']) || isSuperAdmin()) {
         LEFT JOIN admins a ON a.id = sma.admin_id
         WHERE m.status != 'deleted' AND (sma.admin_id = ? OR a.reports_to = ?)";
     $params = [$adminId, $adminId];
+}
+if ($statusFilter === 'active') {
+    $sql .= " AND m.status = 'active'";
+} elseif ($statusFilter === 'suspended') {
+    $sql .= " AND m.status = 'suspended'";
+} elseif ($statusFilter === 'pending') {
+    $sql .= " AND m.status = 'pending'";
 }
 if ($search) {
     $like = '%' . strtolower($search) . '%';
@@ -85,7 +96,18 @@ $pageTitle = 'Manage Merchants';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
-    <form method="GET" data-live-search-form data-results-target="merchant-results" class="flex gap-2"><label class="sr-only" for="merchant-search">Search merchants</label><input id="merchant-search" type="search" name="q" value="<?= e($search) ?>" placeholder="Name / Company / Email / Mobile / Merchant ID / PAN / GSTIN" class="input-field w-80 max-w-full" autocomplete="off" aria-label="Search merchants"><button class="btn-primary px-4 py-2 text-sm">Search</button></form>
+    <form method="GET" data-live-search-form data-results-target="merchant-results" class="flex flex-wrap gap-2 items-center">
+        <label class="sr-only" for="merchant-search">Search merchants</label>
+        <input id="merchant-search" type="search" name="q" value="<?= e($search) ?>" placeholder="Name / Company / Email / Mobile / Merchant ID / PAN / GSTIN" class="input-field w-80 max-w-full" autocomplete="off" aria-label="Search merchants">
+        <label class="sr-only" for="merchant-status">Status</label>
+        <select id="merchant-status" name="status" class="input-field text-sm">
+            <option value="all" <?= $statusFilter === 'all' ? 'selected' : '' ?>>All statuses</option>
+            <option value="active" <?= $statusFilter === 'active' ? 'selected' : '' ?>>Active</option>
+            <option value="suspended" <?= $statusFilter === 'suspended' ? 'selected' : '' ?>>Suspended</option>
+            <option value="pending" <?= $statusFilter === 'pending' ? 'selected' : '' ?>>Pending</option>
+        </select>
+        <button class="btn-primary px-4 py-2 text-sm">Search</button>
+    </form>
     <?php if ($canManageAll): ?>
     <a href="add_merchant.php" class="btn-primary text-sm">+ Add Merchant</a>
     <?php endif; ?>

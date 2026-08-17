@@ -832,6 +832,11 @@ $assert(str_contains((string)file_get_contents($root . '/.github/workflows/deplo
 $assert(is_file($root . '/docs/CLEANUP_SENSITIVE_CLICKABLE_AUDIT.md') && str_contains((string)file_get_contents($root . '/.cursor/AGENTS.md'), 'CLEANUP_SENSITIVE_CLICKABLE_AUDIT.md'), 'cleanup_audit_noted_in_agents');
 $assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'admin_disputes.php') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'Open Disputes'), 'cleanup_c_disputes_card_clickable');
 $assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'admin_transactions.php?status=failed') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), "Today's Volume"), 'cleanup_c05_volume_and_failed_cards');
+// C4: dashboard numbers open filtered lists
+$dashC4 = (string)file_get_contents($root . '/admin_dashboard.php');
+$assert(str_contains($dashC4, 'manage_merchant.php?status=active') && str_contains($dashC4, 'admin_settlements.php?status=pending') && str_contains($dashC4, 'admin_disputes.php?status=open'), 'c4_admin_dashboard_stat_filters');
+$assert(str_contains((string)file_get_contents($root . '/manage_merchant.php'), "\$_GET['status']") && str_contains((string)file_get_contents($root . '/admin_disputes.php'), "statusFilter === 'open'"), 'c4_list_pages_accept_status_filter');
+$assert(str_contains((string)file_get_contents($root . '/dashboard.php'), 'settlements.php?status=pending') && str_contains((string)file_get_contents($root . '/dashboard.php'), 'settlements.php?status=completed'), 'c4_merchant_balance_cards_clickable');
 $assert(str_contains((string)file_get_contents($root . '/includes/ui_links.php'), 'function adminStaffLink') && str_contains((string)file_get_contents($root . '/includes/ui_links.php'), 'function adminPartnerDetailUrl'), 'cleanup_c_staff_partner_link_helpers');
 // C6: staff name → Staff Activity (filtered)
 $uiLinksC6 = (string)file_get_contents($root . '/includes/ui_links.php');

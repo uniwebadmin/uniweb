@@ -130,7 +130,7 @@ require_once __DIR__ . '/header.php';
     <div class="flex flex-wrap justify-between items-center gap-3 mb-4"><div><p class="font-semibold text-white">Decision Center</p><p class="text-xs text-gray-500 mt-1">Prioritize by risk, money impact and age. Review queues before routine work.</p></div><a href="admin_reconciliation.php" class="text-xs text-sky-400">Reconciliation queue →</a></div>
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
         <a href="admin_kyc.php" class="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 hover:border-amber-500/50"><p class="text-xs text-gray-500">Risk · KYC review</p><p class="text-2xl font-bold text-amber-400 mt-1"><?= $pendingKyc ?></p><p class="text-xs text-gray-500 mt-1">merchant(s) waiting</p></a>
-        <a href="admin_disputes.php" class="rounded-xl border border-red-500/30 bg-red-500/5 p-4 hover:border-red-500/50"><p class="text-xs text-gray-500">Risk · Open disputes</p><p class="text-2xl font-bold text-red-400 mt-1"><?= $openDisputes ?></p><p class="text-xs text-gray-500 mt-1">needs evidence / decision</p></a>
+        <a href="admin_disputes.php?status=open" class="rounded-xl border border-red-500/30 bg-red-500/5 p-4 hover:border-red-500/50"><p class="text-xs text-gray-500">Risk · Open disputes</p><p class="text-2xl font-bold text-red-400 mt-1"><?= $openDisputes ?></p><p class="text-xs text-gray-500 mt-1">needs evidence / decision</p></a>
         <a href="admin_settlements.php?status=pending" class="rounded-xl border border-violet-500/30 bg-violet-500/5 p-4 hover:border-violet-500/50"><p class="text-xs text-gray-500">Money · Payout 24h+</p><p class="text-2xl font-bold text-violet-400 mt-1"><?= $agedSettlements ?></p><p class="text-xs text-gray-500 mt-1">aged bank transfer(s)</p></a>
         <a href="admin_refunds.php?status=pending" class="rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/5 p-4 hover:border-fuchsia-500/50"><p class="text-xs text-gray-500">Money · Refund 3d+</p><p class="text-2xl font-bold text-fuchsia-400 mt-1"><?= $agedRefunds ?></p><p class="text-xs text-gray-500 mt-1">aged customer refund(s)</p></a>
     </div>
@@ -240,9 +240,9 @@ require_once __DIR__ . '/header.php';
 <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8">
     <?php foreach ([
         ['Total Merchants', $totalMerchants, 'text-brand-400', 'manage_merchant.php'],
-        ['Active Merchants', $activeMerchants, 'text-cyan-400', 'manage_merchant.php'],
+        ['Active Merchants', $activeMerchants, 'text-cyan-400', 'manage_merchant.php?status=active'],
         ['Pending KYC', $pendingKyc, 'text-amber-400', 'admin_kyc.php'],
-        ['Pending Settlements', $pendingSettlements, 'text-purple-400', 'admin_settlements.php'],
+        ['Pending Settlements', $pendingSettlements, 'text-purple-400', 'admin_settlements.php?status=pending'],
         ['Platform Wallet', formatMoney($platformWallet), 'text-emerald-400', 'admin_wallet.php'],
     ] as [$l,$v,$c,$link]): ?>
     <a href="<?= e($link) ?>" class="stat-card border border-gray-800 rounded-xl p-3 sm:p-5 block hover:border-brand-500/40 transition min-w-0">
@@ -267,7 +267,7 @@ require_once __DIR__ . '/header.php';
         <p class="text-xs text-gray-500">Failed Transactions</p>
         <p class="text-xl sm:text-2xl font-bold text-amber-400 mt-1">Open list →</p>
     </a>
-    <a href="admin_disputes.php" class="stat-card border border-gray-800 rounded-xl p-4 sm:p-5 min-w-0 block hover:border-brand-500/40 transition">
+    <a href="admin_disputes.php?status=open" class="stat-card border border-gray-800 rounded-xl p-4 sm:p-5 min-w-0 block hover:border-brand-500/40 transition">
         <p class="text-xs text-gray-500">Open Disputes</p>
         <p class="text-xl sm:text-2xl font-bold text-red-400 mt-1"><?= $openDisputes ?></p>
     </a>

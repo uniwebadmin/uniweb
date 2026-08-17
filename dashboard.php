@@ -101,26 +101,26 @@ if ($balanceBreakdown):
         <a href="wallet.php" class="text-xs text-sky-400 hover:underline">Full wallet →</a>
     </div>
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+        <a href="wallet.php" class="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 block hover:border-emerald-400/50 transition">
             <p class="text-[10px] text-gray-600 uppercase">Available</p>
             <p class="text-2xl font-bold text-emerald-400 mt-1"><?= formatMoney($balanceBreakdown['available']) ?></p>
             <p class="text-[10px] text-gray-600 mt-1">Ready to settle</p>
-        </div>
-        <div class="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+        </a>
+        <a href="settlements.php?status=pending" class="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 block hover:border-amber-400/50 transition">
             <p class="text-[10px] text-gray-600 uppercase">In Transit</p>
             <p class="text-2xl font-bold text-amber-400 mt-1"><?= formatMoney($balanceBreakdown['in_transit']) ?></p>
             <p class="text-[10px] text-gray-600 mt-1">Pending settlements</p>
-        </div>
-        <div class="rounded-xl border border-gray-700 bg-gray-800/30 p-4">
+        </a>
+        <a href="wallet.php" class="rounded-xl border border-gray-700 bg-gray-800/30 p-4 block hover:border-gray-500 transition">
             <p class="text-[10px] text-gray-600 uppercase">On Hold</p>
             <p class="text-2xl font-bold text-gray-300 mt-1"><?= formatMoney($balanceBreakdown['hold']) ?></p>
             <p class="text-[10px] text-gray-600 mt-1">Pending txns + reserve</p>
-        </div>
-        <div class="rounded-xl border border-violet-500/30 bg-violet-500/5 p-4">
+        </a>
+        <a href="settlements.php?status=completed" class="rounded-xl border border-violet-500/30 bg-violet-500/5 p-4 block hover:border-violet-400/50 transition">
             <p class="text-[10px] text-gray-600 uppercase">Settled</p>
             <p class="text-2xl font-bold text-violet-400 mt-1"><?= formatMoney($balanceBreakdown['settled']) ?></p>
             <p class="text-[10px] text-gray-600 mt-1">Total settled to bank</p>
-        </div>
+        </a>
     </div>
 </div>
 <?php endif; ?>
