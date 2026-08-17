@@ -693,6 +693,12 @@ $assert(str_contains((string)file_get_contents($root . '/admin_view_merchant.php
 // Block 10 — Live corridor soft-launch checklist (owner clicks; no new app)
 $assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'Live corridor — soft launch checklist'), 'b10_admin_live_corridor_checklist');
 $assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Live corridor (soft launch)') && str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Apply pending migrations'), 'b10_gateway_soft_launch_banner');
+// Admin template: hide parked Split/Route from Platform Settings dropdown
+$colLibPark = (string)file_get_contents($root . '/includes/collection.php');
+$gsPark = (string)file_get_contents($root . '/gateway_settings.php');
+$assert(str_contains($colLibPark, 'function getAdminTemplateCollectionModes') && str_contains($colLibPark, "'payu_split', 'razorpay_route', 'cashfree_route'"), 'admin_template_modes_park_split_route');
+$assert(str_contains($gsPark, 'getAdminTemplateCollectionModes') && str_contains($gsPark, 'Route/Split SDK is not live'), 'gateway_settings_uses_admin_template_modes');
+$assert(!preg_match('/foreach\s*\(\s*getCollectionModes\(\)/', $gsPark), 'gateway_settings_no_raw_all_collection_modes');
 $assert(str_contains((string)file_get_contents($root . '/merchant_launch.php'), 'Instant Test Pay'), 'b10_merchant_launch_instant_test_pay');
 $assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'CR-01') && str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'stale_createNotification'), 'b10_cr01_stale_notification_guard');
 $assert(str_contains($contactP7, 'recordPublicContactInquiry') && str_contains($contactP7, 'sendPlatformEmail') && str_contains($contactP7, '1 business day'), 'p7_contact_saves_ticket_and_sla');

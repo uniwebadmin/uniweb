@@ -327,13 +327,20 @@ $gatewayCards = [
             ['support_youtube', 'YouTube URL', 'text'],
         ] as [$key,$label,$type]): renderGatewaySettingInput($key, $label, $type, $settingsMap); endforeach; ?>
         <?= settingsSectionHeading('B2B Collection Engine (template for new merchants)', 'teal') ?>
-        <p class="text-xs text-gray-500 mb-3">Defaults for <strong>new merchants only</strong>. UniWeb revenue is <strong>commission on successful collections</strong> — not a sold white-label package. Per-partner MDR and margin live in Partner Detail → Commercial.</p>
+        <p class="text-xs text-gray-500 mb-3">Defaults for <strong>new merchants only</strong>. UniWeb revenue is <strong>commission on successful collections</strong> — not a sold white-label package. Per-partner MDR and margin live in Partner Detail → Commercial. PayU Split / Razorpay Route / Cashfree Easy Split stay <strong class="text-gray-300">parked</strong> (not offered as templates).</p>
         <div><label class="text-sm text-gray-400">Default Collection Mode (new merchants)</label>
             <select name="settings[default_collection_mode]" class="input-field mt-1">
-                <?php foreach (getCollectionModes() as $k => $label): ?>
-                <option value="<?= $k ?>" <?= ($settingsMap['default_collection_mode'] ?? 'direct_upi') === $k ? 'selected' : '' ?>><?= e($label) ?></option>
+                <?php
+                $adminModeCurrent = (string)($settingsMap['default_collection_mode'] ?? 'direct_upi');
+                $adminModes = function_exists('getAdminTemplateCollectionModes')
+                    ? getAdminTemplateCollectionModes($adminModeCurrent)
+                    : getCollectionModes();
+                foreach ($adminModes as $k => $label):
+                ?>
+                <option value="<?= e($k) ?>" <?= $adminModeCurrent === $k ? 'selected' : '' ?>><?= e($label) ?></option>
                 <?php endforeach; ?>
             </select>
+            <p class="text-[11px] text-gray-600 mt-1">Live choices: Direct UPI, Platform PG, Axis VA. Route/Split SDK is not live.</p>
         </div>
         <div><label class="text-sm text-gray-400">Platform margin (%) — UniWeb commission default</label>
             <input type="number" step="0.01" name="settings[platform_margin_pct]" value="<?= e($settingsMap['platform_margin_pct'] ?? '0.10') ?>" class="input-field mt-1" title="Default UniWeb cut on successful collections">

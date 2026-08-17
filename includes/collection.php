@@ -45,6 +45,31 @@ function getMerchantFacingCollectionModes(?array $merchant = null): array
     return $out;
 }
 
+/**
+ * Platform Settings template for new merchants — hide parked Route/Split modes.
+ * If a parked value is already saved, keep it visible once as "(parked)".
+ */
+function getAdminTemplateCollectionModes(?string $currentMode = null): array
+{
+    $keys = ['direct_upi', 'platform_pg', 'axis_va'];
+    $parked = ['payu_split', 'razorpay_route', 'cashfree_route'];
+    $all = getCollectionModes();
+    $out = [];
+    foreach ($keys as $k) {
+        if (isset($all[$k])) {
+            $out[$k] = $all[$k];
+        }
+    }
+    $current = trim((string)$currentMode);
+    if ($current !== '' && isset($all[$current]) && !isset($out[$current])) {
+        $suffix = in_array($current, $parked, true)
+            ? ' (parked — Route/Split is not live)'
+            : '';
+        $out[$current] = $all[$current] . $suffix;
+    }
+    return $out;
+}
+
 function collectionModeLabel(string $mode): string
 {
     return getCollectionModes()[$mode] ?? ucfirst(str_replace('_', ' ', $mode));
