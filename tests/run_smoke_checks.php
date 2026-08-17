@@ -811,7 +811,8 @@ $navLib = (string)file_get_contents($root . '/includes/sidebar_nav.php');
 $assert(!str_contains($navLib, 'merchant_nbfc.php') && !str_contains($navLib, 'admin_nbfc.php'), 'p11_nav_no_nbfc_urls');
 $assert(!is_file($root . '/customer_wallet.php'), 'p11_no_customer_ppi_page');
 $assert(is_file($root . '/.cursor/rules/owner-hard-nbfc-ppi-existing-only.mdc'), 'owner_hard_rule_nbfc_ppi_existing');
-$assert(str_contains((string)file_get_contents($root . '/collection_settings.php'), 'does not turn Razorpay Route live'), 'p11_collection_route_ids_parked');
+$assert(!str_contains((string)file_get_contents($root . '/collection_settings.php'), 'payu_child_key') && !str_contains((string)file_get_contents($root . '/collection_settings.php'), 'razorpay_linked_account_id') && !str_contains((string)file_get_contents($root . '/collection_settings.php'), 'cashfree_vendor_id'), 'p11_collection_route_ids_hidden_from_merchant');
+$assert(str_contains((string)file_get_contents($root . '/collection_settings.php'), 'Partners stay with Admin') || str_contains((string)file_get_contents($root . '/collection_settings.php'), 'Partner Split / Route IDs are not shown'), 'p1a_merchant_no_partner_id_fields');
 $assert(str_contains((string)file_get_contents($root . '/docs/DEEP_AUDIT_ORDERED.md'), 'PHASE11_ROUTE.md'), 'p11_audit_points_at_map');
 $assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'locked — future ticket'), 'p11_live_status_locked_in_ui');
 

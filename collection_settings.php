@@ -19,13 +19,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $modes = array_keys(getMerchantFacingCollectionModes($merchant));
     if (!in_array($mode, $modes, true)) $mode = getMerchantCollectionMode($merchant) ?: 'direct_upi';
     // Payment methods ON/OFF live only on payment_methods.php — do not dual-write enabled_methods here (DUP-02).
+    // Partner child / linked / vendor IDs are Admin-only (Owner keys pipe). Merchant UI must not set them.
     try {
-        $db->prepare('UPDATE merchants SET collection_mode=?, payu_child_key=?, razorpay_linked_account_id=?, cashfree_vendor_id=? WHERE id=?')
+        $db->prepare('UPDATE merchants SET collection_mode=? WHERE id=?')
             ->execute([
                 $mode,
-                trim($_POST['payu_child_key'] ?? '') ?: null,
-                trim($_POST['razorpay_linked_account_id'] ?? '') ?: null,
-                trim($_POST['cashfree_vendor_id'] ?? '') ?: null,
                 $merchant['id'],
             ]);
     } catch (Throwable $e) {
@@ -58,7 +56,7 @@ require_once __DIR__ . '/header.php';
 <div class="max-w-2xl space-y-6">
     <div class="glass rounded-xl p-6">
         <h2 class="font-semibold mb-2">B2B Collection Mode</h2>
-        <p class="text-xs text-gray-500 mb-6">Choose how payments are collected. <strong>Direct UPI</strong> = zero liability (P2M). <strong>PayU Split</strong> = auto commission cut.</p>
+        <p class="text-xs text-gray-500 mb-6">Choose how UniWeb collects for you. Partners stay with Admin — you do not paste partner keys or Split IDs here.</p>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div class="flex flex-wrap items-end gap-3">
@@ -79,14 +77,7 @@ require_once __DIR__ . '/header.php';
                     <a href="payment_methods.php" class="inline-block text-sm bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg font-semibold">Manage Payment Methods →</a>
                 </div>
             </div>
-            <div><label class="text-sm text-gray-400">PayU Child Merchant Key (for split)</label>
-                <input type="text" name="payu_child_key" class="input-field mt-1 font-mono text-xs" value="<?= e($merchant['payu_child_key'] ?? '') ?>" placeholder="Optional — parked until Owner starts Route/Split"></div>
-            <div><label class="text-sm text-gray-400">Razorpay Linked Account ID (Route)</label>
-                <input type="text" name="razorpay_linked_account_id" class="input-field mt-1 font-mono text-xs" value="<?= e($merchant['razorpay_linked_account_id'] ?? '') ?>">
-                <p class="text-[11px] text-gray-600 mt-1">Scaffold only. Saving an ID does not turn Razorpay Route live.</p></div>
-            <div><label class="text-sm text-gray-400">Cashfree Vendor ID (Easy Split)</label>
-                <input type="text" name="cashfree_vendor_id" class="input-field mt-1 font-mono text-xs" value="<?= e($merchant['cashfree_vendor_id'] ?? '') ?>">
-                <p class="text-[11px] text-gray-600 mt-1">Scaffold only. Saving an ID does not turn Easy Split live.</p></div>
+            <p class="text-[11px] text-gray-600">Partner Split / Route IDs are not shown here. Admin connects partners once; commission is calculated automatically on success.</p>
             <button type="submit" class="btn-primary px-6 py-2.5">✓ Save Collection Settings</button>
         </form>
     </div>
@@ -119,10 +110,10 @@ require_once __DIR__ . '/header.php';
         <p class="text-gray-400 mb-2">On ₹100 success payment (Admin-saved %):</p>
         <ul class="text-xs text-gray-500 space-y-1">
             <li>Admin cut: <span class="text-amber-400"><?= formatMoney((float)($demo['admin_cut'] ?? $demo['platform_fee'] ?? 0)) ?></span></li>
-            <li>Partner cut: <span class="text-gray-300"><?= formatMoney((float)($demo['partner_cut'] ?? $demo['partner_fee'] ?? 0)) ?></span></li>
-            <li>Merchant baaki: <span class="text-emerald-400"><?= formatMoney((float)($demo['merchant_net'] ?? 0)) ?></span></li>
+            <li>Network cut: <span class="text-gray-300"><?= formatMoney((float)($demo['partner_cut'] ?? $demo['partner_fee'] ?? 0)) ?></span></li>
+            <li>You receive: <span class="text-emerald-400"><?= formatMoney((float)($demo['merchant_net'] ?? 0)) ?></span></li>
         </ul>
-        <p class="text-[11px] text-gray-600 mt-3">Route/Split SDK is parked. This preview uses the same settlement engine as live capture.</p>
+        <p class="text-[11px] text-gray-600 mt-3">Partners are connected by Admin. You only see your net after automatic commission.</p>
     </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>
