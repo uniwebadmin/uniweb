@@ -834,6 +834,14 @@ $assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 
 $assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'admin_transactions.php?status=failed') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), "Today's Volume"), 'cleanup_c05_volume_and_failed_cards');
 $assert(str_contains((string)file_get_contents($root . '/includes/ui_links.php'), 'function adminStaffLink') && str_contains((string)file_get_contents($root . '/includes/ui_links.php'), 'function adminPartnerDetailUrl'), 'cleanup_c_staff_partner_link_helpers');
 $assert(str_contains((string)file_get_contents($root . '/admin_manage_staff.php'), 'adminStaffActivityUrl') && str_contains((string)file_get_contents($root . '/admin_gateway_registry.php'), 'adminPartnerDetailUrl'), 'cleanup_c03_c04_staff_partner_click');
+// A3: Partner Detail entry points open Keys (Test) first
+$uiLinksA3 = (string)file_get_contents($root . '/includes/ui_links.php');
+$gwDetailA3 = (string)file_get_contents($root . '/admin_gateway_detail.php');
+$registryA3 = (string)file_get_contents($root . '/admin_gateway_registry.php');
+$assert(str_contains($uiLinksA3, "tab=keys&env=") && str_contains($uiLinksA3, "\$env = 'test'"), 'a3_partner_detail_url_defaults_keys_test');
+$assert(str_contains($gwDetailA3, "\$_GET['tab'] ?? 'keys'") && str_contains($gwDetailA3, "\$_GET['env'] ?? 'test'"), 'a3_detail_page_defaults_keys_test_env');
+$assert(str_contains($registryA3, 'adminPartnerDetailUrl') && !preg_match('/admin_gateway_detail\.php\?partner=<\?=\s*urlencode\(\$g\[\'gateway_key\'\]\)\s*\?>"/', $registryA3), 'a3_registry_configure_uses_keys_url');
+$assert(str_contains((string)file_get_contents($root . '/admin_partner.php'), 'adminPartnerDetailUrl') || str_contains((string)file_get_contents($root . '/admin_partner.php'), 'tab=keys&env=test'), 'a3_admin_partner_redirect_keys');
 $assert(str_contains((string)file_get_contents($root . '/global_search.php'), 'adminStaffDetailUrl') && str_contains((string)file_get_contents($root . '/dashboard.php'), 'transactions.php?range=today'), 'cleanup_c07_c08_search_and_merchant_cards');
 $assert(str_contains((string)file_get_contents($root . '/admin_kyc.php'), 'adminMerchantLink((int)$videoRow') && str_contains((string)file_get_contents($root . '/staff_dashboard.php'), 'admin_view_merchant.php?id='), 'cleanup_c01_kyc_staff_queue_names');
 
@@ -1064,7 +1072,7 @@ $assert(!str_contains($loginP1, "force_auto_audit"), 'admin_login_does_not_force
 $autoP1 = (string)file_get_contents($root . '/includes/auto_audit.php');
 $assert(str_contains($autoP1, 'admin_login.php') && str_contains($autoP1, 'REQUEST_METHOD'), 'auto_audit_skips_login_and_post');
 $gwDetailKeys = (string)file_get_contents($root . '/admin_gateway_detail.php');
-$assert(str_contains($gwDetailKeys, "\$_GET['env'] ?? 'live'") && str_contains($gwDetailKeys, 'copy_test_keys_to_live'), 'keys_tab_defaults_live_and_can_copy_test');
+$assert(str_contains($gwDetailKeys, "\$_GET['env'] ?? 'test'") && str_contains($gwDetailKeys, 'copy_test_keys_to_live'), 'keys_tab_defaults_test_and_can_copy_to_live');
 $assert(str_contains((string)file_get_contents($root . '/includes/partner_control.php'), 'function copyPartnerCredentialsToLive'), 'copy_test_keys_to_live_helper');
 
 // P2-01 / P2-02 / P2-03 — checkout methods, QR PNG, payment-link public URL

@@ -279,14 +279,15 @@ require_once __DIR__ . '/header.php';
 
     <div class="flex gap-1 border-b border-gray-800 overflow-x-auto">
         <?php foreach ($tabs as $tabKey => $tabLabel): ?>
-        <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=<?= $tabKey ?>" class="px-4 py-2.5 text-sm font-medium <?= $activeTab === $tabKey ? 'text-brand-400 border-b-2 border-brand-500' : 'text-gray-400 hover:text-gray-200' ?>"><?= $tabLabel ?></a>
+        <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=<?= $tabKey ?><?= $tabKey === 'keys' ? '&env=test' : '' ?>" class="px-4 py-2.5 text-sm font-medium <?= $activeTab === $tabKey ? 'text-brand-400 border-b-2 border-brand-500' : 'text-gray-400 hover:text-gray-200' ?>"><?= $tabLabel ?></a>
         <?php endforeach; ?>
     </div>
 
     <?php if ($activeTab === 'keys'): ?>
     <?php
-        $keyEnv = preg_replace('/[^a-z]/', '', (string)($_GET['env'] ?? 'live'));
-        if (!in_array($keyEnv, ['test', 'live'], true)) $keyEnv = 'live';
+        // A3: Keys tab defaults to Test / Sandbox (paste Test first, then Live)
+        $keyEnv = preg_replace('/[^a-z]/', '', (string)($_GET['env'] ?? 'test'));
+        if (!in_array($keyEnv, ['test', 'live'], true)) $keyEnv = 'test';
         $existingCreds = getPartnerCredentials($partnerKey, $keyEnv);
     ?>
     <div class="glass rounded-xl p-6 border border-gray-800">

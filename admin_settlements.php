@@ -176,7 +176,7 @@ foreach ($platformFeeReport as $r) {
                 <tr>
                     <td class="px-3 py-2 font-mono text-sky-400"><?= txnDetailLink($ft['txn_id']) ?></td>
                     <td class="px-3 py-2"><?= adminMerchantLink((int)$ft['merchant_id'], $ft['business_name']) ?></td>
-                    <td class="px-3 py-2 uppercase"><a href="admin_gateway_detail.php?partner=<?= urlencode((string)$ft['partner_key']) ?>" class="hover:text-sky-300"><?= e($ft['partner_key']) ?></a></td>
+                    <td class="px-3 py-2 uppercase"><a href="<?= e(function_exists('adminPartnerDetailUrl') ? adminPartnerDetailUrl((string)$ft['partner_key']) : ('admin_gateway_detail.php?partner=' . urlencode((string)$ft['partner_key']) . '&tab=keys&env=test')) ?>" class="hover:text-sky-300"><?= e($ft['partner_key']) ?></a></td>
                     <td class="px-3 py-2"><?= e($ft['transfer_type']) ?></td>
                     <td class="px-3 py-2 text-right"><?= formatMoney((float)$ft['amount']) ?></td>
                     <td class="px-3 py-2 text-red-300"><?= e($ft['failure_reason'] ?? '—') ?></td>

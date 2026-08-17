@@ -46,9 +46,11 @@ function adminStaffActivityUrl(int $staffId = 0): string
     return 'admin_staff_activity.php';
 }
 
-function adminPartnerDetailUrl(string $partnerKey): string
+function adminPartnerDetailUrl(string $partnerKey, string $env = 'test'): string
 {
-    return 'admin_gateway_detail.php?partner=' . rawurlencode($partnerKey);
+    $env = in_array($env, ['test', 'live'], true) ? $env : 'test';
+    // A3: Partner Detail always opens Keys first (Test sandbox by default)
+    return 'admin_gateway_detail.php?partner=' . rawurlencode($partnerKey) . '&tab=keys&env=' . rawurlencode($env);
 }
 
 function adminStaffLink(int $staffId, string $label, string $class = 'text-sky-400 hover:underline'): string

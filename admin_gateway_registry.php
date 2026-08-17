@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 recordImmutableAudit('partner_created', null, 'gateway', $key, 'Partner registered from admin UI: ' . $name . ' (inactive, key=' . $key . ')');
             }
             flash('success', "Partner '{$name}' registered as INACTIVE. Configure keys and methods on the detail page, then Activate.");
-            redirect('admin_gateway_detail.php?partner=' . urlencode($key));
+            redirect(adminPartnerDetailUrl($key));
         } else {
             flash('error', $result['error'] ?? 'Error');
             redirect('admin_gateway_registry.php');
@@ -131,7 +131,7 @@ require_once __DIR__ . '/header.php';
                     </div>
                     <div>
                         <div class="flex items-center gap-2">
-                            <a href="admin_gateway_detail.php?partner=<?= urlencode($g['gateway_key']) ?>" class="text-sm font-medium text-gray-200 hover:text-sky-300"><?= e($g['gateway_name']) ?></a>
+                            <a href="<?= e(adminPartnerDetailUrl((string)$g['gateway_key'])) ?>" class="text-sm font-medium text-gray-200 hover:text-sky-300"><?= e($g['gateway_name']) ?></a>
                             <span class="text-[10px] px-2 py-0.5 rounded-full <?= $isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700/50 text-gray-400' ?>">
                                 <?= $isActive ? '● Active' : '○ Inactive' ?>
                             </span>
@@ -154,7 +154,7 @@ require_once __DIR__ . '/header.php';
                     </div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
-                    <a href="admin_gateway_detail.php?partner=<?= urlencode($g['gateway_key']) ?>" class="text-xs px-3 py-1.5 rounded-lg bg-dark-900/80 text-gray-300 border border-gray-700 hover:border-gray-500">Configure →</a>
+                    <a href="<?= e(adminPartnerDetailUrl((string)$g['gateway_key'])) ?>" class="text-xs px-3 py-1.5 rounded-lg bg-dark-900/80 text-gray-300 border border-gray-700 hover:border-gray-500">Configure →</a>
                     <?php if (!$isActive): ?>
                     <form method="POST" class="inline">
                         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
