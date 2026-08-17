@@ -706,6 +706,12 @@ $pmDel = (string)file_get_contents($root . '/includes/payment_methods.php');
 $assert(str_contains($pmDel, 'function deleteInactiveGateway') && str_contains($pmDel, 'Built-in partners/methods cannot be deleted'), 'partner_delete_inactive_helper');
 $gdDel = (string)file_get_contents($root . '/admin_gateway_detail.php');
 $assert(str_contains($gdDel, "action === 'delete'") && str_contains($gdDel, 'Change keys') && str_contains($gdDel, 'Turn OFF'), 'partner_detail_change_keys_and_turn_off');
+// 4c: Website & API Keys + Partner Requests are not PG key paste homes
+$aw4c = (string)file_get_contents($root . '/admin_website.php');
+$assert(str_contains($aw4c, 'partner PG keys are not pasted here') && str_contains($aw4c, 'Partner Registry (PG keys)'), 'p4c_website_keys_not_pg_home');
+$assert(!str_contains($aw4c, 'Platform PG Keys →'), 'p4c_website_no_misleading_pg_keys_button');
+$pr4c = (string)file_get_contents($root . '/admin_partner_requests.php');
+$assert(str_contains($pr4c, 'partner keys are not pasted here') && str_contains($pr4c, 'Open Partner Registry'), 'p4c_partner_requests_guide_only');
 $assert(str_contains((string)file_get_contents($root . '/admin_support.php'), 'Admin first — support queue') && str_contains((string)file_get_contents($root . '/admin_grievance.php'), 'Admin first — grievance officer queue'), 'b9_support_grievance_hub_banners');
 $assert(!is_file($root . '/admin_dispute_bulk.php') && !is_file($root . '/dispute_app.php'), 'b9_no_new_dispute_app');
 // WIRING-C1-C2-HYGIENE-ORDERED

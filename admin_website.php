@@ -55,13 +55,21 @@ require_once __DIR__ . '/header.php';
 
 <?php endif; ?>
 
-
+<div class="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100" role="status">
+    <p class="font-semibold text-amber-200">Status / merchant API overview — partner PG keys are not pasted here.</p>
+    <p class="text-xs text-amber-100/80 mt-1">Paste Razorpay / Cashfree / PayU / Axis keys only in <strong class="text-white">Partner Registry → partner → Keys</strong>. This page shows website health and UniWeb merchant API keys (<code class="text-white">uk_…</code>).</p>
+    <p class="mt-3 flex flex-wrap gap-2">
+        <a href="admin_gateway_registry.php" class="inline-flex items-center px-3 py-1.5 rounded-lg bg-violet-600/80 hover:bg-violet-500 text-white text-xs font-medium">Open Partner Registry →</a>
+        <a href="gateway_settings.php" class="inline-flex items-center px-3 py-1.5 rounded-lg border border-gray-600 text-gray-300 hover:text-white text-xs">Platform Settings (SMTP / cron)</a>
+    </p>
+</div>
 
 <div class="mb-6 flex flex-wrap gap-3 items-center justify-between">
 
     <div>
 
-        <p class="text-sm text-gray-400">Platform keys vs merchant keys — how UniWeb works as an aggregator</p>
+        <h1 class="text-xl font-bold">Website &amp; API Keys</h1>
+        <p class="text-sm text-gray-400 mt-1">Website status + UniWeb merchant API keys — not the partner PG key vault</p>
 
     </div>
 
@@ -69,7 +77,9 @@ require_once __DIR__ . '/header.php';
 
         <a href="<?= e(APP_URL) ?>" target="_blank" rel="noopener" class="glass px-4 py-2 rounded-xl text-sm text-sky-400 hover:text-sky-300">Open Website ↗</a>
 
-        <a href="gateway_settings.php" class="btn-primary text-sm px-4 py-2">Platform PG Keys →</a>
+        <a href="admin_gateway_registry.php" class="btn-primary text-sm px-4 py-2">Partner Registry (PG keys) →</a>
+
+        <a href="gateway_settings.php" class="glass px-4 py-2 rounded-xl text-sm text-gray-300">Platform Settings</a>
 
         <a href="admin_platform_status.php" class="glass px-4 py-2 rounded-xl text-sm text-gray-300">Platform Status</a>
 
@@ -193,9 +203,9 @@ require_once __DIR__ . '/header.php';
 
         <div>
 
-            <h2 class="font-semibold">Platform Payment Gateway Keys</h2>
+            <h2 class="font-semibold">Platform Payment Gateway Keys (status only)</h2>
 
-            <p class="text-xs text-gray-500 mt-1">From Razorpay / Cashfree / PayU — paste in Partner Registry → Partner Detail → Keys</p>
+            <p class="text-xs text-gray-500 mt-1">Read-only status — paste keys in <a href="admin_gateway_registry.php" class="text-sky-400 hover:underline">Partner Registry → Keys</a>, not on this page</p>
 
         </div>
 

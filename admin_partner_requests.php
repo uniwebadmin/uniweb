@@ -12,6 +12,15 @@ require_once __DIR__ . '/header.php';
     <a href="gateway_settings.php" class="text-sm text-gray-400 hover:text-white">← Gateway Settings</a>
 </div>
 
+<div class="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100" role="status">
+    <p class="font-semibold text-amber-200">Email / signup guide only — partner keys are not pasted here.</p>
+    <p class="text-xs text-amber-100/80 mt-1">Use this page to mail partners and open Sign Up / Dashboard links. When keys arrive, paste them in <strong class="text-white">Partner Registry → partner → Keys</strong>.</p>
+    <p class="mt-3 flex flex-wrap gap-2">
+        <a href="admin_gateway_registry.php" class="inline-flex items-center px-3 py-1.5 rounded-lg bg-violet-600/80 hover:bg-violet-500 text-white text-xs font-medium">Open Partner Registry →</a>
+        <a href="admin_integration_matrix.php" class="inline-flex items-center px-3 py-1.5 rounded-lg border border-gray-600 text-gray-300 hover:text-white text-xs">Integration Status Board</a>
+    </p>
+</div>
+
 <div class="bg-violet-500/10 border border-violet-500/30 rounded-xl p-5 mb-8 text-sm">
     <h2 class="font-semibold text-violet-300 mb-2">Production Email Directory — Send Tomorrow</h2>
     <p class="text-gray-400 text-xs mb-4">Copy each draft below or use <strong class="text-white">Open in Mail App</strong>. Ask for <strong class="text-white">pay-in + pay-out</strong> credentials, webhooks, KAM contact, and go-live checklist from every partner.</p>
