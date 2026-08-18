@@ -572,6 +572,35 @@ function syncPartnerGateways(): void
                 ->execute([$gid, $key]);
         }
     }
+    purgeOrphanPartnerGatewayRows();
+}
+
+/**
+ * Remove inactive partner rows that are no longer in getPartnerRegistry() (e.g. retired rails).
+ * Does not delete active partners or payment-method rows.
+ */
+function purgeOrphanPartnerGatewayRows(): void
+{
+    if (!function_exists('getPartnerRegistryKeys')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $registryKeys = array_map('strtolower', getPartnerRegistryKeys());
+    try {
+        $where = gatewayRegistryKindClause('partner');
+        $rows = getDB()->query("SELECT id, gateway_key, is_active FROM gateway_registry WHERE {$where}")->fetchAll();
+        foreach ($rows as $row) {
+            $key = strtolower(trim((string)$row['gateway_key']));
+            if ($key === '' || in_array($key, $registryKeys, true)) {
+                continue;
+            }
+            if ((int)$row['is_active'] === 1) {
+                continue;
+            }
+            deleteInactiveGateway((int)$row['id']);
+        }
+    } catch (Throwable $e) {
+        // non-fatal
+    }
 }
 
 /**

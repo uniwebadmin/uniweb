@@ -171,14 +171,6 @@ function getBankingPartners(): array
             'email' => 'support@sbi.co.in',
             'payout_note' => 'SBI corporate API banking — collections and bulk payouts.',
         ],
-        'sapaisa' => [
-            'name' => 'SavaPay / Sapaisa',
-            'use' => 'Payment gateway + settlement API',
-            'signup' => 'https://sapaisa.com/',
-            'docs' => 'https://docs.sapaisa.com/',
-            'email' => 'support@sapaisa.com',
-            'payout_note' => 'SavaPay / Sapaisa PG — small merchant checkout + settlement.',
-        ],
         'worldline' => [
             'name' => 'Worldline',
             'use' => 'Payment gateway + POS + omnichannel checkout',
