@@ -827,6 +827,9 @@ $assert(str_contains((string)file_get_contents($root . '/includes/verification.p
 $assert(str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'no demo defaults') && !str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'VAOPENBANK'), 'p6a_rbl_no_demo_corp_defaults');
 $assert(str_contains((string)file_get_contents($root . '/includes/cloud_modules.php'), "'auto_kyc.php'") && str_contains((string)file_get_contents($root . '/config.dev.php'), "'auto_kyc'"), 'p6a_auto_kyc_loaded_via_cloud_modules');
 $assert(str_contains((string)file_get_contents($root . '/includes/va_manager.php'), 'vaSupportedCreationGateways') && str_contains((string)file_get_contents($root . '/includes/gateways.php'), "'pinelabs'"), 'p6a_va_supported_list_and_pinelabs_enum');
+$axisVa = (string)file_get_contents($root . '/includes/axis.php');
+$assert(str_contains($axisVa, 'function axisMockVirtualAccount') && str_contains($axisVa, 'axisGetAccessToken(false, 3)') && !preg_match('/gateway\\/api\\/v1\\/van\\/create/', $axisVa), 'va_axis_create_fast_fail_no_five_endpoint_hammer');
+$assert(str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'admin_virtual_accounts.php?merchant_id='), 'va_edit_merchant_links_virtual_accounts_page');
 $assert(str_contains((string)file_get_contents($root . '/includes/auto_kyc.php'), "severity IN ('high','critical')"), 'p6a_auto_kyc_aml_fail_closed');
 
 $peReg = (string)file_get_contents($root . '/includes/partner_engine.php');

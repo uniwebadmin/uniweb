@@ -17,6 +17,41 @@ function vaSupportedCreationGateways(): array
     return ['axis'];
 }
 
+/** Ensure multi-VA table exists (migration 031). Safe to call from admin UI. */
+function ensureMerchantVirtualAccountsTable(): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    try {
+        getDB()->exec("CREATE TABLE IF NOT EXISTS merchant_virtual_accounts (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            merchant_id INT NOT NULL,
+            gateway VARCHAR(32) NOT NULL DEFAULT 'axis',
+            va_id VARCHAR(64) DEFAULT NULL,
+            va_number VARCHAR(64) NOT NULL,
+            ifsc VARCHAR(20) DEFAULT NULL,
+            upi_id VARCHAR(120) DEFAULT NULL,
+            label VARCHAR(120) DEFAULT NULL,
+            status ENUM('active','disabled') NOT NULL DEFAULT 'active',
+            is_primary TINYINT(1) NOT NULL DEFAULT 0,
+            txn_count_today INT UNSIGNED NOT NULL DEFAULT 0,
+            txn_count_total INT UNSIGNED NOT NULL DEFAULT 0,
+            fail_count_today INT UNSIGNED NOT NULL DEFAULT 0,
+            last_assigned_at DATETIME DEFAULT NULL,
+            counters_reset_on DATE DEFAULT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_va_number (va_number),
+            INDEX idx_va_merchant (merchant_id, status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) {
+        // migration runner may apply full 031 later
+    }
+}
+
 /** All VAs for a merchant, most-used-last-reset first. Includes the primary. */
 function getMerchantVirtualAccounts(int $merchantId): array
 {
@@ -60,13 +95,27 @@ function createAdditionalVirtualAccount(int $merchantId, string $gateway = 'axis
         return ['ok' => false, 'error' => 'Gateway "' . $gateway . '" VA creation is not live yet. Supported: ' . implode(', ', vaSupportedCreationGateways()) . '.'];
     }
 
+    if ($gateway === 'axis') {
+        if (!function_exists('axisCredentials')) {
+            require_once __DIR__ . '/axis.php';
+        }
+        $axisCreds = axisCredentials();
+        $mockOk = function_exists('axisAllowMock') && axisAllowMock();
+        if (($axisCreds['client_id'] ?? '') === '' && !$mockOk) {
+            return ['ok' => false, 'error' => 'Axis keys not saved yet. Open Partner Registry → Axis Bank → Keys tab, paste UAT/live keys, then try again.'];
+        }
+    }
+
     if ($gateway !== 'axis') {
         return ['ok' => false, 'error' => 'Only axis is wired for VA creation today.'];
     }
 
     $va = createAxisVirtualAccount($merchant);
     if (!$va || empty($va['va_number'])) {
-        return ['ok' => false, 'error' => 'Gateway did not return a virtual account. Check partner credentials / mock setting.'];
+        $hint = function_exists('axisAllowMock') && axisAllowMock()
+            ? 'Mock VA is ON but creation still failed — check Error Log.'
+            : 'Axis did not return a VA in ~15s. Check Partner Registry → Axis keys, IP whitelist, and Error Log.';
+        return ['ok' => false, 'error' => $hint];
     }
 
     $isFirst = countActiveMerchantVirtualAccounts($merchantId) === 0 && empty($merchant['axis_va_number']);

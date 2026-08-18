@@ -31,9 +31,8 @@ if (isset($_GET['action']) && in_array($_GET['action'], ['verify_website', 'reje
 }
 
 if (isset($_GET['action']) && $_GET['action'] === 'provision_axis_va' && verifyCsrf($_GET['token'] ?? '')) {
-    ensureAxisVirtualAccount($id);
-    flash('success', 'Axis Virtual Account provisioned.');
-    redirect('admin_edit_merchant.php?id=' . $id);
+    flash('info', 'Open Virtual Accounts below to create an Axis VA. Live Axis API needs keys in Partner Registry first.');
+    redirect('admin_virtual_accounts.php?merchant_id=' . $id);
 }
 
 if (isset($_GET['action']) && $_GET['action'] === 'auto_provision' && verifyCsrf($_GET['token'] ?? '')) {
@@ -417,9 +416,8 @@ $methodCatalog = getPaymentMethodCatalog();
             <p class="text-xs text-gray-400 mb-2"><?= e(collectionModeLabel(getMerchantCollectionMode($merchant))) ?></p>
             <?php if (!empty($merchant['axis_va_number'])): ?>
             <p class="text-xs font-mono text-sky-400">VA: <?= e($merchant['axis_va_number']) ?></p>
-            <?php else: ?>
-            <a href="admin_edit_merchant.php?id=<?= $id ?>&action=provision_axis_va&token=<?= csrfToken() ?>" class="text-xs text-brand-400">Provision Axis VA →</a>
             <?php endif; ?>
+            <a href="admin_virtual_accounts.php?merchant_id=<?= $id ?>" class="text-xs text-brand-400 block mt-1"><?= !empty($merchant['axis_va_number']) ? 'Manage Virtual Accounts →' : 'Virtual Accounts (create Axis VA) →' ?></a>
         </div>
         <div class="glass rounded-xl p-4 sm:p-5 text-xs text-gray-500 space-y-3" id="api-keys">
             <div>

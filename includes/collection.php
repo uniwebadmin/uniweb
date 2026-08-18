@@ -452,6 +452,14 @@ function ensureAxisVirtualAccount(int $merchantId): ?array
         ];
     }
 
+    if (function_exists('axisCredentials')) {
+        $axisCreds = axisCredentials();
+        $mockOk = function_exists('axisAllowMock') && axisAllowMock();
+        if (($axisCreds['client_id'] ?? '') === '' && !$mockOk) {
+            return null;
+        }
+    }
+
     $va = createAxisVirtualAccount($merchant);
     if (!$va) return null;
 

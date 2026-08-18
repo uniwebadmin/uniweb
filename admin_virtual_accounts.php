@@ -4,6 +4,7 @@ if (!function_exists('createAdditionalVirtualAccount')) {
     require_once __DIR__ . '/includes/va_manager.php';
 }
 requireStaffAccess(['super', 'ceo', 'finance', 'ops']);
+ensureMerchantVirtualAccountsTable();
 $db = getDB();
 
 $q = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
@@ -50,10 +51,16 @@ if ($merchantId > 0) {
 }
 
 // Platform-wide snapshot: merchants with 2+ active VAs (load already spread) vs single-VA.
-$multiVaCount = (int)$db->query("SELECT COUNT(DISTINCT merchant_id) FROM (
-    SELECT merchant_id FROM merchant_virtual_accounts WHERE status='active' GROUP BY merchant_id HAVING COUNT(*) >= 2
-) t")->fetchColumn();
-$totalVaMerchants = (int)$db->query("SELECT COUNT(DISTINCT merchant_id) FROM merchant_virtual_accounts WHERE status='active'")->fetchColumn();
+$multiVaCount = 0;
+$totalVaMerchants = 0;
+try {
+    $multiVaCount = (int)$db->query("SELECT COUNT(DISTINCT merchant_id) FROM (
+        SELECT merchant_id FROM merchant_virtual_accounts WHERE status='active' GROUP BY merchant_id HAVING COUNT(*) >= 2
+    ) t")->fetchColumn();
+    $totalVaMerchants = (int)$db->query("SELECT COUNT(DISTINCT merchant_id) FROM merchant_virtual_accounts WHERE status='active'")->fetchColumn();
+} catch (Throwable $e) {
+    // table may be missing until migration 031 is applied
+}
 
 $pageTitle = 'Virtual Accounts';
 require_once __DIR__ . '/header.php';
@@ -61,8 +68,11 @@ require_once __DIR__ . '/header.php';
 <div class="glass rounded-xl p-4 mb-6 border border-amber-500/25 text-sm text-gray-400">
     <p><strong class="text-amber-300">Adapter pending.</strong> Axis VA collections need live Axis keys in Partner Registry + commercial approval. Test/UAT rows may exist — do not treat as full live volume until keys are green on Platform Status.</p>
 </div>
-<div class="mb-4">
-    <a href="admin_axis.php" class="text-sm text-gray-400 hover:text-white">← Axis UAT</a>
+<div class="mb-4 flex flex-wrap gap-4 text-sm">
+    <a href="admin_axis.php" class="text-gray-400 hover:text-white">← Axis partner keys</a>
+    <?php if ($merchantId > 0): ?>
+    <a href="admin_edit_merchant.php?id=<?= $merchantId ?>" class="text-gray-400 hover:text-white">← Back to merchant</a>
+    <?php endif; ?>
 </div>
 
 <div class="grid sm:grid-cols-2 gap-4 mb-8 max-w-lg">

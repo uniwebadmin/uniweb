@@ -243,7 +243,7 @@ function axisTryTokenRequest(string $url, string $method, array $headers, ?strin
     return null;
 }
 
-function axisGetAccessToken(bool $forceRefresh = false): ?string
+function axisGetAccessToken(bool $forceRefresh = false, int $maxUrls = 0): ?string
 {
     $c = axisCredentials();
     if (!$c['client_id'] || !$c['client_secret']) return null;
@@ -265,7 +265,12 @@ function axisGetAccessToken(bool $forceRefresh = false): ?string
         'client_secret' => $c['client_secret'],
     ]);
 
-    foreach (axisTokenUrlCandidates() as $url) {
+    $urlCandidates = axisTokenUrlCandidates();
+    if ($maxUrls > 0) {
+        $urlCandidates = array_slice($urlCandidates, 0, $maxUrls);
+    }
+
+    foreach ($urlCandidates as $url) {
         $baseHeaders = array_merge(['Accept: application/json'], axisClientHeaders($c));
 
         $attempts = [
@@ -283,12 +288,12 @@ function axisGetAccessToken(bool $forceRefresh = false): ?string
     return null;
 }
 
-function axisApiRequest(string $endpoint, array $payload, string $method = 'POST', ?int $merchantId = null): ?array
+function axisApiRequest(string $endpoint, array $payload, string $method = 'POST', ?int $merchantId = null, int $timeout = 45, int $maxTokenUrls = 0): ?array
 {
     $c = axisCredentials();
     if (!$c['client_id'] || !$c['client_secret']) return null;
 
-    $token = axisGetAccessToken();
+    $token = axisGetAccessToken(false, $maxTokenUrls);
     $url = str_starts_with($endpoint, 'http') ? $endpoint : rtrim(axisApiBase(), '/') . $endpoint;
     $body = json_encode($payload);
 
@@ -304,7 +309,8 @@ function axisApiRequest(string $endpoint, array $payload, string $method = 'POST
         $headers[] = 'X-Channel-Id: ' . $c['channel_id'];
     }
 
-    $res = axisHttpRequest($url, $method, $headers, $method === 'GET' ? null : $body);
+    $attempts = $timeout <= 15 ? 1 : 3;
+    $res = axisHttpRequest($url, $method, $headers, $method === 'GET' ? null : $body, $timeout, $attempts);
     $logResp = $res['body'];
     if ($logResp === '' && $res['error'] !== '') {
         $logResp = 'CURL[' . $res['errno'] . ']: ' . $res['error'];
@@ -357,21 +363,45 @@ function axisBuildVaPayload(array $merchant): array
     return ['Data' => $inner, 'Risk' => new stdClass()];
 }
 
+function axisMockVirtualAccount(array $merchant): array
+{
+    $merchantId = (int)($merchant['id'] ?? $merchant['merchant_id'] ?? 0);
+    $code = $merchant['merchant_code'] ?? ('UW' . $merchantId);
+    $suffix = strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $code), 0, 8));
+    return [
+        'va_id' => 'MOCK_' . $suffix,
+        'va_number' => 'AXIS' . str_pad((string)$merchantId, 10, '0', STR_PAD_LEFT),
+        'ifsc' => axisPartnerSetting('axis_va_ifsc', 'UTIB0000000'),
+        'upi_id' => strtolower($suffix) . '@axisbank',
+        '_source' => 'mock',
+    ];
+}
+
 function createAxisVirtualAccount(array $merchant): ?array
 {
     $merchantId = (int)($merchant['id'] ?? $merchant['merchant_id'] ?? 0);
-    $payload = axisBuildVaPayload($merchant);
+    $c = axisCredentials();
+    if (!$c['client_id'] || !$c['client_secret']) {
+        return axisAllowMock() ? axisMockVirtualAccount($merchant) : null;
+    }
 
-    $endpoints = [
-        '/gateway/api/v1/virtualaccounts/create',
-        '/gateway/api/v1/collections/virtual-account/create',
-        '/gateway/api/v1/van/create',
-        '/gateway/api/v1/ecollection/van/create',
-        '/gateway/api/v1/virtual-account/create',
-    ];
+    $payload = axisBuildVaPayload($merchant);
+    $customPath = trim(getSetting('axis_va_create_path', ''));
+    $endpoints = $customPath !== ''
+        ? [$customPath]
+        : [
+            '/gateway/api/v1/virtualaccounts/create',
+            '/gateway/api/v1/collections/virtual-account/create',
+        ];
+
+    // Admin / checkout must not hang on dozens of token + endpoint retries (504 on Hostinger).
+    $token = axisGetAccessToken(false, 3);
+    if (!$token) {
+        return axisAllowMock() ? axisMockVirtualAccount($merchant) : null;
+    }
 
     foreach ($endpoints as $ep) {
-        $resp = axisApiRequest($ep, $payload, 'POST', $merchantId);
+        $resp = axisApiRequest($ep, $payload, 'POST', $merchantId, 12, 3);
         $parsed = axisParseVaResponse($resp);
         if ($parsed) {
             $parsed['_source'] = 'axis_api';
@@ -380,19 +410,7 @@ function createAxisVirtualAccount(array $merchant): ?array
         }
     }
 
-    if (axisAllowMock()) {
-        $code = $merchant['merchant_code'] ?? ('UW' . $merchantId);
-        $suffix = strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $code), 0, 8));
-        return [
-            'va_id' => 'MOCK_' . $suffix,
-            'va_number' => 'AXIS' . str_pad((string)$merchantId, 10, '0', STR_PAD_LEFT),
-            'ifsc' => axisPartnerSetting('axis_va_ifsc', 'UTIB0000000'),
-            'upi_id' => strtolower($suffix) . '@axisbank',
-            '_source' => 'mock',
-        ];
-    }
-
-    return null;
+    return axisAllowMock() ? axisMockVirtualAccount($merchant) : null;
 }
 
 function axisDnsProbe(): array
