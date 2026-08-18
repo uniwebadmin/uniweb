@@ -608,7 +608,9 @@ function isGatewayConfigured(string $gateway): bool
         'worldline' => (bool)getPartnerSetting('worldline', 'worldline_merchant_id', '') && (bool)getPartnerSetting('worldline', 'worldline_access_key', '') && (bool)getPartnerSetting('worldline', 'worldline_secret_key', ''),
         'digio' => (bool)getPartnerSetting('digio', 'digio_client_id', '') && (bool)getPartnerSetting('digio', 'digio_client_secret', ''),
         'rbl' => isRblConfigured(),
-        default => function_exists('partnerIsConfigured') && isPartnerRegistryKey($gateway) ? partnerIsConfigured($gateway) : false,
+        default => function_exists('isPartnerRegistryKey') && isPartnerRegistryKey($gateway)
+            ? partnerHasSavedCredentials($gateway)
+            : false,
     };
 }
 

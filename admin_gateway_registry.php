@@ -9,6 +9,9 @@ if (!function_exists('getPartnerRegistry')) {
 if (!function_exists('ensurePartnerControlTables')) {
     require_once __DIR__ . '/includes/partner_control.php';
 }
+if (!function_exists('adminPartnerDetailUrl')) {
+    require_once __DIR__ . '/includes/ui_links.php';
+}
 requireStaffAccess(['super', 'ceo', 'ops']);
 
 syncPartnerGateways();

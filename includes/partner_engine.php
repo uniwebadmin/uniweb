@@ -714,18 +714,31 @@ function partnerGetRecentLogs(string $partnerKey, int $limit = 30): array
     }
 }
 
-function partnerIsConfigured(string $partnerKey): bool
+/** True when any secret/key/salt field is saved for this partner (no isGatewayConfigured fallback — avoids infinite loop on active partners). */
+function partnerHasSavedCredentials(string $partnerKey): bool
 {
+    $partnerKey = strtolower(trim($partnerKey));
     $reg = getPartnerRegistry()[$partnerKey] ?? null;
-    if (!$reg) return false;
+    if (!$reg || empty($reg['config_keys']) || !is_array($reg['config_keys'])) {
+        return false;
+    }
+    if (!function_exists('getPartnerSetting')) {
+        return false;
+    }
     foreach ($reg['config_keys'] as $key => $meta) {
+        $key = (string)$key;
         if (str_contains($key, 'secret') || str_contains($key, 'salt') || str_contains($key, 'key')) {
-            if (function_exists('getPartnerSetting') && getPartnerSetting($partnerKey, $key, '') !== '') {
+            if (getPartnerSetting($partnerKey, $key, '') !== '') {
                 return true;
             }
         }
     }
-    return isGatewayConfigured($partnerKey);
+    return false;
+}
+
+function partnerIsConfigured(string $partnerKey): bool
+{
+    return partnerHasSavedCredentials($partnerKey);
 }
 
 function partnerTestConnection(string $partnerKey): array

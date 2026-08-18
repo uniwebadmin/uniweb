@@ -839,6 +839,10 @@ $assert(str_contains($imReg, 'getIntegrationMatrixPartnerLabels') && !preg_match
 $assert(str_contains($gwReg, 'getGatewaySubmissionPartnerKeys') && str_contains($gwReg, 'MODIFY gateway VARCHAR(40)') && !str_contains($gwReg, 'function isGatewayActive'), 'p6b_gateway_submit_varchar_no_duplicate_active');
 $assert(str_contains((string)file_get_contents($root . '/includes/partner_control.php'), 'getPartnerRegistry()') && str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'getKycForwardPartnerKeys'), 'p6b_credential_and_kyc_lists_from_registry');
 $assert(is_file($root . '/migrations/066_registry_kind.sql') && is_file($root . '/migrations/067_gateway_submissions_varchar.sql'), 'p6b_registry_migrations_present');
+$peCfg = (string)file_get_contents($root . '/includes/partner_engine.php');
+$gwCfg = (string)file_get_contents($root . '/includes/gateways.php');
+$assert(str_contains($peCfg, 'function partnerHasSavedCredentials') && !preg_match('/function partnerIsConfigured[\\s\\S]{0,400}isGatewayConfigured\\(/', $peCfg), 'p6b_partner_is_configured_no_gateway_recursion');
+$assert(str_contains($gwCfg, 'partnerHasSavedCredentials($gateway)') && !str_contains($gwCfg, 'partnerIsConfigured($gateway)'), 'p6b_is_gateway_configured_uses_saved_creds_not_partner_is_configured');
 
 // P7b — wiring / deep-link (~25)
 $assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'highlightDisputeId') && str_contains((string)file_get_contents($root . '/admin_disputes.php'), "\$_GET['id']"), 'p7b_admin_disputes_q_and_id_highlight');
