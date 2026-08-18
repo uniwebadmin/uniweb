@@ -114,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         // G3: Auto-register with partner if keys configured
         $regResult = registerMandateWithPartner($result['mandate_id']);
         if (!empty($regResult['ok']) && !empty($regResult['auth_url'])) {
-            flash('success', 'Mandate created. Redirecting to partner for customer authorisation...');
+            flash('success', 'Mandate created. Customer authorisation opens next.');
             redirect($regResult['auth_url']);
         } elseif (!empty($regResult['ok'])) {
             flash('success', 'Mandate ' . $result['mandate_ref'] . ' created and registered. Customer approval pending.');
@@ -172,10 +172,10 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl p-6 border <?= $approved ? 'border-emerald-500/20' : 'border-amber-500/30' ?>">
         <h2 class="font-semibold mb-2">Recurring Mandates</h2>
         <p class="text-sm text-gray-500"><?= $approved
-            ? 'Mandates are registered with the partner (Razorpay / Decentro / Cashfree). Customer authorises the mandate via their UPI app or bank. UniWeb is a technology platform — it does not hold merchant funds in escrow.'
-            : 'This product stays draft-only until admin records partner AutoPay approval (`recurring_autopay_approved=1`).' ?></p>
+            ? 'Partner mandate registration is wired — live money needs partner keys in Admin Registry and customer approval on the network. Customer may cancel in their UPI app; UniWeb does not guarantee debit success.'
+            : 'Scaffold / gated — mandates are stored locally; partner autopay adapters and live debit need Admin approval + Registry keys.' ?></p>
         <?php if ($approved): ?>
-        <p class="text-xs text-gray-600 mt-2">Customer may also cancel the mandate directly in their UPI app or bank (NPCI/partner behaviour). UniWeb does not guarantee debit success — it depends on customer balance and bank approval.</p>
+        <p class="text-xs text-gray-600 mt-2">Customer may also cancel the mandate directly in their UPI app or bank. UniWeb does not guarantee debit success — it depends on customer balance and bank approval.</p>
         <?php endif; ?>
     </div>
 

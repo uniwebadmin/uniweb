@@ -56,11 +56,13 @@ require_once __DIR__ . '/header.php';
 
 <div class="flex flex-wrap gap-3 mb-8">
 
-    <a href="gateway_settings.php" class="bg-brand-600/20 border border-brand-500/30 text-brand-300 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-brand-600/30">Gateway Settings →</a>
+    <a href="admin_gateway_registry.php" class="bg-brand-600/20 border border-brand-500/30 text-brand-300 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-brand-600/30">Partner Registry (keys) →</a>
+
+    <a href="gateway_settings.php" class="glass px-4 py-2.5 rounded-xl text-sm text-gray-300 hover:text-white">Platform Settings</a>
 
     <a href="admin_pg_webhooks.php" class="glass px-4 py-2.5 rounded-xl text-sm text-gray-300 hover:text-white">PG Webhook Log</a>
 
-    <a href="admin_website.php" class="glass px-4 py-2.5 rounded-xl text-sm text-violet-400 hover:text-violet-300">Website & API Keys</a>
+    <a href="admin_website.php" class="glass px-4 py-2.5 rounded-xl text-sm text-gray-500 hover:text-gray-300">Platform API guide (Advanced)</a>
 
     <a href="admin_audit_plan.php" class="glass px-4 py-2.5 rounded-xl text-sm text-sky-400 hover:text-sky-300">Deep Audit Plan</a>
 
@@ -74,10 +76,14 @@ require_once __DIR__ . '/header.php';
 
     <a href="admin_error_log.php" class="glass px-4 py-2.5 rounded-xl text-sm <?= countUnresolvedPlatformErrors() > 0 ? 'text-red-400 border border-red-500/30' : 'text-gray-300 hover:text-white' ?>">Error Log<?= countUnresolvedPlatformErrors() > 0 ? ' (' . countUnresolvedPlatformErrors() . ')' : '' ?></a>
 
-    <a href="admin_gateway_registry.php" class="glass px-4 py-2.5 rounded-xl text-sm text-gray-300 hover:text-white">Partner Registry</a>
+    <a href="admin_gateway_registry.php" class="glass px-4 py-2.5 rounded-xl text-sm text-violet-400 hover:text-violet-300">Partner Registry</a>
 
     <a href="merchant_register.php" target="_blank" class="glass px-4 py-2.5 rounded-xl text-sm text-brand-400">Live Demo ↗</a>
 
+</div>
+
+<div class="glass rounded-xl p-4 mb-8 border border-violet-500/25 text-sm text-gray-400">
+    <p><strong class="text-violet-300">Market bar:</strong> Merchant signs up once on UniWeb · You paste PG keys only here in Partner Registry · Checkout shows methods only — not Razorpay/PayU brand buttons. <a href="compare.php" target="_blank" rel="noopener" class="text-sky-400 hover:underline">Compare vs Razorpay / Cashfree / PayU / Juspay →</a></p>
 </div>
 
 

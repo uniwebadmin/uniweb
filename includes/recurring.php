@@ -369,7 +369,7 @@ function attemptSubscriptionPayment(int $chargeId, int $subscriptionId, float $a
     }
 
     // Check if partner gateway is configured
-    $partnerKey = getSetting('decentro_api_key', '');
+    $partnerKey = decentroClientId();
     if (!$partnerKey) {
         // No partner keys — keep as pending, will be processed when keys are live
         return ['ok' => false, 'error' => 'Partner API not configured. Charge pending.'];
@@ -665,7 +665,7 @@ function processMandateCharge(array $mandate): array
         $txnId = (int)$db->lastInsertId();
 
         // Check if partner API is configured
-        $partnerKey = getSetting('decentro_api_key', '');
+        $partnerKey = decentroClientId();
         if (!$partnerKey) {
             // No partner keys — schedule next charge, keep txn pending
             $nextCharge = calculateNextChargeDate($mandate['frequency']);

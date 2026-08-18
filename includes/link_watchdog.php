@@ -152,7 +152,7 @@ function getWatchdogPageRegistry(): array
         ['admin_partner.php', 'Partner Detail'],
         ['admin_platform_status.php', 'Platform Status'],
         ['admin_audit_plan.php', 'Deep Audit Plan'],
-        ['admin_website.php', 'Website & API Keys'],
+        ['admin_website.php', 'Platform API guide (Advanced)'],
         ['admin_link_audit.php', 'Link Audit'],
         ['admin_watchdog.php', 'Link Watchdog'],
         ['admin_error_log.php', 'Error Log'],

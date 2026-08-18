@@ -52,7 +52,7 @@ return [
     'confirm_password' => 'Confirm Password',
     'password_min_placeholder' => 'At least 8 characters',
     'password_confirm_placeholder' => 'Re-enter password',
-    'signup_portal_note' => 'Business details, KYC and payment methods — complete inside the portal after signup.',
+    'signup_portal_note' => 'One UniWeb account — not ten separate PG signups. KYC and payment methods finish inside this portal.',
     'signup_terms' => 'By signing up, you agree to our',
     'create_account_btn' => 'Create Account',
     'already_have_account' => 'Already have an account?',

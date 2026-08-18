@@ -96,7 +96,7 @@ require_once __DIR__ . '/header.php';
                         } ?>
                     </div>
                     <div>
-                        <p class="text-sm font-medium text-gray-200"><?= e($m['gateway_name']) ?></p>
+                        <p class="text-sm font-medium text-gray-200"><?= e(merchantPaymentMethodLabel((string)$m['gateway_key'], (string)$m['gateway_name'])) ?></p>
                         <p class="text-[11px] text-gray-500">
                             <?php
                             $caps = [];

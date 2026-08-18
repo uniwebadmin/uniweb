@@ -21,7 +21,7 @@ if (!$link || !$cfOrder
     || abs((float)($cfOrder['order_amount'] ?? 0) - (float)$link['expected_amount']) > 0.001
     || strtoupper((string)($cfOrder['order_currency'] ?? '')) !== (string)$link['currency']
 ) {
-    flash('error', 'Cashfree return could not be matched to the original order.');
+    flash('error', 'Payment return could not be matched to the original order.');
     redirect('index.php');
 }
 $isConfirmed = $link['status'] === 'paid';
@@ -41,8 +41,8 @@ renderCheckoutModeBanner($cfLink);
         </div>
         <h2 class="text-xl font-bold mb-2"><?= $isConfirmed ? 'Payment Successful!' : ($providerPaid ? 'Verification in progress' : 'Payment not completed') ?></h2>
         <p class="text-3xl font-bold text-brand-400 my-3"><?= formatMoney((float)$link['expected_amount']) ?></p>
-        <p class="text-gray-500 text-xs mt-2">Cashfree Order: <?= e($orderId) ?></p>
-        <?php if (!$isConfirmed): ?><p class="text-xs text-amber-300 mt-4">UniWeb is waiting for Cashfree’s signed webhook before changing the payment or wallet status.</p><?php endif; ?>
+        <p class="text-gray-500 text-xs mt-2">Order reference: <?= e($orderId) ?></p>
+        <?php if (!$isConfirmed): ?><p class="text-xs text-amber-300 mt-4">UniWeb is waiting for the signed payment confirmation before updating status.</p><?php endif; ?>
     </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

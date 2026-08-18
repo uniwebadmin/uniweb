@@ -491,6 +491,23 @@ function pushPackageToPartner(string $partnerKey, int $merchantId, array $payloa
 }
 
 /**
+ * Merchant-safe label for forward-queue status (no partner brand leak).
+ */
+function merchantForwardQueueStatusLabel(string $status): string
+{
+    return match ($status) {
+        'queued' => 'Queued',
+        'processing' => 'Processing',
+        'staged' => 'Prepared — not sent to bank yet',
+        'success' => 'Submitted',
+        'retry' => 'Retry scheduled',
+        'failed' => 'Needs Admin review',
+        'paused' => 'Paused',
+        default => ucfirst(str_replace('_', ' ', $status)),
+    };
+}
+
+/**
  * Get forward queue status for a merchant (D4: status matrix on merchant).
  */
 function getMerchantForwardStatus(int $merchantId): array

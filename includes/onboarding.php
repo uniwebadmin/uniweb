@@ -96,7 +96,7 @@ function getMerchantOnboardingSteps(array $merchant): array
             'label' => 'Payment methods setup',
             'done' => count($preview['methods']) > 0,
             'url' => 'collection_settings.php',
-            'hint' => collectionModeLabel($preview['collection_mode']),
+            'hint' => collectionModeLabel($preview['collection_mode'], true),
         ],
     ];
 }

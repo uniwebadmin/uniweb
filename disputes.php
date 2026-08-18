@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         }
         flash('success', 'Dispute raised: ' . $disputeId . ' — Admin will review first.');
         if (function_exists('createNotification')) {
-            createNotification((int)$merchant['id'], 'Dispute submitted', $disputeId . ' is with UniWeb Admin first. You will see resolve or partner-forward updates here.', 'dispute_raised');
+            createNotification((int)$merchant['id'], 'Dispute submitted', $disputeId . ' is with UniWeb Admin first. You will see resolve or network-review updates here.', 'dispute_raised');
         }
         redirect('disputes.php?id=' . rawurlencode($disputeId));
     }
@@ -96,9 +96,12 @@ $pageTitle = 'Disputes';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="grid lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-3 glass rounded-xl p-4 border border-sky-500/25 text-sm text-gray-400">
+        <p>All new payment disputes and chargebacks → <a href="disputes.php" class="text-sky-400 hover:underline">Disputes</a> (one lane on UniWeb). Legacy bank chargeback evidence rows only: <a href="chargebacks.php?legacy=1" class="text-gray-500 hover:underline">open legacy list</a>.</p>
+    </div>
     <div class="glass rounded-xl p-6">
         <h2 class="font-semibold mb-2">Raise Dispute</h2>
-        <p class="text-xs text-sky-400/90 mb-3">Admin reviews first — then resolve or forward to partner. You are not talking to the bank directly from this page.</p>
+        <p class="text-xs text-sky-400/90 mb-3">Admin reviews first — then resolve or forward for payment-network review. You are not talking to the bank directly from this page.</p>
         <p class="text-xs text-gray-500 mb-4">Use standard reason codes for bank / aggregator / chargeback review.</p>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -161,7 +164,7 @@ require_once __DIR__ . '/header.php';
             </div>
             <?php if (!empty($view['forwarded_partner_key'])): ?>
             <div class="mt-4 rounded-lg border border-violet-500/30 bg-violet-500/5 p-3 text-xs text-violet-200">
-                Admin forwarded this case for partner review.
+                Admin forwarded this case for payment-network review.
                 <?php if (!empty($view['forwarded_at'])): ?>
                 <span class="text-gray-500"> · <?= e(formatDate($view['forwarded_at'])) ?></span>
                 <?php endif; ?>

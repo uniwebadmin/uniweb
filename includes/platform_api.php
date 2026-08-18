@@ -238,11 +238,11 @@ function regenerateMerchantApiKey(int $merchantId, string $mode = 'live', ?int $
 function getPlatformGatewayKeyStatus(): array
 {
     $partners = [
-        ['id' => 'razorpay', 'name' => 'Razorpay', 'env' => getSetting('razorpay_environment', 'test'), 'key_label' => 'key_id', 'key' => function_exists('getPartnerSetting') ? getPartnerSetting('razorpay', 'razorpay_key_id', '') : getSetting('razorpay_key_id', '')],
-        ['id' => 'cashfree', 'name' => 'Cashfree', 'env' => getSetting('cashfree_environment', 'sandbox'), 'key_label' => 'app_id', 'key' => function_exists('getPartnerSetting') ? getPartnerSetting('cashfree', 'cashfree_app_id', '') : getSetting('cashfree_app_id', '')],
-        ['id' => 'payu', 'name' => 'PayU', 'env' => getSetting('payu_environment', 'test'), 'key_label' => 'merchant_key', 'key' => function_exists('getPartnerSetting') ? getPartnerSetting('payu', 'payu_merchant_key', '') : getSetting('payu_merchant_key', '')],
-        ['id' => 'decentro', 'name' => 'Decentro', 'env' => getSetting('decentro_base_url', '') ? 'configured' : 'sandbox', 'key_label' => 'client_id', 'key' => function_exists('getPartnerSetting') ? getPartnerSetting('decentro', 'decentro_client_id', '') : getSetting('decentro_client_id', '')],
-        ['id' => 'axis', 'name' => 'Axis Bank', 'env' => getSetting('axis_environment', 'uat'), 'key_label' => 'client_id', 'key' => function_exists('getPartnerSetting') ? getPartnerSetting('axis', 'axis_client_id', getSetting('axis_api_key', '')) : getSetting('axis_client_id', getSetting('axis_api_key', ''))],
+        ['id' => 'razorpay', 'name' => 'Razorpay', 'env' => getPartnerEnvironment('razorpay', 'test'), 'key_label' => 'key_id', 'key' => getPartnerSetting('razorpay', 'razorpay_key_id', '')],
+        ['id' => 'cashfree', 'name' => 'Cashfree', 'env' => getPartnerEnvironment('cashfree', 'sandbox'), 'key_label' => 'app_id', 'key' => getPartnerSetting('cashfree', 'cashfree_app_id', '')],
+        ['id' => 'payu', 'name' => 'PayU', 'env' => getPartnerEnvironment('payu', 'test'), 'key_label' => 'merchant_key', 'key' => getPartnerSetting('payu', 'payu_merchant_key', '')],
+        ['id' => 'decentro', 'name' => 'Decentro', 'env' => decentroClientId() !== '' ? 'configured' : 'sandbox', 'key_label' => 'client_id', 'key' => decentroClientId()],
+        ['id' => 'axis', 'name' => 'Axis Bank', 'env' => getPartnerEnvironment('axis', 'uat'), 'key_label' => 'client_id', 'key' => getPartnerSetting('axis', 'axis_client_id', getPartnerSetting('axis', 'axis_api_key', ''))],
     ];
     foreach ($partners as &$p) {
         $p['configured'] = isGatewayConfigured($p['id']);
@@ -311,7 +311,7 @@ function runAdminPlatformSelfChecks(): array
     $checks = [];
     $checks[] = [
         'id' => 'admin_website_syntax',
-        'label' => 'Website & API Keys page',
+        'label' => 'Platform API guide page',
         'ok' => is_file(__DIR__ . '/../admin_website.php')
             && strpos((string)file_get_contents(__DIR__ . '/../admin_website.php'), 'adminMerchantUrl($m[\'id\'])') === false,
         'detail' => 'admin_website.php must not reference undefined $m in gateway table',

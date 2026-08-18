@@ -21,9 +21,16 @@ if (!$rows && strcasecmp((string)($merchant['email'] ?? ''), 'demo@uniweb.co.in'
     ensureDemoChargebacks($merchantId);
     $rows = listMerchantChargebacks($merchantId);
 }
+if (!$rows && !isset($_GET['legacy'])) {
+    redirect('disputes.php');
+}
 $pageTitle = 'Chargebacks';
 require_once __DIR__ . '/header.php';
 ?>
+<div class="glass rounded-xl p-4 mb-6 border border-sky-500/25 text-sm text-gray-400">
+    <p>For new disputes and day-to-day chargeback workflow, use <a href="disputes.php" class="text-sky-400 hover:underline">Disputes</a> — your main lane on UniWeb (one console, like market payment companies).</p>
+    <p class="text-xs text-gray-600 mt-1">This page is for legacy chargeback evidence rows only.</p>
+</div>
 <div class="glass rounded-xl overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-800">
         <h2 class="font-semibold">Chargebacks</h2>

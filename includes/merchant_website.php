@@ -197,7 +197,7 @@ function saveMerchantWebsite(int $merchantId, string $websiteUrl, string $androi
         ]);
 
     if ($websiteUrl !== '' && $websiteUrl !== $oldUrl) {
-        createNotification($merchantId, 'Website Submitted', 'Your website URL was saved. Verification is in process — required for PayU/Razorpay live onboarding.');
+        createNotification($merchantId, 'Website Submitted', 'Your website URL was saved. Verification is in process — required for live activation through UniWeb.');
     }
 
     return ['ok' => true, 'message' => 'Website & app details saved.', 'status' => $status];

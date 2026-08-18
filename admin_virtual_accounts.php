@@ -58,6 +58,9 @@ $totalVaMerchants = (int)$db->query("SELECT COUNT(DISTINCT merchant_id) FROM mer
 $pageTitle = 'Virtual Accounts';
 require_once __DIR__ . '/header.php';
 ?>
+<div class="glass rounded-xl p-4 mb-6 border border-amber-500/25 text-sm text-gray-400">
+    <p><strong class="text-amber-300">Adapter pending.</strong> Axis VA collections need live Axis keys in Partner Registry + commercial approval. Test/UAT rows may exist — do not treat as full live volume until keys are green on Platform Status.</p>
+</div>
 <div class="mb-4">
     <a href="admin_axis.php" class="text-sm text-gray-400 hover:text-white">← Axis UAT</a>
 </div>

@@ -212,7 +212,7 @@ function fetchRazorpayXPayout(string $payoutId): ?array
 
 function cashfreeApiBase(): string
 {
-    return getSetting('cashfree_environment', 'production') === 'sandbox'
+    return getPartnerEnvironment('cashfree', 'production') === 'sandbox'
         ? 'https://sandbox.cashfree.com/pg'
         : 'https://api.cashfree.com/pg';
 }
@@ -222,8 +222,8 @@ function createCashfreeOrder(string $orderId, float $amount, string $customerPho
     if (!isGatewayConfigured('cashfree')) {
         return null;
     }
-    $appId = function_exists('cashfreeAppId') ? cashfreeAppId() : getSetting('cashfree_app_id', '');
-    $secret = function_exists('cashfreeSecretKey') ? cashfreeSecretKey() : getSetting('cashfree_secret_key', '');
+    $appId = cashfreeAppId();
+    $secret = cashfreeSecretKey();
     if (!$appId || !$secret) return null;
 
     $phone = preg_replace('/\D/', '', $customerPhone);
@@ -265,8 +265,8 @@ function createCashfreeOrder(string $orderId, float $amount, string $customerPho
 
 function fetchCashfreeOrder(string $orderId): ?array
 {
-    $appId = function_exists('cashfreeAppId') ? cashfreeAppId() : getSetting('cashfree_app_id', '');
-    $secret = function_exists('cashfreeSecretKey') ? cashfreeSecretKey() : getSetting('cashfree_secret_key', '');
+    $appId = cashfreeAppId();
+    $secret = cashfreeSecretKey();
     if (!$appId || !$secret) return null;
 
     $ch = curl_init(cashfreeApiBase() . '/orders/' . rawurlencode($orderId));
@@ -286,8 +286,8 @@ function fetchCashfreeOrder(string $orderId): ?array
 
 function fetchCashfreeOrderPayments(string $orderId): array
 {
-    $appId = function_exists('cashfreeAppId') ? cashfreeAppId() : getSetting('cashfree_app_id', '');
-    $secret = function_exists('cashfreeSecretKey') ? cashfreeSecretKey() : getSetting('cashfree_secret_key', '');
+    $appId = cashfreeAppId();
+    $secret = cashfreeSecretKey();
     if (!$appId || !$secret || $orderId === '') {
         return [];
     }
@@ -638,13 +638,13 @@ function testRazorpayConnection(): array
 /** @return array{ok:bool,message:string} */
 function testCashfreeConnection(): array
 {
-    $appId = function_exists('cashfreeAppId') ? cashfreeAppId() : getSetting('cashfree_app_id', '');
-    $secret = function_exists('cashfreeSecretKey') ? cashfreeSecretKey() : getSetting('cashfree_secret_key', '');
+    $appId = cashfreeAppId();
+    $secret = cashfreeSecretKey();
     if (!$appId || !$secret) {
         return ['ok' => false, 'message' => 'Cashfree App ID and Secret are required.'];
     }
 
-    $env = getSetting('cashfree_environment', 'production');
+    $env = getPartnerEnvironment('cashfree', 'production');
     $ch = curl_init(cashfreeApiBase() . '/orders?order_limit=1');
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
@@ -683,7 +683,7 @@ function testPayuConnection(): array
         return ['ok' => false, 'message' => 'PayU Merchant Key and Salt are required.'];
     }
 
-    $env = getSetting('payu_environment', 'test');
+    $env = getPartnerEnvironment('payu', 'test');
     return [
         'ok' => true,
         'message' => 'PayU credentials saved (' . $env . ' mode). Run a ₹1 test payment to confirm hash and return URL.',
@@ -693,14 +693,14 @@ function testPayuConnection(): array
 /** @return array{ok:bool,message:string} */
 function testDecentroConnection(): array
 {
-    $clientId = getSetting('decentro_client_id', '');
-    $clientSecret = getSetting('decentro_client_secret', '');
+    $clientId = decentroClientId();
+    $clientSecret = decentroClientSecret();
     if (!$clientId || !$clientSecret) {
-        return ['ok' => false, 'message' => 'Decentro Client ID and Secret are required.'];
+        return ['ok' => false, 'message' => 'Decentro Client ID and Secret are required. Paste in Partner Registry → Keys.'];
     }
 
     $base = decentroV3ApiBase();
-    if (getSetting('decentro_environment', 'sandbox') !== 'sandbox') {
+    if (getPartnerEnvironment('decentro', 'sandbox') !== 'sandbox') {
         return ['ok' => false, 'message' => 'Production Dynamic QR test is disabled to prevent creating a live payment request. Test the same credentials in sandbox first.'];
     }
     $referenceId = 'UWTEST' . date('YmdHis') . random_int(1000, 9999);
@@ -719,12 +719,12 @@ function testDecentroConnection(): array
 /** @return array{ok:bool,message:string} */
 function testPhonePeConnection(): array
 {
-    $mid = trim(getSetting('phonepe_merchant_id', ''));
-    $salt = trim(getSetting('phonepe_salt_key', ''));
+    $mid = trim(getPartnerSetting('phonepe', 'phonepe_merchant_id', ''));
+    $salt = trim(getPartnerSetting('phonepe', 'phonepe_salt_key', ''));
     if ($mid === '' || $salt === '') {
-        return ['ok' => false, 'message' => 'PhonePe Merchant ID and Salt Key are required.'];
+        return ['ok' => false, 'message' => 'PhonePe Merchant ID and Salt Key are required. Paste in Partner Registry → Keys.'];
     }
-    return ['ok' => true, 'message' => 'PhonePe keys saved. PhonePe checkout activates in a later release — live checkout currently routes through Razorpay, Cashfree, PayU or direct UPI.'];
+    return ['ok' => true, 'message' => 'PhonePe keys saved. PhonePe checkout activates in a later release — live checkout currently routes through platform checkout or direct UPI.'];
 }
 
 /** @return array{ok:bool,message:string} */
@@ -746,7 +746,7 @@ function testGatewayConnection(string $gateway): array
 
 function payuBaseUrl(): string
 {
-    return getSetting('payu_environment', 'test') === 'test'
+    return getPartnerEnvironment('payu', 'test') === 'test'
         ? 'https://test.payu.in'
         : 'https://secure.payu.in';
 }
@@ -921,8 +921,8 @@ function createCashfreeOrderWithSplit(string $orderId, float $amount, array $mer
     if (!isGatewayConfigured('cashfree')) {
         return null;
     }
-    $appId = function_exists('cashfreeAppId') ? cashfreeAppId() : getSetting('cashfree_app_id', '');
-    $secret = function_exists('cashfreeSecretKey') ? cashfreeSecretKey() : getSetting('cashfree_secret_key', '');
+    $appId = cashfreeAppId();
+    $secret = cashfreeSecretKey();
     if (!$appId || !$secret) return null;
 
     $split = calculateSplitBreakdown($amount, $merchant);
@@ -972,7 +972,7 @@ function createCashfreeOrderWithSplit(string $orderId, float $amount, array $mer
  */
 function pineLabsApiBase(): string
 {
-    return getSetting('pinelabs_environment', 'sandbox') === 'production'
+    return getPartnerEnvironment('pinelabs', 'sandbox') === 'production'
         ? 'https://pluralpayments.com/api'
         : 'https://pluraluat.pinelabs.com/api';
 }
@@ -983,7 +983,7 @@ function testPineLabsConnection(): array
     if (!isGatewayConfigured('pinelabs')) {
         return ['ok' => false, 'message' => 'Pine Labs keys pending — paste merchant id, access code, and secure key when received.'];
     }
-    $env = getSetting('pinelabs_environment', 'sandbox');
+    $env = getPartnerEnvironment('pinelabs', 'sandbox');
     return [
         'ok' => true,
         'message' => 'Pine Labs credentials saved (' . $env . '). Checkout routing stays on roadmap until Plural adapter is activated.',
@@ -1015,7 +1015,7 @@ function pineLabsSandboxCreateOrder(array $link, array $merchant, float $amount)
     $orderId = 'PL_' . preg_replace('/[^A-Za-z0-9]/', '', (string)($link['link_id'] ?? 'ORD')) . substr((string)time(), -6);
     return [
         'ok' => true,
-        'sandbox' => getSetting('pinelabs_environment', 'sandbox') !== 'production',
+        'sandbox' => getPartnerEnvironment('pinelabs', 'sandbox') !== 'production',
         'message' => 'Pine Labs Plural scaffold order prepared. Live redirect activates when checkout routing is enabled.',
         'order_id' => $orderId,
         'redirect_url' => null,
@@ -1026,15 +1026,15 @@ function pineLabsSandboxCreateOrder(array $link, array $merchant, float $amount)
 
 function decentroV3ApiBase(): string
 {
-    return getSetting('decentro_environment', 'sandbox') === 'production'
+    return getPartnerEnvironment('decentro', 'sandbox') === 'production'
         ? 'https://api.decentro.tech'
         : 'https://staging.api.decentro.tech';
 }
 
 function decentroV3Headers(): array
 {
-    $clientId = getSetting('decentro_client_id', '');
-    $clientSecret = getSetting('decentro_client_secret', '');
+    $clientId = decentroClientId();
+    $clientSecret = decentroClientSecret();
     $headers = [
         'Content-Type: application/json',
         'Accept: application/json',
@@ -1066,7 +1066,7 @@ function decentroV3Request(string $endpoint, array $payload): ?array
     ];
     // Sandbox only: local Windows PHP often lacks a CA bundle, so staging calls fail
     // with SSL verify errors. Production keeps verification enabled by default.
-    if (getSetting('decentro_environment', 'sandbox') === 'sandbox') {
+    if (getPartnerEnvironment('decentro', 'sandbox') === 'sandbox') {
         $opts[CURLOPT_SSL_VERIFYPEER] = false;
         $opts[CURLOPT_SSL_VERIFYHOST] = 0;
     }
@@ -1132,7 +1132,7 @@ function fetchDecentroTransactionStatus(string $decentroTxnId): ?array
         CURLOPT_USERAGENT => APP_NAME . '/1.0',
         CURLOPT_TIMEOUT => 15,
     ];
-    if (getSetting('decentro_environment', 'sandbox') === 'sandbox') {
+    if (getPartnerEnvironment('decentro', 'sandbox') === 'sandbox') {
         $opts[CURLOPT_SSL_VERIFYPEER] = false;
         $opts[CURLOPT_SSL_VERIFYHOST] = 0;
     }

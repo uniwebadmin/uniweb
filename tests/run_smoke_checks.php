@@ -640,7 +640,7 @@ $assert(str_contains((string)file_get_contents($root . '/admin_gateway_registry.
 $assert(str_contains((string)file_get_contents($root . '/api_settings.php'), 'not</em> Razorpay, Cashfree, PayU or Decentro partner keys') || str_contains((string)file_get_contents($root . '/api_settings.php'), 'not Razorpay, Cashfree, PayU or Decentro partner keys'), 'b3_merchant_api_not_partner_keys');
 $assert(str_contains((string)file_get_contents($root . '/includes/integration_matrix.php'), 'Partner Registry → Partner Detail → Keys'), 'b3_matrix_points_to_registry_not_gateway_settings');
 $assert(!str_contains((string)file_get_contents($root . '/includes/integration_matrix.php'), 'owner paste in gateway_settings.php'), 'b3_matrix_no_wrong_paste_path');
-$assert(str_contains((string)file_get_contents($root . '/payment_links.php'), 'Collect on your site — like a Razorpay payment link'), 'b4_payment_links_collect_banner');
+$assert(str_contains((string)file_get_contents($root . '/payment_links.php'), 'Collect on your site — share a payment link'), 'b4_payment_links_collect_banner');
 $assert(str_contains((string)file_get_contents($root . '/payment_links.php'), 'Put this on your website'), 'b4_payment_links_embed_modal');
 $assert(str_contains((string)file_get_contents($root . '/qr_code.php'), 'Not a full white-label UniWeb app'), 'b4_qr_no_full_wl');
 $assert(str_contains((string)file_get_contents($root . '/merchant_website.php'), 'Put a Pay button on your website'), 'b4_website_pay_button_copy');
@@ -656,7 +656,7 @@ $assert(!str_contains($pm1c, 'Partner Registry') && !str_contains($pm1c, 'Needs 
 $assert(!str_contains($pm1c, '>PayU<') && !str_contains($pm1c, '>Razorpay<') && !str_contains($pm1c, '>Cashfree<'), 'p1c_methods_no_partner_brand_badges');
 $assert(str_contains($pm1c, 'Waiting on Admin') || str_contains($pm1c, 'waiting on Admin'), 'p1c_methods_admin_wait_wording');
 $assert(str_contains($pm1c, 'Admin connects the payment network once'), 'p1c_methods_how_it_works_merchant_facing');
-$assert(str_contains((string)file_get_contents($root . '/includes/collection.php'), 'Waiting for partner keys'), 'b5_checkout_soft_waiting_keys');
+$assert(str_contains((string)file_get_contents($root . '/includes/collection.php'), 'Waiting for activation'), 'b5_checkout_soft_waiting_keys');
 $assert(!str_contains((string)file_get_contents($root . '/includes/collection.php'), 'Provider keys not configured'), 'b5_checkout_no_harsh_keys_copy');
 $assert(str_contains((string)file_get_contents($root . '/collection_settings.php'), 'UPI → Card → Net Banking'), 'b5_collection_settings_order_hint');
 $assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'Go-live order: UPI → Card → Net Banking'), 'b5_admin_partner_methods_upi_first');
@@ -796,6 +796,24 @@ $assert(str_contains((string)file_get_contents($root . '/includes/page_ux.php'),
 $assert(str_contains((string)file_get_contents($root . '/footer.php'), 'compare.php') && str_contains((string)file_get_contents($root . '/sitemap.xml'), 'compare.php'), 'p9_compare_linked_footer_sitemap');
 $assert(!str_contains($cmpP9, 'nbfc.php') || str_contains($cmpP9, 'Not a UniWeb product'), 'p9_nbfc_not_sold');
 
+$assert(str_contains($cmpP9, 'Aggregator model') && str_contains($cmpP9, 'Methods only') && str_contains($cmpP9, 'Typical market PG'), 'p4_market_compare_matrix_on_compare_page');
+$dashP4 = (string)file_get_contents($root . '/admin_dashboard.php');
+$platP4 = (string)file_get_contents($root . '/admin_platform_status.php');
+$assert(str_contains($dashP4, 'UniWeb vs market') && str_contains($dashP4, 'admin_forward_queue.php') && str_contains($dashP4, 'Partner Registry →'), 'p4_admin_dashboard_market_bar_and_forward');
+$assert(str_contains($platP4, 'Partner Registry (keys)') && str_contains($platP4, 'Platform API guide (Advanced)') && !str_contains($platP4, 'Website & API Keys'), 'p4_platform_status_keys_not_website_page');
+$assert(str_contains((string)file_get_contents($root . '/lang/en.php'), 'One UniWeb account') && str_contains((string)file_get_contents($root . '/solutions.php'), 'no separate signup at each payment company'), 'p4_signup_and_solutions_one_portal');
+$assert(str_contains((string)file_get_contents($root . '/chargebacks.php'), 'disputes.php') && str_contains((string)file_get_contents($root . '/chargebacks.php'), 'main lane'), 'p4_chargebacks_points_to_disputes');
+$healthP4 = (string)file_get_contents($root . '/includes/platform_health.php');
+$assert(str_contains($healthP4, "'test_url' => 'admin_gateway_registry.php'"), 'p4_gateway_health_opens_registry');
+
+$assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'CT[A-F0-9]{8,}') && str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'merchant_customer_tickets.php?q='), 'p5_notif_ct_complaint_deep_link');
+$assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'adminDisputesReturnUrl') && str_contains((string)file_get_contents($root . '/admin_disputes.php'), '_merchant_id'), 'p5_admin_disputes_preserves_search_on_post');
+$assert(str_contains((string)file_get_contents($root . '/global_search.php'), "'pg keys' => 'admin_gateway_registry.php'") && str_contains((string)file_get_contents($root . '/global_search.php'), "'api keys' => \$isMerchant ? 'api_settings.php' : 'admin_gateway_registry.php'"), 'p5_search_pg_keys_registry_not_website');
+$assert(str_contains((string)file_get_contents($root . '/admin_website.php'), 'Platform API guide') && !str_contains((string)file_get_contents($root . '/admin_website.php'), '$pageTitle = \'Website & API Keys\''), 'p5_admin_website_renamed_not_pg_keys');
+$assert(str_contains((string)file_get_contents($root . '/chargebacks.php'), "redirect('disputes.php')") && str_contains((string)file_get_contents($root . '/disputes.php'), 'legacy list'), 'p5_chargebacks_silo_merged_to_disputes');
+$assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Git') && str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'SFTP/FTP'), 'p5_deploy_git_pull_not_ftp_only');
+$assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'not sent to the bank'), 'p5_forward_staged_honest_not_at_partner');
+
 // P9-04…08 honesty (market peers) — no fake orchestrator / coverage / licence / brand blur
 $regP9 = (string)file_get_contents($root . '/admin_gateway_registry.php');
 $assert(str_contains($regP9, 'Partner Registry') && !str_contains($regP9, 'Gateway Orchestrator'), 'p9_04_no_orchestrator_product_title');
@@ -804,7 +822,7 @@ $payMsg = (string)file_get_contents($root . '/includes/payout.php');
 $assert(str_contains($payMsg, 'Easy Split') && str_contains($payMsg, 'Collect first'), 'p9_05_payout_honesty_message');
 $assert(str_contains((string)file_get_contents($root . '/merchant_payout.php'), 'Easy Split') && str_contains((string)file_get_contents($root . '/admin_payout.php'), 'Easy Split'), 'p9_05_payout_ui_banners');
 $assert(str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'isGatewayConfigured') && str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'isPartnerMethodEnabled'), 'p9_06_methods_hard_gated');
-$assert(str_contains((string)file_get_contents($root . '/solutions.php'), 'do not fake full PayU') || str_contains((string)file_get_contents($root . '/solutions.php'), 'only after Partner Registry'), 'p9_06_public_coverage_honest');
+$assert(str_contains((string)file_get_contents($root . '/solutions.php'), 'do not fake full PayU') || str_contains((string)file_get_contents($root . '/solutions.php'), 'Partner Registry') && str_contains((string)file_get_contents($root . '/solutions.php'), 'no partner brand buttons'), 'p9_06_public_coverage_honest');
 $assert(!str_contains((string)file_get_contents($root . '/includes/demo_tour.php'), 'UPI · Cards · Netbanking · Wallets'), 'p9_06_demo_no_fake_catalogue');
 $gwDetailP9 = (string)file_get_contents($root . '/admin_gateway_detail.php');
 $assert(str_contains($gwDetailP9, 'Test / Sandbox') && str_contains($gwDetailP9, 'Live / Production') && str_contains($gwDetailP9, 'Decentro is a'), 'p9_07_sandbox_vs_live_labels');
@@ -1139,7 +1157,14 @@ $assert(str_contains((string)file_get_contents($root . '/includes/settlement_eng
 // P1-01: keys only in partner_credentials; Platform Settings cannot save live PG secrets
 $pCtrl = (string)file_get_contents($root . '/includes/partner_control.php');
 $assert(str_contains($pCtrl, 'function isPartnerCredentialSettingKey') && str_contains($pCtrl, 'function uniwebPartnerCredentialSettingMap'), 'p1_partner_credential_key_blocklist');
-$assert(str_contains($pCtrl, 'Does not read plaintext gateway_settings'), 'p1_getPartnerSetting_no_gateway_settings_fallback');
+$assert(str_contains($pCtrl, 'function resolvePartnerCredentialValue'), 'p2_keys_plane_legacy_alias_resolver');
+$assert(str_contains($pCtrl, 'pinelabs_access_code') && str_contains((string)file_get_contents($root . '/includes/partner_engine.php'), 'pinelabs_access_code'), 'p2_pinelabs_field_names_aligned');
+$assert(str_contains((string)file_get_contents($root . '/includes/payout.php'), "getPartnerSetting('razorpayx'"), 'p2_payout_reads_registry_not_gateway_settings');
+$assert(str_contains((string)file_get_contents($root . '/kyc.php'), 'merchantForwardQueueStatusLabel'), 'p3_kyc_forward_honest_staged');
+$assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'name="q"'), 'p3_admin_disputes_search_q');
+$assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'merchant_customer_tickets.php'), 'p3_complaint_notify_deep_link');
+$assert(str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'function merchantPaymentMethodLabel'), 'p3_merchant_method_labels_generic');
+$assert(!str_contains((string)file_get_contents($root . '/checkout.php'), 'Razorpay checkout is temporarily'), 'p3_checkout_errors_no_partner_brand');
 $bannerLib = (string)file_get_contents($root . '/includes/checkout_mode_banner.php');
 $assert(str_contains($bannerLib, 'isPartnerCredentialSettingKey') && str_contains($bannerLib, 'never gateway_settings'), 'p1_platform_save_skips_pg_secrets');
 $gwP1 = (string)file_get_contents($root . '/gateway_settings.php');
@@ -1180,7 +1205,11 @@ $assert(str_contains($collP2, 'function buildCheckoutPaymentMethods'), 'p2_check
 $assert(str_contains($collP2, "if (\$pa === '')"), 'p2_upi_intent_empty_vpa_returns_blank');
 $provP2 = (string)file_get_contents($root . '/includes/provision.php');
 $assert(str_contains($provP2, "if (!in_array('upi_p2m', \$methods, true))"), 'p2_pack_always_enables_upi');
-$assert(str_contains($checkoutSrc, 'Card / Netbanking need partner keys'), 'p2_checkout_soft_keys_banner');
+$assert(str_contains($checkoutSrc, 'Card / Net Banking will appear when UniWeb activates'), 'p2_checkout_soft_keys_banner');
+$assert(!str_contains($checkoutSrc, 'Pay with Razorpay') && !str_contains($checkoutSrc, 'Powered by PayU'), 'motive_checkout_no_partner_brand_cta');
+$assert(!str_contains((string)file_get_contents($root . '/includes/checkout_footer.php'), 'via Razorpay'), 'motive_checkout_footer_no_partner_list');
+$assert(str_contains((string)file_get_contents($root . '/includes/provision.php'), "'label' => 'UPI'") && !str_contains((string)file_get_contents($root . '/includes/provision.php'), 'UPI via PayU'), 'motive_provision_method_labels_generic');
+$assert(str_contains((string)file_get_contents($root . '/merchant_website.php'), 'no separate signup with payment networks'), 'motive_merchant_website_no_direct_pg_nudge');
 $assert(str_contains($checkoutSrc, 'This method is enabled, but partner keys are not set yet'), 'p2_checkout_empty_method_state');
 $assert(str_contains($qrImg, 'UPI ID missing'), 'p2_qr_image_upi_missing_png');
 $assert(str_contains($qrImg, 'function qrFlushAllBuffers'), 'p2_qr_image_flushes_output_buffers');

@@ -49,7 +49,7 @@ $status = merchantWebsiteStatus($merchant);
 <div class="max-w-3xl space-y-6">
     <div class="glass rounded-xl p-6 border border-sky-500/20">
         <h2 class="font-semibold text-sky-300 mb-1">Website & App</h2>
-        <p class="text-xs text-gray-500 mb-4">Add your business website and mobile app links — required for PayU, Razorpay, and Cashfree live merchant onboarding (like their dashboard Website & App tab).</p>
+        <p class="text-xs text-gray-500 mb-4">Add your business website and mobile app links — required for live activation. UniWeb submits this on your behalf; you do not register with payment networks separately.</p>
         <div class="flex flex-wrap gap-2 text-xs text-gray-500">
             <span>Status:</span> <?= merchantWebsiteStatusBadge($merchant) ?>
             <span class="text-gray-600">· Used in gateway KYC submissions</span>
@@ -203,8 +203,8 @@ $status = merchantWebsiteStatus($merchant);
     <div class="glass rounded-xl p-6 border border-brand-500/20">
         <h3 class="font-semibold text-brand-400 mb-2">Why this is needed</h3>
         <ul class="text-xs text-gray-500 space-y-2 list-disc list-inside">
-            <li>PayU / Razorpay / Cashfree ask for your <strong class="text-gray-400">website URL</strong> during live activation</li>
-            <li>UniWeb shares this with admin when submitting your gateway application</li>
+            <li>Payment networks ask for your <strong class="text-gray-400">website URL</strong> during live activation</li>
+            <li>UniWeb shares this with admin when submitting your application — you stay on one portal</li>
             <li>Status <strong class="text-sky-300">Verification in Process</strong> until admin reviews (usually 1–2 business days)</li>
             <li>Payment links work without a website — this is for <strong class="text-gray-400">business verification</strong> only</li>
         </ul>
@@ -212,7 +212,7 @@ $status = merchantWebsiteStatus($merchant);
 
     <?php if ($status === 'verified'): ?>
     <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 text-sm text-emerald-300 mb-6">
-        ✓ Your website is verified. You can quote this URL in PayU/Razorpay/Cashfree onboarding emails.
+        ✓ Your website is verified. UniWeb will use this URL for live activation — no separate signup with payment networks needed.
     </div>
     <?php elseif ($status === 'pending'): ?>
     <div class="bg-sky-500/10 border border-sky-500/30 rounded-xl p-4 text-sm text-sky-300 mb-6">
@@ -222,7 +222,7 @@ $status = merchantWebsiteStatus($merchant);
 
     <div class="glass rounded-xl p-6 border border-violet-500/20">
         <h3 class="font-semibold text-violet-400 mb-2">Put a Pay button on your website</h3>
-        <p class="text-xs text-gray-500 mb-4">Same pattern as Razorpay: copy the checkout URL or HTML below → paste on your site. Customers pay on UniWeb checkout; you keep your domain.</p>
+        <p class="text-xs text-gray-500 mb-4">Copy the checkout URL or HTML below → paste on your site. Customers pay on UniWeb checkout; you keep your domain.</p>
         <?php
         $firstLink = getDB()->prepare("SELECT link_id, amount, status FROM payment_links WHERE merchant_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1");
         $firstLink->execute([$merchant['id']]);

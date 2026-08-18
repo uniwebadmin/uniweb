@@ -146,7 +146,7 @@ require_once __DIR__ . '/header.php';
                 <input type="checkbox" name="hide_powered_by" value="1" <?= !empty($cc['hide_powered_by']) ? 'checked' : '' ?> class="w-5 h-5 rounded mt-0.5">
                 <div>
                     <span class="text-sm text-white font-semibold">Hide “Secured by UniWeb”</span>
-                    <p class="text-xs text-gray-500 mt-1">Default is OFF. Turn this on only if a written contract requires it. GST and CIN stay on the checkout footer. Partner names (PayU, Razorpay) stay.</p>
+                    <p class="text-xs text-gray-500 mt-1">Default is OFF. Turn this on only if a written contract requires it. GST and CIN stay on the checkout footer. Customers see payment methods only — no partner brand names.</p>
                 </div>
             </label>
         </div>

@@ -93,7 +93,7 @@ require_once __DIR__ . '/header.php';
             <div>
                 <label class="text-sm text-gray-400">Settlement Rail</label>
                 <p class="input-field mt-1 opacity-90"><?= e($rails[$autoRail]['label'] ?? $autoRail) ?></p>
-                <p class="text-[11px] text-gray-600 mt-1">Auto-selected from your collection mode (<?= e(collectionModeLabel($collectionMode)) ?>). Other rails are managed by bank / payment partner.</p>
+                <p class="text-[11px] text-gray-600 mt-1">Auto-selected from your collection mode (<?= e(collectionModeLabel($collectionMode, true)) ?>). Other rails are managed by UniWeb.</p>
             </div>
             <?php endif; ?>
             <div>

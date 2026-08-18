@@ -193,7 +193,7 @@ function getPlatformServiceHealth(): array
             'ok' => isGatewayConfigured('razorpay'),
             'status' => isGatewayConfigured('razorpay') ? ($activePg === 'razorpay' ? 'New-merchant template' : 'Configured') : 'Not configured',
             'detail' => isGatewayConfigured('razorpay') ? gatewayStatusLabel('razorpay') : 'Add keys in Partner Registry → Keys',
-            'test_url' => 'gateway_settings.php?test_gateway=razorpay&csrf=' . csrfToken(),
+            'test_url' => 'admin_gateway_registry.php',
         ],
         [
             'id' => 'cashfree',
@@ -201,7 +201,7 @@ function getPlatformServiceHealth(): array
             'ok' => isGatewayConfigured('cashfree'),
             'status' => isGatewayConfigured('cashfree') ? ($activePg === 'cashfree' ? 'New-merchant template' : 'Configured') : 'Not configured',
             'detail' => isGatewayConfigured('cashfree') ? gatewayStatusLabel('cashfree') : 'Add keys in Partner Registry → Keys',
-            'test_url' => 'gateway_settings.php?test_gateway=cashfree&csrf=' . csrfToken(),
+            'test_url' => 'admin_gateway_registry.php',
         ],
         [
             'id' => 'payu',
@@ -209,7 +209,7 @@ function getPlatformServiceHealth(): array
             'ok' => isGatewayConfigured('payu'),
             'status' => isGatewayConfigured('payu') ? ($activePg === 'payu' ? 'New-merchant template' : 'Configured') : 'Not configured',
             'detail' => isGatewayConfigured('payu') ? gatewayStatusLabel('payu') : 'Add keys in Partner Registry → Keys',
-            'test_url' => 'gateway_settings.php?test_gateway=payu&csrf=' . csrfToken(),
+            'test_url' => 'admin_gateway_registry.php',
         ],
         [
             'id' => 'axis',
@@ -225,7 +225,7 @@ function getPlatformServiceHealth(): array
             'ok' => isGatewayConfigured('decentro'),
             'status' => isGatewayConfigured('decentro') ? 'Configured' : 'Not configured',
             'detail' => isGatewayConfigured('decentro') ? 'PAN/GST/Bank verification' : 'Client ID / Secret missing',
-            'test_url' => 'gateway_settings.php?test_gateway=decentro&csrf=' . csrfToken(),
+            'test_url' => 'admin_gateway_registry.php',
         ],
         smtpHealthCheck(),
         whatsappHealthCheck(),

@@ -8,6 +8,28 @@ declare(strict_types=1);
  * Uses merchant_payment_methods table for granular control.
  */
 
+function merchantPaymentMethodLabel(string $methodKey, string $fallback = ''): string
+{
+    if (function_exists('getPaymentMethodCatalog')) {
+        $cat = getPaymentMethodCatalog()[$methodKey] ?? null;
+        if ($cat && !empty($cat['label'])) {
+            return (string)$cat['label'];
+        }
+    }
+    return match ($methodKey) {
+        'upi_p2m' => 'UPI / QR',
+        'qr_code' => 'QR Code',
+        'debit_card' => 'Debit Card',
+        'credit_card' => 'Credit Card',
+        'net_banking', 'netbanking' => 'Net Banking',
+        'wallet' => 'Wallets',
+        'emi' => 'EMI',
+        'payout' => 'Payouts',
+        'recurring' => 'Recurring',
+        default => $fallback !== '' ? $fallback : ucfirst(str_replace('_', ' ', $methodKey)),
+    };
+}
+
 function ensurePaymentMethodsTable(): void
 {
     static $done = false;

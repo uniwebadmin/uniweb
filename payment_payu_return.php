@@ -23,7 +23,7 @@ if (!$link) {
     echo '<div class="min-h-screen flex items-center justify-center px-4 py-12 bg-dark-950">'
         . '<div class="glass rounded-2xl p-8 text-center max-w-md w-full border border-red-500/30">'
         . '<h2 class="text-xl font-bold mb-2">Payment link not found</h2>'
-        . '<p class="text-gray-400 text-sm mb-6">We could not match this PayU return to a valid payment link. If money was debited it will auto-reconcile from the signed webhook; contact support with your bank reference if needed.</p>'
+        . '<p class="text-gray-400 text-sm mb-6">We could not match this return to a valid payment link. If money was debited it will auto-reconcile from the signed webhook; contact support with your bank reference if needed.</p>'
         . '<a href="index.php" class="inline-block btn-primary px-6 py-2 text-sm">Go to UniWeb</a>'
         . ' <a href="contact.php" class="inline-block ml-2 text-sm text-gray-400 hover:text-white">Contact support</a>'
         . '</div></div>';
@@ -40,7 +40,7 @@ if ($success) {
     $dup->execute([$mihpayid]);
     if (!$dup->fetch()) {
         createTransactionFromPayment($link, 'payu', 'success', $mihpayid, merchantAccountMode($link) === 'test');
-        finalizePaymentLink((int)$link['id'], (int)$link['merchant_id'], (float)$link['amount'], formatMoney((float)$link['amount']) . ' received via PayU Split.');
+        finalizePaymentLink((int)$link['id'], (int)$link['merchant_id'], (float)$link['amount'], formatMoney((float)$link['amount']) . ' received.');
     }
     $pageTitle = 'Payment Successful';
 } else {
@@ -58,8 +58,8 @@ renderCheckoutModeBanner($link);
         <h2 class="text-xl font-bold mt-6 mb-2"><?= $success ? 'Payment Successful!' : 'Payment Failed' ?></h2>
         <?php if ($success): ?>
         <p class="text-3xl font-bold text-sky-400 my-3"><?= formatMoney((float)$link['amount']) ?></p>
-        <p class="text-gray-400 text-sm">PayU reference: <?= e($post['mihpayid'] ?? '') ?></p>
-        <p class="text-xs text-gray-500 mt-4">Split settlement initiated — merchant share sent directly.</p>
+        <p class="text-gray-400 text-sm">Reference: <?= e($post['mihpayid'] ?? '') ?></p>
+        <p class="text-xs text-gray-500 mt-4">Settlement initiated — merchant share sent directly.</p>
         <?php else: ?>
         <p class="text-gray-400 text-sm mt-4">Payment was not completed. Please try again.</p>
         <a href="checkout.php?link=<?= e($linkId) ?>" class="inline-block mt-6 btn-primary px-6 py-2">Retry Payment</a>

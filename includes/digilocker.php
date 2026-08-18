@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+if (!function_exists('decentroClientId') && is_file(__DIR__ . '/partner_control.php')) {
+    require_once __DIR__ . '/partner_control.php';
+}
+
 /**
  * DigiLocker / Aadhaar Fetch Module
  * 
@@ -63,8 +67,8 @@ function ensureDigilockerTable(): void
 
 function getDigilockerProvider(): string
 {
-    $decentroKey = trim(getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', ''));
-    $decentroSecret = trim(getSetting('decentro_client_secret', '') ?: getSetting('decentro_api_secret', ''));
+    $decentroKey = trim(decentroClientId());
+    $decentroSecret = trim(decentroClientSecret());
     if ($decentroKey !== '' && $decentroSecret !== '') {
         return 'decentro';
     }
@@ -125,7 +129,7 @@ function initiateDigilockerAuth(int $merchantId, string $callbackUrl): array
 
 function decentroDigilockerAuthUrl(string $sessionId, string $callbackUrl): ?string
 {
-    $clientId = trim(getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', ''));
+    $clientId = trim(decentroClientId());
     $base = decentroBaseUrl();
     $params = http_build_query([
         'client_id' => $clientId,
@@ -187,8 +191,8 @@ function digilockerCallback(string $sessionId, string $authCode, string $callbac
 
 function decentroDigilockerExchangeToken(string $authCode, string $callbackUrl): ?array
 {
-    $clientId = trim(getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', ''));
-    $clientSecret = trim(getSetting('decentro_client_secret', '') ?: getSetting('decentro_api_secret', ''));
+    $clientId = trim(decentroClientId());
+    $clientSecret = trim(decentroClientSecret());
     $base = decentroBaseUrl();
 
     $ch = curl_init($base . '/kyc/digilocker/access/token');
@@ -308,8 +312,8 @@ function fetchDigilockerDocuments(int $sessionId): array
 function decentroDigilockerGetDocs(string $accessToken): ?array
 {
     $base = decentroBaseUrl();
-    $clientId = trim(getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', ''));
-    $clientSecret = trim(getSetting('decentro_client_secret', '') ?: getSetting('decentro_api_secret', ''));
+    $clientId = trim(decentroClientId());
+    $clientSecret = trim(decentroClientSecret());
 
     $ch = curl_init($base . '/kyc/digilocker/issued/documents');
     curl_setopt_array($ch, [

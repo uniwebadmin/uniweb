@@ -74,9 +74,26 @@ $readiness = adminDashWidget('readiness', static fn() => getPlatformReadiness(),
 $opsAllClear = ($unresolvedErrors === 0 && $watchdogIssues === 0 && $pendingKyc === 0 && ($lastAutoAudit && !empty($lastAutoAudit['ok'])));
 $todayVol = capStatAmount((float)($todayTxn['t'] ?? 0));
 $monthVol = capStatAmount((float)($monthTxn['t'] ?? 0));
+$forwardStaged = 0;
+$forwardQueued = 0;
+if ($db) {
+    require_once __DIR__ . '/includes/partner_forward_queue.php';
+    $fwdStats = adminDashWidget('forward_stats', static function () {
+        return function_exists('getForwardQueueStats') ? getForwardQueueStats() : ['by_status' => []];
+    }, ['by_status' => []]);
+    $forwardStaged = (int)($fwdStats['by_status']['staged'] ?? 0);
+    $forwardQueued = (int)($fwdStats['by_status']['queued'] ?? 0) + (int)($fwdStats['by_status']['processing'] ?? 0);
+}
+
 $pageTitle = 'Admin Dashboard';
 require_once __DIR__ . '/header.php';
 ?>
+
+<div class="glass rounded-xl p-5 mb-6 border border-violet-500/25 text-sm text-gray-300">
+    <p class="font-semibold text-violet-300 mb-1">UniWeb vs market — our bar</p>
+    <p class="text-xs text-gray-500">Merchant signs up <strong class="text-gray-300">once</strong> · You paste keys in <a href="admin_gateway_registry.php" class="text-sky-400 hover:underline">Partner Registry</a> · Checkout shows <strong class="text-gray-300">methods only</strong> (no Razorpay/PayU buttons) · Daily work = KYC + Registry + Support + Disputes — rest is under Advanced in the sidebar.</p>
+    <p class="text-xs text-gray-600 mt-2"><a href="compare.php" target="_blank" rel="noopener" class="text-sky-400 hover:underline">Full market compare →</a></p>
+</div>
 
 <div class="glass rounded-xl p-5 mb-6 border border-emerald-500/25 text-sm text-gray-300">
     <p class="font-semibold text-emerald-300 mb-1">Live corridor — soft launch checklist (before advertise)</p>
@@ -90,6 +107,10 @@ require_once __DIR__ . '/header.php';
 </div>
 
 <div class="flex flex-wrap gap-2 sm:gap-3 mb-4">
+    <a href="admin_support.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-sky-300 hover:text-sky-200">Support</a>
+    <a href="admin_customer_tickets.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-amber-300 hover:text-amber-200">Complaints</a>
+    <a href="admin_forward_queue.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm <?= ($forwardStaged + $forwardQueued) > 0 ? 'text-amber-300 border border-amber-500/30' : 'text-gray-400' ?>">KYC Forward<?= ($forwardStaged + $forwardQueued) > 0 ? ' (' . ($forwardStaged + $forwardQueued) . ')' : '' ?></a>
+    <a href="admin_disputes.php?status=open" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-red-300 hover:text-red-200">Disputes<?= $openDisputes > 0 ? " ($openDisputes)" : '' ?></a>
     <a href="admin_gateway_registry.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-violet-400 hover:text-violet-300">Partner Registry</a>
     <a href="admin_kyc.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-amber-400 hover:text-amber-300">KYC Review</a>
     <a href="admin_transactions.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-sky-400 hover:text-sky-300">Transactions</a>
@@ -131,6 +152,7 @@ require_once __DIR__ . '/header.php';
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
         <a href="admin_kyc.php" class="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 hover:border-amber-500/50"><p class="text-xs text-gray-500">Risk · KYC review</p><p class="text-2xl font-bold text-amber-400 mt-1"><?= $pendingKyc ?></p><p class="text-xs text-gray-500 mt-1">merchant(s) waiting</p></a>
         <a href="admin_disputes.php?status=open" class="rounded-xl border border-red-500/30 bg-red-500/5 p-4 hover:border-red-500/50"><p class="text-xs text-gray-500">Risk · Open disputes</p><p class="text-2xl font-bold text-red-400 mt-1"><?= $openDisputes ?></p><p class="text-xs text-gray-500 mt-1">needs evidence / decision</p></a>
+        <a href="admin_forward_queue.php?status=staged" class="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 hover:border-amber-500/50"><p class="text-xs text-gray-500">KYC · Staged (not at bank yet)</p><p class="text-2xl font-bold text-amber-400 mt-1"><?= $forwardStaged ?></p><p class="text-xs text-gray-500 mt-1">package ready — live API pending</p></a>
         <a href="admin_settlements.php?status=pending" class="rounded-xl border border-violet-500/30 bg-violet-500/5 p-4 hover:border-violet-500/50"><p class="text-xs text-gray-500">Money · Payout 24h+</p><p class="text-2xl font-bold text-violet-400 mt-1"><?= $agedSettlements ?></p><p class="text-xs text-gray-500 mt-1">aged bank transfer(s)</p></a>
         <a href="admin_refunds.php?status=pending" class="rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/5 p-4 hover:border-fuchsia-500/50"><p class="text-xs text-gray-500">Money · Refund 3d+</p><p class="text-2xl font-bold text-fuchsia-400 mt-1"><?= $agedRefunds ?></p><p class="text-xs text-gray-500 mt-1">aged customer refund(s)</p></a>
     </div>
@@ -210,11 +232,11 @@ require_once __DIR__ . '/header.php';
 <div class="glass rounded-xl p-5 mb-8 border border-amber-500/30">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
         <p class="font-semibold text-amber-300">Gateway setup needed (<?= count($gatewayGaps) ?>)</p>
-        <a href="gateway_settings.php" class="text-xs text-sky-400">Gateway Settings →</a>
+        <a href="admin_gateway_registry.php" class="text-xs text-sky-400">Partner Registry →</a>
     </div>
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
         <?php foreach ($gatewayGaps as $gap): ?>
-        <a href="<?= e($gap['test_url'] ?? 'gateway_settings.php') ?>" class="rounded-lg border border-gray-800 px-3 py-2 hover:border-amber-500/40">
+        <a href="<?= e($gap['test_url'] ?? 'admin_gateway_registry.php') ?>" class="rounded-lg border border-gray-800 px-3 py-2 hover:border-amber-500/40">
             <span class="text-amber-400">● <?= e($gap['label']) ?></span>
             <span class="text-gray-500 block mt-0.5"><?= e($gap['status']) ?></span>
         </a>

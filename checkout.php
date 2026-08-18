@@ -298,7 +298,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && ($_POST['a
     }
 }
 
-$razorpayKey = function_exists('getPartnerSetting') ? getPartnerSetting('razorpay', 'razorpay_key_id', '') : getSetting('razorpay_key_id', '');
+$razorpayKey = getPartnerSetting('razorpay', 'razorpay_key_id', '');
 $razorpayOrder = null;
 $cashfreeSession = null;
 $payuForms = [];
@@ -366,8 +366,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             try {
                 $razorpayOrder = createBoundGatewayCheckoutOrder($link, 'razorpay');
             } catch (Throwable $e) {
-                $error = 'Razorpay checkout is temporarily unavailable.';
-                logPlatformError('error', 'Bound Razorpay order creation failed.', ['error' => $e->getMessage(), 'link_id' => $linkId]);
+                $error = 'Card & UPI checkout is temporarily unavailable.';
+                logPlatformError('error', 'Bound card checkout order creation failed.', ['error' => $e->getMessage(), 'link_id' => $linkId]);
             }
         }
     } elseif ($selectedPay === 'cashfree' && isGatewayConfigured('cashfree')) {
@@ -377,13 +377,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $cf = createBoundGatewayCheckoutOrder($link, 'cashfree', $returnUrl);
         } catch (Throwable $e) {
             $cf = null;
-            $error = 'Cashfree checkout is temporarily unavailable.';
+            $error = 'Card & UPI checkout is temporarily unavailable.';
             $level = str_contains($e->getMessage(), 'do not match the payment order mode') ? 'warning' : 'error';
-            logPlatformError($level, 'Bound Cashfree order creation failed: ' . $e->getMessage(), ['link_id' => $linkId]);
+            logPlatformError($level, 'Bound card checkout order creation failed: ' . $e->getMessage(), ['link_id' => $linkId]);
         }
         $cashfreeSession = is_array($cf) ? ($cf['payment_session_id'] ?? null) : null;
         if ($cashfreeSession === null && ($error ?? '') === '') {
-            $error = 'Cashfree is not available in this Test/Live mode. Use UPI or another method.';
+            $error = 'This payment method is not available in this Test/Live mode. Use UPI or another method.';
         }
     }
   } catch (Throwable $e) {
@@ -502,7 +502,7 @@ endif;
                         && !isGatewayConfigured('cashfree');
                     ?>
                     <?php if ($pgKeysMissing): ?>
-                    <p class="text-xs text-amber-300/90 mt-3">Card / Netbanking need partner keys. UPI / QR still works if a UPI ID is set.</p>
+                    <p class="text-xs text-amber-300/90 mt-3">Card / Net Banking will appear when UniWeb activates your payment methods. UPI / QR works if a UPI ID is set.</p>
                     <?php endif; ?>
                     <?php if (!$isTestCheckout && $split['platform_fee'] > 0): ?>
                     <details class="mt-3">
@@ -547,11 +547,11 @@ endif;
                     <?php if ($selectedPay === 'upi'): ?>
                     <?php if (!empty($decentroQr['ok'])): ?>
                     <div class="bg-white rounded-2xl p-5 text-center mb-4 border-2 border-violet-200 shadow-lg shadow-violet-900/10">
-                        <p class="text-[10px] text-violet-600 uppercase tracking-widest mb-2">Decentro Sandbox Dynamic QR</p>
-                        <img src="<?= e($decentroQr['image_url']) ?>" alt="Decentro payment QR" class="mx-auto rounded-lg" width="220" height="220">
+                        <p class="text-[10px] text-violet-600 uppercase tracking-widest mb-2">Sandbox Dynamic QR</p>
+                        <img src="<?= e($decentroQr['image_url']) ?>" alt="Payment QR" class="mx-auto rounded-lg" width="220" height="220">
                         <p class="text-dark-900 text-xs mt-3">Scan with any UPI app to complete this sandbox payment.</p>
                     </div>
-                    <p class="text-xs text-center text-violet-300 mb-4" id="upi-poll-status">Waiting for Decentro payment confirmation. Do not close this page.</p>
+                    <p class="text-xs text-center text-violet-300 mb-4" id="upi-poll-status">Waiting for payment confirmation. Do not close this page.</p>
                     <?php else: ?>
                     <?php if ($allowInstantPay): ?>
                     <form method="POST" class="mb-4">
@@ -567,7 +567,7 @@ endif;
                     <?php endif; ?>
                     <?php if ($axisVa): ?>
                     <div class="bg-dark-900 rounded-xl p-4 mb-4 text-sm space-y-1">
-                        <p class="text-sky-400 font-medium text-xs">Axis Virtual Account</p>
+                        <p class="text-sky-400 font-medium text-xs">Virtual account</p>
                         <p class="font-mono text-xs">A/C <?= e((string)($axisVa['va_number'] ?? '')) ?> · IFSC <?= e((string)($axisVa['ifsc'] ?? $axisVa['va_ifsc'] ?? '')) ?></p>
                     </div>
                     <?php endif; ?>
@@ -619,16 +619,16 @@ endif;
                         </button>
                     </form>
                     <details class="text-xs text-gray-500 mb-2">
-                        <summary class="cursor-pointer text-sky-400 mb-2">Optional: open PayU sandbox instead</summary>
+                        <summary class="cursor-pointer text-sky-400 mb-2">Optional: open test gateway redirect</summary>
                         <form method="POST" action="<?= e($pf['action']) ?>">
                             <?php foreach ($pf['fields'] as $k => $v): ?>
                             <input type="hidden" name="<?= e($k) ?>" value="<?= e((string)$v) ?>">
                             <?php endforeach; ?>
                             <button type="submit" class="w-full border border-gray-700 text-gray-300 py-3 rounded-xl font-semibold">
-                                Continue to PayU Sandbox
+                                Continue to test gateway
                             </button>
                         </form>
-                        <p class="text-center mt-2 text-gray-600">If PayU returns you without payment, use Instant Test above.</p>
+                        <p class="text-center mt-2 text-gray-600">If the redirect does not complete, use Instant Test above.</p>
                     </details>
                     <?php else: ?>
                     <form method="POST" action="<?= e($pf['action']) ?>">
@@ -636,10 +636,10 @@ endif;
                         <input type="hidden" name="<?= e($k) ?>" value="<?= e((string)$v) ?>">
                         <?php endforeach; ?>
                         <button type="submit" class="w-full bg-sky-600 hover:bg-sky-500 text-white py-4 rounded-xl font-semibold text-lg">
-                            Pay <?= formatMoney($payAmount) ?> via <?= e($currentMethod['label']) ?>
+                            Pay <?= formatMoney($payAmount) ?>
                         </button>
                     </form>
-                    <p class="text-xs text-gray-600 text-center mt-3">Powered by PayU <?= $withPayuSplit ? '· Auto Split' : '' ?></p>
+                    <p class="text-xs text-gray-600 text-center mt-3">Secured checkout<?= $withPayuSplit ? ' · Auto settlement' : '' ?></p>
                     <?php endif; ?>
 
                     <?php elseif ($selectedPay === 'razorpay' && $razorpayOrder && $razorpayKey): ?>
@@ -654,7 +654,7 @@ endif;
                         </button>
                     </form>
                     <?php endif; ?>
-                    <button id="pay-btn" type="button" class="w-full bg-sky-600 hover:bg-sky-500 text-white py-4 rounded-xl font-semibold text-lg"><?= $allowInstantPay ? 'Open Razorpay Sandbox' : 'Pay with Razorpay' ?></button>
+                    <button id="pay-btn" type="button" class="w-full bg-sky-600 hover:bg-sky-500 text-white py-4 rounded-xl font-semibold text-lg"><?= $allowInstantPay ? 'Test payment (sandbox)' : 'Pay ' . formatMoney($payAmount) ?></button>
                     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
                     <script>
                     document.getElementById('pay-btn').onclick=function(){
@@ -686,10 +686,10 @@ endif;
                         </button>
                     </form>
                     <?php endif; ?>
-                    <button id="cf-button" type="button" class="w-full bg-sky-600 hover:bg-sky-500 text-white py-4 rounded-xl font-semibold text-lg"><?= $allowInstantPay ? 'Open Cashfree Sandbox' : 'Pay with Cashfree' ?></button>
+                    <button id="cf-button" type="button" class="w-full bg-sky-600 hover:bg-sky-500 text-white py-4 rounded-xl font-semibold text-lg"><?= $allowInstantPay ? 'Test payment (sandbox)' : 'Pay ' . formatMoney($payAmount) ?></button>
                     <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
                     <script>
-                    const cashfree = Cashfree({ mode: "<?= getSetting('cashfree_environment','production') === 'sandbox' ? 'sandbox' : 'production' ?>" });
+                    const cashfree = Cashfree({ mode: "<?= getPartnerEnvironment('cashfree', 'production') === 'sandbox' ? 'sandbox' : 'production' ?>" });
                     document.getElementById('cf-button').onclick=function(){
                         cashfree.checkout({ paymentSessionId: "<?= e($cashfreeSession) ?>", redirectTarget: "_self" });
                     };

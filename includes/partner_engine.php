@@ -184,6 +184,8 @@ function getPartnerRegistry(): array
                 'cashfree_environment' => ['label' => 'Environment', 'type' => 'select', 'options' => ['sandbox' => 'Sandbox', 'production' => 'Production']],
                 'cashfree_app_id' => ['label' => 'App ID', 'type' => 'text'],
                 'cashfree_secret_key' => ['label' => 'Secret Key', 'type' => 'password'],
+                'cashfree_payout_client_id' => ['label' => 'Payout Client ID (optional)', 'type' => 'text'],
+                'cashfree_payout_client_secret' => ['label' => 'Payout Client Secret (optional)', 'type' => 'password'],
             ],
             'checklist' => [
                 'Cashfree merchant signup',
@@ -409,13 +411,13 @@ function getPartnerRegistry(): array
             'env_key' => 'pinelabs_environment',
             'config_keys' => [
                 'pinelabs_environment' => ['label' => 'Environment', 'type' => 'select', 'options' => ['test' => 'Test', 'production' => 'Production']],
-                'pinelabs_api_key' => ['label' => 'API Key', 'type' => 'text'],
-                'pinelabs_api_secret' => ['label' => 'API Secret', 'type' => 'password'],
                 'pinelabs_merchant_id' => ['label' => 'Merchant ID', 'type' => 'text'],
+                'pinelabs_access_code' => ['label' => 'Access Code', 'type' => 'text'],
+                'pinelabs_secure_key' => ['label' => 'Secure Key', 'type' => 'password'],
             ],
             'checklist' => [
                 'Pine Labs / Plural merchant onboarding',
-                'Get API Key + Secret + Merchant ID',
+                'Get Merchant ID + Access Code + Secure Key',
                 'Configure webhook URL',
                 'Paste test credentials',
             ],

@@ -96,7 +96,7 @@ function getPaymentMethodCatalog(): array
             'mdr' => 'emi',
         ],
         'payu_upi' => [
-            'label' => 'UPI via PayU',
+            'label' => 'UPI',
             'pay_key' => 'payu_upi',
             'gateway' => 'payu',
             'collection_mode' => 'payu_split',
@@ -104,7 +104,7 @@ function getPaymentMethodCatalog(): array
             'mdr' => 'upi',
         ],
         'razorpay' => [
-            'label' => 'Razorpay Checkout',
+            'label' => 'Cards & UPI',
             'pay_key' => 'razorpay',
             'gateway' => 'razorpay',
             'collection_mode' => 'razorpay_route',
@@ -112,7 +112,7 @@ function getPaymentMethodCatalog(): array
             'mdr' => 'card_debit',
         ],
         'cashfree' => [
-            'label' => 'Cashfree Pay',
+            'label' => 'Cards & UPI',
             'pay_key' => 'cashfree',
             'gateway' => 'cashfree',
             'collection_mode' => 'cashfree_route',

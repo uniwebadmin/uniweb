@@ -251,7 +251,7 @@ function forwardDisputeToPartner(int $disputeId, string $partnerKey, string $not
             return ['ok' => false, 'message' => 'This dispute is already closed or resolved.'];
         }
         $db->prepare("UPDATE disputes SET status='forwarded_partner', forwarded_partner_key=?, forwarded_at=NOW(), forwarded_note=?, resolution=? WHERE id=?")
-            ->execute([$partnerKey, $note, 'Forwarded to ' . $partnerKey . ' — ' . $note, $disputeId]);
+            ->execute([$partnerKey, $note, 'Forwarded for payment-network review — ' . $note, $disputeId]);
         if (function_exists('logStaffActivity')) {
             logStaffActivity('dispute_forward_partner', $row['dispute_id'] . ' → ' . $partnerKey, (int)$row['merchant_id'], 'dispute', (string)$row['dispute_id']);
         }
@@ -259,7 +259,7 @@ function forwardDisputeToPartner(int $disputeId, string $partnerKey, string $not
             createNotification(
                 (int)$row['merchant_id'],
                 'Dispute forwarded',
-                'Admin forwarded ' . $row['dispute_id'] . ' to partner (' . $partnerKey . '). You will be updated when it is resolved.',
+                'Admin forwarded ' . $row['dispute_id'] . ' for payment-network review. You will be updated when it is resolved.',
                 'dispute_' . $disputeId
             );
         }

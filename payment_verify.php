@@ -20,7 +20,7 @@ if (!$providerPayment
     || strtolower((string)($providerPayment['status'] ?? '')) !== 'captured'
     || empty($providerPayment['captured'])
 ) {
-    flash('error', 'Razorpay has not confirmed a captured payment.');
+    flash('error', 'Payment could not be confirmed yet.');
     redirect('index.php');
 }
 

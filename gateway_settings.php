@@ -177,6 +177,7 @@ $gatewayCards = [
             <p class="text-gray-200 font-medium">What Hostinger needs</p>
             <p><span class="text-emerald-400">Required — 1 job:</span> every 10 minutes → Watchdog + KYC + settlements + recurring + partner queue (all inside this one URL).</p>
             <p><span class="text-sky-400">Not a cron:</span> database updates → use <strong class="text-gray-300">Apply pending migrations</strong> below (one click after each deploy).</p>
+            <p><span class="text-amber-400">Deploy code:</span> Hostinger → Git → <strong class="text-gray-300">Pull</strong> on the live branch after each merge. Do not rely on SFTP/FTP upload alone — cron and PHP only update when the server repo updates.</p>
             <p><span class="text-gray-500">Optional:</span> daily backup job (2:00 AM). Bank statement fetch only if you use bank files.</p>
         </div>
         <div>

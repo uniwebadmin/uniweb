@@ -1,11 +1,5 @@
 <?php
-/** Compact three-row legal footer for checkout & payment pages */
-$checkoutPartners = array_values(array_filter([
-    isGatewayConfigured('razorpay') ? 'Razorpay' : null,
-    isGatewayConfigured('cashfree') ? 'Cashfree' : null,
-    isGatewayConfigured('payu') ? 'PayU' : null,
-    isGatewayConfigured('axis') ? 'Axis Bank' : null,
-]));
+/** Compact three-row legal footer for checkout & payment pages — methods only, no partner brands. */
 ?>
 <footer class="checkout-footer border-t border-gray-800/80 bg-dark-950/95">
     <div class="max-w-5xl mx-auto px-3 py-3">
@@ -17,7 +11,6 @@ $checkoutPartners = array_values(array_filter([
             <strong>Payment Options</strong>
             <div>
                 <?php foreach (['UPI', 'Visa', 'Mastercard', 'RuPay', 'Netbanking', 'Wallets'] as $item): ?><span class="checkout-footer-chip"><?= e($item) ?></span><?php endforeach; ?>
-                <?php if ($checkoutPartners): ?><span class="checkout-footer-muted">via <?= e(implode(' · ', $checkoutPartners)) ?></span><?php endif; ?>
             </div>
         </div>
         <div class="checkout-footer-row checkout-footer-legal">

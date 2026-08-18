@@ -650,8 +650,8 @@ function afterKycVerifiedAutoSendMethods(int $merchantId, string $actor = 'kyc_v
     if (function_exists('createNotification')) {
         createNotification(
             $merchantId,
-            'Methods sent to partner',
-            'KYC verified. Your payment methods were forwarded to the partner for approval.'
+            'Payment methods submitted',
+            'KYC verified. Your payment methods were submitted through UniWeb for network activation.'
         );
     }
     return [
@@ -827,6 +827,15 @@ function triggerAgreementResignCheck(int $merchantId, string $partnerGateway): v
     } catch (Throwable $e) {
         error_log('triggerAgreementResignCheck: ' . $e->getMessage());
     }
+}
+
+function merchantApprovedNetworkSummary(int $merchantId): string
+{
+    $count = count(getMerchantApprovedPartners($merchantId));
+    if ($count === 0) {
+        return 'UniWeb payment networks (as Admin activates)';
+    }
+    return 'UniWeb payment networks (' . $count . ' active route' . ($count === 1 ? '' : 's') . ')';
 }
 
 function partnerDisplayName(string $gateway): string

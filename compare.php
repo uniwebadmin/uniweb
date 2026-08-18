@@ -56,6 +56,32 @@ $peers = [
     </div></section>
 
     <section class="company-section"><div class="company-shell">
+        <div class="company-kicker">Aggregator model</div>
+        <h2 class="company-title">One UniWeb signup — not ten separate PG dashboards</h2>
+        <p class="company-lead">Merchants register once on UniWeb. You paste partner keys once in Partner Registry. Customers see payment methods only (UPI, Card, Net Banking) — not Razorpay or PayU brand buttons. That is the bar we hold against Razorpay, Cashfree, PayU and Juspay.</p>
+        <div class="overflow-x-auto mt-6">
+            <table class="min-w-[720px] w-full text-sm border border-gray-800 rounded-xl overflow-hidden">
+                <thead class="text-xs text-gray-500 uppercase bg-dark-900/50">
+                    <tr>
+                        <th class="px-5 py-3 text-left">Area</th>
+                        <th class="px-5 py-3 text-left">UniWeb</th>
+                        <th class="px-5 py-3 text-left">Typical market PG</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-800 text-gray-300">
+                    <tr><td class="px-5 py-3 font-medium text-gray-200">Merchant + Admin console</td><td class="px-5 py-3">Strong — multi-rail, disputes, support queues</td><td class="px-5 py-3">Strong — often single-rail focused</td></tr>
+                    <tr><td class="px-5 py-3 font-medium text-gray-200">Keys</td><td class="px-5 py-3">Admin-only Partner Registry (merchant never pastes PG keys)</td><td class="px-5 py-3">Merchant often holds their own PG account</td></tr>
+                    <tr><td class="px-5 py-3 font-medium text-gray-200">Checkout</td><td class="px-5 py-3">Methods only — UPI, Card, NB (no partner brand on pay button)</td><td class="px-5 py-3">Brand-owned checkout (their logo on the page)</td></tr>
+                    <tr><td class="px-5 py-3 font-medium text-gray-200">KYC to network</td><td class="px-5 py-3">Forward queue — honest staged until live partner API</td><td class="px-5 py-3">Often live onboarding API</td></tr>
+                    <tr><td class="px-5 py-3 font-medium text-gray-200">Disputes</td><td class="px-5 py-3">Admin-first queue on UniWeb</td><td class="px-5 py-3">Deep partner dispute APIs</td></tr>
+                    <tr><td class="px-5 py-3 font-medium text-gray-200">Success-rate route</td><td class="px-5 py-3">Parked — not sold as live</td><td class="px-5 py-3">Juspay-class orchestration</td></tr>
+                    <tr><td class="px-5 py-3 font-medium text-gray-200">Extra products</td><td class="px-5 py-3">No NBFC, no customer PPI wallet, no white-label resale</td><td class="px-5 py-3">Often separate lending / wallet products</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div></section>
+
+    <section class="company-section" style="padding-top:0"><div class="company-shell">
         <div class="company-kicker">P9-01 Packaging</div>
         <h2 class="company-title">Features are high. Polish must catch up.</h2>
         <div class="company-grid">

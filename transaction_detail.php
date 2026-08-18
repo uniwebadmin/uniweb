@@ -142,7 +142,7 @@ require_once __DIR__ . '/header.php';
             <div class="grid sm:grid-cols-2 gap-4 text-sm">
                 <div><p class="text-gray-500 text-xs">Payment Method</p><p class="font-medium mt-1"><?= e(paymentMethodLabel($txn['payment_method'])) ?></p></div>
                 <div><p class="text-gray-500 text-xs">UTR / Gateway Ref</p><p class="font-mono text-xs mt-1"><?= e($txn['utr'] ?: '—') ?></p></div>
-                <div><p class="text-gray-500 text-xs">Collection Mode</p><p class="mt-1"><?= e(collectionModeLabel($txn['collection_mode'] ?? $txn['merchant_collection_mode'] ?? '')) ?></p></div>
+                <div><p class="text-gray-500 text-xs">Collection Mode</p><p class="mt-1"><?= e(collectionModeLabel($txn['collection_mode'] ?? $txn['merchant_collection_mode'] ?? '', !$adminView)) ?></p></div>
                 <div><p class="text-gray-500 text-xs">Date & Time</p><p class="mt-1"><?= formatDate($txn['created_at']) ?></p></div>
                 <?php if ($txn['description']): ?>
                 <div class="sm:col-span-2"><p class="text-gray-500 text-xs">Description</p><p class="mt-1"><?= e($txn['description']) ?></p></div>

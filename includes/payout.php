@@ -183,13 +183,16 @@ function payoutStrLimit(string $value, int $max): string
 /** True only when a licensed partner payout rail has live keys configured. */
 function payoutPartnerKeysConfigured(): bool
 {
-    $rzxKey = trim((string)getSetting('razorpayx_key_id', ''));
-    $rzxSecret = trim((string)getSetting('razorpayx_key_secret', ''));
+    if (!function_exists('getPartnerSetting')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    $rzxKey = trim(getPartnerSetting('razorpayx', 'razorpayx_key_id', ''));
+    $rzxSecret = trim(getPartnerSetting('razorpayx', 'razorpayx_key_secret', ''));
     if ($rzxKey !== '' && $rzxSecret !== '' && !str_contains(strtolower($rzxKey), 'pending')) {
         return true;
     }
-    $cfId = trim((string)getSetting('cashfree_payout_client_id', ''));
-    $cfSecret = trim((string)getSetting('cashfree_payout_client_secret', ''));
+    $cfId = trim(getPartnerSetting('cashfree', 'cashfree_payout_client_id', ''));
+    $cfSecret = trim(getPartnerSetting('cashfree', 'cashfree_payout_client_secret', ''));
     if ($cfId !== '' && $cfSecret !== '' && !str_contains(strtolower($cfId), 'pending')) {
         return true;
     }
@@ -1089,7 +1092,7 @@ function dispatchQueuedPayouts(int $limit = 20): array
         getDB()->prepare("UPDATE payout_orders SET status='success', partner_ref=?, failure_reason=NULL, processed_at=NOW() WHERE id=?")
             ->execute([$partnerId, $orderId]);
         if (function_exists('createNotification')) {
-            createNotification($merchantId, 'Payout sent', 'Payout ' . $ref . ' submitted to partner (' . $partnerId . ').');
+            createNotification($merchantId, 'Payout sent', 'Payout ' . $ref . ' submitted through UniWeb settlement network.');
         }
         $ok++;
     }
@@ -1372,13 +1375,16 @@ function dispatchPayoutOrder(int $orderId): array
 
 function resolvePayoutAdapter(): ?callable
 {
-    if (trim((string)getSetting('razorpayx_key_id', '')) !== '') {
+    if (!function_exists('getPartnerSetting')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    if (trim(getPartnerSetting('razorpayx', 'razorpayx_key_id', '')) !== '') {
         return 'razorpayxPayoutAdapter';
     }
-    if (trim((string)getSetting('cashfree_payout_client_id', '')) !== '') {
+    if (trim(getPartnerSetting('cashfree', 'cashfree_payout_client_id', '')) !== '') {
         return 'cashfreePayoutAdapter';
     }
-    if (trim((string)getSetting('decentro_api_key', '')) !== '') {
+    if (trim(decentroClientId()) !== '') {
         return 'decentroPayoutAdapter';
     }
     return null;

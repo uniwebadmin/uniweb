@@ -193,12 +193,12 @@ function uniwebPartnerCredentialSettingMap(): array
     return [
         'razorpay' => ['razorpay_key_id', 'razorpay_key_secret', 'razorpay_webhook_secret'],
         'razorpayx' => ['razorpayx_key_id', 'razorpayx_key_secret', 'razorpayx_account_number'],
-        'cashfree' => ['cashfree_app_id', 'cashfree_secret_key'],
+        'cashfree' => ['cashfree_app_id', 'cashfree_secret_key', 'cashfree_payout_client_id', 'cashfree_payout_client_secret'],
         'payu' => ['payu_merchant_key', 'payu_merchant_salt'],
         'phonepe' => ['phonepe_merchant_id', 'phonepe_salt_key'],
-        'pinelabs' => ['pinelabs_merchant_id', 'pinelabs_access_code', 'pinelabs_secure_key'],
+        'pinelabs' => ['pinelabs_merchant_id', 'pinelabs_access_code', 'pinelabs_secure_key', 'pinelabs_api_key', 'pinelabs_api_secret'],
         'worldline' => ['worldline_merchant_id', 'worldline_access_key', 'worldline_secret_key'],
-        'decentro' => ['decentro_client_id', 'decentro_client_secret'],
+        'decentro' => ['decentro_client_id', 'decentro_client_secret', 'decentro_api_key', 'decentro_api_secret'],
         'axis' => ['axis_client_id', 'axis_client_secret', 'axis_api_key', 'axis_api_secret'],
         'rbl' => ['rbl_client_id', 'rbl_client_secret', 'rbl_api_key', 'rbl_api_secret'],
     ];
@@ -217,6 +217,60 @@ function isPartnerCredentialSettingKey(string $key): bool
 function partnerDetailKeysUrl(string $partnerKey, string $env = 'live'): string
 {
     return 'admin_gateway_detail.php?partner=' . rawurlencode($partnerKey) . '&tab=keys&env=' . rawurlencode($env);
+}
+
+/**
+ * Resolve canonical partner credential from encrypted payload (handles legacy key names).
+ */
+function resolvePartnerCredentialValue(array $creds, string $partnerKey, string $keyName): string
+{
+    if (!empty($creds[$keyName])) {
+        return (string)$creds[$keyName];
+    }
+    $aliases = [
+        'decentro' => [
+            'decentro_client_id' => ['decentro_api_key'],
+            'decentro_client_secret' => ['decentro_api_secret'],
+        ],
+        'pinelabs' => [
+            'pinelabs_access_code' => ['pinelabs_api_key'],
+            'pinelabs_secure_key' => ['pinelabs_api_secret'],
+        ],
+        'axis' => [
+            'axis_client_id' => ['axis_api_key'],
+            'axis_client_secret' => ['axis_api_secret'],
+        ],
+    ];
+    foreach ($aliases[$partnerKey][$keyName] ?? [] as $alt) {
+        if (!empty($creds[$alt])) {
+            return (string)$creds[$alt];
+        }
+    }
+    return '';
+}
+
+/** Partner environment (test/live/sandbox) — credentials first, then platform template row. */
+function getPartnerEnvironment(string $partnerKey, string $default = 'test'): string
+{
+    $envKey = $partnerKey . '_environment';
+    $fromCreds = trim(getPartnerSetting($partnerKey, $envKey, ''));
+    if ($fromCreds !== '') {
+        return $fromCreds;
+    }
+    if (function_exists('getSetting')) {
+        return trim((string)getSetting($envKey, $default));
+    }
+    return $default;
+}
+
+function decentroClientId(): string
+{
+    return getPartnerSetting('decentro', 'decentro_client_id', '');
+}
+
+function decentroClientSecret(): string
+{
+    return getPartnerSetting('decentro', 'decentro_client_secret', '');
 }
 
 /**
@@ -249,6 +303,12 @@ function getPartnerSetting(string $partnerKey, string $keyName, string $default 
 
     if (!empty($creds[$keyName])) {
         $cache[$ck] = (string)$creds[$keyName];
+        return $cache[$ck];
+    }
+
+    $resolved = resolvePartnerCredentialValue($creds, $partnerKey, $keyName);
+    if ($resolved !== '') {
+        $cache[$ck] = $resolved;
         return $cache[$ck];
     }
 
@@ -318,6 +378,34 @@ function migrateGatewaySettingsToPartnerCredentials(): void
                 }
                 if (empty($payload['axis_client_secret']) && !empty($payload['axis_api_secret'])) {
                     $payload['axis_client_secret'] = (string)$payload['axis_api_secret'];
+                }
+            }
+            if ($partnerKey === 'decentro') {
+                if (empty($payload['decentro_client_id'])) {
+                    $legacy = trim((string)getSetting('decentro_api_key', ''));
+                    if ($legacy !== '') {
+                        $payload['decentro_client_id'] = $legacy;
+                    }
+                }
+                if (empty($payload['decentro_client_secret'])) {
+                    $legacy = trim((string)getSetting('decentro_api_secret', ''));
+                    if ($legacy !== '') {
+                        $payload['decentro_client_secret'] = $legacy;
+                    }
+                }
+            }
+            if ($partnerKey === 'pinelabs') {
+                if (empty($payload['pinelabs_access_code'])) {
+                    $legacy = trim((string)getSetting('pinelabs_api_key', ''));
+                    if ($legacy !== '') {
+                        $payload['pinelabs_access_code'] = $legacy;
+                    }
+                }
+                if (empty($payload['pinelabs_secure_key'])) {
+                    $legacy = trim((string)getSetting('pinelabs_api_secret', ''));
+                    if ($legacy !== '') {
+                        $payload['pinelabs_secure_key'] = $legacy;
+                    }
                 }
             }
 

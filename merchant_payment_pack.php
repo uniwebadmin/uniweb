@@ -52,7 +52,7 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl p-6 lg:col-span-1">
         <h2 class="font-semibold mb-2"><?= __('payment_profile') ?></h2>
         <p class="text-xs text-gray-500"><?= e($preview['profile_label']) ?></p>
-        <p class="text-sm text-brand-400 mt-3"><?= e(collectionModeLabel($preview['collection_mode'])) ?></p>
+        <p class="text-sm text-brand-400 mt-3"><?= e(collectionModeLabel($preview['collection_mode'], true)) ?></p>
         <p class="text-xs text-gray-600 mt-4"><?= count($preview['methods']) ?> <?= __('methods_enabled') ?></p>
         <a href="payment_links.php" class="inline-block mt-4 text-xs text-sky-400 hover:underline">Create custom Fixed / Open link →</a>
     </div>
@@ -64,7 +64,7 @@ require_once __DIR__ . '/header.php';
                 <span class="text-2xl"><?= $m['icon'] ?></span>
                 <div>
                     <p class="text-sm font-medium"><?= e($m['label']) ?></p>
-                    <p class="text-xs text-gray-500"><?= e($m['gateway']) ?> · MDR <?= $m['mdr'] ?>%</p>
+                    <p class="text-xs text-gray-500"><?= e($m['label']) ?> · MDR <?= $m['mdr'] ?>%</p>
                 </div>
             </div>
             <?php endforeach; ?>

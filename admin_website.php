@@ -19,7 +19,7 @@ try {
     redirect('admin_dashboard.php');
 }
 
-$pageTitle = 'Website & API Keys';
+$pageTitle = 'Platform API guide';
 
 require_once __DIR__ . '/header.php';
 
@@ -68,8 +68,8 @@ require_once __DIR__ . '/header.php';
 
     <div>
 
-        <h1 class="text-xl font-bold">Website &amp; API Keys</h1>
-        <p class="text-sm text-gray-400 mt-1">Website status + UniWeb merchant API keys — not the partner PG key vault</p>
+        <h1 class="text-xl font-bold">Platform API guide</h1>
+        <p class="text-sm text-gray-400 mt-1">Website status + UniWeb merchant API keys (<code class="text-gray-300">uk_…</code>) — not partner PG keys</p>
 
     </div>
 

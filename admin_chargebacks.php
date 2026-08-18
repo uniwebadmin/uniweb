@@ -59,6 +59,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 $pageTitle = 'Chargebacks';
 require_once __DIR__ . '/header.php';
 ?>
+<div class="glass rounded-xl p-4 mb-6 border border-sky-500/25 text-sm text-gray-400">
+    <p><strong class="text-sky-300">Legacy ingest only.</strong> Day-to-day payment disputes → <a href="admin_disputes.php" class="text-sky-400 hover:underline">Disputes</a> (Admin first). Use this page only when importing an old bank chargeback row.</p>
+</div>
 <div class="grid lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
     <div class="lg:col-span-1 glass rounded-xl p-4 sm:p-6 min-w-0">
         <h2 class="font-semibold mb-4">Ingest dispute</h2>

@@ -94,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (str_contains($ip, ',')) {
         $ip = trim(explode(',', $ip)[0]);
     }
-    $partnerNames = implode(', ', getMerchantApprovedPartners($merchantId));
+    $partnerNames = merchantApprovedNetworkSummary($merchantId);
     $geoLat = null;
     $geoLng = null;
     if (!empty($_POST['geo_consent'])) {
@@ -157,6 +157,7 @@ $acceptance = $stmt->fetch();
 
 $esignRequests = getMerchantEsignRequests($merchantId, 5);
 $approvedPartners = getMerchantApprovedPartners($merchantId);
+$networkSummary = merchantApprovedNetworkSummary($merchantId);
 $requiresResign = !empty($acceptance['requires_resign']);
 $esignPending = null;
 if ($esignAction === 'otp' && $esignRequestId > 0) {
@@ -192,20 +193,16 @@ ob_start();
 
     <?php elseif ($acceptance && $requiresResign && $canAccept): ?>
     <div class="company-kicker text-amber-400">Re-signature required</div>
-    <h2>Agreement needs re-signature — new partner added</h2>
-    <p>Your previous acceptance (UWA-<?= (int)$acceptance['id'] ?>, <?= e(date('d M Y', strtotime($acceptance['accepted_at']))) ?>) is recorded but a new partner has been approved for your account.</p>
+    <h2>Agreement needs re-signature — new payment route</h2>
+    <p>Your previous acceptance (UWA-<?= (int)$acceptance['id'] ?>, <?= e(date('d M Y', strtotime($acceptance['accepted_at']))) ?>) is recorded but a new payment route was activated on your account.</p>
     <?php if (!empty($approvedPartners)): ?>
     <div class="bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 my-4">
-        <p class="text-sm text-amber-300 mb-2"><strong>Active partners on your account:</strong></p>
-        <div class="flex flex-wrap gap-2">
-            <?php foreach ($approvedPartners as $p): ?>
-            <span class="px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full text-xs text-amber-200"><?= e($p) ?></span>
-            <?php endforeach; ?>
-        </div>
+        <p class="text-sm text-amber-300 mb-2"><strong>Coverage on your account:</strong></p>
+        <p class="text-sm text-amber-200"><?= e($networkSummary) ?></p>
         <p class="text-xs text-gray-500 mt-2">Previous signature covered: <?= e($acceptance['partner_names'] ?: 'none') ?></p>
     </div>
     <?php endif; ?>
-    <p class="text-sm text-gray-400">Please re-sign the agreement below to include all active partners. Your previous signed PDF remains available.</p>
+    <p class="text-sm text-gray-400">Please re-sign the agreement below to include all active routes. Your previous signed PDF remains available.</p>
     <p class="mt-3"><a href="merchant_agreement_pdf.php?id=<?= (int)$acceptance['id'] ?>" class="text-sm text-sky-400 hover:underline">Download previous signed PDF →</a></p>
 
     <div class="mt-6 pt-4 border-t border-gray-800">
@@ -217,7 +214,7 @@ ob_start();
                 <label class="text-sm text-gray-400 block mb-1">Signer Full Legal Name *</label>
                 <input type="text" name="signer_name" required minlength="3" maxlength="190" class="input-field" placeholder="As on PAN / incorporation records" value="<?= e($merchant['business_name'] ?? $merchant['name'] ?? '') ?>">
             </div>
-            <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="accept_agreement" value="1" required class="mt-1"><span>I have read and agree to the Merchant Services Agreement with all active partners (<?= e(implode(', ', $approvedPartners)) ?>).</span></label>
+            <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="accept_agreement" value="1" required class="mt-1"><span>I have read and agree to the Merchant Services Agreement (<?= e($networkSummary) ?>).</span></label>
             <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="authority_confirmed" value="1" required class="mt-1"><span>I confirm that I am authorized to accept this Agreement for the registered merchant entity.</span></label>
             <button type="submit" class="btn-primary px-6 py-3">Re-sign Agreement</button>
         </form>
@@ -225,7 +222,7 @@ ob_start();
             <h4 class="text-xs text-gray-500 mb-2">Or use typed electronic signature:</h4>
             <form method="POST" class="space-y-4">
                 <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
-                <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="accept_agreement" value="1" required class="mt-1"><span>I have read and agree to the Merchant Services Agreement with all active partners.</span></label>
+                <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="accept_agreement" value="1" required class="mt-1"><span>I have read and agree to the Merchant Services Agreement with all active payment routes through UniWeb.</span></label>
                 <label class="flex items-start gap-3 text-sm"><input type="checkbox" name="authority_confirmed" value="1" required class="mt-1"><span>I confirm that I am authorized to accept this Agreement.</span></label>
                 <div>
                     <label class="text-sm text-gray-400 block mb-1">Electronic signature — type your full legal name *</label>
@@ -273,17 +270,11 @@ ob_start();
     <?php if (!empty($acceptance['accepted_ip'])): ?><p class="text-xs text-gray-500 mt-1">IP address: <span class="font-mono"><?= e($acceptance['accepted_ip']) ?></span></p><?php endif; ?>
     <?php if (!empty($acceptance['geo_lat']) && !empty($acceptance['geo_lng'])): ?><p class="text-xs text-gray-500 mt-1">Location: <span class="font-mono"><?= e($acceptance['geo_lat']) ?>, <?= e($acceptance['geo_lng']) ?></span> <a href="https://www.google.com/maps?q=<?= e($acceptance['geo_lat']) ?>,<?= e($acceptance['geo_lng']) ?>" target="_blank" class="text-sky-400 hover:underline">View on map</a></p><?php endif; ?>
     <?php if (!empty($acceptance['signature_name'])): ?><p class="text-sm text-gray-500">Electronic signature: <strong><?= e($acceptance['signature_name']) ?></strong></p><?php endif; ?>
-    <?php if (!empty($acceptance['partner_names'])): ?><p class="text-sm text-gray-500">Partners covered: <strong><?= e($acceptance['partner_names']) ?></strong></p><?php endif; ?>
-    <?php if (!empty($approvedPartners) && !empty($acceptance['partner_names'])): ?>
-        <?php
-        $signedPartners = array_filter(array_map('trim', explode(',', (string)$acceptance['partner_names'])));
-        $newPartners = array_diff($approvedPartners, $signedPartners);
-        if (!empty($newPartners)):
-        ?>
+    <?php if (!empty($acceptance['partner_names'])): ?><p class="text-sm text-gray-500">Network coverage: <strong><?= e($acceptance['partner_names']) ?></strong></p><?php endif; ?>
+    <?php if (!empty($approvedPartners) && $requiresResign): ?>
         <div class="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 mt-3">
-            <p class="text-sm text-amber-300">New partner(s) approved: <strong><?= e(implode(', ', $newPartners)) ?></strong> — re-signature may be required.</p>
+            <p class="text-sm text-amber-300">New payment route activated — re-signature may be required. Current: <strong><?= e($networkSummary) ?></strong></p>
         </div>
-        <?php endif; ?>
     <?php endif; ?>
     <?php if (!empty($acceptance['pdf_filename']) || !empty($acceptance['id'])): ?>
     <p class="mt-3"><a href="merchant_agreement_pdf.php?id=<?= (int)$acceptance['id'] ?>" class="btn-primary inline-block px-5 py-2.5 text-sm">Download signed PDF</a></p>

@@ -14,6 +14,26 @@ if ($partnerChoices === []) {
     $partnerChoices = ['payu' => 'PayU', 'razorpay' => 'Razorpay', 'cashfree' => 'Cashfree', 'axis' => 'Axis'];
 }
 
+if (!function_exists('adminDisputesReturnUrl')) {
+    function adminDisputesReturnUrl(array $from = []): string
+    {
+        $params = [];
+        $merchantId = (int)($from['_merchant_id'] ?? $from['merchant_id'] ?? 0);
+        if ($merchantId > 0) {
+            $params['merchant_id'] = $merchantId;
+        }
+        $status = preg_replace('/[^a-z_]/', '', strtolower(trim((string)($from['_status'] ?? $from['status'] ?? ''))));
+        if ($status !== '' && $status !== 'all') {
+            $params['status'] = $status;
+        }
+        $q = mb_substr(trim((string)($from['_q'] ?? $from['q'] ?? '')), 0, 100);
+        if ($q !== '') {
+            $params['q'] = $q;
+        }
+        return $params === [] ? 'admin_disputes.php' : ('admin_disputes.php?' . http_build_query($params));
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     $id = (int)($_POST['id'] ?? 0);
     $action = (string)($_POST['action'] ?? '');
@@ -54,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     } else {
         flash('error', 'Unknown action.');
     }
-    redirect('admin_disputes.php');
+    redirect(adminDisputesReturnUrl($_POST));
 }
 
 // Legacy GET actions (keep working)
@@ -71,10 +91,11 @@ if (isset($_GET['action'], $_GET['id']) && verifyCsrf($_GET['token'] ?? '')) {
         $db->prepare("UPDATE disputes SET status='closed', resolution=? WHERE id=?")->execute([$resolution ?: 'Closed', $id]);
         flash('success', 'Dispute closed.');
     }
-    redirect('admin_disputes.php');
+    redirect(adminDisputesReturnUrl($_GET));
 }
 
 $filterMerchantId = (int)($_GET['merchant_id'] ?? 0);
+$disputeQ = mb_substr(trim((string)($_GET['q'] ?? '')), 0, 100);
 $statusFilter = preg_replace('/[^a-z_]/', '', strtolower(trim((string)($_GET['status'] ?? 'all'))));
 if (!in_array($statusFilter, ['all', 'open', 'under_review', 'forwarded_partner', 'resolved', 'closed'], true)) {
     $statusFilter = 'all';
@@ -102,6 +123,11 @@ if ($statusFilter === 'open') {
     $listWhere[] = 'd.status = ?';
     $listParams[] = $statusFilter;
 }
+if ($disputeQ !== '') {
+    $like = '%' . strtolower($disputeQ) . '%';
+    $listWhere[] = '(LOWER(d.dispute_id) LIKE ? OR LOWER(t.txn_id) LIKE ? OR LOWER(d.reason) LIKE ? OR LOWER(m.business_name) LIKE ?)';
+    array_push($listParams, $like, $like, $like, $like);
+}
 if ($listWhere !== []) {
     $listSql .= ' WHERE ' . implode(' AND ', $listWhere);
 }
@@ -116,6 +142,33 @@ try {
     $st->execute($listParams);
     $disputes = $st->fetchAll();
 }
+$disputeListQuery = [];
+if ($filterMerchantId > 0) {
+    $disputeListQuery['merchant_id'] = $filterMerchantId;
+}
+if ($disputeQ !== '') {
+    $disputeListQuery['q'] = $disputeQ;
+}
+$adminDisputesHref = static function (array $extra = []) use ($disputeListQuery): string {
+    $params = array_merge($disputeListQuery, $extra);
+    if (($params['status'] ?? '') === 'all') {
+        unset($params['status']);
+    }
+    return $params === [] ? 'admin_disputes.php' : ('admin_disputes.php?' . http_build_query($params));
+};
+$disputeFilterHidden = static function () use ($filterMerchantId, $statusFilter, $disputeQ): string {
+    $html = '';
+    if ($filterMerchantId > 0) {
+        $html .= '<input type="hidden" name="_merchant_id" value="' . (int)$filterMerchantId . '">';
+    }
+    if ($statusFilter !== 'all') {
+        $html .= '<input type="hidden" name="_status" value="' . e($statusFilter) . '">';
+    }
+    if ($disputeQ !== '') {
+        $html .= '<input type="hidden" name="_q" value="' . e($disputeQ) . '">';
+    }
+    return $html;
+};
 $pageTitle = 'Disputes';
 require_once __DIR__ . '/header.php';
 ?>
@@ -130,7 +183,7 @@ require_once __DIR__ . '/header.php';
     </div>
 </div>
 
-<?php if ($filterMerchantId > 0 || $statusFilter !== 'all'): ?>
+<?php if ($filterMerchantId > 0 || $statusFilter !== 'all' || $disputeQ !== ''): ?>
 <div class="glass rounded-xl p-3 mb-4 border border-sky-500/30 text-xs text-sky-200 flex flex-wrap items-center justify-between gap-2">
     <span><?php
         $bits = [];
@@ -140,11 +193,28 @@ require_once __DIR__ . '/header.php';
         if ($statusFilter !== 'all') {
             $bits[] = 'status: ' . $statusFilter;
         }
+        if ($disputeQ !== '') {
+            $bits[] = 'search: ' . $disputeQ;
+        }
         echo 'Filtered to ' . e(implode(' · ', $bits));
     ?></span>
     <a href="admin_disputes.php" class="text-sky-400 hover:underline">Clear filter</a>
 </div>
 <?php endif; ?>
+
+<form method="GET" class="glass rounded-xl p-4 mb-4 border border-gray-800 flex flex-wrap gap-3 items-end">
+    <div class="flex-1 min-w-[200px]">
+        <label class="text-[10px] text-gray-600 uppercase">Search disputes</label>
+        <input type="search" name="q" value="<?= e($disputeQ) ?>" placeholder="DSP… / txn / merchant / reason" class="input-field mt-1 text-sm" autocomplete="off">
+    </div>
+    <?php if ($filterMerchantId > 0): ?>
+    <input type="hidden" name="merchant_id" value="<?= (int)$filterMerchantId ?>">
+    <?php endif; ?>
+    <?php if ($statusFilter !== 'all'): ?>
+    <input type="hidden" name="status" value="<?= e($statusFilter) ?>">
+    <?php endif; ?>
+    <button type="submit" class="btn-primary px-4 py-2.5 text-sm">Search</button>
+</form>
 
 <div class="glass rounded-xl p-4 mb-6 border border-amber-500/20 text-xs text-amber-200/90">
     Bulk select + smart partner route: <strong class="text-amber-100">parked</strong>. Use one row → Forward to partner.
@@ -154,8 +224,8 @@ require_once __DIR__ . '/header.php';
     <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex flex-wrap justify-between items-center gap-2">
         <h2 class="font-semibold">Admin dispute queue (<?= $openCount ?> open)</h2>
         <div class="flex flex-wrap gap-2 text-[11px]">
-            <a href="admin_disputes.php?status=open<?= $filterMerchantId > 0 ? '&merchant_id=' . (int)$filterMerchantId : '' ?>" class="<?= $statusFilter === 'open' ? 'text-sky-300' : 'text-gray-500 hover:text-sky-300' ?>">Open only</a>
-            <a href="admin_disputes.php<?= $filterMerchantId > 0 ? ('?merchant_id=' . (int)$filterMerchantId) : '' ?>" class="<?= $statusFilter === 'all' ? 'text-sky-300' : 'text-gray-500 hover:text-sky-300' ?>">All</a>
+            <a href="<?= e($adminDisputesHref(['status' => 'open'])) ?>" class="<?= $statusFilter === 'open' ? 'text-sky-300' : 'text-gray-500 hover:text-sky-300' ?>">Open only</a>
+            <a href="<?= e($adminDisputesHref(['status' => 'all'])) ?>" class="<?= $statusFilter === 'all' ? 'text-sky-300' : 'text-gray-500 hover:text-sky-300' ?>">All</a>
         </div>
     </div>
     <div class="overflow-x-auto">
@@ -190,10 +260,11 @@ require_once __DIR__ . '/header.php';
                     <?php if ($openD): ?>
                     <div class="flex flex-col gap-2 min-w-[200px]">
                         <?php if ($d['status'] === 'open'): ?>
-                        <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="review"><input type="hidden" name="id" value="<?= (int)$d['id'] ?>"><button class="text-xs text-amber-400 hover:underline">Mark under review</button></form>
+                        <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><?= $disputeFilterHidden() ?><input type="hidden" name="action" value="review"><input type="hidden" name="id" value="<?= (int)$d['id'] ?>"><button class="text-xs text-amber-400 hover:underline">Mark under review</button></form>
                         <?php endif; ?>
                         <form method="post" class="space-y-1">
                             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                            <?= $disputeFilterHidden() ?>
                             <input type="hidden" name="action" value="resolve">
                             <input type="hidden" name="id" value="<?= (int)$d['id'] ?>">
                             <input type="text" name="resolution" maxlength="500" placeholder="Resolve note (shown to merchant)" class="input-field text-xs w-full py-1">
@@ -201,6 +272,7 @@ require_once __DIR__ . '/header.php';
                         </form>
                         <form method="post" class="space-y-1 border-t border-gray-800 pt-2">
                             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                            <?= $disputeFilterHidden() ?>
                             <input type="hidden" name="action" value="forward_partner">
                             <input type="hidden" name="id" value="<?= (int)$d['id'] ?>">
                             <select name="partner_key" class="input-field text-xs w-full py-1" required>
@@ -212,7 +284,7 @@ require_once __DIR__ . '/header.php';
                             <input type="text" name="resolution" maxlength="500" placeholder="Forward note" class="input-field text-xs w-full py-1">
                             <button class="text-xs bg-violet-600/80 text-white px-2 py-1 rounded">Forward (single)</button>
                         </form>
-                        <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="close"><input type="hidden" name="id" value="<?= (int)$d['id'] ?>"><input type="hidden" name="resolution" value="Closed by Admin"><button class="text-xs text-gray-500 hover:underline">Close</button></form>
+                        <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><?= $disputeFilterHidden() ?><input type="hidden" name="action" value="close"><input type="hidden" name="id" value="<?= (int)$d['id'] ?>"><input type="hidden" name="resolution" value="Closed by Admin"><button class="text-xs text-gray-500 hover:underline">Close</button></form>
                     </div>
                     <?php else: ?>
                     <span class="text-xs text-gray-600">—</span>

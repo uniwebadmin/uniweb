@@ -27,20 +27,28 @@ function getMerchantCollectionMode(array $merchant): string
     return in_array($default, $modes, true) ? $default : 'direct_upi';
 }
 
+function merchantCollectionModeLabel(string $mode): string
+{
+    return match ($mode) {
+        'direct_upi' => 'Direct UPI (your business VPA)',
+        'platform_pg' => 'Platform checkout (Card · UPI · Net Banking)',
+        'axis_va' => 'Virtual account collection',
+        'payu_split', 'razorpay_route', 'cashfree_route' => 'Platform checkout (legacy — not selectable)',
+        default => 'Platform checkout',
+    };
+}
+
 function getMerchantFacingCollectionModes(?array $merchant = null): array
 {
-    // P11-01: merchants do not pick Razorpay Route / PayU Split / Easy Split as a live product.
+    // P11-01: merchants do not pick Route/Split rails as a live product — labels are method-only.
     $keys = ['direct_upi', 'platform_pg'];
-    $all = getCollectionModes();
     $out = [];
     foreach ($keys as $k) {
-        if (isset($all[$k])) {
-            $out[$k] = $all[$k];
-        }
+        $out[$k] = merchantCollectionModeLabel($k);
     }
     $current = $merchant ? getMerchantCollectionMode($merchant) : '';
-    if ($current && isset($all[$current]) && !isset($out[$current])) {
-        $out[$current] = $all[$current] . ' (parked — Route/Split is not live)';
+    if ($current && !isset($out[$current])) {
+        $out[$current] = merchantCollectionModeLabel($current) . ' (current — not selectable for new links)';
     }
     return $out;
 }
@@ -70,8 +78,11 @@ function getAdminTemplateCollectionModes(?string $currentMode = null): array
     return $out;
 }
 
-function collectionModeLabel(string $mode): string
+function collectionModeLabel(string $mode, bool $merchantFacing = false): string
 {
+    if ($merchantFacing) {
+        return merchantCollectionModeLabel($mode);
+    }
     return getCollectionModes()[$mode] ?? ucfirst(str_replace('_', ' ', $mode));
 }
 
@@ -569,28 +580,28 @@ function buildCheckoutPaymentMethods(array $link): array
 
     // Render tabs from merchant method flags. Live keys are not required to SHOW the UI.
     if ($allow('debit_card')) {
-        $methods[] = ['key' => 'dc', 'label' => 'Debit Card', 'sub' => $payuConfigured ? 'Visa · Mastercard · RuPay' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for partner keys'), 'icon' => '💳', 'type' => 'payu', 'pg' => 'DC'];
+        $methods[] = ['key' => 'dc', 'label' => 'Debit Card', 'sub' => $payuConfigured ? 'Visa · Mastercard · RuPay' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for activation'), 'icon' => '💳', 'type' => 'payu', 'pg' => 'DC'];
     }
     if ($allow('credit_card')) {
-        $methods[] = ['key' => 'cc', 'label' => 'Credit Card', 'sub' => $payuConfigured ? 'Visa · Mastercard · Amex' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for partner keys'), 'icon' => '💳', 'type' => 'payu', 'pg' => 'CC'];
+        $methods[] = ['key' => 'cc', 'label' => 'Credit Card', 'sub' => $payuConfigured ? 'Visa · Mastercard · Amex' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for activation'), 'icon' => '💳', 'type' => 'payu', 'pg' => 'CC'];
     }
     if ($allow('netbanking')) {
-        $methods[] = ['key' => 'nb', 'label' => 'Net Banking', 'sub' => $payuConfigured ? 'All major banks' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for partner keys'), 'icon' => '🏦', 'type' => 'payu', 'pg' => 'NB'];
+        $methods[] = ['key' => 'nb', 'label' => 'Net Banking', 'sub' => $payuConfigured ? 'All major banks' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for activation'), 'icon' => '🏦', 'type' => 'payu', 'pg' => 'NB'];
     }
     if ($allow('emi')) {
-        $methods[] = ['key' => 'emi', 'label' => 'EMI', 'sub' => $payuConfigured ? 'Card EMI · No Cost EMI' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for partner keys'), 'icon' => '📅', 'type' => 'payu', 'pg' => 'EMI'];
+        $methods[] = ['key' => 'emi', 'label' => 'EMI', 'sub' => $payuConfigured ? 'Card EMI · No Cost EMI' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for activation'), 'icon' => '📅', 'type' => 'payu', 'pg' => 'EMI'];
     }
     if ($allow('wallet')) {
-        $methods[] = ['key' => 'wallet', 'label' => 'Wallets', 'sub' => $payuConfigured ? 'Paytm · PhonePe · Amazon Pay' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for partner keys'), 'icon' => '👛', 'type' => 'payu', 'pg' => 'CASH'];
+        $methods[] = ['key' => 'wallet', 'label' => 'Wallets', 'sub' => $payuConfigured ? 'Paytm · PhonePe · Amazon Pay' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for activation'), 'icon' => '👛', 'type' => 'payu', 'pg' => 'CASH'];
     }
     if ($allow('payu_upi')) {
-        $methods[] = ['key' => 'payu_upi', 'label' => 'UPI (Gateway)', 'sub' => $payuConfigured ? 'Pay via PayU' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for partner keys'), 'icon' => '⚡', 'type' => 'payu', 'pg' => 'UPI'];
+        $methods[] = ['key' => 'payu_upi', 'label' => 'UPI', 'sub' => $payuConfigured ? 'Google Pay · PhonePe · Paytm' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for activation'), 'icon' => '⚡', 'type' => 'payu', 'pg' => 'UPI'];
     }
     if ($allow('razorpay') || $handler === 'razorpay_route') {
-        $methods[] = ['key' => 'razorpay', 'label' => 'Cards & UPI', 'sub' => $rzpConfigured ? 'Razorpay Checkout' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for partner keys'), 'icon' => '🔒', 'type' => 'razorpay'];
+        $methods[] = ['key' => 'razorpay', 'label' => 'Cards & UPI', 'sub' => $rzpConfigured ? 'Visa · Mastercard · UPI' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for activation'), 'icon' => '🔒', 'type' => 'razorpay'];
     }
     if ($allow('cashfree') || $handler === 'cashfree_route') {
-        $methods[] = ['key' => 'cashfree', 'label' => 'Cashfree Pay', 'sub' => $cfConfigured ? 'Cards · UPI · NB' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for partner keys'), 'icon' => '💰', 'type' => 'cashfree'];
+        $methods[] = ['key' => 'cashfree', 'label' => 'Cards & UPI', 'sub' => $cfConfigured ? 'Visa · Mastercard · Net Banking' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for activation'), 'icon' => '💰', 'type' => 'cashfree'];
     }
 
     // Dedicated method link — only that checkout tab
@@ -627,13 +638,11 @@ function buildCheckoutPaymentMethods(array $link): array
 function checkoutHandlerLabel(string $handler): string
 {
     return match ($handler) {
-        'direct_upi' => 'P2M Direct UPI',
-        'payu_split' => 'PayU Split Settlement',
-        'razorpay_route' => 'Razorpay Route',
-        'cashfree_route' => 'Cashfree Easy Split',
-        'axis_va' => 'Axis Virtual Account',
-        'platform_pg' => 'Platform Payment Gateway',
-        default => ucfirst(str_replace('_', ' ', $handler)),
+        'direct_upi' => 'Direct UPI',
+        'payu_split', 'razorpay_route', 'cashfree_route' => 'Secure checkout',
+        'axis_va' => 'Virtual account',
+        'platform_pg' => 'Secure checkout',
+        default => 'Secure checkout',
     };
 }
 // End of collection.php

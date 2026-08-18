@@ -140,11 +140,19 @@ if (!function_exists('notificationActionUrl')) {
         $hay = $title . ' ' . $message;
         $titleLower = strtolower($title);
 
+        // Customer complaint CT… (before generic "ticket" / payment fallbacks)
+        if (preg_match('/\b(CT[A-F0-9]{8,})\b/i', $hay, $m)) {
+            return 'merchant_customer_tickets.php?q=' . rawurlencode(strtoupper($m[1]));
+        }
+        if (str_contains($titleLower, 'complaint') || str_contains($titleLower, 'grievance') || str_contains($titleLower, 'customer ticket')) {
+            return 'merchant_customer_tickets.php';
+        }
+
         // Support reply: "Support Reply: TKT…" → ticket detail
         if (preg_match('/\b(TKT[A-F0-9]{8,})\b/i', $hay, $m)) {
             return 'support_ticket.php?id=' . rawurlencode(strtoupper($m[1]));
         }
-        if (str_contains($titleLower, 'support') || str_contains($titleLower, 'ticket')) {
+        if (str_contains($titleLower, 'support') || (str_contains($titleLower, 'ticket') && !str_contains($titleLower, 'complaint'))) {
             return 'support.php';
         }
 
@@ -152,7 +160,7 @@ if (!function_exists('notificationActionUrl')) {
         if (preg_match('/\b(DSP[A-F0-9]{8,})\b/i', $hay, $m)) {
             return 'disputes.php?id=' . rawurlencode(strtoupper($m[1]));
         }
-        if (str_contains($titleLower, 'dispute')) {
+        if (str_contains($titleLower, 'dispute') || str_contains($titleLower, 'chargeback')) {
             return 'disputes.php';
         }
 

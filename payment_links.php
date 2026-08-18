@@ -172,7 +172,7 @@ if ($createdId !== '') {
 <?php endif; ?>
 
 <div class="glass rounded-xl p-4 mb-6 border border-emerald-500/20 text-sm text-gray-300">
-    <p class="font-semibold text-emerald-300 mb-1">Collect on your site — like a Razorpay payment link</p>
+    <p class="font-semibold text-emerald-300 mb-1">Collect on your site — share a payment link</p>
     <p class="text-xs text-gray-500">Create a link → Share / WhatsApp, or open <strong class="text-gray-400">Add to Website</strong> and paste the HTML button on your page. Branding stays: your domain + <a href="checkout_customize.php" class="text-sky-400 hover:underline">Checkout Customize</a> only — not a full rebranded UniWeb.</p>
 </div>
 
@@ -181,7 +181,7 @@ if ($createdId !== '') {
         <strong class="text-sky-300">Tip:</strong> Choose <strong class="text-white">UPI</strong> for QR.
         <strong class="text-amber-300">Test Mode</strong> = Instant Test Pay (sandbox).
         <strong class="text-emerald-300">Live Mode</strong> = real UPI ID + UTR (or Axis/webhooks).
-        Card / Netbanking need PayU keys<?= $payuReady ? ' <span class="text-emerald-400">(configured)</span>' : ' <span class="text-amber-400">(not configured — Test Mode uses Instant Test)</span>' ?>.
+        Card / Net Banking need UniWeb to activate your methods<?= $payuReady ? ' <span class="text-emerald-400">(activated)</span>' : ' <span class="text-amber-400">(pending — Test Mode uses Instant Test)</span>' ?>.
     </p>
     <a href="merchant_payment_pack.php" class="text-sky-400 hover:text-sky-300 whitespace-nowrap">Payment Pack (₹1 per method) →</a>
 </div>
@@ -248,7 +248,7 @@ if ($createdId !== '') {
             <button type="submit" formnovalidate class="w-full btn-primary py-3">Generate Link</button>
         </form>
         <?php if (!$payuReady && !$rzpReady && !$cfReady): ?>
-        <p class="text-[11px] text-amber-400/90 mt-4">Card / Cashfree / Razorpay links need platform partner keys (admin pastes them in Partner Registry). Until then use <strong>UPI</strong> or Test Instant Pay.</p>
+        <p class="text-[11px] text-amber-400/90 mt-4">Card / UPI checkout links need UniWeb to activate payment methods (Admin enables them in Partner Registry). Until then use <strong>UPI</strong> or Test Instant Pay.</p>
         <?php endif; ?>
     </div>
     <div id="payment-link-results" class="lg:col-span-2 glass rounded-xl overflow-hidden">
