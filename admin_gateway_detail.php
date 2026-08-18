@@ -41,6 +41,7 @@ if (!$gateway) {
 $partnerKey = $gateway['gateway_key'];
 $partnerRegistry = getPartnerRegistry();
 $partner = $partnerRegistry[$partnerKey] ?? null;
+$partnerIsBuiltin = function_exists('isPartnerRegistryKey') && isPartnerRegistryKey($partnerKey);
 ensurePartnerControlTables();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
@@ -274,11 +275,13 @@ require_once __DIR__ . '/header.php';
                 <input type="hidden" name="action" value="activate">
                 <button type="submit" class="btn-primary px-6 py-2.5" onclick="return confirm('Activate <?= e($gateway['gateway_name']) ?>?')">⚡ Activate</button>
             </form>
-            <form method="POST" class="inline" onsubmit="return confirm('Permanently delete this inactive partner from the registry? Built-in rails (PayU, cards, UPI…) cannot be deleted.');">
+            <?php if (!$partnerIsBuiltin): ?>
+            <form method="POST" class="inline" onsubmit="return confirm('Permanently delete this inactive custom partner from the registry?');">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="delete">
                 <button type="submit" class="text-xs px-4 py-2.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30">Delete</button>
             </form>
+            <?php endif; ?>
             <?php else: ?>
             <form method="POST" class="inline">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">

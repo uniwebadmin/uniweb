@@ -329,6 +329,16 @@ $assert(str_contains($mp, 'payoutLiveMoneyAllowed') && str_contains($mp, 'keys p
 $assert(str_contains($mp, 'bulk_csv') && str_contains($payoutLib, 'function processPayoutBulkCsv'), 'payout_bulk_csv_scaffold');
 $assert(str_contains($mp, 'request_reversal') && str_contains($mp, 'approve_checker'), 'merchant_payout_reversal_checker_ui');
 $assert(str_contains($payoutLib, 'function parsePayoutBulkCsv') && str_contains($payoutLib, 'function payoutBulkCsvHeader'), 'payout_bulk_csv_helpers');
+$assert(str_contains($payoutLib, 'function normalizePayoutBulkCsvText') && str_contains($payoutLib, 'function payoutBulkCsvDelimiter'), 'payout_bulk_csv_bom_and_delimiter');
+require_once $root . '/includes/payout.php';
+$semicolonCsv = "label;account_holder;account_number;ifsc_code;amount\nVendor;Acme Pvt;123456789012;HDFC0001234;1500\n";
+$bomCsv = "\xEF\xBB\xBFlabel,account_holder,account_number,ifsc_code,amount\nA,Acme,123456789012,HDFC0001234,99\n";
+$semParsed = parsePayoutBulkCsv($semicolonCsv);
+$bomParsed = parsePayoutBulkCsv($bomCsv);
+$assert($semParsed['ok'] && count($semParsed['rows']) === 1, 'payout_bulk_csv_semicolon_delimiter');
+$assert($bomParsed['ok'] && count($bomParsed['rows']) === 1, 'payout_bulk_csv_utf8_bom_header');
+$assert(str_contains((string)file_get_contents($root . '/admin_bulk_payout.php'), 'download_csv_template'), 'admin_bulk_payout_csv_template_download');
+$assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'partnerIsBuiltin'), 'partner_detail_hides_delete_for_builtin');
 $assert(str_contains($navSrc, 'admin_payout.php') && str_contains($navSrc, 'merchant_payout.php'), 'nav_has_payout_pages');
 $assert(str_contains($navSrc, 'merchant_payout_keys.php'), 'nav_has_payout_api_keys');
 $assert(in_array('merchant_payout.php', $registryFiles, true) && in_array('admin_payout.php', $registryFiles, true), 'watchdog_registry_covers_payout');

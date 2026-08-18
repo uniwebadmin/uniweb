@@ -1,6 +1,17 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/payout.php';
+
+if (isset($_GET['download_csv_template'])) {
+    requireStaffAccess(['super', 'ceo', 'ops']);
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="uniweb-admin-payout-bulk-template.csv"');
+    echo payoutBulkCsvHeader();
+    echo "Vendor A,Acme Pvt Ltd,123456789012,HDFC0001234,1500.00,Invoice 42,HDFC Bank,current\n";
+    echo "Salary,Ravi Kumar,987654321098,SBIN0000456,25000.00,March salary,SBI,savings\n";
+    exit;
+}
+
 requireStaffAccess(['super', 'ceo', 'ops']);
 
 $db = getDB();
@@ -24,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             flash('error', 'Merchant and CSV data are required.');
             redirect('admin_bulk_payout.php');
         }
+        $csv = normalizePayoutBulkCsvText($csv);
         $maker = 'admin:' . ($admin['username'] ?? 'admin');
         $res = processPayoutBulkCsvWithBatch($merchantId, $csv, $maker);
         flash($res['ok'] ? 'success' : 'error', $res['ok'] ? $res['message'] : ($res['error'] ?? 'Bulk upload failed'));
@@ -233,7 +245,8 @@ require_once __DIR__ . '/header.php';
                     </div>
                     <div class="mb-4">
                         <label class="block text-sm text-gray-400 mb-2">Or paste CSV text</label>
-                        <textarea name="bulk_csv_text" rows="6" placeholder="label,account_holder,account_number,ifsc_code,amount,purpose,bank_name,account_type" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm font-mono"></textarea>
+                        <textarea name="bulk_csv_text" rows="6" placeholder="Paste CSV with header + at least one row (see Download Template)" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm font-mono"></textarea>
+                        <p class="text-[11px] text-gray-500 mt-1 font-mono">label,account_holder,account_number,ifsc_code,amount,purpose,bank_name,account_type</p>
                     </div>
                     <div class="flex gap-2">
                         <button class="text-sm text-emerald-400 border border-emerald-500/40 px-4 py-2 rounded-lg">Upload & Preview</button>

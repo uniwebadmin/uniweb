@@ -571,26 +571,74 @@ function payoutBulkCsvHeader(): string
     return "label,account_holder,account_number,ifsc_code,amount,purpose,bank_name,account_type\n";
 }
 
+function normalizePayoutBulkCsvText(string $csvText): string
+{
+    $csvText = preg_replace('/^\xEF\xBB\xBF/', '', $csvText) ?? $csvText;
+    return trim(str_replace("\r\n", "\n", $csvText));
+}
+
+function payoutBulkCsvDelimiter(string $headerLine): string
+{
+    $best = ',';
+    $bestCount = 0;
+    foreach ([',', ';', "\t"] as $delimiter) {
+        $count = substr_count($headerLine, $delimiter);
+        if ($count > $bestCount) {
+            $bestCount = $count;
+            $best = $delimiter;
+        }
+    }
+    return $best;
+}
+
+/** @param list<string> $header */
+function normalizePayoutBulkCsvHeader(array $header): array
+{
+    $aliases = [
+        'name' => 'label',
+        'beneficiary' => 'label',
+        'beneficiary_name' => 'account_holder',
+        'account_name' => 'account_holder',
+        'account_no' => 'account_number',
+        'account' => 'account_number',
+        'ifsc' => 'ifsc_code',
+        'amt' => 'amount',
+    ];
+    $out = [];
+    foreach ($header as $h) {
+        $h = strtolower(trim((string)$h));
+        $h = preg_replace('/^\xEF\xBB\xBF/', '', $h) ?? $h;
+        $h = str_replace([' ', '-'], '_', $h);
+        $out[] = $aliases[$h] ?? $h;
+    }
+    return $out;
+}
+
 /**
  * Parse a bulk payout CSV. Returns rows + row-level errors. Does not move money.
  * Expected columns: label, account_holder, account_number, ifsc_code, amount [, purpose, bank_name, account_type]
  */
 function parsePayoutBulkCsv(string $csvText): array
 {
-    $csvText = trim(str_replace("\r\n", "\n", $csvText));
+    $csvText = normalizePayoutBulkCsvText($csvText);
     if ($csvText === '') {
         return ['ok' => false, 'error' => 'CSV is empty.', 'rows' => [], 'errors' => []];
     }
     $lines = preg_split('/\n+/', $csvText) ?: [];
     if (count($lines) < 2) {
-        return ['ok' => false, 'error' => 'CSV needs a header row and at least one data row.', 'rows' => [], 'errors' => []];
+        return ['ok' => false, 'error' => 'CSV needs a header row and at least one data row. Click Download Template for a sample file.', 'rows' => [], 'errors' => []];
     }
-    $header = str_getcsv(array_shift($lines));
-    $header = array_map(static fn($h) => strtolower(trim((string)$h)), $header);
+    $delimiter = payoutBulkCsvDelimiter((string)$lines[0]);
+    $header = normalizePayoutBulkCsvHeader(str_getcsv((string)array_shift($lines), $delimiter));
     $required = ['label', 'account_holder', 'account_number', 'ifsc_code', 'amount'];
     foreach ($required as $col) {
         if (!in_array($col, $header, true)) {
-            return ['ok' => false, 'error' => 'Missing column: ' . $col, 'rows' => [], 'errors' => []];
+            return [
+                'ok' => false,
+                'error' => 'Missing column: ' . $col . '. First row must include: label, account_holder, account_number, ifsc_code, amount. Use Download Template.',
+                'rows' => [],
+                'errors' => [],
+            ];
         }
     }
     $rows = [];
@@ -601,7 +649,7 @@ function parsePayoutBulkCsv(string $csvText): array
         if (trim($line) === '') {
             continue;
         }
-        $cols = str_getcsv($line);
+        $cols = str_getcsv($line, $delimiter);
         $assoc = [];
         foreach ($header as $i => $key) {
             $assoc[$key] = trim((string)($cols[$i] ?? ''));
