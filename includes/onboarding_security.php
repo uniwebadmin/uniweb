@@ -274,8 +274,8 @@ function applyApprovedControlAction(array $request): void
                 }
             }
             // 2.13: Enqueue to partner forward queue on KYC verify
-            if (!function_exists('enqueueMerchantToAllEnabledPartners') && is_file(__DIR__ . '/auto_kyc.php')) {
-                require_once __DIR__ . '/auto_kyc.php';
+            if (!function_exists('enqueueMerchantToAllEnabledPartners') && is_file(__DIR__ . '/partner_forward_queue.php')) {
+                require_once __DIR__ . '/partner_forward_queue.php';
             }
             if (function_exists('enqueueMerchantToAllEnabledPartners')) {
                 try {
@@ -298,8 +298,8 @@ function applyApprovedControlAction(array $request): void
             require_once __DIR__ . '/agreement_pdf.php';
             notifyMerchantLiveActivated($merchantId);
             // 2.13: Enqueue to partner forward queue on live activation
-            if (!function_exists('enqueueMerchantToAllEnabledPartners') && is_file(__DIR__ . '/auto_kyc.php')) {
-                require_once __DIR__ . '/auto_kyc.php';
+            if (!function_exists('enqueueMerchantToAllEnabledPartners') && is_file(__DIR__ . '/partner_forward_queue.php')) {
+                require_once __DIR__ . '/partner_forward_queue.php';
             }
             if (function_exists('enqueueMerchantToAllEnabledPartners')) {
                 try {
@@ -371,8 +371,8 @@ function verifyMerchantKycNow(int $merchantId, string $reason): void
         try { resolveKycPendingFlags($merchantId); } catch (Throwable $e) { /* ok */ }
     }
     // 2.13: Enqueue to partner forward queue on solo KYC verify
-    if (!function_exists('enqueueMerchantToAllEnabledPartners') && is_file(__DIR__ . '/auto_kyc.php')) {
-        require_once __DIR__ . '/auto_kyc.php';
+    if (!function_exists('enqueueMerchantToAllEnabledPartners') && is_file(__DIR__ . '/partner_forward_queue.php')) {
+        require_once __DIR__ . '/partner_forward_queue.php';
     }
     if (function_exists('enqueueMerchantToAllEnabledPartners')) {
         try {

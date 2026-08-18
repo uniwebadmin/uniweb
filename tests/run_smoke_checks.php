@@ -513,9 +513,10 @@ $assert(str_contains($wdP5, 'Failed checks') && str_contains($wdP5, 'maskSecretK
 $assert(!str_contains($wdP5, 'cron_auto_audit.php?key=' . '<?=') && str_contains($wdP5, 'cron_auto_audit.php?key=****'), 'p5_watchdog_cron_url_key_masked');
 
 // P5-02 — KYC/live enqueue always leaves a queue row (idempotent)
-$fwdP5 = (string)file_get_contents($root . '/includes/auto_kyc.php');
+$fwdP5 = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
+$autoP5Fwd = (string)file_get_contents($root . '/includes/auto_kyc.php');
 $assert(str_contains($fwdP5, "\$targets = ['unassigned']") && str_contains($fwdP5, 'enqueuePartnerForward'), 'p5_forward_enqueue_fallback_row');
-$assert(str_contains($fwdP5, 'resolveKycPendingFlags'), 'p5_auto_kyc_clears_aml_on_verify');
+$assert(str_contains($autoP5Fwd, 'resolveKycPendingFlags'), 'p5_auto_kyc_clears_aml_on_verify');
 // 5a: fan-out = every partner with keys (partnerIsConfigured), not chargeable-only / active-without-keys
 $assert(str_contains($fwdP5, 'partnerIsConfigured($partnerKey)') && !str_contains($fwdP5, 'isPartnerChargeable'), 'p5a_enqueue_all_partners_with_keys');
 $assert(!str_contains($fwdP5, 'isGatewayActive($partnerKey)'), 'p5a_enqueue_no_active_without_keys_tier');
@@ -817,7 +818,10 @@ $assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'),
 $assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'not sent to the bank'), 'p5_forward_staged_honest_not_at_partner');
 
 $assert(str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'partnerForwardQueueUpgradeLegacySchema') && str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'forwardQueueNextScheduleAt'), 'p6a_forward_queue_single_schema_and_schedule');
-$assert(!str_contains((string)file_get_contents($root . '/includes/auto_kyc.php'), 'scheduled_at DATETIME NOT NULL') && str_contains((string)file_get_contents($root . '/includes/auto_kyc.php'), 'enqueueMerchantToAllEnabledPartners'), 'p6a_auto_kyc_no_legacy_forward_table');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'function enqueueMerchantToAllEnabledPartners') && str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'function syncGatewaySubmissionToForwardQueue'), 'p6a_forward_enqueue_single_module');
+$assert(!str_contains((string)file_get_contents($root . '/includes/auto_kyc.php'), 'function enqueueMerchantToAllEnabledPartners') && !str_contains((string)file_get_contents($root . '/includes/auto_kyc.php'), 'scheduled_at DATETIME NOT NULL') && !str_contains((string)file_get_contents($root . '/includes/auto_kyc.php'), 'function queueMerchantForPartnerForward'), 'p6a_auto_kyc_no_duplicate_forward_helpers');
+$assert(str_contains((string)file_get_contents($root . '/includes/gateways.php'), 'syncGatewaySubmissionToForwardQueue'), 'p6a_gateway_submit_syncs_forward_queue');
+$assert(str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), 'partner_forward_queue.php') && !str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), "require_once __DIR__ . '/auto_kyc.php'"), 'p6a_onboarding_enqueue_via_forward_module');
 $assert(str_contains((string)file_get_contents($root . '/includes/payout_adapters.php'), 'UNIWEB_TEST_') && str_contains((string)file_get_contents($root . '/includes/payout_adapters.php'), 'dispatchImplemented'), 'p6a_payout_mock_labeled_stub_not_fake_live');
 $assert(str_contains((string)file_get_contents($root . '/includes/verification.php'), 'decentroPartnerCredential') && str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'rblPartnerCredential'), 'p6a_decentro_rbl_registry_credentials');
 $assert(str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'no demo defaults') && !str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'VAOPENBANK'), 'p6a_rbl_no_demo_corp_defaults');

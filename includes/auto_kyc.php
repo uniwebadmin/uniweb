@@ -292,7 +292,7 @@ function autoVerifyMerchantKyc(int $merchantId): bool
 
         logAutoKycRun($merchantId, 'merchant_verified', 'Auto-verified by Zero-Touch KYC engine');
 
-        // D3: Enqueue to per-partner forward queue (Block B partner_forward_queue.php)
+        // D3: Enqueue to per-partner forward queue (includes/partner_forward_queue.php)
         enqueueMerchantToAllEnabledPartners($merchantId);
 
         // D1: Transition to queue_forward
@@ -301,62 +301,6 @@ function autoVerifyMerchantKyc(int $merchantId): bool
     } catch (Throwable $e) {
         logAutoKycRun($merchantId, 'verify_failed', $e->getMessage());
         return false;
-    }
-}
-
-/**
- * Enqueue merchant KYC package to every partner that already has keys (idempotent).
- * 5a: do not stop at “chargeable” only — keys pasted = queue row. No keys → one unassigned row.
- */
-function enqueueMerchantToAllEnabledPartners(int $merchantId): void
-{
-    if (!function_exists('enqueuePartnerForward')) {
-        require_once __DIR__ . '/partner_forward_queue.php';
-    }
-    if (!function_exists('getPartnerRegistry')) {
-        require_once __DIR__ . '/partner_engine.php';
-    }
-    if (!function_exists('partnerIsConfigured')) {
-        require_once __DIR__ . '/partner_engine.php';
-    }
-
-    $registry = getPartnerRegistry();
-    $targets = [];
-    foreach (array_keys($registry) as $partnerKey) {
-        $partnerKey = (string)$partnerKey;
-        if (partnerIsConfigured($partnerKey)) {
-            $targets[] = $partnerKey;
-        }
-    }
-    if ($targets === []) {
-        $targets = ['unassigned'];
-    }
-    $targets = array_values(array_unique($targets));
-
-    $enqueued = 0;
-    foreach ($targets as $partnerKey) {
-        try {
-            $payload = ['merchant_id' => $merchantId, 'partner' => $partnerKey];
-            if ($partnerKey !== 'unassigned' && function_exists('build_partner_onboarding_payload')) {
-                $payload = build_partner_onboarding_payload($merchantId);
-                if (function_exists('redactPartnerPayload')) {
-                    $payload = redactPartnerPayload($payload);
-                }
-            } elseif ($partnerKey === 'unassigned') {
-                $payload = ['reason' => 'No partner keys yet — row kept so KYC Forward Queue is not empty'];
-            }
-            $queueId = enqueuePartnerForward($merchantId, $partnerKey, $payload);
-            if ($queueId > 0) {
-                $enqueued++;
-                logAutoKycRun($merchantId, 'partner_enqueued', "Enqueued to {$partnerKey} (queue_id={$queueId})");
-            }
-        } catch (Throwable $e) {
-            logAutoKycRun($merchantId, 'partner_enqueue_failed', "{$partnerKey}: " . $e->getMessage());
-        }
-    }
-
-    if ($enqueued === 0) {
-        logAutoKycRun($merchantId, 'partner_enqueue_skip', 'Already queued or insert skipped (idempotent)');
     }
 }
 
@@ -547,128 +491,6 @@ function calculateForwardTime(string $verifiedAt = 'now'): string
     }
     $holdMinutes = getHoldWindowMinutes();
     return date('Y-m-d H:i:s', $ts + ($holdMinutes * 60));
-}
-
-/**
- * Queue a verified merchant for partner forward — delegates to per-partner enqueue.
- */
-if (!function_exists('queueMerchantForPartnerForward')) {
-function queueMerchantForPartnerForward(int $merchantId, ?string $gateways = null): bool
-{
-    if (function_exists('enqueueMerchantToAllEnabledPartners')) {
-        enqueueMerchantToAllEnabledPartners($merchantId);
-        return true;
-    }
-    return false;
-}
-}
-
-/**
- * Process the partner forward queue — called from cron / admin.
- * Delegates to the live per-partner worker (correct table columns).
- */
-if (!function_exists('processPartnerForwardQueue')) {
-function processPartnerForwardQueue(int $limit = 20): array
-{
-    if (!function_exists('processPerPartnerForwardQueue') && is_file(__DIR__ . '/partner_forward_queue.php')) {
-        require_once __DIR__ . '/partner_forward_queue.php';
-    }
-    if (!function_exists('processPerPartnerForwardQueue')) {
-        return ['processed' => 0, 'forwarded' => 0, 'errors' => 0, 'success' => 0, 'failed' => 0, 'retry' => 0];
-    }
-    $r = processPerPartnerForwardQueue($limit);
-    $summary = [
-        'processed' => (int)($r['processed'] ?? 0),
-        'forwarded' => (int)($r['success'] ?? 0),
-        'errors' => (int)($r['failed'] ?? 0),
-        'success' => (int)($r['success'] ?? 0),
-        'failed' => (int)($r['failed'] ?? 0),
-        'retry' => (int)($r['retry'] ?? 0),
-    ];
-    if (function_exists('saveSetting')) {
-        try {
-            saveSetting('partner_forward_last_run', json_encode([
-                'ran_at' => date('Y-m-d H:i:s'),
-                'summary' => $summary,
-            ]));
-        } catch (Throwable $e) { /* ok */ }
-    }
-    return $summary;
-}
-}
-
-/**
- * Legacy pause/resume/cancel/list — only defined if partner_forward_queue.php
- * was not loaded (production config.php may omit it). Prefer the new-schema
- * implementations in includes/partner_forward_queue.php.
- */
-if (!function_exists('pausePartnerForward')) {
-function pausePartnerForward(int $merchantId, int $adminId): bool
-{
-    ensurePartnerForwardQueueTable();
-    try {
-        getDB()->prepare("UPDATE partner_forward_queue SET status='paused', error_message=? WHERE merchant_id=? AND status IN ('queued','retry')")
-            ->execute(['Paused by admin #' . $adminId, $merchantId]);
-        return true;
-    } catch (Throwable $e) {
-        return false;
-    }
-}
-}
-
-if (!function_exists('resumePartnerForward')) {
-function resumePartnerForward(int $merchantId): bool
-{
-    ensurePartnerForwardQueueTable();
-    $scheduledAt = calculateForwardTime();
-    try {
-        getDB()->prepare("UPDATE partner_forward_queue SET status='queued', schedule_at=?, error_message=NULL WHERE merchant_id=? AND status='paused'")
-            ->execute([$scheduledAt, $merchantId]);
-        return true;
-    } catch (Throwable $e) {
-        return false;
-    }
-}
-}
-
-if (!function_exists('cancelPartnerForward')) {
-function cancelPartnerForward(int $merchantId, string $reason = ''): bool
-{
-    ensurePartnerForwardQueueTable();
-    try {
-        getDB()->prepare("UPDATE partner_forward_queue SET status='cancelled', error_message=? WHERE merchant_id=? AND status IN ('queued','paused','retry')")
-            ->execute([mb_substr($reason, 0, 500), $merchantId]);
-        return true;
-    } catch (Throwable $e) {
-        return false;
-    }
-}
-}
-
-if (!function_exists('getPartnerForwardQueue')) {
-function getPartnerForwardQueue(int $limit = 50): array
-{
-    if (!function_exists('ensurePartnerForwardQueueTable')) {
-        require_once __DIR__ . '/partner_forward_queue.php';
-    }
-    ensurePartnerForwardQueueTable();
-    try {
-        $st = getDB()->prepare("SELECT q.*, q.schedule_at AS scheduled_at, q.error_message AS admin_note,
-            q.last_attempt_at AS forwarded_at,
-            m.business_name, m.merchant_code, m.kyc_status
-            FROM partner_forward_queue q
-            JOIN merchants m ON q.merchant_id = m.id
-            WHERE q.status IN ('queued','paused','retry','processing','success','failed','cancelled')
-            ORDER BY
-                CASE q.status WHEN 'queued' THEN 0 WHEN 'retry' THEN 1 WHEN 'paused' THEN 2 WHEN 'failed' THEN 3 ELSE 4 END,
-                q.schedule_at DESC
-            LIMIT ?");
-        $st->execute([$limit]);
-        return $st->fetchAll() ?: [];
-    } catch (Throwable $e) {
-        return [];
-    }
-}
 }
 
 /* ------------------------------------------------------------------ *

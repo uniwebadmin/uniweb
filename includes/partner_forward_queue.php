@@ -163,6 +163,110 @@ function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payl
 }
 
 /**
+ * Enqueue merchant KYC package to every partner that already has keys (idempotent).
+ * Single entry point after Admin Verify / Auto KYC / Live enable.
+ */
+function enqueueMerchantToAllEnabledPartners(int $merchantId): void
+{
+    if (!function_exists('getPartnerRegistry')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    if (!function_exists('partnerIsConfigured')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+
+    $registry = getPartnerRegistry();
+    $targets = [];
+    foreach (array_keys($registry) as $partnerKey) {
+        $partnerKey = (string)$partnerKey;
+        if (partnerIsConfigured($partnerKey)) {
+            $targets[] = $partnerKey;
+        }
+    }
+    if ($targets === []) {
+        $targets = ['unassigned'];
+    }
+    $targets = array_values(array_unique($targets));
+
+    $enqueued = 0;
+    foreach ($targets as $partnerKey) {
+        try {
+            $payload = ['merchant_id' => $merchantId, 'partner' => $partnerKey];
+            if ($partnerKey !== 'unassigned') {
+                if (!function_exists('build_partner_onboarding_payload') && is_file(__DIR__ . '/partner_payload.php')) {
+                    require_once __DIR__ . '/partner_payload.php';
+                }
+                if (function_exists('build_partner_onboarding_payload')) {
+                    $payload = build_partner_onboarding_payload($merchantId);
+                    if (function_exists('redactPartnerPayload')) {
+                        $payload = redactPartnerPayload($payload);
+                    }
+                }
+            } else {
+                $payload = ['reason' => 'No partner keys yet — row kept so KYC Forward Queue is not empty'];
+            }
+            $queueId = enqueuePartnerForward($merchantId, $partnerKey, $payload);
+            if ($queueId > 0) {
+                $enqueued++;
+                if (function_exists('logAutoKycRun')) {
+                    logAutoKycRun($merchantId, 'partner_enqueued', "Enqueued to {$partnerKey} (queue_id={$queueId})");
+                }
+            }
+        } catch (Throwable $e) {
+            if (function_exists('logAutoKycRun')) {
+                logAutoKycRun($merchantId, 'partner_enqueue_failed', "{$partnerKey}: " . $e->getMessage());
+            }
+        }
+    }
+
+    if ($enqueued === 0 && function_exists('logAutoKycRun')) {
+        logAutoKycRun($merchantId, 'partner_enqueue_skip', 'Already queued or insert skipped (idempotent)');
+    }
+}
+
+/**
+ * Keep gateway_submissions (manual record) and partner_forward_queue in sync.
+ */
+function syncGatewaySubmissionToForwardQueue(int $merchantId, string $gateway, string $source = 'manual', ?int $submissionId = null): int
+{
+    ensurePartnerForwardQueueTable();
+    $gateway = strtolower(trim($gateway));
+    if ($merchantId <= 0 || $gateway === '') {
+        return 0;
+    }
+    if (!function_exists('build_partner_onboarding_payload')) {
+        require_once __DIR__ . '/partner_payload.php';
+    }
+    $payload = build_partner_onboarding_payload($merchantId);
+    if (function_exists('redactPartnerPayload')) {
+        $payload = redactPartnerPayload($payload);
+    }
+    $payload['forward_source'] = $source;
+    $payload['gateway'] = $gateway;
+
+    $queueId = enqueuePartnerForward($merchantId, $gateway, $payload);
+    if ($queueId <= 0) {
+        return 0;
+    }
+
+    $ref = $submissionId && $submissionId > 0 ? 'SUB-' . $submissionId : ('STAGED-' . strtoupper($gateway) . '-' . $merchantId);
+    $note = $source === 'manual'
+        ? 'Synced from Gateway Submit — see gateway_submissions'
+        : 'Synced from KYC forward adapter';
+
+    try {
+        getDB()->prepare(
+            "UPDATE partner_forward_queue SET status='staged', partner_reference=?, error_message=?, updated_at=NOW()
+             WHERE id=? AND status IN ('queued','retry','processing','paused')"
+        )->execute([$ref, $note, $queueId]);
+    } catch (Throwable $e) {
+        /* non-fatal */
+    }
+
+    return $queueId;
+}
+
+/**
  * D4: Cron worker — process queued items whose schedule_at has passed.
  * Returns count of processed items.
  */
@@ -282,7 +386,7 @@ if (!function_exists('processPartnerForwardQueue')) {
 function processPartnerForwardQueue(int $limit = 20): array
 {
     $r = processPerPartnerForwardQueue($limit);
-    return [
+    $summary = [
         'processed' => (int)($r['processed'] ?? 0),
         'success' => (int)($r['success'] ?? 0),
         'failed' => (int)($r['failed'] ?? 0),
@@ -290,27 +394,15 @@ function processPartnerForwardQueue(int $limit = 20): array
         'forwarded' => (int)($r['success'] ?? 0),
         'errors' => (int)($r['failed'] ?? 0),
     ];
-}
-}
-
-if (!function_exists('queueMerchantForPartnerForward')) {
-function queueMerchantForPartnerForward(int $merchantId, ?string $gateways = null): bool
-{
-    if (function_exists('enqueueMerchantToAllEnabledPartners')) {
-        enqueueMerchantToAllEnabledPartners($merchantId);
-        return true;
+    if (function_exists('saveSetting')) {
+        try {
+            saveSetting('partner_forward_last_run', json_encode([
+                'ran_at' => date('Y-m-d H:i:s'),
+                'summary' => $summary,
+            ]));
+        } catch (Throwable $e) { /* ok */ }
     }
-    $keys = [];
-    if ($gateways !== null && $gateways !== '') {
-        $keys = array_values(array_filter(array_map('trim', explode(',', $gateways))));
-    }
-    if ($keys === [] && function_exists('gatewaySubmissionAllowedGateways')) {
-        $keys = gatewaySubmissionAllowedGateways();
-    }
-    foreach ($keys as $key) {
-        enqueuePartnerForward($merchantId, (string)$key);
-    }
-    return $keys !== [];
+    return $summary;
 }
 }
 
@@ -445,7 +537,7 @@ function runKycForwardAdapter(string $partnerKey, int $merchantId, array $fullPa
                 : ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe', 'axis', 'rbl'];
             if (in_array($partnerKey, $allowed, true)) {
                 try {
-                    submitMerchantToGateway($merchantId, $partnerKey, (int)($_SESSION['admin_id'] ?? 0), 'KYC forward queue (local_record adapter)');
+                    submitMerchantToGateway($merchantId, $partnerKey, (int)($_SESSION['admin_id'] ?? 0), 'KYC forward queue (local_record adapter)', 'adapter');
                     $st = getDB()->prepare(
                         "SELECT id FROM gateway_submissions WHERE merchant_id=? AND gateway=? ORDER BY id DESC LIMIT 1"
                     );

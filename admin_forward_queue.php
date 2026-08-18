@@ -54,7 +54,7 @@ require_once __DIR__ . '/header.php';
             </form>
             <?php endif; ?>
         </div>
-        <p class="text-xs text-gray-500 mb-3">After Admin Verify: one queue row per partner that already has keys. <strong class="text-amber-300">Staged</strong> = package saved on UniWeb — <strong class="text-gray-300">not sent to the bank/partner yet</strong> (live KYC API + success-rate routing stay parked).</p>
+        <p class="text-xs text-gray-500 mb-3">After Admin Verify: one queue row per partner that already has keys. <strong class="text-amber-300">Staged</strong> = package saved on UniWeb — <strong class="text-gray-300">not sent to the bank/partner yet</strong> (live KYC API + success-rate routing stay parked). Manual bulk forward / status updates: <a href="admin_gateway_submit.php" class="text-sky-400 hover:underline">Multi-Gateway Forward</a> (<code class="text-gray-400">gateway_submissions</code> — kept in sync with this queue).</p>
         <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-4">
             <?php
             $statOrder = ['queued', 'processing', 'staged', 'success', 'retry', 'failed', 'paused'];

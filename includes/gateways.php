@@ -342,14 +342,21 @@ function ensureGatewaySubmissionsTable(): void
     } catch (Throwable $e) { /* ok if already expanded */ }
 }
 
-function submitMerchantToGateway(int $merchantId, string $gateway, int $adminId, string $notes = ''): bool
+function submitMerchantToGateway(int $merchantId, string $gateway, int $adminId, string $notes = '', string $forwardSource = 'manual'): bool
 {
     ensureGatewaySubmissionsTable();
     $db = getDB();
 
     $existing = $db->prepare("SELECT id FROM gateway_submissions WHERE merchant_id=? AND gateway=? AND status IN ('submitted','pending_review','approved') ORDER BY id DESC LIMIT 1");
     $existing->execute([$merchantId, $gateway]);
-    if ($existing->fetchColumn()) {
+    $existingId = (int)$existing->fetchColumn();
+    if ($existingId > 0) {
+        if (!function_exists('syncGatewaySubmissionToForwardQueue') && is_file(__DIR__ . '/partner_forward_queue.php')) {
+            require_once __DIR__ . '/partner_forward_queue.php';
+        }
+        if (function_exists('syncGatewaySubmissionToForwardQueue')) {
+            syncGatewaySubmissionToForwardQueue($merchantId, $gateway, $forwardSource, $existingId);
+        }
         return true;
     }
 
@@ -367,6 +374,15 @@ function submitMerchantToGateway(int $merchantId, string $gateway, int $adminId,
 
     $db->prepare('INSERT INTO gateway_submissions (merchant_id, gateway, status, payload, admin_id, admin_notes) VALUES (?,?,?,?,?,?)')
         ->execute([$merchantId, $gateway, 'submitted', $payload, $adminId, $notes]);
+
+    $submissionId = (int)$db->lastInsertId();
+
+    if (!function_exists('syncGatewaySubmissionToForwardQueue') && is_file(__DIR__ . '/partner_forward_queue.php')) {
+        require_once __DIR__ . '/partner_forward_queue.php';
+    }
+    if (function_exists('syncGatewaySubmissionToForwardQueue')) {
+        syncGatewaySubmissionToForwardQueue($merchantId, $gateway, $forwardSource, $submissionId);
+    }
 
     $partnerLabel = (function_exists('getPartnerRegistry') ? ((string)(getPartnerRegistry()[$gateway]['name'] ?? ucfirst($gateway))) : (function_exists('partnerDisplayName') ? partnerDisplayName($gateway) : ucfirst($gateway)));
     createNotification($merchantId, 'Gateway Submission', 'Your KYC documents were submitted to ' . $partnerLabel . ' for onboarding.');
