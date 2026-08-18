@@ -2,6 +2,100 @@
 declare(strict_types=1);
 
 /** @return array{id:string,label:string,ok:bool,status:string,detail:string,test_url?:string} */
+function routeSplitHealthCheck(): array
+{
+    if (!function_exists('routeSplitLiveEnabled') && is_file(__DIR__ . '/split_settlement.php')) {
+        require_once __DIR__ . '/split_settlement.php';
+    }
+    if (!function_exists('getRouteSplitReadinessChecklist')) {
+        return [
+            'id' => 'route_split',
+            'label' => 'Route / Split (Phase 11)',
+            'ok' => false,
+            'status' => 'Module missing',
+            'detail' => 'includes/split_settlement.php not loaded',
+            'test_url' => 'gateway_settings.php#live-money-switches',
+        ];
+    }
+
+    $ready = getRouteSplitReadinessChecklist();
+    $live = routeSplitLiveEnabled();
+
+    if (!$live) {
+        return [
+            'id' => 'route_split',
+            'label' => 'Route / Split (Phase 11)',
+            'ok' => true,
+            'status' => 'Parked — standard settlement active',
+            'detail' => 'M/P commission on capture works. Live Route SDK not started.',
+            'test_url' => 'gateway_settings.php#live-money-switches',
+        ];
+    }
+
+    return [
+        'id' => 'route_split',
+        'label' => 'Route / Split (Phase 11)',
+        'ok' => !empty($ready['ready']),
+        'status' => !empty($ready['ready']) ? 'Owner ON — SDK build pending' : 'Owner ON — finish partner config',
+        'detail' => (int)$ready['done'] . '/' . (int)$ready['total'] . ' readiness checks · transfer SDK not shipped',
+        'test_url' => 'admin_gateway_registry.php',
+    ];
+}
+
+/** @return array{id:string,label:string,ok:bool,status:string,detail:string,test_url?:string} */
+function recurringAutopayHealthCheck(): array
+{
+    if (!function_exists('recurringAutopayApproved') && is_file(__DIR__ . '/mandates.php')) {
+        require_once __DIR__ . '/mandates.php';
+    }
+    if (!function_exists('recurringAutopayApproved')) {
+        return [
+            'id' => 'recurring_autopay',
+            'label' => 'Recurring / AutoPay',
+            'ok' => false,
+            'status' => 'Module missing',
+            'detail' => 'includes/mandates.php not loaded',
+            'test_url' => 'gateway_settings.php#live-money-switches',
+        ];
+    }
+
+    $approved = recurringAutopayApproved();
+    $keys = recurringAutopayPartnerKeysConfigured();
+    $ready = recurringAutopayLiveReady();
+
+    if (!$approved) {
+        return [
+            'id' => 'recurring_autopay',
+            'label' => 'Recurring / AutoPay',
+            'ok' => false,
+            'status' => 'Admin switch OFF',
+            'detail' => 'Enable in Platform Settings → Live Money Switches',
+            'test_url' => 'gateway_settings.php#live-money-switches',
+        ];
+    }
+
+    if (!$keys) {
+        return [
+            'id' => 'recurring_autopay',
+            'label' => 'Recurring / AutoPay',
+            'ok' => false,
+            'status' => 'Partner keys missing',
+            'detail' => 'Paste Razorpay / Cashfree / Decentro in Partner Registry',
+            'test_url' => 'admin_gateway_registry.php',
+        ];
+    }
+
+    return [
+        'id' => 'recurring_autopay',
+        'label' => 'Recurring / AutoPay',
+        'ok' => $ready,
+        'status' => $ready ? 'Ready for live mandates' : 'Partial setup',
+        'detail' => 'UPI Autopay + eNACH · webhooks + cron required for debits',
+        'test_url' => 'merchant_recurring.php',
+    ];
+}
+
+/** @return array{id:string,label:string,ok:bool,status:string,detail:string,test_url?:string} */
 function smtpHealthCheck(): array
 {
     $host = trim(getSetting('smtp_host', ''));
@@ -193,7 +287,7 @@ function getPlatformServiceHealth(): array
             'ok' => isGatewayConfigured('razorpay'),
             'status' => isGatewayConfigured('razorpay') ? ($activePg === 'razorpay' ? 'New-merchant template' : 'Configured') : 'Not configured',
             'detail' => isGatewayConfigured('razorpay') ? gatewayStatusLabel('razorpay') : 'Add keys in Partner Registry → Keys',
-            'test_url' => 'admin_gateway_registry.php',
+            'test_url' => function_exists('adminPartnerTestUrl') ? adminPartnerTestUrl('razorpay') : 'admin_gateway_detail.php?partner=razorpay&tab=test',
         ],
         [
             'id' => 'cashfree',
@@ -201,7 +295,7 @@ function getPlatformServiceHealth(): array
             'ok' => isGatewayConfigured('cashfree'),
             'status' => isGatewayConfigured('cashfree') ? ($activePg === 'cashfree' ? 'New-merchant template' : 'Configured') : 'Not configured',
             'detail' => isGatewayConfigured('cashfree') ? gatewayStatusLabel('cashfree') : 'Add keys in Partner Registry → Keys',
-            'test_url' => 'admin_gateway_registry.php',
+            'test_url' => function_exists('adminPartnerTestUrl') ? adminPartnerTestUrl('cashfree') : 'admin_gateway_detail.php?partner=cashfree&tab=test',
         ],
         [
             'id' => 'payu',
@@ -209,7 +303,7 @@ function getPlatformServiceHealth(): array
             'ok' => isGatewayConfigured('payu'),
             'status' => isGatewayConfigured('payu') ? ($activePg === 'payu' ? 'New-merchant template' : 'Configured') : 'Not configured',
             'detail' => isGatewayConfigured('payu') ? gatewayStatusLabel('payu') : 'Add keys in Partner Registry → Keys',
-            'test_url' => 'admin_gateway_registry.php',
+            'test_url' => function_exists('adminPartnerTestUrl') ? adminPartnerTestUrl('payu') : 'admin_gateway_detail.php?partner=payu&tab=test',
         ],
         [
             'id' => 'axis',
@@ -225,8 +319,10 @@ function getPlatformServiceHealth(): array
             'ok' => isGatewayConfigured('decentro'),
             'status' => isGatewayConfigured('decentro') ? 'Configured' : 'Not configured',
             'detail' => isGatewayConfigured('decentro') ? 'PAN/GST/Bank verification' : 'Client ID / Secret missing',
-            'test_url' => 'admin_gateway_registry.php',
+            'test_url' => function_exists('adminPartnerTestUrl') ? adminPartnerTestUrl('decentro') : 'admin_gateway_detail.php?partner=decentro&tab=test',
         ],
+        recurringAutopayHealthCheck(),
+        routeSplitHealthCheck(),
         smtpHealthCheck(),
         whatsappHealthCheck(),
         [

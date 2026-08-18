@@ -284,7 +284,7 @@ function setPartnerRouteConfig(string $partnerKey, array $cfg, string $updatedBy
     $routeStatus = in_array($cfg['route_status'] ?? '', $validStatus, true) ? $cfg['route_status'] : 'scaffold';
 
     // P11-01: never persist live Route unless Owner has set route_split_live_enabled=1.
-    $ownerLive = trim((string)getSetting('route_split_live_enabled', '0')) === '1';
+    $ownerLive = routeSplitLiveEnabled();
     if ($routeStatus === 'live' && !$ownerLive) {
         $routeStatus = 'ready_for_api';
     }
@@ -310,13 +310,209 @@ function setPartnerRouteConfig(string $partnerKey, array $cfg, string $updatedBy
 function canUsePartnerRoute(string $partnerKey): bool
 {
     // P11-01: live Route/Split API stays off until Owner says start + keys + commercial.
-    if (trim((string)getSetting('route_split_live_enabled', '0')) !== '1') {
+    if (!routeSplitLiveEnabled()) {
         return false;
     }
     $cfg = getPartnerRouteConfig($partnerKey);
     return $cfg['route_enabled'] === 1
         && $cfg['route_mode'] === 'partner_api'
         && $cfg['route_status'] === 'live';
+}
+
+/** Admin ON switch for live Razorpay Route / Cashfree Easy Split API calls. */
+function routeSplitLiveEnabled(): bool
+{
+    return trim((string)getSetting('route_split_live_enabled', '0')) === '1';
+}
+
+/**
+ * Market comparison — what peers offer vs UniWeb today vs future Phase 11.
+ *
+ * @return list<array{feature:string, razorpay:string, cashfree:string, payu:string, uniweb_today:string, uniweb_future:string}>
+ */
+function getRouteSplitMarketMatrix(): array
+{
+    return [
+        [
+            'feature' => 'Linked account / vendor onboarding',
+            'razorpay' => 'Razorpay Route — linked accounts API',
+            'cashfree' => 'Easy Split — vendor onboarding',
+            'payu' => 'PayU Split — child merchant IDs',
+            'uniweb_today' => 'Admin saves hint only (Partner Detail → Commercial). No live onboarding API.',
+            'uniweb_future' => 'Partner SDK onboarding + KYC link sync',
+        ],
+        [
+            'feature' => 'Split at payment capture',
+            'razorpay' => 'Transfers API on capture / settlement',
+            'cashfree' => 'Vendor split on order success',
+            'payu' => 'Split at settlement file',
+            'uniweb_today' => 'M/P commission math on capture + ledger (standard settle mode)',
+            'uniweb_future' => 'Partner transfer API on capture when route_mode=partner_api',
+        ],
+        [
+            'feature' => 'Platform fee leg',
+            'razorpay' => 'Route to platform linked account',
+            'cashfree' => 'Platform vendor share',
+            'payu' => 'Aggregator commission row',
+            'uniweb_today' => 'platform_fee column + transaction_splits table',
+            'uniweb_future' => 'platform_leg in partner_transfers → processed via SDK',
+        ],
+        [
+            'feature' => 'Refund reversal split',
+            'razorpay' => 'Proportional transfer reversal',
+            'cashfree' => 'Vendor split reversal',
+            'payu' => 'Settlement adjustment',
+            'uniweb_today' => 'calculateRefundReversalSplit() + refund_reversal transfer record',
+            'uniweb_future' => 'Live partner reversal API',
+        ],
+        [
+            'feature' => 'Settlement cycle',
+            'razorpay' => 'Partner T+1 / instant route',
+            'cashfree' => 'Vendor settlement schedule',
+            'payu' => 'PayU settlement cycle',
+            'uniweb_today' => 'T+0 / T+1 / T+2 Settlement Engine (wallet + bank transfer)',
+            'uniweb_future' => 'Optional route_mode bypass when partner settles direct',
+        ],
+        [
+            'feature' => 'Marketplace multi-vendor',
+            'razorpay' => 'Multiple linked accounts per payment',
+            'cashfree' => 'Multi-vendor split',
+            'payu' => 'Multi-payee split',
+            'uniweb_today' => 'Not offered — single merchant per txn',
+            'uniweb_future' => 'Parked — needs product decision + sub-merchant model',
+        ],
+    ];
+}
+
+/**
+ * @return array{items: list<array{id:string,label:string,ok:bool,action?:string,note?:string}>, done:int, total:int, ready:bool, phase:string}
+ */
+function getRouteSplitReadinessChecklist(?string $partnerKey = null): array
+{
+    $partnerKey = $partnerKey !== null ? strtolower(trim($partnerKey)) : null;
+    $keysOk = $partnerKey !== null && $partnerKey !== ''
+        ? isGatewayConfigured($partnerKey)
+        : (isGatewayConfigured('razorpay') || isGatewayConfigured('cashfree') || isGatewayConfigured('payu'));
+
+    $routeCfg = $partnerKey ? getPartnerRouteConfig($partnerKey) : ['route_status' => 'scaffold', 'route_mode' => 'off'];
+    $commercialReady = $partnerKey
+        ? (($routeCfg['route_status'] ?? 'scaffold') === 'ready_for_api' || ($routeCfg['route_status'] ?? '') === 'live')
+        : false;
+
+    $items = [
+        [
+            'id' => 'owner_switch',
+            'label' => 'Admin enabled Route / Split live switch',
+            'ok' => routeSplitLiveEnabled(),
+            'action' => 'gateway_settings.php#live-money-switches',
+        ],
+        [
+            'id' => 'partner_keys',
+            'label' => 'Partner collection keys in Registry',
+            'ok' => $keysOk,
+            'action' => 'admin_gateway_registry.php',
+        ],
+        [
+            'id' => 'commercial',
+            'label' => $partnerKey ? 'Partner route config = ready_for_api or live' : 'Per-partner route config saved (Commercial tab)',
+            'ok' => $partnerKey ? $commercialReady : true,
+            'action' => $partnerKey ? ('admin_gateway_detail.php?partner=' . rawurlencode($partnerKey) . '&tab=commercial') : 'admin_gateway_registry.php',
+        ],
+        [
+            'id' => 'linked_account',
+            'label' => 'Platform linked account hint + merchant vendor IDs pasted',
+            'ok' => $partnerKey
+                ? trim(getPartnerRouteConfig($partnerKey)['route_linked_account_hint'] ?? '') !== ''
+                : true,
+            'note' => 'Commercial tab hint + Edit Merchant → Razorpay linked account / Cashfree vendor / PayU child key',
+        ],
+        [
+            'id' => 'sdk',
+            'label' => 'Live transfer SDK wired (Razorpay Route / Cashfree Easy Split / PayU verify)',
+            'ok' => is_file(__DIR__ . '/route_split_partner_api.php'),
+        ],
+    ];
+
+    $done = count(array_filter($items, static fn(array $i): bool => !empty($i['ok'])));
+
+    return [
+        'items' => $items,
+        'done' => $done,
+        'total' => count($items),
+        'ready' => routeSplitLiveEnabled() && $keysOk && $commercialReady,
+        'phase' => routeSplitLiveEnabled() ? 'ready_for_sdk' : 'parked',
+    ];
+}
+
+/** Human label for route_status enum. */
+function routeSplitStatusLabel(string $status): string
+{
+    return match (strtolower($status)) {
+        'scaffold' => 'Scaffold — config save only',
+        'ready_for_api' => 'Ready for API — keys + commercial done, SDK not live',
+        'live' => 'Live — partner transfer API enabled',
+        default => ucfirst($status),
+    };
+}
+
+/** Provider display name. */
+function routeSplitProviderLabel(string $provider): string
+{
+    return match ($provider) {
+        'razorpay_route' => 'Razorpay Route',
+        'cashfree_vendor' => 'Cashfree Easy Split',
+        'other' => 'Other partner split',
+        default => 'None',
+    };
+}
+
+/**
+ * Pending + failed partner transfer queue (admin visibility).
+ */
+function getPartnerTransferQueue(int $limit = 30, ?string $status = null): array
+{
+    ensureSplitSettlementTable();
+    try {
+        if ($status !== null) {
+            $st = getDB()->prepare(
+                'SELECT pt.*, t.txn_id, m.business_name
+                 FROM partner_transfers pt
+                 JOIN transactions t ON t.id = pt.transaction_id
+                 JOIN merchants m ON m.id = pt.merchant_id
+                 WHERE pt.status = ?
+                 ORDER BY pt.updated_at DESC LIMIT ?'
+            );
+            $st->bindValue(1, $status);
+            $st->bindValue(2, $limit, PDO::PARAM_INT);
+        } else {
+            $st = getDB()->prepare(
+                "SELECT pt.*, t.txn_id, m.business_name
+                 FROM partner_transfers pt
+                 JOIN transactions t ON t.id = pt.transaction_id
+                 JOIN merchants m ON m.id = pt.merchant_id
+                 WHERE pt.status IN ('pending','failed')
+                 ORDER BY pt.updated_at DESC LIMIT ?"
+            );
+            $st->bindValue(1, $limit, PDO::PARAM_INT);
+        }
+        $st->execute();
+        return $st->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/** One-line activation message for admin / merchant UI. */
+function routeSplitActivationMessage(?string $partnerKey = null): string
+{
+    if (!routeSplitLiveEnabled()) {
+        return 'Route / Easy Split is parked (Phase 11). Commission still works via standard settlement (M/P on capture). Turn ON in Platform Settings when partner commercial is signed.';
+    }
+    $cfg = $partnerKey ? getPartnerRouteConfig($partnerKey) : null;
+    if ($cfg && canUsePartnerRoute((string)$partnerKey)) {
+        return 'Route live-ready — capture will call Razorpay Route / Cashfree Easy Split / PayU verify when keys + linked IDs are pasted.';
+    }
+    return 'Owner switch ON. Set Partner Commercial → route_mode + ready_for_api/live, paste linked account hints + merchant vendor IDs, then enable Route / Split switch if not already ON.';
 }
 
 /**
@@ -582,9 +778,22 @@ function executePartnerRouteSplit(int $transactionId, int $merchantId, array $sp
         }
     }
 
-    // F7: If no active linked account, fail safely
+    $providerNorm = strtolower(trim($provider));
+    if ($partnerKey === '' && in_array($providerNorm, ['razorpay', 'cashfree', 'payu'], true)) {
+        $partnerKey = $providerNorm;
+    }
+
+    if (is_file(__DIR__ . '/route_split_partner_api.php')) {
+        require_once __DIR__ . '/route_split_partner_api.php';
+        $resolved = routeSplitResolveLinkedAccounts($merchantId, $partnerKey !== '' ? $partnerKey : $providerNorm);
+        if ($linkedAccountId === '' && $resolved['merchant_account'] !== '') {
+            $linkedAccountId = $resolved['merchant_account'];
+        }
+    }
+
+    // F7: If no partner resolved, defer split safely
     if ($partnerKey === '') {
-        return ['ok' => false, 'error' => 'No active partner linked account found. Split deferred — merchant settlement will follow partner standard cycle.'];
+        return ['ok' => false, 'error' => 'No partner resolved for Route / Split. Paste linked account in Edit Merchant + set settlement mode route.'];
     }
 
     $settlementMode = getPartnerSettlementMode($partnerKey);
@@ -606,17 +815,36 @@ function executePartnerRouteSplit(int $transactionId, int $merchantId, array $sp
         return $merchantTransfer;
     }
 
+    $platformTransferId = null;
     // F3: Create platform_leg transfer record if platform_fee > 0 (idempotent)
     if ($platformFee > 0) {
-        createPartnerTransfer($transactionId, $merchantId, $partnerKey, $platformFee, 'platform_leg', $linkedAccountId);
+        $platformTransfer = createPartnerTransfer($transactionId, $merchantId, $partnerKey, $platformFee, 'platform_leg', null);
+        if (!empty($platformTransfer['id'])) {
+            $platformTransferId = (int)$platformTransfer['id'];
+        }
     }
 
     if ($settlementMode === 'route_mode') {
-        // F3: Route mode — partner API call would go here (Razorpay Route / Cashfree Easy Split / PayU split)
-        // For now, mark as pending until partner SDK integration is complete.
-        // When integrated: call partner transfer API, update status to 'processed' or 'failed'
+        // Live Route / Split API when Owner switch + partner config allow
+        if (function_exists('canUsePartnerRoute') && canUsePartnerRoute($partnerKey)) {
+            if (!is_file(__DIR__ . '/route_split_partner_api.php')) {
+                updatePartnerTransferStatus((int)$merchantTransfer['id'], 'failed', null, 'Route API module missing.');
+                return ['ok' => false, 'error' => 'includes/route_split_partner_api.php not found.'];
+            }
+            require_once __DIR__ . '/route_split_partner_api.php';
+            $dispatch = routeSplitDispatchCaptureTransfers(
+                $transactionId,
+                $merchantId,
+                $partnerKey,
+                $split,
+                (int)$merchantTransfer['id'],
+                $platformTransferId
+            );
+            return array_merge(['ok' => !empty($dispatch['ok']), 'mode' => 'route_mode_live'], $dispatch);
+        }
+
         updatePartnerTransferStatus((int)$merchantTransfer['id'], 'pending');
-        return ['ok' => true, 'mode' => 'route_mode', 'transfer_id' => (int)$merchantTransfer['id'], 'note' => 'Route transfer queued — partner API call pending integration.'];
+        return ['ok' => true, 'mode' => 'route_mode', 'transfer_id' => (int)$merchantTransfer['id'], 'note' => 'Route transfer queued — enable Platform switch + partner config for live API.'];
     } else {
         // F3: Standard settle mode — partner settles to merchant per their cycle
         updatePartnerTransferStatus((int)$merchantTransfer['id'], 'pending');

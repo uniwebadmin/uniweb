@@ -90,7 +90,7 @@ require_once __DIR__ . '/header.php';
         <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
             <div>
                 <h2 class="font-semibold text-lg">Partner Registry</h2>
-                <p class="text-xs text-gray-500 mt-1">Bank and PG <strong class="text-gray-400">tech partners</strong> — keys, methods, activate. Partners do not own merchants; every merchant stays under UniWeb Admin. Pipe: <strong class="text-gray-400">Test keys → Test Connection → Live keys</strong>. This is not a Juspay-style multi-rail orchestrator product. Uptime: <a href="status.php" class="text-sky-400 hover:underline">status.php</a>.</p>
+                <p class="text-xs text-gray-500 mt-1">Bank and PG <strong class="text-gray-400">tech partners</strong> — keys, methods, activate. Flow: <strong class="text-gray-400">Test keys → Test Connection → Live keys</strong>. Per-merchant checkout methods are toggled on each partner’s <strong class="text-gray-400">Detail → Methods</strong> page (not bulk-edited on this list). Partners do not own merchants; every merchant stays under UniWeb Admin.</p>
             </div>
             <div class="flex gap-3">
                 <div class="text-center">

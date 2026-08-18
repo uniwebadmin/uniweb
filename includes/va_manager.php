@@ -11,6 +11,12 @@ declare(strict_types=1);
  * (least-busy assignment) instead of a single VA becoming a bottleneck.
  */
 
+/** Gateways with a live VA-creation adapter today (others fail gracefully). */
+function vaSupportedCreationGateways(): array
+{
+    return ['axis'];
+}
+
 /** All VAs for a merchant, most-used-last-reset first. Includes the primary. */
 function getMerchantVirtualAccounts(int $merchantId): array
 {
@@ -50,8 +56,12 @@ function createAdditionalVirtualAccount(int $merchantId, string $gateway = 'axis
         return ['ok' => false, 'error' => 'Merchant not found.'];
     }
 
-    if ($gateway !== 'axis' || !function_exists('createAxisVirtualAccount')) {
-        return ['ok' => false, 'error' => 'Gateway "' . $gateway . '" does not support VA creation yet.'];
+    if (!in_array($gateway, vaSupportedCreationGateways(), true) || !function_exists('createAxisVirtualAccount')) {
+        return ['ok' => false, 'error' => 'Gateway "' . $gateway . '" VA creation is not live yet. Supported: ' . implode(', ', vaSupportedCreationGateways()) . '.'];
+    }
+
+    if ($gateway !== 'axis') {
+        return ['ok' => false, 'error' => 'Only axis is wired for VA creation today.'];
     }
 
     $va = createAxisVirtualAccount($merchant);

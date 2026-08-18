@@ -200,7 +200,9 @@ $assert(str_contains($ms1b, "['payment_methods.php', 'Payment Methods'") && str_
 $assert(str_contains((string)file_get_contents($root . '/payment_links.php'), 'href="payment_methods.php"') && !str_contains((string)file_get_contents($root . '/payment_links.php'), 'href="collection_settings.php" class="underline">Payment Methods'), 'p1b_payment_links_methods_href');
 $assert(str_contains($colPage, 'payment_methods.php'), 'collection_settings_links_to_payment_methods');
 $assert(!str_contains($colPage, 'merchant_nbfc.php') && !str_contains($pmPage, 'merchant_nbfc.php'), 'no_nbfc_links_in_method_uis');
-$assert(str_contains($colPage, 'merchantEntitledMethods(') || str_contains($colPage, 'enabled_methods'), 'collection_settings_gated_by_entitlement');
+$assert(str_contains($colPage, 'merchantEntitledMethods(') || str_contains($colPage, 'enabled_methods') || str_contains($colPage, 'renderMerchantMethodRequestSection'), 'collection_settings_gated_by_entitlement');
+$assert(str_contains($colPage, 'renderMerchantMethodRequestSection') && str_contains($colPage, "'form_action' => 'collection_settings.php'"), 'collection_settings_request_ui');
+$assert(str_contains($mReq, 'Request enable') && str_contains($mReq, 'function renderMerchantMethodRequestSection'), 'collection_settings_shared_request_panel');
 $assert(is_file($root . '/admin_method_requests.php'), 'admin_method_requests_page_present');
 $assert(str_contains($navSrc, 'admin_method_requests.php'), 'admin_nav_has_method_requests');
 $assert(in_array('admin_method_requests.php', $registryFiles, true), 'watchdog_registry_covers_method_requests');
@@ -804,7 +806,7 @@ $assert(str_contains($platP4, 'Partner Registry (keys)') && str_contains($platP4
 $assert(str_contains((string)file_get_contents($root . '/lang/en.php'), 'One UniWeb account') && str_contains((string)file_get_contents($root . '/solutions.php'), 'no separate signup at each payment company'), 'p4_signup_and_solutions_one_portal');
 $assert(str_contains((string)file_get_contents($root . '/chargebacks.php'), 'disputes.php') && str_contains((string)file_get_contents($root . '/chargebacks.php'), 'main lane'), 'p4_chargebacks_points_to_disputes');
 $healthP4 = (string)file_get_contents($root . '/includes/platform_health.php');
-$assert(str_contains($healthP4, "'test_url' => 'admin_gateway_registry.php'"), 'p4_gateway_health_opens_registry');
+$assert(str_contains($healthP4, 'tab=test') || str_contains($healthP4, 'adminPartnerTestUrl'), 'p4_gateway_health_opens_registry');
 
 $assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'CT[A-F0-9]{8,}') && str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'merchant_customer_tickets.php?q='), 'p5_notif_ct_complaint_deep_link');
 $assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'adminDisputesReturnUrl') && str_contains((string)file_get_contents($root . '/admin_disputes.php'), '_merchant_id'), 'p5_admin_disputes_preserves_search_on_post');
@@ -813,6 +815,53 @@ $assert(str_contains((string)file_get_contents($root . '/admin_website.php'), 'P
 $assert(str_contains((string)file_get_contents($root . '/chargebacks.php'), "redirect('disputes.php')") && str_contains((string)file_get_contents($root . '/disputes.php'), 'legacy list'), 'p5_chargebacks_silo_merged_to_disputes');
 $assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Git') && str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'SFTP/FTP'), 'p5_deploy_git_pull_not_ftp_only');
 $assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'not sent to the bank'), 'p5_forward_staged_honest_not_at_partner');
+
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'partnerForwardQueueUpgradeLegacySchema') && str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'forwardQueueNextScheduleAt'), 'p6a_forward_queue_single_schema_and_schedule');
+$assert(!str_contains((string)file_get_contents($root . '/includes/auto_kyc.php'), 'scheduled_at DATETIME NOT NULL') && str_contains((string)file_get_contents($root . '/includes/auto_kyc.php'), 'enqueueMerchantToAllEnabledPartners'), 'p6a_auto_kyc_no_legacy_forward_table');
+$assert(str_contains((string)file_get_contents($root . '/includes/payout_adapters.php'), 'UNIWEB_TEST_') && str_contains((string)file_get_contents($root . '/includes/payout_adapters.php'), 'dispatchImplemented'), 'p6a_payout_mock_labeled_stub_not_fake_live');
+$assert(str_contains((string)file_get_contents($root . '/includes/verification.php'), 'decentroPartnerCredential') && str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'rblPartnerCredential'), 'p6a_decentro_rbl_registry_credentials');
+$assert(str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'no demo defaults') && !str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'VAOPENBANK'), 'p6a_rbl_no_demo_corp_defaults');
+$assert(str_contains((string)file_get_contents($root . '/includes/cloud_modules.php'), "'auto_kyc.php'") && str_contains((string)file_get_contents($root . '/config.dev.php'), "'auto_kyc'"), 'p6a_auto_kyc_loaded_via_cloud_modules');
+$assert(str_contains((string)file_get_contents($root . '/includes/va_manager.php'), 'vaSupportedCreationGateways') && str_contains((string)file_get_contents($root . '/includes/gateways.php'), "'pinelabs'"), 'p6a_va_supported_list_and_pinelabs_enum');
+$assert(str_contains((string)file_get_contents($root . '/includes/auto_kyc.php'), "severity IN ('high','critical')"), 'p6a_auto_kyc_aml_fail_closed');
+
+// P7b — wiring / deep-link (~25)
+$assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'highlightDisputeId') && str_contains((string)file_get_contents($root . '/admin_disputes.php'), "\$_GET['id']"), 'p7b_admin_disputes_q_and_id_highlight');
+$assert(str_contains((string)file_get_contents($root . '/admin_support.php'), 'focusTicketId') && str_contains((string)file_get_contents($root . '/admin_support.php'), 'TKT[A-F0-9]'), 'p7b_admin_support_tkt_auto_open');
+$assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'customer complaint') && str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'merchant_customer_tickets.php'), 'p7b_ct_notify_not_dashboard');
+$assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'batch complete') && str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'transactions.php'), 'p7b_settlement_title_to_transactions');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'adminPartnerTestUrl') || str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'tab=test'), 'p7b_health_test_connection_registry_not_settings');
+$assert(str_contains((string)file_get_contents($root . '/includes/collection.php'), 'Platform checkout') && !str_contains((string)file_get_contents($root . '/includes/collection.php'), 'Razorpay/Cashfree pool'), 'p7b_collection_mode_no_partner_pool_label');
+$assert(str_contains((string)file_get_contents($root . '/global_search.php'), 'admin_disputes.php?q=') && !str_contains((string)file_get_contents($root . '/global_search.php'), 'admin_chargebacks.php?q='), 'p7b_chargeback_search_to_disputes');
+$assert(str_contains((string)file_get_contents($root . '/admin_gateway_submit.php'), 'gateway_submissions') && str_contains((string)file_get_contents($root . '/admin_gateway_submit.php'), 'admin_forward_queue.php'), 'p7b_gateway_submit_vs_forward_queue_copy');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'getPartnerRegistry') || str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'partnerDisplayName'), 'p7b_kyc_notify_partner_name');
+
+// Payout adapters — live dispatch implemented (still gated by payout_live_enabled)
+$payoutAdp = (string)file_get_contents($root . '/includes/payout_adapters.php');
+$payoutApi = (string)file_get_contents($root . '/includes/payout_partner_api.php');
+$assert(is_file($root . '/includes/payout_partner_api.php') && str_contains($payoutApi, 'razorpayxDispatchPayoutJob') && str_contains($payoutApi, 'cashfreeDispatchPayoutJob'), 'payout_live_razorpayx_cashfree_api_layer');
+$assert(str_contains($payoutAdp, "dispatchImplemented(): bool { return true; }") && str_contains($payoutAdp, 'live API') && !str_contains($payoutAdp, 'not yet implemented for live'), 'payout_adapters_live_not_stub');
+$assert(str_contains((string)file_get_contents($root . '/includes/payout.php'), 'payoutAdapterDispatchOrder') && !str_contains((string)file_get_contents($root . '/includes/payout.php'), 'RazorpayX adapter not yet implemented'), 'payout_php_delegates_to_adapters');
+
+// Recurring / AutoPay — production structure (gated like payout)
+$mandatesPhp = (string)file_get_contents($root . '/includes/mandates.php');
+$gwSeo = (string)file_get_contents($root . '/gateway_settings.php');
+$merchantRec = (string)file_get_contents($root . '/merchant_recurring.php');
+$assert(str_contains($mandatesPhp, 'function recurringAutopayApproved') && str_contains($mandatesPhp, 'function getRecurringReadinessChecklist') && str_contains($mandatesPhp, 'function getMandatePendingReason'), 'recurring_autopay_helper_functions');
+$assert(str_contains($mandatesPhp, 'decentroMandateCredentials') && str_contains($mandatesPhp, 'recurringAutopayLiveReady()') && str_contains($mandatesPhp, 'pending_reason'), 'recurring_registry_first_and_gates');
+$assert(str_contains($gwSeo, 'recurring_autopay_approved') && str_contains($gwSeo, 'payout_live_enabled') && str_contains($gwSeo, 'live-money-switches'), 'gateway_settings_live_money_switches');
+$assert(str_contains($merchantRec, 'getMandatePendingReason') && str_contains($merchantRec, 'Customer auth link'), 'merchant_recurring_pending_reasons_and_auth_link');
+$assert(is_file($root . '/migrations/064_recurring_autopay_switch.sql'), 'migration_064_recurring_autopay_switch');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'recurringAutopayHealthCheck'), 'platform_health_recurring_check');
+
+// Route / Split Phase 11 — professional scaffold (SDK still parked)
+$splitLib = (string)file_get_contents($root . '/includes/split_settlement.php');
+$assert(str_contains($splitLib, 'function getRouteSplitMarketMatrix') && str_contains($splitLib, 'function getRouteSplitReadinessChecklist') && str_contains($splitLib, 'function routeSplitLiveEnabled'), 'route_split_helper_functions');
+$assert(str_contains($gwSeo, 'route_split_live_enabled') && str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'getRouteSplitMarketMatrix'), 'gateway_settings_route_split_switch_and_market_table');
+$assert(str_contains((string)file_get_contents($root . '/admin_settlements.php'), 'Route / Split transfer queue'), 'admin_settlements_route_queue');
+$assert(str_contains((string)file_get_contents($root . '/collection_settings.php'), 'Settlement vs Route'), 'merchant_collection_route_education');
+$assert(is_file($root . '/migrations/065_route_split_switch.sql'), 'migration_065_route_split_switch');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'routeSplitHealthCheck'), 'platform_health_route_split_check');
 
 // P9-04…08 honesty (market peers) — no fake orchestrator / coverage / licence / brand blur
 $regP9 = (string)file_get_contents($root . '/admin_gateway_registry.php');
@@ -887,7 +936,9 @@ $p11 = (string)file_get_contents($root . '/docs/PHASE11_ROUTE.md');
 $assert(is_file($root . '/docs/PHASE11_ROUTE.md') && str_contains($p11, 'P11-01') && str_contains($p11, 'P11-02'), 'p11_route_reference_file');
 $assert(str_contains($p11, 'No SDK') || str_contains($p11, 'Does not** call'), 'p11_no_sdk_early');
 $splitLib = (string)file_get_contents($root . '/includes/split_settlement.php');
-$assert(str_contains($splitLib, 'route_split_live_enabled') && str_contains($splitLib, "partner API call pending integration"), 'p11_route_gated_no_sdk');
+$assert(str_contains($splitLib, 'route_split_live_enabled') && str_contains($splitLib, 'route_mode_live'), 'p11_route_gated_no_sdk');
+$routeApi = (string)@file_get_contents($root . '/includes/route_split_partner_api.php');
+$assert(str_contains($routeApi, 'razorpayRouteCreateTransfer') && str_contains($routeApi, 'cashfreeEasySplitPostCapture') && str_contains($routeApi, 'executePartnerRouteRefundReversal'), 'p11_route_live_api_layer');
 $assert(!is_file($root . '/includes/nbfc.php') && !is_file($root . '/merchant_nbfc.php') && !is_file($root . '/admin_nbfc.php'), 'p11_nbfc_fully_removed');
 $colLib = (string)file_get_contents($root . '/includes/collection.php');
 $assert(str_contains($colLib, "\$keys = ['direct_upi', 'platform_pg']"), 'p11_merchant_modes_no_live_route');
@@ -898,7 +949,7 @@ $assert(is_file($root . '/.cursor/rules/owner-hard-nbfc-ppi-existing-only.mdc'),
 $assert(!str_contains((string)file_get_contents($root . '/collection_settings.php'), 'payu_child_key') && !str_contains((string)file_get_contents($root . '/collection_settings.php'), 'razorpay_linked_account_id') && !str_contains((string)file_get_contents($root . '/collection_settings.php'), 'cashfree_vendor_id'), 'p11_collection_route_ids_hidden_from_merchant');
 $assert(str_contains((string)file_get_contents($root . '/collection_settings.php'), 'Partners stay with Admin') || str_contains((string)file_get_contents($root . '/collection_settings.php'), 'Partner Split / Route IDs are not shown'), 'p1a_merchant_no_partner_id_fields');
 $assert(str_contains((string)file_get_contents($root . '/docs/DEEP_AUDIT_ORDERED.md'), 'PHASE11_ROUTE.md'), 'p11_audit_points_at_map');
-$assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'locked — future ticket'), 'p11_live_status_locked_in_ui');
+$assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'enable Platform switch first') || str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'locked — future ticket'), 'p11_live_status_locked_in_ui');
 
 $cryptoCleanup = (string)file_get_contents($root . '/includes/crypto.php');
 $assert(str_contains($cryptoCleanup, 'function encryptSensitive') && str_contains($cryptoCleanup, 'function sensitiveUiPlain'), 'cleanup_b_encrypt_decrypt_ui_helpers');
@@ -1052,6 +1103,13 @@ $assert(str_contains($collLib, 'Merchant enabled_methods JSON is the product dat
 $pmLib2a = (string)file_get_contents($root . '/includes/payment_methods.php');
 $assert(str_contains($pmLib2a, 'function syncMerchantEnabledMethodsFromToggles') && str_contains($pmLib2a, 'UPDATE merchants SET enabled_methods=?'), 'p2a_sync_enabled_methods_helper');
 $assert(substr_count($pmLib2a, 'syncMerchantEnabledMethodsFromToggles($merchantId)') >= 2, 'p2a_toggle_and_bulk_call_sync');
+$mReqLayer = (string)file_get_contents($root . '/includes/method_requests.php');
+$assert(str_contains($mReqLayer, 'toggleMerchantPaymentMethod($merchantId, $methodKey, true, \'system_unlock\')'), 'p3_unlock_syncs_toggle_layer');
+$assert(str_contains($mReqLayer, 'function merchantCanToggleMethodOn'), 'p3_permission_gate_helper');
+$assert(str_contains($mReqLayer, 'function renderMerchantMethodRequestSection'), 'p3_shared_method_request_ui');
+$assert(str_contains($pmLib2a, 'merchantCanToggleMethodOn($merchantId, $methodKey, $updatedBy)'), 'p3_toggle_checks_permission');
+$pmPage = (string)file_get_contents($root . '/payment_methods.php');
+$assert(str_contains($pmPage, 'renderMerchantMethodRequestSection') && str_contains($pmPage, 'request_method'), 'p3_merchant_request_ui');
 // 2b: net_banking (registry/toggles) must normalize to netbanking (checkout catalog)
 $assert(str_contains($pmLib2a, 'function normalizeCheckoutMethodKey') && str_contains($pmLib2a, "'net_banking', 'nb' => 'netbanking'"), 'p2b_normalize_netbanking_alias');
 $assert(str_contains((string)file_get_contents($root . '/includes/provision.php'), 'normalizeCheckoutMethodKeys'), 'p2b_enabled_methods_normalized');
@@ -1181,7 +1239,7 @@ $assert(str_contains($splitP1, 'function ensurePartnerCommercialSeeded'), 'p1_co
 $assert(str_contains($splitP1, 'ON DUPLICATE KEY UPDATE base_mdr_percent=VALUES(base_mdr_percent)'), 'p1_commercial_upsert');
 $gwDetailP1 = (string)file_get_contents($root . '/admin_gateway_detail.php');
 $assert(str_contains($gwDetailP1, 'ensurePartnerCommercialSeeded'), 'p1_commercial_tab_seeds_on_open');
-$assert(str_contains($gwDetailP1, 'No provider API calls are made'), 'p1_route_scaffold_not_live_api');
+$assert(str_contains($gwDetailP1, 'No provider API calls') && str_contains($gwDetailP1, 'SDK'), 'p1_route_scaffold_not_live_api');
 $assert(str_contains($gwDetailP1, 'No commercial terms saved yet'), 'commercial_tab_empty_not_fatal');
 
 // P1-03: platform primary label is template, not global

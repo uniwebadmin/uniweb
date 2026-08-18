@@ -86,6 +86,9 @@ $featureAliases = [
     'orchestrator' => 'admin_gateway_registry.php',
     'gateway orchestrator' => 'admin_gateway_registry.php',
     'forward queue' => 'admin_forward_queue.php',
+    'gateway submit' => 'admin_gateway_submit.php',
+    'gateway submission' => 'admin_gateway_submit.php',
+    'test connection' => 'admin_gateway_registry.php',
     'reason maps' => 'admin_reason_map.php',
     'platform status' => 'admin_platform_status.php',
     'platform settings' => 'gateway_settings.php',
@@ -531,7 +534,7 @@ if ($isMerchant) {
             if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
                 continue;
             }
-            $add('Chargeback', $ref, formatMoney((float)($row['amount'] ?? 0)) . ' · ' . ucfirst((string)$row['status']) . ' · ' . $row['business_name'], 'admin_chargebacks.php?q=' . rawurlencode($ref));
+            $add('Chargeback', $ref, formatMoney((float)($row['amount'] ?? 0)) . ' · ' . ucfirst((string)$row['status']) . ' · ' . $row['business_name'], 'admin_disputes.php?q=' . rawurlencode($ref));
         }
     }
 

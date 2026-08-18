@@ -153,7 +153,10 @@ function razorpayXRequest(string $method, string $path, ?array $body = null, arr
 
 function createRazorpayXPayout(array $merchant, array $bank, float $amount, string $reference): ?array
 {
-    $platformAccount = getSetting('razorpayx_account_number', '');
+    if (!function_exists('razorpayxPlatformAccountNumber')) {
+        require_once __DIR__ . '/payout_partner_api.php';
+    }
+    $platformAccount = razorpayxPlatformAccountNumber();
     if ($platformAccount === '' || $amount <= 0) {
         return null;
     }
@@ -322,7 +325,7 @@ function ensureGatewaySubmissionsTable(): void
         getDB()->exec("CREATE TABLE IF NOT EXISTS gateway_submissions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             merchant_id INT NOT NULL,
-            gateway ENUM('razorpay','cashfree','payu','decentro','phonepe','axis','rbl') NOT NULL,
+            gateway ENUM('razorpay','cashfree','payu','decentro','phonepe','axis','rbl','pinelabs') NOT NULL,
             status ENUM('draft','submitted','approved','rejected','pending_review') DEFAULT 'submitted',
             payload LONGTEXT,
             admin_id INT,
@@ -335,7 +338,7 @@ function ensureGatewaySubmissionsTable(): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     } catch (Throwable $e) { /* ok */ }
     try {
-        getDB()->exec("ALTER TABLE gateway_submissions MODIFY gateway ENUM('razorpay','cashfree','payu','decentro','phonepe','axis','rbl') NOT NULL");
+        getDB()->exec("ALTER TABLE gateway_submissions MODIFY gateway ENUM('razorpay','cashfree','payu','decentro','phonepe','axis','rbl','pinelabs') NOT NULL");
     } catch (Throwable $e) { /* ok if already expanded */ }
 }
 
@@ -365,7 +368,8 @@ function submitMerchantToGateway(int $merchantId, string $gateway, int $adminId,
     $db->prepare('INSERT INTO gateway_submissions (merchant_id, gateway, status, payload, admin_id, admin_notes) VALUES (?,?,?,?,?,?)')
         ->execute([$merchantId, $gateway, 'submitted', $payload, $adminId, $notes]);
 
-    createNotification($merchantId, 'Gateway Submission', "Your KYC documents submitted to " . strtoupper($gateway) . " for onboarding.");
+    $partnerLabel = (function_exists('getPartnerRegistry') ? ((string)(getPartnerRegistry()[$gateway]['name'] ?? ucfirst($gateway))) : (function_exists('partnerDisplayName') ? partnerDisplayName($gateway) : ucfirst($gateway)));
+    createNotification($merchantId, 'Gateway Submission', 'Your KYC documents were submitted to ' . $partnerLabel . ' for onboarding.');
     logComplianceAudit($merchantId, $adminId, 'gateway_forward', 'Forwarded to ' . strtoupper($gateway));
     return true;
 }
@@ -373,7 +377,7 @@ function submitMerchantToGateway(int $merchantId, string $gateway, int $adminId,
 /** Gateways a merchant can be forwarded to (matches gateway_submissions ENUM). */
 function gatewaySubmissionAllowedGateways(): array
 {
-    return ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe', 'axis', 'rbl'];
+    return ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe', 'axis', 'rbl', 'pinelabs'];
 }
 
 /** One-click forward to several gateways at once. Returns count forwarded. */
@@ -1041,11 +1045,17 @@ function decentroV3Headers(): array
         'client_id: ' . $clientId,
         'client_secret: ' . $clientSecret,
     ];
-    $moduleSecret = getSetting('decentro_module_secret', '');
+    $moduleSecret = trim(getPartnerSetting('decentro', 'decentro_module_secret', ''));
+    if ($moduleSecret === '' && function_exists('getSetting')) {
+        $moduleSecret = trim((string)getSetting('decentro_module_secret', ''));
+    }
     if ($moduleSecret !== '') {
         $headers[] = 'module_secret: ' . $moduleSecret;
     }
-    $providerSecret = getSetting('decentro_provider_secret', '');
+    $providerSecret = trim(getPartnerSetting('decentro', 'decentro_provider_secret', ''));
+    if ($providerSecret === '' && function_exists('getSetting')) {
+        $providerSecret = trim((string)getSetting('decentro_provider_secret', ''));
+    }
     if ($providerSecret !== '') {
         $headers[] = 'provider_secret: ' . $providerSecret;
     }
@@ -1094,7 +1104,10 @@ function decentroV3Request(string $endpoint, array $payload): ?array
  */
 function createDecentroDynamicQr(float $amount, string $purpose_message, string $referenceId, int $expiryMinutes = 5, ?string $consumerUrn = null, ?string $customUrl = null): ?array
 {
-    $consumerUrn ??= getSetting('decentro_consumer_urn', '');
+    $consumerUrn ??= trim(getPartnerSetting('decentro', 'decentro_consumer_urn', ''));
+    if (($consumerUrn ?? '') === '' && function_exists('getSetting')) {
+        $consumerUrn = getSetting('decentro_consumer_urn', '');
+    }
     if ($consumerUrn === '' || $amount <= 0) {
         return null;
     }

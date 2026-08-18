@@ -95,7 +95,7 @@ if (isset($_GET['action'], $_GET['id']) && verifyCsrf($_GET['token'] ?? '')) {
 }
 
 $filterMerchantId = (int)($_GET['merchant_id'] ?? 0);
-$disputeQ = mb_substr(trim((string)($_GET['q'] ?? '')), 0, 100);
+$disputeQ = mb_substr(trim((string)($_GET['q'] ?? ($_GET['id'] ?? ''))), 0, 100);
 $statusFilter = preg_replace('/[^a-z_]/', '', strtolower(trim((string)($_GET['status'] ?? 'all'))));
 if (!in_array($statusFilter, ['all', 'open', 'under_review', 'forwarded_partner', 'resolved', 'closed'], true)) {
     $statusFilter = 'all';
@@ -141,6 +141,34 @@ try {
     $st = $db->prepare($listSql . $order);
     $st->execute($listParams);
     $disputes = $st->fetchAll();
+}
+$highlightDisputeId = '';
+if ($disputeQ !== '' && preg_match('/^DSP[A-F0-9]{8,}$/i', $disputeQ)) {
+    $highlightDisputeId = strtoupper($disputeQ);
+    $exact = null;
+    foreach ($disputes as $d) {
+        if (strcasecmp((string)($d['dispute_id'] ?? ''), $highlightDisputeId) === 0) {
+            $exact = $d;
+            break;
+        }
+    }
+    if (!$exact) {
+        try {
+            $exSt = $db->prepare(
+                'SELECT d.*, m.business_name, m.id AS merchant_row_id, t.txn_id, t.amount
+                 FROM disputes d
+                 JOIN merchants m ON d.merchant_id=m.id
+                 JOIN transactions t ON t.id=d.transaction_id
+                 WHERE d.dispute_id = ? LIMIT 1'
+            );
+            $exSt->execute([$highlightDisputeId]);
+            $exact = $exSt->fetch() ?: null;
+            if ($exact) {
+                array_unshift($disputes, $exact);
+                $disputes = array_values(array_unique($disputes, SORT_REGULAR));
+            }
+        } catch (Throwable $e) { /* ok */ }
+    }
 }
 $disputeListQuery = [];
 if ($filterMerchantId > 0) {
@@ -239,7 +267,7 @@ require_once __DIR__ . '/header.php';
             <?php else: foreach ($disputes as $d):
                 $openD = in_array((string)$d['status'], ['open', 'under_review', 'forwarded_partner'], true);
             ?>
-            <tr>
+            <tr id="dispute-<?= e($d['dispute_id']) ?>" class="<?= $highlightDisputeId !== '' && strcasecmp((string)$d['dispute_id'], $highlightDisputeId) === 0 ? 'bg-sky-500/10 ring-1 ring-sky-500/30' : '' ?>">
                 <td class="px-4 sm:px-5 py-3 font-mono text-xs text-gray-300"><?= e($d['dispute_id']) ?></td>
                 <td class="px-4 sm:px-5 py-3 text-xs"><?= adminMerchantLink((int)$d['merchant_row_id'], $d['business_name']) ?></td>
                 <td class="px-4 sm:px-5 py-3 font-mono text-xs"><?= txnDetailLink($d['txn_id']) ?></td>
@@ -296,4 +324,7 @@ require_once __DIR__ . '/header.php';
     </table>
     </div>
 </div>
+<?php if ($highlightDisputeId !== ''): ?>
+<script>document.getElementById('dispute-<?= e($highlightDisputeId) ?>')?.scrollIntoView({block:'center',behavior:'smooth'});</script>
+<?php endif; ?>
 <?php require_once __DIR__ . '/footer.php'; ?>

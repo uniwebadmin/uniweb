@@ -140,8 +140,14 @@ require_once __DIR__ . '/header.php';
                 </div>
 
                 <?php if (!empty($svc['test_url'])): ?>
-
-                <a href="<?= e($svc['test_url']) ?>" class="shrink-0 px-2 py-1 rounded-lg text-[10px] bg-dark-800 text-gray-400 hover:text-white">Open</a>
+                <?php
+                $healthLinkLabel = match ($svc['id'] ?? '') {
+                    'razorpay', 'cashfree', 'payu', 'decentro' => 'Test Connection',
+                    'smtp', 'whatsapp', 'otp' => 'Settings',
+                    default => 'Open',
+                };
+                ?>
+                <a href="<?= e($svc['test_url']) ?>" class="shrink-0 px-2 py-1 rounded-lg text-[10px] bg-dark-800 text-gray-400 hover:text-white"><?= e($healthLinkLabel) ?></a>
 
                 <?php endif; ?>
 

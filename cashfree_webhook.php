@@ -49,6 +49,28 @@ if (!function_exists('webhookFastAck')) {
 }
 webhookFastAck(['ok' => true, 'received' => true]);
 
+$splitEvents = ['VENDOR_SPLIT_SETTLEMENT', 'EASY_SPLIT_SETTLEMENT', 'SPLIT_SETTLEMENT', 'VENDOR_SETTLEMENT'];
+if (in_array(strtoupper($event), $splitEvents, true) || str_contains(strtoupper($event), 'SPLIT')) {
+    try {
+        if (!function_exists('updatePartnerTransferFromWebhook') && is_file(__DIR__ . '/includes/route_split_partner_api.php')) {
+            require_once __DIR__ . '/includes/route_split_partner_api.php';
+        }
+        $splitId = (string)($data['split_id'] ?? $data['cf_split_id'] ?? $orderId);
+        $splitStatus = strtolower((string)($data['status'] ?? $data['settlement_status'] ?? 'processed'));
+        if ($splitId !== '' && function_exists('updatePartnerTransferFromWebhook')) {
+            updatePartnerTransferFromWebhook('cashfree', $splitId, $splitStatus);
+        }
+        setGatewayEventStatus((int)$gatewayEvent['id'], 'processed');
+        markWebhookCompleted((int)$webhookEv['id']);
+        logPgWebhook('cashfree', 'split_event', $event, $splitId, null, json_encode(['status' => $splitStatus]));
+        jsonResponse(['ok' => true, 'split_event' => true]);
+    } catch (Throwable $e) {
+        setGatewayEventStatus((int)$gatewayEvent['id'], 'failed', null, $e->getMessage());
+        markWebhookFailed((int)$webhookEv['id'], $e->getMessage());
+        jsonResponse(['error' => 'Split processing failed'], 422);
+    }
+}
+
 $failureEvents = ['PAYMENT_FAILED_WEBHOOK', 'PAYMENT_FAILED', 'ORDER_FAILED'];
 $paymentStatus = strtoupper((string)($payment['payment_status'] ?? $data['payment_status'] ?? ''));
 $isFailure = in_array(strtoupper($event), $failureEvents, true)

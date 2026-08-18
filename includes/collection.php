@@ -14,7 +14,7 @@ function getCollectionModes(): array
         'razorpay_route' => 'Razorpay Route (linked account transfer)',
         'cashfree_route' => 'Cashfree Easy Split (vendor payout)',
         'axis_va' => 'Axis Virtual Account + UPI Collection',
-        'platform_pg' => 'Platform PG (Razorpay/Cashfree pool)',
+        'platform_pg' => 'Platform checkout (Card · UPI · Net Banking — UniWeb methods pool)',
     ];
 }
 

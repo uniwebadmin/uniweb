@@ -45,11 +45,6 @@ if (getMerchantCollectionMode($merchant) === 'axis_va') {
     $merchant = getMerchant();
 }
 $modes = getMerchantFacingCollectionModes($merchant);
-$enabledMethods = getMerchantEnabledMethods($merchant);
-$methodCatalog = getPaymentMethodCatalog();
-$entitledMethods = merchantEntitledMethods($merchant);
-$lockedMethods = merchantLockedMethods($merchant);
-$methodRequestMap = merchantMethodRequestMap($merchantId);
 $pageTitle = 'Collection Settings';
 require_once __DIR__ . '/header.php';
 ?>
@@ -73,7 +68,7 @@ require_once __DIR__ . '/header.php';
             <div>
                 <label class="text-sm text-gray-400 block mb-2">Payment Methods</label>
                 <div class="bg-dark-900/50 rounded-xl p-4 border border-gray-800">
-                    <p class="text-xs text-gray-400 mb-3">ON/OFF toggles live on Payment Methods. Recommended go-live order: <strong class="text-gray-300">UPI → Card → Net Banking</strong>.</p>
+                    <p class="text-xs text-gray-400 mb-3">Enable or disable methods on <a href="payment_methods.php" class="text-brand-400 hover:underline font-semibold">Payment Methods</a>. Recommended order: <strong class="text-gray-300">UPI → Card → Net Banking</strong>.</p>
                     <a href="payment_methods.php" class="inline-block text-sm bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg font-semibold">Manage Payment Methods →</a>
                 </div>
             </div>
@@ -81,6 +76,15 @@ require_once __DIR__ . '/header.php';
             <button type="submit" class="btn-primary px-6 py-2.5">✓ Save Collection Settings</button>
         </form>
     </div>
+
+    <?php
+    renderMerchantMethodRequestSection($merchantId, [
+        'merchant' => $merchant,
+        'heading' => 'Request payment methods',
+        'description' => 'Submit a request for Card, Net Banking, or other methods. After Admin (and partner, if required) approves, enable the method under Payment Methods.',
+        'form_action' => 'collection_settings.php',
+    ]);
+    ?>
 
     <div class="glass rounded-xl p-6">
         <h3 class="font-semibold mb-3">Direct UPI (P2M)</h3>
@@ -114,6 +118,16 @@ require_once __DIR__ . '/header.php';
             <li>You receive: <span class="text-emerald-400"><?= formatMoney((float)($demo['merchant_net'] ?? 0)) ?></span></li>
         </ul>
         <p class="text-[11px] text-gray-600 mt-3">Partners are connected by Admin. You only see your net after automatic commission.</p>
+    </div>
+
+    <div class="glass rounded-xl p-6 border border-violet-500/20">
+        <h3 class="font-semibold mb-2">Settlement vs Route / Split</h3>
+        <p class="text-xs text-gray-500 mb-3">Market PGs (Razorpay Route, Cashfree Easy Split) send your share directly from the partner at capture. UniWeb uses <strong class="text-gray-300">standard settlement</strong> today — money settles to your wallet / bank on T+0/T+1/T+2 after commission is cut.</p>
+        <ul class="text-xs text-gray-500 space-y-1 list-disc list-inside">
+            <li><strong class="text-gray-400">Today (live):</strong> Collect → M/P split on ledger → settlement batch → bank transfer</li>
+            <li><strong class="text-gray-400">Route / Split (Phase 11):</strong> Parked — Admin prepares partner config only. No marketplace multi-vendor split yet.</li>
+        </ul>
+        <p class="text-[11px] text-gray-600 mt-3">You do not paste Route or vendor IDs here — Admin manages partner programme in Registry.</p>
     </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

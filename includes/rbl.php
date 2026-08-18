@@ -5,34 +5,47 @@ declare(strict_types=1);
  *  RBL Bank Open Banking adapter (UAT / production ready structure)
  *  Supported rails: VA, VA Creation, UPI Collection, Blob VA statement,
  *  Account balance, Corporate single payment, Bulk payment.
+ *  Keys: Partner Registry → RBL → Keys (not gateway_settings plaintext).
  * ------------------------------------------------------------------ */
+
+function rblPartnerCredential(string $field, string $default = ''): string
+{
+    if (function_exists('getPartnerSetting')) {
+        $v = trim(getPartnerSetting('rbl', $field, ''));
+        if ($v !== '') {
+            return $v;
+        }
+    }
+    return trim((string)getSetting($field, $default));
+}
 
 function rblBaseUrl(): string
 {
-    return getSetting('rbl_environment', 'sandbox') === 'production'
+    return rblPartnerCredential('rbl_environment', 'sandbox') === 'production'
         ? 'https://api.rbl.bank.in/api/v1'
         : 'https://apisandbox.rbl.bank.in/sandbox/api/v1';
 }
 
 function rblCredentials(): array
 {
+    $base = rblPartnerCredential('rbl_base_url', '');
     return [
-        'client_id' => getSetting('rbl_client_id', ''),
-        'client_secret' => getSetting('rbl_client_secret', ''),
-        'corp_id' => getSetting('rbl_corp_id', 'VAOPENBANK'),
-        'app_name' => getSetting('rbl_app_name', 'UniWeb'),
-        'environment' => getSetting('rbl_environment', 'sandbox'),
-        'base_url' => getSetting('rbl_base_url', rblBaseUrl()),
-        'master_account' => getSetting('rbl_master_account', ''),
-        'maker_id' => getSetting('rbl_maker_id', 'M001'),
-        'checker_id' => getSetting('rbl_checker_id', 'C001'),
-        'approver_id' => getSetting('rbl_approver_id', 'A001'),
+        'client_id' => rblPartnerCredential('rbl_client_id', ''),
+        'client_secret' => rblPartnerCredential('rbl_client_secret', ''),
+        'corp_id' => rblPartnerCredential('rbl_corp_id', ''),
+        'app_name' => rblPartnerCredential('rbl_app_name', 'UniWeb'),
+        'environment' => rblPartnerCredential('rbl_environment', 'sandbox'),
+        'base_url' => $base !== '' ? $base : rblBaseUrl(),
+        'master_account' => rblPartnerCredential('rbl_master_account', ''),
+        'maker_id' => rblPartnerCredential('rbl_maker_id', ''),
+        'checker_id' => rblPartnerCredential('rbl_checker_id', ''),
+        'approver_id' => rblPartnerCredential('rbl_approver_id', ''),
     ];
 }
 
 function isRblConfigured(): bool
 {
-    return (bool)getSetting('rbl_client_id', '') && (bool)getSetting('rbl_client_secret', '');
+    return rblPartnerCredential('rbl_client_id', '') !== '' && rblPartnerCredential('rbl_client_secret', '') !== '';
 }
 
 /** Generic RBL API call. Auth is client_id + client_secret as query params. */
@@ -77,10 +90,12 @@ function rblApiRequest(string $method, string $path, ?array $body = null, int $t
 function testRblConnection(): array
 {
     if (!isRblConfigured()) {
-        return ['ok' => false, 'message' => 'RBL Client ID and Client Secret are required.'];
+        return ['ok' => false, 'message' => 'RBL Client ID and Client Secret are required in Partner Registry.'];
     }
-    // Use the shortest / most benign probe endpoint. The RBL specs are
-    // template-heavy, so test whichever endpoint is first approved.
+    $c = rblCredentials();
+    if ($c['corp_id'] === '' || $c['master_account'] === '') {
+        return ['ok' => false, 'message' => 'RBL Corp ID and Master Account must be set in Partner Registry before probe (no demo defaults).'];
+    }
     $paths = ['/virtual/account', '/upi/collection', '/va/create', '/blob/va'];
     foreach ($paths as $p) {
         $tx = 'TXN' . strtoupper(bin2hex(random_bytes(4)));
@@ -88,24 +103,21 @@ function testRblConnection(): array
             'create_VA' => [
                 'Header' => [
                     'TranID' => $tx,
-                    'Corp_ID' => getSetting('rbl_corp_id', 'VAOPENBANK'),
-                    'Maker_ID' => getSetting('rbl_maker_id', 'M001'),
-                    'Checker_ID' => getSetting('rbl_checker_id', 'C001'),
-                    'Approver_ID' => getSetting('rbl_approver_id', 'A001'),
+                    'Corp_ID' => $c['corp_id'],
+                    'Maker_ID' => $c['maker_id'] !== '' ? $c['maker_id'] : 'MAKER',
+                    'Checker_ID' => $c['checker_id'] !== '' ? $c['checker_id'] : 'CHECKER',
+                    'Approver_ID' => $c['approver_id'] !== '' ? $c['approver_id'] : 'APPROVER',
                 ],
                 'Body' => [
-                    'Account_No' => getSetting('rbl_master_account', '409000832853'),
+                    'Account_No' => $c['master_account'],
                     'Client_Id' => 'WEBUI',
                     'VA_SerialNo' => '1234567890987',
-                    'VA_Beneficiary' => getSetting('rbl_app_name', 'UniWeb'),
+                    'VA_Beneficiary' => $c['app_name'] ?: 'UniWeb',
                 ],
             ],
         ];
         $res = rblApiRequest('POST', $p, $body, 15);
         $http = (int)($res['http'] ?? 0);
-
-        // 200 = we have a real, working endpoint. 4xx/5xx = approved spec mismatch.
-        // 403 still means product not activated (this is the current sandbox state).
         if ($http === 200) {
             return ['ok' => true, 'message' => 'RBL ' . $p . ' connected (HTTP 200).'];
         }
@@ -116,10 +128,6 @@ function testRblConnection(): array
     return ['ok' => false, 'message' => 'RBL sandbox not reachable or all probe endpoints returned non-200.'];
 }
 
-/* ------------------------------------------------------------------ *
- *  VA / Collection endpoint helpers (stubs — fill after live test)
- * ------------------------------------------------------------------ */
-
 function rblNewTranId(): string
 {
     return 'TXN' . strtoupper(bin2hex(random_bytes(6)));
@@ -127,22 +135,24 @@ function rblNewTranId(): string
 
 function rblDefaultHeader(): array
 {
+    $c = rblCredentials();
     return [
         'TranID' => rblNewTranId(),
-        'Corp_ID' => getSetting('rbl_corp_id', 'VAOPENBANK'),
-        'Maker_ID' => getSetting('rbl_maker_id', 'M001'),
-        'Checker_ID' => getSetting('rbl_checker_id', 'C001'),
-        'Approver_ID' => getSetting('rbl_approver_id', 'A001'),
+        'Corp_ID' => $c['corp_id'],
+        'Maker_ID' => $c['maker_id'] !== '' ? $c['maker_id'] : 'MAKER',
+        'Checker_ID' => $c['checker_id'] !== '' ? $c['checker_id'] : 'CHECKER',
+        'Approver_ID' => $c['approver_id'] !== '' ? $c['approver_id'] : 'APPROVER',
     ];
 }
 
 function rblVaBody(string $serial, string $beneficiaryName, ?string $accountNo = null): array
 {
+    $c = rblCredentials();
     return [
         'create_VA' => [
             'Header' => rblDefaultHeader(),
             'Body' => [
-                'Account_No' => $accountNo ?: getSetting('rbl_master_account', '409000832853'),
+                'Account_No' => $accountNo ?: $c['master_account'],
                 'Client_Id' => 'WEBUI',
                 'VA_SerialNo' => $serial,
                 'VA_Beneficiary' => $beneficiaryName,
@@ -173,12 +183,13 @@ function rblUpiCollection(string $serial, string $beneficiaryName, ?string $acco
 
 function rblFetchAccountBalance(string $accountId): ?array
 {
+    $c = rblCredentials();
     $body = [
         'getAccountBalanceReq' => [
             'Header' => [
                 'TranID' => rblNewTranId(),
-                'Corp ID' => getSetting('rbl_corp_id', 'VAOPENBANK'),
-                'AppIOveI_ID' => getSetting('rbl_approver_id', 'A001'),
+                'Corp ID' => $c['corp_id'],
+                'AppIOveI_ID' => $c['approver_id'] !== '' ? $c['approver_id'] : 'APPROVER',
             ],
             'Body' => ['AcctId' => $accountId],
             'Signature' => ['Signature' => '12345'],
@@ -189,11 +200,12 @@ function rblFetchAccountBalance(string $accountId): ?array
 
 function rblBlobVaStatement(string $accountNo, string $fromDate, string $toDate): ?array
 {
+    $c = rblCredentials();
     $body = [
         'FetchAccStmtReq' => [
             'Header' => [
                 'TranID' => rblNewTranId(),
-                'Corp_ID' => getSetting('rbl_corp_id', 'VAOPENBANK'),
+                'Corp_ID' => $c['corp_id'],
                 'account_no' => $accountNo,
                 'from_date' => $fromDate,
                 'to_date' => $toDate,
@@ -217,11 +229,12 @@ function rblCorporateSinglePayment(array $payment): ?array
 
 function rblBulkPayment(array $debit, array $payments): ?array
 {
+    $c = rblCredentials();
     $body = [
         'doBenIdMultiPaymentReq' => [
             'Header' => [
                 'TranID' => rblNewTranId(),
-                'Corp_ID' => getSetting('rbl_corp_id', 'VAOPENBANK'),
+                'Corp_ID' => $c['corp_id'],
                 'TotalTransactionsCount' => count($payments),
                 'TotalAmount' => (string)array_sum(array_column($payments, 'Amount')),
             ],

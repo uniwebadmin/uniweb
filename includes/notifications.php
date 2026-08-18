@@ -144,8 +144,19 @@ if (!function_exists('notificationActionUrl')) {
         if (preg_match('/\b(CT[A-F0-9]{8,})\b/i', $hay, $m)) {
             return 'merchant_customer_tickets.php?q=' . rawurlencode(strtoupper($m[1]));
         }
+        if (str_contains($titleLower, 'customer complaint') || str_contains($titleLower, 'new customer complaint')) {
+            return 'merchant_customer_tickets.php';
+        }
         if (str_contains($titleLower, 'complaint') || str_contains($titleLower, 'grievance') || str_contains($titleLower, 'customer ticket')) {
             return 'merchant_customer_tickets.php';
+        }
+
+        // Transaction id in body → ledger detail
+        if (preg_match('/\b(TXN[A-F0-9]{8,})\b/i', $hay, $m)) {
+            $txnId = strtoupper($m[1]);
+            return function_exists('transactionDetailUrl')
+                ? transactionDetailUrl($txnId)
+                : ('transaction_detail.php?txn=' . rawurlencode($txnId));
         }
 
         // Support reply: "Support Reply: TKT…" → ticket detail
@@ -164,10 +175,22 @@ if (!function_exists('notificationActionUrl')) {
             return 'disputes.php';
         }
 
+        if (str_contains($titleLower, 'kyc forwarded') || str_contains($titleLower, 'kyc forward failed')) {
+            return 'kyc.php';
+        }
         if (str_contains($titleLower, 'kyc')) {
             return 'kyc.php';
         }
-        if (str_contains($titleLower, 'payment') || str_contains($titleLower, 'settlement')) {
+        if (
+            str_contains($titleLower, 'settlement')
+            || str_contains($titleLower, 'batch complete')
+            || str_contains($titleLower, 'batch submitted')
+            || str_contains($titleLower, 'payment received')
+            || str_contains($titleLower, 'payment approved')
+        ) {
+            return 'transactions.php';
+        }
+        if (str_contains($titleLower, 'payment')) {
             return 'transactions.php';
         }
         return 'dashboard.php';

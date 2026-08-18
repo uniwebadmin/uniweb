@@ -141,10 +141,30 @@ function completeProviderRefund(string $refundId, string $providerReference): ar
             ['provider_reference' => $providerReference, 'snapshot_used' => $snapshot !== null]
         );
 
-        // F5: Record refund reversal transfer (idempotent)
-        if ($snapshot && !empty($snapshot['partner_key']) && function_exists('recordRefundReversalTransfer')) {
+        // F5: Record + live reverse partner Route / Split legs when enabled
+        if ($snapshot && function_exists('recordRefundReversalTransfer')) {
             try {
-                recordRefundReversalTransfer((int)$refund['transaction_id'], (int)$refund['merchant_id'], (string)$snapshot['partner_key'], $refundAmount);
+                $partnerKey = (string)($snapshot['partner_key'] ?? '');
+                if ($partnerKey === '') {
+                    $txnSt = getDB()->prepare('SELECT payment_method FROM transactions WHERE id=?');
+                    $txnSt->execute([(int)$refund['transaction_id']]);
+                    $partnerKey = strtolower((string)($txnSt->fetchColumn() ?: ''));
+                }
+                recordRefundReversalTransfer((int)$refund['transaction_id'], (int)$refund['merchant_id'], $partnerKey, $refundAmount);
+                if ($partnerKey !== '' && is_file(__DIR__ . '/route_split_partner_api.php')) {
+                    require_once __DIR__ . '/route_split_partner_api.php';
+                    if (function_exists('executePartnerRouteRefundReversal')) {
+                        $reversal = calculateRefundReversalSplit($refundAmount, $snapshot);
+                        executePartnerRouteRefundReversal(
+                            (int)$refund['transaction_id'],
+                            (int)$refund['merchant_id'],
+                            $partnerKey,
+                            (float)($reversal['merchant_reversal'] ?? $refundAmount),
+                            (float)($reversal['platform_reversal'] ?? 0),
+                            $refundId
+                        );
+                    }
+                }
             } catch (Throwable $e) { /* non-fatal */ }
         }
 

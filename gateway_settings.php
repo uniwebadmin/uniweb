@@ -362,6 +362,86 @@ $gatewayCards = [
             <p class="text-xs text-gray-500">This page does NOT accept live PG API keys. Platform-wide settings (SMTP, WhatsApp, SEO, cron) remain here. Method partner webhook URL is configured in Partner Detail → Webhooks tab.</p>
             <p class="text-xs text-gray-600">Method partner webhook endpoint: <code class="text-gray-400"><?= e(rtrim(APP_URL, '/')) ?>/method_partner_webhook.php</code></p>
         </div>
+        <?php
+        if (!function_exists('getRecurringReadinessChecklist') && is_file(__DIR__ . '/includes/mandates.php')) {
+            require_once __DIR__ . '/includes/mandates.php';
+        }
+        if (!function_exists('getRouteSplitReadinessChecklist') && is_file(__DIR__ . '/includes/split_settlement.php')) {
+            require_once __DIR__ . '/includes/split_settlement.php';
+        }
+        $recurringReady = function_exists('getRecurringReadinessChecklist') ? getRecurringReadinessChecklist() : ['items' => [], 'done' => 0, 'total' => 0, 'ready' => false];
+        $routeSplitReady = function_exists('getRouteSplitReadinessChecklist') ? getRouteSplitReadinessChecklist() : ['items' => [], 'done' => 0, 'total' => 0, 'ready' => false, 'phase' => 'parked'];
+        $payoutLiveOn = ($settingsMap['payout_live_enabled'] ?? '0') === '1';
+        $recurringOn = ($settingsMap['recurring_autopay_approved'] ?? '0') === '1';
+        $routeSplitOn = ($settingsMap['route_split_live_enabled'] ?? '0') === '1';
+        ?>
+        <div id="live-money-switches" class="rounded-xl border border-violet-500/40 bg-violet-500/5 p-5 my-4 space-y-4">
+            <?= settingsSectionHeading('Live Money Switches', 'violet', 'text-base') ?>
+            <p class="text-xs text-gray-500 -mt-3">Same pattern as Razorpay / Cashfree: paste partner keys in Registry first, then turn ON after compliance review. Default OFF — no live money until you enable.</p>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4">
+                    <label class="text-sm text-gray-300 font-medium">Payout live money (RazorpayX / Cashfree Payouts)</label>
+                    <select name="settings[payout_live_enabled]" class="input-field mt-2">
+                        <option value="0" <?= !$payoutLiveOn ? 'selected' : '' ?>>OFF — scaffold / test UTR only</option>
+                        <option value="1" <?= $payoutLiveOn ? 'selected' : '' ?>>ON — real bank transfers (needs Registry keys)</option>
+                    </select>
+                    <p class="text-[11px] text-gray-600 mt-2">Requires partner payout keys + merchant checker approval.</p>
+                </div>
+                <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4">
+                    <label class="text-sm text-gray-300 font-medium">Recurring / AutoPay (UPI Autopay + eNACH)</label>
+                    <select name="settings[recurring_autopay_approved]" class="input-field mt-2">
+                        <option value="0" <?= !$recurringOn ? 'selected' : '' ?>>OFF — merchants see gated message</option>
+                        <option value="1" <?= $recurringOn ? 'selected' : '' ?>>ON — mandate registration + live debits allowed</option>
+                    </select>
+                    <p class="text-[11px] text-gray-600 mt-2">Create mandate → customer UPI approval → cron debits.</p>
+                </div>
+                <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4 sm:col-span-2 lg:col-span-1">
+                    <label class="text-sm text-gray-300 font-medium">Route / Split live (Phase 11)</label>
+                    <select name="settings[route_split_live_enabled]" class="input-field mt-2">
+                        <option value="0" <?= !$routeSplitOn ? 'selected' : '' ?>>OFF — parked · standard settlement only</option>
+                        <option value="1" <?= $routeSplitOn ? 'selected' : '' ?>>ON — unlock live status + future SDK</option>
+                    </select>
+                    <p class="text-[11px] text-gray-600 mt-2">Razorpay Route / Cashfree Easy Split / PayU Split. Commission (M/P) works without this.</p>
+                </div>
+            </div>
+            <?php if (!empty($routeSplitReady['items'])): ?>
+            <div class="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+                <p class="font-medium text-amber-300 mb-2">Route / Split readiness — <?= (int)$routeSplitReady['done'] ?>/<?= (int)$routeSplitReady['total'] ?> · Phase: <?= e($routeSplitReady['phase'] ?? 'parked') ?></p>
+                <p class="text-gray-500 mb-2"><?= e(function_exists('routeSplitActivationMessage') ? routeSplitActivationMessage() : '') ?></p>
+                <ul class="space-y-1">
+                    <?php foreach ($routeSplitReady['items'] as $item): ?>
+                    <li class="<?= !empty($item['ok']) ? 'text-emerald-400' : 'text-amber-400' ?>">
+                        <?= !empty($item['ok']) ? '●' : '○' ?> <?= e($item['label']) ?>
+                        <?php if (!empty($item['action']) && empty($item['ok'])): ?>
+                        · <a href="<?= e($item['action']) ?>" class="text-sky-400 underline">Open</a>
+                        <?php endif; ?>
+                        <?php if (!empty($item['note'])): ?>
+                        <span class="block text-gray-600 text-[10px] mt-0.5"><?= e($item['note']) ?></span>
+                        <?php endif; ?>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+            <?php endif; ?>
+            <?php if (!empty($recurringReady['items'])): ?>
+            <div class="rounded-lg border border-gray-800 p-3 text-xs">
+                <p class="font-medium text-violet-300 mb-2">Recurring readiness — <?= (int)$recurringReady['done'] ?>/<?= (int)$recurringReady['total'] ?> <?= !empty($recurringReady['ready']) ? '· Ready for live' : '' ?></p>
+                <ul class="space-y-1">
+                    <?php foreach ($recurringReady['items'] as $item): ?>
+                    <li class="<?= !empty($item['ok']) ? 'text-emerald-400' : 'text-amber-400' ?>">
+                        <?= !empty($item['ok']) ? '●' : '○' ?> <?= e($item['label']) ?>
+                        <?php if (!empty($item['action']) && empty($item['ok'])): ?>
+                        · <a href="<?= e($item['action']) ?>" class="text-sky-400 underline"><?= e(basename((string)$item['action'])) ?></a>
+                        <?php endif; ?>
+                        <?php if (!empty($item['note'])): ?>
+                        <span class="block text-gray-600 font-mono text-[10px] mt-0.5"><?= e($item['note']) ?></span>
+                        <?php endif; ?>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+            <?php endif; ?>
+        </div>
         <?= settingsSectionHeading('SEO — Google Search Console', 'emerald') ?>
         <p class="text-xs text-gray-500 mb-2">Paste the HTML-tag verification token from Google Search Console (the <code class="text-gray-400">content</code> value only). It is rendered as <code class="text-gray-400">&lt;meta name="google-site-verification"&gt;</code> on every page via <code class="text-gray-400">header.php</code>. Setting key: <code class="text-gray-400">google_site_verification</code>.</p>
         <?php foreach ([

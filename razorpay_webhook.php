@@ -158,6 +158,31 @@ if (in_array($event, ['payout.processed', 'payout.failed', 'payout.reversed'], t
     }
 }
 
+// Route / Split transfer status webhooks
+$transferEvents = ['transfer.processed', 'transfer.failed', 'transfer.reversed', 'transfer.pending'];
+if (in_array($event, $transferEvents, true)) {
+    try {
+        if (!function_exists('updatePartnerTransferFromWebhook') && is_file(__DIR__ . '/includes/route_split_partner_api.php')) {
+            require_once __DIR__ . '/includes/route_split_partner_api.php';
+        }
+        $transferEntity = $payload['payload']['transfer']['entity'] ?? [];
+        $transferId = (string)($transferEntity['id'] ?? '');
+        $transferStatus = strtolower((string)($transferEntity['status'] ?? ''));
+        if ($transferId !== '' && function_exists('updatePartnerTransferFromWebhook')) {
+            updatePartnerTransferFromWebhook('razorpay', $transferId, $transferStatus, (string)($transferEntity['error']['description'] ?? ''));
+        }
+        setGatewayEventStatus((int)$gatewayEvent['id'], 'processed');
+        markWebhookCompleted((int)$webhookEv['id']);
+        logPgWebhook('razorpay', 'transfer_event', $event, $transferId, null, json_encode(['status' => $transferStatus]));
+        jsonResponse(['ok' => true, 'transfer_event' => true]);
+    } catch (Throwable $e) {
+        setGatewayEventStatus((int)$gatewayEvent['id'], 'failed', null, $e->getMessage());
+        markWebhookFailed((int)$webhookEv['id'], $e->getMessage());
+        logPlatformError('error', 'Razorpay transfer webhook failed.', ['event_id' => $eventId, 'error' => $e->getMessage()]);
+        jsonResponse(['error' => 'Transfer processing failed'], 422);
+    }
+}
+
 // G5: Handle mandate/recurring events
 $mandateEvents = ['mandate.authorised', 'mandate.cancelled', 'mandate.failed', 'mandate.revoked'];
 if (in_array($event, $mandateEvents, true)) {

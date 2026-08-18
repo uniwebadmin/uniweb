@@ -45,10 +45,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         logStaffActivity('support_reply', $row['ticket_id'] . ' — ' . mb_substr($reply, 0, 120), (int)$row['merchant_id'], 'support_ticket', $row['ticket_id']);
         flash('success', 'Reply sent to merchant.');
     }
-    redirect('admin_support.php');
+    $returnQ = mb_substr(trim((string)($_POST['_q'] ?? $_GET['q'] ?? '')), 0, 100);
+    redirect('admin_support.php' . ($returnQ !== '' ? ('?q=' . rawurlencode($returnQ)) : ''));
 }
 
 $q = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
+$focusTicketId = '';
+if ($q !== '' && preg_match('/^TKT[A-F0-9]{8,}$/i', $q)) {
+    $focusTicketId = strtoupper($q);
+}
 $statusFilter = trim($_GET['status'] ?? 'all');
 $filterMerchantId = (int)($_GET['merchant_id'] ?? 0);
 $sql = 'SELECT t.*, m.business_name, m.email FROM support_tickets t JOIN merchants m ON t.merchant_id=m.id';
@@ -64,8 +69,13 @@ if ($statusFilter !== 'all' && in_array($statusFilter, ['open', 'in_progress', '
 }
 if ($q !== '') {
     $like = '%' . strtolower($q) . '%';
-    $where[] = '(LOWER(TRIM(COALESCE(t.ticket_id,\'\'))) LIKE ? OR LOWER(TRIM(COALESCE(t.subject,\'\'))) LIKE ? OR LOWER(TRIM(COALESCE(m.business_name,\'\'))) LIKE ?)';
-    array_push($params, $like, $like, $like);
+    if ($focusTicketId !== '') {
+        $where[] = 'LOWER(TRIM(COALESCE(t.ticket_id,\'\'))) = ?';
+        $params[] = strtolower($focusTicketId);
+    } else {
+        $where[] = '(LOWER(TRIM(COALESCE(t.ticket_id,\'\'))) LIKE ? OR LOWER(TRIM(COALESCE(t.subject,\'\'))) LIKE ? OR LOWER(TRIM(COALESCE(m.business_name,\'\'))) LIKE ?)';
+        array_push($params, $like, $like, $like);
+    }
 }
 if ($where) {
     $sql .= ' WHERE ' . implode(' AND ', $where);
@@ -152,7 +162,7 @@ require_once __DIR__ . '/header.php';
         $thread = $threadStmt->fetchAll();
         $hasAdminThreadReply = (bool)array_filter($thread, static fn(array $row): bool => $row['sender_type'] === 'admin');
     ?>
-    <div class="glass rounded-xl p-6">
+    <div class="glass rounded-xl p-6" id="ticket-<?= e($t['ticket_id']) ?>"<?= $focusTicketId !== '' && strcasecmp((string)$t['ticket_id'], $focusTicketId) === 0 ? ' style="scroll-margin-top:6rem"' : '' ?>>
         <div class="flex flex-wrap justify-between gap-2 mb-3">
             <div>
                 <span class="font-mono text-xs text-gray-500"><?= e($t['ticket_id']) ?></span>
@@ -181,6 +191,7 @@ require_once __DIR__ . '/header.php';
         <form method="POST" class="space-y-3 border-t border-gray-800 pt-4" aria-label="Reply to ticket <?= e($t['ticket_id']) ?>">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="ticket_id" value="<?= $t['id'] ?>">
+            <?php if ($q !== ''): ?><input type="hidden" name="_q" value="<?= e($q) ?>"><?php endif; ?>
             <?= uxLabel('reply-' . (int)$t['id'], 'Reply') ?>
             <textarea id="reply-<?= (int)$t['id'] ?>" name="admin_reply" rows="2" class="input-field mt-1" placeholder="Type your reply..." required></textarea>
             <div class="flex gap-3 items-center">
@@ -197,5 +208,8 @@ require_once __DIR__ . '/header.php';
     </div>
     <?php endforeach; endif; ?>
 </div>
+<?php if ($focusTicketId !== ''): ?>
+<script>document.getElementById('ticket-<?= e($focusTicketId) ?>')?.scrollIntoView({block:'start',behavior:'smooth'});</script>
+<?php endif; ?>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

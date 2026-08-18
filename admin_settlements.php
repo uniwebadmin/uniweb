@@ -120,11 +120,18 @@ require_once __DIR__ . '/header.php';
 // F6: Platform fee report + failed transfers
 $platformFeeReport = [];
 $failedTransfers = [];
+$pendingTransfers = [];
+if (!function_exists('getPlatformFeeReport') && is_file(__DIR__ . '/includes/split_settlement.php')) {
+    require_once __DIR__ . '/includes/split_settlement.php';
+}
 if (function_exists('getPlatformFeeReport')) {
     $platformFeeReport = getPlatformFeeReport(30);
 }
 if (function_exists('getFailedPartnerTransfers')) {
     $failedTransfers = getFailedPartnerTransfers(20);
+}
+if (function_exists('getPartnerTransferQueue')) {
+    $pendingTransfers = getPartnerTransferQueue(15, 'pending');
 }
 $totalPlatformFee30d = 0.0;
 foreach ($platformFeeReport as $r) {
@@ -158,6 +165,43 @@ foreach ($platformFeeReport as $r) {
             </tbody>
         </table>
     </div>
+</div>
+<?php endif; ?>
+
+<?php if (!empty($pendingTransfers) || function_exists('routeSplitActivationMessage')): ?>
+<div class="glass rounded-xl p-5 mb-6 border border-violet-500/25 bg-violet-500/5">
+    <div class="flex flex-wrap justify-between items-start gap-3 mb-3">
+        <div>
+            <h3 class="font-semibold text-violet-300">Route / Split transfer queue (Phase 11)</h3>
+            <p class="text-xs text-gray-500 mt-1"><?= e(function_exists('routeSplitActivationMessage') ? routeSplitActivationMessage() : 'Partner transfer records — SDK not live.') ?></p>
+        </div>
+        <a href="gateway_settings.php#live-money-switches" class="text-xs text-sky-400 shrink-0">Live Money Switches →</a>
+    </div>
+    <?php if (empty($pendingTransfers)): ?>
+    <p class="text-xs text-gray-600">No pending partner transfer legs. When Route SDK goes live, capture will queue merchant_leg + platform_leg here.</p>
+    <?php else: ?>
+    <div class="overflow-x-auto">
+        <table class="w-full text-xs min-w-[640px]">
+            <thead class="text-gray-500 uppercase"><tr>
+                <th class="px-3 py-2 text-left">Txn</th><th class="px-3 py-2 text-left">Merchant</th>
+                <th class="px-3 py-2 text-left">Partner</th><th class="px-3 py-2 text-left">Leg</th>
+                <th class="px-3 py-2 text-right">Amount</th><th class="px-3 py-2 text-left">Status</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-800">
+                <?php foreach ($pendingTransfers as $pt): ?>
+                <tr>
+                    <td class="px-3 py-2 font-mono text-sky-400"><?= txnDetailLink($pt['txn_id']) ?></td>
+                    <td class="px-3 py-2"><?= adminMerchantLink((int)$pt['merchant_id'], $pt['business_name']) ?></td>
+                    <td class="px-3 py-2 uppercase"><?= e($pt['partner_key']) ?></td>
+                    <td class="px-3 py-2"><?= e(str_replace('_', ' ', (string)$pt['transfer_type'])) ?></td>
+                    <td class="px-3 py-2 text-right"><?= formatMoney((float)$pt['amount']) ?></td>
+                    <td class="px-3 py-2 text-amber-400"><?= e($pt['status']) ?><?= ($pt['status'] ?? '') === 'pending' ? ' — awaiting partner webhook' : '' ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php endif; ?>
 </div>
 <?php endif; ?>
 

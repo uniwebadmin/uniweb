@@ -481,19 +481,21 @@ $__includes = [
     'gateway_reason_map', 'transaction_detail', 'ui_links', 'id_click', 'staff', 'partners', 'partner_engine',
     'provision', 'customer_messaging', 'customer_portal', 'mailer', 'qr_svg', 'qr_events',
     'platform_api', 'platform_health', 'link_watchdog', 'auto_audit',
-    'morning_ops', 'axis', 'va_manager', 'webhook_queue', 'notify', 'error_catcher', 'rolling_reserve', 'grievance_engine', 'merchant_health', 'webhook_reliability', 'fast_qr_api', 'circuit_breaker', 'rate_limiter', 'split_settlement', 'sub_merchant', 'recurring',
+    'morning_ops', 'axis', 'va_manager', 'webhook_queue', 'notify', 'error_catcher', 'rolling_reserve', 'grievance_engine', 'merchant_health', 'webhook_reliability', 'fast_qr_api', 'circuit_breaker', 'rate_limiter', 'split_settlement', 'route_split_partner_api', 'sub_merchant', 'recurring',
     'risk', 'nodal', 'payout', 'env_loader',
     'integration_matrix', 'settlement_delay_spec', 'kyc_timeline', 'cloud_modules',
     'beneficiaries',
     'audit_log',
     'payout_jobs',
     'payout_adapters',
+    'payout_partner_api',
     'payout_worker',
     'client_context',
     'multi_merchant',
     'email_templates',
     'payment_methods',
     'partner_forward_queue',
+    'auto_kyc',
 ];
 $__loaded = [];
 if (!(defined('UNIWEB_HEALTH_PROBE') && UNIWEB_HEALTH_PROBE)) {

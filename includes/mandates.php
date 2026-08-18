@@ -46,6 +46,7 @@ function ensureMandateSchemaGColumns(): void
         'mandates:channel' => "ALTER TABLE mandates ADD COLUMN channel VARCHAR(20) DEFAULT NULL",
         'mandates:idempotency_key' => 'ALTER TABLE mandates ADD COLUMN idempotency_key VARCHAR(128) DEFAULT NULL',
         'mandates:auth_url' => 'ALTER TABLE mandates ADD COLUMN auth_url VARCHAR(500) DEFAULT NULL',
+        'mandates:pending_reason' => 'ALTER TABLE mandates ADD COLUMN pending_reason VARCHAR(500) DEFAULT NULL',
         'mandate_debits:idempotency_key' => 'ALTER TABLE mandate_debits ADD COLUMN idempotency_key VARCHAR(128) DEFAULT NULL',
         'mandate_debits:raw_code' => 'ALTER TABLE mandate_debits ADD COLUMN raw_code VARCHAR(100) DEFAULT NULL',
         'mandate_debits:mapped_reason' => 'ALTER TABLE mandate_debits ADD COLUMN mapped_reason VARCHAR(500) DEFAULT NULL',
@@ -67,6 +68,152 @@ function ensureMandateSchemaGColumns(): void
 function generateMandateRef(): string
 {
     return 'MND-' . strtoupper(bin2hex(random_bytes(8)));
+}
+
+/** Admin ON switch — same pattern as payout_live_enabled. */
+function recurringAutopayApproved(): bool
+{
+    return trim((string)getSetting('recurring_autopay_approved', '0')) === '1';
+}
+
+/** Partner Registry keys for mandate registration / debit (Razorpay, Cashfree, Decentro). */
+function recurringAutopayPartnerKeysConfigured(?string $channel = null): bool
+{
+    $channel = $channel ?? 'upi';
+    $decentroId = function_exists('decentroClientId')
+        ? decentroClientId()
+        : getPartnerSetting('decentro', 'decentro_client_id', '');
+
+    if ($channel === 'upi') {
+        return trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', '')) !== ''
+            || trim((string)getPartnerSetting('cashfree', 'cashfree_app_id', '')) !== ''
+            || trim((string)$decentroId) !== '';
+    }
+    if ($channel === 'netbanking') {
+        return trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', '')) !== ''
+            || trim((string)$decentroId) !== '';
+    }
+    if ($channel === 'card') {
+        return trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', '')) !== ''
+            || trim((string)getPartnerSetting('cashfree', 'cashfree_app_id', '')) !== '';
+    }
+
+    return false;
+}
+
+/** Live recurring money movement — Admin ON + partner keys (merchant must also be live). */
+function recurringAutopayLiveReady(?string $channel = null): bool
+{
+    return recurringAutopayApproved() && recurringAutopayPartnerKeysConfigured($channel);
+}
+
+/**
+ * Admin readiness checklist — Razorpay Subscriptions / Cashfree Subscriptions style gates.
+ *
+ * @return array{items: list<array{id:string,label:string,ok:bool,action?:string,note?:string}>, done:int, total:int, ready:bool}
+ */
+function getRecurringReadinessChecklist(): array
+{
+    $cronLive = false;
+    if (function_exists('getCronHealthStatus')) {
+        $cronLive = !empty(getCronHealthStatus()['live']);
+    }
+
+    $items = [
+        [
+            'id' => 'admin_approved',
+            'label' => 'Admin enabled Recurring / AutoPay',
+            'ok' => recurringAutopayApproved(),
+            'action' => 'gateway_settings.php#live-money-switches',
+        ],
+        [
+            'id' => 'partner_keys',
+            'label' => 'Partner keys in Registry (Razorpay / Cashfree / Decentro)',
+            'ok' => recurringAutopayPartnerKeysConfigured(),
+            'action' => 'admin_gateway_registry.php',
+        ],
+        [
+            'id' => 'webhooks',
+            'label' => 'Mandate webhooks → UniWeb (Razorpay + Decentro)',
+            'ok' => true,
+            'note' => rtrim(APP_URL, '/') . '/razorpay_webhook.php · ' . rtrim(APP_URL, '/') . '/decentro_webhook.php',
+        ],
+        [
+            'id' => 'cron',
+            'label' => 'Hostinger cron running (mandate debits daily)',
+            'ok' => $cronLive,
+            'action' => 'gateway_settings.php#cron-security',
+        ],
+    ];
+
+    $done = count(array_filter($items, static fn(array $i): bool => !empty($i['ok'])));
+
+    return [
+        'items' => $items,
+        'done' => $done,
+        'total' => count($items),
+        'ready' => recurringAutopayLiveReady() && $cronLive,
+    ];
+}
+
+/** Human-readable reason while mandate is pending / awaiting customer (market-style sub-status). */
+function getMandatePendingReason(array $mandate): string
+{
+    $status = strtolower((string)($mandate['status'] ?? ''));
+    if (!in_array($status, ['pending', 'registered'], true)) {
+        return '';
+    }
+    if (!empty($mandate['pending_reason'])) {
+        return (string)$mandate['pending_reason'];
+    }
+    if (!recurringAutopayApproved()) {
+        return 'Admin has not enabled Recurring / AutoPay yet (Platform Settings → Live Money Switches).';
+    }
+    $channel = (string)($mandate['channel'] ?? 'upi');
+    if (empty($mandate['gateway_mandate_id'])) {
+        if (!recurringAutopayPartnerKeysConfigured($channel)) {
+            return 'Partner keys missing — paste Razorpay / Cashfree / Decentro keys in Partner Registry.';
+        }
+        return 'Not registered with partner yet — click Register.';
+    }
+    if (!empty($mandate['auth_url'])) {
+        return 'Customer must approve in UPI / bank app — share the authorisation link.';
+    }
+
+    return 'Registered with partner — waiting for customer approval (webhook will update status).';
+}
+
+/** @return array{label:string, class:string, hint?:string} */
+function mandateStatusDisplayLabel(string $status, ?string $pendingReason = null): array
+{
+    $status = strtolower($status);
+    $map = [
+        'pending' => ['label' => 'Setup pending', 'class' => 'amber'],
+        'registered' => ['label' => 'Awaiting customer', 'class' => 'sky'],
+        'active' => ['label' => 'Active', 'class' => 'emerald'],
+        'paused' => ['label' => 'Paused', 'class' => 'gray'],
+        'cancelled' => ['label' => 'Cancelled', 'class' => 'gray'],
+        'failed' => ['label' => 'Failed', 'class' => 'red'],
+        'expired' => ['label' => 'Expired', 'class' => 'gray'],
+    ];
+    $base = $map[$status] ?? ['label' => ucfirst($status), 'class' => 'gray'];
+    if ($pendingReason !== null && $pendingReason !== '' && in_array($status, ['pending', 'registered'], true)) {
+        $base['hint'] = $pendingReason;
+    }
+
+    return $base;
+}
+
+function decentroMandateCredentials(): array
+{
+    $clientId = function_exists('decentroClientId')
+        ? decentroClientId()
+        : getPartnerSetting('decentro', 'decentro_client_id', '');
+    $clientSecret = function_exists('decentroClientSecret')
+        ? decentroClientSecret()
+        : getPartnerSetting('decentro', 'decentro_client_secret', '');
+
+    return ['client_id' => trim((string)$clientId), 'client_secret' => trim((string)$clientSecret)];
 }
 
 /**
@@ -128,6 +275,15 @@ function createMandate(
             recordImmutableAudit('mandate_created', $merchantId, 'mandate', (string)$mandateId, "Mandate $ref created for $maxAmount/$frequency via $channel");
         }
 
+        $initialReason = !recurringAutopayApproved()
+            ? 'Waiting for Admin to enable Recurring / AutoPay.'
+            : (!recurringAutopayPartnerKeysConfigured($channel)
+                ? 'Waiting for partner keys in Admin Registry.'
+                : 'Ready to register with partner.');
+        try {
+            $db->prepare('UPDATE mandates SET pending_reason=? WHERE id=?')->execute([$initialReason, $mandateId]);
+        } catch (Throwable $e) { /* ok */ }
+
         return ['ok' => true, 'mandate_id' => $mandateId, 'mandate_ref' => $ref];
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => $e->getMessage()];
@@ -153,6 +309,14 @@ function registerMandateWithPartner(int $mandateId): array
 
     $merchantId = (int)$mandate['merchant_id'];
 
+    if (!recurringAutopayApproved()) {
+        $reason = 'Recurring / AutoPay is disabled — Admin must enable it in Platform Settings → Live Money Switches.';
+        try {
+            $db->prepare('UPDATE mandates SET pending_reason=? WHERE id=?')->execute([$reason, $mandateId]);
+        } catch (Throwable $e) { /* ok */ }
+        return ['ok' => false, 'error' => $reason];
+    }
+
     // G3: Check merchant is live
     $mst = $db->prepare('SELECT account_mode FROM merchants WHERE id=?');
     $mst->execute([$merchantId]);
@@ -163,22 +327,14 @@ function registerMandateWithPartner(int $mandateId): array
 
     // G3: Check channel method is enabled for an active partner
     $channel = (string)($mandate['channel'] ?? 'upi');
-    $partnerConfigured = false;
-    if ($channel === 'upi' || $mandate['mandate_type'] === 'upi_autopay') {
-        $partnerConfigured = trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', '')) !== ''
-            || trim((string)getPartnerSetting('cashfree', 'cashfree_app_id', '')) !== ''
-            || trim((string)(getPartnerSetting('decentro', 'decentro_client_id', '') ?: getSetting('decentro_api_key', ''))) !== '';
-    } elseif ($channel === 'netbanking' || $mandate['mandate_type'] === 'enach') {
-        $partnerConfigured = trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', '')) !== ''
-            || trim((string)(getPartnerSetting('decentro', 'decentro_client_id', '') ?: getSetting('decentro_api_key', ''))) !== '';
-    } elseif ($channel === 'card') {
-        $partnerConfigured = trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', '')) !== ''
-            || trim((string)getPartnerSetting('cashfree', 'cashfree_app_id', '')) !== '';
-    }
+    $partnerConfigured = recurringAutopayPartnerKeysConfigured($channel);
 
     if (!$partnerConfigured) {
-        // G3: No partner configured — keep as pending, merchant can still see it
-        return ['ok' => false, 'error' => 'No partner gateway configured for channel ' . $channel . '. Mandate stays pending until partner keys are added.'];
+        $reason = 'No partner keys for ' . $channel . ' — paste Razorpay / Cashfree / Decentro keys in Partner Registry.';
+        try {
+            $db->prepare('UPDATE mandates SET pending_reason=? WHERE id=?')->execute([$reason, $mandateId]);
+        } catch (Throwable $e) { /* ok */ }
+        return ['ok' => false, 'error' => $reason];
     }
 
     // G3: Call partner registration API based on configured gateway
@@ -209,10 +365,13 @@ function registerMandateWithPartner(int $mandateId): array
     if (!empty($result['ok'])) {
         $authUrl = $result['auth_url'] ?? null;
         $gatewayMandateId = $result['gateway_mandate_id'] ?? null;
+        $pendingReason = $authUrl
+            ? 'Customer must approve mandate in UPI / bank app — authorisation link ready.'
+            : 'Registered with partner — awaiting customer confirmation via webhook.';
 
-        // G3: Update mandate with gateway details + auth_url
-        $db->prepare('UPDATE mandates SET auth_url=?, gateway_mandate_id=?, gateway=? WHERE id=?')
-            ->execute([$authUrl, $gatewayMandateId, $result['gateway'] ?? 'unknown', $mandateId]);
+        // G3: Update mandate with gateway details + auth_url + registered sub-status
+        $db->prepare("UPDATE mandates SET auth_url=?, gateway_mandate_id=?, gateway=?, status='registered', pending_reason=? WHERE id=?")
+            ->execute([$authUrl, $gatewayMandateId, $result['gateway'] ?? 'unknown', $pendingReason, $mandateId]);
 
         return ['ok' => true, 'auth_url' => $authUrl, 'gateway_mandate_id' => $gatewayMandateId];
     }
@@ -275,8 +434,10 @@ function razorpayMandateRegistration(array $mandate): array
  */
 function decentroMandateRegistration(array $mandate): array
 {
-    $clientId = trim((string)getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', ''));
-    $clientSecret = trim((string)getSetting('decentro_client_secret', '') ?: getSetting('decentro_api_secret', ''));
+    $creds = decentroMandateCredentials();
+    if ($creds['client_id'] === '' || $creds['client_secret'] === '') {
+        return ['ok' => false, 'error' => 'Decentro keys missing in Partner Registry.'];
+    }
     $base = decentroBaseUrl();
 
     $payload = json_encode([
@@ -294,8 +455,8 @@ function decentroMandateRegistration(array $mandate): array
         CURLOPT_POSTFIELDS => $payload,
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'client_id: ' . $clientId,
-            'client_secret: ' . $clientSecret,
+            'client_id: ' . $creds['client_id'],
+            'client_secret: ' . $creds['client_secret'],
         ],
         CURLOPT_TIMEOUT => 20,
     ]);
@@ -315,8 +476,10 @@ function decentroMandateRegistration(array $mandate): array
  */
 function decentroEnachRegistration(array $mandate): array
 {
-    $clientId = trim((string)getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', ''));
-    $clientSecret = trim((string)getSetting('decentro_client_secret', '') ?: getSetting('decentro_api_secret', ''));
+    $creds = decentroMandateCredentials();
+    if ($creds['client_id'] === '' || $creds['client_secret'] === '') {
+        return ['ok' => false, 'error' => 'Decentro keys missing in Partner Registry.'];
+    }
     $base = decentroBaseUrl();
 
     $payload = json_encode([
@@ -335,8 +498,8 @@ function decentroEnachRegistration(array $mandate): array
         CURLOPT_POSTFIELDS => $payload,
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'client_id: ' . $clientId,
-            'client_secret: ' . $clientSecret,
+            'client_id: ' . $creds['client_id'],
+            'client_secret: ' . $creds['client_secret'],
         ],
         CURLOPT_TIMEOUT => 20,
     ]);
@@ -412,20 +575,21 @@ function cancelMandateWithPartner(int $mandateId, string $reason): array
             ]);
             curl_exec($ch);
             curl_close($ch);
-        } elseif ($gateway === 'decentro' && trim((string)(getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', ''))) !== '') {
-            $clientId = trim((string)getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', ''));
-            $clientSecret = trim((string)getSetting('decentro_client_secret', '') ?: getSetting('decentro_api_secret', ''));
+        } elseif ($gateway === 'decentro') {
+            $creds = decentroMandateCredentials();
+            if ($creds['client_id'] !== '') {
             $base = decentroBaseUrl();
             $ch = curl_init($base . '/collections/upi/autopay/cancel');
             curl_setopt_array($ch, [
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_POST => true,
                 CURLOPT_POSTFIELDS => json_encode(['mandate_id' => $gatewayMandateId, 'reason' => $reason]),
-                CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'client_id: ' . $clientId, 'client_secret: ' . $clientSecret],
+                CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'client_id: ' . $creds['client_id'], 'client_secret: ' . $creds['client_secret']],
                 CURLOPT_TIMEOUT => 15,
             ]);
             curl_exec($ch);
             curl_close($ch);
+            }
         }
     }
 
@@ -484,11 +648,12 @@ function updateMandateStatus(int $mandateId, string $status, ?string $gatewayMan
     }
 
     try {
-        $db->prepare("UPDATE mandates SET status = ?, gateway_mandate_id = COALESCE(?, gateway_mandate_id), gateway_response = COALESCE(?, gateway_response) WHERE id = ?")
+        $db->prepare("UPDATE mandates SET status = ?, gateway_mandate_id = COALESCE(?, gateway_mandate_id), gateway_response = COALESCE(?, gateway_response), pending_reason = CASE WHEN ? IN ('active','cancelled','failed','expired') THEN NULL ELSE pending_reason END WHERE id = ?")
             ->execute([
                 $status,
                 $gatewayMandateId,
                 $gatewayResponse ? json_encode($gatewayResponse) : null,
+                $status,
                 $mandateId,
             ]);
 
@@ -545,6 +710,10 @@ function processDueMandateDebits(): array
     $db = getDB();
 
     $summary = ['checked' => 0, 'debited' => 0, 'failed' => 0, 'skipped' => 0, 'retried' => 0];
+
+    if (!recurringAutopayLiveReady()) {
+        return array_merge($summary, ['gated' => true, 'reason' => 'Recurring / AutoPay not live — enable switch + partner keys.']);
+    }
 
     try {
         $st = $db->prepare(
@@ -756,7 +925,11 @@ function recordMandateDebitPayment(array $mandate, int $debitId, float $amount, 
     // G6: Execute partner route split if partner supports it
     if (function_exists('executePartnerRouteSplit')) {
         try {
-            executePartnerRouteSplit($txnId, $merchantId, $amount, $split ?? null);
+            $splitPayload = is_array($split) ? $split : [
+                'merchant_net' => (float)($split ?? $merchantNet),
+                'platform_fee' => (float)$platformFee,
+            ];
+            executePartnerRouteSplit($txnId, $merchantId, $splitPayload, 'upi_autopay');
         } catch (Throwable $e) {}
     }
 
@@ -844,7 +1017,7 @@ function resolveMandateDebitAdapter(array $mandate): ?callable
         if (trim((string)getPartnerSetting('cashfree', 'cashfree_app_id', '')) !== '') {
             return 'cashfreeMandateDebitAdapter';
         }
-        if (trim((string)getPartnerSetting('decentro', 'decentro_client_id', '') ?: getSetting('decentro_api_key', '')) !== '') {
+        if (trim((string)getPartnerSetting('decentro', 'decentro_client_id', '') ?: (function_exists('decentroClientId') ? decentroClientId() : '')) !== '') {
             return 'decentroMandateDebitAdapter';
         }
     }
@@ -853,7 +1026,7 @@ function resolveMandateDebitAdapter(array $mandate): ?callable
         if (trim((string)getPartnerSetting('razorpay', 'razorpay_key_id', '')) !== '') {
             return 'razorpayMandateDebitAdapter';
         }
-        if (trim((string)getPartnerSetting('decentro', 'decentro_client_id', '') ?: getSetting('decentro_api_key', '')) !== '') {
+        if (trim((string)getPartnerSetting('decentro', 'decentro_client_id', '') ?: (function_exists('decentroClientId') ? decentroClientId() : '')) !== '') {
             return 'decentroEnachDebitAdapter';
         }
     }
@@ -907,9 +1080,9 @@ function razorpayMandateDebitAdapter(array $mandate, array $debit): array
 
 function cashfreeMandateDebitAdapter(array $mandate, array $debit): array
 {
-    $appId = trim((string)(function_exists('cashfreeAppId') ? cashfreeAppId() : getSetting('cashfree_app_id', '')));
-    $secretKey = trim((string)(function_exists('cashfreeSecretKey') ? cashfreeSecretKey() : getSetting('cashfree_secret_key', '')));
-    $baseUrl = trim(getSetting('cashfree_base_url', 'https://api.cashfree.com'));
+    $appId = function_exists('cashfreeAppId') ? cashfreeAppId() : getPartnerSetting('cashfree', 'cashfree_app_id', '');
+    $secretKey = function_exists('cashfreeSecretKey') ? cashfreeSecretKey() : getPartnerSetting('cashfree', 'cashfree_secret_key', '');
+    $baseUrl = function_exists('cashfreeApiBase') ? cashfreeApiBase() : 'https://api.cashfree.com/pg';
     $gatewayMandateId = $mandate['gateway_mandate_id'] ?? '';
     $amount = (float)$mandate['max_amount'];
 
@@ -946,8 +1119,10 @@ function cashfreeMandateDebitAdapter(array $mandate, array $debit): array
 
 function decentroMandateDebitAdapter(array $mandate, array $debit): array
 {
-    $clientId = trim((string)getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', ''));
-    $clientSecret = trim((string)getSetting('decentro_client_secret', '') ?: getSetting('decentro_api_secret', ''));
+    $creds = decentroMandateCredentials();
+    if ($creds['client_id'] === '' || $creds['client_secret'] === '') {
+        return ['ok' => false, 'error' => 'Decentro keys missing in Partner Registry.'];
+    }
     $base = decentroBaseUrl();
     $gatewayMandateId = $mandate['gateway_mandate_id'] ?? '';
     $amount = (float)$mandate['max_amount'];
@@ -966,8 +1141,8 @@ function decentroMandateDebitAdapter(array $mandate, array $debit): array
         CURLOPT_POSTFIELDS => $payload,
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'client_id: ' . $clientId,
-            'client_secret: ' . $clientSecret,
+            'client_id: ' . $creds['client_id'],
+            'client_secret: ' . $creds['client_secret'],
         ],
         CURLOPT_TIMEOUT => 20,
     ]);
@@ -985,8 +1160,10 @@ function decentroMandateDebitAdapter(array $mandate, array $debit): array
 
 function decentroEnachDebitAdapter(array $mandate, array $debit): array
 {
-    $clientId = trim((string)getSetting('decentro_client_id', '') ?: getSetting('decentro_api_key', ''));
-    $clientSecret = trim((string)getSetting('decentro_client_secret', '') ?: getSetting('decentro_api_secret', ''));
+    $creds = decentroMandateCredentials();
+    if ($creds['client_id'] === '' || $creds['client_secret'] === '') {
+        return ['ok' => false, 'error' => 'Decentro keys missing in Partner Registry.'];
+    }
     $base = decentroBaseUrl();
     $gatewayMandateId = $mandate['gateway_mandate_id'] ?? '';
     $amount = (float)$mandate['max_amount'];
@@ -1004,8 +1181,8 @@ function decentroEnachDebitAdapter(array $mandate, array $debit): array
         CURLOPT_POSTFIELDS => $payload,
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'client_id: ' . $clientId,
-            'client_secret: ' . $clientSecret,
+            'client_id: ' . $creds['client_id'],
+            'client_secret: ' . $creds['client_secret'],
         ],
         CURLOPT_TIMEOUT => 20,
     ]);

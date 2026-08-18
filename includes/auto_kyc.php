@@ -56,14 +56,20 @@ function logAutoKycRun(int $merchantId, string $action, string $detail = ''): vo
 function merchantHasRiskFlags(int $merchantId): bool
 {
     try {
-        $st = getDB()->prepare("SELECT COUNT(*) FROM merchants
+        $db = getDB();
+        $st = $db->prepare("SELECT COUNT(*) FROM merchants
             WHERE id = ?
               AND (status = 'blocked' OR status = 'suspended'
                    OR kyc_status = 'rejected' OR kyc_status = 'clarification')");
         $st->execute([$merchantId]);
-        return (int)$st->fetchColumn() > 0;
+        if ((int)$st->fetchColumn() > 0) {
+            return true;
+        }
+        $aml = $db->prepare("SELECT COUNT(*) FROM aml_flags WHERE merchant_id=? AND status='open' AND severity IN ('high','critical')");
+        $aml->execute([$merchantId]);
+        return (int)$aml->fetchColumn() > 0;
     } catch (Throwable $e) {
-        return true; // safe default: don't auto-verify if we can't check
+        return true; // fail-closed: do not auto-verify if we cannot read risk state
     }
 }
 
@@ -515,36 +521,6 @@ function getLastAutoKycRun(): ?array
 }
 
 /**
- * Ensure partner_forward_queue table exists.
- */
-if (!function_exists('ensurePartnerForwardQueueTable')) {
-function ensurePartnerForwardQueueTable(): void
-{
-    static $ready = false;
-    if ($ready) {
-        return;
-    }
-    $ready = true;
-    try {
-        getDB()->exec("CREATE TABLE IF NOT EXISTS partner_forward_queue (
-            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            merchant_id INT UNSIGNED NOT NULL,
-            status VARCHAR(32) NOT NULL DEFAULT 'queued',
-            scheduled_at DATETIME NOT NULL,
-            forwarded_at DATETIME DEFAULT NULL,
-            gateways VARCHAR(500) DEFAULT NULL,
-            admin_note VARCHAR(500) DEFAULT NULL,
-            paused_by INT UNSIGNED DEFAULT NULL,
-            paused_at DATETIME DEFAULT NULL,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY uniq_merchant_forward (merchant_id),
-            INDEX idx_forward_status (status, scheduled_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    } catch (Throwable $e) { /* ok */ }
-}
-}
-
-/**
  * Get the hold window in minutes (default 75, range 60-90).
  */
 function getHoldWindowMinutes(): int
@@ -554,50 +530,36 @@ function getHoldWindowMinutes(): int
 
 /**
  * Determine if a given time is in the "night" window (after 6 PM).
- * If so, schedule for next day 11 AM. Otherwise schedule after hold window.
+ * If so, schedule for next day 09:00 IST (same as partner_forward_queue).
  */
 function calculateForwardTime(string $verifiedAt = 'now'): string
 {
+    if (function_exists('forwardQueueNextScheduleAt')) {
+        return forwardQueueNextScheduleAt()->format('Y-m-d H:i:s');
+    }
     $ts = strtotime($verifiedAt);
     if ($ts === false) {
         $ts = time();
     }
     $hour = (int)date('G', $ts);
-
     if ($hour >= 18) {
-        $nextDay = strtotime('next day 11:00', $ts);
-        return date('Y-m-d H:i:s', $nextDay);
+        return date('Y-m-d H:i:s', strtotime('next day 09:00', $ts));
     }
-
     $holdMinutes = getHoldWindowMinutes();
     return date('Y-m-d H:i:s', $ts + ($holdMinutes * 60));
 }
 
 /**
- * Queue a verified merchant for partner forward.
- * Creates or updates the forward queue entry.
+ * Queue a verified merchant for partner forward — delegates to per-partner enqueue.
  */
 if (!function_exists('queueMerchantForPartnerForward')) {
 function queueMerchantForPartnerForward(int $merchantId, ?string $gateways = null): bool
 {
-    ensurePartnerForwardQueueTable();
-    $scheduledAt = calculateForwardTime();
-
-    try {
-        getDB()->prepare("INSERT INTO partner_forward_queue
-            (merchant_id, status, scheduled_at, gateways, created_at)
-            VALUES (?, 'queued', ?, ?, NOW())
-            ON DUPLICATE KEY UPDATE
-            status = 'queued', scheduled_at = VALUES(scheduled_at),
-            gateways = VALUES(gateways), paused_by = NULL, paused_at = NULL,
-            forwarded_at = NULL")
-            ->execute([$merchantId, $scheduledAt, $gateways]);
-        logAutoKycRun($merchantId, 'forward_queued', 'Queued for partner forward at ' . $scheduledAt);
+    if (function_exists('enqueueMerchantToAllEnabledPartners')) {
+        enqueueMerchantToAllEnabledPartners($merchantId);
         return true;
-    } catch (Throwable $e) {
-        logAutoKycRun($merchantId, 'forward_queue_failed', $e->getMessage());
-        return false;
     }
+    return false;
 }
 }
 
@@ -686,6 +648,9 @@ function cancelPartnerForward(int $merchantId, string $reason = ''): bool
 if (!function_exists('getPartnerForwardQueue')) {
 function getPartnerForwardQueue(int $limit = 50): array
 {
+    if (!function_exists('ensurePartnerForwardQueueTable')) {
+        require_once __DIR__ . '/partner_forward_queue.php';
+    }
     ensurePartnerForwardQueueTable();
     try {
         $st = getDB()->prepare("SELECT q.*, q.schedule_at AS scheduled_at, q.error_message AS admin_note,

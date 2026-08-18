@@ -470,6 +470,9 @@ require_once __DIR__ . '/header.php';
             }
         }
         $routeCfg = getPartnerRouteConfig($partnerKey);
+        $routeReadiness = getRouteSplitReadinessChecklist($partnerKey);
+        $routeMarket = getRouteSplitMarketMatrix();
+        $routeOwnerLive = routeSplitLiveEnabled();
     ?>
     <div class="glass rounded-xl p-6 border border-gray-800">
         <h3 class="font-semibold mb-1">Commercial — <?= e($gateway['gateway_name']) ?></h3>
@@ -536,10 +539,54 @@ require_once __DIR__ . '/header.php';
             </div>
         </div>
 
-        <!-- Section B: Route / Split Scaffold -->
+        <!-- Section B: Route / Split (Phase 11) -->
+        <div class="rounded-lg border border-violet-500/30 bg-violet-500/5 p-4 mb-6">
+            <h4 class="text-sm font-semibold text-violet-300 mb-1">Route / Split — market bar vs UniWeb</h4>
+            <p class="text-xs text-gray-500 mb-3">Peers move money to linked accounts at capture. UniWeb <strong class="text-gray-300">today</strong> uses standard settlement + M/P commission on ledger. <strong class="text-amber-300">Future</strong> = live partner transfer SDK when Phase 11 is built.</p>
+            <div class="overflow-x-auto">
+                <table class="w-full text-[11px] min-w-[720px]">
+                    <thead class="text-gray-500 uppercase">
+                        <tr>
+                            <th class="text-left py-2 pr-2">Feature</th>
+                            <th class="text-left py-2 px-2">Razorpay Route</th>
+                            <th class="text-left py-2 px-2">Cashfree Easy Split</th>
+                            <th class="text-left py-2 px-2">UniWeb today</th>
+                            <th class="text-left py-2 pl-2">UniWeb future</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-800 text-gray-400">
+                        <?php foreach ($routeMarket as $row): ?>
+                        <tr>
+                            <td class="py-2 pr-2 font-medium text-gray-300"><?= e($row['feature']) ?></td>
+                            <td class="py-2 px-2"><?= e($row['razorpay']) ?></td>
+                            <td class="py-2 px-2"><?= e($row['cashfree']) ?></td>
+                            <td class="py-2 px-2 text-emerald-300/90"><?= e($row['uniweb_today']) ?></td>
+                            <td class="py-2 pl-2 text-amber-300/80"><?= e($row['uniweb_future']) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-[10px] text-gray-600 mt-3">PayU Split follows same pattern as Razorpay/Cashfree — multi-payee at settlement. UniWeb does not claim marketplace split live until Owner enables Phase 11 + SDK.</p>
+        </div>
+
+        <div class="rounded-lg border border-gray-800 p-4 mb-6">
+            <h4 class="text-sm font-semibold mb-2">Readiness — <?= e($gateway['gateway_name']) ?></h4>
+            <p class="text-xs text-gray-600 mb-3"><?= e(routeSplitActivationMessage($partnerKey)) ?></p>
+            <ul class="text-xs space-y-1 mb-3">
+                <?php foreach ($routeReadiness['items'] as $item): ?>
+                <li class="<?= !empty($item['ok']) ? 'text-emerald-400' : 'text-amber-400' ?>">
+                    <?= !empty($item['ok']) ? '●' : '○' ?> <?= e($item['label']) ?>
+                    <?php if (!empty($item['note'])): ?><span class="text-gray-600"> — <?= e($item['note']) ?></span><?php endif; ?>
+                </li>
+                <?php endforeach; ?>
+            </ul>
+            <p class="text-[10px] text-gray-600">Platform switch: <strong class="<?= $routeOwnerLive ? 'text-emerald-400' : 'text-amber-400' ?>"><?= $routeOwnerLive ? 'ON' : 'OFF' ?></strong> · <a href="gateway_settings.php#live-money-switches" class="text-sky-400 underline">Platform Settings → Live Money Switches</a></p>
+        </div>
+
         <div class="rounded-lg border border-gray-800 p-4">
-            <h4 class="text-sm font-semibold mb-1">Section B — Route / Split (scaffold)</h4>
-            <p class="text-xs text-gray-600 mb-3">Optional partner programme credentials only — not a UniWeb product for sale. Save-only; No provider API calls are made. Status stays <code class="text-amber-400">scaffold</code> until Owner unlocks Route.</p>
+            <h4 class="text-sm font-semibold mb-1">Section B — Route / Split config (save only until SDK)</h4>
+            <p class="text-xs text-gray-600 mb-3">Prepare partner programme fields. No provider API calls until Phase 11 SDK ships. Status <code class="text-amber-400">live</code> requires Platform Settings switch ON.</p>
 
             <form method="POST" class="space-y-4">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -590,10 +637,14 @@ require_once __DIR__ . '/header.php';
                     <label class="text-gray-500 text-xs block mb-1">Route status</label>
                     <select name="route_status" class="input-field w-48 text-sm">
                         <?php foreach (['scaffold', 'ready_for_api', 'live'] as $rs): ?>
-                        <option value="<?= $rs ?>" <?= $routeCfg['route_status'] === $rs ? 'selected' : '' ?> <?= $rs === 'live' ? 'disabled' : '' ?>><?= e($rs) ?><?= $rs === 'live' ? ' (locked — future ticket)' : '' ?></option>
+                        <?php
+                        $liveLocked = ($rs === 'live' && !$routeOwnerLive);
+                        $liveLabel = $rs === 'live' ? ($routeOwnerLive ? 'live (Owner switch ON — SDK still required)' : 'live (locked — enable Platform switch first)') : $rs;
+                        ?>
+                        <option value="<?= $rs ?>" <?= $routeCfg['route_status'] === $rs ? 'selected' : '' ?> <?= $liveLocked ? 'disabled' : '' ?>><?= e($liveLabel) ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <p class="text-[10px] text-gray-600 mt-1">"live" is locked until API integration is implemented. Use "ready_for_api" to mark config as complete.</p>
+                    <p class="text-[10px] text-gray-600 mt-1">Current: <strong class="text-gray-400"><?= e(routeSplitStatusLabel($routeCfg['route_status'])) ?></strong> · canUsePartnerRoute(): <strong class="<?= canUsePartnerRoute($partnerKey) ? 'text-emerald-400' : 'text-gray-600' ?>"><?= canUsePartnerRoute($partnerKey) ? 'true' : 'false' ?></strong></p>
                 </div>
 
                 <button type="submit" class="btn-primary px-4 py-2 text-sm">Save route config</button>
@@ -602,7 +653,8 @@ require_once __DIR__ . '/header.php';
 
         <div class="mt-6 pt-4 border-t border-gray-800 text-xs text-gray-500">
             <p><strong class="text-gray-400">P</strong> = Partner MDR (Section A) · <strong class="text-gray-400">M</strong> = Merchant MDR · <strong class="text-gray-400">UniWeb commission</strong> ≈ M − P on successful captures</p>
-            <p class="mt-1">Route scaffold: <strong class="text-gray-400"><?= e($routeCfg['route_status']) ?></strong> · canUsePartnerRoute(): <strong class="<?= canUsePartnerRoute($partnerKey) ? 'text-emerald-400' : 'text-gray-600' ?>"><?= canUsePartnerRoute($partnerKey) ? 'true' : 'false' ?></strong></p>
+            <p class="mt-1">Settlement today: <strong class="text-emerald-400">standard_settle_mode</strong> (T+0/T+1/T+2 engine). Route mode calls live partner API when switch ON.</p>
+            <p class="mt-1"><a href="admin_settlements.php" class="text-sky-400 underline">Settlements → partner transfer queue</a></p>
         </div>
     </div>
 

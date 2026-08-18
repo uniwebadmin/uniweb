@@ -53,6 +53,12 @@ function adminPartnerDetailUrl(string $partnerKey, string $env = 'test'): string
     return 'admin_gateway_detail.php?partner=' . rawurlencode($partnerKey) . '&tab=keys&env=' . rawurlencode($env);
 }
 
+/** Partner Registry → Detail → Test tab (not Platform Settings). */
+function adminPartnerTestUrl(string $partnerKey): string
+{
+    return 'admin_gateway_detail.php?partner=' . rawurlencode($partnerKey) . '&tab=test';
+}
+
 function adminStaffLink(int $staffId, string $label, string $class = 'text-sky-400 hover:underline'): string
 {
     if ($staffId <= 0 || trim($label) === '') {

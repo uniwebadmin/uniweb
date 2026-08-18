@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 . ($result['retry'] ?? 0) . ' retry.');
         }
     }
-    redirect('admin_forward_queue.php?status=' . urlencode($statusFilter));
+    redirect('admin_forward_queue.php' . ($statusFilter !== '' || $q !== '' ? ('?' . http_build_query(array_filter(['status' => $statusFilter ?: null, 'q' => $q ?: null]))) : ''));
 }
 
 $matrix = getAdminForwardMatrix($statusFilter, $q);

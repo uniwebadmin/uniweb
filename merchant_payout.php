@@ -135,7 +135,7 @@ require_once __DIR__ . '/header.php';
 </div>
 
 <div class="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 mb-6 text-sm">
-    <p class="font-semibold text-amber-300">Status: <?= payoutLiveMoneyAllowed() ? 'Live rail ready' : 'Gated — keys pending' ?></p>
+    <p class="font-semibold text-amber-300">Status: <?= payoutLiveMoneyAllowed() ? 'Live payout rail ON — RazorpayX or Cashfree adapter' : 'Gated — partner keys pending; enable payout live in Platform Settings' ?></p>
     <p class="text-amber-200/90 text-xs mt-1"><?= e(payoutActivationMessage()) ?></p>
     <p class="text-[11px] text-gray-500 mt-2">Failed payouts show a clear reason. Funds are never auto-credited back without a reconciliation / maker-checker gate. Route / Easy Split stays parked (Phase 11).</p>
 </div>

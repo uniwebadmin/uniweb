@@ -408,6 +408,12 @@ function applyMerchantSignupPreferences(int $merchantId, string $collectionMode,
             $db->prepare('UPDATE merchants SET collection_mode=? WHERE id=?')->execute([$collectionMode, $merchantId]);
         } catch (Throwable $e2) { /* ok */ }
     }
+    if (!function_exists('setMerchantPaymentMethods') && is_file(__DIR__ . '/payment_methods.php')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+    if (function_exists('setMerchantPaymentMethods')) {
+        setMerchantPaymentMethods($merchantId, $enabledMethods, 'signup');
+    }
     generateMerchantPaymentPack($merchantId, 1.0, true);
     notifyMerchant($merchantId, 'Payment Pack Ready', 'Your selected payment methods are active in TEST mode. Check Payment Pack for ₹1 test links.', 'payment_pack_ready');
 }

@@ -17,10 +17,13 @@ if (!function_exists('ensurePartnerForwardQueueTable')) {
 function ensurePartnerForwardQueueTable(): void
 {
     static $done = false;
-    if ($done) return;
+    if ($done) {
+        return;
+    }
     $done = true;
+    $db = getDB();
     try {
-        getDB()->exec("CREATE TABLE IF NOT EXISTS partner_forward_queue (
+        $db->exec("CREATE TABLE IF NOT EXISTS partner_forward_queue (
             id INT AUTO_INCREMENT PRIMARY KEY,
             merchant_id INT NOT NULL,
             partner_key VARCHAR(40) NOT NULL,
@@ -40,7 +43,80 @@ function ensurePartnerForwardQueueTable(): void
             INDEX idx_pfq_partner (partner_key, status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     } catch (Throwable $e) { /* ok */ }
+
+    partnerForwardQueueUpgradeLegacySchema($db);
 }
+}
+
+/**
+ * One-time shape fix: older builds created merchant-level columns (scheduled_at, gateways)
+ * without partner_key. Add per-partner columns instead of a second conflicting table.
+ */
+function partnerForwardQueueUpgradeLegacySchema(PDO $db): void
+{
+    try {
+        $cols = $db->query('SHOW COLUMNS FROM partner_forward_queue')->fetchAll(PDO::FETCH_COLUMN) ?: [];
+    } catch (Throwable $e) {
+        return;
+    }
+    if ($cols === []) {
+        return;
+    }
+    $hasPartnerKey = in_array('partner_key', $cols, true);
+    $hasScheduleAt = in_array('schedule_at', $cols, true);
+    if (!$hasPartnerKey) {
+        try {
+            $db->exec("ALTER TABLE partner_forward_queue ADD COLUMN partner_key VARCHAR(40) NOT NULL DEFAULT 'legacy' AFTER merchant_id");
+        } catch (Throwable $e) { /* ok */ }
+    }
+    if (!$hasScheduleAt) {
+        try {
+            $db->exec('ALTER TABLE partner_forward_queue ADD COLUMN schedule_at DATETIME NULL AFTER status');
+            if (in_array('scheduled_at', $cols, true)) {
+                $db->exec('UPDATE partner_forward_queue SET schedule_at = scheduled_at WHERE schedule_at IS NULL AND scheduled_at IS NOT NULL');
+            }
+            $db->exec('UPDATE partner_forward_queue SET schedule_at = NOW() WHERE schedule_at IS NULL');
+            $db->exec('ALTER TABLE partner_forward_queue MODIFY schedule_at DATETIME NOT NULL');
+        } catch (Throwable $e) { /* ok */ }
+    }
+    foreach ([
+        'package_payload LONGTEXT DEFAULT NULL',
+        'attempts INT NOT NULL DEFAULT 0',
+        'max_attempts INT NOT NULL DEFAULT 3',
+        'last_attempt_at DATETIME DEFAULT NULL',
+        'partner_reference VARCHAR(100) DEFAULT NULL',
+        'partner_response LONGTEXT DEFAULT NULL',
+        'error_message VARCHAR(500) DEFAULT NULL',
+        'updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP',
+    ] as $def) {
+        $name = trim(explode(' ', $def)[0]);
+        if (!in_array($name, $cols, true)) {
+            try {
+                $db->exec('ALTER TABLE partner_forward_queue ADD COLUMN ' . $def);
+            } catch (Throwable $e) { /* ok */ }
+        }
+    }
+}
+
+/**
+ * Shared IST schedule for KYC forward (hold window + after 18:00 → next day 09:00).
+ */
+function forwardQueueNextScheduleAt(): DateTime
+{
+    $now = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
+    $hour = (int)$now->format('H');
+    if ($hour >= 18) {
+        return new DateTime('tomorrow 09:00', new DateTimeZone('Asia/Kolkata'));
+    }
+    $hold = 75;
+    if (function_exists('getHoldWindowMinutes')) {
+        $hold = max(60, min(90, getHoldWindowMinutes()));
+    } else {
+        $hold = random_int(60, 90);
+    }
+    $schedule = clone $now;
+    $schedule->modify('+' . $hold . ' minutes');
+    return $schedule;
 }
 
 /**
@@ -66,14 +142,7 @@ function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payl
         }
     } catch (Throwable $e) { /* table may not exist yet — continue to insert */ }
 
-    $now = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
-    $hour = (int)$now->format('H');
-    if ($hour >= 18) {
-        $schedule = new DateTime('tomorrow 09:00', new DateTimeZone('Asia/Kolkata'));
-    } else {
-        $schedule = clone $now;
-        $schedule->modify('+' . random_int(60, 90) . ' minutes');
-    }
+    $schedule = forwardQueueNextScheduleAt();
     try {
         $st = $db->prepare(
             'INSERT INTO partner_forward_queue (merchant_id, partner_key, package_payload, status, schedule_at)
@@ -141,10 +210,19 @@ function processPerPartnerForwardQueue(int $limit = 20): array
                         $itemId,
                     ]);
                 $results['success']++;
+                $partnerLabel = $partnerKey;
+                if (function_exists('getPartnerRegistry')) {
+                    $reg = getPartnerRegistry();
+                    $partnerLabel = (string)($reg[$partnerKey]['name'] ?? ucfirst($partnerKey));
+                } elseif (function_exists('partnerDisplayName')) {
+                    $partnerLabel = partnerDisplayName($partnerKey);
+                } else {
+                    $partnerLabel = ucfirst($partnerKey);
+                }
                 if (function_exists('notifyMerchant')) {
-                    notifyMerchant($merchantId, 'KYC Forwarded', 'Your KYC package has been submitted to ' . ucfirst($partnerKey) . '.', 'kyc_fwd_' . $merchantId . '_' . $partnerKey);
+                    notifyMerchant($merchantId, 'KYC Forwarded', 'Your KYC package has been submitted to ' . $partnerLabel . '.', 'kyc_fwd_' . $merchantId . '_' . $partnerKey);
                 } elseif (function_exists('createNotification')) {
-                    createNotification($merchantId, 'KYC Forwarded', 'Your KYC package has been submitted to ' . ucfirst($partnerKey) . '.');
+                    createNotification($merchantId, 'KYC Forwarded', 'Your KYC package has been submitted to ' . $partnerLabel . '.');
                 }
             } elseif (!empty($result['staged'])) {
                 // 5b: keys OK + package built, but live partner API adapter not live yet — do not fake success or fail-retry spam
@@ -163,10 +241,19 @@ function processPerPartnerForwardQueue(int $limit = 20): array
                     $db->prepare("UPDATE partner_forward_queue SET status='failed', error_message=? WHERE id=?")
                         ->execute([$err, $itemId]);
                     $results['failed']++;
+                    $failLabel = $partnerKey;
+                    if (function_exists('getPartnerRegistry')) {
+                        $reg = getPartnerRegistry();
+                        $failLabel = (string)($reg[$partnerKey]['name'] ?? ucfirst($partnerKey));
+                    } elseif (function_exists('partnerDisplayName')) {
+                        $failLabel = partnerDisplayName($partnerKey);
+                    } else {
+                        $failLabel = ucfirst($partnerKey);
+                    }
                     if (!$terminal && function_exists('notifyMerchant')) {
-                        notifyMerchant($merchantId, 'KYC Forward Failed', 'KYC submission to ' . ucfirst($partnerKey) . ' failed after ' . $attempts . ' attempts. Staff will assist manually.', 'kyc_fwd_fail_' . $merchantId . '_' . $partnerKey);
+                        notifyMerchant($merchantId, 'KYC Forward Failed', 'KYC submission to ' . $failLabel . ' failed after ' . $attempts . ' attempts. Staff will assist manually.', 'kyc_fwd_fail_' . $merchantId . '_' . $partnerKey);
                     } elseif (!$terminal && function_exists('createNotification')) {
-                        createNotification($merchantId, 'KYC Forward Failed', 'KYC submission to ' . ucfirst($partnerKey) . ' failed after ' . $attempts . ' attempts. Staff will assist manually.');
+                        createNotification($merchantId, 'KYC Forward Failed', 'KYC submission to ' . $failLabel . ' failed after ' . $attempts . ' attempts. Staff will assist manually.');
                     }
                 } else {
                     $nextRetry = date('Y-m-d H:i:s', time() + ($attempts * 1800));
@@ -245,16 +332,10 @@ if (!function_exists('resumePartnerForward')) {
 function resumePartnerForward(int $merchantId): bool
 {
     ensurePartnerForwardQueueTable();
-    $now = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
-    if ((int)$now->format('H') >= 18) {
-        $schedule = new DateTime('tomorrow 09:00', new DateTimeZone('Asia/Kolkata'));
-    } else {
-        $schedule = clone $now;
-        $schedule->modify('+' . random_int(60, 90) . ' minutes');
-    }
+    $scheduledAt = forwardQueueNextScheduleAt()->format('Y-m-d H:i:s');
     try {
         getDB()->prepare("UPDATE partner_forward_queue SET status='queued', schedule_at=?, error_message=NULL WHERE merchant_id=? AND status='paused'")
-            ->execute([$schedule->format('Y-m-d H:i:s'), $merchantId]);
+            ->execute([$scheduledAt, $merchantId]);
         return true;
     } catch (Throwable $e) {
         return false;
@@ -315,6 +396,7 @@ function getKycForwardAdapterRegistry(): array
         'axis' => ['mode' => 'local_record', 'label' => 'Axis — local submission record'],
         'phonepe' => ['mode' => 'local_record', 'label' => 'PhonePe — local submission record'],
         'rbl' => ['mode' => 'local_record', 'label' => 'RBL — local submission record'],
+        'pinelabs' => ['mode' => 'local_record', 'label' => 'Pine Labs — local submission record'],
     ];
 }
 

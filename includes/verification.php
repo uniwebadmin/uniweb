@@ -1,12 +1,23 @@
 <?php
 declare(strict_types=1);
 
+function decentroPartnerCredential(string $field, string $legacySetting = ''): string
+{
+    if (function_exists('getPartnerSetting')) {
+        $v = trim(getPartnerSetting('decentro', $field, ''));
+        if ($v !== '') {
+            return $v;
+        }
+    }
+    return $legacySetting !== '' ? trim((string)getSetting($legacySetting, '')) : '';
+}
+
 function verifyDocument(string $type, string $number, int $merchantId): array
 {
     $type = strtolower($type);
     $number = trim($number);
-    $decentroKey = getSetting('decentro_client_id', '');
-    $decentroSecret = getSetting('decentro_client_secret', '');
+    $decentroKey = decentroPartnerCredential('decentro_client_id', 'decentro_client_id');
+    $decentroSecret = decentroPartnerCredential('decentro_client_secret', 'decentro_client_secret');
 
     // Try Decentro API if configured
     if ($decentroKey && $decentroSecret) {
@@ -36,7 +47,8 @@ function verifyDocument(string $type, string $number, int $merchantId): array
 
 function decentroBaseUrl(): string
 {
-    return rtrim(getSetting('decentro_base_url', 'https://in.staging.decentro.tech'), '/');
+    $url = decentroPartnerCredential('decentro_base_url', 'decentro_base_url');
+    return rtrim($url !== '' ? $url : 'https://in.staging.decentro.tech', '/');
 }
 
 function decentroVerify(string $type, string $number, string $clientId, string $clientSecret): ?array
@@ -80,7 +92,7 @@ function decentroVerify(string $type, string $number, string $clientId, string $
         'client_secret: ' . $clientSecret,
         'Content-Type: application/json',
     ];
-    $urn = getSetting('decentro_consumer_urn', '');
+    $urn = decentroPartnerCredential('decentro_consumer_urn', 'decentro_consumer_urn');
     if ($urn) $headers[] = 'consumer_urn: ' . $urn;
 
     $ch = curl_init($base . $paths[$type]);
@@ -313,8 +325,8 @@ function confirmAadhaarOtp(int $merchantId, string $aadhaar, string $otp, string
         return ['success' => false, 'status' => 'failed', 'message' => 'Send OTP first using Verify, then enter OTP here.'];
     }
 
-    $clientId = getSetting('decentro_client_id', '');
-    $clientSecret = getSetting('decentro_client_secret', '');
+    $clientId = decentroPartnerCredential('decentro_client_id', 'decentro_client_id');
+    $clientSecret = decentroPartnerCredential('decentro_client_secret', 'decentro_client_secret');
     if (!$clientId || !$clientSecret) {
         saveVerification($merchantId, 'aadhaar', $aadhaar, 'submitted', json_encode(['otp' => 'received', 'reference_id' => $referenceId]));
         return ['success' => true, 'status' => 'submitted', 'message' => 'OTP recorded — pending registry API keys for automatic verification.'];
@@ -331,7 +343,7 @@ function confirmAadhaarOtp(int $merchantId, string $aadhaar, string $otp, string
         'client_secret: ' . $clientSecret,
         'Content-Type: application/json',
     ];
-    $urn = getSetting('decentro_consumer_urn', '');
+    $urn = decentroPartnerCredential('decentro_consumer_urn', 'decentro_consumer_urn');
     if ($urn) {
         $headers[] = 'consumer_urn: ' . $urn;
     }

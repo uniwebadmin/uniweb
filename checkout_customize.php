@@ -113,7 +113,7 @@ require_once __DIR__ . '/header.php';
             <div class="mb-4">
                 <label class="block text-sm text-gray-400 mb-2">Checkout Subtitle (optional)</label>
                 <input type="text" name="checkout_subtitle" value="<?= e($cc['checkout_subtitle'] ?? '') ?>" placeholder="e.g. Secure Payment" maxlength="300" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm">
-                <p class="text-xs text-gray-600 mt-1">Header ke side mein chhota text. Leave blank for "Secure Checkout".</p>
+                <p class="text-xs text-gray-600 mt-1">Small line shown beside the header. Leave blank for “Secure Checkout”.</p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -136,8 +136,8 @@ require_once __DIR__ . '/header.php';
 
         <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-6">
             <h2 class="text-lg font-bold text-white mb-4">Custom CSS (Advanced)</h2>
-            <textarea name="custom_css" rows="5" placeholder="/* Apna custom CSS yahan likhein */" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm font-mono"><?= e($cc['custom_css'] ?? '') ?></textarea>
-            <p class="text-xs text-gray-600 mt-1">Sirf checkout page ke liye extra CSS. Careful — galat CSS checkout break kar sakta hai.</p>
+            <textarea name="custom_css" rows="5" placeholder="/* Optional checkout-only CSS */" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm font-mono"><?= e($cc['custom_css'] ?? '') ?></textarea>
+            <p class="text-xs text-gray-600 mt-1">Checkout page only. Invalid CSS can break the pay page — test with a payment link first.</p>
         </div>
 
         <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-6">

@@ -70,6 +70,10 @@ function validatePayoutJobTransition(string $from, string $to): void
 function createPayoutJob(int $payoutOrderId, int $merchantId, float $amount, ?string $adapter = null, ?array $payload = null): array
 {
     ensurePayoutJobsTable();
+    if ($adapter === null) {
+        require_once __DIR__ . '/payout_partner_api.php';
+        $adapter = resolveDefaultPayoutAdapterName();
+    }
     $db = getDB();
     $jobId = generateId('PJOB');
 

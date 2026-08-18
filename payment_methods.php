@@ -3,14 +3,22 @@ require_once __DIR__ . '/config.php';
 if (!function_exists('getMerchantPaymentMethods')) {
     require_once __DIR__ . '/includes/payment_methods.php';
 }
+require_once __DIR__ . '/includes/method_requests.php';
 requireLogin();
 $merchant = getMerchant();
 $merchantId = (int)$merchant['id'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    requireMerchantTeamCapability('settings');
     $action = (string)($_POST['action'] ?? '');
     $methodKey = trim((string)($_POST['method_key'] ?? ''));
     $enabled = ($_POST['enabled'] ?? '') === '1';
+
+    if ($action === 'request_method' && $methodKey !== '') {
+        $res = requestMethodEnable($merchantId, $methodKey, trim((string)($_POST['note'] ?? '')));
+        flash($res['ok'] ? 'success' : 'error', $res['ok'] ? $res['message'] : ($res['error'] ?? 'Could not submit request.'));
+        redirect('payment_methods.php');
+    }
 
     if ($action === 'toggle' && $methodKey !== '') {
         $result = toggleMerchantPaymentMethod($merchantId, $methodKey, $enabled, 'merchant');
@@ -78,7 +86,10 @@ require_once __DIR__ . '/header.php';
         <form method="POST" id="bulkForm" class="space-y-3">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="bulk_save">
-            <?php foreach ($methods as $m): ?>
+            <?php foreach ($methods as $m):
+                $canTurnOn = merchantCanToggleMethodOn($merchantId, (string)$m['gateway_key'], 'merchant');
+                $isOn = (int)$m['is_enabled'] === 1;
+            ?>
             <div class="flex items-center justify-between gap-4 bg-dark-900/50 rounded-xl p-4 border border-gray-800">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-lg bg-brand-600/10 flex items-center justify-center text-lg">
@@ -107,6 +118,8 @@ require_once __DIR__ . '/header.php';
                             echo e(implode(' · ', $caps));
                             if (in_array($m['gateway_key'], ['upi_p2m', 'qr_code'], true)) {
                                 echo ' · <span class="text-emerald-500">Start here</span>';
+                            } elseif (in_array($m['gateway_key'], ['credit_card', 'debit_card', 'net_banking', 'netbanking', 'wallet', 'emi'], true) && !$canTurnOn && !$isOn) {
+                                echo ' · <span class="text-amber-500">Request enable below</span>';
                             } elseif (in_array($m['gateway_key'], ['credit_card', 'debit_card', 'net_banking', 'netbanking', 'wallet', 'emi'], true) && !$payuReady && !$rzpReady && !$cfReady) {
                                 echo ' · <span class="text-amber-500">Waiting on Admin</span>';
                             }
@@ -114,8 +127,8 @@ require_once __DIR__ . '/header.php';
                         </p>
                     </div>
                 </div>
-                <label class="pm-toggle-label">
-                    <input type="checkbox" name="methods[]" value="<?= e($m['gateway_key']) ?>" <?= (int)$m['is_enabled'] === 1 ? 'checked' : '' ?> class="pm-toggle-checkbox">
+                <label class="pm-toggle-label <?= (!$canTurnOn && !$isOn) ? 'opacity-40 cursor-not-allowed' : '' ?>">
+                    <input type="checkbox" name="methods[]" value="<?= e($m['gateway_key']) ?>" <?= $isOn ? 'checked' : '' ?> <?= (!$canTurnOn && !$isOn) ? 'disabled' : '' ?> class="pm-toggle-checkbox">
                     <span class="pm-toggle-slider"></span>
                 </label>
             </div>
@@ -124,6 +137,15 @@ require_once __DIR__ . '/header.php';
         </form>
         <?php endif; ?>
     </div>
+
+    <?php
+    renderMerchantMethodRequestSection($merchantId, [
+        'merchant' => $merchant,
+        'heading' => 'Request additional payment methods',
+        'description' => 'Admin reviews each request. After approval, turn the method ON using the toggles above.',
+        'form_action' => 'payment_methods.php',
+    ]);
+    ?>
 
     <div class="glass rounded-xl p-4 border border-gray-800">
         <p class="text-xs text-gray-500">

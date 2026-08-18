@@ -22,6 +22,7 @@ $__cloudModules = [
     'payout.php',
     'payout_jobs.php',
     'payout_adapters.php',
+    'payout_partner_api.php',
     'payout_worker.php',
     'beneficiaries.php',
     'nodal.php',
@@ -63,6 +64,8 @@ $__cloudModules = [
     'recurring.php',
     'sub_merchant.php',
     'split_settlement.php',
+    'route_split_partner_api.php',
+    'auto_kyc.php',
 
     // Strategy / scaffolds (no auto live money)
     'integration_matrix.php',

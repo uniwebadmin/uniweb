@@ -266,6 +266,15 @@ function toggleMerchantPaymentMethod(int $merchantId, string $methodKey, bool $e
     ensurePaymentMethodsTable();
     $db = getDB();
     try {
+        if ($enabled) {
+            if (!function_exists('merchantCanToggleMethodOn') && is_file(__DIR__ . '/method_requests.php')) {
+                require_once __DIR__ . '/method_requests.php';
+            }
+            if (function_exists('merchantCanToggleMethodOn') && !merchantCanToggleMethodOn($merchantId, $methodKey, $updatedBy)) {
+                return ['ok' => false, 'error' => 'This payment method is not approved yet. Request enable below.'];
+            }
+        }
+
         $st = $db->prepare("SELECT * FROM gateway_registry WHERE gateway_key=?");
         $st->execute([$methodKey]);
         $gateway = $st->fetch();
@@ -300,9 +309,15 @@ function setMerchantPaymentMethods(int $merchantId, array $enabledKeys, string $
     ensurePaymentMethodsTable();
     $db = getDB();
     try {
+        if (!function_exists('merchantCanToggleMethodOn') && is_file(__DIR__ . '/method_requests.php')) {
+            require_once __DIR__ . '/method_requests.php';
+        }
         $all = getAllPaymentMethods();
         foreach ($all as $g) {
             $isEnabled = in_array($g['gateway_key'], $enabledKeys, true);
+            if ($isEnabled && function_exists('merchantCanToggleMethodOn') && !merchantCanToggleMethodOn($merchantId, (string)$g['gateway_key'], $updatedBy)) {
+                $isEnabled = false;
+            }
             $db->prepare(
                 "INSERT INTO merchant_payment_methods (merchant_id, method_key, method_label, is_enabled, updated_by)
                  VALUES (?,?,?,?,?)

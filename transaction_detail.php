@@ -96,6 +96,14 @@ if ($split['merchant_net'] <= 0 && $split['platform_fee'] <= 0) {
     $split = $calc;
 }
 
+$partnerTransfers = [];
+if (is_file(__DIR__ . '/includes/split_settlement.php')) {
+    require_once __DIR__ . '/includes/split_settlement.php';
+    if (function_exists('getTransactionPartnerTransfers')) {
+        $partnerTransfers = getTransactionPartnerTransfers((int)$txn['id']);
+    }
+}
+
 $pageTitle = 'Transaction ' . $txnId;
 require_once __DIR__ . '/header.php';
 ?>
@@ -294,6 +302,20 @@ require_once __DIR__ . '/header.php';
                 <div class="flex justify-between"><span class="text-gray-500">Partner cut (info)</span><span class="text-gray-400"><?= formatMoney((float)($txn['partner_fee'] ?? 0)) ?></span></div>
                 <div class="flex justify-between border-t border-gray-800 pt-2 font-semibold"><span>Merchant baaki (settlement)</span><span class="text-emerald-400"><?= formatMoney($split['merchant_net']) ?></span></div>
             </div>
+            <?php if ($partnerTransfers): ?>
+            <div class="mt-4 pt-3 border-t border-gray-800">
+                <p class="text-[11px] text-gray-500 mb-2">Partner transfer legs (Route / Split scaffold)</p>
+                <ul class="space-y-1 text-[11px]">
+                    <?php foreach ($partnerTransfers as $pt): ?>
+                    <li class="flex justify-between gap-2">
+                        <span class="text-gray-500"><?= e(str_replace('_', ' ', (string)$pt['transfer_type'])) ?> · <?= e($pt['partner_key']) ?></span>
+                        <span class="<?= ($pt['status'] ?? '') === 'processed' ? 'text-emerald-400' : (($pt['status'] ?? '') === 'failed' ? 'text-red-400' : 'text-amber-400') ?>"><?= formatMoney((float)$pt['amount']) ?> · <?= e($pt['status']) ?></span>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
+                <p class="text-[10px] text-gray-600 mt-2">Live Razorpay Route / Easy Split API not connected — pending legs are audit records only.</p>
+            </div>
+            <?php endif; ?>
         </div>
 
         <div class="glass rounded-xl p-5 text-sm">

@@ -2,7 +2,7 @@
 require_once __DIR__ . '/config.php';
 requireLogin();
 $merchant = getMerchant();
-$approved = getSetting('recurring_autopay_approved', '0') === '1';
+$approved = recurringAutopayApproved();
 if (!function_exists('ensureMandateSchema')) {
     require_once __DIR__ . '/includes/mandates.php';
 }
@@ -164,22 +164,52 @@ if ($rows) {
 // G2: Fetch existing plans
 $plans = getMerchantSubscriptionPlans((int)$merchant['id']);
 
+$merchantLive = isMerchantLive($merchant);
+$partnerKeysReady = recurringAutopayPartnerKeysConfigured();
+$canCreateMandates = $approved && $merchantLive && $partnerKeysReady;
+
 $pageTitle = 'Recurring / AutoPay';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="max-w-4xl space-y-6">
-    <!-- G7: Compliance text -->
-    <div class="glass rounded-xl p-6 border <?= $approved ? 'border-emerald-500/20' : 'border-amber-500/30' ?>">
-        <h2 class="font-semibold mb-2">Recurring Mandates</h2>
-        <p class="text-sm text-gray-500"><?= $approved
-            ? 'Partner mandate registration is wired — live money needs partner keys in Admin Registry and customer approval on the network. Customer may cancel in their UPI app; UniWeb does not guarantee debit success.'
-            : 'Scaffold / gated — mandates are stored locally; partner autopay adapters and live debit need Admin approval + Registry keys.' ?></p>
-        <?php if ($approved): ?>
-        <p class="text-xs text-gray-600 mt-2">Customer may also cancel the mandate directly in their UPI app or bank. UniWeb does not guarantee debit success — it depends on customer balance and bank approval.</p>
-        <?php endif; ?>
+    <div class="glass rounded-xl p-6 border border-violet-500/25">
+        <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+                <h2 class="font-semibold text-lg">Recurring / AutoPay</h2>
+                <p class="text-sm text-gray-500 mt-1">Same flow as Razorpay Subscriptions / Cashfree Subscriptions — mandate → customer UPI approval → scheduled debits.</p>
+            </div>
+            <?php if ($canCreateMandates): ?>
+            <span class="text-xs px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Ready for live</span>
+            <?php else: ?>
+            <span class="text-xs px-3 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">Setup required</span>
+            <?php endif; ?>
+        </div>
+        <ol class="text-xs text-gray-500 space-y-1 list-decimal list-inside border-t border-gray-800 pt-4">
+            <li>Create mandate with customer UPI ID + amount + frequency</li>
+            <li>Customer approves in UPI / bank app (authorisation link)</li>
+            <li>Status becomes <strong class="text-gray-400">Active</strong> — cron debits on next debit date</li>
+            <li>Failed debits retry (transient errors) · 3 failures pauses mandate</li>
+        </ol>
     </div>
 
-    <?php if ($approved && isMerchantLive($merchant)): ?>
+    <div class="glass rounded-xl p-5 border border-gray-800">
+        <h3 class="font-semibold text-sm mb-3">Your readiness</h3>
+        <ul class="space-y-2 text-sm">
+            <li class="<?= $approved ? 'text-emerald-400' : 'text-amber-400' ?>"><?= $approved ? '●' : '○' ?> Admin enabled Recurring / AutoPay</li>
+            <li class="<?= $merchantLive ? 'text-emerald-400' : 'text-amber-400' ?>"><?= $merchantLive ? '●' : '○' ?> Your account is in <strong>Live Mode</strong><?= !$merchantLive ? ' — switch from Test Mode in dashboard' : '' ?></li>
+            <li class="<?= $partnerKeysReady ? 'text-emerald-400' : 'text-amber-400' ?>"><?= $partnerKeysReady ? '●' : '○' ?> Partner keys configured (Admin Registry)</li>
+        </ul>
+        <?php if (!$approved): ?>
+        <p class="text-xs text-amber-300 mt-3">Recurring is OFF at platform level. Contact Admin to enable Platform Settings → Live Money Switches → Recurring / AutoPay ON.</p>
+        <?php elseif (!$merchantLive): ?>
+        <p class="text-xs text-amber-300 mt-3">Switch to Live Mode before creating mandates — test mode cannot register live UPI Autopay.</p>
+        <?php elseif (!$partnerKeysReady): ?>
+        <p class="text-xs text-amber-300 mt-3">Admin must paste Razorpay / Cashfree / Decentro keys in Partner Registry before mandates can go live.</p>
+        <?php endif; ?>
+        <p class="text-[11px] text-gray-600 mt-3">Customer may cancel anytime in their UPI app. Debit success depends on customer balance and bank approval — same as market PGs.</p>
+    </div>
+
+    <?php if ($canCreateMandates): ?>
     <!-- G2: Create mandate form -->
     <form method="post" class="glass rounded-xl p-6 space-y-3">
         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -227,28 +257,45 @@ require_once __DIR__ . '/header.php';
             </div>
         </div>
         <?php if (!$rows): ?><div class="p-0"><?= renderMerchantEmptyState('No mandates yet', 'Create a mandate to start recurring collections.', null, null) ?></div><?php endif; ?>
-        <?php foreach ($rows as $row): 
+        <?php foreach ($rows as $row):
             $lastDebit = $lastDebits[(int)$row['id']] ?? null;
-            $statusLower = strtolower($row['status']);
+            $statusLower = strtolower((string)$row['status']);
+            $pendingReason = getMandatePendingReason($row);
+            $statusDisplay = mandateStatusDisplayLabel($statusLower, $pendingReason);
+            $authUrl = trim((string)($row['auth_url'] ?? ''));
         ?>
-        <div class="px-6 py-3 border-b border-gray-800 flex justify-between gap-3 text-sm">
-            <div class="space-y-1">
+        <div class="px-6 py-4 border-b border-gray-800 flex flex-col sm:flex-row sm:justify-between gap-3 text-sm">
+            <div class="space-y-1 min-w-0">
                 <p class="font-mono text-xs text-sky-400"><?= e($row['mandate_ref']) ?></p>
-                <p><?= e($row['customer_name'] ?? 'Unknown') ?> · <?= formatMoney((float)$row['max_amount']) ?> / <?= e($row['frequency']) ?> · <?= e(ucfirst($row['channel'] ?? 'upi')) ?></p>
-                <?php if (!empty($row['next_debit_date'])): ?><p class="text-xs text-gray-500">Next debit: <?= e(formatDate($row['next_debit_date'])) ?></p><?php endif; ?>
-                <?php if (!empty($row['failure_reason'])): ?><p class="text-xs text-red-400"><?= e($row['failure_reason']) ?></p><?php endif; ?>
+                <p><?= e($row['customer_name'] ?? 'Unknown') ?> · <?= formatMoney((float)$row['max_amount']) ?> / <?= e($row['frequency']) ?> · <?= e(ucfirst((string)($row['channel'] ?? 'upi'))) ?></p>
+                <?php if (!empty($row['gateway'])): ?><p class="text-xs text-gray-600">Partner: <?= e(ucfirst((string)$row['gateway'])) ?></p><?php endif; ?>
+                <?php if (!empty($row['next_debit_date']) && $statusLower === 'active'): ?><p class="text-xs text-gray-500">Next debit: <?= e(formatDate($row['next_debit_date'])) ?></p><?php endif; ?>
+                <?php if ($pendingReason !== ''): ?><p class="text-xs text-amber-400"><?= e($pendingReason) ?></p><?php endif; ?>
+                <?php if (!empty($row['failure_reason']) && $statusLower === 'failed'): ?><p class="text-xs text-red-400"><?= e($row['failure_reason']) ?></p><?php endif; ?>
                 <?php if ($lastDebit): ?>
-                <p class="text-xs <?= $lastDebit['status'] === 'success' ? 'text-emerald-400' : 'text-red-400' ?>">Last debit: <?= e(ucfirst($lastDebit['status'])) ?> <?= $lastDebit['mapped_reason'] ? '· ' . e($lastDebit['mapped_reason']) : '' ?></p>
+                <p class="text-xs <?= $lastDebit['status'] === 'success' ? 'text-emerald-400' : 'text-red-400' ?>">Last debit: <?= e(ucfirst((string)$lastDebit['status'])) ?><?= !empty($lastDebit['mapped_reason']) ? ' · ' . e($lastDebit['mapped_reason']) : '' ?></p>
                 <?php endif; ?>
             </div>
-            <div class="flex items-center gap-3 flex-shrink-0">
-                <?= statusBadge($statusLower) ?>
-                <?php if ($statusLower === 'pending'): ?>
+            <div class="flex flex-wrap items-center gap-2 flex-shrink-0">
+                <?php
+                $badgeClass = match ($statusDisplay['class']) {
+                    'emerald' => 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+                    'sky' => 'bg-sky-500/15 text-sky-400 border-sky-500/30',
+                    'amber' => 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+                    'red' => 'bg-red-500/15 text-red-400 border-red-500/30',
+                    default => 'bg-gray-800 text-gray-400 border-gray-700',
+                };
+                ?>
+                <span class="text-xs px-2 py-1 rounded border <?= $badgeClass ?>"><?= e($statusDisplay['label']) ?></span>
+                <?php if ($authUrl !== '' && in_array($statusLower, ['pending', 'registered'], true)): ?>
+                <a href="<?= e($authUrl) ?>" target="_blank" rel="noopener" class="text-xs px-2 py-1 rounded bg-sky-600/20 text-sky-300 hover:bg-sky-600/30">Customer auth link ↗</a>
+                <?php endif; ?>
+                <?php if (in_array($statusLower, ['pending', 'registered'], true) && empty($row['gateway_mandate_id'])): ?>
                 <form method="post" class="inline">
                     <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                     <input type="hidden" name="action" value="register">
                     <input type="hidden" name="mandate_id" value="<?= (int)$row['id'] ?>">
-                    <button class="text-xs text-sky-400 hover:underline">Register</button>
+                    <button class="text-xs text-sky-400 hover:underline">Register with partner</button>
                 </form>
                 <?php endif; ?>
                 <?php if ($statusLower === 'active'): ?>

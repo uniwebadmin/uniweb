@@ -112,6 +112,21 @@ function merchantLockedMethods(array $merchant): array
     return array_values(array_diff($catalog, merchantEntitledMethods($merchant)));
 }
 
+/**
+ * Layer 3 permission — may merchant turn this method ON (Layer 2)?
+ * upi_p2m always allowed; others need approved request or ops bypass.
+ */
+function merchantCanToggleMethodOn(int $merchantId, string $methodKey, string $updatedBy = 'merchant'): bool
+{
+    if (in_array($updatedBy, ['system_unlock', 'admin', 'signup'], true)) {
+        return true;
+    }
+    if (in_array($methodKey, ['upi_p2m'], true)) {
+        return true;
+    }
+    return in_array($methodKey, approvedMethodKeys($merchantId), true);
+}
+
 function approvedMethodKeys(int $merchantId): array
 {
     ensureMethodRequestSchema();
@@ -478,24 +493,40 @@ function decideMethodRequest(int $requestId, bool $approve, string $decidedBy, s
 
 function unlockMerchantMethod(int $merchantId, string $methodKey): void
 {
+    $layerSynced = false;
+    try {
+        if (!function_exists('toggleMerchantPaymentMethod') && is_file(__DIR__ . '/payment_methods.php')) {
+            require_once __DIR__ . '/payment_methods.php';
+        }
+        // Layer 3 approve → Layer 2 toggle ON → Layer 1 JSON (via syncMerchantEnabledMethodsFromToggles)
+        if (function_exists('toggleMerchantPaymentMethod')) {
+            $toggle = toggleMerchantPaymentMethod($merchantId, $methodKey, true, 'system_unlock');
+            $layerSynced = !empty($toggle['ok']);
+        }
+        if (!$layerSynced) {
+            $db = getDB();
+            $m = $db->prepare('SELECT enabled_methods FROM merchants WHERE id=?');
+            $m->execute([$merchantId]);
+            $raw = (string)($m->fetchColumn() ?: '');
+            $current = [];
+            if ($raw !== '') {
+                $decoded = json_decode($raw, true);
+                if (is_array($decoded)) {
+                    $current = $decoded;
+                }
+            }
+            if (!in_array($methodKey, $current, true)) {
+                $current[] = $methodKey;
+            }
+            $db->prepare('UPDATE merchants SET enabled_methods=? WHERE id=?')
+                ->execute([json_encode(array_values($current)), $merchantId]);
+        }
+    } catch (Throwable $e) {
+        error_log('unlockMerchantMethod: ' . $e->getMessage());
+    }
+
     try {
         $db = getDB();
-        $m = $db->prepare('SELECT enabled_methods FROM merchants WHERE id=?');
-        $m->execute([$merchantId]);
-        $raw = (string)($m->fetchColumn() ?: '');
-        $current = [];
-        if ($raw !== '') {
-            $decoded = json_decode($raw, true);
-            if (is_array($decoded)) {
-                $current = $decoded;
-            }
-        }
-        if (!in_array($methodKey, $current, true)) {
-            $current[] = $methodKey;
-        }
-        $db->prepare('UPDATE merchants SET enabled_methods=? WHERE id=?')
-            ->execute([json_encode(array_values($current)), $merchantId]);
-
         // Keep payout module flag in sync when payout method is unlocked.
         if ($methodKey === 'payout' && function_exists('requestPayoutEnable') === false) {
             // no-op if payout helpers missing
@@ -517,16 +548,16 @@ function unlockMerchantMethod(int $merchantId, string $methodKey): void
         }
         if ($methodKey === 'instant_settlement') {
             try {
-                $db->prepare("UPDATE merchants SET settlement_mode='scheduled', batch_interval_minutes=15, settlement_use_platform_default=0 WHERE id=?")
+                getDB()->prepare("UPDATE merchants SET settlement_mode='scheduled', batch_interval_minutes=15, settlement_use_platform_default=0 WHERE id=?")
                     ->execute([$merchantId]);
             } catch (Throwable $e) {
                 try {
-                    $db->prepare("UPDATE merchants SET settlement_mode='scheduled' WHERE id=?")->execute([$merchantId]);
+                    getDB()->prepare("UPDATE merchants SET settlement_mode='scheduled' WHERE id=?")->execute([$merchantId]);
                 } catch (Throwable $e2) { /* ok */ }
             }
         }
     } catch (Throwable $e) {
-        error_log('unlockMerchantMethod: ' . $e->getMessage());
+        error_log('unlockMerchantMethod side effects: ' . $e->getMessage());
     }
 }
 
@@ -867,4 +898,120 @@ function getMerchantApprovedPartners(int $merchantId): array
     } catch (Throwable $e) {
         return [];
     }
+}
+
+/**
+ * Shared merchant UI — locked catalog methods with request / status actions.
+ *
+ * @param array<string, mixed> $options heading, description, form_action (default: current script)
+ */
+function renderMerchantMethodRequestSection(int $merchantId, array $options = []): void
+{
+    if ($merchantId <= 0) {
+        return;
+    }
+
+    $merchant = $options['merchant'] ?? null;
+    if (!is_array($merchant) || (int)($merchant['id'] ?? 0) !== $merchantId) {
+        try {
+            $st = getDB()->prepare('SELECT * FROM merchants WHERE id=? LIMIT 1');
+            $st->execute([$merchantId]);
+            $merchant = $st->fetch() ?: null;
+        } catch (Throwable $e) {
+            $merchant = null;
+        }
+    }
+    if (!$merchant) {
+        return;
+    }
+
+    $methodCatalog = getPaymentMethodCatalog();
+    $lockedMethods = merchantLockedMethods($merchant);
+    $methodRequestMap = merchantMethodRequestMap($merchantId);
+
+    $displayKeys = [];
+    foreach ($lockedMethods as $key) {
+        if ($key !== 'upi_p2m' && isset($methodCatalog[$key])) {
+            $displayKeys[] = $key;
+        }
+    }
+    foreach (array_keys($methodRequestMap) as $key) {
+        if ($key !== 'upi_p2m' && isset($methodCatalog[$key]) && !in_array($key, $displayKeys, true)) {
+            $st = $methodRequestMap[$key] ?? '';
+            if (in_array($st, ['pending', 'sent_to_partner', 'partner_approved', 'rejected', 'partner_rejected'], true)) {
+                $displayKeys[] = $key;
+            }
+        }
+    }
+
+    if ($displayKeys === [] && empty($options['show_when_empty'])) {
+        return;
+    }
+
+    $heading = (string)($options['heading'] ?? 'Request additional payment methods');
+    $description = (string)($options['description'] ?? 'Each method is reviewed by Admin. Partner approval may be required before you can enable it on Payment Methods.');
+    $formAction = (string)($options['form_action'] ?? '');
+    ?>
+    <div class="glass rounded-xl p-6 border border-amber-500/20">
+        <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+                <h3 class="font-semibold text-gray-100"><?= e($heading) ?></h3>
+                <p class="text-xs text-gray-500 mt-1 max-w-xl"><?= e($description) ?></p>
+            </div>
+            <a href="payment_methods.php" class="text-xs text-brand-400 hover:text-brand-300 whitespace-nowrap">Payment Methods →</a>
+        </div>
+        <?php if ($displayKeys === []): ?>
+        <p class="text-sm text-gray-500">All catalog methods are unlocked for your account.</p>
+        <?php else: ?>
+        <div class="space-y-3">
+            <?php foreach ($displayKeys as $lockKey):
+                $cat = $methodCatalog[$lockKey];
+                $reqStatus = $methodRequestMap[$lockKey] ?? '';
+                $inProgress = in_array($reqStatus, ['pending', 'sent_to_partner', 'partner_approved'], true);
+                $icon = match ($lockKey) {
+                    'upi_p2m' => '📱',
+                    'qr_code' => '🔳',
+                    'credit_card', 'debit_card' => '💳',
+                    'net_banking', 'netbanking' => '🏦',
+                    'wallet' => '👛',
+                    'emi' => '📅',
+                    'payout' => '💸',
+                    'recurring' => '🔄',
+                    default => '⚙️',
+                };
+            ?>
+            <div class="flex flex-wrap items-center justify-between gap-3 bg-dark-900/50 rounded-xl p-4 border border-gray-800">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-10 h-10 rounded-lg bg-brand-600/10 flex items-center justify-center text-lg shrink-0"><?= $icon ?></div>
+                    <div class="min-w-0">
+                        <p class="text-sm font-medium text-gray-200"><?= e($cat['label'] ?? $lockKey) ?></p>
+                        <p class="text-[11px] text-gray-500 truncate">
+                            <?= e(ucfirst((string)($cat['gateway'] ?? ''))) ?>
+                            · <?= $reqStatus !== '' ? e(methodRequestStatusLabel($reqStatus)) : 'Not requested' ?>
+                        </p>
+                    </div>
+                </div>
+                <?php if ($inProgress): ?>
+                <span class="text-xs px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 shrink-0">In review</span>
+                <?php elseif ($reqStatus === 'rejected' || $reqStatus === 'partner_rejected'): ?>
+                <form method="POST" action="<?= e($formAction) ?>" class="shrink-0">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="action" value="request_method">
+                    <input type="hidden" name="method_key" value="<?= e($lockKey) ?>">
+                    <button type="submit" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg font-medium">Request again</button>
+                </form>
+                <?php else: ?>
+                <form method="POST" action="<?= e($formAction) ?>" class="shrink-0">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="action" value="request_method">
+                    <input type="hidden" name="method_key" value="<?= e($lockKey) ?>">
+                    <button type="submit" class="text-xs bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-lg font-semibold">Request enable</button>
+                </form>
+                <?php endif; ?>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+    </div>
+    <?php
 }
