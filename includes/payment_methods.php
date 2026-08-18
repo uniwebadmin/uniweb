@@ -67,6 +67,7 @@ function ensurePaymentMethodsTable(): void
         try { getDB()->exec("ALTER TABLE gateway_registry ADD COLUMN public_go_live TINYINT(1) NOT NULL DEFAULT 0"); } catch (Throwable $e) { /* already exists */ }
         try { getDB()->exec("ALTER TABLE gateway_registry ADD COLUMN public_go_live_at TIMESTAMP NULL DEFAULT NULL"); } catch (Throwable $e) { /* already exists */ }
         try { getDB()->exec("ALTER TABLE gateway_registry ADD COLUMN public_go_live_by VARCHAR(120) DEFAULT NULL"); } catch (Throwable $e) { /* already exists */ }
+        try { getDB()->exec("ALTER TABLE gateway_registry ADD COLUMN registry_kind ENUM('method','partner') NOT NULL DEFAULT 'partner'"); } catch (Throwable $e) { /* already exists */ }
 
         getDB()->exec("CREATE TABLE IF NOT EXISTS gateway_method_map (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -78,7 +79,63 @@ function ensurePaymentMethodsTable(): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
         seedDefaultGateways();
+        backfillGatewayRegistryKinds();
     } catch (Throwable $e) { /* ok */ }
+}
+
+function gatewayRegistryHasKindColumn(): bool
+{
+    static $has = null;
+    if ($has !== null) {
+        return $has;
+    }
+    $has = false;
+    try {
+        ensurePaymentMethodsTable();
+        $has = (bool)getDB()->query("SHOW COLUMNS FROM gateway_registry LIKE 'registry_kind'")->fetch();
+    } catch (Throwable $e) {
+        $has = false;
+    }
+    return $has;
+}
+
+function backfillGatewayRegistryKinds(): void
+{
+    if (!gatewayRegistryHasKindColumn()) {
+        return;
+    }
+    if (!function_exists('paymentMethodRegistryKeys')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $methodKeys = paymentMethodRegistryKeys();
+    if ($methodKeys === []) {
+        return;
+    }
+    try {
+        $db = getDB();
+        $placeholders = implode(',', array_fill(0, count($methodKeys), '?'));
+        $db->prepare("UPDATE gateway_registry SET registry_kind='method' WHERE gateway_key IN ({$placeholders})")
+            ->execute($methodKeys);
+        $db->prepare("UPDATE gateway_registry SET registry_kind='partner' WHERE gateway_key NOT IN ({$placeholders})")
+            ->execute($methodKeys);
+    } catch (Throwable $e) { /* ok */ }
+}
+
+function gatewayRegistryKindClause(string $kind, string $alias = ''): string
+{
+    $prefix = $alias !== '' ? $alias . '.' : '';
+    if (gatewayRegistryHasKindColumn()) {
+        return $prefix . "registry_kind='" . ($kind === 'method' ? 'method' : 'partner') . "'";
+    }
+    if (!function_exists('paymentMethodRegistryKeys')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $methodKeys = paymentMethodRegistryKeys();
+    $quoted = implode(',', array_map(static fn($k) => "'" . str_replace("'", "''", $k) . "'", $methodKeys));
+    if ($kind === 'method') {
+        return $prefix . "gateway_key IN ({$quoted})";
+    }
+    return $prefix . "gateway_key NOT IN ({$quoted})";
 }
 
 function seedDefaultGateways(): void
@@ -97,14 +154,21 @@ function seedDefaultGateways(): void
     ];
     foreach ($defaults as $g) {
         try {
-            $db->prepare("INSERT INTO gateway_registry (gateway_key, gateway_name, is_active, supports_collection, supports_payout, supports_refund, supports_recurring)
-                VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE gateway_name=VALUES(gateway_name)")
+            $db->prepare("INSERT INTO gateway_registry (gateway_key, gateway_name, is_active, supports_collection, supports_payout, supports_refund, supports_recurring, registry_kind)
+                VALUES (?,?,?,?,?,?,?,'method') ON DUPLICATE KEY UPDATE gateway_name=VALUES(gateway_name), registry_kind='method'")
                 ->execute($g);
-        } catch (Throwable $e) {}
+        } catch (Throwable $e) {
+            try {
+                $db->prepare("INSERT INTO gateway_registry (gateway_key, gateway_name, is_active, supports_collection, supports_payout, supports_refund, supports_recurring)
+                    VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE gateway_name=VALUES(gateway_name)")
+                    ->execute($g);
+            } catch (Throwable $e2) { /* ok */ }
+        }
     }
     try {
         $db->exec("INSERT INTO gateway_method_map (gateway_id, method_key, is_active)
             SELECT id, gateway_key, is_active FROM gateway_registry
+            WHERE " . gatewayRegistryKindClause('method') . "
             ON DUPLICATE KEY UPDATE is_active=VALUES(is_active)");
     } catch (Throwable $e) {}
 }
@@ -116,7 +180,8 @@ function getAllPaymentMethods(): array
 {
     ensurePaymentMethodsTable();
     try {
-        $st = getDB()->query("SELECT * FROM gateway_registry ORDER BY id ASC");
+        $where = gatewayRegistryKindClause('method');
+        $st = getDB()->query("SELECT * FROM gateway_registry WHERE {$where} ORDER BY id ASC");
         return $st->fetchAll();
     } catch (Throwable $e) {
         return [];
@@ -180,7 +245,7 @@ function getMerchantPaymentMethods(int $merchantId): array
                     COALESCE(m.is_enabled, 0) AS is_enabled, m.updated_by, m.updated_at
              FROM gateway_registry g
              LEFT JOIN merchant_payment_methods m ON m.method_key = g.gateway_key AND m.merchant_id = ?
-             WHERE g.is_active = 1
+             WHERE g.is_active = 1 AND " . gatewayRegistryKindClause('method', 'g') . "
              ORDER BY g.id ASC"
         );
         $st->execute([$merchantId]);
@@ -373,11 +438,19 @@ function registerGateway(string $key, string $name, array $capabilities = []): a
         }
 
         // Insert as INACTIVE (is_active=0)
-        $db->prepare(
-            "INSERT INTO gateway_registry (gateway_key, gateway_name, adapter_class, is_active, supports_collection, supports_payout, supports_refund, supports_recurring, webhook_url, config_json, sort_order)
-             VALUES (?,?,?,?,0,?,?,?,?,?,?)
-             ON DUPLICATE KEY UPDATE gateway_key=gateway_key"
-        )->execute([$key, $name, $adapter, $collection, $payout, $refund, $recurring, $webhookUrl, $configJson, $sortOrder]);
+        if (gatewayRegistryHasKindColumn()) {
+            $db->prepare(
+                "INSERT INTO gateway_registry (gateway_key, gateway_name, adapter_class, is_active, supports_collection, supports_payout, supports_refund, supports_recurring, webhook_url, config_json, sort_order, registry_kind)
+                 VALUES (?,?,?,0,?,?,?,?,?,?,?,'partner')
+                 ON DUPLICATE KEY UPDATE gateway_key=gateway_key"
+            )->execute([$key, $name, $adapter, $collection, $payout, $refund, $recurring, $webhookUrl, $configJson, $sortOrder]);
+        } else {
+            $db->prepare(
+                "INSERT INTO gateway_registry (gateway_key, gateway_name, adapter_class, is_active, supports_collection, supports_payout, supports_refund, supports_recurring, webhook_url, config_json, sort_order)
+                 VALUES (?,?,?,0,?,?,?,?,?,?,?)
+                 ON DUPLICATE KEY UPDATE gateway_key=gateway_key"
+            )->execute([$key, $name, $adapter, $collection, $payout, $refund, $recurring, $webhookUrl, $configJson, $sortOrder]);
+        }
 
         $gatewayId = (int)$db->lastInsertId();
         if (!$gatewayId) {
@@ -417,7 +490,8 @@ function getRegisteredGateways(): array
 {
     ensurePaymentMethodsTable();
     try {
-        return getDB()->query("SELECT * FROM gateway_registry ORDER BY is_active DESC, id ASC")->fetchAll();
+        $where = gatewayRegistryKindClause('partner');
+        return getDB()->query("SELECT * FROM gateway_registry WHERE {$where} ORDER BY is_active DESC, id ASC")->fetchAll();
     } catch (Throwable $e) {
         return [];
     }
@@ -478,13 +552,21 @@ function syncPartnerGateways(): void
         $st->execute([$key]);
         $existing = $st->fetch();
         if ($existing) {
-            // Update name/capabilities but keep is_active as-is
-            $db->prepare("UPDATE gateway_registry SET gateway_name=?, supports_collection=?, supports_payout=?, supports_refund=?, supports_recurring=?, webhook_url=? WHERE id=?")
-                ->execute([$p['name'], 1, $supportsPayout ? 1 : 0, $supportsRefund ? 1 : 0, $supportsRecurring ? 1 : 0, $p['webhook'] ?? null, $existing['id']]);
+            if (gatewayRegistryHasKindColumn()) {
+                $db->prepare("UPDATE gateway_registry SET gateway_name=?, supports_collection=?, supports_payout=?, supports_refund=?, supports_recurring=?, webhook_url=?, registry_kind='partner' WHERE id=?")
+                    ->execute([$p['name'], 1, $supportsPayout ? 1 : 0, $supportsRefund ? 1 : 0, $supportsRecurring ? 1 : 0, $p['webhook'] ?? null, $existing['id']]);
+            } else {
+                $db->prepare("UPDATE gateway_registry SET gateway_name=?, supports_collection=?, supports_payout=?, supports_refund=?, supports_recurring=?, webhook_url=? WHERE id=?")
+                    ->execute([$p['name'], 1, $supportsPayout ? 1 : 0, $supportsRefund ? 1 : 0, $supportsRecurring ? 1 : 0, $p['webhook'] ?? null, $existing['id']]);
+            }
         } else {
-            // Insert as INACTIVE
-            $db->prepare("INSERT INTO gateway_registry (gateway_key, gateway_name, is_active, supports_collection, supports_payout, supports_refund, supports_recurring, webhook_url) VALUES (?,?,?,?,?,?,?,?)")
-                ->execute([$key, $p['name'], 0, 1, $supportsPayout ? 1 : 0, $supportsRefund ? 1 : 0, $supportsRecurring ? 1 : 0, $p['webhook'] ?? null]);
+            if (gatewayRegistryHasKindColumn()) {
+                $db->prepare("INSERT INTO gateway_registry (gateway_key, gateway_name, is_active, supports_collection, supports_payout, supports_refund, supports_recurring, webhook_url, registry_kind) VALUES (?,?,?,?,?,?,?,?,'partner')")
+                    ->execute([$key, $p['name'], 0, 1, $supportsPayout ? 1 : 0, $supportsRefund ? 1 : 0, $supportsRecurring ? 1 : 0, $p['webhook'] ?? null]);
+            } else {
+                $db->prepare("INSERT INTO gateway_registry (gateway_key, gateway_name, is_active, supports_collection, supports_payout, supports_refund, supports_recurring, webhook_url) VALUES (?,?,?,?,?,?,?,?)")
+                    ->execute([$key, $p['name'], 0, 1, $supportsPayout ? 1 : 0, $supportsRefund ? 1 : 0, $supportsRecurring ? 1 : 0, $p['webhook'] ?? null]);
+            }
             $gid = (int)$db->lastInsertId();
             $db->prepare("INSERT INTO gateway_method_map (gateway_id, method_key, is_active) VALUES (?,?,0) ON DUPLICATE KEY UPDATE is_active=VALUES(is_active)")
                 ->execute([$gid, $key]);
@@ -557,11 +639,14 @@ function deleteInactiveGateway(int $gatewayId): array
             return ['ok' => false, 'error' => 'Turn OFF (Deactivate) first, then Delete.'];
         }
         $key = strtolower(trim((string)$gw['gateway_key']));
-        $protected = [
-            'payu', 'razorpay', 'cashfree', 'axis', 'decentro', 'phonepe', 'paytm',
-            'upi_p2m', 'qr_code', 'credit_card', 'debit_card', 'net_banking', 'netbanking',
-            'wallet', 'emi', 'payout', 'recurring',
-        ];
+        if (!function_exists('getPartnerRegistryKeys')) {
+            require_once __DIR__ . '/partner_engine.php';
+        }
+        $protected = array_values(array_unique(array_merge(
+            paymentMethodRegistryKeys(),
+            ['payu', 'razorpay', 'cashfree', 'axis', 'decentro', 'phonepe', 'paytm', 'worldline', 'digio'],
+            getPartnerRegistryKeys()
+        )));
         if (in_array($key, $protected, true)) {
             return ['ok' => false, 'error' => 'Built-in partners/methods cannot be deleted. Use Deactivate (Turn OFF) instead.'];
         }

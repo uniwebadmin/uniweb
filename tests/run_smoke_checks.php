@@ -829,6 +829,17 @@ $assert(str_contains((string)file_get_contents($root . '/includes/cloud_modules.
 $assert(str_contains((string)file_get_contents($root . '/includes/va_manager.php'), 'vaSupportedCreationGateways') && str_contains((string)file_get_contents($root . '/includes/gateways.php'), "'pinelabs'"), 'p6a_va_supported_list_and_pinelabs_enum');
 $assert(str_contains((string)file_get_contents($root . '/includes/auto_kyc.php'), "severity IN ('high','critical')"), 'p6a_auto_kyc_aml_fail_closed');
 
+$peReg = (string)file_get_contents($root . '/includes/partner_engine.php');
+$pmReg = (string)file_get_contents($root . '/includes/payment_methods.php');
+$imReg = (string)file_get_contents($root . '/includes/integration_matrix.php');
+$gwReg = (string)file_get_contents($root . '/includes/gateways.php');
+$assert(str_contains($peReg, "'worldline'") && str_contains($peReg, "'digio'") && str_contains($peReg, 'function getGatewaySubmissionPartnerKeys') && str_contains($peReg, 'function getIntegrationMatrixPartnerLabels'), 'p6b_partner_registry_canonical_helpers');
+$assert(str_contains($pmReg, "registry_kind") && str_contains($pmReg, 'gatewayRegistryKindClause') && str_contains($pmReg, "registry_kind='method'") && str_contains($pmReg, "registry_kind='partner'"), 'p6b_gateway_registry_kind_split');
+$assert(str_contains($imReg, 'getIntegrationMatrixPartnerLabels') && !preg_match("/'worldline'\\s*=>\\s*'Worldline'/", $imReg), 'p6b_integration_matrix_from_registry_not_hardcoded');
+$assert(str_contains($gwReg, 'getGatewaySubmissionPartnerKeys') && str_contains($gwReg, 'MODIFY gateway VARCHAR(40)') && !str_contains($gwReg, 'function isGatewayActive'), 'p6b_gateway_submit_varchar_no_duplicate_active');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_control.php'), 'getPartnerRegistry()') && str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'getKycForwardPartnerKeys'), 'p6b_credential_and_kyc_lists_from_registry');
+$assert(is_file($root . '/migrations/066_registry_kind.sql') && is_file($root . '/migrations/067_gateway_submissions_varchar.sql'), 'p6b_registry_migrations_present');
+
 // P7b — wiring / deep-link (~25)
 $assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'highlightDisputeId') && str_contains((string)file_get_contents($root . '/admin_disputes.php'), "\$_GET['id']"), 'p7b_admin_disputes_q_and_id_highlight');
 $assert(str_contains((string)file_get_contents($root . '/admin_support.php'), 'focusTicketId') && str_contains((string)file_get_contents($root . '/admin_support.php'), 'TKT[A-F0-9]'), 'p7b_admin_support_tkt_auto_open');

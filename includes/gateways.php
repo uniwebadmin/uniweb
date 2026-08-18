@@ -338,8 +338,8 @@ function ensureGatewaySubmissionsTable(): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     } catch (Throwable $e) { /* ok */ }
     try {
-        getDB()->exec("ALTER TABLE gateway_submissions MODIFY gateway ENUM('razorpay','cashfree','payu','decentro','phonepe','axis','rbl','pinelabs') NOT NULL");
-    } catch (Throwable $e) { /* ok if already expanded */ }
+        getDB()->exec("ALTER TABLE gateway_submissions MODIFY gateway VARCHAR(40) NOT NULL");
+    } catch (Throwable $e) { /* ok if already varchar */ }
 }
 
 function submitMerchantToGateway(int $merchantId, string $gateway, int $adminId, string $notes = '', string $forwardSource = 'manual'): bool
@@ -390,10 +390,13 @@ function submitMerchantToGateway(int $merchantId, string $gateway, int $adminId,
     return true;
 }
 
-/** Gateways a merchant can be forwarded to (matches gateway_submissions ENUM). */
+/** Gateways a merchant can be forwarded to — derived from getPartnerRegistry() flags. */
 function gatewaySubmissionAllowedGateways(): array
 {
-    return ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe', 'axis', 'rbl', 'pinelabs'];
+    if (!function_exists('getGatewaySubmissionPartnerKeys')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    return getGatewaySubmissionPartnerKeys();
 }
 
 /** One-click forward to several gateways at once. Returns count forwarded. */
@@ -564,6 +567,9 @@ function getMerchantKycDocumentVersions(int $merchantId): array
 
 function getActivePaymentGateway(): string
 {
+    if (!function_exists('getCheckoutPgPartnerKeys')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
     // Platform setting is a template/fallback for new merchants (P1-03), not a global live override.
     $preferred = trim((string)getSetting('active_payment_gateway', ''));
     // Prefer the admin-selected primary only when fully configured AND checkout-capable.
@@ -572,7 +578,7 @@ function getActivePaymentGateway(): string
         && gatewaySupportsLiveCheckout($preferred)) {
         return $preferred;
     }
-    foreach (['razorpay', 'cashfree', 'payu'] as $gw) {
+    foreach (getCheckoutPgPartnerKeys() as $gw) {
         if (isGatewayConfigured($gw)) {
             return $gw;
         }
@@ -582,6 +588,9 @@ function getActivePaymentGateway(): string
 
 function isGatewayConfigured(string $gateway): bool
 {
+    if (!function_exists('isPartnerRegistryKey')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
     // D4: If gateway is deactivated in registry, treat as not configured
     // regardless of whether credentials exist. This ensures disabled partners
     // are excluded from all checkout/QR/link paths that call isGatewayConfigured().
@@ -597,15 +606,19 @@ function isGatewayConfigured(string $gateway): bool
         'decentro' => (bool)getPartnerSetting('decentro', 'decentro_client_id', '') && (bool)getPartnerSetting('decentro', 'decentro_client_secret', ''),
         'pinelabs' => (bool)getPartnerSetting('pinelabs', 'pinelabs_merchant_id', '') && (bool)getPartnerSetting('pinelabs', 'pinelabs_access_code', '') && (bool)getPartnerSetting('pinelabs', 'pinelabs_secure_key', ''),
         'worldline' => (bool)getPartnerSetting('worldline', 'worldline_merchant_id', '') && (bool)getPartnerSetting('worldline', 'worldline_access_key', '') && (bool)getPartnerSetting('worldline', 'worldline_secret_key', ''),
+        'digio' => (bool)getPartnerSetting('digio', 'digio_client_id', '') && (bool)getPartnerSetting('digio', 'digio_client_secret', ''),
         'rbl' => isRblConfigured(),
-        default => false,
+        default => function_exists('partnerIsConfigured') && isPartnerRegistryKey($gateway) ? partnerIsConfigured($gateway) : false,
     };
 }
 
 /** Gateways that can actually route a live checkout today (PhonePe / Pine Labs checkout is roadmap-only). */
 function gatewaySupportsLiveCheckout(string $gateway): bool
 {
-    return in_array($gateway, ['razorpay', 'cashfree', 'payu'], true);
+    if (!function_exists('partnerHasRegistryFlag')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    return partnerHasRegistryFlag($gateway, 'checkout_pg');
 }
 
 function gatewayStatusLabel(string $gateway): string
@@ -1167,22 +1180,6 @@ function fetchDecentroTransactionStatus(string $decentroTxnId): ?array
 }
 
 // Axis VA — see includes/axis.php
-
-/**
- * Check if a gateway is active in gateway_registry.
- */
-function isGatewayActive(string $gatewayKey): bool
-{
-    if (!function_exists('getRegisteredGateways')) return true;
-    static $cache = null;
-    if ($cache === null) {
-        $cache = [];
-        foreach (getRegisteredGateways() as $g) {
-            $cache[$g['gateway_key']] = (int)$g['is_active'] === 1;
-        }
-    }
-    return $cache[$gatewayKey] ?? false;
-}
 
 /**
  * Try payment across multiple gateways in smart priority order.

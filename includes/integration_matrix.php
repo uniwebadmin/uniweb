@@ -3,22 +3,16 @@ declare(strict_types=1);
 
 /**
  * Gateway × operation integration matrix — scaffold registry only.
+ * Partner list is derived from getPartnerRegistry() (single code source).
  * Live/test API calls require owner-pasted partner keys (BLOCKED_OWNER overnight).
  */
 
 function integrationMatrixGateways(): array
 {
-    return [
-        'razorpay' => 'Razorpay',
-        'cashfree' => 'Cashfree',
-        'payu' => 'PayU',
-        'decentro' => 'Decentro',
-        'axis' => 'Axis Bank VA',
-        'pinelabs' => 'PineLabs',
-        'phonepe' => 'PhonePe',
-        'worldline' => 'Worldline',
-        'digio' => 'Digio',
-    ];
+    if (!function_exists('getIntegrationMatrixPartnerLabels')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    return getIntegrationMatrixPartnerLabels();
 }
 
 function integrationMatrixOperations(): array
@@ -41,6 +35,9 @@ function integrationMatrixOperations(): array
 /** @return array{status:string,note:string} */
 function integrationMatrixCellStatus(string $gateway, string $operation): array
 {
+    if (!function_exists('partnerHasRegistryFlag')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
     $configured = isGatewayConfigured($gateway);
     $codeScaffold = match ($operation) {
         'failure_reason_map' => function_exists('mapGatewayFailureReason'),
@@ -49,7 +46,7 @@ function integrationMatrixCellStatus(string $gateway, string $operation): array
         'settlement_path' => in_array($gateway, ['razorpay', 'cashfree', 'payu'], true),
         'mdr_apply' => true,
         'recon_match' => function_exists('reconcileBankStatementRows'),
-        'merchant_visibility' => in_array($gateway, ['decentro', 'axis', 'pinelabs', 'phonepe', 'worldline', 'digio'], true),
+        'merchant_visibility' => function_exists('partnerHasRegistryFlag') ? partnerHasRegistryFlag($gateway, 'merchant_visibility') : in_array($gateway, ['decentro', 'axis', 'pinelabs', 'phonepe', 'worldline', 'digio'], true),
         default => false,
     };
 
@@ -97,6 +94,9 @@ function integrationMatrixSummary(): array
 
 function integrationMatrixOpApplies(string $gateway, string $operation): bool
 {
+    if (!function_exists('partnerHasRegistryFlag')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
     $pgOnly = ['refund_path', 'settlement_path'];
     $noRefund = ['pinelabs', 'phonepe', 'worldline'];
     if (in_array($operation, $pgOnly, true) && in_array($gateway, $noRefund, true)) {
@@ -104,6 +104,9 @@ function integrationMatrixOpApplies(string $gateway, string $operation): bool
     }
     if ($operation === 'webhook_receive' && !in_array($gateway, ['decentro', 'axis', 'pinelabs', 'phonepe', 'worldline', 'digio'], true)) {
         return false;
+    }
+    if ($operation === 'merchant_visibility' && function_exists('partnerHasRegistryFlag')) {
+        return partnerHasRegistryFlag($gateway, 'merchant_visibility');
     }
     if ($operation === 'merchant_visibility' && !in_array($gateway, ['decentro', 'axis', 'pinelabs', 'phonepe', 'worldline', 'digio'], true)) {
         return false;

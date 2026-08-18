@@ -480,16 +480,19 @@ function getPartnerForwardQueue(int $limit = 50): array
  */
 function getKycForwardAdapterRegistry(): array
 {
-    return [
-        'payu' => ['mode' => 'local_record', 'label' => 'PayU — local submission record'],
-        'razorpay' => ['mode' => 'local_record', 'label' => 'Razorpay — local submission record'],
-        'cashfree' => ['mode' => 'local_record', 'label' => 'Cashfree — local submission record'],
-        'decentro' => ['mode' => 'local_record', 'label' => 'Decentro — local submission record'],
-        'axis' => ['mode' => 'local_record', 'label' => 'Axis — local submission record'],
-        'phonepe' => ['mode' => 'local_record', 'label' => 'PhonePe — local submission record'],
-        'rbl' => ['mode' => 'local_record', 'label' => 'RBL — local submission record'],
-        'pinelabs' => ['mode' => 'local_record', 'label' => 'Pine Labs — local submission record'],
-    ];
+    if (!function_exists('getKycForwardPartnerKeys')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $registry = getPartnerRegistry();
+    $out = [];
+    foreach (getKycForwardPartnerKeys() as $partnerKey) {
+        $label = (string)($registry[$partnerKey]['name'] ?? ucfirst($partnerKey));
+        $out[$partnerKey] = [
+            'mode' => 'local_record',
+            'label' => $label . ' — local submission record',
+        ];
+    }
+    return $out;
 }
 
 /**
@@ -532,9 +535,9 @@ function runKycForwardAdapter(string $partnerKey, int $merchantId, array $fullPa
             if (!function_exists('submitMerchantToGateway')) {
                 require_once __DIR__ . '/gateways.php';
             }
-            $allowed = function_exists('gatewaySubmissionAllowedGateways')
-                ? gatewaySubmissionAllowedGateways()
-                : ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe', 'axis', 'rbl'];
+            $allowed = function_exists('getGatewaySubmissionPartnerKeys')
+                ? getGatewaySubmissionPartnerKeys()
+                : (function_exists('gatewaySubmissionAllowedGateways') ? gatewaySubmissionAllowedGateways() : ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe', 'axis', 'rbl']);
             if (in_array($partnerKey, $allowed, true)) {
                 try {
                     submitMerchantToGateway($merchantId, $partnerKey, (int)($_SESSION['admin_id'] ?? 0), 'KYC forward queue (local_record adapter)', 'adapter');

@@ -531,8 +531,162 @@ function getPartnerRegistry(): array
                 'Paste test credentials',
             ],
         ],
+        'worldline' => [
+            'name' => 'Worldline',
+            'type' => 'gateway',
+            'icon' => '🌍',
+            'color' => 'teal',
+            'use' => $banking['worldline']['use'] ?? 'Payment gateway + POS',
+            'signup' => $banking['worldline']['signup'] ?? '',
+            'docs' => $banking['worldline']['docs'] ?? '',
+            'dashboard' => $banking['worldline']['signup'] ?? '',
+            'email' => $banking['worldline']['email'] ?? '',
+            'admin_page' => 'admin_partner.php?p=worldline',
+            'webhook' => APP_URL . '/worldline_webhook.php',
+            'env_key' => 'worldline_environment',
+            'config_keys' => [
+                'worldline_environment' => ['label' => 'Environment', 'type' => 'select', 'options' => ['test' => 'Test', 'production' => 'Production']],
+                'worldline_merchant_id' => ['label' => 'Merchant ID', 'type' => 'text'],
+                'worldline_access_key' => ['label' => 'Access Key', 'type' => 'text'],
+                'worldline_secret_key' => ['label' => 'Secret Key', 'type' => 'password'],
+            ],
+            'checklist' => [
+                'Worldline merchant onboarding',
+                'Get Merchant ID + Access Key + Secret Key',
+                'Configure webhook URL',
+                'Paste test credentials',
+            ],
+            'flags' => ['integration_matrix' => true, 'merchant_visibility' => true],
+        ],
+        'digio' => [
+            'name' => 'Digio',
+            'type' => 'gateway',
+            'icon' => '✍️',
+            'color' => 'pink',
+            'use' => $banking['digio']['use'] ?? 'eSign + DigiLocker',
+            'signup' => $banking['digio']['signup'] ?? '',
+            'docs' => $banking['digio']['docs'] ?? '',
+            'dashboard' => $banking['digio']['signup'] ?? '',
+            'email' => $banking['digio']['email'] ?? '',
+            'admin_page' => 'admin_partner.php?p=digio',
+            'webhook' => APP_URL . '/digio_webhook.php',
+            'env_key' => 'digio_environment',
+            'config_keys' => [
+                'digio_environment' => ['label' => 'Environment', 'type' => 'select', 'options' => ['sandbox' => 'Sandbox', 'production' => 'Production']],
+                'digio_client_id' => ['label' => 'Client ID', 'type' => 'text'],
+                'digio_client_secret' => ['label' => 'Client Secret', 'type' => 'password'],
+                'digio_base_url' => ['label' => 'API Base URL (optional)', 'type' => 'text'],
+            ],
+            'checklist' => [
+                'Digio business signup',
+                'Enable eSign + DigiLocker products',
+                'Paste sandbox Client ID + Secret',
+            ],
+            'flags' => ['integration_matrix' => true, 'merchant_visibility' => true, 'kyc_forward' => false, 'gateway_submit' => false],
+        ],
     ];
     return $registry;
+}
+
+/** Payment-method rail keys (not bank/PG partners). */
+function paymentMethodRegistryKeys(): array
+{
+    return [
+        'upi_p2m', 'qr_code', 'credit_card', 'debit_card', 'net_banking', 'netbanking',
+        'wallet', 'emi', 'payout', 'recurring',
+    ];
+}
+
+function isPaymentMethodRegistryKey(string $key): bool
+{
+    return in_array(strtolower(trim($key)), paymentMethodRegistryKeys(), true);
+}
+
+function isPartnerRegistryKey(string $key): bool
+{
+    return isset(getPartnerRegistry()[strtolower(trim($key))]);
+}
+
+function getPartnerRegistryKeys(): array
+{
+    return array_keys(getPartnerRegistry());
+}
+
+/**
+ * Registry flags on each partner meta['flags'] — defaults below when omitted.
+ */
+function partnerHasRegistryFlag(string $partnerKey, string $flag): bool
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    $reg = getPartnerRegistry()[$partnerKey] ?? null;
+    if (!$reg) {
+        return false;
+    }
+    if (isset($reg['flags'][$flag])) {
+        return (bool)$reg['flags'][$flag];
+    }
+    return match ($flag) {
+        'gateway_submit' => in_array($partnerKey, ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe', 'axis', 'rbl', 'pinelabs'], true),
+        'kyc_forward' => in_array($partnerKey, ['payu', 'razorpay', 'cashfree', 'decentro', 'axis', 'phonepe', 'rbl', 'pinelabs'], true),
+        'integration_matrix' => true,
+        'checkout_pg' => in_array($partnerKey, ['razorpay', 'cashfree', 'payu'], true),
+        'merchant_visibility' => in_array($partnerKey, ['decentro', 'axis', 'pinelabs', 'phonepe', 'worldline', 'digio', 'rbl'], true),
+        default => false,
+    };
+}
+
+/** @return list<string> */
+function getGatewaySubmissionPartnerKeys(): array
+{
+    $keys = [];
+    foreach (getPartnerRegistryKeys() as $key) {
+        if (partnerHasRegistryFlag($key, 'gateway_submit')) {
+            $keys[] = $key;
+        }
+    }
+    return $keys;
+}
+
+/** @return list<string> */
+function getKycForwardPartnerKeys(): array
+{
+    $keys = [];
+    foreach (getPartnerRegistryKeys() as $key) {
+        if (partnerHasRegistryFlag($key, 'kyc_forward')) {
+            $keys[] = $key;
+        }
+    }
+    return $keys;
+}
+
+/** @return array<string,string> partner_key => display name */
+function getIntegrationMatrixPartnerLabels(): array
+{
+    $out = [];
+    foreach (getPartnerRegistry() as $key => $meta) {
+        if (partnerHasRegistryFlag($key, 'integration_matrix')) {
+            $out[$key] = (string)($meta['name'] ?? ucfirst($key));
+        }
+    }
+    return $out;
+}
+
+/** @return list<string> */
+function getCheckoutPgPartnerKeys(): array
+{
+    $keys = [];
+    foreach (getPartnerRegistryKeys() as $key) {
+        if (partnerHasRegistryFlag($key, 'checkout_pg')) {
+            $keys[] = $key;
+        }
+    }
+    return $keys;
+}
+
+function partnerDisplayName(string $partnerKey): string
+{
+    $reg = getPartnerRegistry()[strtolower(trim($partnerKey))] ?? null;
+    return $reg ? (string)$reg['name'] : ucfirst($partnerKey);
 }
 
 function partnerLogApi(string $partnerKey, string $endpoint, string $method, ?string $request, ?string $response, int $httpCode, string $status = 'ok'): void

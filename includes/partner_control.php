@@ -190,18 +190,21 @@ function getPartnerCredentials(string $partnerKey, string $env = 'test'): array
  */
 function uniwebPartnerCredentialSettingMap(): array
 {
-    return [
-        'razorpay' => ['razorpay_key_id', 'razorpay_key_secret', 'razorpay_webhook_secret'],
-        'razorpayx' => ['razorpayx_key_id', 'razorpayx_key_secret', 'razorpayx_account_number'],
-        'cashfree' => ['cashfree_app_id', 'cashfree_secret_key', 'cashfree_payout_client_id', 'cashfree_payout_client_secret'],
-        'payu' => ['payu_merchant_key', 'payu_merchant_salt'],
-        'phonepe' => ['phonepe_merchant_id', 'phonepe_salt_key'],
-        'pinelabs' => ['pinelabs_merchant_id', 'pinelabs_access_code', 'pinelabs_secure_key', 'pinelabs_api_key', 'pinelabs_api_secret'],
-        'worldline' => ['worldline_merchant_id', 'worldline_access_key', 'worldline_secret_key'],
-        'decentro' => ['decentro_client_id', 'decentro_client_secret', 'decentro_api_key', 'decentro_api_secret', 'decentro_module_secret', 'decentro_provider_secret', 'decentro_consumer_urn', 'decentro_base_url'],
-        'axis' => ['axis_client_id', 'axis_client_secret', 'axis_api_key', 'axis_api_secret', 'axis_webhook_secret', 'axis_application_id', 'axis_channel_id', 'axis_corporate_id', 'axis_master_account', 'axis_base_url', 'axis_va_ifsc'],
-        'rbl' => ['rbl_client_id', 'rbl_client_secret', 'rbl_api_key', 'rbl_api_secret'],
-    ];
+    static $map = null;
+    if ($map !== null) {
+        return $map;
+    }
+    if (!function_exists('getPartnerRegistry')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $map = [];
+    foreach (getPartnerRegistry() as $partnerKey => $meta) {
+        $keys = array_keys($meta['config_keys'] ?? []);
+        if ($keys !== []) {
+            $map[$partnerKey] = $keys;
+        }
+    }
+    return $map;
 }
 
 function isPartnerCredentialSettingKey(string $key): bool

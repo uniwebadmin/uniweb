@@ -1,0 +1,58 @@
+---
+description: Owner + agent memory from Aug 2026 session (deploy, notify, forward, live fixes)
+alwaysApply: true
+---
+
+# Session learnings (2026-08-18) — remember for Owner + Agent
+
+## Deploy rule (Owner order)
+
+When a task is **fully done** (smoke green locally):
+1. Commit → push `main` → confirm Hostinger Git deploy / GitHub Actions
+2. Quick live check: `https://uniweb.co.in/` + login (expect 200)
+3. Tell Owner in Hindi: kya push hua, live OK ya nahi
+
+Do **not** leave completed work uncommitted. Do **not** push half-done work.
+
+## Live deploy path
+
+- **Primary:** Hostinger Git auto-deploy from `main` (not FTP-only Actions job)
+- Live `config.php` is **gitignored** — never commit secrets; manual Hostinger edits only
+
+## Notify — 2 helpers (NOT duplicate)
+
+| File | Role |
+|------|------|
+| `includes/notifications.php` | In-app DB alerts — **primary** (`notifyMerchant`, `event_key` dedup) |
+| `includes/notify.php` | Outbound SMS / WhatsApp / Telegram (`onMerchantNotificationCreated` hook) |
+
+**Live risk CR-01:** If live `config.php` still defines old `createNotification()` (3-arg, no dedup), it **blocks** the new helper. Owner must delete that function on Hostinger; keep loading `includes/notifications.php`.
+
+## Forward enqueue — one module
+
+- **Canonical:** `includes/partner_forward_queue.php` only
+- `auto_kyc.php` must **call**, not redefine, enqueue/pause/resume helpers
+- Manual `gateway_submissions` syncs via `syncGatewaySubmissionToForwardQueue()` in `gateways.php`
+- Admin pages: `admin_forward_queue.php` ↔ `admin_gateway_submit.php` (cross-linked)
+
+## Keys — Plane B only for partner secrets
+
+- Partner PG secrets read via `includes/partner_control.php` + Partner Registry
+- Do **not** re-add `getSetting()` fallbacks for partner keys in Plane A
+- Before deploy: grep for duplicate `function` names across `config.php` chain and `includes/` (e.g. `decentroBaseUrl` crash → live 500)
+
+## Code + DB registry (2026-08-18)
+
+- **Canonical partner list:** `getPartnerRegistry()` in `includes/partner_engine.php` (21 partners incl. worldline + digio)
+- **Payment method rails:** `paymentMethodRegistryKeys()` — separate from partners
+- **DB table `gateway_registry`:** column `registry_kind` = `method` | `partner` (migration 066)
+- **Derived lists (never hardcode):** `getGatewaySubmissionPartnerKeys()`, `getKycForwardPartnerKeys()`, `getIntegrationMatrixPartnerLabels()`, `getCheckoutPgPartnerKeys()`
+- **Credential map:** `uniwebPartnerCredentialSettingMap()` built from each partner's `config_keys`
+- **Admin Partner Registry** shows `registry_kind=partner` rows only; merchant Payment Methods use `method` rows
+- **gateway_submissions.gateway** = VARCHAR(40) (migration 067) — no ENUM drift
+- **integration_matrix.php** reads partner list from registry — not its own hardcoded array
+
+## Local laptop boot
+
+- Start: `.\dev_local\start_local.ps1` → http://localhost:8000
+- If DB down: check `C:\Program Files\MariaDB 12.3\data\my.ini` — must contain `[mysqld]`; template in `dev_local/my.ini.template`

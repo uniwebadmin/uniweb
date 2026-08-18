@@ -179,6 +179,22 @@ function getBankingPartners(): array
             'email' => 'support@sapaisa.com',
             'payout_note' => 'SavaPay / Sapaisa PG — small merchant checkout + settlement.',
         ],
+        'worldline' => [
+            'name' => 'Worldline',
+            'use' => 'Payment gateway + POS + omnichannel checkout',
+            'signup' => 'https://worldline.com/',
+            'docs' => 'https://docs.worldline.com/',
+            'email' => 'support@worldline.com',
+            'payout_note' => 'Worldline PG — cards, UPI, wallets (integration scaffold).',
+        ],
+        'digio' => [
+            'name' => 'Digio',
+            'use' => 'eSign + DigiLocker + KYC document APIs',
+            'signup' => 'https://www.digio.in/',
+            'docs' => 'https://documentation.digio.in/',
+            'email' => 'support@digio.in',
+            'payout_note' => 'Digio — eSign / DigiLocker; not a collection PG.',
+        ],
     ];
 }
 
