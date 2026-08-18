@@ -45,15 +45,12 @@ function verifyDocument(string $type, string $number, int $merchantId): array
     return ['success' => $valid, 'status' => $status, 'message' => $valid ? 'Submitted for verification' : 'Invalid document format'];
 }
 
-function decentroBaseUrl(): string
-{
-    $url = decentroPartnerCredential('decentro_base_url', 'decentro_base_url');
-    return rtrim($url !== '' ? $url : 'https://in.staging.decentro.tech', '/');
-}
-
 function decentroVerify(string $type, string $number, string $clientId, string $clientSecret): ?array
 {
-    $base = decentroBaseUrl();
+    if (!function_exists('decentroBaseUrl') && is_file(__DIR__ . '/partner_control.php')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    $base = function_exists('decentroBaseUrl') ? decentroBaseUrl() : rtrim(decentroPartnerCredential('decentro_base_url', 'decentro_base_url') ?: 'https://in.staging.decentro.tech', '/');
     $paths = [
         'pan' => '/kyc/public_registry/validate',
         'aadhaar' => '/kyc/aadhaar/otp',
