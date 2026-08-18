@@ -87,3 +87,25 @@ if (!function_exists('userFacingError')) {
     }
 }
 
+if (!function_exists('uniwebEnsureRootFooterStub')) {
+    function uniwebEnsureRootFooterStub(): void
+    {
+        static $done = false;
+        if ($done || php_sapi_name() === 'cli') {
+            return;
+        }
+        $done = true;
+        $root = dirname(__DIR__);
+        $footer = $root . '/footer.php';
+        if (is_file($footer)) {
+            return;
+        }
+        $layout = $root . '/includes/layout_footer.php';
+        if (!is_file($layout)) {
+            return;
+        }
+        @file_put_contents($footer, "<?php\nrequire_once __DIR__ . '/includes/layout_footer.php';\n");
+    }
+}
+uniwebEnsureRootFooterStub();
+

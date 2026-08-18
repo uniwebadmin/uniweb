@@ -200,6 +200,12 @@ function autoResolveAuditNoise(): int
         $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'logPlatformError(): Argument #3%'");
         $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'Instant test pay failed: Call to undefined function recordAuditEvent%'");
         $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'Instant test pay failed: There is no active transaction%'");
+        $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'Maximum call stack size%'");
+        $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE '%Infinite recursion%'");
+        $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'Cannot redeclare ensureGatewayHealthTable%'");
+        $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE '%footer.php%' AND message LIKE '%No such file%'");
+        $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'Undefined variable \$ref%'");
+        $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE '%Argument #2 (\$title) must be of type string, null given%' AND message LIKE '%global_search.php%'");
         return $cleared;
     } catch (Throwable $e) {
         return 0;

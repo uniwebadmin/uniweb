@@ -806,7 +806,7 @@ $assert(is_file($root . '/compare.php') && is_file($root . '/docs/MARKET_COMPARI
 $assert(str_contains($cmpP9, 'Razorpay') && str_contains($cmpP9, 'Cashfree') && str_contains($cmpP9, 'PayU') && str_contains($cmpP9, 'Juspay') && str_contains($cmpP9, 'Stripe') && str_contains($cmpP9, 'Worldline') && str_contains($cmpP9, 'Decentro'), 'p9_all_peers_named');
 $assert(str_contains($cmpP9, 'Route') && str_contains($cmpP9, 'Owner') && str_contains($cmpP9, 'PPI'), 'p9_no_parity_promises');
 $assert(str_contains((string)file_get_contents($root . '/includes/page_ux.php'), 'function userFacingError') && str_contains((string)file_get_contents($root . '/checkout.php'), 'userFacingError'), 'p9_actionable_errors_helper');
-$assert(str_contains((string)file_get_contents($root . '/footer.php'), 'compare.php') && str_contains((string)file_get_contents($root . '/sitemap.xml'), 'compare.php'), 'p9_compare_linked_footer_sitemap');
+$assert(str_contains((string)file_get_contents($root . '/includes/layout_footer.php'), 'compare.php') && str_contains((string)file_get_contents($root . '/sitemap.xml'), 'compare.php'), 'p9_compare_linked_footer_sitemap');
 $assert(!str_contains($cmpP9, 'nbfc.php') || str_contains($cmpP9, 'Not a UniWeb product'), 'p9_nbfc_not_sold');
 
 $assert(str_contains($cmpP9, 'Aggregator model') && str_contains($cmpP9, 'Methods only') && str_contains($cmpP9, 'Typical market PG'), 'p4_market_compare_matrix_on_compare_page');
@@ -868,6 +868,10 @@ $assert(str_contains((string)file_get_contents($root . '/includes/notifications.
 $assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'adminPartnerTestUrl') || str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'tab=test'), 'p7b_health_test_connection_registry_not_settings');
 $assert(str_contains((string)file_get_contents($root . '/includes/collection.php'), 'Platform checkout') && !str_contains((string)file_get_contents($root . '/includes/collection.php'), 'Razorpay/Cashfree pool'), 'p7b_collection_mode_no_partner_pool_label');
 $assert(str_contains((string)file_get_contents($root . '/global_search.php'), 'admin_disputes.php?q=') && !str_contains((string)file_get_contents($root . '/global_search.php'), 'admin_chargebacks.php?q='), 'p7b_chargeback_search_to_disputes');
+$gsCharge = (string)file_get_contents($root . '/global_search.php');
+$assert(str_contains($gsCharge, "chargeback_ref") && str_contains($gsCharge, "CB #'") && str_contains($gsCharge, '?string $title'), 'watchdog_fix_chargeback_ref_and_nullable_search_title');
+$assert(is_file($root . '/includes/layout_footer.php') && str_contains((string)file_get_contents($root . '/footer.php'), 'layout_footer.php'), 'watchdog_fix_footer_layout_fallback');
+$assert(str_contains((string)file_get_contents($root . '/includes/onboarding.php'), 'function platformReadinessHasPartnerKeys'), 'watchdog_fix_readiness_no_isGatewayConfigured_loop');
 $assert(str_contains((string)file_get_contents($root . '/admin_gateway_submit.php'), 'gateway_submissions') && str_contains((string)file_get_contents($root . '/admin_gateway_submit.php'), 'admin_forward_queue.php'), 'p7b_gateway_submit_vs_forward_queue_copy');
 $assert(str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'getPartnerRegistry') || str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'partnerDisplayName'), 'p7b_kyc_notify_partner_name');
 

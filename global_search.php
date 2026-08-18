@@ -30,9 +30,14 @@ $results = [];
 $MAX_PER_TYPE = 20;
 $MAX_TOTAL = 60;
 
-$add = static function (string $type, string $title, string $subtitle, string $url) use (&$results, $MAX_TOTAL): void {
+$add = static function (string $type, ?string $title, ?string $subtitle, string $url) use (&$results, $MAX_TOTAL): void {
     if (count($results) >= $MAX_TOTAL) {
         return;
+    }
+    $title = trim((string)$title);
+    $subtitle = trim((string)$subtitle);
+    if ($title === '') {
+        $title = $type;
     }
     $key = $type . '|' . $url;
     foreach ($results as $row) {
@@ -533,6 +538,10 @@ if ($isMerchant) {
         ) as $row) {
             if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
                 continue;
+            }
+            $ref = trim((string)($row['chargeback_ref'] ?? ''));
+            if ($ref === '') {
+                $ref = 'CB #' . (int)$row['id'];
             }
             $add('Chargeback', $ref, formatMoney((float)($row['amount'] ?? 0)) . ' · ' . ucfirst((string)$row['status']) . ' · ' . $row['business_name'], 'admin_disputes.php?q=' . rawurlencode($ref));
         }

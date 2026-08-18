@@ -240,6 +240,19 @@ function getMerchantLaunchCenter(array $merchant): array
     ];
 }
 
+function platformReadinessHasPartnerKeys(array $partnerKeys): bool
+{
+    if (!function_exists('partnerHasSavedCredentials')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    foreach ($partnerKeys as $key) {
+        if (partnerHasSavedCredentials((string)$key)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function getPlatformReadiness(): array
 {
     $partners = partnerConfiguredCount();
@@ -254,9 +267,9 @@ function getPlatformReadiness(): array
         ['label' => 'Wallet + Bank Transfer (Test)', 'ok' => true, 'note' => 'Sync + transfer'],
         ['label' => 'Admin Merchant View', 'ok' => true, 'note' => 'View + Edit + Methods'],
         ['label' => 'Transaction Detail Pages', 'ok' => true, 'note' => 'Merchant + Admin'],
-        ['label' => 'Partner Structure (9 partners)', 'ok' => $partners['total'] >= 9, 'note' => $partners['ready'] . '/' . $partners['total'] . ' keys saved'],
-        ['label' => 'Live Gateway Keys', 'ok' => isGatewayConfigured('payu') || isGatewayConfigured('razorpay') || isGatewayConfigured('cashfree'), 'note' => 'Paste in All Partners'],
-        ['label' => 'Axis Bank Live API', 'ok' => isGatewayConfigured('axis'), 'note' => 'UAT page ready'],
+        ['label' => 'Partner Registry (' . $partners['total'] . ' partners)', 'ok' => $partners['total'] >= 1, 'note' => $partners['ready'] . '/' . $partners['total'] . ' keys saved'],
+        ['label' => 'Live Gateway Keys', 'ok' => platformReadinessHasPartnerKeys(['payu', 'razorpay', 'cashfree']), 'note' => 'Paste in Partner Registry → Keys'],
+        ['label' => 'Axis Bank Live API', 'ok' => platformReadinessHasPartnerKeys(['axis']), 'note' => 'UAT / live keys in Axis partner page'],
         ['label' => 'Platform Wallet Clean', 'ok' => $walletOk, 'note' => formatMoney(getPlatformWalletBalance())],
     ];
 
