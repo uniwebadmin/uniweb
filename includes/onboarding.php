@@ -125,10 +125,14 @@ function merchantOnboardingDraftData(array $input): array
         $draft[$field] = mb_substr($value, 0, $field === 'address' ? 1000 : 255);
     }
     $allowedMethods = array_keys(getPaymentMethodCatalog());
-    $draft['enabled_methods'] = array_values(array_intersect(
-        $allowedMethods,
-        array_map('strval', (array)($input['enabled_methods'] ?? []))
-    ));
+    $rawMethods = array_map('strval', (array)($input['enabled_methods'] ?? []));
+    if (!function_exists('normalizeCheckoutMethodKeys') && is_file(__DIR__ . '/payment_methods.php')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+    if (function_exists('normalizeCheckoutMethodKeys')) {
+        $rawMethods = normalizeCheckoutMethodKeys($rawMethods);
+    }
+    $draft['enabled_methods'] = array_values(array_intersect($allowedMethods, $rawMethods));
     return $draft;
 }
 

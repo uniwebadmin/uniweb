@@ -436,6 +436,36 @@ $assert(str_contains((string)file_get_contents($root . '/contact.php'), 'recordP
 $subP4 = (string)file_get_contents($root . '/admin_sub_merchants.php');
 $assert(str_contains($subP4, 'How this works') && str_contains($subP4, 'not a customer PPI wallet'), 'p4_submerchant_rules_documented');
 $assert(str_contains($subP4, 'Only UniWeb admin can add or remove'), 'p4_submerchant_admin_only_crud');
+$subLibSm = (string)file_get_contents($root . '/includes/sub_merchant.php');
+$assert(str_contains($subLibSm, 'syncMerchantParentColumn') && str_contains($subLibSm, 'clearMerchantParentColumn'), 'sm01_dual_write_helpers');
+$assert(str_contains($subLibSm, 'function backfillMerchantHierarchySync') && str_contains($subLibSm, 'function getChildMerchants'), 'sm01_backfill_and_child_helper');
+$assert(str_contains((string)file_get_contents($root . '/add_agent.php'), 'addSubMerchant') && !str_contains((string)file_get_contents($root . '/add_agent.php'), 'parent_merchant_id,name'), 'sm01_add_agent_uses_canonical_link');
+$assert(str_contains((string)file_get_contents($root . '/agents.php'), 'getChildMerchants'), 'sm01_agents_use_child_helper');
+$assert(is_file($root . '/migrations/069_sync_merchant_hierarchy.sql'), 'sm01_migration_069_hierarchy_sync');
+$mdrLib = (string)file_get_contents($root . '/includes/split_settlement.php');
+$assert(str_contains($mdrLib, 'syncMerchantCommissionRateMirror') && str_contains($mdrLib, 'backfillMerchantPricingFromCommissionRates'), 'mdr01_dual_write_and_backfill');
+$editMer = (string)file_get_contents($root . '/admin_edit_merchant.php');
+$assert(str_contains($editMer, 'name="mdr_percent"') && !str_contains($editMer, 'name="commission_rate"'), 'mdr01_admin_single_mdr_field');
+$assert(str_contains($editMer, 'setMerchantMdr') && !str_contains($editMer, 'commission_rate=?'), 'mdr01_admin_save_via_set_merchant_mdr');
+$assert(str_contains((string)file_get_contents($root . '/includes/collection.php'), 'function merchantEffectiveMdrPercent'), 'mdr01_effective_mdr_helper');
+$assert(str_contains((string)file_get_contents($root . '/my_account.php'), 'getMerchantMdr') && !str_contains((string)file_get_contents($root . '/my_account.php'), "commission_rate'] ?>%"), 'mdr01_my_account_shows_m');
+$assert(is_file($root . '/migrations/070_unify_merchant_mdr.sql'), 'mdr01_migration_070');
+$vaLib = (string)file_get_contents($root . '/includes/va_manager.php');
+$assert(str_contains($vaLib, 'function ensureMerchantVirtualAccount') && str_contains($vaLib, 'function syncMerchantPrimaryVaMirror'), 'va01_canonical_va_manager');
+$assert(str_contains($vaLib, 'function setMerchantVirtualAccountStatus') && str_contains($vaLib, 'function backfillMerchantVirtualAccountsFromLegacy'), 'va01_status_sync_backfill');
+$collVa = (string)file_get_contents($root . '/includes/collection.php');
+$assert(str_contains($collVa, 'ensureMerchantVirtualAccount($merchantId)') && !str_contains($collVa, 'UPDATE merchants SET axis_va_id'), 'va01_collection_delegates_no_direct_write');
+$assert(str_contains((string)file_get_contents($root . '/admin_virtual_accounts.php'), 'setMerchantVirtualAccountStatus'), 'va01_admin_toggle_uses_helper');
+$assert(is_file($root . '/migrations/071_sync_merchant_virtual_accounts.sql'), 'va01_migration_071');
+$pmLibPm = (string)file_get_contents($root . '/includes/payment_methods.php');
+$assert(str_contains($pmLibPm, 'function persistMerchantEnabledMethodsJson') && str_contains($pmLibPm, 'function backfillMerchantEnabledMethodsJson'), 'pm01_single_json_writer_and_backfill');
+$assert(str_contains($pmLibPm, 'function resolveGatewayRegistryMethodKey') && str_contains($pmLibPm, 'function partnerMethodToCatalogKey'), 'pm01_registry_and_partner_mappers');
+$assert(str_contains((string)file_get_contents($root . '/includes/method_requests.php'), 'persistMerchantEnabledMethodsJson'), 'pm01_unlock_uses_persist_helper');
+$assert(str_contains((string)file_get_contents($root . '/includes/provision.php'), 'persistMerchantEnabledMethodsJson'), 'pm01_provision_uses_persist_helper');
+$assert(is_file($root . '/migrations/072_normalize_payment_method_keys.sql'), 'pm01_migration_072');
+require_once $root . '/includes/payment_methods.php';
+$assert(normalizeCheckoutMethodKey('upi') === 'upi_p2m' && normalizeCheckoutMethodKey('net_banking') === 'netbanking', 'pm01_runtime_upi_and_netbanking_aliases');
+$assert(resolveGatewayRegistryMethodKey('netbanking') === 'net_banking', 'pm01_runtime_registry_netbanking_key');
 
 // P4-ST01 — staff activity reads staff_activity_logs, mirrors high-value admin audit
 $staffLibP4 = (string)file_get_contents($root . '/includes/staff.php');
@@ -1146,11 +1176,11 @@ $mReqLayer = (string)file_get_contents($root . '/includes/method_requests.php');
 $assert(str_contains($mReqLayer, 'toggleMerchantPaymentMethod($merchantId, $methodKey, true, \'system_unlock\')'), 'p3_unlock_syncs_toggle_layer');
 $assert(str_contains($mReqLayer, 'function merchantCanToggleMethodOn'), 'p3_permission_gate_helper');
 $assert(str_contains($mReqLayer, 'function renderMerchantMethodRequestSection'), 'p3_shared_method_request_ui');
-$assert(str_contains($pmLib2a, 'merchantCanToggleMethodOn($merchantId, $methodKey, $updatedBy)'), 'p3_toggle_checks_permission');
+$assert(str_contains($pmLib2a, 'merchantCanToggleMethodOn($merchantId, $canonicalKey, $updatedBy)'), 'p3_toggle_checks_permission');
 $pmPage = (string)file_get_contents($root . '/payment_methods.php');
 $assert(str_contains($pmPage, 'renderMerchantMethodRequestSection') && str_contains($pmPage, 'request_method'), 'p3_merchant_request_ui');
 // 2b: net_banking (registry/toggles) must normalize to netbanking (checkout catalog)
-$assert(str_contains($pmLib2a, 'function normalizeCheckoutMethodKey') && str_contains($pmLib2a, "'net_banking', 'nb' => 'netbanking'"), 'p2b_normalize_netbanking_alias');
+$assert(str_contains($pmLib2a, 'function normalizeCheckoutMethodKey') && str_contains($pmLib2a, "'upi' => 'upi_p2m'") && str_contains($pmLib2a, "'nb' => 'netbanking'"), 'p2b_normalize_netbanking_alias');
 $assert(str_contains((string)file_get_contents($root . '/includes/provision.php'), 'normalizeCheckoutMethodKeys'), 'p2b_enabled_methods_normalized');
 $assert(str_contains((string)file_get_contents($root . '/includes/collection.php'), 'normalizeCheckoutMethodKeys'), 'p2b_checkout_allow_normalized');
 // 2c: checkout must build Card/NB/EMI/Wallet tabs from allow(); normalize runtime + checkout wiring
@@ -1161,7 +1191,7 @@ $assert(str_contains($pmLib2a, "['emi', 'EMI'") || str_contains($pmLib2a, "['emi
 $assert(str_contains((string)file_get_contents($root . '/payment_methods.php'), "'emi' => '📅'") && str_contains((string)file_get_contents($root . '/payment_methods.php'), "'emi'"), 'emi_merchant_toggle_ui');
 $assert(str_contains((string)file_get_contents($root . '/includes/provision.php'), "'emi' =>"), 'emi_in_payment_method_catalog');
 $assert(str_contains($checkoutSrc, 'getCheckoutPaymentMethods($link)'), 'p2c_checkout_calls_method_builder');
-$assert(str_contains($pmLib2a, 'normalizeCheckoutMethodKeys(getMerchantEnabledMethodKeys'), 'p2c_sync_writes_normalized_keys');
+$assert(str_contains($pmLib2a, 'function syncMerchantEnabledMethodsFromToggles') && str_contains($pmLib2a, 'persistMerchantEnabledMethodsJson($merchantId, getMerchantEnabledMethodKeys($merchantId))'), 'p2c_sync_writes_normalized_keys');
 require_once $root . '/includes/payment_methods.php';
 $assert(function_exists('normalizeCheckoutMethodKey') && normalizeCheckoutMethodKey('net_banking') === 'netbanking', 'p2c_runtime_net_banking_to_netbanking');
 $normKeys = normalizeCheckoutMethodKeys(['upi_p2m', 'net_banking', 'debit_card']);

@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/method_requests.php';
+if (!function_exists('ensureMerchantVirtualAccount')) {
+    require_once __DIR__ . '/includes/va_manager.php';
+}
 requireLogin();
 $merchant = getMerchant();
 $merchantId = (int)$merchant['id'];
@@ -30,8 +33,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         flash('error', 'Could not save collection settings. Please try again.');
         redirect('collection_settings.php');
     }
-    if ($mode === 'axis_va' && empty($merchant['axis_va_number'])) {
-        ensureAxisVirtualAccount((int)$merchant['id']);
+    if ($mode === 'axis_va' && getMerchantPrimaryVaNumber((int)$merchant['id']) === '') {
+        if (!function_exists('ensureMerchantVirtualAccount')) {
+            require_once __DIR__ . '/includes/va_manager.php';
+        }
+        ensureMerchantVirtualAccount((int)$merchant['id']);
     }
     generateMerchantPaymentPack((int)$merchant['id'], 1.0);
     flash('success', 'Collection settings saved. Payment pack updated.');
@@ -41,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 $merchant = getMerchant();
 $axisVa = null;
 if (getMerchantCollectionMode($merchant) === 'axis_va') {
-    $axisVa = ensureAxisVirtualAccount((int)$merchant['id']);
+    $axisVa = ensureMerchantVirtualAccount((int)$merchant['id']);
     $merchant = getMerchant();
 }
 $modes = getMerchantFacingCollectionModes($merchant);

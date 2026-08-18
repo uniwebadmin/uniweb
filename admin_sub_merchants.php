@@ -52,7 +52,7 @@ require_once __DIR__ . '/header.php';
         <ul class="text-sm text-gray-400 space-y-1.5 list-disc pl-5">
             <li>Link two existing merchants: parent (head office) and child (branch, franchise, outlet, or store).</li>
             <li>Settlements and reports can roll up to the parent. Each child keeps its own login and KYC.</li>
-            <li><strong>Three different models:</strong> Sub-merchants = this admin tree; Agents = merchant franchise children page; Team Members = portal login users.</li>
+            <li><strong>Two merchant models:</strong> Sub-merchants / Agents = same parent–child tree (this page + merchant Agents page stay in sync). Team Members = portal login users only.</li>
             <li>Bank/PG partners are rails with keys — they do <strong>not</strong> own this hierarchy or merchant logins.</li>
             <li>This is not a customer PPI wallet and not an NBFC loan product.</li>
             <li>Only UniWeb admin can add or remove these hierarchy links.</li>

@@ -3,6 +3,12 @@ require_once __DIR__ . '/config.php';
 if (!function_exists('getMerchantPaymentMethods')) {
     require_once __DIR__ . '/includes/payment_methods.php';
 }
+if (!function_exists('getMerchantMdr')) {
+    require_once __DIR__ . '/includes/split_settlement.php';
+}
+if (!function_exists('getMerchantPrimaryVaNumber')) {
+    require_once __DIR__ . '/includes/va_manager.php';
+}
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'ops', 'kyc']);
 $db = getDB();
 
@@ -98,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     // Payment methods now managed via ON/OFF toggles (sidebar) — keep existing JSON
     $enabledJson = $merchant['enabled_methods'] ?? '["upi_p2m"]';
 
-    $db->prepare('UPDATE merchants SET name=?, business_name=?, email=?, phone=?, business_type=?, business_entity_type=?, pan_number=?, gstin=?, cin_llpin=?, commission_rate=?, kyc_status=?, account_mode=?, subscription_plan=?, monthly_fee=?, status=?, collection_mode=?, payu_child_key=?, razorpay_linked_account_id=?, cashfree_vendor_id=?, enabled_methods=?, website_url=?, android_app_url=?, ios_app_url=? WHERE id=?')
+    $db->prepare('UPDATE merchants SET name=?, business_name=?, email=?, phone=?, business_type=?, business_entity_type=?, pan_number=?, gstin=?, cin_llpin=?, kyc_status=?, account_mode=?, subscription_plan=?, monthly_fee=?, status=?, collection_mode=?, payu_child_key=?, razorpay_linked_account_id=?, cashfree_vendor_id=?, enabled_methods=?, website_url=?, android_app_url=?, ios_app_url=? WHERE id=?')
         ->execute([
             trim($_POST['name']),
             trim($_POST['business_name']),
@@ -109,7 +115,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             $panEncrypted,
             $gstinEncrypted,
             $cinEncrypted,
-            (float)($_POST['commission_rate'] ?? 1.5),
             $kycStatus,
             $accountMode,
             $_POST['subscription_plan'] ?? 'starter',
@@ -157,17 +162,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         createNotification($id, 'Account Live!', 'Admin activated your LIVE mode. You can now accept real payments.');
     }
 
-    // F1: Save merchant MDR (M) via merchant_pricing table
+    // Canonical merchant MDR (M) — also mirrors merchants.commission_rate for legacy reads
     $mdrInput = (float)($_POST['mdr_percent'] ?? 0);
-    if ($mdrInput > 0) {
-        if (!function_exists('setMerchantMdr')) {
-            require_once __DIR__ . '/includes/split_settlement.php';
-        }
-        $partnerKeyForMdr = trim($_POST['partner_key_for_mdr'] ?? '') ?: null;
+    if ($mdrInput <= 0) {
+        $mdrInput = getMerchantMdr($id);
+    }
+    $partnerKeyForMdr = trim($_POST['partner_key_for_mdr'] ?? '') ?: null;
+    $currentMdr = getMerchantMdr($id);
+    if (abs($mdrInput - $currentMdr) > 0.0001) {
         $mdrResult = setMerchantMdr($id, $mdrInput, $partnerKeyForMdr, 'admin:' . ($admin['username'] ?? 'admin'));
         if (!$mdrResult['ok']) {
             flash('error', 'MDR not saved: ' . ($mdrResult['error'] ?? 'Unknown error'));
         }
+    } else {
+        syncMerchantCommissionRateMirror($id, $mdrInput);
     }
 
     logStaffActivity('merchant_edited', 'Profile updated — mode ' . $accountMode . ', KYC ' . $kycStatus, $id);
@@ -276,10 +284,8 @@ $methodCatalog = getPaymentMethodCatalog();
                     </select>
                 </div>
                 <div><label class="text-sm text-gray-400">Monthly Fee (₹)</label><input type="number" name="monthly_fee" step="0.01" min="0" class="input-field mt-1" value="<?= e((string)($merchant['monthly_fee'] ?? 0)) ?>"></div>
-                <div><label class="text-sm text-gray-400">Commission Rate (%)</label><input type="number" name="commission_rate" step="0.01" min="0" class="input-field mt-1" value="<?= e((string)($merchant['commission_rate'] ?? 1.5)) ?>"></div>
                 <?php
-                // F1: MDR (M) field with partner base MDR (P) read-only
-                $currentMdr = function_exists('getMerchantMdr') ? getMerchantMdr($id) : 2.00;
+                $currentMdr = getMerchantMdr($id);
                 $partnerLinks = function_exists('getMerchantPartnerLinks') ? getMerchantPartnerLinks($id) : [];
                 $activePartnerKey = '';
                 $partnerBaseMdr = 0.0;
@@ -291,14 +297,14 @@ $methodCatalog = getPaymentMethodCatalog();
                     }
                 }
                 ?>
-                <div>
-                    <label class="text-sm text-gray-400">Merchant MDR M (%) <span class="text-gray-600">— per-merchant rate</span></label>
-                    <input type="number" name="mdr_percent" step="0.01" min="0" max="100" class="input-field mt-1" value="<?= e((string)$currentMdr) ?>" placeholder="2.00">
+                <div class="sm:col-span-2">
+                    <label class="text-sm text-gray-400">Merchant MDR M (%) <span class="text-gray-600">— single rate for splits &amp; merchant display</span></label>
+                    <input type="number" name="mdr_percent" step="0.01" min="0" max="100" required class="input-field mt-1 max-w-xs" value="<?= e((string)$currentMdr) ?>" placeholder="2.00">
                     <?php if ($activePartnerKey): ?>
                     <input type="hidden" name="partner_key_for_mdr" value="<?= e($activePartnerKey) ?>">
-                    <p class="text-xs text-gray-600 mt-1">Partner base MDR (P): <strong><?= e(number_format($partnerBaseMdr, 2)) ?>%</strong> — M must be ≥ P.</p>
+                    <p class="text-xs text-gray-600 mt-1">Partner base MDR (P): <strong><?= e(number_format($partnerBaseMdr, 2)) ?>%</strong> — M must be ≥ P. Saved to pricing history and mirrored on merchant profile.</p>
                     <?php else: ?>
-                    <p class="text-xs text-gray-600 mt-1">No active partner linked. Default M: 2.00%.</p>
+                    <p class="text-xs text-gray-600 mt-1">No active partner linked. Default M: <?= e(number_format(DEFAULT_MDR_PERCENT, 2)) ?>% until you set one here.</p>
                     <?php endif; ?>
                 </div>
                 <div>
@@ -414,10 +420,12 @@ $methodCatalog = getPaymentMethodCatalog();
         <div class="glass rounded-xl p-4 sm:p-5 text-sm">
             <h3 class="font-semibold mb-2">Collection</h3>
             <p class="text-xs text-gray-400 mb-2"><?= e(collectionModeLabel(getMerchantCollectionMode($merchant))) ?></p>
-            <?php if (!empty($merchant['axis_va_number'])): ?>
-            <p class="text-xs font-mono text-sky-400">VA: <?= e($merchant['axis_va_number']) ?></p>
+            <?php
+            $primaryVaNumber = getMerchantPrimaryVaNumber($id);
+            if ($primaryVaNumber !== ''): ?>
+            <p class="text-xs font-mono text-sky-400">Primary VA: <?= e($primaryVaNumber) ?></p>
             <?php endif; ?>
-            <a href="admin_virtual_accounts.php?merchant_id=<?= $id ?>" class="text-xs text-brand-400 block mt-1"><?= !empty($merchant['axis_va_number']) ? 'Manage Virtual Accounts →' : 'Virtual Accounts (create Axis VA) →' ?></a>
+            <a href="admin_virtual_accounts.php?merchant_id=<?= $id ?>" class="text-xs text-brand-400 block mt-1"><?= $primaryVaNumber !== '' ? 'Manage Virtual Accounts →' : 'Virtual Accounts (create Axis VA) →' ?></a>
         </div>
         <div class="glass rounded-xl p-4 sm:p-5 text-xs text-gray-500 space-y-3" id="api-keys">
             <div>

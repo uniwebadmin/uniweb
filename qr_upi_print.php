@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('getMerchantPrimaryVirtualAccount')) {
+    require_once __DIR__ . '/includes/va_manager.php';
+}
 // Defense in depth: live config.php is gitignored and may omit 'qr_svg' from $__includes.
 if (!function_exists('qrImageUrl')) {
     require_once __DIR__ . '/includes/qr_svg.php';
@@ -20,8 +23,13 @@ $collectionMode = (string)($merchant['collection_mode'] ?? '');
 // collection mode is active. This QR pays STRAIGHT into the merchant's bank UPI —
 // it is not routed through UniWeb checkout/settlement.
 $vpa = trim((string)($merchant['upi_id'] ?? ''));
-if ($collectionMode === 'axis_va' && !empty($merchant['axis_va_upi'])) {
-    $vpa = trim((string)$merchant['axis_va_upi']);
+if ($collectionMode === 'axis_va') {
+    $primaryVa = getMerchantPrimaryVirtualAccount($merchantId);
+    if ($primaryVa && !empty($primaryVa['upi_id'])) {
+        $vpa = trim((string)$primaryVa['upi_id']);
+    } elseif (!empty($merchant['axis_va_upi'])) {
+        $vpa = trim((string)$merchant['axis_va_upi']);
+    }
 }
 
 $note = trim((string)($_GET['note'] ?? ''));

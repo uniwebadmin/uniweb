@@ -88,9 +88,11 @@ function fixCorruptTransactionAmounts(): int
                 $correct = sanitizePaymentAmount((float)$row['amount'], false);
             }
         }
-        $m = $db->prepare('SELECT commission_rate FROM merchants WHERE id=?');
+        $m = $db->prepare('SELECT id, commission_rate FROM merchants WHERE id=?');
         $m->execute([(int)$row['merchant_id']]);
         $merchant = $m->fetch() ?: ['commission_rate' => 0.1];
+        $merchant['id'] = (int)$row['merchant_id'];
+        $merchant['merchant_id'] = (int)$row['merchant_id'];
         $split = calculateSplitBreakdown($correct, $merchant);
         $db->prepare('UPDATE transactions SET amount=?, platform_fee=?, split_amount=?, wallet_credited=0 WHERE id=?')
             ->execute([$correct, $split['platform_fee'], $split['merchant_net'], (int)$row['id']]);

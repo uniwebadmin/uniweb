@@ -22,9 +22,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     } elseif ($action === 'toggle_va') {
         $vaId = (int)($_POST['va_id'] ?? 0);
         $newStatus = ($_POST['new_status'] ?? '') === 'active' ? 'active' : 'disabled';
-        $db->prepare('UPDATE merchant_virtual_accounts SET status = ? WHERE id = ? AND merchant_id = ?')
-            ->execute([$newStatus, $vaId, $mid]);
-        flash('success', 'Virtual account ' . ($newStatus === 'active' ? 'enabled' : 'disabled') . '.');
+        if (!setMerchantVirtualAccountStatus($vaId, $mid, $newStatus)) {
+            flash('error', 'Could not update virtual account status.');
+        } else {
+            flash('success', 'Virtual account ' . ($newStatus === 'active' ? 'enabled' : 'disabled') . '.');
+        }
     }
     redirect('admin_virtual_accounts.php' . ($mid ? '?merchant_id=' . $mid : ''));
 }

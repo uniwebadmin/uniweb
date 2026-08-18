@@ -80,6 +80,7 @@ function ensurePaymentMethodsTable(): void
 
         seedDefaultGateways();
         backfillGatewayRegistryKinds();
+        backfillMerchantEnabledMethodsJson();
     } catch (Throwable $e) { /* ok */ }
 }
 
@@ -264,25 +265,49 @@ function getMerchantEnabledMethodKeys(int $merchantId): array
     $enabled = [];
     foreach ($methods as $m) {
         if ((int)$m['is_enabled'] === 1) {
-            $enabled[] = $m['gateway_key'];
+            $enabled[] = normalizeCheckoutMethodKey((string)$m['gateway_key']);
         }
     }
     if (empty($enabled)) {
         return ['upi_p2m'];
     }
-    return $enabled;
+    return normalizeCheckoutMethodKeys($enabled);
 }
 
 /**
- * Map merchant toggle / registry keys onto checkout catalog keys.
- * gateway_registry seeds Net Banking as net_banking; checkout allow() expects netbanking.
+ * Canonical catalog key for checkout / enabled_methods JSON.
+ * All aliases (upi, net_banking, dc, …) map to getPaymentMethodCatalog() keys.
  */
 function normalizeCheckoutMethodKey(string $methodKey): string
 {
     $key = strtolower(trim($methodKey));
     return match ($key) {
-        'net_banking', 'nb' => 'netbanking',
+        'upi' => 'upi_p2m',
+        'upi_p2m' => 'upi_p2m',
+        'dc', 'debit_card' => 'debit_card',
+        'cc', 'credit_card' => 'credit_card',
+        'net_banking', 'netbanking', 'nb' => 'netbanking',
+        'payu_upi' => 'payu_upi',
+        'axis_va' => 'axis_va',
+        'wallet' => 'wallet',
+        'emi' => 'emi',
+        'qr_code' => 'qr_code',
+        'payout' => 'payout',
+        'recurring' => 'recurring',
+        'razorpay' => 'razorpay',
+        'cashfree' => 'cashfree',
+        'instant_settlement' => 'instant_settlement',
         default => $key,
+    };
+}
+
+/** gateway_registry / merchant_payment_methods row key (netbanking → net_banking). */
+function resolveGatewayRegistryMethodKey(string $methodKey): string
+{
+    $canonical = normalizeCheckoutMethodKey($methodKey);
+    return match ($canonical) {
+        'netbanking' => 'net_banking',
+        default => $canonical,
     };
 }
 
@@ -303,6 +328,58 @@ function normalizeCheckoutMethodKeys(array $keys): array
 }
 
 /**
+ * Single writer for merchants.enabled_methods — always canonical catalog keys.
+ */
+function persistMerchantEnabledMethodsJson(int $merchantId, array $keys): void
+{
+    if ($merchantId <= 0) {
+        return;
+    }
+    $keys = normalizeCheckoutMethodKeys($keys);
+    if (function_exists('getPaymentMethodCatalog')) {
+        $catalog = array_keys(getPaymentMethodCatalog());
+        $keys = array_values(array_intersect($keys, $catalog));
+    }
+    if ($keys === []) {
+        $keys = ['upi_p2m'];
+    }
+    if (!in_array('upi_p2m', $keys, true)) {
+        array_unshift($keys, 'upi_p2m');
+    }
+    try {
+        getDB()->prepare('UPDATE merchants SET enabled_methods=? WHERE id=?')
+            ->execute([json_encode(array_values($keys), JSON_UNESCAPED_UNICODE), $merchantId]);
+    } catch (Throwable $e) {
+        error_log('persistMerchantEnabledMethodsJson: ' . $e->getMessage());
+    }
+}
+
+/** Idempotent: normalize legacy JSON (upi, net_banking, …) on boot. */
+function backfillMerchantEnabledMethodsJson(): void
+{
+    static $ran = false;
+    if ($ran) {
+        return;
+    }
+    $ran = true;
+    if (!function_exists('getPaymentMethodCatalog')) {
+        require_once __DIR__ . '/provision.php';
+    }
+    try {
+        $rows = getDB()->query(
+            "SELECT id, enabled_methods FROM merchants WHERE enabled_methods IS NOT NULL AND enabled_methods != ''"
+        )->fetchAll();
+        foreach ($rows as $row) {
+            $decoded = json_decode((string)($row['enabled_methods'] ?? ''), true);
+            if (!is_array($decoded)) {
+                continue;
+            }
+            persistMerchantEnabledMethodsJson((int)$row['id'], $decoded);
+        }
+    } catch (Throwable $e) { /* ok */ }
+}
+
+/**
  * Keep merchants.enabled_methods JSON in sync with Payment Methods toggles.
  * Checkout tabs read that JSON — toggles alone used to leave checkout on UPI only.
  */
@@ -311,16 +388,7 @@ function syncMerchantEnabledMethodsFromToggles(int $merchantId): void
     if ($merchantId <= 0) {
         return;
     }
-    $keys = normalizeCheckoutMethodKeys(getMerchantEnabledMethodKeys($merchantId));
-    if ($keys === []) {
-        $keys = ['upi_p2m'];
-    }
-    try {
-        getDB()->prepare('UPDATE merchants SET enabled_methods=? WHERE id=?')
-            ->execute([json_encode(array_values($keys), JSON_UNESCAPED_UNICODE), $merchantId]);
-    } catch (Throwable $e) {
-        error_log('syncMerchantEnabledMethodsFromToggles: ' . $e->getMessage());
-    }
+    persistMerchantEnabledMethodsJson($merchantId, getMerchantEnabledMethodKeys($merchantId));
 }
 
 /**
@@ -335,13 +403,16 @@ function toggleMerchantPaymentMethod(int $merchantId, string $methodKey, bool $e
             if (!function_exists('merchantCanToggleMethodOn') && is_file(__DIR__ . '/method_requests.php')) {
                 require_once __DIR__ . '/method_requests.php';
             }
-            if (function_exists('merchantCanToggleMethodOn') && !merchantCanToggleMethodOn($merchantId, $methodKey, $updatedBy)) {
+            $canonicalKey = normalizeCheckoutMethodKey($methodKey);
+            if (function_exists('merchantCanToggleMethodOn') && !merchantCanToggleMethodOn($merchantId, $canonicalKey, $updatedBy)
+                && !merchantCanToggleMethodOn($merchantId, resolveGatewayRegistryMethodKey($methodKey), $updatedBy)) {
                 return ['ok' => false, 'error' => 'This payment method is not approved yet. Request enable below.'];
             }
         }
 
+        $registryKey = resolveGatewayRegistryMethodKey($methodKey);
         $st = $db->prepare("SELECT * FROM gateway_registry WHERE gateway_key=?");
-        $st->execute([$methodKey]);
+        $st->execute([$registryKey]);
         $gateway = $st->fetch();
         if (!$gateway) {
             return ['ok' => false, 'error' => 'Unknown payment method.'];
@@ -353,7 +424,7 @@ function toggleMerchantPaymentMethod(int $merchantId, string $methodKey, bool $e
              ON DUPLICATE KEY UPDATE is_enabled=VALUES(is_enabled), updated_by=VALUES(updated_by)"
         )->execute([
             $merchantId,
-            $methodKey,
+            $registryKey,
             $gateway['gateway_name'],
             $enabled ? 1 : 0,
             $updatedBy,
@@ -372,6 +443,7 @@ function toggleMerchantPaymentMethod(int $merchantId, string $methodKey, bool $e
 function setMerchantPaymentMethods(int $merchantId, array $enabledKeys, string $updatedBy = 'merchant'): array
 {
     ensurePaymentMethodsTable();
+    $enabledKeys = normalizeCheckoutMethodKeys($enabledKeys);
     $db = getDB();
     try {
         if (!function_exists('merchantCanToggleMethodOn') && is_file(__DIR__ . '/method_requests.php')) {
@@ -379,8 +451,10 @@ function setMerchantPaymentMethods(int $merchantId, array $enabledKeys, string $
         }
         $all = getAllPaymentMethods();
         foreach ($all as $g) {
-            $isEnabled = in_array($g['gateway_key'], $enabledKeys, true);
-            if ($isEnabled && function_exists('merchantCanToggleMethodOn') && !merchantCanToggleMethodOn($merchantId, (string)$g['gateway_key'], $updatedBy)) {
+            $registryKey = (string)$g['gateway_key'];
+            $canonical = normalizeCheckoutMethodKey($registryKey);
+            $isEnabled = in_array($registryKey, $enabledKeys, true) || in_array($canonical, $enabledKeys, true);
+            if ($isEnabled && function_exists('merchantCanToggleMethodOn') && !merchantCanToggleMethodOn($merchantId, $canonical, $updatedBy)) {
                 $isEnabled = false;
             }
             $db->prepare(
@@ -389,7 +463,7 @@ function setMerchantPaymentMethods(int $merchantId, array $enabledKeys, string $
                  ON DUPLICATE KEY UPDATE is_enabled=VALUES(is_enabled), updated_by=VALUES(updated_by)"
             )->execute([
                 $merchantId,
-                $g['gateway_key'],
+                $registryKey,
                 $g['gateway_name'],
                 $isEnabled ? 1 : 0,
                 $updatedBy,
@@ -1055,7 +1129,8 @@ function get_available_pay_methods(int $merchantId): array
 /** Map catalog keys (upi_p2m, …) to partner_methods.method names (upi, …). */
 function catalogKeyToPartnerMethodName(string $methodKey): string
 {
-    return match ($methodKey) {
+    $canonical = normalizeCheckoutMethodKey($methodKey);
+    return match ($canonical) {
         'upi_p2m', 'axis_va', 'payu_upi', 'razorpay_upi', 'cashfree_upi' => 'upi',
         'debit_card' => 'debit_card',
         'credit_card' => 'credit_card',
@@ -1065,7 +1140,25 @@ function catalogKeyToPartnerMethodName(string $methodKey): string
         'emandate_upi' => 'emandate_upi',
         'emandate_card' => 'emandate_card',
         'emandate_nb' => 'emandate_nb',
-        default => $methodKey,
+        default => $canonical,
+    };
+}
+
+/** Reverse map: partner_methods.method → catalog key. */
+function partnerMethodToCatalogKey(string $partnerMethod): string
+{
+    $key = strtolower(trim($partnerMethod));
+    return match ($key) {
+        'upi' => 'upi_p2m',
+        'debit_card' => 'debit_card',
+        'credit_card' => 'credit_card',
+        'netbanking' => 'netbanking',
+        'emi' => 'emi',
+        'wallet' => 'wallet',
+        'emandate_upi' => 'emandate_upi',
+        'emandate_card' => 'emandate_card',
+        'emandate_nb' => 'emandate_nb',
+        default => normalizeCheckoutMethodKey($key),
     };
 }
 

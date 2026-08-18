@@ -612,15 +612,16 @@ function dispatchAxisVaSweep(array $merchant, array $batch, float $amount): arra
             'final' => true,
         ];
     }
-    $va = $merchant['axis_va_number'] ?? '';
+    if (!function_exists('getMerchantPrimaryVaNumber')) {
+        require_once __DIR__ . '/va_manager.php';
+    }
+    $va = getMerchantPrimaryVaNumber((int)$merchant['id']);
     if (!$va && !isGatewayConfigured('axis')) {
         return ['ok' => false, 'error' => 'Axis Virtual Account not provisioned and Axis API not configured.'];
     }
     if (!$va) {
-        ensureAxisVirtualAccount((int)$merchant['id']);
-        $mst = getDB()->prepare('SELECT axis_va_number FROM merchants WHERE id=?');
-        $mst->execute([(int)$merchant['id']]);
-        $va = (string)($mst->fetchColumn() ?: '');
+        $payload = ensureMerchantVirtualAccount((int)$merchant['id']);
+        $va = (string)($payload['va_number'] ?? '');
     }
     $result = processMerchantSettlement((int)$merchant['id'], $merchant, $amount);
     if (!$result['ok']) {

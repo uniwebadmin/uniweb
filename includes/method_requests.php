@@ -504,6 +504,9 @@ function unlockMerchantMethod(int $merchantId, string $methodKey): void
             $layerSynced = !empty($toggle['ok']);
         }
         if (!$layerSynced) {
+            if (!function_exists('persistMerchantEnabledMethodsJson') && is_file(__DIR__ . '/payment_methods.php')) {
+                require_once __DIR__ . '/payment_methods.php';
+            }
             $db = getDB();
             $m = $db->prepare('SELECT enabled_methods FROM merchants WHERE id=?');
             $m->execute([$merchantId]);
@@ -515,11 +518,13 @@ function unlockMerchantMethod(int $merchantId, string $methodKey): void
                     $current = $decoded;
                 }
             }
-            if (!in_array($methodKey, $current, true)) {
-                $current[] = $methodKey;
+            $canonical = normalizeCheckoutMethodKey($methodKey);
+            if (!in_array($canonical, normalizeCheckoutMethodKeys($current), true)) {
+                $current[] = $canonical;
             }
-            $db->prepare('UPDATE merchants SET enabled_methods=? WHERE id=?')
-                ->execute([json_encode(array_values($current)), $merchantId]);
+            if (function_exists('persistMerchantEnabledMethodsJson')) {
+                persistMerchantEnabledMethodsJson($merchantId, $current);
+            }
         }
     } catch (Throwable $e) {
         error_log('unlockMerchantMethod: ' . $e->getMessage());

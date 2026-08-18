@@ -2,11 +2,12 @@
 require_once __DIR__ . '/config.php';
 requireLogin();
 ensureMerchantAgentColumns();
+if (!function_exists('getChildMerchants')) {
+    require_once __DIR__ . '/includes/sub_merchant.php';
+}
 $merchant = getMerchant();
 $db = getDB();
-$agents = $db->prepare('SELECT * FROM merchants WHERE parent_merchant_id = ? AND status != ? ORDER BY created_at DESC');
-$agents->execute([$merchant['id'], 'deleted']);
-$agentList = $agents->fetchAll();
+$agentList = getChildMerchants((int)$merchant['id']);
 
 $agentStats = $db->prepare("SELECT COALESCE(SUM(t.amount),0) as total, COUNT(*) as cnt FROM transactions t JOIN merchants m ON t.merchant_id=m.id WHERE m.parent_merchant_id = ? AND t.status='success'");
 $agentStats->execute([$merchant['id']]);
@@ -17,7 +18,7 @@ require_once __DIR__ . '/header.php';
 ?>
 <div class="bg-sky-500/10 border border-sky-500/30 rounded-xl p-4 mb-6 text-sm">
     <p class="text-sky-200 font-medium">Agents = franchise / branch child merchants</p>
-    <p class="text-xs text-gray-500 mt-1">Not the same as <a href="merchant_team.php" class="text-sky-400 underline">Team Members</a> (people who log into your portal). Admin links parent/child trees under Sub-Merchant Hierarchy. This page is hidden from the main menu until franchise ops need it — open via search or this bookmark.</p>
+    <p class="text-xs text-gray-500 mt-1">Not the same as <a href="merchant_team.php" class="text-sky-400 underline">Team Members</a> (people who log into your portal). Each agent here is also linked in Admin → Sub-Merchant Hierarchy automatically. Open via search if you need this page.</p>
     <p class="text-xs text-gray-500 mt-1">This is not a customer PPI wallet.</p>
 </div>
 <div class="grid grid-cols-2 gap-4 mb-8 max-w-lg">

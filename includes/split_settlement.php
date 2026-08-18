@@ -97,6 +97,75 @@ function ensureSplitSettlementTable(): void
             INDEX idx_partner (partner_key, status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     } catch (Throwable $e) { /* ok */ }
+    backfillMerchantPricingFromCommissionRates();
+}
+
+/**
+ * Idempotent: seed merchant_pricing from legacy commission_rate; mirror latest M → commission_rate.
+ */
+function backfillMerchantPricingFromCommissionRates(): void
+{
+    static $ran = false;
+    if ($ran) {
+        return;
+    }
+    $ran = true;
+    try {
+        $db = getDB();
+        $db->exec(
+            "INSERT INTO merchant_pricing (merchant_id, partner_id, mdr_percent, effective_from, created_by)
+             SELECT m.id, NULL, m.commission_rate, CURDATE(), 'backfill:commission_rate'
+             FROM merchants m
+             WHERE m.commission_rate IS NOT NULL
+               AND m.commission_rate > 0
+               AND m.status != 'deleted'
+               AND NOT EXISTS (SELECT 1 FROM merchant_pricing mp WHERE mp.merchant_id = m.id)"
+        );
+        $db->exec(
+            "UPDATE merchants m
+             INNER JOIN (
+                 SELECT mp.merchant_id, mp.mdr_percent
+                 FROM merchant_pricing mp
+                 INNER JOIN (
+                     SELECT merchant_id, MAX(id) AS max_id
+                     FROM merchant_pricing
+                     WHERE effective_from <= CURDATE()
+                     GROUP BY merchant_id
+                 ) latest ON latest.max_id = mp.id
+             ) priced ON priced.merchant_id = m.id
+             SET m.commission_rate = priced.mdr_percent
+             WHERE m.commission_rate IS NULL
+                OR ABS(m.commission_rate - priced.mdr_percent) > 0.0001"
+        );
+    } catch (Throwable $e) { /* ok */ }
+}
+
+function merchantMdrLegacyFallback(int $merchantId): ?float
+{
+    if ($merchantId < 1) {
+        return null;
+    }
+    try {
+        $st = getDB()->prepare('SELECT commission_rate FROM merchants WHERE id=? LIMIT 1');
+        $st->execute([$merchantId]);
+        $row = $st->fetch();
+        if ($row && (float)($row['commission_rate'] ?? 0) > 0) {
+            return (float)$row['commission_rate'];
+        }
+    } catch (Throwable $e) { /* ok */ }
+    return null;
+}
+
+/** Keep merchants.commission_rate mirrored for legacy SELECTs (checkout, webhooks). */
+function syncMerchantCommissionRateMirror(int $merchantId, float $mdrPercent): void
+{
+    if ($merchantId < 1) {
+        return;
+    }
+    try {
+        getDB()->prepare('UPDATE merchants SET commission_rate=? WHERE id=?')
+            ->execute([$mdrPercent, $merchantId]);
+    } catch (Throwable $e) { /* ok */ }
 }
 
 /**
@@ -138,9 +207,14 @@ function getMerchantMdr(int $merchantId, ?string $date = null): float
         );
         $st->execute([$merchantId, $date]);
         $row = $st->fetch();
-        return $row ? (float)$row['mdr_percent'] : DEFAULT_MDR_PERCENT;
+        if ($row) {
+            return (float)$row['mdr_percent'];
+        }
+        $legacy = merchantMdrLegacyFallback($merchantId);
+        return $legacy !== null ? $legacy : DEFAULT_MDR_PERCENT;
     } catch (Throwable $e) {
-        return DEFAULT_MDR_PERCENT;
+        $legacy = merchantMdrLegacyFallback($merchantId);
+        return $legacy !== null ? $legacy : DEFAULT_MDR_PERCENT;
     }
 }
 
@@ -166,6 +240,7 @@ function setMerchantMdr(int $merchantId, float $mdrPercent, ?string $partnerKey 
             'INSERT INTO merchant_pricing (merchant_id, partner_id, mdr_percent, effective_from, created_by)
              VALUES (?,?,?,?,?)'
         )->execute([$merchantId, $partnerKey, $mdrPercent, date('Y-m-d'), $createdBy]);
+        syncMerchantCommissionRateMirror($merchantId, $mdrPercent);
         return ['ok' => true];
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => $e->getMessage()];

@@ -2,9 +2,13 @@
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/contact_change.php';
+if (!function_exists('getMerchantMdr')) {
+    require_once __DIR__ . '/includes/split_settlement.php';
+}
 
 requireLogin();
 $merchant = getMerchant();
+$merchantMdr = getMerchantMdr((int)$merchant['id']);
 ensureMerchantWebsiteEngine();
 $db = getDB();
 
@@ -110,7 +114,7 @@ require_once __DIR__ . '/header.php';
             <div><span class="text-gray-500">Phone</span><p><?= e(sensitiveUiPlain($merchant['phone'] ?? '') ?: (string)($merchant['phone'] ?? '')) ?></p></div>
             <div><span class="text-gray-500">Legal Entity</span><p><?= e(entityTypeLabel($merchant['business_entity_type'] ?? 'sole_proprietorship')) ?></p></div>
             <div><span class="text-gray-500">KYC Status</span><p><?= statusBadge($merchant['kyc_status']) ?></p></div>
-            <div><span class="text-gray-500">Commission</span><p><?= $merchant['commission_rate'] ?>% (Cards/NB)</p></div>
+            <div><span class="text-gray-500">MDR (M)</span><p><?= e(number_format($merchantMdr, 2)) ?>%</p></div>
             <div><span class="text-gray-500">Category</span><p><?= e(categoryLabel($merchant['business_type'])) ?></p></div>
             <div class="col-span-2"><span class="text-gray-500">Website</span>
                 <p class="mt-1 flex flex-wrap items-center gap-2">

@@ -267,6 +267,10 @@ function getBaseMdr(string $mode): float
 
 function getMdrWithMargin(string $mode, ?array $merchant = null): float
 {
+    $merchantId = (int)($merchant['id'] ?? $merchant['merchant_id'] ?? 0);
+    if ($merchantId > 0 && function_exists('getMerchantMdr') && in_array($mode, ['card_debit', 'card_credit', 'netbanking'], true)) {
+        return getMerchantMdr($merchantId);
+    }
     if (($merchant['commission_rate'] ?? null) && in_array($mode, ['card_debit', 'card_credit', 'netbanking'], true)) {
         return (float)$merchant['commission_rate'];
     }
@@ -286,7 +290,10 @@ function formatMdr(?float $pct, bool $custom = false, bool $withGst = false): st
 /** Merchant-facing fee + settlement schedule (Razorpay-style transparency card). */
 function merchantCommercialSchedule(array $merchant): array
 {
-    $commission = (float)($merchant['commission_rate'] ?? getSetting('default_commission', '1.50'));
+    $merchantId = (int)($merchant['id'] ?? $merchant['merchant_id'] ?? 0);
+    $commission = $merchantId > 0 && function_exists('getMerchantMdr')
+        ? getMerchantMdr($merchantId)
+        : (float)($merchant['commission_rate'] ?? getSetting('default_commission', '2.00'));
     $cycle = function_exists('getPlatformSettlementCycle')
         ? getPlatformSettlementCycle()
         : (string)getSetting('settlement_cycle', 'T+1');

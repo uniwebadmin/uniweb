@@ -86,9 +86,23 @@ function collectionModeLabel(string $mode, bool $merchantFacing = false): string
     return getCollectionModes()[$mode] ?? ucfirst(str_replace('_', ' ', $mode));
 }
 
+function merchantEffectiveMdrPercent(array $merchant): float
+{
+    $merchantId = (int)($merchant['merchant_id'] ?? $merchant['id'] ?? 0);
+    if ($merchantId > 0 && function_exists('getMerchantMdr')) {
+        return getMerchantMdr($merchantId);
+    }
+    $rate = (float)($merchant['commission_rate'] ?? 0);
+    if ($rate > 0) {
+        return $rate;
+    }
+    $default = (float)getSetting('default_commission', (string)(defined('DEFAULT_MDR_PERCENT') ? DEFAULT_MDR_PERCENT : '2.00'));
+    return $default > 0 ? $default : 2.0;
+}
+
 function calculatePlatformCommission(float $amount, array $merchant): float
 {
-    $rate = (float)($merchant['commission_rate'] ?? getSetting('default_commission', '0.10'));
+    $rate = merchantEffectiveMdrPercent($merchant);
     if ($rate <= 0) {
         $rate = (float)getSetting('platform_margin_pct', '0.10');
     }
@@ -437,49 +451,10 @@ function buildWhatsAppPaymentLink(array $link): string
 
 function ensureAxisVirtualAccount(int $merchantId): ?array
 {
-    $db = getDB();
-    $m = $db->prepare('SELECT * FROM merchants WHERE id = ?');
-    $m->execute([$merchantId]);
-    $merchant = $m->fetch();
-    if (!$merchant) return null;
-
-    if (!empty($merchant['axis_va_number'])) {
-        return [
-            'va_number' => $merchant['axis_va_number'],
-            'va_ifsc' => $merchant['axis_va_ifsc'] ?? (function_exists('axisPartnerSetting') ? axisPartnerSetting('axis_va_ifsc', 'UTIB0000000') : 'UTIB0000000'),
-            'va_upi' => $merchant['axis_va_upi'] ?? '',
-            'axis_va_id' => $merchant['axis_va_id'] ?? '',
-        ];
+    if (!function_exists('ensureMerchantVirtualAccount')) {
+        require_once __DIR__ . '/va_manager.php';
     }
-
-    if (function_exists('axisCredentials')) {
-        $axisCreds = axisCredentials();
-        $mockOk = function_exists('axisAllowMock') && axisAllowMock();
-        if (($axisCreds['client_id'] ?? '') === '' && !$mockOk) {
-            return null;
-        }
-    }
-
-    $va = createAxisVirtualAccount($merchant);
-    if (!$va) return null;
-
-    $normalized = [
-        'va_number' => $va['va_number'] ?? '',
-        'va_ifsc' => $va['ifsc'] ?? $va['va_ifsc'] ?? (function_exists('axisPartnerSetting') ? axisPartnerSetting('axis_va_ifsc', 'UTIB0000000') : 'UTIB0000000'),
-        'va_upi' => $va['upi_id'] ?? $va['va_upi'] ?? '',
-        'axis_va_id' => $va['va_id'] ?? $va['axis_va_id'] ?? '',
-    ];
-
-    try {
-        $db->prepare('UPDATE merchants SET axis_va_id=?, axis_va_number=?, axis_va_ifsc=?, axis_va_upi=? WHERE id=?')
-            ->execute([
-                $normalized['axis_va_id'], $normalized['va_number'], $normalized['va_ifsc'],
-                $normalized['va_upi'], $merchantId,
-            ]);
-    } catch (Throwable $e) {
-        return $normalized;
-    }
-    return $normalized;
+    return ensureMerchantVirtualAccount($merchantId);
 }
 
 function resolveCheckoutHandler(array $merchant): string
@@ -576,10 +551,8 @@ function buildCheckoutPaymentMethods(array $link): array
     }
     $catalog = getPaymentMethodCatalog();
     $allow = function (string $methodKey) use ($enabled): bool {
-        $want = function_exists('normalizeCheckoutMethodKey')
-            ? normalizeCheckoutMethodKey($methodKey)
-            : $methodKey;
-        return in_array($want, $enabled, true) || in_array($methodKey, $enabled, true);
+        $want = normalizeCheckoutMethodKey($methodKey);
+        return in_array($want, $enabled, true);
     };
 
     if ($allow('upi_p2m') || in_array($handler, ['direct_upi', 'axis_va'], true) || empty($link['payment_method'])) {

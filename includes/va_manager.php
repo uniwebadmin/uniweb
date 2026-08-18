@@ -2,13 +2,10 @@
 declare(strict_types=1);
 
 /**
- * Multiple Virtual Account (VA) manager.
+ * Virtual Account (VA) manager — canonical store: merchant_virtual_accounts.
  *
- * Backward compatible with the single-VA columns on `merchants`
- * (axis_va_number / axis_va_ifsc / axis_va_upi / axis_va_id) which stay as
- * the "primary" VA for old code paths. This file adds the ability for a
- * merchant to hold MANY active VAs and spreads new payment load across them
- * (least-busy assignment) instead of a single VA becoming a bottleneck.
+ * merchants.axis_va_* columns are an auto-synced mirror of the primary active VA
+ * for legacy SELECTs (checkout, webhooks). Never update axis_va_* outside this file.
  */
 
 /** Gateways with a live VA-creation adapter today (others fail gracefully). */
@@ -50,13 +47,184 @@ function ensureMerchantVirtualAccountsTable(): void
     } catch (Throwable $e) {
         // migration runner may apply full 031 later
     }
+    backfillMerchantVirtualAccountsFromLegacy();
 }
 
-/** All VAs for a merchant, most-used-last-reset first. Includes the primary. */
+/** Idempotent: import merchants.axis_va_* into merchant_virtual_accounts + sync mirror. */
+function backfillMerchantVirtualAccountsFromLegacy(): void
+{
+    static $ran = false;
+    if ($ran) {
+        return;
+    }
+    $ran = true;
+    try {
+        $db = getDB();
+        $db->exec(
+            "INSERT INTO merchant_virtual_accounts (merchant_id, gateway, va_id, va_number, ifsc, upi_id, label, status, is_primary, counters_reset_on)
+             SELECT m.id, 'axis', m.axis_va_id, m.axis_va_number, m.axis_va_ifsc, m.axis_va_upi, 'Primary', 'active', 1, CURDATE()
+             FROM merchants m
+             WHERE m.axis_va_number IS NOT NULL AND m.axis_va_number != ''
+               AND NOT EXISTS (
+                 SELECT 1 FROM merchant_virtual_accounts v WHERE v.va_number = m.axis_va_number
+               )"
+        );
+        $merchants = $db->query(
+            "SELECT DISTINCT merchant_id FROM merchant_virtual_accounts WHERE status = 'active'"
+        )->fetchAll();
+        foreach ($merchants as $row) {
+            syncMerchantPrimaryVaMirror((int)$row['merchant_id']);
+        }
+    } catch (Throwable $e) { /* ok */ }
+}
+
+function importLegacyMerchantVaRow(int $merchantId): bool
+{
+    if ($merchantId < 1) {
+        return false;
+    }
+    ensureMerchantVirtualAccountsTable();
+    try {
+        $db = getDB();
+        $st = $db->prepare(
+            'SELECT axis_va_id, axis_va_number, axis_va_ifsc, axis_va_upi
+             FROM merchants WHERE id=? LIMIT 1'
+        );
+        $st->execute([$merchantId]);
+        $m = $st->fetch();
+        if (!$m || empty($m['axis_va_number'])) {
+            return false;
+        }
+        $chk = $db->prepare('SELECT id FROM merchant_virtual_accounts WHERE va_number=? LIMIT 1');
+        $chk->execute([(string)$m['axis_va_number']]);
+        if ($chk->fetch()) {
+            return false;
+        }
+        $db->prepare(
+            "INSERT INTO merchant_virtual_accounts (merchant_id, gateway, va_id, va_number, ifsc, upi_id, label, status, is_primary, counters_reset_on)
+             VALUES (?,?,?,?,?,?,?,?,?,CURDATE())"
+        )->execute([
+            $merchantId, 'axis',
+            $m['axis_va_id'] ?? '', (string)$m['axis_va_number'],
+            $m['axis_va_ifsc'] ?? null, $m['axis_va_upi'] ?? null,
+            'Primary', 'active', 1,
+        ]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function vaRowToPayload(array $row): array
+{
+    $defaultIfsc = function_exists('axisPartnerSetting')
+        ? axisPartnerSetting('axis_va_ifsc', 'UTIB0000000')
+        : 'UTIB0000000';
+
+    return [
+        'va_number' => (string)($row['va_number'] ?? ''),
+        'va_ifsc' => (string)($row['ifsc'] ?? $row['va_ifsc'] ?? $defaultIfsc),
+        'va_upi' => (string)($row['upi_id'] ?? $row['va_upi'] ?? ''),
+        'axis_va_id' => (string)($row['va_id'] ?? $row['axis_va_id'] ?? ''),
+        'va_row_id' => isset($row['id']) ? (int)$row['id'] : (isset($row['va_row_id']) ? (int)$row['va_row_id'] : null),
+    ];
+}
+
+/** Primary active VA row (canonical read). */
+function getMerchantPrimaryVirtualAccount(int $merchantId): ?array
+{
+    if ($merchantId < 1) {
+        return null;
+    }
+    ensureMerchantVirtualAccountsTable();
+    importLegacyMerchantVaRow($merchantId);
+    try {
+        $st = getDB()->prepare(
+            "SELECT * FROM merchant_virtual_accounts
+             WHERE merchant_id = ? AND status = 'active'
+             ORDER BY is_primary DESC, id ASC
+             LIMIT 1"
+        );
+        $st->execute([$merchantId]);
+        $row = $st->fetch();
+        return $row ?: null;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function getMerchantPrimaryVaNumber(int $merchantId): string
+{
+    $row = getMerchantPrimaryVirtualAccount($merchantId);
+    return $row ? (string)($row['va_number'] ?? '') : '';
+}
+
+/** Mirror primary active VA onto merchants.axis_va_* (legacy SELECT compatibility). */
+function syncMerchantPrimaryVaMirror(int $merchantId): void
+{
+    if ($merchantId < 1) {
+        return;
+    }
+    try {
+        $db = getDB();
+        $st = $db->prepare(
+            "SELECT * FROM merchant_virtual_accounts
+             WHERE merchant_id = ? AND status = 'active'
+             ORDER BY is_primary DESC, id ASC
+             LIMIT 1"
+        );
+        $st->execute([$merchantId]);
+        $primary = $st->fetch();
+        if ($primary) {
+            $db->prepare(
+                'UPDATE merchants SET axis_va_id=?, axis_va_number=?, axis_va_ifsc=?, axis_va_upi=? WHERE id=?'
+            )->execute([
+                $primary['va_id'] ?? '',
+                $primary['va_number'],
+                $primary['ifsc'] ?? null,
+                $primary['upi_id'] ?? null,
+                $merchantId,
+            ]);
+            return;
+        }
+        $db->prepare(
+            'UPDATE merchants SET axis_va_id=NULL, axis_va_number=NULL, axis_va_ifsc=NULL, axis_va_upi=NULL WHERE id=?'
+        )->execute([$merchantId]);
+    } catch (Throwable $e) { /* ok */ }
+}
+
+function promoteNextPrimaryVirtualAccount(int $merchantId): void
+{
+    if ($merchantId < 1) {
+        return;
+    }
+    try {
+        $db = getDB();
+        $db->prepare('UPDATE merchant_virtual_accounts SET is_primary = 0 WHERE merchant_id = ?')
+            ->execute([$merchantId]);
+        $st = $db->prepare(
+            "SELECT id FROM merchant_virtual_accounts
+             WHERE merchant_id = ? AND status = 'active'
+             ORDER BY id ASC LIMIT 1"
+        );
+        $st->execute([$merchantId]);
+        $next = $st->fetch();
+        if ($next) {
+            $db->prepare('UPDATE merchant_virtual_accounts SET is_primary = 1 WHERE id = ?')
+                ->execute([(int)$next['id']]);
+        }
+    } catch (Throwable $e) { /* ok */ }
+}
+
+/** All VAs for a merchant. Primary first. */
 function getMerchantVirtualAccounts(int $merchantId): array
 {
+    ensureMerchantVirtualAccountsTable();
+    importLegacyMerchantVaRow($merchantId);
     try {
-        $st = getDB()->prepare('SELECT * FROM merchant_virtual_accounts WHERE merchant_id = ? ORDER BY is_primary DESC, id ASC');
+        $st = getDB()->prepare(
+            'SELECT * FROM merchant_virtual_accounts WHERE merchant_id = ? ORDER BY is_primary DESC, id ASC'
+        );
         $st->execute([$merchantId]);
         return $st->fetchAll();
     } catch (Throwable $e) {
@@ -66,8 +234,11 @@ function getMerchantVirtualAccounts(int $merchantId): array
 
 function countActiveMerchantVirtualAccounts(int $merchantId): int
 {
+    ensureMerchantVirtualAccountsTable();
     try {
-        $st = getDB()->prepare("SELECT COUNT(*) FROM merchant_virtual_accounts WHERE merchant_id = ? AND status = 'active'");
+        $st = getDB()->prepare(
+            "SELECT COUNT(*) FROM merchant_virtual_accounts WHERE merchant_id = ? AND status = 'active'"
+        );
         $st->execute([$merchantId]);
         return (int)$st->fetchColumn();
     } catch (Throwable $e) {
@@ -76,13 +247,52 @@ function countActiveMerchantVirtualAccounts(int $merchantId): int
 }
 
 /**
- * Create ONE MORE virtual account for a merchant (in addition to any existing
- * ones) via the given gateway. Currently only 'axis' is wired to a real API;
- * other gateway keys are accepted for forward compatibility (e.g. 'decentro'
- * once its adapter lands) and will simply fail gracefully until implemented.
+ * Ensure merchant has at least one active VA — create via Axis when missing.
+ * Canonical entry point (replaces legacy ensureAxisVirtualAccount writes).
+ */
+function ensureMerchantVirtualAccount(int $merchantId): ?array
+{
+    if ($merchantId < 1) {
+        return null;
+    }
+    ensureMerchantVirtualAccountsTable();
+    importLegacyMerchantVaRow($merchantId);
+
+    $primary = getMerchantPrimaryVirtualAccount($merchantId);
+    if ($primary) {
+        syncMerchantPrimaryVaMirror($merchantId);
+        return vaRowToPayload($primary);
+    }
+
+    if (!function_exists('createAxisVirtualAccount')) {
+        if (is_file(__DIR__ . '/axis.php')) {
+            require_once __DIR__ . '/axis.php';
+        }
+    }
+    if (function_exists('axisCredentials')) {
+        $axisCreds = axisCredentials();
+        $mockOk = function_exists('axisAllowMock') && axisAllowMock();
+        if (($axisCreds['client_id'] ?? '') === '' && !$mockOk) {
+            return null;
+        }
+    }
+
+    $result = createAdditionalVirtualAccount($merchantId, 'axis', 'Primary');
+    if (!($result['ok'] ?? false)) {
+        return null;
+    }
+    $created = getMerchantPrimaryVirtualAccount($merchantId);
+    return $created ? vaRowToPayload($created) : null;
+}
+
+/**
+ * Create ONE MORE virtual account for a merchant via the given gateway.
  */
 function createAdditionalVirtualAccount(int $merchantId, string $gateway = 'axis', string $label = ''): array
 {
+    ensureMerchantVirtualAccountsTable();
+    importLegacyMerchantVaRow($merchantId);
+
     $db = getDB();
     $m = $db->prepare('SELECT * FROM merchants WHERE id = ?');
     $m->execute([$merchantId]);
@@ -118,29 +328,26 @@ function createAdditionalVirtualAccount(int $merchantId, string $gateway = 'axis
         return ['ok' => false, 'error' => $hint];
     }
 
-    $isFirst = countActiveMerchantVirtualAccounts($merchantId) === 0 && empty($merchant['axis_va_number']);
+    $countSt = $db->prepare('SELECT COUNT(*) FROM merchant_virtual_accounts WHERE merchant_id = ?');
+    $countSt->execute([$merchantId]);
+    $isFirst = (int)$countSt->fetchColumn() === 0;
+
     try {
-        $db->prepare('INSERT INTO merchant_virtual_accounts (merchant_id, gateway, va_id, va_number, ifsc, upi_id, label, status, is_primary, counters_reset_on)
-            VALUES (?,?,?,?,?,?,?,?,?,CURDATE())')
-            ->execute([
-                $merchantId, $gateway,
-                $va['va_id'] ?? '', $va['va_number'], $va['ifsc'] ?? null, $va['upi_id'] ?? null,
-                $label !== '' ? $label : ('VA ' . (countActiveMerchantVirtualAccounts($merchantId) + 1)),
-                'active', $isFirst ? 1 : 0,
-            ]);
+        $db->prepare(
+            'INSERT INTO merchant_virtual_accounts (merchant_id, gateway, va_id, va_number, ifsc, upi_id, label, status, is_primary, counters_reset_on)
+            VALUES (?,?,?,?,?,?,?,?,?,CURDATE())'
+        )->execute([
+            $merchantId, $gateway,
+            $va['va_id'] ?? '', $va['va_number'], $va['ifsc'] ?? null, $va['upi_id'] ?? null,
+            $label !== '' ? $label : ('VA ' . (countActiveMerchantVirtualAccounts($merchantId) + 1)),
+            'active', $isFirst ? 1 : 0,
+        ]);
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => 'Could not save virtual account: ' . $e->getMessage()];
     }
 
-    // Keep legacy single-VA columns populated for old code paths when this is
-    // the merchant's first-ever VA.
     if ($isFirst) {
-        try {
-            $db->prepare('UPDATE merchants SET axis_va_id=?, axis_va_number=?, axis_va_ifsc=?, axis_va_upi=? WHERE id=?')
-                ->execute([$va['va_id'] ?? '', $va['va_number'], $va['ifsc'] ?? null, $va['upi_id'] ?? null, $merchantId]);
-        } catch (Throwable $e) {
-            // non-fatal
-        }
+        syncMerchantPrimaryVaMirror($merchantId);
     }
 
     if (function_exists('recordImmutableAudit')) {
@@ -150,19 +357,49 @@ function createAdditionalVirtualAccount(int $merchantId, string $gateway = 'axis
     return ['ok' => true, 'va' => $va];
 }
 
-/**
- * Smart assignment: pick the least-busy ACTIVE virtual account for a
- * merchant so no single VA gets overloaded. Falls back to null when the
- * merchant has no VA rows yet (caller should use the legacy single-VA path
- * via ensureAxisVirtualAccount()).
- */
+/** Enable/disable a VA row; re-elect primary + sync merchant mirror. */
+function setMerchantVirtualAccountStatus(int $vaRowId, int $merchantId, string $status): bool
+{
+    if ($vaRowId < 1 || $merchantId < 1) {
+        return false;
+    }
+    $status = $status === 'active' ? 'active' : 'disabled';
+    try {
+        $db = getDB();
+        $st = $db->prepare(
+            'SELECT is_primary FROM merchant_virtual_accounts WHERE id = ? AND merchant_id = ? LIMIT 1'
+        );
+        $st->execute([$vaRowId, $merchantId]);
+        $row = $st->fetch();
+        if (!$row) {
+            return false;
+        }
+        $wasPrimary = (int)($row['is_primary'] ?? 0) === 1;
+        $db->prepare(
+            'UPDATE merchant_virtual_accounts SET status = ? WHERE id = ? AND merchant_id = ?'
+        )->execute([$status, $vaRowId, $merchantId]);
+        if ($status === 'disabled' && $wasPrimary) {
+            promoteNextPrimaryVirtualAccount($merchantId);
+        }
+        syncMerchantPrimaryVaMirror($merchantId);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/** Pick the least-busy ACTIVE virtual account for checkout load-spread. */
 function pickLeastBusyVirtualAccount(int $merchantId): ?array
 {
+    ensureMerchantVirtualAccountsTable();
+    importLegacyMerchantVaRow($merchantId);
     try {
-        $st = getDB()->prepare("SELECT * FROM merchant_virtual_accounts
+        $st = getDB()->prepare(
+            "SELECT * FROM merchant_virtual_accounts
             WHERE merchant_id = ? AND status = 'active'
             ORDER BY txn_count_today ASC, last_assigned_at ASC, id ASC
-            LIMIT 1");
+            LIMIT 1"
+        );
         $st->execute([$merchantId]);
         $va = $st->fetch();
         return $va ?: null;
@@ -171,75 +408,89 @@ function pickLeastBusyVirtualAccount(int $merchantId): ?array
     }
 }
 
-/** Call after a payment is successfully routed through a specific VA row. */
 function recordVirtualAccountUsage(int $vaRowId): void
 {
     try {
-        getDB()->prepare('UPDATE merchant_virtual_accounts
+        getDB()->prepare(
+            'UPDATE merchant_virtual_accounts
             SET txn_count_today = txn_count_today + 1, txn_count_total = txn_count_total + 1, last_assigned_at = NOW()
-            WHERE id = ?')->execute([$vaRowId]);
-    } catch (Throwable $e) {
-        // non-fatal
-    }
+            WHERE id = ?'
+        )->execute([$vaRowId]);
+    } catch (Throwable $e) { /* ok */ }
 }
 
-/**
- * Call when a VA-routed payment fails/bounces. Auto-disables the VA (and
- * alerts) once it crosses a failure threshold in a single day, so traffic
- * moves to the merchant's other VAs automatically.
- */
 function recordVirtualAccountFailure(int $vaRowId, int $autoDisableThreshold = 10): void
 {
     $db = getDB();
     try {
-        $db->prepare('UPDATE merchant_virtual_accounts SET fail_count_today = fail_count_today + 1 WHERE id = ?')
-            ->execute([$vaRowId]);
+        $db->prepare(
+            'UPDATE merchant_virtual_accounts SET fail_count_today = fail_count_today + 1 WHERE id = ?'
+        )->execute([$vaRowId]);
         $st = $db->prepare('SELECT * FROM merchant_virtual_accounts WHERE id = ?');
         $st->execute([$vaRowId]);
         $va = $st->fetch();
         if ($va && (int)$va['fail_count_today'] >= $autoDisableThreshold && $va['status'] === 'active') {
-            $db->prepare("UPDATE merchant_virtual_accounts SET status = 'disabled' WHERE id = ?")->execute([$vaRowId]);
+            $wasPrimary = (int)($va['is_primary'] ?? 0) === 1;
+            $merchantId = (int)$va['merchant_id'];
+            $db->prepare("UPDATE merchant_virtual_accounts SET status = 'disabled' WHERE id = ?")
+                ->execute([$vaRowId]);
+            if ($wasPrimary) {
+                promoteNextPrimaryVirtualAccount($merchantId);
+            }
+            syncMerchantPrimaryVaMirror($merchantId);
             if (function_exists('createNotification')) {
-                createNotification((int)$va['merchant_id'], 'Virtual Account auto-disabled',
-                    'VA ' . $va['va_number'] . ' had ' . $va['fail_count_today'] . ' failures today and was auto-disabled. Traffic moved to your other VAs. Contact support to re-enable.');
+                createNotification(
+                    $merchantId,
+                    'Virtual Account auto-disabled',
+                    'VA ' . $va['va_number'] . ' had ' . $va['fail_count_today'] . ' failures today and was auto-disabled. Traffic moved to your other VAs. Contact support to re-enable.'
+                );
             }
             if (function_exists('logPlatformError')) {
-                logPlatformError('warning', 'VA auto-disabled after failures: ' . $va['va_number'] . ' (merchant ' . $va['merchant_id'] . ')');
+                logPlatformError(
+                    'warning',
+                    'VA auto-disabled after failures: ' . $va['va_number'] . ' (merchant ' . $merchantId . ')'
+                );
             }
         }
-    } catch (Throwable $e) {
-        // non-fatal
-    }
+    } catch (Throwable $e) { /* ok */ }
 }
 
-/** Look up which merchant + VA row a bank VA number belongs to (multi-VA aware). */
 function findMerchantByVirtualAccountNumber(string $vaNumber): ?array
 {
-    $db = getDB();
+    $vaNumber = trim($vaNumber);
+    if ($vaNumber === '') {
+        return null;
+    }
+    ensureMerchantVirtualAccountsTable();
     try {
-        $st = $db->prepare('SELECT v.id AS va_row_id, v.merchant_id, m.* FROM merchant_virtual_accounts v
-            JOIN merchants m ON m.id = v.merchant_id WHERE v.va_number = ? LIMIT 1');
+        $st = getDB()->prepare(
+            'SELECT v.id AS va_row_id, v.merchant_id, m.* FROM merchant_virtual_accounts v
+            JOIN merchants m ON m.id = v.merchant_id WHERE v.va_number = ? LIMIT 1'
+        );
         $st->execute([$vaNumber]);
         $row = $st->fetch();
         if ($row) {
             return $row;
         }
-    } catch (Throwable $e) {
-        // table may not exist yet — fall through to legacy lookup
-    }
-    // Legacy fallback: single VA stored directly on merchants.
-    $st = $db->prepare('SELECT *, NULL AS va_row_id FROM merchants WHERE axis_va_number = ? LIMIT 1');
+    } catch (Throwable $e) { /* ok */ }
+
+    $st = getDB()->prepare('SELECT *, NULL AS va_row_id FROM merchants WHERE axis_va_number = ? LIMIT 1');
     $st->execute([$vaNumber]);
-    return $st->fetch() ?: null;
+    $legacy = $st->fetch();
+    if ($legacy) {
+        importLegacyMerchantVaRow((int)$legacy['id']);
+    }
+    return $legacy ?: null;
 }
 
-/** Daily counter reset — safe to call on every cron tick, only resets once/day. */
 function resetVirtualAccountDailyCountersIfNeeded(): int
 {
     try {
-        $st = getDB()->prepare("UPDATE merchant_virtual_accounts
+        $st = getDB()->prepare(
+            "UPDATE merchant_virtual_accounts
             SET txn_count_today = 0, fail_count_today = 0, counters_reset_on = CURDATE()
-            WHERE counters_reset_on IS NULL OR counters_reset_on < CURDATE()");
+            WHERE counters_reset_on IS NULL OR counters_reset_on < CURDATE()"
+        );
         $st->execute();
         return $st->rowCount();
     } catch (Throwable $e) {

@@ -339,10 +339,11 @@ function generateMerchantPaymentPack(int $merchantId, float $amount = 1.0, ?bool
     $methods = getMerchantEnabledMethods($merchant);
     if (!in_array('upi_p2m', $methods, true)) {
         array_unshift($methods, 'upi_p2m');
-        try {
-            $db->prepare('UPDATE merchants SET enabled_methods=? WHERE id=?')->execute([json_encode(array_values($methods)), $merchantId]);
-        } catch (Throwable $e) {
-            /* column may be missing */
+        if (!function_exists('persistMerchantEnabledMethodsJson') && is_file(__DIR__ . '/payment_methods.php')) {
+            require_once __DIR__ . '/payment_methods.php';
+        }
+        if (function_exists('persistMerchantEnabledMethodsJson')) {
+            persistMerchantEnabledMethodsJson($merchantId, $methods);
         }
     }
     $packId = generateId('PACK');
@@ -396,17 +397,26 @@ function applyMerchantSignupPreferences(int $merchantId, string $collectionMode,
         $collectionMode = 'direct_upi';
     }
     $catalogKeys = array_keys(getPaymentMethodCatalog());
+    if (!function_exists('normalizeCheckoutMethodKeys') && is_file(__DIR__ . '/payment_methods.php')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+    $enabledMethods = function_exists('normalizeCheckoutMethodKeys')
+        ? normalizeCheckoutMethodKeys($enabledMethods)
+        : $enabledMethods;
     $enabledMethods = array_values(array_intersect($catalogKeys, $enabledMethods));
     if (empty($enabledMethods)) {
         $enabledMethods = ['upi_p2m'];
     }
     try {
-        $db->prepare('UPDATE merchants SET collection_mode=?, enabled_methods=?, provision_profile=?, auto_provisioned=1 WHERE id=?')
-            ->execute([$collectionMode, json_encode($enabledMethods), 'signup_custom', $merchantId]);
+        $db->prepare('UPDATE merchants SET collection_mode=?, provision_profile=?, auto_provisioned=1 WHERE id=?')
+            ->execute([$collectionMode, 'signup_custom', $merchantId]);
     } catch (Throwable $e) {
         try {
             $db->prepare('UPDATE merchants SET collection_mode=? WHERE id=?')->execute([$collectionMode, $merchantId]);
         } catch (Throwable $e2) { /* ok */ }
+    }
+    if (function_exists('persistMerchantEnabledMethodsJson')) {
+        persistMerchantEnabledMethodsJson($merchantId, $enabledMethods);
     }
     if (!function_exists('setMerchantPaymentMethods') && is_file(__DIR__ . '/payment_methods.php')) {
         require_once __DIR__ . '/payment_methods.php';

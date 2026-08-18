@@ -2,6 +2,9 @@
 require_once __DIR__ . '/config.php';
 requireLogin();
 ensureMerchantAgentColumns();
+if (!function_exists('addSubMerchant')) {
+    require_once __DIR__ . '/includes/sub_merchant.php';
+}
 $merchant = getMerchant();
 $errors = [];
 
@@ -26,9 +29,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             $errors[] = 'Email or phone already registered.';
         } else {
             $code = 'AG' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
-            $db->prepare('INSERT INTO merchants (merchant_code,parent_merchant_id,name,email,phone,password,business_name,business_type,business_entity_type,agent_commission,api_key,api_secret,upi_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
-                ->execute([$code, $merchant['id'], $name, $email, $phone, password_hash($password, PASSWORD_ARGON2ID), $business, 'retail', 'sole_proprietorship', $commission, 'uk_' . bin2hex(random_bytes(16)), 'us_' . bin2hex(random_bytes(24)), strtolower(preg_replace('/\s+/', '', $business)) . '@uniweb']);
+            $db->prepare('INSERT INTO merchants (merchant_code,name,email,phone,password,business_name,business_type,business_entity_type,agent_commission,api_key,api_secret,upi_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+                ->execute([$code, $name, $email, $phone, password_hash($password, PASSWORD_ARGON2ID), $business, 'retail', 'sole_proprietorship', $commission, 'uk_' . bin2hex(random_bytes(16)), 'us_' . bin2hex(random_bytes(24)), strtolower(preg_replace('/\s+/', '', $business)) . '@uniweb']);
             $id = (int)$db->lastInsertId();
+            $link = addSubMerchant((int)$merchant['id'], $id, 'franchise');
+            if (!($link['ok'] ?? false)) {
+                $db->prepare("UPDATE merchants SET status='deleted' WHERE id=?")->execute([$id]);
+                flash('error', $link['error'] ?? 'Could not link agent to your account.');
+                redirect('agents.php');
+            }
             createNotification($id, 'Agent Account Created', 'You have been added as an agent under ' . $merchant['business_name']);
             flash('success', 'Agent created: ' . $code);
             redirect('agents.php');
