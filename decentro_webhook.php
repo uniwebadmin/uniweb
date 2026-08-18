@@ -211,14 +211,15 @@ jsonResponse(['ok' => true, 'ignored' => true, 'reason' => 'no_txn_id']);
  */
 function verifyDecentroWebhookSignature(string $rawBody, string $signature): bool
 {
-    $clientSecret = getSetting('decentro_client_secret', '');
+    if (!function_exists('decentroClientSecret') && is_file(__DIR__ . '/includes/partner_control.php')) {
+        require_once __DIR__ . '/includes/partner_control.php';
+    }
+    $clientSecret = decentroClientSecret();
     if (!$clientSecret) {
-        // No secret configured — accept in sandbox, reject in production
-        return getSetting('decentro_environment', 'sandbox') === 'sandbox';
+        return isDecentroSandboxEnvironment();
     }
     if ($signature === '') {
-        // No signature header — accept in sandbox, reject in production
-        return getSetting('decentro_environment', 'sandbox') === 'sandbox';
+        return isDecentroSandboxEnvironment();
     }
     $expected = hash_hmac('sha256', $rawBody, $clientSecret);
     return hash_equals($expected, $signature);

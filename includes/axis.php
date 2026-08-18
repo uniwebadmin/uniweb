@@ -5,21 +5,33 @@ declare(strict_types=1);
 
 function axisCredentials(): array
 {
+    if (!function_exists('axisPartnerSetting') && is_file(__DIR__ . '/partner_control.php')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    $clientId = function_exists('axisPartnerSetting')
+        ? axisPartnerSetting('axis_client_id', axisPartnerSetting('axis_api_key', ''))
+        : '';
+    $clientSecret = function_exists('axisPartnerSetting')
+        ? axisPartnerSetting('axis_client_secret', axisPartnerSetting('axis_api_secret', ''))
+        : '';
     return [
-        'client_id' => getSetting('axis_client_id', getSetting('axis_api_key', '')),
-        'client_secret' => getSetting('axis_client_secret', getSetting('axis_api_secret', '')),
-        'app_name' => getSetting('axis_app_name', 'UNIWEB Collection API'),
-        'application_id' => getSetting('axis_application_id', ''),
-        'oauth_redirect' => getSetting('axis_oauth_redirect', APP_URL),
-        'channel_id' => getSetting('axis_channel_id', ''),
-        'corporate_id' => getSetting('axis_corporate_id', ''),
-        'master_account' => getSetting('axis_master_account', ''),
+        'client_id' => $clientId,
+        'client_secret' => $clientSecret,
+        'app_name' => axisPartnerSetting('axis_app_name', 'UNIWEB Collection API'),
+        'application_id' => axisPartnerSetting('axis_application_id', ''),
+        'oauth_redirect' => axisPartnerSetting('axis_oauth_redirect', APP_URL),
+        'channel_id' => axisPartnerSetting('axis_channel_id', ''),
+        'corporate_id' => axisPartnerSetting('axis_corporate_id', ''),
+        'master_account' => axisPartnerSetting('axis_master_account', ''),
     ];
 }
 
 function axisUatBases(): array
 {
-    $custom = trim(getSetting('axis_base_url', ''));
+    if (!function_exists('axisPartnerSetting') && is_file(__DIR__ . '/partner_control.php')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    $custom = function_exists('axisPartnerSetting') ? trim(axisPartnerSetting('axis_base_url', '')) : '';
     if ($custom !== '') {
         return [rtrim($custom, '/')];
     }
@@ -31,8 +43,13 @@ function axisUatBases(): array
 
 function axisApiBase(): string
 {
-    if (getSetting('axis_environment', 'uat') === 'production') {
-        $custom = trim(getSetting('axis_base_url', ''));
+    if (!function_exists('partnerActiveEnvironment') && is_file(__DIR__ . '/partner_control.php')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    $isProd = function_exists('partnerActiveEnvironment')
+        && partnerActiveEnvironment('axis', 'uat') === 'production';
+    if ($isProd) {
+        $custom = function_exists('axisPartnerSetting') ? trim(axisPartnerSetting('axis_base_url', '')) : '';
         return $custom !== '' ? rtrim($custom, '/') : 'https://api.axis.bank.in';
     }
     return axisUatBases()[0];
@@ -311,7 +328,7 @@ function axisParseVaResponse(?array $resp): ?array
     return [
         'va_id' => $data['virtualAccountId'] ?? $data['vaId'] ?? $resp['id'] ?? '',
         'va_number' => $va,
-        'ifsc' => $data['ifsc'] ?? $data['ifscCode'] ?? getSetting('axis_va_ifsc', 'UTIB0000000'),
+        'ifsc' => $data['ifsc'] ?? $data['ifscCode'] ?? axisPartnerSetting('axis_va_ifsc', 'UTIB0000000'),
         'upi_id' => $data['upiId'] ?? $data['vpa'] ?? $data['upiVpa'] ?? '',
     ];
 }
@@ -325,7 +342,7 @@ function axisBuildVaPayload(array $merchant): array
     $inner = [
         'merchantReference' => $code,
         'merchantReferenceId' => $code,
-        'customerCode' => getSetting('axis_corporate_id', $code),
+        'customerCode' => axisPartnerSetting('axis_corporate_id', $code),
         'accountName' => $merchant['business_name'] ?? $merchant['name'] ?? 'Merchant',
         'merchantName' => $merchant['business_name'] ?? $merchant['name'] ?? 'Merchant',
         'email' => $merchant['email'] ?? '',
@@ -333,8 +350,8 @@ function axisBuildVaPayload(array $merchant): array
         'mobile' => $phone,
         'mobileNumber' => $phone,
         'description' => 'UniWeb VA — ' . $code,
-        'channelId' => getSetting('axis_channel_id', ''),
-        'appName' => getSetting('axis_app_name', 'UNIWEB Collection API'),
+        'channelId' => axisPartnerSetting('axis_channel_id', ''),
+        'appName' => axisPartnerSetting('axis_app_name', 'UNIWEB Collection API'),
     ];
 
     return ['Data' => $inner, 'Risk' => new stdClass()];
@@ -369,7 +386,7 @@ function createAxisVirtualAccount(array $merchant): ?array
         return [
             'va_id' => 'MOCK_' . $suffix,
             'va_number' => 'AXIS' . str_pad((string)$merchantId, 10, '0', STR_PAD_LEFT),
-            'ifsc' => getSetting('axis_va_ifsc', 'UTIB0000000'),
+            'ifsc' => axisPartnerSetting('axis_va_ifsc', 'UTIB0000000'),
             'upi_id' => strtolower($suffix) . '@axisbank',
             '_source' => 'mock',
         ];
@@ -451,7 +468,7 @@ function axisTestConnection(): array
         'configured' => (bool)($c['client_id'] && $c['client_secret']),
         'base_url' => axisApiBase(),
         'app_name' => $c['app_name'],
-        'environment' => getSetting('axis_environment', 'uat'),
+        'environment' => partnerActiveEnvironment('axis', 'uat'),
         'server_ip' => $diag['server_ip'],
         'dns' => $dns,
         'token' => null,

@@ -606,33 +606,14 @@ function getGatewayById(int $gatewayId): ?array
 }
 
 /**
- * Save gateway config (API keys stored in gateway_settings table).
+ * @deprecated PG secrets must be saved via Partner Registry → Keys (partner_credentials).
  */
 function saveGatewayConfig(int $gatewayId, array $keys): array
 {
-    ensurePaymentMethodsTable();
-    $db = getDB();
-    try {
-        $gw = getGatewayById($gatewayId);
-        if (!$gw) return ['ok' => false, 'error' => 'Gateway not found.'];
-
-        foreach ($keys as $k => $v) {
-            $v = trim((string)$v);
-            $db->prepare('INSERT INTO gateway_settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=?')
-                ->execute([$k, $v, $v]);
-        }
-
-        // Store config metadata in config_json
-        $configMeta = json_decode($gw['config_json'] ?? '{}', true) ?: [];
-        $configMeta['keys_saved_at'] = date('Y-m-d H:i:s');
-        $configMeta['keys_count'] = count(array_filter($keys, fn($v) => trim($v) !== ''));
-        $db->prepare("UPDATE gateway_registry SET config_json=? WHERE id=?")
-            ->execute([json_encode($configMeta), $gatewayId]);
-
-        return ['ok' => true];
-    } catch (Throwable $e) {
-        return ['ok' => false, 'error' => $e->getMessage()];
-    }
+    return [
+        'ok' => false,
+        'error' => 'Partner PG keys are saved in Partner Registry → Partner Detail → Keys, not gateway_settings.',
+    ];
 }
 
 /**

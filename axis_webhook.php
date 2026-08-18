@@ -1,7 +1,10 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('axisPartnerSetting') && is_file(__DIR__ . '/includes/partner_control.php')) {
+    require_once __DIR__ . '/includes/partner_control.php';
+}
 
-$secret = getSetting('axis_webhook_secret', '');
+$secret = axisPartnerSetting('axis_webhook_secret', '');
 $raw = file_get_contents('php://input');
 $headers = function_exists('getallheaders') ? getallheaders() : [];
 $headerMap = [];

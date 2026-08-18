@@ -1232,6 +1232,12 @@ $assert(str_contains($gwP1, 'template for new merchants') || str_contains($gwP1,
 $assert(str_contains($navSrc, 'gateway_settings.php') && str_contains($navSrc, 'Platform Settings'), 'p1_nav_platform_settings_not_integrations');
 $siteP1 = (string)file_get_contents($root . '/admin_website.php');
 $assert(str_contains($siteP1, 'Partner Registry → Partner Detail → Keys') && !str_contains($siteP1, 'paste in Gateway Settings'), 'p1_website_keys_guide_points_to_registry');
+$benSrc = (string)file_get_contents($root . '/includes/beneficiaries.php');
+$assert(!str_contains($benSrc, "getSetting('decentro_api_key'") && str_contains($benSrc, 'decentroClientId()'), 'p1_beneficiaries_registry_decentro');
+$assert(str_contains($pCtrl, 'function partnerCredentialEnvBucket') && str_contains($pCtrl, 'function cashfreePayoutClientId'), 'p1_partner_env_and_payout_helpers');
+$assert(!str_contains((string)file_get_contents($root . '/includes/pg_webhooks.php'), "getSetting('cashfree_secret_key'"), 'p1_pg_webhooks_cashfree_registry_only');
+$assert(str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'Partner Registry'), 'p1_save_gateway_config_deprecated');
+$assert(!str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'getSetting($field'), 'p1_rbl_no_gateway_settings_fallback');
 
 // P1-02: commercial UPSERT + seed on first open; route is scaffold not live API
 $splitP1 = (string)file_get_contents($root . '/includes/split_settlement.php');

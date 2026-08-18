@@ -112,10 +112,8 @@ function verifyBeneficiary(int $beneficiaryId, ?int $verifiedBy = null): array
     $apiResult = null;
     $provider = null;
 
-    // Try Decentro penny drop if configured
-    $decentroKey = trim(getSetting('decentro_api_key', ''));
-    $decentroSecret = trim(getSetting('decentro_api_secret', ''));
-    if ($decentroKey !== '' && $decentroSecret !== '') {
+    // Try Decentro penny drop if configured (Partner Registry → Decentro → Keys)
+    if (function_exists('isDecentroConfigured') ? isDecentroConfigured() : (decentroClientId() !== '' && decentroClientSecret() !== '')) {
         $provider = 'decentro';
         $apiResult = decentroPennyDrop(
             $ben['account_number'],
@@ -126,8 +124,8 @@ function verifyBeneficiary(int $beneficiaryId, ?int $verifiedBy = null): array
 
     // Try Cashfree beneficiary verification if configured
     if (!$apiResult) {
-        $cfKey = trim(getSetting('cashfree_payout_client_id', ''));
-        $cfSecret = trim(getSetting('cashfree_payout_client_secret', ''));
+        $cfKey = function_exists('cashfreePayoutClientId') ? cashfreePayoutClientId() : getPartnerSetting('cashfree', 'cashfree_payout_client_id', '');
+        $cfSecret = function_exists('cashfreePayoutClientSecret') ? cashfreePayoutClientSecret() : getPartnerSetting('cashfree', 'cashfree_payout_client_secret', '');
         if ($cfKey !== '' && $cfSecret !== '') {
             $provider = 'cashfree';
             $apiResult = cashfreePennyDrop(
@@ -195,9 +193,12 @@ function verifyBeneficiary(int $beneficiaryId, ?int $verifiedBy = null): array
  */
 function decentroPennyDrop(string $accountNumber, string $ifsc, string $name): array
 {
-    $apiKey = trim(getSetting('decentro_api_key', ''));
-    $apiSecret = trim(getSetting('decentro_api_secret', ''));
-    $baseUrl = trim(getSetting('decentro_base_url', 'https://api.decentro.tech'));
+    if (!function_exists('decentroClientId') && is_file(__DIR__ . '/partner_control.php')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    $apiKey = decentroClientId();
+    $apiSecret = decentroClientSecret();
+    $baseUrl = function_exists('decentroBaseUrl') ? decentroBaseUrl() : 'https://api.decentro.tech';
 
     $payload = json_encode([
         'account_number' => $accountNumber,
@@ -248,9 +249,12 @@ function decentroPennyDrop(string $accountNumber, string $ifsc, string $name): a
  */
 function cashfreePennyDrop(string $accountNumber, string $ifsc, string $name): array
 {
-    $clientId = trim(getSetting('cashfree_payout_client_id', ''));
-    $clientSecret = trim(getSetting('cashfree_payout_client_secret', ''));
-    $baseUrl = trim(getSetting('cashfree_payout_base_url', 'https://payout-api.cashfree.com'));
+    if (!function_exists('cashfreePayoutClientId') && is_file(__DIR__ . '/partner_control.php')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    $clientId = cashfreePayoutClientId();
+    $clientSecret = cashfreePayoutClientSecret();
+    $baseUrl = function_exists('cashfreePayoutBaseUrl') ? cashfreePayoutBaseUrl() : 'https://payout-api.cashfree.com';
 
     $ch = curl_init($baseUrl . '/payout/v1/verifyBankAccount');
     curl_setopt_array($ch, [

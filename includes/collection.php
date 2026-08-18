@@ -446,7 +446,7 @@ function ensureAxisVirtualAccount(int $merchantId): ?array
     if (!empty($merchant['axis_va_number'])) {
         return [
             'va_number' => $merchant['axis_va_number'],
-            'va_ifsc' => $merchant['axis_va_ifsc'] ?? getSetting('axis_va_ifsc', 'UTIB0000000'),
+            'va_ifsc' => $merchant['axis_va_ifsc'] ?? (function_exists('axisPartnerSetting') ? axisPartnerSetting('axis_va_ifsc', 'UTIB0000000') : 'UTIB0000000'),
             'va_upi' => $merchant['axis_va_upi'] ?? '',
             'axis_va_id' => $merchant['axis_va_id'] ?? '',
         ];
@@ -457,7 +457,7 @@ function ensureAxisVirtualAccount(int $merchantId): ?array
 
     $normalized = [
         'va_number' => $va['va_number'] ?? '',
-        'va_ifsc' => $va['ifsc'] ?? $va['va_ifsc'] ?? getSetting('axis_va_ifsc', 'UTIB0000000'),
+        'va_ifsc' => $va['ifsc'] ?? $va['va_ifsc'] ?? (function_exists('axisPartnerSetting') ? axisPartnerSetting('axis_va_ifsc', 'UTIB0000000') : 'UTIB0000000'),
         'va_upi' => $va['upi_id'] ?? $va['va_upi'] ?? '',
         'axis_va_id' => $va['va_id'] ?? $va['axis_va_id'] ?? '',
     ];

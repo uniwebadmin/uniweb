@@ -176,10 +176,10 @@ function providerCredentialsMatchOrderMode(string $provider, string $mode): bool
 {
     $provider = strtolower($provider);
     if ($provider === 'razorpay') {
-        $keyId = function_exists('getPartnerSetting') ? getPartnerSetting('razorpay', 'razorpay_key_id', '') : getSetting('razorpay_key_id', '');
+        $keyId = getPartnerSetting('razorpay', 'razorpay_key_id', '');
         $credentialMode = str_starts_with((string)$keyId, 'rzp_live_') ? 'live' : 'test';
     } elseif ($provider === 'cashfree') {
-        $credentialMode = getSetting('cashfree_environment', 'production') === 'sandbox' ? 'test' : 'live';
+        $credentialMode = cashfreeActiveCredentialMode();
     } else {
         return true;
     }

@@ -63,10 +63,13 @@ function confirmUpiPaymentForLink(array $link, string $utr, bool $isTestCheckout
 
 function decentroSandboxCheckoutAvailable(array $link): bool
 {
+    if (!function_exists('isDecentroSandboxEnvironment') && is_file(__DIR__ . '/partner_control.php')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
     return paymentModeForLink($link) === 'test'
-        && getSetting('decentro_environment', 'sandbox') === 'sandbox'
+        && isDecentroSandboxEnvironment()
         && isGatewayConfigured('decentro')
-        && getSetting('decentro_consumer_urn', '') !== '';
+        && decentroConsumerUrn() !== '';
 }
 
 function createDecentroSandboxCheckoutQr(array $link): array

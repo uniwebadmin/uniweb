@@ -52,6 +52,7 @@ function getPartnerRegistry(): array
                 'axis_corporate_id' => ['label' => 'Corporate ID', 'type' => 'text'],
                 'axis_webhook_secret' => ['label' => 'Webhook Secret', 'type' => 'password'],
                 'axis_base_url' => ['label' => 'API Base URL (optional)', 'type' => 'text'],
+                'axis_va_ifsc' => ['label' => 'Default VA IFSC', 'type' => 'text'],
             ],
             'checklist' => [
                 'Subscribe Virtual Account + Collections APIs on Axis portal',
@@ -80,6 +81,8 @@ function getPartnerRegistry(): array
                 'decentro_client_secret' => ['label' => 'Client Secret', 'type' => 'password'],
                 'decentro_module_secret' => ['label' => 'Module Secret', 'type' => 'password'],
                 'decentro_provider_secret' => ['label' => 'Provider Secret', 'type' => 'password'],
+                'decentro_consumer_urn' => ['label' => 'Consumer URN (UPI/QR)', 'type' => 'text'],
+                'decentro_base_url' => ['label' => 'API Base URL (optional)', 'type' => 'text'],
             ],
             'checklist' => [
                 'Sign up on Decentro dashboard',
@@ -186,6 +189,7 @@ function getPartnerRegistry(): array
                 'cashfree_secret_key' => ['label' => 'Secret Key', 'type' => 'password'],
                 'cashfree_payout_client_id' => ['label' => 'Payout Client ID (optional)', 'type' => 'text'],
                 'cashfree_payout_client_secret' => ['label' => 'Payout Client Secret (optional)', 'type' => 'password'],
+                'cashfree_payout_base_url' => ['label' => 'Payout API Base URL (optional)', 'type' => 'text'],
             ],
             'checklist' => [
                 'Cashfree merchant signup',
@@ -628,14 +632,14 @@ function partnerTestConnection(string $partnerKey): array
 function partnerSaveConfig(string $partnerKey, array $data): void
 {
     $reg = getPartnerRegistry()[$partnerKey] ?? null;
-    if (!$reg) return;
-    $db = getDB();
-    foreach ($reg['config_keys'] as $key => $meta) {
-        if (!array_key_exists($key, $data)) continue;
-        $v = trim((string)$data[$key]);
-        $db->prepare('INSERT INTO gateway_settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=?')
-            ->execute([$key, $v, $v]);
+    if (!$reg) {
+        return;
     }
+    if (!function_exists('savePartnerCredentials')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    $env = partnerCredentialEnvBucket($partnerKey);
+    savePartnerCredentials($partnerKey, $env, $data, $reg['config_keys'] ?? []);
 }
 
 function partnerConfiguredCount(): array

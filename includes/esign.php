@@ -49,9 +49,10 @@ function generateEsignId(): string
 
 function getEsignProvider(): string
 {
-    $decentroKey = trim(getSetting('decentro_api_key', ''));
-    $decentroSecret = trim(getSetting('decentro_api_secret', ''));
-    if ($decentroKey !== '' && $decentroSecret !== '') {
+    if (!function_exists('isDecentroConfigured') && is_file(__DIR__ . '/partner_control.php')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    if (function_exists('isDecentroConfigured') && isDecentroConfigured()) {
         return 'decentro';
     }
     $emudhraKey = trim(getSetting('emudhra_api_key', ''));
@@ -232,9 +233,12 @@ function getEsignStats(): array
 
 function decentroEsignInitiate(string $esignId, string $documentHash, array $signerInfo): array
 {
-    $apiKey = trim(getSetting('decentro_api_key', ''));
-    $apiSecret = trim(getSetting('decentro_api_secret', ''));
-    $baseUrl = trim(getSetting('decentro_base_url', 'https://api.decentro.tech'));
+    if (!function_exists('decentroClientId') && is_file(__DIR__ . '/partner_control.php')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    $apiKey = decentroClientId();
+    $apiSecret = decentroClientSecret();
+    $baseUrl = decentroBaseUrl();
 
     $payload = json_encode([
         'reference_id' => $esignId,
@@ -277,9 +281,12 @@ function decentroEsignInitiate(string $esignId, string $documentHash, array $sig
 
 function decentroEsignVerifyOtp(string $txnId, string $otp): array
 {
-    $apiKey = trim(getSetting('decentro_api_key', ''));
-    $apiSecret = trim(getSetting('decentro_api_secret', ''));
-    $baseUrl = trim(getSetting('decentro_base_url', 'https://api.decentro.tech'));
+    if (!function_exists('decentroClientId') && is_file(__DIR__ . '/partner_control.php')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    $apiKey = decentroClientId();
+    $apiSecret = decentroClientSecret();
+    $baseUrl = decentroBaseUrl();
 
     $ch = curl_init($baseUrl . '/v2/kyc/esign/verify');
     curl_setopt_array($ch, [

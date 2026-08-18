@@ -198,8 +198,8 @@ function uniwebPartnerCredentialSettingMap(): array
         'phonepe' => ['phonepe_merchant_id', 'phonepe_salt_key'],
         'pinelabs' => ['pinelabs_merchant_id', 'pinelabs_access_code', 'pinelabs_secure_key', 'pinelabs_api_key', 'pinelabs_api_secret'],
         'worldline' => ['worldline_merchant_id', 'worldline_access_key', 'worldline_secret_key'],
-        'decentro' => ['decentro_client_id', 'decentro_client_secret', 'decentro_api_key', 'decentro_api_secret'],
-        'axis' => ['axis_client_id', 'axis_client_secret', 'axis_api_key', 'axis_api_secret'],
+        'decentro' => ['decentro_client_id', 'decentro_client_secret', 'decentro_api_key', 'decentro_api_secret', 'decentro_module_secret', 'decentro_provider_secret', 'decentro_consumer_urn', 'decentro_base_url'],
+        'axis' => ['axis_client_id', 'axis_client_secret', 'axis_api_key', 'axis_api_secret', 'axis_webhook_secret', 'axis_application_id', 'axis_channel_id', 'axis_corporate_id', 'axis_master_account', 'axis_base_url', 'axis_va_ifsc'],
         'rbl' => ['rbl_client_id', 'rbl_client_secret', 'rbl_api_key', 'rbl_api_secret'],
     ];
 }
@@ -273,6 +273,118 @@ function decentroClientSecret(): string
     return getPartnerSetting('decentro', 'decentro_client_secret', '');
 }
 
+/** Active partner env label (sandbox/uat/test vs live/production) — Registry first, never plaintext PG secrets from Plane A. */
+function partnerActiveEnvironment(string $partnerKey, string $default = 'test'): string
+{
+    if (!function_exists('getPartnerRegistry')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $reg = getPartnerRegistry()[$partnerKey] ?? null;
+    $envKey = (string)($reg['env_key'] ?? $partnerKey . '_environment');
+    foreach (['live', 'test', 'production', 'sandbox'] as $bucket) {
+        $creds = getPartnerCredentials($partnerKey, $bucket);
+        if (!empty($creds[$envKey])) {
+            return strtolower(trim((string)$creds[$envKey]));
+        }
+    }
+    return strtolower(trim($default));
+}
+
+/** Which encrypted credential bucket to load (test vs live). */
+function partnerCredentialEnvBucket(string $partnerKey): string
+{
+    $env = partnerActiveEnvironment($partnerKey, 'test');
+    if (in_array($env, ['live', 'production'], true)) {
+        return 'live';
+    }
+    return 'test';
+}
+
+function isDecentroConfigured(): bool
+{
+    return decentroClientId() !== '' && decentroClientSecret() !== '';
+}
+
+function isDecentroSandboxEnvironment(): bool
+{
+    return in_array(partnerActiveEnvironment('decentro', 'sandbox'), ['sandbox', 'test', 'uat'], true);
+}
+
+function decentroBaseUrl(): string
+{
+    $custom = trim(getPartnerSetting('decentro', 'decentro_base_url', ''));
+    if ($custom !== '') {
+        return rtrim($custom, '/');
+    }
+    return isDecentroSandboxEnvironment()
+        ? 'https://in.staging.decentro.tech'
+        : 'https://api.decentro.tech';
+}
+
+function decentroConsumerUrn(): string
+{
+    return getPartnerSetting('decentro', 'decentro_consumer_urn', '');
+}
+
+function decentroModuleSecret(): string
+{
+    return getPartnerSetting('decentro', 'decentro_module_secret', '');
+}
+
+function decentroProviderSecret(): string
+{
+    return getPartnerSetting('decentro', 'decentro_provider_secret', '');
+}
+
+function cashfreePayoutClientId(): string
+{
+    return getPartnerSetting('cashfree', 'cashfree_payout_client_id', '');
+}
+
+function cashfreePayoutClientSecret(): string
+{
+    return getPartnerSetting('cashfree', 'cashfree_payout_client_secret', '');
+}
+
+function cashfreePayoutBaseUrl(): string
+{
+    $custom = trim(getPartnerSetting('cashfree', 'cashfree_payout_base_url', ''));
+    if ($custom !== '') {
+        return rtrim($custom, '/');
+    }
+    return in_array(partnerActiveEnvironment('cashfree', 'production'), ['sandbox', 'test'], true)
+        ? 'https://payout-gamma.cashfree.com'
+        : 'https://payout-api.cashfree.com';
+}
+
+function cashfreeActiveCredentialMode(): string
+{
+    return in_array(partnerActiveEnvironment('cashfree', 'production'), ['sandbox', 'test'], true) ? 'test' : 'live';
+}
+
+function axisPartnerSetting(string $keyName, string $default = ''): string
+{
+    return getPartnerSetting('axis', $keyName, $default);
+}
+
+function razorpayxAccountNumber(): string
+{
+    $acct = trim(getPartnerSetting('razorpayx', 'razorpayx_account_number', ''));
+    if ($acct !== '') {
+        return $acct;
+    }
+    return trim(getPartnerSetting('razorpay', 'razorpayx_account_number', ''));
+}
+
+function razorpayxKeyId(): string
+{
+    $key = trim(getPartnerSetting('razorpayx', 'razorpayx_key_id', ''));
+    if ($key !== '') {
+        return $key;
+    }
+    return trim(getPartnerSetting('razorpay', 'razorpay_key_id', ''));
+}
+
 /**
  * Bridge: read a single partner key from encrypted partner_credentials only (P1-01).
  * Does not read plaintext gateway_settings. Migrate-then-wipe runs first via ensurePartnerControlTables().
@@ -285,13 +397,7 @@ function getPartnerSetting(string $partnerKey, string $keyName, string $default 
         return $cache[$ck];
     }
 
-    $env = 'test';
-    if (function_exists('getSetting')) {
-        $envVal = strtolower(trim((string)getSetting($partnerKey . '_environment', '')));
-        if (in_array($envVal, ['live', 'production'], true)) {
-            $env = 'live';
-        }
-    }
+    $env = partnerCredentialEnvBucket($partnerKey);
 
     $creds = getPartnerCredentials($partnerKey, $env);
     if (empty($creds) && $env === 'live') {

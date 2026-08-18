@@ -10,13 +10,16 @@ declare(strict_types=1);
 
 function rblPartnerCredential(string $field, string $default = ''): string
 {
+    if (!function_exists('getPartnerSetting') && is_file(__DIR__ . '/partner_control.php')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
     if (function_exists('getPartnerSetting')) {
         $v = trim(getPartnerSetting('rbl', $field, ''));
         if ($v !== '') {
             return $v;
         }
     }
-    return trim((string)getSetting($field, $default));
+    return $default;
 }
 
 function rblBaseUrl(): string

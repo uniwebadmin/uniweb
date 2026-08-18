@@ -79,14 +79,7 @@ function payoutReferenceFromJob(array $job): string
 function razorpayxPlatformAccountNumber(): string
 {
     payoutPartnerRequireControl();
-    $acct = trim(getPartnerSetting('razorpayx', 'razorpayx_account_number', ''));
-    if ($acct === '') {
-        $acct = trim(getPartnerSetting('razorpay', 'razorpayx_account_number', ''));
-    }
-    if ($acct === '' && function_exists('getSetting')) {
-        $acct = trim((string)getSetting('razorpayx_account_number', ''));
-    }
-    return $acct;
+    return razorpayxAccountNumber();
 }
 
 /**

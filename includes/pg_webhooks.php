@@ -85,7 +85,10 @@ function verifyRazorpayWebhookSignature(string $rawBody, string $signature): boo
 
 function verifyCashfreeWebhookSignature(string $rawBody, string $signature, string $timestamp): bool
 {
-    $secret = function_exists('cashfreeSecretKey') ? cashfreeSecretKey() : getSetting('cashfree_secret_key', '');
+    if (!function_exists('cashfreeSecretKey') && is_file(__DIR__ . '/partner_control.php')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    $secret = cashfreeSecretKey();
     if (!$secret || $signature === '' || $timestamp === '') {
         return false;
     }

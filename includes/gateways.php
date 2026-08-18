@@ -1045,17 +1045,11 @@ function decentroV3Headers(): array
         'client_id: ' . $clientId,
         'client_secret: ' . $clientSecret,
     ];
-    $moduleSecret = trim(getPartnerSetting('decentro', 'decentro_module_secret', ''));
-    if ($moduleSecret === '' && function_exists('getSetting')) {
-        $moduleSecret = trim((string)getSetting('decentro_module_secret', ''));
-    }
+    $moduleSecret = decentroModuleSecret();
     if ($moduleSecret !== '') {
         $headers[] = 'module_secret: ' . $moduleSecret;
     }
-    $providerSecret = trim(getPartnerSetting('decentro', 'decentro_provider_secret', ''));
-    if ($providerSecret === '' && function_exists('getSetting')) {
-        $providerSecret = trim((string)getSetting('decentro_provider_secret', ''));
-    }
+    $providerSecret = decentroProviderSecret();
     if ($providerSecret !== '') {
         $headers[] = 'provider_secret: ' . $providerSecret;
     }
@@ -1104,10 +1098,7 @@ function decentroV3Request(string $endpoint, array $payload): ?array
  */
 function createDecentroDynamicQr(float $amount, string $purpose_message, string $referenceId, int $expiryMinutes = 5, ?string $consumerUrn = null, ?string $customUrl = null): ?array
 {
-    $consumerUrn ??= trim(getPartnerSetting('decentro', 'decentro_consumer_urn', ''));
-    if (($consumerUrn ?? '') === '' && function_exists('getSetting')) {
-        $consumerUrn = getSetting('decentro_consumer_urn', '');
-    }
+    $consumerUrn ??= decentroConsumerUrn();
     if ($consumerUrn === '' || $amount <= 0) {
         return null;
     }
