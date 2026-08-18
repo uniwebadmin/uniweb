@@ -871,7 +871,14 @@ function merchantApprovedNetworkSummary(int $merchantId): string
 
 function partnerDisplayName(string $gateway): string
 {
-    return match (strtolower($gateway)) {
+    $key = strtolower(trim($gateway));
+    if (function_exists('getPartnerRegistry')) {
+        $reg = getPartnerRegistry()[$key] ?? null;
+        if ($reg && !empty($reg['name'])) {
+            return (string)$reg['name'];
+        }
+    }
+    return match ($key) {
         'razorpay' => 'Razorpay',
         'cashfree' => 'Cashfree',
         'payu' => 'PayU',

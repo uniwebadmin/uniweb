@@ -8,7 +8,7 @@ declare(strict_types=1);
  * instead of failing the checkout outright.
  */
 
-function ensureGatewayHealthTable(): void
+function ensureGatewayHealthEventsTable(): void
 {
     static $done = false;
     if ($done) {
@@ -29,7 +29,7 @@ function ensureGatewayHealthTable(): void
 
 function recordGatewayOutcome(string $gateway, bool $ok, ?string $detail = null): void
 {
-    ensureGatewayHealthTable();
+    ensureGatewayHealthEventsTable();
     try {
         getDB()->prepare('INSERT INTO gateway_health_events (gateway, outcome, detail) VALUES (?,?,?)')
             ->execute([$gateway, $ok ? 'ok' : 'fail', $detail ? mb_substr($detail, 0, 255) : null]);
@@ -39,7 +39,7 @@ function recordGatewayOutcome(string $gateway, bool $ok, ?string $detail = null)
 /** Unhealthy = 3+ consecutive/recent failures in the last 10 minutes with no success since. */
 function isGatewayHealthy(string $gateway): bool
 {
-    ensureGatewayHealthTable();
+    ensureGatewayHealthEventsTable();
     try {
         $st = getDB()->prepare("SELECT outcome FROM gateway_health_events WHERE gateway = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE) ORDER BY id DESC LIMIT 3");
         $st->execute([$gateway]);
@@ -60,7 +60,7 @@ function isGatewayHealthy(string $gateway): bool
 
 function gatewayHealthSummary(): array
 {
-    ensureGatewayHealthTable();
+    ensureGatewayHealthEventsTable();
     $out = [];
     foreach (['razorpay', 'cashfree', 'payu'] as $gw) {
         $out[$gw] = [

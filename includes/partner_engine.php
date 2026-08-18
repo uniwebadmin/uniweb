@@ -683,12 +683,6 @@ function getCheckoutPgPartnerKeys(): array
     return $keys;
 }
 
-function partnerDisplayName(string $partnerKey): string
-{
-    $reg = getPartnerRegistry()[strtolower(trim($partnerKey))] ?? null;
-    return $reg ? (string)$reg['name'] : ucfirst($partnerKey);
-}
-
 function partnerLogApi(string $partnerKey, string $endpoint, string $method, ?string $request, ?string $response, int $httpCode, string $status = 'ok'): void
 {
     ensurePartnerEngine();
