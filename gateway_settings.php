@@ -138,6 +138,10 @@ $pageTitle = 'Platform Settings';
 require_once __DIR__ . '/header.php';
 $activePg = $settingsMap['active_payment_gateway'] ?? 'razorpay';
 $gatewayGaps = function_exists('getGatewaySetupGaps') ? getGatewaySetupGaps() : [];
+if (!function_exists('methodKeysReadinessReport')) {
+    require_once __DIR__ . '/includes/method_keys_workflow.php';
+}
+$methodKeysReport = methodKeysReadinessReport();
 $gatewayCards = [
     ['id' => 'razorpay', 'label' => 'Razorpay', 'test' => true],
     ['id' => 'cashfree', 'label' => 'Cashfree', 'test' => true],
@@ -170,10 +174,36 @@ $gatewayCards = [
     <p class="font-semibold text-emerald-300 text-sm mb-2">Live corridor (soft launch) — do these before advertise</p>
     <ul class="space-y-1 list-disc list-inside">
         <li>CR-01 on live Hostinger <code class="text-gray-500">config.php</code> (notifications) — never overwrite DB password / encryption key.</li>
-        <li>Below: <strong class="text-gray-300">Apply pending migrations</strong> → <code class="text-sky-300">ok: true</code>.</li>
+        <li>Below: <strong class="text-gray-300">Apply pending migrations</strong> → <code class="text-sky-300">ok: true</code> (incl. <strong class="text-gray-300">072</strong> method key normalize).</li>
         <li>Partner Test keys + Test Connection → merchant Test Mode → <strong class="text-gray-300">Instant Test Pay</strong> once.</li>
         <li>SMTP section + backup notify email on this page.</li>
     </ul>
+</div>
+<div class="glass rounded-xl p-4 mb-6 border border-violet-500/30 max-w-4xl text-xs">
+    <p class="font-semibold text-violet-300 text-sm mb-2">Method key aliases (Audit #10 · migration 072)</p>
+    <p class="text-gray-400 mb-3"><?= e($methodKeysReport['message']) ?></p>
+    <div class="grid sm:grid-cols-2 gap-3">
+        <div class="rounded-lg border border-emerald-500/25 bg-emerald-950/20 p-3">
+            <p class="text-[10px] uppercase text-emerald-400 mb-2">Canonical examples</p>
+            <?php foreach ($methodKeysReport['examples'] as $ex): ?>
+            <p class="font-mono text-[11px] text-gray-400 mb-1">
+                <span class="text-amber-300"><?= e($ex['alias']) ?></span>
+                → <span class="text-emerald-300"><?= e($ex['canonical']) ?></span>
+                <?php if ($ex['registry'] !== $ex['canonical']): ?>
+                <span class="text-gray-600"> (registry: <?= e($ex['registry']) ?>)</span>
+                <?php endif; ?>
+            </p>
+            <?php endforeach; ?>
+        </div>
+        <div class="rounded-lg border border-slate-600/40 bg-slate-900/30 p-3">
+            <p class="text-[10px] uppercase text-slate-400 mb-2">Single writers (always normalize)</p>
+            <ul class="text-[11px] text-gray-500 space-y-1 list-disc list-inside">
+                <?php foreach ($methodKeysReport['writers'] as $fn): ?>
+                <li><code class="text-gray-400"><?= e($fn) ?>()</code></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    </div>
 </div>
 <?php if (!empty($gatewayGaps)): ?>
 <div class="glass rounded-xl p-5 mb-6 border border-amber-500/40 bg-amber-500/5 max-w-4xl">
@@ -408,8 +438,20 @@ $gatewayCards = [
         if (!function_exists('getRouteSplitReadinessChecklist') && is_file(__DIR__ . '/includes/split_settlement.php')) {
             require_once __DIR__ . '/includes/split_settlement.php';
         }
+        if (!function_exists('routeSplitReadinessReport')) {
+            require_once __DIR__ . '/includes/route_split_workflow.php';
+        }
+        if (!function_exists('cloudModulesAutoKycReadinessReport')) {
+            require_once __DIR__ . '/includes/cloud_modules_workflow.php';
+        }
+        if (!function_exists('registryKindReadinessReport')) {
+            require_once __DIR__ . '/includes/registry_kind_workflow.php';
+        }
         $recurringReady = function_exists('getRecurringReadinessChecklist') ? getRecurringReadinessChecklist() : ['items' => [], 'done' => 0, 'total' => 0, 'ready' => false];
         $routeSplitReady = function_exists('getRouteSplitReadinessChecklist') ? getRouteSplitReadinessChecklist() : ['items' => [], 'done' => 0, 'total' => 0, 'ready' => false, 'phase' => 'parked'];
+        $routeSplitReport = routeSplitReadinessReport();
+        $autoKycCloudReport = cloudModulesAutoKycReadinessReport();
+        $registryKindReport = registryKindReadinessReport();
         $payoutLiveOn = ($settingsMap['payout_live_enabled'] ?? '0') === '1';
         $recurringOn = ($settingsMap['recurring_autopay_approved'] ?? '0') === '1';
         $routeSplitOn = ($settingsMap['route_split_live_enabled'] ?? '0') === '1';
@@ -445,8 +487,10 @@ $gatewayCards = [
             </div>
             <?php if (!empty($routeSplitReady['items'])): ?>
             <div class="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+                <p class="font-medium text-amber-300 mb-1">Phase 11 — <?= !empty($routeSplitReport['parked']) ? 'PARKED (default)' : 'Owner switch ON' ?></p>
+                <p class="text-gray-500 mb-2"><?= e($routeSplitReport['disclaimer'] ?? '') ?></p>
                 <p class="font-medium text-amber-300 mb-2">Route / Split readiness — <?= (int)$routeSplitReady['done'] ?>/<?= (int)$routeSplitReady['total'] ?> · Phase: <?= e($routeSplitReady['phase'] ?? 'parked') ?></p>
-                <p class="text-gray-500 mb-2"><?= e(function_exists('routeSplitActivationMessage') ? routeSplitActivationMessage() : '') ?></p>
+                <p class="text-gray-500 mb-2"><?= e($routeSplitReport['message'] ?? '') ?></p>
                 <ul class="space-y-1">
                     <?php foreach ($routeSplitReady['items'] as $item): ?>
                     <li class="<?= !empty($item['ok']) ? 'text-emerald-400' : 'text-amber-400' ?>">
@@ -478,6 +522,61 @@ $gatewayCards = [
                     </li>
                     <?php endforeach; ?>
                 </ul>
+            </div>
+            <?php endif; ?>
+            <?php if (!empty($autoKycCloudReport['checks'])): ?>
+            <div class="rounded-lg border border-sky-500/30 bg-sky-500/5 p-3 text-xs">
+                <p class="font-medium text-sky-300 mb-1">Auto KYC — local laptop + cron (not cloud agents)</p>
+                <p class="text-gray-500 mb-2"><?= e($autoKycCloudReport['policy'] ?? '') ?></p>
+                <p class="<?= !empty($autoKycCloudReport['ok']) ? 'text-emerald-400' : 'text-amber-400' ?> mb-2"><?= e($autoKycCloudReport['message'] ?? '') ?></p>
+                <ul class="space-y-1">
+                    <?php
+                    $autoKycLabels = [
+                        'work_policy_local' => 'Work policy: local laptop only',
+                        'cloud_bridge_file' => 'cloud_modules.php bridge file',
+                        'auto_kyc_in_bridge' => 'auto_kyc.php listed in bridge',
+                        'forward_queue_in_bridge' => 'partner_forward_queue.php in bridge',
+                        'auto_kyc_file' => 'includes/auto_kyc.php present',
+                        'kyc_workflow_file' => 'kyc_workflow.php present',
+                        'cron_script' => 'cron_auto_kyc.php present',
+                        'engine_loadable' => 'runAutoKycEngine loadable',
+                    ];
+                    foreach ($autoKycCloudReport['checks'] as $ck => $ok):
+                        $lbl = $autoKycLabels[$ck] ?? $ck;
+                    ?>
+                    <li class="<?= !empty($ok) ? 'text-emerald-400' : 'text-amber-400' ?>">
+                        <?= !empty($ok) ? '●' : '○' ?> <?= e($lbl) ?>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
+                <p class="text-gray-600 mt-2"><a href="admin_auto_kyc.php" class="text-sky-400 underline">Auto KYC Engine</a> · Schedule Hostinger cron every 10 min</p>
+            </div>
+            <?php endif; ?>
+            <?php if (!empty($registryKindReport['checks'])): ?>
+            <div class="rounded-lg border border-violet-500/30 bg-violet-500/5 p-3 text-xs">
+                <p class="font-medium text-violet-300 mb-1">Registry kind — methods vs partners (migration 066)</p>
+                <p class="text-gray-500 mb-2"><?= e(registryKindDisclaimer()) ?></p>
+                <p class="<?= !empty($registryKindReport['ok']) ? 'text-emerald-400' : 'text-amber-400' ?> mb-2"><?= e($registryKindReport['message'] ?? '') ?></p>
+                <ul class="space-y-1">
+                    <?php
+                    $rkLabels = [
+                        'migration_column' => 'registry_kind column (066)',
+                        'method_keys_defined' => 'paymentMethodRegistryKeys()',
+                        'partner_registry_defined' => 'getPartnerRegistry()',
+                        'partner_list_filter' => 'Partner Registry filter (partners only)',
+                        'backfill_helper' => 'backfillGatewayRegistryKinds()',
+                        'kind_clause_helper' => 'gatewayRegistryKindClause()',
+                        'no_overlap' => 'No method/partner key overlap',
+                    ];
+                    foreach ($registryKindReport['checks'] as $ck => $ok):
+                        $lbl = $rkLabels[$ck] ?? $ck;
+                    ?>
+                    <li class="<?= !empty($ok) ? 'text-emerald-400' : 'text-amber-400' ?>">
+                        <?= !empty($ok) ? '●' : '○' ?> <?= e($lbl) ?>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
+                <p class="text-gray-600 mt-2"><a href="admin_gateway_registry.php" class="text-sky-400 underline">Partner Registry</a> · <?= (int)($registryKindReport['partner_count'] ?? 0) ?> partners · <?= count($registryKindReport['method_keys'] ?? []) ?> method rails</p>
             </div>
             <?php endif; ?>
         </div>

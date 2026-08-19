@@ -13,6 +13,20 @@ $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     requireMerchantTeamCapability('settings');
+    if (($_POST['action'] ?? '') === 'create_va') {
+        ensureMerchantVirtualAccountsTable();
+        $merchant = getMerchant();
+        if (getMerchantCollectionMode($merchant) !== 'axis_va') {
+            flash('error', 'Virtual accounts are available only when your collection mode is Virtual account collection. Contact support to enable it.');
+            redirect('collection_settings.php');
+        }
+        $label = trim((string)($_POST['label'] ?? ''));
+        $result = createAdditionalVirtualAccount($merchantId, 'axis', $label);
+        flash($result['ok'] ? 'success' : 'error', $result['ok']
+            ? 'Virtual account created: ' . ($result['va']['va_number'] ?? '')
+            : ($result['error'] ?? 'Could not create virtual account.'));
+        redirect('collection_settings.php');
+    }
     if (($_POST['action'] ?? '') === 'request_method') {
         $res = requestMethodEnable($merchantId, trim($_POST['method_key'] ?? ''), $_POST['note'] ?? '');
         flash($res['ok'] ? 'success' : 'error', $res['ok'] ? $res['message'] : $res['error']);
@@ -45,9 +59,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 }
 
 $merchant = getMerchant();
-$axisVa = null;
-if (getMerchantCollectionMode($merchant) === 'axis_va') {
-    $axisVa = ensureMerchantVirtualAccount((int)$merchant['id']);
+$collectionMode = getMerchantCollectionMode($merchant);
+$merchantVas = [];
+if ($collectionMode === 'axis_va' || getMerchantPrimaryVaNumber((int)$merchant['id']) !== '') {
+    ensureMerchantVirtualAccountsTable();
+    $merchantVas = getMerchantVirtualAccounts($merchantId);
+}
+if ($collectionMode === 'axis_va' && empty($merchantVas)) {
+    ensureMerchantVirtualAccount((int)$merchant['id']);
+    $merchantVas = getMerchantVirtualAccounts($merchantId);
     $merchant = getMerchant();
 }
 $modes = getMerchantFacingCollectionModes($merchant);
@@ -99,14 +119,49 @@ require_once __DIR__ . '/header.php';
         <a href="qr_upi_print.php" class="inline-block mt-4 text-sm bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-semibold">Print Instant UPI QR →</a>
     </div>
 
-    <?php if (!empty($merchant['axis_va_number']) || $axisVa): ?>
+    <?php if ($collectionMode === 'axis_va' || !empty($merchantVas)): ?>
     <div class="glass rounded-xl p-6">
-        <h3 class="font-semibold mb-3">Axis Virtual Account</h3>
-        <div class="text-sm space-y-1 font-mono">
-            <p>VA: <?= e($merchant['axis_va_number'] ?? $axisVa['va_number'] ?? '') ?></p>
-            <p>IFSC: <?= e($merchant['axis_va_ifsc'] ?? $axisVa['ifsc'] ?? '') ?></p>
-            <?php if (!empty($merchant['axis_va_upi'])): ?><p>UPI: <?= e($merchant['axis_va_upi']) ?></p><?php endif; ?>
+        <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+                <h3 class="font-semibold">Virtual Accounts</h3>
+                <p class="text-xs text-gray-500 mt-1">Bank collect accounts (Axis). Add separate accounts for branches or projects. Checkout partners (Razorpay, Cashfree, etc.) do not create a VA here — use payment links instead.</p>
+            </div>
+            <?php if ($collectionMode === 'axis_va'): ?>
+            <form method="POST" class="flex flex-wrap items-end gap-2">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="create_va">
+                <input type="text" name="label" placeholder="Label (e.g. Branch 2)" maxlength="120" class="input-field text-sm !py-2 w-44">
+                <button type="submit" class="btn-primary text-sm px-4 py-2 whitespace-nowrap">+ Add Virtual Account</button>
+            </form>
+            <?php endif; ?>
         </div>
+        <?php if (empty($merchantVas)): ?>
+        <p class="text-sm text-gray-500">No virtual accounts yet. Use the button above to create your first one.</p>
+        <?php else: ?>
+        <div class="overflow-x-auto -mx-2"><table class="min-w-[520px] w-full text-sm">
+            <thead class="text-xs text-gray-500 uppercase"><tr>
+                <th class="px-2 py-2 text-left">Label</th>
+                <th class="px-2 py-2 text-left">VA Number</th>
+                <th class="px-2 py-2 text-left">IFSC</th>
+                <th class="px-2 py-2 text-left">UPI</th>
+                <th class="px-2 py-2 text-left">Today</th>
+                <th class="px-2 py-2 text-left">Status</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-800">
+                <?php foreach ($merchantVas as $va): ?>
+                <tr>
+                    <td class="px-2 py-2.5"><?= e($va['label'] ?: '—') ?><?= !empty($va['is_primary']) ? ' <span class="text-[10px] text-sky-400">(primary)</span>' : '' ?></td>
+                    <td class="px-2 py-2.5 font-mono text-xs"><?= e($va['va_number']) ?></td>
+                    <td class="px-2 py-2.5 font-mono text-xs text-gray-400"><?= e($va['ifsc'] ?: '—') ?></td>
+                    <td class="px-2 py-2.5 font-mono text-xs text-gray-400"><?= e($va['upi_id'] ?: '—') ?></td>
+                    <td class="px-2 py-2.5"><?= (int)$va['txn_count_today'] ?></td>
+                    <td class="px-2 py-2.5"><?= ($va['status'] ?? '') === 'active' ? '<span class="text-emerald-400 text-xs">Active</span>' : '<span class="text-amber-400 text-xs">Disabled</span>' ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table></div>
+        <p class="text-[11px] text-gray-600 mt-3">Need to disable an account? Contact support — Admin can turn accounts off if one has too many failures.</p>
+        <?php endif; ?>
     </div>
     <?php endif; ?>
 
@@ -127,13 +182,21 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <div class="glass rounded-xl p-6 border border-violet-500/20">
-        <h3 class="font-semibold mb-2">Settlement vs Route / Split</h3>
-        <p class="text-xs text-gray-500 mb-3">Market PGs (Razorpay Route, Cashfree Easy Split) send your share directly from the partner at capture. UniWeb uses <strong class="text-gray-300">standard settlement</strong> today — money settles to your wallet / bank on T+0/T+1/T+2 after commission is cut.</p>
-        <ul class="text-xs text-gray-500 space-y-1 list-disc list-inside">
-            <li><strong class="text-gray-400">Today (live):</strong> Collect → M/P split on ledger → settlement batch → bank transfer</li>
-            <li><strong class="text-gray-400">Route / Split (Phase 11):</strong> Parked — Admin prepares partner config only. No marketplace multi-vendor split yet.</li>
+        <?php
+        if (!function_exists('routeSplitMerchantEducation')) {
+            require_once __DIR__ . '/includes/route_split_workflow.php';
+        }
+        $routeEdu = routeSplitMerchantEducation();
+        ?>
+        <h3 class="font-semibold mb-2"><?= e($routeEdu['title']) ?></h3>
+        <p class="text-xs text-gray-500 mb-3"><?= e($routeEdu['today']) ?></p>
+        <ul class="text-xs text-gray-500 space-y-1 list-disc list-inside mb-3">
+            <?php foreach ($routeEdu['today_flow'] as $step): ?>
+            <li><strong class="text-gray-400"><?= e($step['label']) ?>:</strong> <?= e($step['detail']) ?></li>
+            <?php endforeach; ?>
         </ul>
-        <p class="text-[11px] text-gray-600 mt-3">You do not paste Route or vendor IDs here — Admin manages partner programme in Registry.</p>
+        <p class="text-xs text-amber-200/90 mb-2"><?= e($routeEdu['parked']) ?></p>
+        <p class="text-[11px] text-gray-600"><?= e($routeEdu['merchant_action']) ?></p>
     </div>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

@@ -22,12 +22,18 @@ function routeSplitHealthCheck(): array
     $live = routeSplitLiveEnabled();
 
     if (!$live) {
+        if (!function_exists('routeSplitParkedDisclaimer')) {
+            require_once __DIR__ . '/route_split_workflow.php';
+        }
+        $detail = function_exists('routeSplitParkedDisclaimer')
+            ? routeSplitParkedDisclaimer()
+            : 'M/P commission on capture works. Live Route SDK not started.';
         return [
             'id' => 'route_split',
             'label' => 'Route / Split (Phase 11)',
             'ok' => true,
             'status' => 'Parked — standard settlement active',
-            'detail' => 'M/P commission on capture works. Live Route SDK not started.',
+            'detail' => $detail,
             'test_url' => 'gateway_settings.php#live-money-switches',
         ];
     }
@@ -322,6 +328,22 @@ function getPlatformServiceHealth(): array
             'test_url' => function_exists('adminPartnerTestUrl') ? adminPartnerTestUrl('decentro') : 'admin_gateway_detail.php?partner=decentro&tab=test',
         ],
         recurringAutopayHealthCheck(),
+        function_exists('autoKycEngineHealthCheck') ? autoKycEngineHealthCheck() : [
+            'id' => 'auto_kyc_engine',
+            'label' => 'Auto KYC Engine',
+            'ok' => false,
+            'status' => 'Workflow missing',
+            'detail' => 'includes/cloud_modules_workflow.php not loaded',
+            'test_url' => 'admin_auto_kyc.php',
+        ],
+        function_exists('registryKindHealthCheck') ? registryKindHealthCheck() : [
+            'id' => 'registry_kind',
+            'label' => 'Registry kind (method vs partner)',
+            'ok' => false,
+            'status' => 'Workflow missing',
+            'detail' => 'includes/registry_kind_workflow.php not loaded',
+            'test_url' => 'admin_gateway_registry.php',
+        ],
         routeSplitHealthCheck(),
         smtpHealthCheck(),
         whatsappHealthCheck(),

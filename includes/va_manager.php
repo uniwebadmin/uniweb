@@ -21,6 +21,16 @@ function vaSupportedCreationGateways(): array
     return $gateways;
 }
 
+/** Human label for VA gateway key (admin UI + merchant list). */
+function vaGatewayDisplayName(string $gateway): string
+{
+    return match (strtolower(trim($gateway))) {
+        'axis' => 'Axis Bank',
+        'rbl' => 'RBL Bank',
+        default => ucfirst($gateway),
+    };
+}
+
 /** Ensure multi-VA table exists (migration 031). Safe to call from admin UI. */
 function ensureMerchantVirtualAccountsTable(): void
 {
@@ -308,9 +318,14 @@ function createAdditionalVirtualAccount(int $merchantId, string $gateway = 'axis
         return ['ok' => false, 'error' => 'Merchant not found.'];
     }
 
-    if (!in_array($gateway, vaSupportedCreationGateways(), true)) {
-        return ['ok' => false, 'error' => 'Gateway "' . $gateway . '" VA creation is not live yet. Supported: ' . implode(', ', vaSupportedCreationGateways()) . '.'];
+    if (!function_exists('vaCreationGateCheck')) {
+        require_once __DIR__ . '/va_workflow.php';
     }
+    $gate = vaCreationGateCheck($gateway);
+    if (!$gate['ok']) {
+        return ['ok' => false, 'error' => (string)($gate['error'] ?? vaUnsupportedCreationReason($gateway))];
+    }
+
     if ($gateway === 'axis' && !function_exists('createAxisVirtualAccount')) {
         return ['ok' => false, 'error' => 'Axis VA adapter not loaded.'];
     }
@@ -359,7 +374,7 @@ function createAdditionalVirtualAccount(int $merchantId, string $gateway = 'axis
             return ['ok' => false, 'error' => 'RBL did not return a VA. Check Partner Registry → RBL keys, Corp ID, Master Account, and Error Log.'];
         }
     } else {
-        return ['ok' => false, 'error' => 'Gateway "' . $gateway . '" VA creation is not live yet. Supported: ' . implode(', ', vaSupportedCreationGateways()) . '.'];
+        return ['ok' => false, 'error' => vaUnsupportedCreationReason($gateway)];
     }
 
     $countSt = $db->prepare('SELECT COUNT(*) FROM merchant_virtual_accounts WHERE merchant_id = ?');

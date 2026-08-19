@@ -280,35 +280,19 @@ function getMerchantEnabledMethodKeys(int $merchantId): array
  */
 function normalizeCheckoutMethodKey(string $methodKey): string
 {
-    $key = strtolower(trim($methodKey));
-    return match ($key) {
-        'upi' => 'upi_p2m',
-        'upi_p2m' => 'upi_p2m',
-        'dc', 'debit_card' => 'debit_card',
-        'cc', 'credit_card' => 'credit_card',
-        'net_banking', 'netbanking', 'nb' => 'netbanking',
-        'payu_upi' => 'payu_upi',
-        'axis_va' => 'axis_va',
-        'wallet' => 'wallet',
-        'emi' => 'emi',
-        'qr_code' => 'qr_code',
-        'payout' => 'payout',
-        'recurring' => 'recurring',
-        'razorpay' => 'razorpay',
-        'cashfree' => 'cashfree',
-        'instant_settlement' => 'instant_settlement',
-        default => $key,
-    };
+    if (!function_exists('methodKeyNormalize')) {
+        require_once __DIR__ . '/method_keys_workflow.php';
+    }
+    return methodKeyNormalize($methodKey);
 }
 
 /** gateway_registry / merchant_payment_methods row key (netbanking → net_banking). */
 function resolveGatewayRegistryMethodKey(string $methodKey): string
 {
-    $canonical = normalizeCheckoutMethodKey($methodKey);
-    return match ($canonical) {
-        'netbanking' => 'net_banking',
-        default => $canonical,
-    };
+    if (!function_exists('methodKeyRegistryResolve')) {
+        require_once __DIR__ . '/method_keys_workflow.php';
+    }
+    return methodKeyRegistryResolve($methodKey);
 }
 
 /**
@@ -492,6 +476,16 @@ function registerGateway(string $key, string $name, array $capabilities = []): a
     }
     if (trim($name) === '') {
         return ['ok' => false, 'error' => 'Display name is required.'];
+    }
+
+    if (!function_exists('registryKindPartnerRegistrationGate') && is_file(__DIR__ . '/registry_kind_workflow.php')) {
+        require_once __DIR__ . '/registry_kind_workflow.php';
+    }
+    if (function_exists('registryKindPartnerRegistrationGate')) {
+        $kindGate = registryKindPartnerRegistrationGate($key);
+        if (empty($kindGate['ok'])) {
+            return ['ok' => false, 'error' => (string)($kindGate['error'] ?? 'Invalid partner key.')];
+        }
     }
 
     try {

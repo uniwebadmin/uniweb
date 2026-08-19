@@ -467,6 +467,20 @@ $assert(str_contains($vaLib, 'function setMerchantVirtualAccountStatus') && str_
 $collVa = (string)file_get_contents($root . '/includes/collection.php');
 $assert(str_contains($collVa, 'ensureMerchantVirtualAccount($merchantId)') && !str_contains($collVa, 'UPDATE merchants SET axis_va_id'), 'va01_collection_delegates_no_direct_write');
 $assert(str_contains((string)file_get_contents($root . '/admin_virtual_accounts.php'), 'setMerchantVirtualAccountStatus'), 'va01_admin_toggle_uses_helper');
+$adminVaPage = (string)file_get_contents($root . '/admin_virtual_accounts.php');
+$colVaPage = (string)file_get_contents($root . '/collection_settings.php');
+$assert(str_contains($adminVaPage, 'name="gateway"') && str_contains($adminVaPage, 'vaGatewayDisplayName'), 'va_multi_admin_gateway_dropdown');
+$assert(str_contains($colVaPage, "action' => 'create_va'") || str_contains($colVaPage, "action'] ?? '') === 'create_va'"), 'va_multi_merchant_create_action');
+$assert(str_contains($colVaPage, 'createAdditionalVirtualAccount') && str_contains($colVaPage, 'getMerchantVirtualAccounts'), 'va_multi_merchant_list_and_create');
+$assert(str_contains($vaLib, 'function vaGatewayDisplayName'), 'va_multi_gateway_display_helper');
+$vaFlow = (string)file_get_contents($root . '/includes/va_workflow.php');
+$assert(str_contains($vaFlow, 'function vaKnownUnsupportedCreationGateways') && str_contains($vaFlow, 'function vaCreationGateCheck') && str_contains($vaFlow, 'function vaRailReadinessReport'), 'va09_workflow_gate_and_report');
+$assert(str_contains($vaLib, 'vaCreationGateCheck') && str_contains($vaLib, 'vaUnsupportedCreationReason'), 'va09_manager_uses_workflow_gate');
+$assert(str_contains($adminVaPage, 'vaRailReadinessReport') && str_contains($adminVaPage, 'Not supported for VA create'), 'va09_admin_supported_unsupported_panel');
+$assert(!str_contains($adminVaPage, '$gateway = $supported[0]'), 'va09_admin_no_silent_gateway_fallback');
+require_once $root . '/includes/va_workflow.php';
+$vaGateBad = vaCreationGateCheck('razorpay');
+$assert(empty($vaGateBad['ok']) && str_contains((string)($vaGateBad['error'] ?? ''), 'razorpay') && str_contains((string)($vaGateBad['error'] ?? ''), 'Supported:'), 'va09_runtime_unsupported_razorpay_fail');
 $assert(is_file($root . '/migrations/071_sync_merchant_virtual_accounts.sql'), 'va01_migration_071');
 $pmLibPm = (string)file_get_contents($root . '/includes/payment_methods.php');
 $assert(str_contains($pmLibPm, 'function persistMerchantEnabledMethodsJson') && str_contains($pmLibPm, 'function backfillMerchantEnabledMethodsJson'), 'pm01_single_json_writer_and_backfill');
@@ -477,6 +491,14 @@ $assert(is_file($root . '/migrations/072_normalize_payment_method_keys.sql'), 'p
 require_once $root . '/includes/payment_methods.php';
 $assert(normalizeCheckoutMethodKey('upi') === 'upi_p2m' && normalizeCheckoutMethodKey('net_banking') === 'netbanking', 'pm01_runtime_upi_and_netbanking_aliases');
 $assert(resolveGatewayRegistryMethodKey('netbanking') === 'net_banking', 'pm01_runtime_registry_netbanking_key');
+$mkFlow = (string)file_get_contents($root . '/includes/method_keys_workflow.php');
+$assert(str_contains($mkFlow, 'function methodKeyCheckoutAliasMap') && str_contains($mkFlow, 'function methodKeyNormalize') && str_contains($mkFlow, 'function methodKeysReadinessReport'), 'method_keys_10_workflow_functions');
+$assert(str_contains($pmLibPm, 'methodKeyNormalize') && str_contains($pmLibPm, 'methodKeyRegistryResolve'), 'method_keys_10_payment_methods_delegates_workflow');
+$assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'methodKeysReadinessReport') && str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Method key aliases'), 'method_keys_10_admin_settings_panel');
+$assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'method_keys_workflow'"), 'method_keys_10_config_dev_loads');
+require_once $root . '/includes/method_keys_workflow.php';
+$assert(methodKeyNormalize('upi') === 'upi_p2m' && methodKeyNormalize('net_banking') === 'netbanking' && methodKeyRegistryResolve('netbanking') === 'net_banking', 'method_keys_10_runtime_alias_map');
+$assert(methodKeysAreEquivalent('upi', 'upi_p2m') && methodKeysAreEquivalent('nb', 'net_banking'), 'method_keys_10_runtime_equivalence');
 
 // P4-ST01 — staff activity reads staff_activity_logs, mirrors high-value admin audit
 $staffLibP4 = (string)file_get_contents($root . '/includes/staff.php');
@@ -693,8 +715,8 @@ $assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.ph
 $assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'Test keys first, then Live'), 'b3_test_tab_prefers_test_then_live');
 $assert(str_contains((string)file_get_contents($root . '/admin_gateway_registry.php'), 'Test keys → Test Connection → Live keys'), 'b3_registry_pipe_order');
 $assert(str_contains((string)file_get_contents($root . '/api_settings.php'), 'not</em> Razorpay, Cashfree, PayU or Decentro partner keys') || str_contains((string)file_get_contents($root . '/api_settings.php'), 'not Razorpay, Cashfree, PayU or Decentro partner keys'), 'b3_merchant_api_not_partner_keys');
-$assert(str_contains((string)file_get_contents($root . '/includes/integration_matrix.php'), 'Partner Registry → Partner Detail → Keys'), 'b3_matrix_points_to_registry_not_gateway_settings');
-$assert(!str_contains((string)file_get_contents($root . '/includes/integration_matrix.php'), 'owner paste in gateway_settings.php'), 'b3_matrix_no_wrong_paste_path');
+$assert(str_contains((string)file_get_contents($root . '/includes/integration_matrix_workflow.php'), 'Partner Registry → Partner Detail → Keys'), 'b3_matrix_points_to_registry_not_gateway_settings');
+$assert(!str_contains((string)file_get_contents($root . '/includes/integration_matrix_workflow.php'), 'owner paste in gateway_settings.php'), 'b3_matrix_no_wrong_paste_path');
 $assert(str_contains((string)file_get_contents($root . '/payment_links.php'), 'Collect on your site — share a payment link'), 'b4_payment_links_collect_banner');
 $assert(str_contains((string)file_get_contents($root . '/payment_links.php'), 'Put this on your website'), 'b4_payment_links_embed_modal');
 $assert(str_contains((string)file_get_contents($root . '/qr_code.php'), 'Not a full white-label UniWeb app'), 'b4_qr_no_full_wl');
@@ -760,9 +782,20 @@ $assert(str_contains($n3c, 'function notificationActionUrl') && str_contains($n3
 $assert(str_contains($n3c, 'TKT[A-F0-9]') && str_contains($n3c, 'DSP[A-F0-9]'), 'p3c_notif_extracts_tkt_and_dsp');
 // 4a: Integration Status Board is status-only — keys CTA points to Partner Registry
 $im4a = (string)file_get_contents($root . '/admin_integration_matrix.php');
-$assert(str_contains($im4a, 'Status board only') && str_contains($im4a, 'partner keys are not pasted here'), 'p4a_integration_board_keys_not_here');
+$assert(str_contains($im4a, 'Scaffold board') && str_contains($im4a, 'partner keys are not pasted here'), 'p4a_integration_board_keys_not_here');
 $assert(str_contains($im4a, 'admin_gateway_registry.php') && str_contains($im4a, 'Open Partner Registry'), 'p4a_integration_board_registry_cta');
 $assert(str_contains($im4a, 'Integration Status Board') && !str_contains($im4a, 'Gateway × Operation Matrix'), 'p4a_integration_board_title_clear');
+$assert(str_contains($im4a, 'integrationMatrixReadinessReport') && str_contains($im4a, 'Status legend'), 'im11_admin_readiness_report_and_legend');
+$imFlow = (string)file_get_contents($root . '/includes/integration_matrix_workflow.php');
+$assert(str_contains($imFlow, 'function integrationMatrixEvaluateCell') && str_contains($imFlow, 'function integrationMatrixRunsLiveApiCalls') && str_contains($imFlow, 'integrationMatrixScaffoldDisclaimer'), 'im11_workflow_evaluate_and_disclaimer');
+$assert(str_contains($imFlow, 'return false') && str_contains($imFlow, 'integrationMatrixRunsLiveApiCalls'), 'im11_matrix_never_runs_live_api');
+$imWrap = (string)file_get_contents($root . '/includes/integration_matrix.php');
+$assert(str_contains($imWrap, 'integration_matrix_workflow.php') && str_contains($imWrap, 'integrationMatrixBuildSummary'), 'im11_thin_wrapper_delegates_workflow');
+$assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'integration_matrix_workflow'"), 'im11_config_dev_loads_workflow');
+require_once $root . '/includes/integration_matrix_workflow.php';
+$assert(integrationMatrixRunsLiveApiCalls() === false, 'im11_runtime_scaffold_only_flag');
+$cellNoKeys = integrationMatrixEvaluateCell('razorpay', 'test_mode_call');
+$assert(($cellNoKeys['status'] ?? '') === 'blocked_owner', 'im11_runtime_test_call_blocked_without_keys');
 // 4b: Gateway Routing Matrix — keys not pasted here; CTA to Partner Registry
 $gm4b = (string)file_get_contents($root . '/admin_gateway_matrix.php');
 $assert(str_contains($gm4b, 'partner keys are not pasted here') && str_contains($gm4b, 'Open Partner Registry'), 'p4b_gateway_matrix_keys_not_here');
@@ -888,6 +921,7 @@ $assert(str_contains((string)file_get_contents($root . '/includes/verification.p
 $assert(str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'no demo defaults') && !str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'VAOPENBANK'), 'p6a_rbl_no_demo_corp_defaults');
 $rblFlow = (string)file_get_contents($root . '/includes/rbl_workflow.php');
 $assert(str_contains($rblFlow, 'function isRblOperational') && str_contains($rblFlow, 'function rblLiveMoneyAllowed'), 'rbl_workflow_operational_and_live_gates');
+$assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'va_workflow'"), 'va09_config_dev_loads_va_workflow');
 $assert(str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'function rblOperationalGate') && str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'function createRblVirtualAccount'), 'rbl_operational_gate_and_va_create');
 $assert(str_contains((string)file_get_contents($root . '/includes/va_manager.php'), "gateway === 'rbl'") && str_contains((string)file_get_contents($root . '/includes/va_manager.php'), 'createRblVirtualAccount'), 'va_manager_rbl_when_operational');
 $assert(str_contains((string)file_get_contents($root . '/includes/partner_keys_workflow.php'), 'rbl_client_id') && str_contains((string)file_get_contents($root . '/includes/partner_keys_workflow.php'), 'rbl_no_demo_defaults'), 'partner_keys_rbl_legacy_blocklist');
@@ -902,7 +936,7 @@ $assert(str_contains((string)file_get_contents($root . '/includes/auto_kyc.php')
 
 $peReg = (string)file_get_contents($root . '/includes/partner_engine.php');
 $pmReg = (string)file_get_contents($root . '/includes/payment_methods.php');
-$imReg = (string)file_get_contents($root . '/includes/integration_matrix.php');
+$imReg = (string)file_get_contents($root . '/includes/integration_matrix_workflow.php');
 $gwReg = (string)file_get_contents($root . '/includes/gateways.php');
 $assert(str_contains($peReg, "'worldline'") && str_contains($peReg, "'digio'") && str_contains($peReg, 'function getGatewaySubmissionPartnerKeys') && str_contains($peReg, 'function getIntegrationMatrixPartnerLabels'), 'p6b_partner_registry_canonical_helpers');
 $assert(!str_contains($peReg, "'sapaisa'"), 'p6b_sapaisa_removed_from_registry');
@@ -960,12 +994,51 @@ $assert(str_contains($merchantRec, "merchant_id=?") && str_contains($merchantRec
 
 // Route / Split Phase 11 — professional scaffold (SDK still parked)
 $splitLib = (string)file_get_contents($root . '/includes/split_settlement.php');
+$rsFlow = (string)file_get_contents($root . '/includes/route_split_workflow.php');
 $assert(str_contains($splitLib, 'function getRouteSplitMarketMatrix') && str_contains($splitLib, 'function getRouteSplitReadinessChecklist') && str_contains($splitLib, 'function routeSplitLiveEnabled'), 'route_split_helper_functions');
 $assert(str_contains($gwSeo, 'route_split_live_enabled') && str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'getRouteSplitMarketMatrix'), 'gateway_settings_route_split_switch_and_market_table');
 $assert(str_contains((string)file_get_contents($root . '/admin_settlements.php'), 'Route / Split transfer queue'), 'admin_settlements_route_queue');
-$assert(str_contains((string)file_get_contents($root . '/collection_settings.php'), 'Settlement vs Route'), 'merchant_collection_route_education');
+$assert(str_contains((string)file_get_contents($root . '/collection_settings.php'), 'routeSplitMerchantEducation') && str_contains($rsFlow, 'Settlement vs Route'), 'merchant_collection_route_education');
 $assert(is_file($root . '/migrations/065_route_split_switch.sql'), 'migration_065_route_split_switch');
 $assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'routeSplitHealthCheck'), 'platform_health_route_split_check');
+$assert(str_contains($rsFlow, 'function routeSplitIsParked') && str_contains($rsFlow, 'function routeSplitExecuteGate') && str_contains($rsFlow, 'function routeSplitReadinessReport'), 'split12_workflow_core_functions');
+$assert(str_contains($splitLib, 'routeSplitExecuteGate') && str_contains($splitLib, 'route_split_workflow.php'), 'split12_execute_uses_workflow_gate');
+$assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'routeSplitReadinessReport'), 'split12_gateway_settings_readiness_report');
+$assert(str_contains((string)file_get_contents($root . '/collection_settings.php'), 'routeSplitMerchantEducation'), 'split12_merchant_education_from_workflow');
+$assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'route_split_workflow'"), 'split12_config_dev_loads');
+require_once $root . '/includes/route_split_workflow.php';
+$gateParked = routeSplitExecuteGate('razorpay', 'route_mode');
+$assert(($gateParked['mode'] ?? '') === 'route_mode_parked' && empty($gateParked['dispatch']), 'split12_runtime_route_mode_parked_by_default');
+
+// Cloud module + Auto KYC — local laptop + cron (audit #13)
+$cloudModsLib = (string)file_get_contents($root . '/includes/cloud_modules.php');
+$cmFlow = (string)file_get_contents($root . '/includes/cloud_modules_workflow.php');
+$cronKyc = (string)file_get_contents($root . '/cron_auto_kyc.php');
+$assert(str_contains($cloudModsLib, "'auto_kyc.php'") && str_contains($cloudModsLib, 'Audit #13'), 'split13_auto_kyc_in_cloud_modules_bridge');
+$assert(str_contains($cmFlow, 'function cloudModulesAutoKycCronGate') && str_contains($cmFlow, 'function cloudModulesAutoKycReadinessReport') && str_contains($cmFlow, 'function autoKycEngineHealthCheck'), 'split13_workflow_core_functions');
+$assert(str_contains($cronKyc, 'cloudModulesAutoKycCronGate'), 'split13_cron_uses_workflow_gate');
+$assert(str_contains((string)file_get_contents($root . '/admin_auto_kyc.php'), 'cloudModulesAutoKycAdminEducation'), 'split13_admin_auto_kyc_education');
+$assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'cloudModulesAutoKycReadinessReport'), 'split13_gateway_settings_readiness');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'autoKycEngineHealthCheck'), 'split13_platform_health_check');
+$assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'cloud_modules_workflow'"), 'split13_config_dev_loads');
+require_once $root . '/includes/cloud_modules_workflow.php';
+$assert(cloudModulesBridgeListsModule('auto_kyc.php'), 'split13_runtime_bridge_lists_auto_kyc');
+$kycGate = cloudModulesAutoKycCronGate();
+$assert(!empty($kycGate['ok']) && ($kycGate['mode'] ?? '') === 'ready', 'split13_runtime_cron_gate_ready');
+
+// Registry kind — methods vs partners in gateway_registry (audit #15, migration 066)
+$rkFlow = (string)file_get_contents($root . '/includes/registry_kind_workflow.php');
+$assert(str_contains($rkFlow, 'function registryKindPartnerRegistrationGate') && str_contains($rkFlow, 'function registryKindReadinessReport') && str_contains($rkFlow, 'function registryKindHealthCheck'), 'split15_workflow_core_functions');
+$assert(str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'registryKindPartnerRegistrationGate'), 'split15_register_gateway_uses_kind_gate');
+$assert(str_contains((string)file_get_contents($root . '/admin_gateway_registry.php'), 'registryKindAdminEducation'), 'split15_partner_registry_education');
+$assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'registryKindReadinessReport'), 'split15_gateway_settings_readiness');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'registryKindHealthCheck'), 'split15_platform_health_check');
+$assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'registry_kind_workflow'"), 'split15_config_dev_loads');
+require_once $root . '/includes/registry_kind_workflow.php';
+$methodGate = registryKindPartnerRegistrationGate('upi_p2m');
+$assert(empty($methodGate['ok']) && ($methodGate['kind'] ?? '') === 'method', 'split15_runtime_blocks_method_as_partner');
+$rkMethodKeys = registryKindMethodKeys();
+$assert(in_array('upi_p2m', $rkMethodKeys, true) && in_array('credit_card', $rkMethodKeys, true) && !in_array('razorpay', $rkMethodKeys, true), 'split15_runtime_method_keys_static');
 
 // P9-04…08 honesty (market peers) — no fake orchestrator / coverage / licence / brand blur
 $regP9 = (string)file_get_contents($root . '/admin_gateway_registry.php');
@@ -1215,7 +1288,7 @@ $assert(str_contains($pmLib2a, 'merchantCanToggleMethodOn($merchantId, $canonica
 $pmPage = (string)file_get_contents($root . '/payment_methods.php');
 $assert(str_contains($pmPage, 'renderMerchantMethodRequestSection') && str_contains($pmPage, 'request_method'), 'p3_merchant_request_ui');
 // 2b: net_banking (registry/toggles) must normalize to netbanking (checkout catalog)
-$assert(str_contains($pmLib2a, 'function normalizeCheckoutMethodKey') && str_contains($pmLib2a, "'upi' => 'upi_p2m'") && str_contains($pmLib2a, "'nb' => 'netbanking'"), 'p2b_normalize_netbanking_alias');
+$assert(str_contains($pmLib2a, 'function normalizeCheckoutMethodKey') && str_contains($pmLib2a, 'methodKeyNormalize'), 'p2b_normalize_delegates_workflow');
 $assert(str_contains((string)file_get_contents($root . '/includes/provision.php'), 'normalizeCheckoutMethodKeys'), 'p2b_enabled_methods_normalized');
 $assert(str_contains((string)file_get_contents($root . '/includes/collection.php'), 'normalizeCheckoutMethodKeys'), 'p2b_checkout_allow_normalized');
 // 2c: checkout must build Card/NB/EMI/Wallet tabs from allow(); normalize runtime + checkout wiring

@@ -397,6 +397,9 @@ function canUsePartnerRoute(string $partnerKey): bool
 /** Admin ON switch for live Razorpay Route / Cashfree Easy Split API calls. */
 function routeSplitLiveEnabled(): bool
 {
+    if (!function_exists('getSetting')) {
+        return false;
+    }
     return trim((string)getSetting('route_split_live_enabled', '0')) === '1';
 }
 
@@ -580,14 +583,10 @@ function getPartnerTransferQueue(int $limit = 30, ?string $status = null): array
 /** One-line activation message for admin / merchant UI. */
 function routeSplitActivationMessage(?string $partnerKey = null): string
 {
-    if (!routeSplitLiveEnabled()) {
-        return 'Route / Easy Split is parked (Phase 11). Commission still works via standard settlement (M/P on capture). Turn ON in Platform Settings when partner commercial is signed.';
+    if (!function_exists('routeSplitParkedReason')) {
+        require_once __DIR__ . '/route_split_workflow.php';
     }
-    $cfg = $partnerKey ? getPartnerRouteConfig($partnerKey) : null;
-    if ($cfg && canUsePartnerRoute((string)$partnerKey)) {
-        return 'Route live-ready — capture will call Razorpay Route / Cashfree Easy Split / PayU verify when keys + linked IDs are pasted.';
-    }
-    return 'Owner switch ON. Set Partner Commercial → route_mode + ready_for_api/live, paste linked account hints + merchant vendor IDs, then enable Route / Split switch if not already ON.';
+    return routeSplitParkedReason($partnerKey);
 }
 
 /**
@@ -876,11 +875,23 @@ function executePartnerRouteSplit(int $transactionId, int $merchantId, array $sp
     $platformFee = (float)($split['platform_fee'] ?? 0);
 
     // Block 7: Route / Split SDK stays parked — ledger commission already applied via M/P; no live partner transfer API
-    if ($settlementMode === 'route_mode' && function_exists('canUsePartnerRoute') && !canUsePartnerRoute($partnerKey)) {
+    if (!function_exists('routeSplitExecuteGate')) {
+        require_once __DIR__ . '/route_split_workflow.php';
+    }
+    $gate = routeSplitExecuteGate($partnerKey, $settlementMode);
+    if (($gate['mode'] ?? '') === 'route_mode_parked') {
         return [
             'ok' => true,
             'mode' => 'route_mode_parked',
-            'note' => 'Route/Split SDK parked until Owner + keys. Commission uses Admin-saved M/P on capture (standard ledger).',
+            'note' => (string)($gate['note'] ?? 'Route/Split SDK parked until Owner + keys.'),
+        ];
+    }
+
+    if ($settlementMode === 'route_mode' && empty($gate['dispatch'])) {
+        return [
+            'ok' => true,
+            'mode' => 'route_mode_parked',
+            'note' => (string)($gate['note'] ?? 'Route/Split not ready for live dispatch.'),
         ];
     }
 

@@ -5,6 +5,9 @@ declare(strict_types=1);
  * Auto-loaded by live config.php (is_file bridge) at the end of the include chain.
  * Registers modules so they load on Hostinger WITHOUT editing git-ignored config.php.
  *
+ * Audit #13: auto_kyc.php MUST stay in this list — old cloud agent runs missed it.
+ * Owner rule: local laptop + cron_auto_kyc.php — not Cursor Cloud Agents.
+ *
  * Rules:
  * - Only list include files that may not already be required by an older live config.php.
  * - is_file() guard: missing files are skipped safely.

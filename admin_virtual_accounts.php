@@ -3,6 +3,9 @@ require_once __DIR__ . '/config.php';
 if (!function_exists('createAdditionalVirtualAccount')) {
     require_once __DIR__ . '/includes/va_manager.php';
 }
+if (!function_exists('vaRailReadinessReport')) {
+    require_once __DIR__ . '/includes/va_workflow.php';
+}
 requireStaffAccess(['super', 'ceo', 'finance', 'ops']);
 ensureMerchantVirtualAccountsTable();
 $db = getDB();
@@ -15,10 +18,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $mid = (int)($_POST['merchant_id'] ?? 0);
     if ($action === 'create_va' && $mid > 0) {
         $label = trim((string)($_POST['label'] ?? ''));
-        $result = createAdditionalVirtualAccount($mid, 'axis', $label);
-        flash($result['ok'] ? 'success' : 'error', $result['ok']
-            ? 'Virtual account created: ' . ($result['va']['va_number'] ?? '')
-            : ($result['error'] ?? 'Could not create virtual account.'));
+        $gateway = strtolower(trim((string)($_POST['gateway'] ?? 'axis')));
+        $gate = vaCreationGateCheck($gateway);
+        if (!$gate['ok']) {
+            flash('error', (string)($gate['error'] ?? vaUnsupportedCreationReason($gateway)));
+        } else {
+            $result = createAdditionalVirtualAccount($mid, $gateway, $label);
+            flash($result['ok'] ? 'success' : 'error', $result['ok']
+                ? 'Virtual account created: ' . ($result['va']['va_number'] ?? '')
+                : ($result['error'] ?? 'Could not create virtual account.'));
+        }
     } elseif ($action === 'toggle_va') {
         $vaId = (int)($_POST['va_id'] ?? 0);
         $newStatus = ($_POST['new_status'] ?? '') === 'active' ? 'active' : 'disabled';
@@ -64,11 +73,47 @@ try {
     // table may be missing until migration 031 is applied
 }
 
+$supportedVaGateways = vaSupportedCreationGateways();
+$vaRailReport = vaRailReadinessReport();
+
 $pageTitle = 'Virtual Accounts';
 require_once __DIR__ . '/header.php';
 ?>
+<div class="glass rounded-xl p-4 mb-6 border border-teal-500/25 text-sm">
+    <p class="text-teal-300 font-semibold mb-2">VA bank rails only — Partner Registry ≠ VA adapter</p>
+    <p class="text-gray-400 mb-3"><?= e($vaRailReport['message']) ?></p>
+    <div class="grid sm:grid-cols-2 gap-4">
+        <div class="rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-3">
+            <p class="text-xs uppercase tracking-wide text-emerald-400 mb-2">Supported for VA create</p>
+            <ul class="space-y-1.5 text-xs">
+                <?php foreach ($vaRailReport['supported'] as $row): ?>
+                <li class="flex flex-wrap items-center gap-2">
+                    <span class="font-semibold text-white"><?= e($row['label']) ?></span>
+                    <?php if (!empty($row['ready'])): ?>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/60 text-emerald-300">Ready</span>
+                    <?php elseif (!empty($row['listed'])): ?>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-300">Keys pending</span>
+                    <?php else: ?>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">When keys ready</span>
+                    <?php endif; ?>
+                    <span class="text-gray-500 w-full"><?= e($row['message']) ?></span>
+                </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+        <div class="rounded-lg border border-slate-600/40 bg-slate-900/30 p-3">
+            <p class="text-xs uppercase tracking-wide text-slate-400 mb-2">Not supported for VA create</p>
+            <div class="flex flex-wrap gap-1.5 mb-2">
+                <?php foreach ($vaRailReport['unsupported'] as $row): ?>
+                <span class="text-[10px] px-2 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700" title="<?= e($row['use_instead']) ?>"><?= e($row['gateway']) ?></span>
+                <?php endforeach; ?>
+            </div>
+            <p class="text-[11px] text-gray-500">Checkout PG / KYC partners — use payment links or the correct partner screen. Requesting VA here returns an honest fail (no fake account number).</p>
+        </div>
+    </div>
+</div>
 <div class="glass rounded-xl p-4 mb-6 border border-amber-500/25 text-sm text-gray-400">
-    <p><strong class="text-amber-300">Adapter pending.</strong> Axis VA collections need live Axis keys in Partner Registry + commercial approval. Test/UAT rows may exist — do not treat as full live volume until keys are green on Platform Status.</p>
+    <p><strong class="text-amber-300">Live volume.</strong> Axis VA collections need live Axis keys in Partner Registry + commercial approval. Test/UAT rows may exist — do not treat as full live volume until keys are green on Platform Status.</p>
 </div>
 <div class="mb-4 flex flex-wrap gap-4 text-sm">
     <a href="admin_axis.php" class="text-gray-400 hover:text-white">← Axis partner keys</a>
@@ -115,10 +160,19 @@ require_once __DIR__ . '/header.php';
             <h2 class="font-semibold"><?= e($selectedMerchant['business_name'] ?: $selectedMerchant['merchant_code']) ?></h2>
             <p class="text-xs text-gray-500 font-mono mt-0.5"><?= e($selectedMerchant['merchant_code']) ?></p>
         </div>
-        <form method="POST" class="flex items-end gap-2">
+        <form method="POST" class="flex flex-wrap items-end gap-2">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="create_va">
             <input type="hidden" name="merchant_id" value="<?= (int)$selectedMerchant['id'] ?>">
+            <?php if (count($supportedVaGateways) > 1): ?>
+            <select name="gateway" class="input-field text-sm !py-2 w-32" title="Bank partner">
+                <?php foreach ($supportedVaGateways as $gw): ?>
+                <option value="<?= e($gw) ?>"><?= e(vaGatewayDisplayName($gw)) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <?php else: ?>
+            <input type="hidden" name="gateway" value="<?= e($supportedVaGateways[0] ?? 'axis') ?>">
+            <?php endif; ?>
             <input type="text" name="label" placeholder="Label (optional)" class="input-field text-sm !py-2 w-40">
             <button class="btn-primary text-sm px-4 py-2">+ Create VA</button>
         </form>
@@ -128,7 +182,7 @@ require_once __DIR__ . '/header.php';
     <?php else: ?>
     <div class="overflow-x-auto"><table class="min-w-[640px] w-full text-sm">
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
-            <th class="px-5 py-3 text-left">Label</th><th class="px-5 py-3 text-left">VA Number</th>
+            <th class="px-5 py-3 text-left">Label</th><th class="px-5 py-3 text-left">Bank</th><th class="px-5 py-3 text-left">VA Number</th>
             <th class="px-5 py-3 text-left">UPI</th><th class="px-5 py-3 text-left">Today</th>
             <th class="px-5 py-3 text-left">Total</th><th class="px-5 py-3 text-left">Fails today</th>
             <th class="px-5 py-3 text-left">Status</th><th class="px-5 py-3 text-left">Action</th>
@@ -137,6 +191,7 @@ require_once __DIR__ . '/header.php';
             <?php foreach ($vas as $va): ?>
             <tr class="hover:bg-white/5">
                 <td class="px-5 py-3"><?= e($va['label'] ?: '—') ?><?= $va['is_primary'] ? ' <span class="text-[10px] text-sky-400">(primary)</span>' : '' ?></td>
+                <td class="px-5 py-3 text-xs text-gray-400"><?= e(vaGatewayDisplayName((string)($va['gateway'] ?? 'axis'))) ?></td>
                 <td class="px-5 py-3 font-mono text-xs"><?= e($va['va_number']) ?></td>
                 <td class="px-5 py-3 font-mono text-xs text-gray-400"><?= e($va['upi_id'] ?: '—') ?></td>
                 <td class="px-5 py-3"><?= (int)$va['txn_count_today'] ?></td>

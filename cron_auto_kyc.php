@@ -18,6 +18,24 @@ if (!function_exists('runAutoKycEngine') && is_file(__DIR__ . '/includes/auto_ky
     require_once __DIR__ . '/includes/auto_kyc.php';
 }
 
+if (!function_exists('cloudModulesAutoKycCronGate') && is_file(__DIR__ . '/includes/cloud_modules_workflow.php')) {
+    require_once __DIR__ . '/includes/cloud_modules_workflow.php';
+}
+
+if (function_exists('cloudModulesAutoKycCronGate')) {
+    $kycGate = cloudModulesAutoKycCronGate();
+    if (empty($kycGate['ok'])) {
+        recordCronHeartbeat('auto_kyc', 'error');
+        if ($isCli) {
+            echo 'Auto KYC gate blocked: ' . ($kycGate['error'] ?? 'unknown') . "\n";
+        } else {
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'error' => (string)($kycGate['error'] ?? 'gate blocked'), 'mode' => $kycGate['mode'] ?? '']);
+        }
+        exit;
+    }
+}
+
 if (!function_exists('runAutoKycEngine')) {
     echo json_encode(['ok' => false, 'error' => 'auto_kyc engine not available']);
     exit;

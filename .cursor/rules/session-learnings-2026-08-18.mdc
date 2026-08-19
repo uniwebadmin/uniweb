@@ -56,3 +56,41 @@ Do **not** leave completed work uncommitted. Do **not** push half-done work.
 
 - Start: `.\dev_local\start_local.ps1` → http://localhost:8000
 - If DB down: check `C:\Program Files\MariaDB 12.3\data\my.ini` — must contain `[mysqld]`; template in `dev_local/my.ini.template`
+
+## Evening handoff (2026-08-18 ~8:53 PM) — continue morning
+
+### Pushed tonight (`main` commit `e5f9620`)
+
+- Agent ↔ Sub-merchant sync (`includes/sub_merchant.php`, migration **069**)
+- MDR single field + mirror (`split_settlement.php`, migration **070**)
+- VA canonical `va_manager.php` + mirror (migration **071**)
+- Payment method key normalize + `persistMerchantEnabledMethodsJson()` (migration **072**)
+- Smoke **887 pass** before push; live homepage + login **200** after push
+
+### Owner manual (phone) — do once after deploy settles
+
+1. **Gateway Settings → Apply pending migrations** → expect `ok: true` (**066–072** if not already)
+2. **Error Log → Resolve all** (incl. old `footer.php` 07:16 PM noise — fixed in commit `19b74ec`)
+3. Live `config.php`: delete old `createNotification()` if still there (**CR-01**)
+4. Quick smoke: Partner Registry, Virtual Accounts, Admin login, Watchdog
+
+### Audit items done (no reopen unless bug)
+
+| # | Topic | Status |
+|---|--------|--------|
+| 7 | Agent + Sub-merchant dual storage | Fixed + synced |
+| 8 | MDR dual (commission_rate vs MDR M) | Fixed — one admin field |
+| 9 | VA dual storage | Fixed — canonical table + mirror |
+| 10 | partner_methods vs catalog keys | Fixed — normalize + single JSON writer |
+| 11 | Auto KYC vs manual Verify | **By design** — 2 admin screens, same verified + forward queue |
+
+### Morning agent priorities (local laptop)
+
+1. Confirm Owner ran migrations on live; if not, remind in Hindi
+2. Cron auto-audit green (`ok: true`, errors 0)
+3. Next live-prep from existing pages only — no new product (no NBFC / PPI / white-label)
+4. Do **not** commit/push unless Owner asks or task fully done + smoke green
+
+### Not committed (junk — ignore)
+
+- `Jump to Content`, `Jump to Content.txt`, `tools/tailwindcss.exe`

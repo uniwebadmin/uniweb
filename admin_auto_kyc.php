@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireStaffAccess(['super', 'ceo', 'ops', 'kyc']);
+if (!function_exists('cloudModulesAutoKycAdminEducation') && is_file(__DIR__ . '/includes/cloud_modules_workflow.php')) {
+    require_once __DIR__ . '/includes/cloud_modules_workflow.php';
+}
 if (!function_exists('runAutoKycEngine') && is_file(__DIR__ . '/includes/auto_kyc.php')) {
     require_once __DIR__ . '/includes/auto_kyc.php';
 }
@@ -15,6 +18,8 @@ if (!function_exists('setSetting')) {
 
 $lastRun = getLastAutoKycRun();
 $forwardQueue = [];
+$autoKycEdu = function_exists('cloudModulesAutoKycAdminEducation') ? cloudModulesAutoKycAdminEducation() : null;
+$autoKycReady = function_exists('cloudModulesAutoKycReadinessReport') ? cloudModulesAutoKycReadinessReport() : null;
 
 // Manual trigger
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
@@ -71,6 +76,16 @@ require_once __DIR__ . '/header.php';
 <div class="max-w-5xl mx-auto px-4 py-8">
     <h1 class="text-2xl font-bold text-white mb-2">Zero-Touch Auto KYC Engine</h1>
     <p class="text-sm text-gray-500 mb-4">Automatically approves clean KYC documents and verifies eligible merchants — same KYC Review pages, not a new product.</p>
+    <?php if (is_array($autoKycEdu)): ?>
+    <div class="glass rounded-xl p-4 mb-4 border border-sky-500/25 text-xs text-gray-400">
+        <p class="font-semibold text-sky-300 mb-1"><?= e($autoKycEdu['title']) ?></p>
+        <p class="mb-2"><?= e($autoKycEdu['policy']) ?></p>
+        <p class="text-gray-500">Cron: <code class="text-gray-300"><?= e($autoKycEdu['cron_script']) ?></code> · <?= e($autoKycEdu['cron_schedule']) ?> · Bridge: <?= e($autoKycEdu['bridge_module']) ?></p>
+        <?php if (is_array($autoKycReady) && empty($autoKycReady['ok'])): ?>
+        <p class="text-amber-400 mt-2"><?= e($autoKycReady['message'] ?? '') ?></p>
+        <?php endif; ?>
+    </div>
+    <?php endif; ?>
     <div class="glass rounded-xl p-4 mb-6 border border-violet-500/20 text-xs text-gray-400">
         <strong class="text-violet-300">Partner auto-KYC / forward:</strong> runs on this existing queue after Admin Verify when partner <strong class="text-gray-300">keys + commercial</strong> are set. Without keys, rows stay queued / unassigned until you paste credentials in Partner Registry.
     </div>
