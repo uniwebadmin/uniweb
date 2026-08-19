@@ -82,14 +82,41 @@ function migrationEolChecksumVariants(string $file): array
     ]));
 }
 
-function pendingMigrations(string $directory): array
+function migrationDedicatedPdo(): PDO
 {
-    $db = getDB();
+    if (!defined('DB_HOST') || !defined('DB_NAME') || !defined('DB_USER')) {
+        throw new RuntimeException('Database constants not loaded.');
+    }
+    $port = defined('DB_PORT') ? (string)DB_PORT : '3306';
+    $charset = defined('DB_CHARSET') ? (string)DB_CHARSET : 'utf8mb4';
+    $pass = defined('DB_PASS') ? (string)DB_PASS : '';
+    $dsn = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=%s', DB_HOST, $port, DB_NAME, $charset);
+    $pdo = new PDO($dsn, DB_USER, $pass, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false,
+        PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
+    ]);
+    try {
+        $pdo->exec("SET time_zone = '+05:30'");
+    } catch (Throwable $e) {
+        /* ok */
+    }
+    return $pdo;
+}
+
+function pendingMigrations(string $directory, ?PDO $db = null): array
+{
+    $db = $db ?? getDB();
+    migrationEnsureBufferedPdo($db);
     ensureMigrationRegistry($db);
     $applied = [];
-    foreach ($db->query('SELECT version, checksum FROM schema_migrations')->fetchAll() as $row) {
+    $list = $db->prepare('SELECT version, checksum FROM schema_migrations');
+    $list->execute();
+    foreach ($list->fetchAll() as $row) {
         $applied[(string)$row['version']] = (string)$row['checksum'];
     }
+    $list->closeCursor();
 
     $files = glob(rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . '*.{sql,php}', GLOB_BRACE) ?: [];
     sort($files, SORT_STRING);
@@ -169,20 +196,34 @@ function pdoSqlState(Throwable $e): ?string
     return null;
 }
 
+function migrationEnsureBufferedPdo(PDO $db): void
+{
+    if (defined('PDO::MYSQL_ATTR_USE_BUFFERED_QUERY')) {
+        try {
+            $db->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, true);
+        } catch (Throwable $e) {
+            /* ok */
+        }
+    }
+}
+
 function applyPendingMigrations(string $directory): array
 {
-    $db = getDB();
+    // Fresh PDO avoids HY000 2014 when config bootstrap left an open cursor on getDB().
+    $db = migrationDedicatedPdo();
     $lockName = 'uniweb_schema_migrations';
     $lock = $db->prepare('SELECT GET_LOCK(?, 15)');
     $lock->execute([$lockName]);
-    if ((int)$lock->fetchColumn() !== 1) {
+    $gotLock = (int)$lock->fetchColumn();
+    $lock->closeCursor();
+    if ($gotLock !== 1) {
         throw new RuntimeException('Could not acquire migration lock.');
     }
 
     $appliedFiles = [];
     $details = [];
     try {
-        foreach (pendingMigrations($directory) as $migration) {
+        foreach (pendingMigrations($directory, $db) as $migration) {
             $version = (string)$migration['version'];
             try {
                 if (str_ends_with($migration['path'], '.php')) {
@@ -236,6 +277,7 @@ function applyPendingMigrations(string $directory): array
                 }
                 $record = $db->prepare('INSERT INTO schema_migrations (version, checksum) VALUES (?, ?)');
                 $record->execute([$version, $migration['checksum']]);
+                $record->closeCursor();
                 $appliedFiles[] = $version;
                 $details[] = ['version' => $version, 'status' => 'applied'];
             } catch (Throwable $e) {
@@ -248,10 +290,12 @@ function applyPendingMigrations(string $directory): array
                 );
             }
         }
-        $pendingAfter = array_column(pendingMigrations($directory), 'version');
+        $pendingAfter = array_column(pendingMigrations($directory, $db), 'version');
     } finally {
         $release = $db->prepare('SELECT RELEASE_LOCK(?)');
         $release->execute([$lockName]);
+        $release->fetchColumn();
+        $release->closeCursor();
     }
 
     return [
