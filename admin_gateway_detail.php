@@ -9,6 +9,9 @@ if (!function_exists('getPartnerRegistry')) {
 if (!function_exists('ensurePartnerControlTables')) {
     require_once __DIR__ . '/includes/partner_control.php';
 }
+if (!function_exists('requeuePartnerForwardAfterKeysSaved')) {
+    require_once __DIR__ . '/includes/partner_forward_queue.php';
+}
 requireStaffAccess(['super', 'ceo', 'ops']);
 
 $gatewayId = (int)($_GET['id'] ?? 0);
@@ -74,6 +77,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $msg = $last4 && $last4 !== 'no_keys'
             ? 'API keys saved for ' . e($gateway['gateway_name']) . " (env: {$env}, last4: ***{$last4})"
             : ($last4 === 'no_keys' ? 'No key values submitted — nothing changed.' : 'API keys saved for ' . e($gateway['gateway_name']) . " (env: {$env})");
+        if ($last4 !== 'no_keys' && function_exists('requeuePartnerForwardAfterKeysSaved')) {
+            $requeued = requeuePartnerForwardAfterKeysSaved($partnerKey);
+            if ($requeued > 0) {
+                $msg .= " · {$requeued} forward row(s) re-queued.";
+            }
+        }
         flash($last4 === 'no_keys' ? 'warning' : 'success', $msg);
         if (function_exists('logStaffActivity')) { logStaffActivity('partner_keys_saved', 'Saved ' . $env . ' keys for ' . $partnerKey . ' (last4: ' . ($last4 ?: 'n/a') . ')', null, 'partner', $partnerKey); }
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=keys&env=' . $env);
@@ -84,6 +93,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         flash($last4 === 'no_keys' ? 'warning' : 'success', $last4 === 'no_keys'
             ? 'No Test keys to copy. Paste keys on the Live tab.'
             : 'Copied Test keys to Live (last4 ***' . $last4 . ').');
+        if ($last4 !== 'no_keys' && function_exists('requeuePartnerForwardAfterKeysSaved')) {
+            requeuePartnerForwardAfterKeysSaved($partnerKey);
+        }
         if ($last4 !== 'no_keys' && function_exists('logStaffActivity')) {
             logStaffActivity('partner_keys_copied_to_live', 'Copied test keys to live for ' . $partnerKey, null, 'partner', $partnerKey);
         }

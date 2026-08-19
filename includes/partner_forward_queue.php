@@ -270,23 +270,84 @@ function syncGatewaySubmissionToForwardQueue(int $merchantId, string $gateway, s
  * D4: Cron worker — process queued items whose schedule_at has passed.
  * Returns count of processed items.
  */
+/**
+ * Make queued rows for one merchant eligible for immediate cron/process (post-verify kick).
+ */
+function primeMerchantForwardQueue(int $merchantId): int
+{
+    if ($merchantId < 1) {
+        return 0;
+    }
+    ensurePartnerForwardQueueTable();
+    try {
+        $st = getDB()->prepare(
+            "UPDATE partner_forward_queue SET schedule_at=NOW()
+             WHERE merchant_id=? AND status IN ('queued','retry')"
+        );
+        $st->execute([$merchantId]);
+        return $st->rowCount();
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+/**
+ * After partner keys saved — re-queue staged/failed rows for that partner and process.
+ */
+function requeuePartnerForwardAfterKeysSaved(string $partnerKey): int
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    if ($partnerKey === '' || $partnerKey === 'unassigned') {
+        return 0;
+    }
+    if (!function_exists('partnerIsConfigured')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    if (!partnerIsConfigured($partnerKey)) {
+        return 0;
+    }
+    ensurePartnerForwardQueueTable();
+    try {
+        $st = getDB()->prepare(
+            "UPDATE partner_forward_queue SET status='queued', attempts=0, schedule_at=NOW(), error_message=NULL
+             WHERE partner_key=? AND status IN ('failed','staged')"
+        );
+        $st->execute([$partnerKey]);
+        $count = $st->rowCount();
+        if ($count > 0 && function_exists('processPerPartnerForwardQueue')) {
+            processPerPartnerForwardQueue(min(50, max(10, $count)), null, $partnerKey);
+        }
+        return $count;
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
 if (!function_exists('processPerPartnerForwardQueue')) {
-function processPerPartnerForwardQueue(int $limit = 20): array
+function processPerPartnerForwardQueue(int $limit = 20, ?int $merchantId = null, ?string $partnerKey = null): array
 {
     ensurePartnerForwardQueueTable();
     $db = getDB();
-    $results = ['processed' => 0, 'success' => 0, 'failed' => 0, 'retry' => 0];
+    $results = ['processed' => 0, 'success' => 0, 'failed' => 0, 'retry' => 0, 'staged' => 0];
 
     try {
-        $st = $db->prepare(
-            "SELECT * FROM partner_forward_queue
+        $sql = "SELECT * FROM partner_forward_queue
              WHERE status IN ('queued','retry')
                AND schedule_at <= NOW()
-               AND attempts < max_attempts
-             ORDER BY schedule_at ASC
-             LIMIT ?"
-        );
-        $st->execute([$limit]);
+               AND attempts < max_attempts";
+        $params = [];
+        if ($merchantId !== null && $merchantId > 0) {
+            $sql .= ' AND merchant_id=?';
+            $params[] = $merchantId;
+        }
+        if ($partnerKey !== null && trim($partnerKey) !== '') {
+            $sql .= ' AND partner_key=?';
+            $params[] = strtolower(trim($partnerKey));
+        }
+        $sql .= ' ORDER BY schedule_at ASC LIMIT ?';
+        $params[] = $limit;
+        $st = $db->prepare($sql);
+        $st->execute($params);
         $items = $st->fetchAll();
     } catch (Throwable $e) {
         return $results;
@@ -620,8 +681,9 @@ function pushPackageToPartner(string $partnerKey, int $merchantId, array $payloa
     if ($partnerKey === '' || $partnerKey === 'unassigned') {
         return [
             'success' => false,
-            'terminal' => true,
-            'error' => 'No partner keys yet — paste keys in Partner Registry, then re-queue.',
+            'staged' => true,
+            'reference' => 'UNASSIGNED-' . $merchantId,
+            'message' => 'No partner keys yet — paste keys in Partner Registry, then re-queue.',
         ];
     }
 
@@ -640,7 +702,9 @@ function pushPackageToPartner(string $partnerKey, int $merchantId, array $payloa
     if (!partnerIsConfigured($partnerKey)) {
         return [
             'success' => false,
-            'error' => 'Partner keys not configured in Partner Registry → Keys',
+            'staged' => true,
+            'reference' => 'STAGED-' . strtoupper($partnerKey) . '-' . $merchantId,
+            'message' => 'Partner keys not configured — paste in Partner Registry, then re-queue.',
         ];
     }
 

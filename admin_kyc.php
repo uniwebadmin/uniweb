@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'verify_merchant') {
             requireMerchantAccess($id);
             submitApprovalRequest('kyc_merchant_verify', $id, 'merchant', (string)$id, $reason);
-            $db->prepare("UPDATE merchants SET onboarding_state='under_review',account_mode='test' WHERE id=?")->execute([$id]);
+            merchant_transition($id, 'under_review', 'KYC verification sent to checker');
             flash('success', 'KYC verification sent to an independent checker.');
         } elseif ($action === 'verify_merchant_now') {
             requireStepUpAuth();

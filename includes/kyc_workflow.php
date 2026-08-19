@@ -155,6 +155,60 @@ function markMerchantKycSubmitted(int $merchantId): void
 }
 
 /**
+ * If required docs are approved, ensure merchant is in kyc_submitted state.
+ */
+function syncMerchantKycSubmittedIfReady(int $merchantId): void
+{
+    if ($merchantId < 1) {
+        return;
+    }
+    $report = merchantKycReadinessReport($merchantId);
+    $checks = $report['checks'] ?? [];
+    if (empty($checks['entity_documents']) || empty($checks['no_pending_required_docs']) || empty($checks['no_rejected_docs'])) {
+        return;
+    }
+    if (empty($checks['kyc_submittable'])) {
+        return;
+    }
+    markMerchantKycSubmitted($merchantId);
+}
+
+/**
+ * Enqueue + prime + process forward queue for one merchant (verify → Staged without 60–90 min wait).
+ *
+ * @return array{enqueued?:bool,primed?:int,forward?:array<string,int>}
+ */
+function advanceMerchantForwardAfterVerify(int $merchantId): array
+{
+    $out = ['enqueued' => false, 'primed' => 0, 'forward' => []];
+    if ($merchantId < 1) {
+        return $out;
+    }
+    if (!function_exists('enqueueMerchantToAllEnabledPartners') && is_file(__DIR__ . '/partner_forward_queue.php')) {
+        require_once __DIR__ . '/partner_forward_queue.php';
+    }
+    if (function_exists('enqueueMerchantToAllEnabledPartners')) {
+        try {
+            enqueueMerchantToAllEnabledPartners($merchantId);
+            $out['enqueued'] = true;
+        } catch (Throwable $e) {
+            error_log('advanceMerchantForwardAfterVerify enqueue: ' . $e->getMessage());
+        }
+    }
+    if (function_exists('primeMerchantForwardQueue')) {
+        $out['primed'] = primeMerchantForwardQueue($merchantId);
+    }
+    if (function_exists('processPerPartnerForwardQueue')) {
+        try {
+            $out['forward'] = processPerPartnerForwardQueue(20, $merchantId);
+        } catch (Throwable $e) {
+            error_log('advanceMerchantForwardAfterVerify process: ' . $e->getMessage());
+        }
+    }
+    return $out;
+}
+
+/**
  * Single canonical KYC verify + forward enqueue (manual, auto, checker).
  *
  * @return array{ok:bool,error?:string,already?:bool}
@@ -164,6 +218,7 @@ function completeMerchantKycVerification(int $merchantId, string $source, string
     $source = trim($source) !== '' ? trim($source) : 'system';
     $report = merchantKycReadinessReport($merchantId);
     if (!empty($report['already_verified'])) {
+        advanceMerchantForwardAfterVerify($merchantId);
         return ['ok' => true, 'already' => true];
     }
     if (empty($report['ok'])) {
@@ -209,15 +264,10 @@ function completeMerchantKycVerification(int $merchantId, string $source, string
     if (!function_exists('enqueueMerchantToAllEnabledPartners') && is_file(__DIR__ . '/partner_forward_queue.php')) {
         require_once __DIR__ . '/partner_forward_queue.php';
     }
-    if (function_exists('enqueueMerchantToAllEnabledPartners')) {
-        try {
-            enqueueMerchantToAllEnabledPartners($merchantId);
-        } catch (Throwable $e) {
-            error_log('enqueueMerchantToAllEnabledPartners (' . $source . '): ' . $e->getMessage());
-        }
-    }
 
     merchant_transition($merchantId, 'queue_forward', 'Enqueued for partner forward');
+
+    advanceMerchantForwardAfterVerify($merchantId);
 
     if (function_exists('recordImmutableAudit')) {
         recordImmutableAudit(

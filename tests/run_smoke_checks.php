@@ -266,6 +266,10 @@ $assert(str_contains($onboardSec, 'function verifyMerchantKycNow'), 'kyc_verify_
 $assert(str_contains($onboardSec, 'super_solo_ops') || str_contains($onboardSec, 'isSuperAdmin'), 'kyc_solo_ops_guard');
 $kycFlow = (string)file_get_contents($root . '/includes/kyc_workflow.php');
 $assert(str_contains($kycFlow, 'function completeMerchantKycVerification') && str_contains($kycFlow, 'function merchantKycReadinessReport'), 'kyc_workflow_canonical_verify');
+$assert(str_contains($kycFlow, 'function advanceMerchantForwardAfterVerify') && str_contains($kycFlow, 'advanceMerchantForwardAfterVerify($merchantId)'), 'kyc_verify_kicks_forward_to_staged');
+$fwdP6 = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
+$assert(str_contains($fwdP6, 'function primeMerchantForwardQueue') && str_contains($fwdP6, 'function requeuePartnerForwardAfterKeysSaved'), 'forward_prime_and_requeue_on_keys');
+$assert(str_contains($fwdP6, "'staged' => true") && str_contains($fwdP6, 'UNASSIGNED-'), 'forward_no_keys_honest_staged_not_fake_fail');
 $assert(str_contains($onboardSec, 'completeMerchantKycVerification') && str_contains((string)file_get_contents($root . '/includes/auto_kyc.php'), 'completeMerchantKycVerification'), 'kyc_manual_auto_same_path');
 $assert(str_contains((string)file_get_contents($root . '/admin_kyc.php'), 'merchantKycReadinessReport'), 'admin_kyc_readiness_gate');
 $assert(str_contains((string)file_get_contents($root . '/includes/onboarding_state_machine.php'), "'submitted' => 'kyc_submitted'"), 'kyc_legacy_onboarding_state_map');
@@ -571,7 +575,7 @@ $assert(!str_contains($fwdP5, 'isGatewayActive($partnerKey)'), 'p5a_enqueue_no_a
 $assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'one queue row per partner that already has keys'), 'p5a_forward_queue_copy_keys');
 $qP5 = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
 $assert(str_contains($qP5, "status IN ('queued','retry','processing','staged','success')"), 'p5_forward_enqueue_idempotent');
-$assert(str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), 'enqueueMerchantToAllEnabledPartners'), 'p5_kyc_verify_enqueues_forward');
+$assert(str_contains($kycFlowP5, 'enqueueMerchantToAllEnabledPartners'), 'p5_kyc_verify_enqueues_forward');
 // 5b: push uses partnerIsConfigured (not fake keys_configured); staged outcome until adapters
 $assert(str_contains($qP5, 'function pushPackageToPartner') && str_contains($qP5, 'partnerIsConfigured($partnerKey)') && !str_contains($qP5, "keys_configured"), 'p5b_push_uses_partnerIsConfigured');
 $assert(str_contains($qP5, "'staged'") && str_contains($qP5, "status='staged'"), 'p5b_push_staged_when_adapter_pending');
@@ -869,7 +873,12 @@ $assert(str_contains((string)file_get_contents($root . '/includes/partner_forwar
 $assert(str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'function enqueueMerchantToAllEnabledPartners') && str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'function syncGatewaySubmissionToForwardQueue'), 'p6a_forward_enqueue_single_module');
 $assert(!str_contains((string)file_get_contents($root . '/includes/auto_kyc.php'), 'function enqueueMerchantToAllEnabledPartners') && !str_contains((string)file_get_contents($root . '/includes/auto_kyc.php'), 'scheduled_at DATETIME NOT NULL') && !str_contains((string)file_get_contents($root . '/includes/auto_kyc.php'), 'function queueMerchantForPartnerForward'), 'p6a_auto_kyc_no_duplicate_forward_helpers');
 $assert(str_contains((string)file_get_contents($root . '/includes/gateways.php'), 'syncGatewaySubmissionToForwardQueue'), 'p6a_gateway_submit_syncs_forward_queue');
-$assert(str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), 'partner_forward_queue.php') && !str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), "require_once __DIR__ . '/auto_kyc.php'"), 'p6a_onboarding_enqueue_via_forward_module');
+$onboardP6 = (string)file_get_contents($root . '/includes/onboarding_security.php');
+$assert(
+    (str_contains($onboardP6, 'partner_forward_queue.php') || str_contains($onboardP6, 'kyc_workflow.php'))
+    && !str_contains($onboardP6, "require_once __DIR__ . '/auto_kyc.php'"),
+    'p6a_onboarding_enqueue_via_forward_module'
+);
 $assert(str_contains((string)file_get_contents($root . '/includes/payout_adapters.php'), 'UNIWEB_TEST_') && str_contains((string)file_get_contents($root . '/includes/payout_adapters.php'), 'dispatchImplemented'), 'p6a_payout_mock_labeled_stub_not_fake_live');
 $assert(str_contains((string)file_get_contents($root . '/includes/verification.php'), 'decentroPartnerCredential') && str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'rblPartnerCredential'), 'p6a_decentro_rbl_registry_credentials');
 $assert(str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'no demo defaults') && !str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'VAOPENBANK'), 'p6a_rbl_no_demo_corp_defaults');

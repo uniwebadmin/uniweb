@@ -240,6 +240,12 @@ function applyApprovedControlAction(array $request): void
             }
             $db->prepare("UPDATE kyc_documents SET status='approved',reviewed_at=NOW() WHERE id=? AND merchant_id=?")
                 ->execute([$resourceId, $merchantId]);
+            if (!function_exists('syncMerchantKycSubmittedIfReady') && is_file(__DIR__ . '/kyc_workflow.php')) {
+                require_once __DIR__ . '/kyc_workflow.php';
+            }
+            if (function_exists('syncMerchantKycSubmittedIfReady')) {
+                syncMerchantKycSubmittedIfReady($merchantId);
+            }
             break;
         case 'kyc_merchant_verify':
             if (!function_exists('completeMerchantKycVerification') && is_file(__DIR__ . '/kyc_workflow.php')) {
@@ -264,17 +270,19 @@ function applyApprovedControlAction(array $request): void
             }
             $db->prepare("UPDATE merchants SET account_mode='live',live_enabled_at=NOW(),live_enabled_by=? WHERE id=?")
                 ->execute([currentControlActor()['id'], $merchantId]);
+            if (function_exists('merchant_transition')) {
+                merchant_transition($merchantId, 'live', 'Live activation approved by checker');
+            }
             require_once __DIR__ . '/agreement_pdf.php';
             notifyMerchantLiveActivated($merchantId);
-            // 2.13: Enqueue to partner forward queue on live activation
-            if (!function_exists('enqueueMerchantToAllEnabledPartners') && is_file(__DIR__ . '/partner_forward_queue.php')) {
-                require_once __DIR__ . '/partner_forward_queue.php';
+            if (!function_exists('advanceMerchantForwardAfterVerify') && is_file(__DIR__ . '/kyc_workflow.php')) {
+                require_once __DIR__ . '/kyc_workflow.php';
             }
-            if (function_exists('enqueueMerchantToAllEnabledPartners')) {
+            if (function_exists('advanceMerchantForwardAfterVerify')) {
                 try {
-                    enqueueMerchantToAllEnabledPartners($merchantId);
+                    advanceMerchantForwardAfterVerify($merchantId);
                 } catch (Throwable $e) {
-                    error_log('enqueueMerchantToAllEnabledPartners (live_enable): ' . $e->getMessage());
+                    error_log('advanceMerchantForwardAfterVerify (live_enable): ' . $e->getMessage());
                 }
             }
             break;
