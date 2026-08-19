@@ -111,12 +111,9 @@ function pendingMigrations(string $directory, ?PDO $db = null): array
     migrationEnsureBufferedPdo($db);
     ensureMigrationRegistry($db);
     $applied = [];
-    $list = $db->prepare('SELECT version, checksum FROM schema_migrations');
-    $list->execute();
-    foreach ($list->fetchAll() as $row) {
+    foreach (migrationFetchAll($db, 'SELECT version, checksum FROM schema_migrations') as $row) {
         $applied[(string)$row['version']] = (string)$row['checksum'];
     }
-    $list->closeCursor();
 
     $files = glob(rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . '*.{sql,php}', GLOB_BRACE) ?: [];
     sort($files, SORT_STRING);
@@ -131,8 +128,7 @@ function pendingMigrations(string $directory, ?PDO $db = null): array
                 } else {
                     error_log('UniWeb migration checksum rebased for line-ending-only difference: ' . $version);
                 }
-                $db->prepare('UPDATE schema_migrations SET checksum=? WHERE version=?')
-                    ->execute([$checksum, $version]);
+                migrationExecute($db, 'UPDATE schema_migrations SET checksum=? WHERE version=?', [$checksum, $version]);
             }
             continue;
         }
@@ -207,15 +203,58 @@ function migrationEnsureBufferedPdo(PDO $db): void
     }
 }
 
+/** Run one SQL statement; drain SELECT cursors so HY000 2014 cannot fire on next query. */
+function migrationRunStatement(PDO $db, string $statement): void
+{
+    $trim = ltrim($statement);
+    if ($trim === '') {
+        return;
+    }
+    if (preg_match('/^(SELECT|SHOW|DESCRIBE|DESC|EXPLAIN|WITH)\s/i', $trim)) {
+        $stmt = $db->query($statement);
+        if ($stmt instanceof PDOStatement) {
+            $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $stmt->closeCursor();
+        }
+        return;
+    }
+    $db->exec($statement);
+}
+
+function migrationExecute(PDO $db, string $sql, array $params = []): void
+{
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    if ($stmt->columnCount() > 0) {
+        $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    $stmt->closeCursor();
+}
+
+function migrationFetchColumn(PDO $db, string $sql, array $params = []): mixed
+{
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    $val = $stmt->fetchColumn();
+    $stmt->closeCursor();
+    return $val;
+}
+
+function migrationFetchAll(PDO $db, string $sql, array $params = []): array
+{
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt->closeCursor();
+    return is_array($rows) ? $rows : [];
+}
+
 function applyPendingMigrations(string $directory): array
 {
-    // Fresh PDO avoids HY000 2014 when config bootstrap left an open cursor on getDB().
-    $db = migrationDedicatedPdo();
+    // Fresh PDO for lock + listing; per-file reconnect avoids HY000 2014 on SELECT migrations.
+    $lockDb = migrationDedicatedPdo();
     $lockName = 'uniweb_schema_migrations';
-    $lock = $db->prepare('SELECT GET_LOCK(?, 15)');
-    $lock->execute([$lockName]);
-    $gotLock = (int)$lock->fetchColumn();
-    $lock->closeCursor();
+    $gotLock = (int)migrationFetchColumn($lockDb, 'SELECT GET_LOCK(?, 15)', [$lockName]);
     if ($gotLock !== 1) {
         throw new RuntimeException('Could not acquire migration lock.');
     }
@@ -223,8 +262,11 @@ function applyPendingMigrations(string $directory): array
     $appliedFiles = [];
     $details = [];
     try {
-        foreach (pendingMigrations($directory, $db) as $migration) {
+        foreach (pendingMigrations($directory, $lockDb) as $migration) {
             $version = (string)$migration['version'];
+            // Reconnect per file so a SELECT in one migration cannot block the next.
+            $db = migrationDedicatedPdo();
+            migrationEnsureBufferedPdo($db);
             try {
                 if (str_ends_with($migration['path'], '.php')) {
                     require_once $migration['path'];
@@ -235,12 +277,12 @@ function applyPendingMigrations(string $directory): array
                     }
                     foreach (migrationStatements($sql) as $statement) {
                         try {
-                            $db->exec($statement);
+                            migrationRunStatement($db, $statement);
                         } catch (PDOException $e) {
                             $withoutIf = migrationSqlWithoutIfNotExists($statement);
                             if ($withoutIf !== null) {
                                 try {
-                                    $db->exec($withoutIf);
+                                    migrationRunStatement($db, $withoutIf);
                                     continue;
                                 } catch (PDOException $retryEx) {
                                     $e = $retryEx;
@@ -275,9 +317,7 @@ function applyPendingMigrations(string $directory): array
                         }
                     }
                 }
-                $record = $db->prepare('INSERT INTO schema_migrations (version, checksum) VALUES (?, ?)');
-                $record->execute([$version, $migration['checksum']]);
-                $record->closeCursor();
+                migrationExecute($db, 'INSERT INTO schema_migrations (version, checksum) VALUES (?, ?)', [$version, $migration['checksum']]);
                 $appliedFiles[] = $version;
                 $details[] = ['version' => $version, 'status' => 'applied'];
             } catch (Throwable $e) {
@@ -290,12 +330,10 @@ function applyPendingMigrations(string $directory): array
                 );
             }
         }
+        $db = migrationDedicatedPdo();
         $pendingAfter = array_column(pendingMigrations($directory, $db), 'version');
     } finally {
-        $release = $db->prepare('SELECT RELEASE_LOCK(?)');
-        $release->execute([$lockName]);
-        $release->fetchColumn();
-        $release->closeCursor();
+        migrationFetchColumn($lockDb, 'SELECT RELEASE_LOCK(?)', [$lockName]);
     }
 
     return [

@@ -1243,6 +1243,10 @@ $mig054 = (string)file_get_contents($root . '/migrations/054_payment_methods_orc
 $assert(strpos($mig054, 'ADD COLUMN gateway_key') !== false
     && strpos($mig054, 'ADD COLUMN gateway_key') < strpos($mig054, 'INSERT INTO gateway_registry'), 'migration_054_alter_before_insert');
 $assert(str_contains($migLib, 'Migration failed:'), 'migrations_name_failing_file');
+$assert(str_contains($migLib, 'function migrationRunStatement') && str_contains($migLib, 'fetchAll(PDO::FETCH_ASSOC)'), 'migrations_drain_select_cursors_hy000_2014');
+$assert(str_contains($migLib, 'migrationDedicatedPdo()') && str_contains($migLib, 'Reconnect per file'), 'migrations_fresh_pdo_per_file');
+$mig072 = (string)file_get_contents($root . '/migrations/072_normalize_payment_method_keys.sql');
+$assert(!preg_match('/^\s*SELECT\s+/mi', $mig072), 'migration_072_no_select_noop');
 $assert(!str_contains($migLib, 'Applied migration checksum mismatch'), 'migrations_checksum_rebase_not_throw');
 $migRel = (string)file_get_contents($root . '/migrate_release.php');
 $assert(str_contains($migRel, "'migration' => \$file"), 'migrate_release_names_failed_file');

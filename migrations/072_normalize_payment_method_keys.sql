@@ -1,6 +1,4 @@
 -- Migration 072: Payment method key normalization (enabled_methods JSON).
 -- Canonical catalog keys (upi_p2m, netbanking, …) are applied at runtime by
 -- backfillMerchantEnabledMethodsJson() in includes/payment_methods.php on boot.
--- No destructive SQL — safe to re-run.
-
-SELECT 1;
+-- No destructive SQL — safe to re-run (comments only; no SELECT noop).
