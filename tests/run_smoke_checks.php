@@ -886,6 +886,13 @@ $assert(str_contains((string)file_get_contents($root . '/includes/payout.php'), 
 $assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'onPayoutRailUnlocked'), 'payout_live_switch_kicks_dispatch');
 $assert(str_contains((string)file_get_contents($root . '/includes/verification.php'), 'decentroPartnerCredential') && str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'rblPartnerCredential'), 'p6a_decentro_rbl_registry_credentials');
 $assert(str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'no demo defaults') && !str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'VAOPENBANK'), 'p6a_rbl_no_demo_corp_defaults');
+$rblFlow = (string)file_get_contents($root . '/includes/rbl_workflow.php');
+$assert(str_contains($rblFlow, 'function isRblOperational') && str_contains($rblFlow, 'function rblLiveMoneyAllowed'), 'rbl_workflow_operational_and_live_gates');
+$assert(str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'function rblOperationalGate') && str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'function createRblVirtualAccount'), 'rbl_operational_gate_and_va_create');
+$assert(str_contains((string)file_get_contents($root . '/includes/va_manager.php'), "gateway === 'rbl'") && str_contains((string)file_get_contents($root . '/includes/va_manager.php'), 'createRblVirtualAccount'), 'va_manager_rbl_when_operational');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_keys_workflow.php'), 'rbl_client_id') && str_contains((string)file_get_contents($root . '/includes/partner_keys_workflow.php'), 'rbl_no_demo_defaults'), 'partner_keys_rbl_legacy_blocklist');
+$assert(is_file($root . '/migrations/075_wipe_legacy_rbl_plaintext_keys.sql'), 'migration_075_rbl_plaintext_wipe');
+$assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'No demo defaults') && str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), "partnerKey === 'rbl'"), 'admin_rbl_no_demo_defaults_hint');
 $assert(str_contains((string)file_get_contents($root . '/includes/cloud_modules.php'), "'auto_kyc.php'") && str_contains((string)file_get_contents($root . '/config.dev.php'), "'auto_kyc'"), 'p6a_auto_kyc_loaded_via_cloud_modules');
 $assert(str_contains((string)file_get_contents($root . '/includes/va_manager.php'), 'vaSupportedCreationGateways') && str_contains((string)file_get_contents($root . '/includes/gateways.php'), "'pinelabs'"), 'p6a_va_supported_list_and_pinelabs_enum');
 $axisVa = (string)file_get_contents($root . '/includes/axis.php');

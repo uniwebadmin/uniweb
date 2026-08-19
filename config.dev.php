@@ -490,6 +490,7 @@ $__includes = [
     'payout_jobs',
     'payout_adapters',
     'payout_workflow',
+    'rbl_workflow',
     'payout_partner_api',
     'payout_worker',
     'client_context',

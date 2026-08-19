@@ -11,7 +11,14 @@ declare(strict_types=1);
 /** Gateways with a live VA-creation adapter today (others fail gracefully). */
 function vaSupportedCreationGateways(): array
 {
-    return ['axis'];
+    $gateways = ['axis'];
+    if (!function_exists('isRblOperational') && is_file(__DIR__ . '/rbl_workflow.php')) {
+        require_once __DIR__ . '/rbl_workflow.php';
+    }
+    if (function_exists('isRblOperational') && isRblOperational()) {
+        $gateways[] = 'rbl';
+    }
+    return $gateways;
 }
 
 /** Ensure multi-VA table exists (migration 031). Safe to call from admin UI. */
@@ -301,8 +308,17 @@ function createAdditionalVirtualAccount(int $merchantId, string $gateway = 'axis
         return ['ok' => false, 'error' => 'Merchant not found.'];
     }
 
-    if (!in_array($gateway, vaSupportedCreationGateways(), true) || !function_exists('createAxisVirtualAccount')) {
+    if (!in_array($gateway, vaSupportedCreationGateways(), true)) {
         return ['ok' => false, 'error' => 'Gateway "' . $gateway . '" VA creation is not live yet. Supported: ' . implode(', ', vaSupportedCreationGateways()) . '.'];
+    }
+    if ($gateway === 'axis' && !function_exists('createAxisVirtualAccount')) {
+        return ['ok' => false, 'error' => 'Axis VA adapter not loaded.'];
+    }
+    if ($gateway === 'rbl' && !function_exists('createRblVirtualAccount') && is_file(__DIR__ . '/rbl.php')) {
+        require_once __DIR__ . '/rbl.php';
+    }
+    if ($gateway === 'rbl' && !function_exists('createRblVirtualAccount')) {
+        return ['ok' => false, 'error' => 'RBL VA adapter not loaded.'];
     }
 
     if ($gateway === 'axis') {
@@ -316,16 +332,34 @@ function createAdditionalVirtualAccount(int $merchantId, string $gateway = 'axis
         }
     }
 
-    if ($gateway !== 'axis') {
-        return ['ok' => false, 'error' => 'Only axis is wired for VA creation today.'];
+    if ($gateway === 'rbl') {
+        if (!function_exists('isRblOperational') && is_file(__DIR__ . '/rbl_workflow.php')) {
+            require_once __DIR__ . '/rbl_workflow.php';
+        }
+        if (!function_exists('createRblVirtualAccount') && is_file(__DIR__ . '/rbl.php')) {
+            require_once __DIR__ . '/rbl.php';
+        }
+        if (!function_exists('isRblOperational') || !isRblOperational()) {
+            $reason = function_exists('rblGateBlockedReason') ? rblGateBlockedReason() : 'RBL keys incomplete — paste Corp ID and Master Account in Partner Registry (no demo defaults).';
+            return ['ok' => false, 'error' => $reason];
+        }
     }
 
-    $va = createAxisVirtualAccount($merchant);
-    if (!$va || empty($va['va_number'])) {
-        $hint = function_exists('axisAllowMock') && axisAllowMock()
-            ? 'Mock VA is ON but creation still failed — check Error Log.'
-            : 'Axis did not return a VA in ~15s. Check Partner Registry → Axis keys, IP whitelist, and Error Log.';
-        return ['ok' => false, 'error' => $hint];
+    if ($gateway === 'axis') {
+        $va = createAxisVirtualAccount($merchant);
+        if (!$va || empty($va['va_number'])) {
+            $hint = function_exists('axisAllowMock') && axisAllowMock()
+                ? 'Mock VA is ON but creation still failed — check Error Log.'
+                : 'Axis did not return a VA in ~15s. Check Partner Registry → Axis keys, IP whitelist, and Error Log.';
+            return ['ok' => false, 'error' => $hint];
+        }
+    } elseif ($gateway === 'rbl') {
+        $va = createRblVirtualAccount($merchant);
+        if (!$va || empty($va['va_number'])) {
+            return ['ok' => false, 'error' => 'RBL did not return a VA. Check Partner Registry → RBL keys, Corp ID, Master Account, and Error Log.'];
+        }
+    } else {
+        return ['ok' => false, 'error' => 'Gateway "' . $gateway . '" VA creation is not live yet. Supported: ' . implode(', ', vaSupportedCreationGateways()) . '.'];
     }
 
     $countSt = $db->prepare('SELECT COUNT(*) FROM merchant_virtual_accounts WHERE merchant_id = ?');
@@ -337,11 +371,11 @@ function createAdditionalVirtualAccount(int $merchantId, string $gateway = 'axis
             'INSERT INTO merchant_virtual_accounts (merchant_id, gateway, va_id, va_number, ifsc, upi_id, label, status, is_primary, counters_reset_on)
             VALUES (?,?,?,?,?,?,?,?,?,CURDATE())'
         )->execute([
-            $merchantId, $gateway,
-            $va['va_id'] ?? '', $va['va_number'], $va['ifsc'] ?? null, $va['upi_id'] ?? null,
-            $label !== '' ? $label : ('VA ' . (countActiveMerchantVirtualAccounts($merchantId) + 1)),
-            'active', $isFirst ? 1 : 0,
-        ]);
+                $merchantId, $gateway,
+                $va['va_id'] ?? '', $va['va_number'], $va['ifsc'] ?? null, $va['upi_id'] ?? null,
+                $label !== '' ? $label : ('VA ' . (countActiveMerchantVirtualAccounts($merchantId) + 1)),
+                'active', $isFirst ? 1 : 0,
+            ]);
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => 'Could not save virtual account: ' . $e->getMessage()];
     }

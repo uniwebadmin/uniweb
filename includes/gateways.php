@@ -2,6 +2,9 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/rbl.php';
+if (is_file(__DIR__ . '/rbl_workflow.php')) {
+    require_once __DIR__ . '/rbl_workflow.php';
+}
 if (!function_exists('isGatewayActive')) {
     require_once __DIR__ . '/payment_methods.php';
 }
@@ -607,7 +610,7 @@ function isGatewayConfigured(string $gateway): bool
         'pinelabs' => (bool)getPartnerSetting('pinelabs', 'pinelabs_merchant_id', '') && (bool)getPartnerSetting('pinelabs', 'pinelabs_access_code', '') && (bool)getPartnerSetting('pinelabs', 'pinelabs_secure_key', ''),
         'worldline' => (bool)getPartnerSetting('worldline', 'worldline_merchant_id', '') && (bool)getPartnerSetting('worldline', 'worldline_access_key', '') && (bool)getPartnerSetting('worldline', 'worldline_secret_key', ''),
         'digio' => (bool)getPartnerSetting('digio', 'digio_client_id', '') && (bool)getPartnerSetting('digio', 'digio_client_secret', ''),
-        'rbl' => isRblConfigured(),
+        'rbl' => (function_exists('isRblOperational') ? isRblOperational() : isRblConfigured()),
         default => function_exists('isPartnerRegistryKey') && isPartnerRegistryKey($gateway)
             ? partnerHasSavedCredentials($gateway)
             : false,

@@ -367,6 +367,9 @@ require_once __DIR__ . '/header.php';
         <?php if ($partnerKey === 'pinelabs'): ?>
         <div class="rounded-lg border border-violet-500/30 bg-violet-500/10 p-3 mb-4 text-xs text-violet-200">Use canonical fields: <strong>Merchant ID</strong>, <strong>Access Code</strong>, <strong>Secure Key</strong>. Do not paste into old gateway_settings names (<code class="text-gray-400">pinelabs_api_key</code>). Keys save encrypted in Partner Registry only.</div>
         <?php endif; ?>
+        <?php if ($partnerKey === 'rbl'): ?>
+        <div class="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 mb-4 text-xs text-rose-200"><strong>No demo defaults.</strong> Paste <strong>Client ID</strong>, <strong>Secret</strong>, <strong>Corp ID</strong>, and <strong>Master Account</strong> from RBL dashboard. Bina Corp ID + Master Account ke VA / UPI / payout band — fake values (jaise VAOPENBANK) code mein nahi bharte.</div>
+        <?php endif; ?>
         <?php if ($keyEnv === 'live' && !empty($credStatus['test']) && empty($credStatus['live'])): ?>
         <form method="POST" class="mb-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">

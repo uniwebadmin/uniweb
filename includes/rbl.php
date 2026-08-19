@@ -51,6 +51,96 @@ function isRblConfigured(): bool
     return rblPartnerCredential('rbl_client_id', '') !== '' && rblPartnerCredential('rbl_client_secret', '') !== '';
 }
 
+/**
+ * Block money-moving RBL calls until Corp ID + Master Account are set (no demo defaults).
+ *
+ * @return array{http:int,error:string,body:array}|null null when allowed
+ */
+function rblOperationalGate(): ?array
+{
+    if (!function_exists('isRblOperational') && is_file(__DIR__ . '/rbl_workflow.php')) {
+        require_once __DIR__ . '/rbl_workflow.php';
+    }
+    if (function_exists('isRblOperational') && !isRblOperational()) {
+        $reason = function_exists('rblGateBlockedReason') ? rblGateBlockedReason() : 'RBL not operational — paste Corp ID and Master Account in Partner Registry.';
+        return ['http' => 0, 'error' => $reason, 'body' => []];
+    }
+    return null;
+}
+
+/** Parse RBL VA create response into checkout-friendly shape. */
+function rblParseVaResponse(?array $res): ?array
+{
+    if (!$res || (int)($res['http'] ?? 0) !== 200) {
+        return null;
+    }
+    $body = $res['body'] ?? [];
+    if (!is_array($body)) {
+        return null;
+    }
+    $candidates = [$body];
+    foreach (['create_VA', 'Create_VA', 'createVA', 'response', 'Body'] as $wrap) {
+        if (!empty($body[$wrap]) && is_array($body[$wrap])) {
+            $candidates[] = $body[$wrap];
+            if (!empty($body[$wrap]['Body']) && is_array($body[$wrap]['Body'])) {
+                $candidates[] = $body[$wrap]['Body'];
+            }
+        }
+    }
+    $fields = [
+        'va_number' => ['VA_Number', 'va_number', 'VirtualAccountNumber', 'AccountNumber', 'account_number'],
+        'va_id' => ['VA_Id', 'va_id', 'VirtualAccountId', 'Id'],
+        'ifsc' => ['IFSC', 'ifsc', 'IFSC_Code'],
+        'upi_id' => ['UPI_Id', 'upi_id', 'VPA', 'vpa'],
+    ];
+    $out = [];
+    foreach ($candidates as $node) {
+        foreach ($fields as $canonical => $keys) {
+            if (!empty($out[$canonical])) {
+                continue;
+            }
+            foreach ($keys as $k) {
+                if (!empty($node[$k])) {
+                    $out[$canonical] = trim((string)$node[$k]);
+                    break;
+                }
+            }
+        }
+    }
+    if (empty($out['va_number'])) {
+        return null;
+    }
+    $out['va_id'] = $out['va_id'] ?? $out['va_number'];
+    return $out;
+}
+
+/**
+ * Create merchant VA via RBL when operational — no fake defaults.
+ *
+ * @param array<string,mixed> $merchant
+ * @return array<string,mixed>|null
+ */
+function createRblVirtualAccount(array $merchant): ?array
+{
+    $gate = rblOperationalGate();
+    if ($gate !== null) {
+        return null;
+    }
+    $merchantId = (int)($merchant['id'] ?? $merchant['merchant_id'] ?? 0);
+    $name = trim((string)($merchant['business_name'] ?? $merchant['name'] ?? 'Merchant'));
+    if ($name === '') {
+        $name = 'Merchant ' . $merchantId;
+    }
+    $serial = 'UW' . str_pad((string)max(1, $merchantId), 10, '0', STR_PAD_LEFT);
+    $res = rblCreateVirtualAccount($serial, $name);
+    $parsed = rblParseVaResponse($res);
+    if ($parsed) {
+        $parsed['_source'] = 'rbl_api';
+        return $parsed;
+    }
+    return null;
+}
+
 /** Generic RBL API call. Auth is client_id + client_secret as query params. */
 function rblApiRequest(string $method, string $path, ?array $body = null, int $timeout = 30): ?array
 {
@@ -166,26 +256,41 @@ function rblVaBody(string $serial, string $beneficiaryName, ?string $accountNo =
 
 function rblCreateVirtualAccount(string $serial, string $beneficiaryName, ?string $accountNo = null): ?array
 {
+    if (($gate = rblOperationalGate()) !== null) {
+        return $gate;
+    }
     return rblApiRequest('POST', '/virtual/account', rblVaBody($serial, $beneficiaryName, $accountNo));
 }
 
 function rblCreateVaV2(string $serial, string $beneficiaryName, ?string $accountNo = null): ?array
 {
+    if (($gate = rblOperationalGate()) !== null) {
+        return $gate;
+    }
     return rblApiRequest('POST', '/virtual/v2/account', rblVaBody($serial, $beneficiaryName, $accountNo));
 }
 
 function rblCreateVaV1(string $serial, string $beneficiaryName, ?string $accountNo = null): ?array
 {
+    if (($gate = rblOperationalGate()) !== null) {
+        return $gate;
+    }
     return rblApiRequest('POST', '/va/create', rblVaBody($serial, $beneficiaryName, $accountNo));
 }
 
 function rblUpiCollection(string $serial, string $beneficiaryName, ?string $accountNo = null): ?array
 {
+    if (($gate = rblOperationalGate()) !== null) {
+        return $gate;
+    }
     return rblApiRequest('POST', '/upi/collection', rblVaBody($serial, $beneficiaryName, $accountNo));
 }
 
 function rblFetchAccountBalance(string $accountId): ?array
 {
+    if (($gate = rblOperationalGate()) !== null) {
+        return $gate;
+    }
     $c = rblCredentials();
     $body = [
         'getAccountBalanceReq' => [
@@ -203,6 +308,9 @@ function rblFetchAccountBalance(string $accountId): ?array
 
 function rblBlobVaStatement(string $accountNo, string $fromDate, string $toDate): ?array
 {
+    if (($gate = rblOperationalGate()) !== null) {
+        return $gate;
+    }
     $c = rblCredentials();
     $body = [
         'FetchAccStmtReq' => [
@@ -220,6 +328,9 @@ function rblBlobVaStatement(string $accountNo, string $fromDate, string $toDate)
 
 function rblCorporateSinglePayment(array $payment): ?array
 {
+    if (($gate = rblOperationalGate()) !== null) {
+        return $gate;
+    }
     $body = [
         'Single_Payment_Corp_Req' => [
             'Header' => rblDefaultHeader(),
@@ -232,6 +343,9 @@ function rblCorporateSinglePayment(array $payment): ?array
 
 function rblBulkPayment(array $debit, array $payments): ?array
 {
+    if (($gate = rblOperationalGate()) !== null) {
+        return $gate;
+    }
     $c = rblCredentials();
     $body = [
         'doBenIdMultiPaymentReq' => [

@@ -22,6 +22,11 @@ function partnerLegacyPlaintextSettingKeys(): array
         'cashfree_secret_key',
         'payu_merchant_key',
         'payu_merchant_salt',
+        'rbl_client_id',
+        'rbl_client_secret',
+        'rbl_corp_id',
+        'rbl_master_account',
+        'rbl_app_name',
     ];
 }
 
@@ -178,11 +183,18 @@ function partnerKeysPlaneReport(): array
     $decentroOk = trim(getPartnerSetting('decentro', 'decentro_client_id', '')) !== ''
         && trim(getPartnerSetting('decentro', 'decentro_client_secret', '')) !== '';
 
+    if (!function_exists('isRblOperational') && is_file(__DIR__ . '/rbl_workflow.php')) {
+        require_once __DIR__ . '/rbl_workflow.php';
+    }
+    $rblPartial = function_exists('isRblPartiallyConfigured') && isRblPartiallyConfigured();
+    $rblOk = function_exists('isRblOperational') && isRblOperational();
+
     $checks = [
         'plane_b_only' => $legacyFound === [],
         'decentro_registry' => $decentroOk,
         'pinelabs_fields_aligned' => $pineOk || !function_exists('partnerIsConfigured') || !partnerIsConfigured('pinelabs'),
         'payout_keys_or_gated' => payoutPartnerKeysConfigured() || !payoutLiveMoneyAllowed(),
+        'rbl_no_demo_defaults' => !$rblPartial || $rblOk,
     ];
 
     return [
@@ -200,6 +212,7 @@ function partnerKeysPlaneMissingLabels(array $report): array
         'decentro_registry' => 'Decentro keys in Partner Registry',
         'pinelabs_fields_aligned' => 'Pine Labs canonical fields (when configured)',
         'payout_keys_or_gated' => 'Payout keys present or payout live gated off',
+        'rbl_no_demo_defaults' => 'RBL Corp ID + Master Account when RBL keys partial',
     ];
     $out = [];
     foreach ($report['missing'] ?? [] as $key) {
