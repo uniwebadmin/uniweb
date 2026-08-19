@@ -1304,7 +1304,13 @@ $assert(str_contains((string)file_get_contents($root . '/includes/settlement_eng
 
 // P1-01: keys only in partner_credentials; Platform Settings cannot save live PG secrets
 $pCtrl = (string)file_get_contents($root . '/includes/partner_control.php');
-$assert(str_contains($pCtrl, 'function isPartnerCredentialSettingKey') && str_contains($pCtrl, 'function uniwebPartnerCredentialSettingMap'), 'p1_partner_credential_key_blocklist');
+$pkFlow = (string)file_get_contents($root . '/includes/partner_keys_workflow.php');
+$assert(str_contains($pkFlow, 'function normalizePartnerCredentialPayload') && str_contains($pkFlow, 'function uniwebTestReferenceIsMock'), 'partner_keys_workflow_plane_b_and_mock_utr');
+$assert(str_contains($pkFlow, 'pinelabs_access_code') && str_contains($pkFlow, 'pinelabs_api_key'), 'pinelabs_canonical_vs_legacy_alias');
+$assert(str_contains($pCtrl, 'normalizePartnerCredentialPayload') && str_contains($pCtrl, 'wipeLegacyPartnerPlaintextFromGatewaySettings'), 'partner_save_normalizes_and_wipes_legacy');
+$assert(is_file($root . '/migrations/074_wipe_legacy_partner_plaintext_keys.sql'), 'migration_074_legacy_plaintext_wipe');
+$assert(str_contains((string)file_get_contents($root . '/includes/payout.php'), 'Live gate blocked mock UTR'), 'payout_live_blocks_mock_utr_success');
+$assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'legacy_plaintext'), 'gateway_settings_legacy_keys_banner');
 $assert(str_contains($pCtrl, 'function resolvePartnerCredentialValue'), 'p2_keys_plane_legacy_alias_resolver');
 $assert(str_contains($pCtrl, 'pinelabs_access_code') && str_contains((string)file_get_contents($root . '/includes/partner_engine.php'), 'pinelabs_access_code'), 'p2_pinelabs_field_names_aligned');
 $assert(str_contains((string)file_get_contents($root . '/includes/payout.php'), "getPartnerSetting('razorpayx'"), 'p2_payout_reads_registry_not_gateway_settings');

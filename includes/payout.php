@@ -1110,6 +1110,16 @@ function dispatchQueuedPayouts(int $limit = 20): array
 
         $result = payoutAdapterDispatchOrder($row, resolveDefaultPayoutAdapterName());
         if (!empty($result['ok'])) {
+            $utr = (string)($result['utr'] ?? '');
+            if (!function_exists('payoutUtrIsTest') && is_file(__DIR__ . '/payout_workflow.php')) {
+                require_once __DIR__ . '/payout_workflow.php';
+            }
+            if ($utr !== '' && function_exists('payoutUtrIsTest') && payoutUtrIsTest($utr) && payoutLiveMoneyAllowed()) {
+                getDB()->prepare("UPDATE payout_orders SET status='failed', failure_reason=?, partner_ref=NULL, utr=NULL WHERE id=?")
+                    ->execute(['Live gate blocked mock UTR — check payout adapter configuration.', $orderId]);
+                $fail++;
+                continue;
+            }
             getDB()->prepare("UPDATE payout_orders SET status='success', partner_ref=?, utr=?, failure_reason=NULL, processed_at=NOW() WHERE id=?")
                 ->execute([
                     $result['partner_ref'] ?? ($result['utr'] ?? null),
@@ -1397,6 +1407,15 @@ function dispatchPayoutOrder(int $orderId): array
 
         $result = payoutAdapterDispatchOrder($order, resolveDefaultPayoutAdapterName());
         if (!empty($result['ok'])) {
+            $utr = (string)($result['utr'] ?? '');
+            if (!function_exists('payoutUtrIsTest') && is_file(__DIR__ . '/payout_workflow.php')) {
+                require_once __DIR__ . '/payout_workflow.php';
+            }
+            if ($utr !== '' && function_exists('payoutUtrIsTest') && payoutUtrIsTest($utr)) {
+                $db->prepare("UPDATE payout_orders SET status='failed', failure_reason=? WHERE id=?")
+                    ->execute(['Live gate blocked mock UTR — check payout adapter configuration.', $orderId]);
+                return ['ok' => false, 'error' => 'Mock UTR blocked under live payout gate.'];
+            }
             $db->prepare("UPDATE payout_orders SET status='success', utr=?, partner_ref=?, processed_at=NOW() WHERE id=?")
                 ->execute([
                     $result['utr'] ?? '',

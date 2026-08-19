@@ -479,7 +479,7 @@ $__includes = [
     'wallet', 'settlement_engine', 'reconciliation', 'refunds', 'chargebacks',
     'merchant_profile', 'contact_change', 'merchant_ui', 'page_ux', 'page_ux_compat', 'merchant_admin_view', 'merchant_website',
     'merchant_webhooks', 'pg_webhooks', 'collection', 'upi_confirm',
-    'gateway_reason_map', 'transaction_detail', 'ui_links', 'id_click', 'staff', 'partners', 'partner_engine',
+    'gateway_reason_map', 'transaction_detail', 'ui_links', 'id_click', 'staff', 'partners', 'partner_engine', 'partner_keys_workflow',
     'provision', 'customer_messaging', 'customer_portal', 'mailer', 'qr_svg', 'qr_events',
     'platform_api', 'platform_health', 'link_watchdog', 'auto_audit',
     'morning_ops', 'axis', 'va_manager', 'webhook_queue', 'notify', 'error_catcher', 'rolling_reserve', 'grievance_engine', 'merchant_health', 'webhook_reliability', 'fast_qr_api', 'circuit_breaker', 'rate_limiter', 'split_settlement', 'route_split_partner_api', 'sub_merchant', 'recurring',

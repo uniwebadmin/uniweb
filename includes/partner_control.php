@@ -131,6 +131,16 @@ function savePartnerCredentials(string $partnerKey, string $env, array $keys, ar
         return 'no_keys';
     }
 
+    if (!function_exists('normalizePartnerCredentialPayload')) {
+        require_once __DIR__ . '/partner_keys_workflow.php';
+    }
+    if (function_exists('normalizePartnerCredentialPayload')) {
+        $payload = normalizePartnerCredentialPayload($partnerKey, $payload);
+    }
+    if ($payload === []) {
+        return 'no_keys';
+    }
+
     $last4 = '';
     foreach ($payload as $key => $val) {
         if (!is_string($val) || $val === '') {
@@ -209,6 +219,12 @@ function uniwebPartnerCredentialSettingMap(): array
 
 function isPartnerCredentialSettingKey(string $key): bool
 {
+    if (function_exists('partnerLegacyPlaintextSettingKeys')) {
+        require_once __DIR__ . '/partner_keys_workflow.php';
+    }
+    if (function_exists('partnerLegacyPlaintextSettingKeys') && in_array($key, partnerLegacyPlaintextSettingKeys(), true)) {
+        return true;
+    }
     foreach (uniwebPartnerCredentialSettingMap() as $keys) {
         if (in_array($key, $keys, true)) {
             return true;
@@ -230,20 +246,25 @@ function resolvePartnerCredentialValue(array $creds, string $partnerKey, string 
     if (!empty($creds[$keyName])) {
         return (string)$creds[$keyName];
     }
-    $aliases = [
-        'decentro' => [
-            'decentro_client_id' => ['decentro_api_key'],
-            'decentro_client_secret' => ['decentro_api_secret'],
-        ],
-        'pinelabs' => [
-            'pinelabs_access_code' => ['pinelabs_api_key'],
-            'pinelabs_secure_key' => ['pinelabs_api_secret'],
-        ],
-        'axis' => [
-            'axis_client_id' => ['axis_api_key'],
-            'axis_client_secret' => ['axis_api_secret'],
-        ],
-    ];
+    if (function_exists('partnerCredentialLegacyAliases')) {
+        require_once __DIR__ . '/partner_keys_workflow.php';
+        $aliases = partnerCredentialLegacyAliases();
+    } else {
+        $aliases = [
+            'decentro' => [
+                'decentro_client_id' => ['decentro_api_key'],
+                'decentro_client_secret' => ['decentro_api_secret'],
+            ],
+            'pinelabs' => [
+                'pinelabs_access_code' => ['pinelabs_api_key'],
+                'pinelabs_secure_key' => ['pinelabs_api_secret'],
+            ],
+            'axis' => [
+                'axis_client_id' => ['axis_api_key'],
+                'axis_client_secret' => ['axis_api_secret'],
+            ],
+        ];
+    }
     foreach ($aliases[$partnerKey][$keyName] ?? [] as $alt) {
         if (!empty($creds[$alt])) {
             return (string)$creds[$alt];
@@ -564,6 +585,13 @@ function migrateGatewaySettingsToPartnerCredentials(): void
 
     if ($wiped && function_exists('clearSettingCache')) {
         clearSettingCache();
+    }
+
+    if (!function_exists('wipeLegacyPartnerPlaintextFromGatewaySettings')) {
+        require_once __DIR__ . '/partner_keys_workflow.php';
+    }
+    if (function_exists('wipeLegacyPartnerPlaintextFromGatewaySettings')) {
+        wipeLegacyPartnerPlaintextFromGatewaySettings();
     }
 }
 

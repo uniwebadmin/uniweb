@@ -61,6 +61,12 @@ function payoutRailReadinessMissingLabels(array $report): array
 
 function payoutUtrIsTest(?string $utr): bool
 {
+    if (!function_exists('uniwebTestReferenceIsMock') && is_file(__DIR__ . '/partner_keys_workflow.php')) {
+        require_once __DIR__ . '/partner_keys_workflow.php';
+    }
+    if (function_exists('uniwebTestReferenceIsMock')) {
+        return uniwebTestReferenceIsMock($utr);
+    }
     $utr = strtoupper(trim((string)$utr));
     return $utr !== '' && str_starts_with($utr, 'UNIWEB_TEST_');
 }
@@ -68,6 +74,12 @@ function payoutUtrIsTest(?string $utr): bool
 /** Merchant-safe UTR label — honest about mock vs partner reference. */
 function payoutUtrDisplayLabel(?string $utr): string
 {
+    if (!function_exists('uniwebTestReferenceDisplayLabel') && is_file(__DIR__ . '/partner_keys_workflow.php')) {
+        require_once __DIR__ . '/partner_keys_workflow.php';
+    }
+    if (function_exists('uniwebTestReferenceDisplayLabel')) {
+        return uniwebTestReferenceDisplayLabel($utr);
+    }
     $utr = trim((string)$utr);
     if ($utr === '') {
         return '—';

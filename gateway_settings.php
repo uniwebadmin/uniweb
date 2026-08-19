@@ -75,6 +75,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
 $settings = $db->query('SELECT * FROM gateway_settings ORDER BY setting_key')->fetchAll();
 $settingsMap = array_column($settings, 'setting_value', 'setting_key');
+if (is_file(__DIR__ . '/includes/partner_keys_workflow.php')) {
+    require_once __DIR__ . '/includes/partner_keys_workflow.php';
+}
+$partnerKeysPlane = function_exists('partnerKeysPlaneReport') ? partnerKeysPlaneReport() : null;
 if (empty($settingsMap['db_backup_email'])) {
     $settingsMap['db_backup_email'] = 'startelecom620@gmail.com';
 }
@@ -140,6 +144,13 @@ $gatewayCards = [
         </div>
         <a href="admin_gateway_registry.php" class="shrink-0 text-xs px-4 py-2 rounded-lg bg-sky-600/20 text-sky-400 hover:bg-sky-600/30">Partner Registry →</a>
     </div>
+    <?php if (!empty($partnerKeysPlane['legacy_plaintext'])): ?>
+    <div class="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+        <p class="font-semibold text-red-300">Legacy plaintext partner keys found in gateway_settings</p>
+        <p class="mt-1">Move to Partner Registry (encrypted). Stale rows: <?= e(implode(', ', $partnerKeysPlane['legacy_plaintext'])) ?>. Saving this page or opening Partner Registry will auto-wipe after migration.</p>
+        <p class="text-[10px] text-gray-500 mt-1">Pine Labs: use <code class="text-gray-400">pinelabs_merchant_id</code>, <code class="text-gray-400">pinelabs_access_code</code>, <code class="text-gray-400">pinelabs_secure_key</code> — not pinelabs_api_key.</p>
+    </div>
+    <?php endif; ?>
 </div>
 <div class="glass rounded-xl p-4 mb-6 border border-emerald-500/25 max-w-4xl text-xs text-gray-400">
     <p class="font-semibold text-emerald-300 text-sm mb-2">Live corridor (soft launch) — do these before advertise</p>
