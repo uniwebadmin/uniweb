@@ -4,6 +4,10 @@ requireStaffAccess(['super', 'ceo', 'ops', 'kyc']);
 if (!function_exists('ensurePartnerForwardQueueTable')) {
     require_once __DIR__ . '/includes/partner_forward_queue.php';
 }
+if (!function_exists('holdWindowAdminEducation') && is_file(__DIR__ . '/includes/hold_window_workflow.php')) {
+    require_once __DIR__ . '/includes/hold_window_workflow.php';
+}
+$holdWindowEdu = function_exists('holdWindowAdminEducation') ? holdWindowAdminEducation() : null;
 
 $statusFilter = trim((string)($_GET['status'] ?? ''));
 $q = mb_substr(trim((string)($_GET['q'] ?? '')), 0, 100);
@@ -55,6 +59,9 @@ require_once __DIR__ . '/header.php';
             <?php endif; ?>
         </div>
         <p class="text-xs text-gray-500 mb-3">After Admin Verify: one queue row per partner that already has keys. <strong class="text-amber-300">Staged</strong> = package saved on UniWeb — <strong class="text-gray-300">not sent to the bank/partner yet</strong> (live KYC API + success-rate routing stay parked). Manual bulk forward / status updates: <a href="admin_gateway_submit.php" class="text-sky-400 hover:underline">Multi-Gateway Forward</a> (<code class="text-gray-400">gateway_submissions</code> — kept in sync with this queue).</p>
+        <?php if (is_array($holdWindowEdu)): ?>
+        <p class="text-[11px] text-sky-300/90 mb-3"><?= e($holdWindowEdu['policy']) ?></p>
+        <?php endif; ?>
         <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-4">
             <?php
             $statOrder = ['queued', 'processing', 'staged', 'success', 'retry', 'failed', 'paused'];

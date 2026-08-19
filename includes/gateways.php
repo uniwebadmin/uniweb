@@ -328,7 +328,7 @@ function ensureGatewaySubmissionsTable(): void
         getDB()->exec("CREATE TABLE IF NOT EXISTS gateway_submissions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             merchant_id INT NOT NULL,
-            gateway ENUM('razorpay','cashfree','payu','decentro','phonepe','axis','rbl','pinelabs') NOT NULL,
+            gateway VARCHAR(40) NOT NULL,
             status ENUM('draft','submitted','approved','rejected','pending_review') DEFAULT 'submitted',
             payload LONGTEXT,
             admin_id INT,
@@ -348,6 +348,19 @@ function ensureGatewaySubmissionsTable(): void
 function submitMerchantToGateway(int $merchantId, string $gateway, int $adminId, string $notes = '', string $forwardSource = 'manual'): bool
 {
     ensureGatewaySubmissionsTable();
+
+    if (!function_exists('gatewaySubmissionsInsertGate') && is_file(__DIR__ . '/gateway_submissions_workflow.php')) {
+        require_once __DIR__ . '/gateway_submissions_workflow.php';
+    }
+    if (function_exists('gatewaySubmissionsInsertGate')) {
+        $gate = gatewaySubmissionsInsertGate($merchantId, $gateway);
+        if (empty($gate['ok'])) {
+            error_log('submitMerchantToGateway blocked: ' . ($gate['error'] ?? 'gate'));
+            return false;
+        }
+        $gateway = (string)($gate['key'] ?? $gateway);
+    }
+
     $db = getDB();
 
     $existing = $db->prepare("SELECT id FROM gateway_submissions WHERE merchant_id=? AND gateway=? AND status IN ('submitted','pending_review','approved') ORDER BY id DESC LIMIT 1");

@@ -1040,6 +1040,31 @@ $assert(empty($methodGate['ok']) && ($methodGate['kind'] ?? '') === 'method', 's
 $rkMethodKeys = registryKindMethodKeys();
 $assert(in_array('upi_p2m', $rkMethodKeys, true) && in_array('credit_card', $rkMethodKeys, true) && !in_array('razorpay', $rkMethodKeys, true), 'split15_runtime_method_keys_static');
 
+// Gateway submissions VARCHAR — no ENUM drift (audit #16, migration 067)
+$gsFlow = (string)file_get_contents($root . '/includes/gateway_submissions_workflow.php');
+$gwLib = (string)file_get_contents($root . '/includes/gateways.php');
+$assert(str_contains($gsFlow, 'function gatewaySubmissionsInsertGate') && str_contains($gsFlow, 'function gatewaySubmissionsHealthCheck'), 'split16_workflow_core_functions');
+$assert(str_contains($gwLib, 'gateway VARCHAR(40)') && str_contains($gwLib, 'gatewaySubmissionsInsertGate'), 'split16_gateways_varchar_and_gate');
+$assert(str_contains((string)file_get_contents($root . '/admin_gateway_submit.php'), 'gatewaySubmissionsAdminEducation'), 'split16_admin_submit_education');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'gatewaySubmissionsHealthCheck'), 'split16_platform_health');
+$assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'gateway_submissions_workflow'"), 'split16_config_dev_loads');
+require_once $root . '/includes/gateway_submissions_workflow.php';
+$assert(gatewaySubmissionsSchemaExpectsVarchar(), 'split16_runtime_schema_expects_varchar');
+$gsMethodGate = gatewaySubmissionsPartnerKeyGate('upi_p2m');
+$assert(empty($gsMethodGate['ok']), 'split16_runtime_blocks_method_submission');
+
+// Hold window 09 vs 11 — schedule policy (audit #17)
+$hwFlow = (string)file_get_contents($root . '/includes/hold_window_workflow.php');
+$pfqLib = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
+$assert(str_contains($hwFlow, 'function holdWindowComputeSchedule') && str_contains($hwFlow, 'function holdWindowHealthCheck'), 'split17_workflow_core_functions');
+$assert(str_contains($pfqLib, 'holdWindowComputeSchedule'), 'split17_forward_queue_delegates_hold_window');
+$assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'holdWindowAdminEducation'), 'split17_forward_queue_education');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'holdWindowHealthCheck'), 'split17_platform_health');
+$assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'hold_window_workflow'"), 'split17_config_dev_loads');
+require_once $root . '/includes/hold_window_workflow.php';
+$nightSample = holdWindowComputeSchedule(new DateTime('2026-08-19 20:00:00', new DateTimeZone('Asia/Kolkata')));
+$assert($nightSample->format('H:i') === holdWindowCodeMorningTime(), 'split17_runtime_night_schedules_9am');
+
 // P9-04…08 honesty (market peers) — no fake orchestrator / coverage / licence / brand blur
 $regP9 = (string)file_get_contents($root . '/admin_gateway_registry.php');
 $assert(str_contains($regP9, 'Partner Registry') && !str_contains($regP9, 'Gateway Orchestrator'), 'p9_04_no_orchestrator_product_title');

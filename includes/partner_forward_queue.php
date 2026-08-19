@@ -103,6 +103,13 @@ function partnerForwardQueueUpgradeLegacySchema(PDO $db): void
  */
 function forwardQueueNextScheduleAt(): DateTime
 {
+    if (!function_exists('holdWindowComputeSchedule') && is_file(__DIR__ . '/hold_window_workflow.php')) {
+        require_once __DIR__ . '/hold_window_workflow.php';
+    }
+    if (function_exists('holdWindowComputeSchedule')) {
+        return holdWindowComputeSchedule();
+    }
+
     $now = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
     $hour = (int)$now->format('H');
     if ($hour >= 18) {

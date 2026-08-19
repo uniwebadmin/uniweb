@@ -497,6 +497,8 @@ $__includes = [
     'route_split_workflow',
     'cloud_modules_workflow',
     'registry_kind_workflow',
+    'gateway_submissions_workflow',
+    'hold_window_workflow',
     'payout_partner_api',
     'payout_worker',
     'client_context',

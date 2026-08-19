@@ -447,11 +447,19 @@ $gatewayCards = [
         if (!function_exists('registryKindReadinessReport')) {
             require_once __DIR__ . '/includes/registry_kind_workflow.php';
         }
+        if (!function_exists('gatewaySubmissionsReadinessReport')) {
+            require_once __DIR__ . '/includes/gateway_submissions_workflow.php';
+        }
+        if (!function_exists('holdWindowReadinessReport')) {
+            require_once __DIR__ . '/includes/hold_window_workflow.php';
+        }
         $recurringReady = function_exists('getRecurringReadinessChecklist') ? getRecurringReadinessChecklist() : ['items' => [], 'done' => 0, 'total' => 0, 'ready' => false];
         $routeSplitReady = function_exists('getRouteSplitReadinessChecklist') ? getRouteSplitReadinessChecklist() : ['items' => [], 'done' => 0, 'total' => 0, 'ready' => false, 'phase' => 'parked'];
         $routeSplitReport = routeSplitReadinessReport();
         $autoKycCloudReport = cloudModulesAutoKycReadinessReport();
         $registryKindReport = registryKindReadinessReport();
+        $gatewaySubmissionsReport = gatewaySubmissionsReadinessReport();
+        $holdWindowReport = holdWindowReadinessReport();
         $payoutLiveOn = ($settingsMap['payout_live_enabled'] ?? '0') === '1';
         $recurringOn = ($settingsMap['recurring_autopay_approved'] ?? '0') === '1';
         $routeSplitOn = ($settingsMap['route_split_live_enabled'] ?? '0') === '1';
@@ -577,6 +585,24 @@ $gatewayCards = [
                     <?php endforeach; ?>
                 </ul>
                 <p class="text-gray-600 mt-2"><a href="admin_gateway_registry.php" class="text-sky-400 underline">Partner Registry</a> · <?= (int)($registryKindReport['partner_count'] ?? 0) ?> partners · <?= count($registryKindReport['method_keys'] ?? []) ?> method rails</p>
+            </div>
+            <?php endif; ?>
+            <?php if (!empty($gatewaySubmissionsReport['checks'])): ?>
+            <div class="rounded-lg border border-rose-500/30 bg-rose-500/5 p-3 text-xs">
+                <p class="font-medium text-rose-300 mb-1">Gateway submissions — VARCHAR partners (migration 067)</p>
+                <p class="text-gray-500 mb-2"><?= e(gatewaySubmissionsDisclaimer()) ?></p>
+                <p class="<?= !empty($gatewaySubmissionsReport['ok']) ? 'text-emerald-400' : 'text-amber-400' ?> mb-2"><?= e($gatewaySubmissionsReport['message'] ?? '') ?></p>
+                <p class="text-gray-600"><a href="admin_gateway_submit.php" class="text-sky-400 underline">Multi-Gateway Forward</a> · <?= count($gatewaySubmissionsReport['allowed_keys'] ?? []) ?> submission partners</p>
+            </div>
+            <?php endif; ?>
+            <?php if (!empty($holdWindowReport['checks'])): ?>
+            <div class="rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3 text-xs">
+                <p class="font-medium text-cyan-300 mb-1">KYC hold window — code <?= e(holdWindowCodeMorningTime()) ?> IST vs docs <?= e(holdWindowDocReferenceTime()) ?></p>
+                <p class="text-gray-500 mb-2"><?= e($holdWindowReport['message'] ?? '') ?></p>
+                <?php if (!empty($holdWindowReport['next_sample'])): ?>
+                <p class="text-gray-600"><?= e($holdWindowReport['next_sample']) ?></p>
+                <?php endif; ?>
+                <p class="text-gray-600 mt-2"><a href="admin_forward_queue.php" class="text-sky-400 underline">KYC Forward Queue</a></p>
             </div>
             <?php endif; ?>
         </div>
