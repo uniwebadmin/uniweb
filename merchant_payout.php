@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/payout.php';
+if (is_file(__DIR__ . '/includes/payout_workflow.php')) {
+    require_once __DIR__ . '/includes/payout_workflow.php';
+}
 requireLogin();
 ensurePayoutSchema();
 $merchant = getMerchant();
@@ -137,7 +140,12 @@ require_once __DIR__ . '/header.php';
 <div class="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 mb-6 text-sm">
     <p class="font-semibold text-amber-300">Status: <?= payoutLiveMoneyAllowed() ? 'Live payout rail ON — RazorpayX or Cashfree adapter' : 'Gated — partner keys pending; enable payout live in Platform Settings' ?></p>
     <p class="text-amber-200/90 text-xs mt-1"><?= e(payoutActivationMessage()) ?></p>
-    <p class="text-[11px] text-gray-500 mt-2">Failed payouts show a clear reason. Funds are never auto-credited back without a reconciliation / maker-checker gate. Route / Easy Split stays parked (Phase 11).</p>
+    <?php if (function_exists('payoutRailReadinessReport')): $pReady = payoutRailReadinessReport(); ?>
+    <p class="text-[11px] mt-2 <?= !empty($pReady['ok']) ? 'text-emerald-400' : 'text-amber-400/90' ?>">
+        <?= !empty($pReady['ok']) ? 'Ready — partner dispatch will use live API.' : ('Waiting on: ' . e(implode(', ', payoutRailReadinessMissingLabels($pReady)))) ?>
+    </p>
+    <?php endif; ?>
+    <p class="text-[11px] text-gray-500 mt-2">Until live: drafts only, no wallet debit. Test references use prefix <code class="text-gray-400">UNIWEB_TEST_</code>. Failed payouts show a clear reason. Funds are never auto-credited back without reconciliation / maker-checker gate.</p>
 </div>
 
 <div class="grid sm:grid-cols-2 gap-4 mb-6">
@@ -359,6 +367,9 @@ require_once __DIR__ . '/header.php';
                         <?php if (($o['status'] ?? '') === 'pending_checker'): ?><p class="text-[10px] text-amber-400 mt-1">Maker-checker</p><?php endif; ?>
                     </td>
                     <td class="px-4 py-3 text-xs <?= ($o['status'] ?? '') === 'failed' ? 'text-red-300' : 'text-gray-500' ?>">
+                        <?php if (!empty($o['utr']) && function_exists('payoutUtrDisplayLabel')): ?>
+                        <p class="font-mono text-[10px] text-gray-400 mb-1"><?= e(payoutUtrDisplayLabel((string)$o['utr'])) ?></p>
+                        <?php endif; ?>
                         <?= e(trim((string)($o['failure_reason'] ?? '')) ?: '—') ?>
                         <?php if (($o['status'] ?? '') === 'pending_checker'): ?>
                         <form method="POST" class="mt-2" onsubmit="return confirm('Approve as checker? Maker cannot approve their own draft.')">

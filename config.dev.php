@@ -489,6 +489,7 @@ $__includes = [
     'audit_log',
     'payout_jobs',
     'payout_adapters',
+    'payout_workflow',
     'payout_partner_api',
     'payout_worker',
     'client_context',

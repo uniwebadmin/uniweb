@@ -12,6 +12,9 @@ if (!function_exists('ensurePartnerControlTables')) {
 if (!function_exists('requeuePartnerForwardAfterKeysSaved')) {
     require_once __DIR__ . '/includes/partner_forward_queue.php';
 }
+if (!function_exists('payoutPartnerKeysConfigured')) {
+    require_once __DIR__ . '/includes/payout.php';
+}
 requireStaffAccess(['super', 'ceo', 'ops']);
 
 $gatewayId = (int)($_GET['id'] ?? 0);
@@ -81,6 +84,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             $requeued = requeuePartnerForwardAfterKeysSaved($partnerKey);
             if ($requeued > 0) {
                 $msg .= " · {$requeued} forward row(s) re-queued.";
+            }
+        }
+        if ($last4 !== 'no_keys' && in_array($partnerKey, ['razorpayx', 'cashfree', 'razorpay'], true)) {
+            if (!function_exists('onPayoutRailUnlocked') && is_file(__DIR__ . '/includes/payout_workflow.php')) {
+                require_once __DIR__ . '/includes/payout_workflow.php';
+            }
+            if (function_exists('onPayoutRailUnlocked') && function_exists('payoutPartnerKeysConfigured') && payoutPartnerKeysConfigured()) {
+                try {
+                    $payoutKick = onPayoutRailUnlocked();
+                    if (!empty($payoutKick['promoted']) || !empty($payoutKick['dispatch']['success'])) {
+                        $msg .= ' · Payout queue advanced.';
+                    }
+                } catch (Throwable $e) {
+                    error_log('onPayoutRailUnlocked (gateway_detail): ' . $e->getMessage());
+                }
             }
         }
         flash($last4 === 'no_keys' ? 'warning' : 'success', $msg);

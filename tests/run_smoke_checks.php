@@ -880,6 +880,10 @@ $assert(
     'p6a_onboarding_enqueue_via_forward_module'
 );
 $assert(str_contains((string)file_get_contents($root . '/includes/payout_adapters.php'), 'UNIWEB_TEST_') && str_contains((string)file_get_contents($root . '/includes/payout_adapters.php'), 'dispatchImplemented'), 'p6a_payout_mock_labeled_stub_not_fake_live');
+$payoutFlow = (string)file_get_contents($root . '/includes/payout_workflow.php');
+$assert(str_contains($payoutFlow, 'function advancePayoutDispatchPipeline') && str_contains($payoutFlow, 'function payoutUtrIsTest'), 'payout_workflow_canonical_dispatch');
+$assert(str_contains((string)file_get_contents($root . '/includes/payout.php'), 'promoteGatedPayoutOrdersToQueue'), 'payout_dispatch_promotes_drafts_when_live');
+$assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'onPayoutRailUnlocked'), 'payout_live_switch_kicks_dispatch');
 $assert(str_contains((string)file_get_contents($root . '/includes/verification.php'), 'decentroPartnerCredential') && str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'rblPartnerCredential'), 'p6a_decentro_rbl_registry_credentials');
 $assert(str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'no demo defaults') && !str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'VAOPENBANK'), 'p6a_rbl_no_demo_corp_defaults');
 $assert(str_contains((string)file_get_contents($root . '/includes/cloud_modules.php'), "'auto_kyc.php'") && str_contains((string)file_get_contents($root . '/config.dev.php'), "'auto_kyc'"), 'p6a_auto_kyc_loaded_via_cloud_modules');

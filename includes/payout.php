@@ -477,7 +477,7 @@ function createPayoutDraft(int $merchantId, int $beneficiaryId, float $amount, s
         $status = $needsChecker ? 'pending_checker' : 'draft';
         $gateNote = payoutActivationMessage() . ' Draft only — no funds moved.';
     } else {
-        $status = $needsChecker ? 'pending_checker' : 'pending_maker';
+        $status = $needsChecker ? 'pending_checker' : 'queued';
         $gateNote = null;
     }
 
@@ -514,7 +514,7 @@ function createPayoutDraft(int $merchantId, int $beneficiaryId, float $amount, s
             ? ('Draft saved. ' . ($needsChecker ? 'High-value — awaiting checker. ' : '') . 'Live dispatch gated until partner keys are added. No wallet debit.')
             : ($needsChecker
                 ? 'High-value payout submitted for checker approval (maker-checker).'
-                : 'Payout queued for maker confirmation.'),
+                : 'Payout queued for partner dispatch.'),
         'failure_reason' => $gateNote,
     ];
 }
@@ -895,10 +895,18 @@ function approvePayoutChecker(int $merchantId, int $orderId, string $checkerBy):
     } catch (Throwable $e) {
         return ['ok' => false, 'error' => 'Could not update order.'];
     }
+    if (payoutLiveMoneyAllowed()) {
+        if (!function_exists('dispatchPayoutOrderIfLive') && is_file(__DIR__ . '/payout_workflow.php')) {
+            require_once __DIR__ . '/payout_workflow.php';
+        }
+        if (function_exists('dispatchPayoutOrderIfLive')) {
+            dispatchPayoutOrderIfLive($orderId);
+        }
+    }
     return [
         'ok' => true,
         'message' => payoutLiveMoneyAllowed()
-            ? 'Checker approved. Payout queued (partner rail).'
+            ? 'Checker approved. Payout queued for partner dispatch.'
             : 'Checker approved. Live execution remains gated until partner keys + payout_live_enabled.',
     ];
 }
@@ -1066,6 +1074,12 @@ function dispatchQueuedPayouts(int $limit = 20): array
             'processed' => 0,
             'message' => payoutActivationMessage(),
         ];
+    }
+    if (!function_exists('promoteGatedPayoutOrdersToQueue') && is_file(__DIR__ . '/payout_workflow.php')) {
+        require_once __DIR__ . '/payout_workflow.php';
+    }
+    if (function_exists('promoteGatedPayoutOrdersToQueue')) {
+        promoteGatedPayoutOrdersToQueue();
     }
     if (!function_exists('payoutAdapterDispatchOrder')) {
         require_once __DIR__ . '/payout_adapters.php';
@@ -1299,6 +1313,14 @@ function processPayoutBatchJobs(int $batchId): array
 {
     ensurePayoutBatchTable();
     ensurePayoutSchema();
+    if (function_exists('promoteGatedPayoutOrdersToQueue') || is_file(__DIR__ . '/payout_workflow.php')) {
+        if (!function_exists('promoteGatedPayoutOrdersToQueue')) {
+            require_once __DIR__ . '/payout_workflow.php';
+        }
+        if (function_exists('promoteGatedPayoutOrdersToQueue')) {
+            promoteGatedPayoutOrdersToQueue();
+        }
+    }
     $db = getDB();
     try {
         $db->prepare("UPDATE payout_bulk_batches SET status='processing' WHERE id=?")->execute([$batchId]);

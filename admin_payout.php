@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/payout.php';
+if (is_file(__DIR__ . '/includes/payout_workflow.php')) {
+    require_once __DIR__ . '/includes/payout_workflow.php';
+}
 requireStaffAccess(['super', 'ceo', 'finance', 'ops', 'regional_manager']);
 ensurePayoutSchema();
 
@@ -53,9 +56,14 @@ require_once __DIR__ . '/header.php';
 </div>
 
 <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 mb-6 text-sm text-amber-200">
-    <p class="font-semibold">Partner rail</p>
+    <p class="font-semibold">Payout rail — <?= payoutLiveMoneyAllowed() ? 'Live dispatch ON' : 'Gated (stub until keys + switch)' ?></p>
     <p class="text-xs mt-1"><?= e(payoutActivationMessage()) ?></p>
-    <p class="text-[11px] text-gray-500 mt-2">Failed payouts must show a reason. Auto-reversal without reconciliation is not allowed — reversal queue never auto-credits wallets.</p>
+    <?php if (function_exists('payoutRailReadinessReport')): $pRail = payoutRailReadinessReport(); ?>
+    <p class="text-[11px] mt-2 <?= !empty($pRail['ok']) ? 'text-emerald-400' : 'text-amber-300/90' ?>">
+        <?= !empty($pRail['ok']) ? 'Ready for live partner dispatch.' : ('Missing: ' . e(implode(', ', payoutRailReadinessMissingLabels($pRail)))) ?>
+    </p>
+    <?php endif; ?>
+    <p class="text-[11px] text-gray-500 mt-2">Mock UTR uses prefix <code class="text-gray-400">UNIWEB_TEST_</code> — never real bank money. Failed payouts must show a reason. Auto-reversal without reconciliation is not allowed — reversal queue never auto-credits wallets.</p>
 </div>
 
 <?php if ($statusFilter === 'reversals'): ?>
