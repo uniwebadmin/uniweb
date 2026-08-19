@@ -42,6 +42,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         }
         redirect('merchant_recurring.php');
     } elseif ($action === 'register' && $mandateId > 0) {
+        $ownSt = getDB()->prepare('SELECT id FROM mandates WHERE id=? AND merchant_id=? LIMIT 1');
+        $ownSt->execute([$mandateId, (int)$merchant['id']]);
+        if (!$ownSt->fetch()) {
+            flash('error', 'Mandate not found.');
+            redirect('merchant_recurring.php');
+        }
+        if (!$approved) {
+            flash('error', 'Recurring / AutoPay is disabled until Admin enables it in Platform Settings.');
+            redirect('merchant_recurring.php');
+        }
+        if (!isMerchantLive($merchant)) {
+            flash('error', 'Live Mode is required to register mandates with partner.');
+            redirect('merchant_recurring.php');
+        }
         // G3: Trigger partner registration for pending mandate
         $result = registerMandateWithPartner($mandateId);
         if (!empty($result['ok']) && !empty($result['auth_url'])) {

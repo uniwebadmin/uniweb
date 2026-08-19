@@ -51,6 +51,7 @@ if (isset($_GET['rotate_cron_key']) && verifyCsrf($_GET['csrf'] ?? '')) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     require_once __DIR__ . '/includes/checkout_mode_banner.php';
     $payoutLiveBefore = trim((string)getSetting('payout_live_enabled', '0'));
+    $recurringBefore = trim((string)getSetting('recurring_autopay_approved', '0'));
     saveGatewaySettingsPreservingSecrets($_POST['settings'] ?? [], $db);
     $payoutLiveAfter = trim((string)(($_POST['settings']['payout_live_enabled'] ?? '0')));
     if ($payoutLiveAfter === '1' && $payoutLiveBefore !== '1') {
@@ -62,6 +63,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 onPayoutRailUnlocked();
             } catch (Throwable $e) {
                 error_log('onPayoutRailUnlocked (gateway_settings): ' . $e->getMessage());
+            }
+        }
+    }
+    $recurringAfter = trim((string)(($_POST['settings']['recurring_autopay_approved'] ?? '0')));
+    if ($recurringAfter === '1' && $recurringBefore !== '1') {
+        if (!function_exists('onRecurringRailUnlocked') && is_file(__DIR__ . '/includes/recurring_workflow.php')) {
+            require_once __DIR__ . '/includes/recurring_workflow.php';
+        }
+        if (function_exists('onRecurringRailUnlocked')) {
+            try {
+                onRecurringRailUnlocked();
+            } catch (Throwable $e) {
+                error_log('onRecurringRailUnlocked (gateway_settings): ' . $e->getMessage());
             }
         }
     }

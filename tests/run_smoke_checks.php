@@ -950,6 +950,13 @@ $assert(str_contains($gwSeo, 'recurring_autopay_approved') && str_contains($gwSe
 $assert(str_contains($merchantRec, 'getMandatePendingReason') && str_contains($merchantRec, 'Customer auth link'), 'merchant_recurring_pending_reasons_and_auth_link');
 $assert(is_file($root . '/migrations/064_recurring_autopay_switch.sql'), 'migration_064_recurring_autopay_switch');
 $assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'recurringAutopayHealthCheck'), 'platform_health_recurring_check');
+$recFlow = (string)file_get_contents($root . '/includes/recurring_workflow.php');
+$assert(str_contains($recFlow, 'function computeMandatePendingReason') && str_contains($recFlow, 'function syncPendingMandateReasons'), 'recurring_workflow_pending_reason_compute_and_sync');
+$assert(str_contains($recFlow, 'function onRecurringRailUnlocked') && str_contains($recFlow, 'function recurringActivationMessage'), 'recurring_workflow_unlock_hook');
+$assert(str_contains((string)file_get_contents($root . '/includes/mandates.php'), 'computeMandatePendingReason'), 'mandates_get_reason_uses_fresh_compute');
+$assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'onRecurringRailUnlocked'), 'gateway_settings_recurring_unlock_hook');
+$assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'onRecurringRailUnlocked'), 'gateway_detail_recurring_keys_sync_reasons');
+$assert(str_contains($merchantRec, "merchant_id=?") && str_contains($merchantRec, "action === 'register'"), 'merchant_recurring_register_ownership_gate');
 
 // Route / Split Phase 11 — professional scaffold (SDK still parked)
 $splitLib = (string)file_get_contents($root . '/includes/split_settlement.php');

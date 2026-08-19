@@ -163,6 +163,12 @@ function getMandatePendingReason(array $mandate): string
     if (!in_array($status, ['pending', 'registered'], true)) {
         return '';
     }
+    if (!function_exists('computeMandatePendingReason') && is_file(__DIR__ . '/recurring_workflow.php')) {
+        require_once __DIR__ . '/recurring_workflow.php';
+    }
+    if (function_exists('computeMandatePendingReason')) {
+        return computeMandatePendingReason($mandate);
+    }
     if (!empty($mandate['pending_reason'])) {
         return (string)$mandate['pending_reason'];
     }
@@ -275,11 +281,16 @@ function createMandate(
             recordImmutableAudit('mandate_created', $merchantId, 'mandate', (string)$mandateId, "Mandate $ref created for $maxAmount/$frequency via $channel");
         }
 
-        $initialReason = !recurringAutopayApproved()
-            ? 'Waiting for Admin to enable Recurring / AutoPay.'
-            : (!recurringAutopayPartnerKeysConfigured($channel)
-                ? 'Waiting for partner keys in Admin Registry.'
-                : 'Ready to register with partner.');
+        if (!function_exists('computeMandatePendingReason') && is_file(__DIR__ . '/recurring_workflow.php')) {
+            require_once __DIR__ . '/recurring_workflow.php';
+        }
+        $initialReason = function_exists('computeMandatePendingReason')
+            ? computeMandatePendingReason(['status' => 'pending', 'channel' => $channel, 'gateway_mandate_id' => null, 'auth_url' => null])
+            : (!recurringAutopayApproved()
+                ? 'Waiting for Admin to enable Recurring / AutoPay.'
+                : (!recurringAutopayPartnerKeysConfigured($channel)
+                    ? 'Waiting for partner keys in Admin Registry.'
+                    : 'Ready to register with partner.'));
         try {
             $db->prepare('UPDATE mandates SET pending_reason=? WHERE id=?')->execute([$initialReason, $mandateId]);
         } catch (Throwable $e) { /* ok */ }

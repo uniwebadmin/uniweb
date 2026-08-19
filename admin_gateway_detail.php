@@ -101,6 +101,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 }
             }
         }
+        if ($last4 !== 'no_keys' && in_array($partnerKey, ['razorpay', 'cashfree', 'decentro'], true)) {
+            if (!function_exists('onRecurringRailUnlocked') && is_file(__DIR__ . '/includes/recurring_workflow.php')) {
+                require_once __DIR__ . '/includes/recurring_workflow.php';
+            }
+            if (function_exists('onRecurringRailUnlocked') && function_exists('recurringAutopayPartnerKeysConfigured') && recurringAutopayPartnerKeysConfigured()) {
+                try {
+                    $recKick = onRecurringRailUnlocked();
+                    if (!empty($recKick['reasons_synced'])) {
+                        $msg .= ' · ' . (int)$recKick['reasons_synced'] . ' mandate reason(s) updated.';
+                    }
+                } catch (Throwable $e) {
+                    error_log('onRecurringRailUnlocked (gateway_detail): ' . $e->getMessage());
+                }
+            }
+        }
         flash($last4 === 'no_keys' ? 'warning' : 'success', $msg);
         if (function_exists('logStaffActivity')) { logStaffActivity('partner_keys_saved', 'Saved ' . $env . ' keys for ' . $partnerKey . ' (last4: ' . ($last4 ?: 'n/a') . ')', null, 'partner', $partnerKey); }
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=keys&env=' . $env);
