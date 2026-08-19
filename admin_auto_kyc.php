@@ -4,6 +4,9 @@ requireStaffAccess(['super', 'ceo', 'ops', 'kyc']);
 if (!function_exists('cloudModulesAutoKycAdminEducation') && is_file(__DIR__ . '/includes/cloud_modules_workflow.php')) {
     require_once __DIR__ . '/includes/cloud_modules_workflow.php';
 }
+if (!function_exists('autoKycRiskAdminEducation') && is_file(__DIR__ . '/includes/auto_kyc_risk_workflow.php')) {
+    require_once __DIR__ . '/includes/auto_kyc_risk_workflow.php';
+}
 if (!function_exists('runAutoKycEngine') && is_file(__DIR__ . '/includes/auto_kyc.php')) {
     require_once __DIR__ . '/includes/auto_kyc.php';
 }
@@ -19,6 +22,8 @@ if (!function_exists('setSetting')) {
 $lastRun = getLastAutoKycRun();
 $forwardQueue = [];
 $autoKycEdu = function_exists('cloudModulesAutoKycAdminEducation') ? cloudModulesAutoKycAdminEducation() : null;
+$autoKycRiskEdu = function_exists('autoKycRiskAdminEducation') ? autoKycRiskAdminEducation() : null;
+$autoKycRiskReady = function_exists('autoKycRiskReadinessReport') ? autoKycRiskReadinessReport() : null;
 $autoKycReady = function_exists('cloudModulesAutoKycReadinessReport') ? cloudModulesAutoKycReadinessReport() : null;
 
 // Manual trigger
@@ -84,6 +89,18 @@ require_once __DIR__ . '/header.php';
         <?php if (is_array($autoKycReady) && empty($autoKycReady['ok'])): ?>
         <p class="text-amber-400 mt-2"><?= e($autoKycReady['message'] ?? '') ?></p>
         <?php endif; ?>
+    </div>
+    <?php endif; ?>
+    <?php if (is_array($autoKycRiskEdu)): ?>
+    <div class="glass rounded-xl p-4 mb-4 border border-emerald-500/25 text-xs text-gray-400">
+        <p class="font-semibold text-emerald-300 mb-1"><?= e($autoKycRiskEdu['title']) ?></p>
+        <p class="mb-2"><?= e($autoKycRiskEdu['policy']) ?></p>
+        <p class="text-gray-500 mb-2">Manual assist after <strong class="text-gray-300"><?= (int)($autoKycRiskEdu['threshold'] ?? 3) ?></strong> verify_failed · Escape: <a href="admin_kyc.php" class="text-sky-400 underline">KYC Review</a></p>
+        <ul class="space-y-1 text-[11px]">
+            <?php foreach ($autoKycRiskEdu['gates'] ?? [] as $gate): ?>
+            <li><span class="text-gray-500"><?= (int)($gate['order'] ?? 0) ?>.</span> <?= e($gate['label'] ?? '') ?> — <span class="text-amber-300/90"><?= e($gate['fail_mode'] ?? '') ?></span></li>
+            <?php endforeach; ?>
+        </ul>
     </div>
     <?php endif; ?>
     <div class="glass rounded-xl p-4 mb-6 border border-violet-500/20 text-xs text-gray-400">

@@ -982,6 +982,9 @@ $assert(str_contains($mandatesPhp, 'function recurringAutopayApproved') && str_c
 $assert(str_contains($mandatesPhp, 'decentroMandateCredentials') && str_contains($mandatesPhp, 'recurringAutopayLiveReady()') && str_contains($mandatesPhp, 'pending_reason'), 'recurring_registry_first_and_gates');
 $assert(str_contains($gwSeo, 'recurring_autopay_approved') && str_contains($gwSeo, 'payout_live_enabled') && str_contains($gwSeo, 'live-money-switches'), 'gateway_settings_live_money_switches');
 $assert(str_contains($merchantRec, 'getMandatePendingReason') && str_contains($merchantRec, 'Customer auth link'), 'merchant_recurring_pending_reasons_and_auth_link');
+$mandatesPos = strpos($merchantRec, 'mandates.php');
+$approvedPos = strpos($merchantRec, 'recurringAutopayApproved()');
+$assert($mandatesPos !== false && $approvedPos !== false && $mandatesPos < $approvedPos, 'merchant_recurring_loads_mandates_before_approved_check');
 $assert(is_file($root . '/migrations/064_recurring_autopay_switch.sql'), 'migration_064_recurring_autopay_switch');
 $assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'recurringAutopayHealthCheck'), 'platform_health_recurring_check');
 $recFlow = (string)file_get_contents($root . '/includes/recurring_workflow.php');
@@ -1064,6 +1067,17 @@ $assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'hol
 require_once $root . '/includes/hold_window_workflow.php';
 $nightSample = holdWindowComputeSchedule(new DateTime('2026-08-19 20:00:00', new DateTimeZone('Asia/Kolkata')));
 $assert($nightSample->format('H:i') === holdWindowCodeMorningTime(), 'split17_runtime_night_schedules_9am');
+
+// Auto-KYC risk fail-closed (audit #18)
+$akrFlow = (string)file_get_contents($root . '/includes/auto_kyc_risk_workflow.php');
+$autoKycLib18 = (string)file_get_contents($root . '/includes/auto_kyc.php');
+$assert(str_contains($akrFlow, 'function autoKycRiskEarlyGate') && str_contains($akrFlow, 'function autoKycRiskHealthCheck'), 'split18_workflow_core_functions');
+$assert(str_contains($autoKycLib18, 'autoKycRiskEarlyGate') && str_contains($autoKycLib18, 'autoKycRiskNameGate'), 'split18_engine_uses_risk_gates');
+$assert(str_contains((string)file_get_contents($root . '/admin_auto_kyc.php'), 'autoKycRiskAdminEducation'), 'split18_admin_auto_kyc_education');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'autoKycRiskHealthCheck'), 'split18_platform_health');
+$assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'auto_kyc_risk_workflow'"), 'split18_config_dev_loads');
+require_once $root . '/includes/auto_kyc_risk_workflow.php';
+$assert(autoKycRiskManualAssistThreshold() >= 1 && count(autoKycRiskGateOrder()) >= 5, 'split18_runtime_policy_constants');
 
 // P9-04…08 honesty (market peers) — no fake orchestrator / coverage / licence / brand blur
 $regP9 = (string)file_get_contents($root . '/admin_gateway_registry.php');

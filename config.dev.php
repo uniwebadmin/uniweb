@@ -499,6 +499,7 @@ $__includes = [
     'registry_kind_workflow',
     'gateway_submissions_workflow',
     'hold_window_workflow',
+    'auto_kyc_risk_workflow',
     'payout_partner_api',
     'payout_worker',
     'client_context',

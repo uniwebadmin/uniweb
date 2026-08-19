@@ -1,8 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireLogin();
-$merchant = getMerchant();
-$approved = recurringAutopayApproved();
 if (!function_exists('ensureMandateSchema')) {
     require_once __DIR__ . '/includes/mandates.php';
 }
@@ -11,6 +9,8 @@ if (!function_exists('ensureRecurringTables')) {
 }
 ensureMandateSchema();
 ensureRecurringTables();
+$merchant = getMerchant();
+$approved = recurringAutopayApproved();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     $action = (string)($_POST['action'] ?? 'create');

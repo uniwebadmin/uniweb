@@ -453,6 +453,9 @@ $gatewayCards = [
         if (!function_exists('holdWindowReadinessReport')) {
             require_once __DIR__ . '/includes/hold_window_workflow.php';
         }
+        if (!function_exists('autoKycRiskReadinessReport')) {
+            require_once __DIR__ . '/includes/auto_kyc_risk_workflow.php';
+        }
         $recurringReady = function_exists('getRecurringReadinessChecklist') ? getRecurringReadinessChecklist() : ['items' => [], 'done' => 0, 'total' => 0, 'ready' => false];
         $routeSplitReady = function_exists('getRouteSplitReadinessChecklist') ? getRouteSplitReadinessChecklist() : ['items' => [], 'done' => 0, 'total' => 0, 'ready' => false, 'phase' => 'parked'];
         $routeSplitReport = routeSplitReadinessReport();
@@ -460,6 +463,7 @@ $gatewayCards = [
         $registryKindReport = registryKindReadinessReport();
         $gatewaySubmissionsReport = gatewaySubmissionsReadinessReport();
         $holdWindowReport = holdWindowReadinessReport();
+        $autoKycRiskReport = autoKycRiskReadinessReport();
         $payoutLiveOn = ($settingsMap['payout_live_enabled'] ?? '0') === '1';
         $recurringOn = ($settingsMap['recurring_autopay_approved'] ?? '0') === '1';
         $routeSplitOn = ($settingsMap['route_split_live_enabled'] ?? '0') === '1';
@@ -603,6 +607,13 @@ $gatewayCards = [
                 <p class="text-gray-600"><?= e($holdWindowReport['next_sample']) ?></p>
                 <?php endif; ?>
                 <p class="text-gray-600 mt-2"><a href="admin_forward_queue.php" class="text-sky-400 underline">KYC Forward Queue</a></p>
+            </div>
+            <?php endif; ?>
+            <?php if (!empty($autoKycRiskReport['checks'])): ?>
+            <div class="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs">
+                <p class="font-medium text-emerald-300 mb-1">Auto-KYC risk — fail-closed + manual assist</p>
+                <p class="text-gray-500 mb-2"><?= e($autoKycRiskReport['message'] ?? '') ?></p>
+                <p class="text-gray-600">Threshold: <?= (int)($autoKycRiskReport['threshold'] ?? 3) ?> verify_failed · <a href="admin_auto_kyc.php" class="text-sky-400 underline">Auto KYC Engine</a> · <a href="admin_kyc.php" class="text-sky-400 underline">Manual KYC Review</a></p>
             </div>
             <?php endif; ?>
         </div>

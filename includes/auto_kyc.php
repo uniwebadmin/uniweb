@@ -310,24 +310,42 @@ function runAutoKycEngine(): array
         $merchantId = (int)$m['id'];
         $summary['merchants_checked']++;
 
-        // 1. Check risk flags
-        if (merchantHasRiskFlags($merchantId)) {
-            $summary['skipped_risk']++;
-            logAutoKycRun($merchantId, 'skipped', 'Risk flags present');
-            continue;
+        if (!function_exists('autoKycRiskEarlyGate') && is_file(__DIR__ . '/auto_kyc_risk_workflow.php')) {
+            require_once __DIR__ . '/auto_kyc_risk_workflow.php';
         }
+        if (function_exists('autoKycRiskEarlyGate')) {
+            $early = autoKycRiskEarlyGate($merchantId, $m);
+            if (empty($early['continue'])) {
+                $sk = (string)($early['summary_key'] ?? 'skipped_risk');
+                if (isset($summary[$sk])) {
+                    $summary[$sk]++;
+                }
+                logAutoKycRun($merchantId, (string)($early['log_action'] ?? 'skipped'), (string)($early['log_detail'] ?? ''));
+                continue;
+            }
+            if (!empty($early['side_log']['action'])) {
+                logAutoKycRun($merchantId, (string)$early['side_log']['action'], (string)($early['side_log']['detail'] ?? ''));
+            }
+        } else {
+            // 1. Check risk flags
+            if (merchantHasRiskFlags($merchantId)) {
+                $summary['skipped_risk']++;
+                logAutoKycRun($merchantId, 'skipped', 'Risk flags present');
+                continue;
+            }
 
-        // 2. Check video KYC (if required)
-        if (!checkVideoKycCompleted($merchantId)) {
-            $summary['skipped_video']++;
-            logAutoKycRun($merchantId, 'skipped', 'Video KYC not verified (required by setting)');
-            continue;
-        }
-        // Log when video is skipped because setting is off (audit trail)
-        $acctMode = (string)($m['account_mode'] ?? 'test');
-        $vidRequired = getSetting('video_kyc_required_for_auto', ($acctMode === 'live') ? '1' : '0');
-        if ($vidRequired !== '1') {
-            logAutoKycRun($merchantId, 'video_skipped_not_required', 'Video KYC not required for auto-KYC (setting off, mode=' . $acctMode . ')');
+            // 2. Check video KYC (if required)
+            if (!checkVideoKycCompleted($merchantId)) {
+                $summary['skipped_video']++;
+                logAutoKycRun($merchantId, 'skipped', 'Video KYC not verified (required by setting)');
+                continue;
+            }
+            // Log when video is skipped because setting is off (audit trail)
+            $acctMode = (string)($m['account_mode'] ?? 'test');
+            $vidRequired = getSetting('video_kyc_required_for_auto', ($acctMode === 'live') ? '1' : '0');
+            if ($vidRequired !== '1') {
+                logAutoKycRun($merchantId, 'video_skipped_not_required', 'Video KYC not required for auto-KYC (setting off, mode=' . $acctMode . ')');
+            }
         }
 
         // 3. Check docs
@@ -366,17 +384,32 @@ function runAutoKycEngine(): array
         }
 
         // D2: Name consistency check
-        $nameCheck = checkNameConsistency($merchantId);
-        if (!$nameCheck['ok']) {
-            $summary['skipped_name_mismatch'] = ($summary['skipped_name_mismatch'] ?? 0) + 1;
-            logAutoKycRun($merchantId, 'skipped', 'Name mismatch: ' . $nameCheck['mismatch']);
-            // Count as a failure for manual assist threshold
-            logAutoKycRun($merchantId, 'verify_failed', $nameCheck['mismatch']);
-            if (shouldRouteToManualAssist($merchantId)) {
-                routeToManualAssist($merchantId, $nameCheck['mismatch']);
-                $summary['routed_manual'] = ($summary['routed_manual'] ?? 0) + 1;
+        if (!function_exists('autoKycRiskNameGate') && is_file(__DIR__ . '/auto_kyc_risk_workflow.php')) {
+            require_once __DIR__ . '/auto_kyc_risk_workflow.php';
+        }
+        if (function_exists('autoKycRiskNameGate')) {
+            $nameGate = autoKycRiskNameGate($merchantId);
+            if (empty($nameGate['continue'])) {
+                $sk = (string)($nameGate['summary_key'] ?? 'skipped_name_mismatch');
+                $summary[$sk] = ($summary[$sk] ?? 0) + 1;
+                logAutoKycRun($merchantId, (string)($nameGate['log_action'] ?? 'skipped'), (string)($nameGate['log_detail'] ?? ''));
+                if (!empty($nameGate['routed_manual'])) {
+                    $summary['routed_manual'] = ($summary['routed_manual'] ?? 0) + 1;
+                }
+                continue;
             }
-            continue;
+        } else {
+            $nameCheck = checkNameConsistency($merchantId);
+            if (!$nameCheck['ok']) {
+                $summary['skipped_name_mismatch'] = ($summary['skipped_name_mismatch'] ?? 0) + 1;
+                logAutoKycRun($merchantId, 'skipped', 'Name mismatch: ' . $nameCheck['mismatch']);
+                logAutoKycRun($merchantId, 'verify_failed', $nameCheck['mismatch']);
+                if (shouldRouteToManualAssist($merchantId)) {
+                    routeToManualAssist($merchantId, $nameCheck['mismatch']);
+                    $summary['routed_manual'] = ($summary['routed_manual'] ?? 0) + 1;
+                }
+                continue;
+            }
         }
 
         // 6. All conditions met — auto-verify merchant
@@ -384,8 +417,12 @@ function runAutoKycEngine(): array
             $summary['merchants_verified']++;
         } else {
             $summary['errors']++;
-            // D2: Track failures for manual assist threshold
-            if (shouldRouteToManualAssist($merchantId)) {
+            if (function_exists('autoKycRiskVerifyFailureGate')) {
+                $failGate = autoKycRiskVerifyFailureGate($merchantId);
+                if (!empty($failGate['routed_manual'])) {
+                    $summary['routed_manual'] = ($summary['routed_manual'] ?? 0) + 1;
+                }
+            } elseif (shouldRouteToManualAssist($merchantId)) {
                 routeToManualAssist($merchantId, 'Repeated auto-KYC verification failures');
                 $summary['routed_manual'] = ($summary['routed_manual'] ?? 0) + 1;
             }
