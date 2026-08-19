@@ -497,6 +497,7 @@ $__includes = [
     'payment_methods',
     'partner_forward_queue',
     'auto_kyc',
+    'kyc_workflow',
 ];
 $__loaded = [];
 if (!(defined('UNIWEB_HEALTH_PROBE') && UNIWEB_HEALTH_PROBE)) {

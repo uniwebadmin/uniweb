@@ -229,75 +229,33 @@ function autoApproveKycDoc(int $merchantId, int $docId): bool
 function autoVerifyMerchantKyc(int $merchantId): bool
 {
     try {
-        // D1: Use state machine for transition
-        if (!function_exists('merchant_transition')) {
-            require_once __DIR__ . '/onboarding_state_machine.php';
+        if (!function_exists('completeMerchantKycVerification') && is_file(__DIR__ . '/kyc_workflow.php')) {
+            require_once __DIR__ . '/kyc_workflow.php';
         }
-        $tr = merchant_transition($merchantId, 'kyc_verified', 'Zero-Touch Auto KYC: all checks passed');
-        if (!$tr['ok']) {
-            // Fallback to direct update if transition blocked (e.g. already verified)
-            getDB()->prepare("UPDATE merchants SET kyc_status='verified', onboarding_state='kyc_verified', account_mode='test' WHERE id=? AND kyc_status='submitted'")
-                ->execute([$merchantId]);
+        if (!function_exists('completeMerchantKycVerification')) {
+            return false;
         }
-
-        if (function_exists('recordImmutableAudit')) {
-            recordImmutableAudit(
-                'kyc_auto_verified',
-                $merchantId,
-                'merchant',
-                (string)$merchantId,
-                'Zero-Touch Auto KYC: all docs clean+approved, no risk flags, name consistency passed'
-                . (getSetting('video_kyc_required_for_auto', '0') !== '1' ? ' (video KYC not required — skipped)' : ', video KYC verified')
-            );
-        }
-
-        if (function_exists('notifyMerchant')) {
-            notifyMerchant(
-                $merchantId,
-                'KYC Auto-Verified',
-                'Your KYC documents have been automatically verified. No manual review was needed. Your documents are being prepared for partner submission.',
-                'kyc_auto_' . $merchantId
-            );
-        } elseif (function_exists('createNotification')) {
-            createNotification(
-                $merchantId,
-                'KYC Auto-Verified',
-                'Your KYC documents have been automatically verified. No manual review was needed. Your documents are being prepared for partner submission.'
-            );
-        }
-
-        if (!function_exists('resolveKycPendingFlags') && is_file(__DIR__ . '/risk.php')) {
-            require_once __DIR__ . '/risk.php';
-        }
-        if (function_exists('resolveKycPendingFlags')) {
-            try {
-                resolveKycPendingFlags($merchantId);
-            } catch (Throwable $e) { /* ok */ }
-        }
-
-        // Trigger post-KYC automation
-        if (!function_exists('afterKycVerifiedAutoSendMethods')) {
-            $mr = __DIR__ . '/method_requests.php';
-            if (is_file($mr)) {
-                require_once $mr;
+        $result = completeMerchantKycVerification(
+            $merchantId,
+            'auto_kyc_engine',
+            'Zero-Touch Auto KYC: all docs clean+approved, no risk flags'
+        );
+        if (!empty($result['ok'])) {
+            if (function_exists('recordImmutableAudit')) {
+                recordImmutableAudit(
+                    'kyc_auto_verified',
+                    $merchantId,
+                    'merchant',
+                    (string)$merchantId,
+                    'Zero-Touch Auto KYC: all docs clean+approved, no risk flags'
+                    . (getSetting('video_kyc_required_for_auto', '0') !== '1' ? ' (video KYC not required — skipped)' : ', video KYC verified')
+                );
             }
+            logAutoKycRun($merchantId, 'merchant_verified', 'Auto-verified by Zero-Touch KYC engine');
+            return true;
         }
-        if (function_exists('afterKycVerifiedAutoSendMethods')) {
-            try {
-                afterKycVerifiedAutoSendMethods($merchantId, 'auto_kyc_engine');
-            } catch (Throwable $e) {
-                error_log('Auto KYC afterKycVerifiedAutoSendMethods: ' . $e->getMessage());
-            }
-        }
-
-        logAutoKycRun($merchantId, 'merchant_verified', 'Auto-verified by Zero-Touch KYC engine');
-
-        // D3: Enqueue to per-partner forward queue (includes/partner_forward_queue.php)
-        enqueueMerchantToAllEnabledPartners($merchantId);
-
-        // D1: Transition to queue_forward
-        merchant_transition($merchantId, 'queue_forward', 'Enqueued for partner forward');
-        return true;
+        logAutoKycRun($merchantId, 'verify_failed', (string)($result['error'] ?? 'readiness blocked'));
+        return false;
     } catch (Throwable $e) {
         logAutoKycRun($merchantId, 'verify_failed', $e->getMessage());
         return false;

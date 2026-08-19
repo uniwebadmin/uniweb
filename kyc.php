@@ -46,14 +46,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($saved['ok'])) {
             flash('error', $saved['error'] ?? 'Upload failed. Please retry.');
         } else {
-            try {
-                $db->prepare("UPDATE merchants SET kyc_status='submitted',onboarding_state='submitted',onboarding_submitted_at=COALESCE(onboarding_submitted_at,NOW()),account_mode='test' WHERE id=?")
-                    ->execute([$merchant['id']]);
-            } catch (Throwable $e) {
-                logPlatformError('warning', 'KYC submit status update failed: ' . $e->getMessage(), ['merchant_id' => (int)$merchant['id']]);
+            if (!function_exists('markMerchantKycSubmitted') && is_file(__DIR__ . '/includes/kyc_workflow.php')) {
+                require_once __DIR__ . '/includes/kyc_workflow.php';
+            }
+            if (function_exists('markMerchantKycSubmitted')) {
+                markMerchantKycSubmitted((int)$merchant['id']);
+            } else {
                 try {
-                    $db->prepare("UPDATE merchants SET kyc_status='submitted',account_mode='test' WHERE id=?")->execute([$merchant['id']]);
-                } catch (Throwable $e2) { /* keep upload success even if status columns lag */ }
+                    $db->prepare("UPDATE merchants SET kyc_status='submitted',onboarding_state='kyc_submitted',onboarding_submitted_at=COALESCE(onboarding_submitted_at,NOW()),account_mode='test' WHERE id=?")
+                        ->execute([$merchant['id']]);
+                } catch (Throwable $e) {
+                    logPlatformError('warning', 'KYC submit status update failed: ' . $e->getMessage(), ['merchant_id' => (int)$merchant['id']]);
+                    try {
+                        $db->prepare("UPDATE merchants SET kyc_status='submitted',account_mode='test' WHERE id=?")->execute([$merchant['id']]);
+                    } catch (Throwable $e2) { /* keep upload success even if status columns lag */ }
+                }
             }
             try {
                 notifyAdminKycDocumentUploaded((int)$merchant['id'], $docType);

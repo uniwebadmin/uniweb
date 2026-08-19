@@ -170,7 +170,8 @@ $assert(is_file($root . '/includes/method_partner_adapters.php'), 'method_partne
 $adapters = (string)file_get_contents($root . '/includes/method_partner_adapters.php');
 $assert(str_contains($adapters, 'function normalizePartnerMethodWebhookPayload') && str_contains($adapters, 'function applyNormalizedPartnerMethodWebhook'), 'method_partner_adapters_helpers');
 $onboardSecKyc = (string)file_get_contents($root . '/includes/onboarding_security.php');
-$assert(str_contains($onboardSecKyc, 'afterKycVerifiedAutoSendMethods'), 'kyc_verify_triggers_auto_send');
+$kycWorkflowFile = (string)file_get_contents($root . '/includes/kyc_workflow.php');
+$assert(str_contains($kycWorkflowFile, 'afterKycVerifiedAutoSendMethods'), 'kyc_verify_triggers_auto_send');
 $adminMr = (string)file_get_contents($root . '/admin_method_requests.php');
 $assert(str_contains($adminMr, 'queue_all_existing') && str_contains($adminMr, 'Queue all existing merchants'), 'admin_queue_existing_button');
 $assert(str_contains($mReq, 'function applyPartnerMethodDecisionByRef'), 'method_partner_webhook_helper');
@@ -263,6 +264,12 @@ $onboardSec = (string)file_get_contents($root . '/includes/onboarding_security.p
 $assert(str_contains($onboardSec, "'verified', 'approved'"), 'live_gate_accepts_video_approved');
 $assert(str_contains($onboardSec, 'function verifyMerchantKycNow'), 'kyc_verify_now_helper');
 $assert(str_contains($onboardSec, 'super_solo_ops') || str_contains($onboardSec, 'isSuperAdmin'), 'kyc_solo_ops_guard');
+$kycFlow = (string)file_get_contents($root . '/includes/kyc_workflow.php');
+$assert(str_contains($kycFlow, 'function completeMerchantKycVerification') && str_contains($kycFlow, 'function merchantKycReadinessReport'), 'kyc_workflow_canonical_verify');
+$assert(str_contains($onboardSec, 'completeMerchantKycVerification') && str_contains((string)file_get_contents($root . '/includes/auto_kyc.php'), 'completeMerchantKycVerification'), 'kyc_manual_auto_same_path');
+$assert(str_contains((string)file_get_contents($root . '/admin_kyc.php'), 'merchantKycReadinessReport'), 'admin_kyc_readiness_gate');
+$assert(str_contains((string)file_get_contents($root . '/includes/onboarding_state_machine.php'), "'submitted' => 'kyc_submitted'"), 'kyc_legacy_onboarding_state_map');
+$assert(is_file($root . '/migrations/073_normalize_kyc_onboarding_state.sql'), 'kyc_onboarding_state_migration_073');
 
 // P3-01 / P3-02 / P3-03 / P3-04 — reject phrases, video row-id, upload guard, live gate
 $assert(function_exists('kycRejectionDisplay') && function_exists('kycNormalizeRejectReason'), 'p3_reject_helpers_loaded');
@@ -556,7 +563,8 @@ $assert(!str_contains($wdP5, 'cron_auto_audit.php?key=' . '<?=') && str_contains
 $fwdP5 = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
 $autoP5Fwd = (string)file_get_contents($root . '/includes/auto_kyc.php');
 $assert(str_contains($fwdP5, "\$targets = ['unassigned']") && str_contains($fwdP5, 'enqueuePartnerForward'), 'p5_forward_enqueue_fallback_row');
-$assert(str_contains($autoP5Fwd, 'resolveKycPendingFlags'), 'p5_auto_kyc_clears_aml_on_verify');
+$kycFlowP5 = (string)file_get_contents($root . '/includes/kyc_workflow.php');
+$assert(str_contains($kycFlowP5, 'resolveKycPendingFlags'), 'p5_auto_kyc_clears_aml_on_verify');
 // 5a: fan-out = every partner with keys (partnerIsConfigured), not chargeable-only / active-without-keys
 $assert(str_contains($fwdP5, 'partnerIsConfigured($partnerKey)') && !str_contains($fwdP5, 'isPartnerChargeable'), 'p5a_enqueue_all_partners_with_keys');
 $assert(!str_contains($fwdP5, 'isGatewayActive($partnerKey)'), 'p5a_enqueue_no_active_without_keys_tier');
@@ -585,8 +593,8 @@ $amlP5 = (string)file_get_contents($root . '/includes/risk.php');
 $assert(str_contains($amlP5, 'function recordAmlFlag') && str_contains($amlP5, 'already flagged'), 'p5_aml_record_dedup');
 $assert(str_contains($amlP5, 'function syncKycPendingAmlFlags') && str_contains($amlP5, 'function resolveKycPendingFlags'), 'p5_aml_kyc_pending_sync_and_clear');
 $assert(str_contains((string)file_get_contents($root . '/admin_aml.php'), 'syncKycPendingAmlFlags'), 'p5_aml_page_uses_sync_helper');
-$assert(str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), 'resolveKycPendingFlags'), 'p5_kyc_verify_clears_aml');
-
+$assert(str_contains($kycFlowP5, 'resolveKycPendingFlags'), 'p5_kyc_verify_clears_aml');
+$assert(str_contains($kycFlowP5, 'enqueueMerchantToAllEnabledPartners'), 'p5_kyc_verify_enqueues_forward_kyc_workflow');
 $gsLive = (string)file_get_contents($root . '/global_search.php');
 $assert(str_contains($gsLive, 'FROM merchant_qr_codes') && !str_contains($gsLive, 'batch_label'), 'live_search_uses_qr_codes_not_batch_label');
 $capLive = (string)file_get_contents($root . '/includes/financial_integrity.php');

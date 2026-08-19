@@ -6,6 +6,7 @@ if (is_file(__DIR__ . '/includes/release_helpers.php')) {
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'area_sales_manager', 'team_leader', 'staff_manager', 'field_staff', 'ops', 'kyc']);
 ensureKycSchema();
 require_once __DIR__ . '/includes/auto_kyc.php';
+require_once __DIR__ . '/includes/kyc_workflow.php';
 require_once __DIR__ . '/includes/onboarding_state_machine.php';
 if (!function_exists('kycRejectReasonPresets') && is_file(__DIR__ . '/includes/kyc_entity.php')) {
     require_once __DIR__ . '/includes/kyc_entity.php';
@@ -62,6 +63,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('One-step Verify is limited to super admin (solo ops).');
             }
             requireMerchantAccess($id);
+            $ready = merchantKycReadinessReport($id);
+            if (empty($ready['ok']) && empty($ready['already_verified'])) {
+                throw new RuntimeException('Cannot verify yet: ' . implode(', ', merchantKycReadinessMissingLabels($ready)));
+            }
             verifyMerchantKycNow($id, $reason);
             flash('success', 'Merchant KYC verified. Live money still needs the separate Live activation gate.');
         } elseif ($action === 'live_enable') {
@@ -347,7 +352,15 @@ require_once __DIR__ . '/header.php';
 
 <div class="glass rounded-xl p-5 mb-6 border border-emerald-500/20 text-sm text-gray-300">
     <p class="font-semibold text-emerald-300 mb-1">Go-live path: Signup → Docs → Verify → Live</p>
-    <p class="text-xs text-gray-500">Work this page top-down: Video queue → Pending documents → <a href="#verify-queue" class="text-sky-400 hover:underline">Verify queue</a> → Live activation gate. Reject reasons must be clear sentences (merchant sees the same text). Partner auto-forward runs on the existing queue when keys + commercial are set — no separate KYC product.</p>
+    <p class="font-semibold text-emerald-300/80 mb-2">KYC workflow (canonical order)</p>
+    <ol class="text-xs text-gray-400 space-y-1 list-decimal list-inside">
+        <li><strong class="text-gray-300">Pending documents</strong> — approve each file (clean scan required)</li>
+        <li><strong class="text-gray-300">Video queue</strong> — verify recording when required</li>
+        <li><strong class="text-gray-300">Verify merchant</strong> — only when readiness is green (same gate for Auto + Manual)</li>
+        <li><strong class="text-gray-300">Partner forward</strong> — automatic after verify (Staged until keys pasted)</li>
+        <li><strong class="text-gray-300">Live activation</strong> — separate gate; verified ≠ live money</li>
+    </ol>
+    <p class="text-[11px] text-gray-600 mt-2">Master status: <code class="text-sky-400">merchants.kyc_status</code>. Helpers: documents, verifications, checker queue, forward queue.</p>
 </div>
 <?php if ($filterMerchantId > 0): ?>
 <div class="glass rounded-xl p-3 mb-4 border border-sky-500/30 text-xs text-sky-200 flex flex-wrap items-center justify-between gap-2">
@@ -490,6 +503,9 @@ require_once __DIR__ . '/header.php';
                     $mid = (int)$m['id'];
                     $waUrl = merchantWhatsAppUrl($m['phone'] ?? null);
                     $canVerify = in_array(($m['kyc_status'] ?? ''), ['pending', 'submitted'], true);
+                    $kycReady = merchantKycReadinessReport($mid);
+                    $readyOk = !empty($kycReady['ok']) || !empty($kycReady['already_verified']);
+                    $readyLabel = $readyOk ? 'Ready to verify' : ('Missing: ' . implode(', ', merchantKycReadinessMissingLabels($kycReady)));
                 ?>
                 <tr>
                     <td class="px-4 sm:px-5 py-3 font-mono text-xs"><?= adminMerchantLink($mid, $m['merchant_code']) ?></td>
@@ -499,14 +515,18 @@ require_once __DIR__ . '/header.php';
                         <?= merchantMailtoLink((string)$m['email'], $m['email'], 'text-gray-400 hover:text-sky-300') ?>
                         <?php if ($waUrl): ?><br><a href="<?= e($waUrl) ?>" target="_blank" rel="noopener" class="text-emerald-400">WhatsApp</a><?php endif; ?>
                     </td>
-                    <td class="px-4 sm:px-5 py-3"><?= statusBadge($m['kyc_status']) ?></td>
+                    <td class="px-4 sm:px-5 py-3"><?= statusBadge($m['kyc_status']) ?><p class="text-[10px] mt-1 <?= $readyOk ? 'text-emerald-400' : 'text-amber-400' ?>"><?= e($readyLabel) ?></p></td>
                     <td class="px-4 sm:px-5 py-3 text-xs text-gray-500"><?= formatDate($m['created_at']) ?></td>
                     <td class="px-4 sm:px-5 py-3 text-xs whitespace-nowrap">
                         <a href="<?= e(adminMerchantUrl($mid)) ?>" class="text-gray-400 hover:text-white mr-2">View</a>
                         <?php if ($canVerify && $canMutateKyc): ?>
+                        <?php if ($readyOk): ?>
                         <form method="post" class="inline"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="verify_merchant"><input type="hidden" name="id" value="<?= $mid ?>"><input type="hidden" name="reason" value="Entity documents reviewed"><button class="text-brand-400 hover:text-brand-300 mr-2">Send for KYC approval</button></form>
                         <?php if (isSuperAdmin()): ?>
                         <form method="post" class="inline"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="verify_merchant_now"><input type="hidden" name="id" value="<?= $mid ?>"><input type="hidden" name="reason" value="Entity documents reviewed — super solo verify"><button class="text-emerald-400 hover:text-emerald-300">Verify KYC now</button></form>
+                        <?php endif; ?>
+                        <?php else: ?>
+                        <span class="text-amber-400/80">Complete docs/video first</span>
                         <?php endif; ?>
                         <?php endif; ?>
                     </td>
@@ -554,21 +574,31 @@ require_once __DIR__ . '/header.php';
         </div>
         <?php if (empty($pendingMerchants)): ?>
         <p class="text-gray-500 text-sm text-center py-8">Verify queue clear — no merchants waiting.</p>
-        <?php else: foreach ($pendingMerchants as $m): ?>
+        <?php else: foreach ($pendingMerchants as $m):
+            $pendingMid = (int)$m['id'];
+            $pendingReady = merchantKycReadinessReport($pendingMid);
+            $pendingReadyOk = !empty($pendingReady['ok']) || !empty($pendingReady['already_verified']);
+            $pendingReadyLabel = $pendingReadyOk ? 'Ready to verify' : ('Missing: ' . implode(', ', merchantKycReadinessMissingLabels($pendingReady)));
+        ?>
         <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
             <div class="min-w-0">
-                <p class="font-medium text-sm"><?= adminMerchantLink((int)$m['id'], $m['business_name'], 'font-medium text-sm text-white hover:text-sky-300') ?></p>
-                <p class="text-xs text-gray-500 break-all"><?= merchantMailtoLink((string)$m['email']) ?> · <?= adminMerchantLink((int)$m['id'], $m['merchant_code'], 'font-mono text-sky-400') ?></p>
+                <p class="font-medium text-sm"><?= adminMerchantLink($pendingMid, $m['business_name'], 'font-medium text-sm text-white hover:text-sky-300') ?></p>
+                <p class="text-xs text-gray-500 break-all"><?= merchantMailtoLink((string)$m['email']) ?> · <?= adminMerchantLink($pendingMid, $m['merchant_code'], 'font-mono text-sky-400') ?></p>
                 <p class="text-xs text-gray-600"><?= e(entityTypeLabel($m['business_entity_type'] ?? '')) ?></p>
+                <p class="text-[10px] mt-1 <?= $pendingReadyOk ? 'text-emerald-400' : 'text-amber-400' ?>"><?= e($pendingReadyLabel) ?></p>
             </div>
             <div class="flex gap-2 flex-wrap w-full sm:w-auto">
-                <a href="<?= e(adminMerchantUrl((int)$m['id'])) ?>" class="text-xs bg-gray-700/50 text-gray-300 px-3 py-1.5 rounded-lg text-center flex-1 sm:flex-none">View</a>
+                <a href="<?= e(adminMerchantUrl($pendingMid)) ?>" class="text-xs bg-gray-700/50 text-gray-300 px-3 py-1.5 rounded-lg text-center flex-1 sm:flex-none">View</a>
                 <?php if ($canMutateKyc): ?>
-                <form method="post" class="flex-1 sm:flex-none"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="verify_merchant"><input type="hidden" name="id" value="<?= (int)$m['id'] ?>"><input type="hidden" name="reason" value="KYC package reviewed"><button class="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg w-full">Send for KYC approval</button></form>
+                <?php if ($pendingReadyOk): ?>
+                <form method="post" class="flex-1 sm:flex-none"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="verify_merchant"><input type="hidden" name="id" value="<?= $pendingMid ?>"><input type="hidden" name="reason" value="KYC package reviewed"><button class="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg w-full">Send for KYC approval</button></form>
                 <?php if (isSuperAdmin()): ?>
-                <form method="post" class="flex-1 sm:flex-none"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="verify_merchant_now"><input type="hidden" name="id" value="<?= (int)$m['id'] ?>"><input type="hidden" name="reason" value="KYC package reviewed — super solo verify"><button class="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg w-full">Verify KYC now</button></form>
+                <form method="post" class="flex-1 sm:flex-none"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="verify_merchant_now"><input type="hidden" name="id" value="<?= $pendingMid ?>"><input type="hidden" name="reason" value="KYC package reviewed — super solo verify"><button class="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg w-full">Verify KYC now</button></form>
                 <?php endif; ?>
-                <a href="admin_gateway_submit.php?merchant_id=<?= (int)$m['id'] ?>" class="text-xs bg-violet-600/20 text-violet-400 px-3 py-1.5 rounded-lg text-center flex-1 sm:flex-none">1-Click Partner Forward</a>
+                <?php else: ?>
+                <span class="text-xs text-amber-400/90 px-3 py-1.5">Complete docs/video first</span>
+                <?php endif; ?>
+                <a href="admin_gateway_submit.php?merchant_id=<?= $pendingMid ?>" class="text-xs bg-violet-600/20 text-violet-400 px-3 py-1.5 rounded-lg text-center flex-1 sm:flex-none">1-Click Partner Forward</a>
                 <?php endif; ?>
             </div>
         </div>

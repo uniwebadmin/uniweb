@@ -49,7 +49,7 @@ function merchantLiveGateReport(int $merchantId): array
         $videoStatus = strtolower((string)($merchant['video_kyc_status'] ?? 'pending'));
         $checks = [
             'not_demo' => strtolower((string)$merchant['email']) !== 'demo@uniweb.co.in',
-            'kyc_verified' => ($merchant['onboarding_state'] ?? '') === 'verified' && ($merchant['kyc_status'] ?? '') === 'verified',
+            'kyc_verified' => ($merchant['kyc_status'] ?? '') === 'verified',
             'entity_documents' => kycDocsSatisfyRequirements($required, $readyDocs),
             'bank_verified' => (int)$bank->fetchColumn() > 0 && ($merchant['bank_verification_status'] ?? 'pending') === 'verified',
             'website_verified' => ($merchant['website_status'] ?? '') === 'verified'
@@ -242,47 +242,16 @@ function applyApprovedControlAction(array $request): void
                 ->execute([$resourceId, $merchantId]);
             break;
         case 'kyc_merchant_verify':
-            $ent = getDB()->prepare('SELECT business_entity_type FROM merchants WHERE id=?');
-            $ent->execute([$merchantId]);
-            $required = getKycRequirements((string)$ent->fetchColumn());
-            $st = $db->prepare("SELECT DISTINCT doc_type FROM kyc_documents WHERE merchant_id=? AND status='approved' AND scan_status='clean'");
-            $st->execute([$merchantId]);
-            if (!kycDocsSatisfyRequirements($required, $st->fetchAll(PDO::FETCH_COLUMN))) {
-                throw new RuntimeException('All entity documents must be clean and approved first.');
+            if (!function_exists('completeMerchantKycVerification') && is_file(__DIR__ . '/kyc_workflow.php')) {
+                require_once __DIR__ . '/kyc_workflow.php';
             }
-            $db->prepare("UPDATE merchants SET kyc_status='verified',onboarding_state='verified',account_mode='test' WHERE id=?")
-                ->execute([$merchantId]);
-            // 2.14: Auto-resolve kyc_pending AML flags on KYC verify
-            if (!function_exists('resolveKycPendingFlags') && is_file(__DIR__ . '/risk.php')) {
-                require_once __DIR__ . '/risk.php';
-            }
-            if (function_exists('resolveKycPendingFlags')) {
-                try { resolveKycPendingFlags($merchantId); } catch (Throwable $e) { /* ok */ }
-            }
-            // Point 2/4: after KYC verified → queue methods (if needed) + auto Send to Partner.
-            if (!function_exists('afterKycVerifiedAutoSendMethods')) {
-                $mr = __DIR__ . '/method_requests.php';
-                if (is_file($mr)) {
-                    require_once $mr;
-                }
-            }
-            if (function_exists('afterKycVerifiedAutoSendMethods')) {
-                try {
-                    afterKycVerifiedAutoSendMethods($merchantId, 'kyc_verified_auto');
-                } catch (Throwable $e) {
-                    error_log('afterKycVerifiedAutoSendMethods: ' . $e->getMessage());
-                }
-            }
-            // 2.13: Enqueue to partner forward queue on KYC verify
-            if (!function_exists('enqueueMerchantToAllEnabledPartners') && is_file(__DIR__ . '/partner_forward_queue.php')) {
-                require_once __DIR__ . '/partner_forward_queue.php';
-            }
-            if (function_exists('enqueueMerchantToAllEnabledPartners')) {
-                try {
-                    enqueueMerchantToAllEnabledPartners($merchantId);
-                } catch (Throwable $e) {
-                    error_log('enqueueMerchantToAllEnabledPartners (kyc_verify): ' . $e->getMessage());
-                }
+            $result = completeMerchantKycVerification(
+                $merchantId,
+                'checker_approve',
+                trim((string)($request['request_reason'] ?? '')) ?: 'Checker approved KYC verify'
+            );
+            if (empty($result['ok'])) {
+                throw new RuntimeException($result['error'] ?? 'KYC verify failed.');
             }
             break;
         case 'merchant_live_enable':
@@ -333,12 +302,13 @@ function verifyMerchantKycNow(int $merchantId, string $reason): void
     if ($reason === '') {
         throw new InvalidArgumentException('A review reason is required.');
     }
-    applyApprovedControlAction([
-        'action_type' => 'kyc_merchant_verify',
-        'merchant_id' => $merchantId,
-        'resource_id' => $merchantId,
-        'resource_type' => 'merchant',
-    ]);
+    if (!function_exists('completeMerchantKycVerification') && is_file(__DIR__ . '/kyc_workflow.php')) {
+        require_once __DIR__ . '/kyc_workflow.php';
+    }
+    $result = completeMerchantKycVerification($merchantId, 'super_solo_verify', $reason);
+    if (empty($result['ok']) && empty($result['already'])) {
+        throw new RuntimeException($result['error'] ?? 'KYC verify failed.');
+    }
     if (function_exists('recordImmutableAudit')) {
         recordImmutableAudit(
             'kyc_merchant_verify_solo',
@@ -348,38 +318,6 @@ function verifyMerchantKycNow(int $merchantId, string $reason): void
             $reason . ' [super_solo_ops]'
         );
     }
-    if (function_exists('notifyMerchant')) {
-        notifyMerchant(
-            $merchantId,
-            'KYC Verified',
-            'Your KYC was verified. Live money still needs a separate Live activation step.',
-            'kyc_verified_' . $merchantId
-        );
-    } elseif (function_exists('createNotification')) {
-        createNotification(
-            $merchantId,
-            'KYC Verified',
-            'Your KYC was verified. Live money still needs a separate Live activation step.'
-        );
-    }
     logStaffActivity('kyc_verified_solo', $reason, $merchantId, 'merchant', (string)$merchantId);
-    // 2.14: Auto-resolve kyc_pending AML flags on solo KYC verify
-    if (!function_exists('resolveKycPendingFlags') && is_file(__DIR__ . '/risk.php')) {
-        require_once __DIR__ . '/risk.php';
-    }
-    if (function_exists('resolveKycPendingFlags')) {
-        try { resolveKycPendingFlags($merchantId); } catch (Throwable $e) { /* ok */ }
-    }
-    // 2.13: Enqueue to partner forward queue on solo KYC verify
-    if (!function_exists('enqueueMerchantToAllEnabledPartners') && is_file(__DIR__ . '/partner_forward_queue.php')) {
-        require_once __DIR__ . '/partner_forward_queue.php';
-    }
-    if (function_exists('enqueueMerchantToAllEnabledPartners')) {
-        try {
-            enqueueMerchantToAllEnabledPartners($merchantId);
-        } catch (Throwable $e) {
-            error_log('enqueueMerchantToAllEnabledPartners (solo_verify): ' . $e->getMessage());
-        }
-    }
 }
 

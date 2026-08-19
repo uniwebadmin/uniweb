@@ -56,7 +56,12 @@ function getMerchantOnboardingState(int $merchantId): string
                 default => 'draft',
             };
         }
-        return $state;
+        // Legacy onboarding_state values (pre state-machine normalize)
+        return match($state) {
+            'submitted' => 'kyc_submitted',
+            'verified' => 'kyc_verified',
+            default => $state,
+        };
     } catch (Throwable $e) {
         return 'draft';
     }
