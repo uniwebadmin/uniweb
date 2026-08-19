@@ -5,8 +5,12 @@ ensureGatewaySubmissionsTable();
 if (!function_exists('gatewaySubmissionsAdminEducation') && is_file(__DIR__ . '/includes/gateway_submissions_workflow.php')) {
     require_once __DIR__ . '/includes/gateway_submissions_workflow.php';
 }
+if (!function_exists('gatewaySubmitVsForwardQueueEducation') && is_file(__DIR__ . '/includes/forward_queue_workflow.php')) {
+    require_once __DIR__ . '/includes/forward_queue_workflow.php';
+}
 $db = getDB();
 $gwSubEdu = function_exists('gatewaySubmissionsAdminEducation') ? gatewaySubmissionsAdminEducation() : null;
+$gwSyncEdu = function_exists('gatewaySubmitVsForwardQueueEducation') ? gatewaySubmitVsForwardQueueEducation() : null;
 
 $allowedGateways = gatewaySubmissionAllowedGateways();
 $adminId = (int)($_SESSION['admin_id'] ?? 0);
@@ -103,6 +107,9 @@ require_once __DIR__ . '/header.php';
         <p class="text-sm text-gray-400 mt-1">Manual forward + status matrix for <code class="text-xs bg-gray-800 px-1 rounded">gateway_submissions</code>. After Admin Verify, the automatic <a href="admin_forward_queue.php" class="text-sky-400 hover:underline">KYC Forward Queue</a> also enqueues one row per partner with keys — mostly <strong class="text-amber-300">staged</strong> until live API. Use this page to bulk-forward or update submission status; cron does not replace your review here.</p>
         <?php if (is_array($gwSubEdu)): ?>
         <p class="text-[11px] text-rose-300/90 mt-2"><?= e($gwSubEdu['summary']) ?></p>
+        <?php endif; ?>
+        <?php if (is_array($gwSyncEdu)): ?>
+        <p class="text-[11px] text-violet-300/90 mt-2"><?= e((string)$gwSyncEdu['sync']) ?> · Auto: <a href="<?= e((string)$gwSyncEdu['auto_screen']) ?>" class="text-sky-400 hover:underline">Forward Queue</a></p>
         <?php endif; ?>
     </div>
 

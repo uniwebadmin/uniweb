@@ -51,9 +51,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
 $q = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
 $focusTicketId = '';
-if ($q !== '' && preg_match('/^TKT[A-F0-9]{8,}$/i', $q)) {
-    $focusTicketId = strtoupper($q);
+if (!function_exists('wiringAdminSupportQueryState') && is_file(__DIR__ . '/includes/wiring_deep_link_workflow.php')) {
+    require_once __DIR__ . '/includes/wiring_deep_link_workflow.php';
 }
+$supportQueryState = function_exists('wiringAdminSupportQueryState')
+    ? wiringAdminSupportQueryState($_GET)
+    : ['q' => $q, 'focusTicketId' => ''];
+$q = (string)$supportQueryState['q'];
+$focusTicketId = (string)$supportQueryState['focusTicketId'];
 $statusFilter = trim($_GET['status'] ?? 'all');
 $filterMerchantId = (int)($_GET['merchant_id'] ?? 0);
 $sql = 'SELECT t.*, m.business_name, m.email FROM support_tickets t JOIN merchants m ON t.merchant_id=m.id';
@@ -87,6 +92,9 @@ $tickets = $stmt->fetchAll();
 if (!isSuperAdmin()) {
     $tickets = array_values(array_filter($tickets, static fn(array $row): bool => staffHasMerchantAccess((int)$row['merchant_id'])));
 }
+if ($focusTicketId !== '' && function_exists('wiringAdminSupportEnsureFocusedTicket')) {
+    $tickets = wiringAdminSupportEnsureFocusedTicket($db, $tickets, $focusTicketId);
+}
 $websiteInquiries = function_exists('listPublicContactInquiries') ? listPublicContactInquiries(30) : [];
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     $csvRows = [];
@@ -101,8 +109,17 @@ require_once __DIR__ . '/header.php';
 
 <div class="glass rounded-xl p-4 mb-6 border border-emerald-500/20 text-sm text-gray-300">
     <p class="font-semibold text-emerald-300 mb-1">Admin first — support queue</p>
-    <p class="text-xs text-gray-500">Merchant tickets land here for Admin/staff reply. Payment chargeback disputes: use <a href="admin_disputes.php" class="text-sky-400 hover:underline">Disputes</a> (resolve or single partner forward). Bulk routing later — no new app.</p>
+    <p class="text-xs text-gray-500">Merchant tickets land here for Admin/staff reply. Paste <strong class="text-gray-300">TKT…</strong> in search to jump to that ticket. Payment chargeback disputes: use <a href="admin_disputes.php" class="text-sky-400 hover:underline">Disputes</a> (resolve or single partner forward). Bulk routing later — no new app.</p>
 </div>
+<?php
+$supportEdu = function_exists('wiringAdminSupportEducation') ? wiringAdminSupportEducation() : null;
+if (is_array($supportEdu)):
+?>
+<div class="glass rounded-xl p-3 mb-4 border border-sky-500/20 text-xs text-gray-400">
+    <p class="font-semibold text-sky-300 mb-1"><?= e((string)$supportEdu['title']) ?></p>
+    <p><?= e((string)$supportEdu['rule']) ?></p>
+</div>
+<?php endif; ?>
 <?php if ($filterMerchantId > 0): ?>
 <div class="glass rounded-xl p-3 mb-4 border border-sky-500/30 text-xs text-sky-200 flex flex-wrap items-center justify-between gap-2">
     <span>Filtered to merchant #<?= (int)$filterMerchantId ?></span>
@@ -162,7 +179,7 @@ require_once __DIR__ . '/header.php';
         $thread = $threadStmt->fetchAll();
         $hasAdminThreadReply = (bool)array_filter($thread, static fn(array $row): bool => $row['sender_type'] === 'admin');
     ?>
-    <div class="glass rounded-xl p-6" id="ticket-<?= e($t['ticket_id']) ?>"<?= $focusTicketId !== '' && strcasecmp((string)$t['ticket_id'], $focusTicketId) === 0 ? ' style="scroll-margin-top:6rem"' : '' ?>>
+    <div class="glass rounded-xl p-6<?= $focusTicketId !== '' && strcasecmp((string)$t['ticket_id'], $focusTicketId) === 0 ? ' ring-1 ring-sky-500/40 bg-sky-500/10' : '' ?>" id="ticket-<?= e($t['ticket_id']) ?>"<?= $focusTicketId !== '' && strcasecmp((string)$t['ticket_id'], $focusTicketId) === 0 ? ' style="scroll-margin-top:6rem"' : '' ?>>
         <div class="flex flex-wrap justify-between gap-2 mb-3">
             <div>
                 <span class="font-mono text-xs text-gray-500"><?= e($t['ticket_id']) ?></span>

@@ -9,6 +9,7 @@ declare(strict_types=1);
  * #3 Settlement / batch / payment notifications → transactions.php (not settlements/dashboard).
  * #4 KYC forward notifications include partner display name from registry.
  * #5 Chargebacks silo merged — main lane Disputes; chargebacks.php legacy only.
+ * #6 Admin support ?q=TKT… → focusTicketId + highlight + scroll (detail panel).
  */
 
 function wiringDeepLinkIdPattern(string $prefix): string
@@ -141,6 +142,62 @@ function wiringMerchantComplaintQueryState(int $merchantId, string $ticketQ, boo
     return ['redirect' => $redirect, 'focusTicketId' => $focus];
 }
 
+/** @return array{q:string,focusTicketId:string} */
+function wiringAdminSupportQueryState(array $get): array
+{
+    $q = mb_substr(trim((string)($get['q'] ?? '')), 0, 100);
+    $focus = '';
+    if ($q !== '' && preg_match(wiringDeepLinkIdPattern('TKT'), $q)) {
+        $focus = wiringDeepLinkNormalizeId($q, 'TKT');
+    }
+    return ['q' => $q, 'focusTicketId' => $focus];
+}
+
+/**
+ * Ensure exact TKT ticket card is in list (fetch if status filter hid it).
+ *
+ * @param array<int,array<string,mixed>> $tickets
+ * @return array<int,array<string,mixed>>
+ */
+function wiringAdminSupportEnsureFocusedTicket(PDO $db, array $tickets, string $focusTicketId): array
+{
+    if ($focusTicketId === '') {
+        return $tickets;
+    }
+    foreach ($tickets as $t) {
+        if (strcasecmp((string)($t['ticket_id'] ?? ''), $focusTicketId) === 0) {
+            return $tickets;
+        }
+    }
+    try {
+        $exSt = $db->prepare(
+            'SELECT t.*, m.business_name, m.email
+             FROM support_tickets t
+             JOIN merchants m ON t.merchant_id = m.id
+             WHERE t.ticket_id = ? LIMIT 1'
+        );
+        $exSt->execute([$focusTicketId]);
+        $exact = $exSt->fetch(PDO::FETCH_ASSOC) ?: null;
+        if ($exact) {
+            array_unshift($tickets, $exact);
+            return array_values(array_unique($tickets, SORT_REGULAR));
+        }
+    } catch (Throwable $e) {
+        /* ok */
+    }
+    return $tickets;
+}
+
+function wiringAdminSupportEducation(): array
+{
+    return [
+        'title' => 'Support TKT deep-link',
+        'rule' => 'Search or global search ?q=TKT… must focus the ticket card — highlight, scroll, reply panel visible.',
+        'must_not' => ['Filter list only without scroll', 'Lose TKT when status filter differs'],
+        'diagram_phone' => '_inbox/chat/daigram/33-wiring-forward-b6-b8-phone.html',
+    ];
+}
+
 /** Settlement / batch / payment money alerts → transaction ledger (not settlements page). */
 function wiringDeepLinkSettlementActionUrl(string $title, string $message = ''): ?string
 {
@@ -245,10 +302,11 @@ function wiringChargebackSiloEducation(bool $forAdmin = false): array
 function wiringDeepLinkAdminEducation(): array
 {
     return [
-        'title' => 'Deep-link wiring — Audit B (#1–5)',
+        'title' => 'Deep-link wiring — Audit B (#1–6)',
         'rule' => 'Diagram first, then code. Search / notify must open the same destination as global search.',
         'disputes' => 'admin_disputes.php?q=DSP… → filter + highlight + scroll.',
         'complaints' => 'CT… notify → merchant_customer_tickets.php (not dashboard).',
+        'support_tkt' => 'admin_support.php?q=TKT… → focusTicketId + highlight + scroll to reply panel.',
         'settlement' => 'Settlement / batch / payment notify → transactions.php (not settlements list).',
         'kyc' => 'KYC forward notify body includes partner display name from Partner Registry.',
         'chargebacks' => 'Main lane = Disputes; chargebacks.php legacy only; search chargeback → admin_disputes.',
@@ -282,16 +340,18 @@ function wiringDeepLinkHealthCheck(): array
             && !str_contains((string)@file_get_contents($root . '/global_search.php'), 'admin_chargebacks.php?q=')
             && str_contains((string)@file_get_contents($root . '/chargebacks.php'), 'disputes.php'),
         'merchant_ct_redirect' => str_contains((string)@file_get_contents($root . '/merchant_customer_tickets.php'), 'wiringMerchantComplaintQueryState'),
+        'admin_support_tkt' => str_contains((string)@file_get_contents($root . '/admin_support.php'), 'focusTicketId')
+            && str_contains((string)@file_get_contents($root . '/admin_support.php'), 'wiringAdminSupportQueryState'),
     ];
     $ok = !in_array(false, $checks, true);
     $failed = array_keys(array_filter($checks, static fn ($v) => !$v));
 
     return [
         'id' => 'wiring_deep_link',
-        'label' => 'Wiring / deep-link (B1–B5)',
+        'label' => 'Wiring / deep-link (B1–B6)',
         'ok' => $ok,
-        'status' => $ok ? 'Disputes · CT · settlement · KYC label · chargeback lane' : 'Fix wiring — ' . implode(', ', $failed),
-        'detail' => 'DSP q= · CT complaints · settlement→transactions · KYC partner name · disputes main lane',
+        'status' => $ok ? 'DSP · CT · TKT · settlement · KYC · chargeback lane' : 'Fix wiring — ' . implode(', ', $failed),
+        'detail' => 'Disputes q= · CT complaints · TKT support focus · settlement→txn · KYC name · disputes lane',
         'test_url' => 'admin_disputes.php?q=DSP',
     ];
 }

@@ -14,6 +14,16 @@ When a task is **fully done** (smoke green locally):
 
 Do **not** leave completed work uncommitted. Do **not** push half-done work.
 
+## Point complete report (Owner order — Aug 2026)
+
+Har audit point / task **complete** hone par Owner ko Hindi mein **3 cheezein** likhna zaroori:
+
+1. **Is point mein kya complete hua** — diagram + code + push (agar hua)
+2. **Is point mein kya abhi baki hai** — manual Owner step, live keys, migration, etc.
+3. **Is point mein ye aur karna chahiye tha** — jo scope mein tha par abhi nahi hua (honest gap list)
+
+Format short table ya 3 bullets. "Done" mat bolo jab tak ye teen clear na hon.
+
 ## Live deploy path
 
 - **Primary:** Hostinger Git auto-deploy from `main` (not FTP-only Actions job)

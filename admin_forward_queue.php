@@ -7,7 +7,12 @@ if (!function_exists('ensurePartnerForwardQueueTable')) {
 if (!function_exists('holdWindowAdminEducation') && is_file(__DIR__ . '/includes/hold_window_workflow.php')) {
     require_once __DIR__ . '/includes/hold_window_workflow.php';
 }
+if (!function_exists('forwardStagedAdminEducation') && is_file(__DIR__ . '/includes/forward_queue_workflow.php')) {
+    require_once __DIR__ . '/includes/forward_queue_workflow.php';
+}
 $holdWindowEdu = function_exists('holdWindowAdminEducation') ? holdWindowAdminEducation() : null;
+$forwardStagedEdu = function_exists('forwardStagedAdminEducation') ? forwardStagedAdminEducation() : null;
+$gwSyncEdu = function_exists('gatewaySubmitVsForwardQueueEducation') ? gatewaySubmitVsForwardQueueEducation() : null;
 
 $statusFilter = trim((string)($_GET['status'] ?? ''));
 $q = mb_substr(trim((string)($_GET['q'] ?? '')), 0, 100);
@@ -59,6 +64,12 @@ require_once __DIR__ . '/header.php';
             <?php endif; ?>
         </div>
         <p class="text-xs text-gray-500 mb-3">After Admin Verify: one queue row per partner that already has keys. <strong class="text-amber-300">Staged</strong> = package saved on UniWeb — <strong class="text-gray-300">not sent to the bank/partner yet</strong> (live KYC API + success-rate routing stay parked). Manual bulk forward / status updates: <a href="admin_gateway_submit.php" class="text-sky-400 hover:underline">Multi-Gateway Forward</a> (<code class="text-gray-400">gateway_submissions</code> — kept in sync with this queue).</p>
+        <?php if (is_array($forwardStagedEdu)): ?>
+        <p class="text-[11px] text-amber-200/90 mb-3"><?= e((string)$forwardStagedEdu['mostly_staged']) ?></p>
+        <?php endif; ?>
+        <?php if (is_array($gwSyncEdu)): ?>
+        <p class="text-[11px] text-violet-300/90 mb-3"><?= e((string)$gwSyncEdu['sync']) ?></p>
+        <?php endif; ?>
         <?php if (is_array($holdWindowEdu)): ?>
         <p class="text-[11px] text-sky-300/90 mb-3"><?= e($holdWindowEdu['policy']) ?></p>
         <?php endif; ?>

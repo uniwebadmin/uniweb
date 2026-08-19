@@ -954,7 +954,7 @@ $assert(str_contains($gwCfg, 'partnerHasSavedCredentials($gateway)') && !str_con
 
 // P7b — wiring / deep-link (~25)
 $assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'highlightDisputeId') && str_contains((string)file_get_contents($root . '/admin_disputes.php'), "\$_GET['id']"), 'p7b_admin_disputes_q_and_id_highlight');
-$assert(str_contains((string)file_get_contents($root . '/admin_support.php'), 'focusTicketId') && str_contains((string)file_get_contents($root . '/admin_support.php'), 'TKT[A-F0-9]'), 'p7b_admin_support_tkt_auto_open');
+$assert(str_contains((string)file_get_contents($root . '/admin_support.php'), 'focusTicketId') && (str_contains((string)file_get_contents($root . '/admin_support.php'), 'wiringAdminSupportQueryState') || str_contains((string)file_get_contents($root . '/admin_support.php'), 'TKT[A-F0-9]')), 'p7b_admin_support_tkt_auto_open');
 $assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'customer complaint') && str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'merchant_customer_tickets.php'), 'p7b_ct_notify_not_dashboard');
 $assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'batch complete') && str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'transactions.php'), 'p7b_settlement_title_to_transactions');
 $assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'adminPartnerTestUrl') || str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'tab=test'), 'p7b_health_test_connection_registry_not_settings');
@@ -1102,6 +1102,21 @@ $assert(str_contains((string)file_get_contents($root . '/chargebacks.php'), 'wir
 $assert(wiringDeepLinkSettlementActionUrl('Settlement Batch Complete', '₹100') === 'transactions.php', 'split_b345_runtime_settlement_to_transactions');
 $assert(str_contains(wiringKycForwardNotifyBody('payu', 'forward'), 'submitted to Payu') || str_contains(wiringKycForwardNotifyBody('payu', 'forward'), 'submitted to PayU'), 'split_b345_runtime_kyc_body_has_partner');
 $assert(wiringDeepLinkKycActionUrl('KYC Forwarded') === 'kyc.php', 'split_b345_runtime_kyc_notify_url');
+
+// Wiring / forward — Audit B #6–8 (TKT support · staged · gateway sync)
+$fwdQFlow = (string)file_get_contents($root . '/includes/forward_queue_workflow.php');
+$assert(str_contains($wiringFlow, 'function wiringAdminSupportQueryState') && str_contains($wiringFlow, 'function wiringAdminSupportEnsureFocusedTicket'), 'split_b68_wiring_support_tkt_functions');
+$assert(str_contains((string)file_get_contents($root . '/admin_support.php'), 'wiringAdminSupportQueryState') && str_contains((string)file_get_contents($root . '/admin_support.php'), 'ring-sky-500'), 'split_b68_admin_support_tkt_highlight');
+$assert(str_contains($fwdQFlow, 'function forwardStagedAdminEducation') && str_contains($fwdQFlow, 'function forwardQueueWorkflowHealthCheck'), 'split_b68_forward_queue_workflow');
+$assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'forwardStagedAdminEducation'), 'split_b68_forward_queue_staged_edu');
+$assert(str_contains((string)file_get_contents($root . '/admin_gateway_submit.php'), 'gatewaySubmitVsForwardQueueEducation'), 'split_b68_gateway_submit_sync_edu');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'forwardQueueWorkflowHealthCheck'), 'split_b68_platform_health');
+$assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'forward_queue_workflow'"), 'split_b68_config_dev_loads');
+require_once $root . '/includes/forward_queue_workflow.php';
+$tktState = wiringAdminSupportQueryState(['q' => 'TKT1234567890ABCD']);
+$assert($tktState['focusTicketId'] === 'TKT1234567890ABCD', 'split_b68_runtime_tkt_focus');
+$assert(forwardStagedStatusKey() === 'staged' && str_contains(forwardStagedDefinition(), 'not sent'), 'split_b68_runtime_staged_definition');
+$assert(str_contains(gatewaySubmitVsForwardQueueEducation()['sync'], 'syncGatewaySubmissionToForwardQueue'), 'split_b68_runtime_sync_education');
 
 // P9-04…08 honesty (market peers) — no fake orchestrator / coverage / licence / brand blur
 $regP9 = (string)file_get_contents($root . '/admin_gateway_registry.php');

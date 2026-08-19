@@ -501,6 +501,7 @@ $__includes = [
     'hold_window_workflow',
     'auto_kyc_risk_workflow',
     'wiring_deep_link_workflow',
+    'forward_queue_workflow',
     'payout_partner_api',
     'payout_worker',
     'client_context',
