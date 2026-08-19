@@ -141,13 +141,19 @@ if (!function_exists('notificationActionUrl')) {
         $titleLower = strtolower($title);
 
         // Customer complaint CT… (before generic "ticket" / payment fallbacks)
-        if (preg_match('/\b(CT[A-F0-9]{8,})\b/i', $hay, $m)) {
+        if (!function_exists('wiringDeepLinkComplaintActionUrl') && is_file(__DIR__ . '/wiring_deep_link_workflow.php')) {
+            require_once __DIR__ . '/wiring_deep_link_workflow.php';
+        }
+        if (function_exists('wiringDeepLinkComplaintActionUrl')) {
+            $complaintUrl = wiringDeepLinkComplaintActionUrl($title, $message);
+            if ($complaintUrl !== null) {
+                return $complaintUrl;
+            }
+        } elseif (preg_match('/\b(CT[A-F0-9]{8,})\b/i', $hay, $m)) {
             return 'merchant_customer_tickets.php?q=' . rawurlencode(strtoupper($m[1]));
-        }
-        if (str_contains($titleLower, 'customer complaint') || str_contains($titleLower, 'new customer complaint')) {
+        } elseif (str_contains($titleLower, 'customer complaint') || str_contains($titleLower, 'new customer complaint')) {
             return 'merchant_customer_tickets.php';
-        }
-        if (str_contains($titleLower, 'complaint') || str_contains($titleLower, 'grievance') || str_contains($titleLower, 'customer ticket')) {
+        } elseif (str_contains($titleLower, 'complaint') || str_contains($titleLower, 'grievance') || str_contains($titleLower, 'customer ticket')) {
             return 'merchant_customer_tickets.php';
         }
 
@@ -168,10 +174,14 @@ if (!function_exists('notificationActionUrl')) {
         }
 
         // Dispute status: message/title carries DSP… → disputes detail
-        if (preg_match('/\b(DSP[A-F0-9]{8,})\b/i', $hay, $m)) {
+        if (function_exists('wiringDeepLinkDisputeActionUrl')) {
+            $disputeUrl = wiringDeepLinkDisputeActionUrl($title, $message);
+            if ($disputeUrl !== null) {
+                return $disputeUrl;
+            }
+        } elseif (preg_match('/\b(DSP[A-F0-9]{8,})\b/i', $hay, $m)) {
             return 'disputes.php?id=' . rawurlencode(strtoupper($m[1]));
-        }
-        if (str_contains($titleLower, 'dispute') || str_contains($titleLower, 'chargeback')) {
+        } elseif (str_contains($titleLower, 'dispute') || str_contains($titleLower, 'chargeback')) {
             return 'disputes.php';
         }
 

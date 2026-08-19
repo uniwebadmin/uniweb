@@ -1079,6 +1079,20 @@ $assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'aut
 require_once $root . '/includes/auto_kyc_risk_workflow.php';
 $assert(autoKycRiskManualAssistThreshold() >= 1 && count(autoKycRiskGateOrder()) >= 5, 'split18_runtime_policy_constants');
 
+// Wiring / deep-link — Audit B #1–2 (disputes q= + CT notify)
+$wiringFlow = (string)file_get_contents($root . '/includes/wiring_deep_link_workflow.php');
+$assert(str_contains($wiringFlow, 'function wiringAdminDisputesQueryState') && str_contains($wiringFlow, 'function wiringDeepLinkHealthCheck'), 'split_b12_workflow_core_functions');
+$assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'wiringAdminDisputesQueryState') && str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'wiringDeepLinkAdminEducation'), 'split_b12_admin_disputes_wiring');
+$assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'wiringDeepLinkComplaintActionUrl'), 'split_b12_notif_complaint_workflow');
+$assert(str_contains((string)file_get_contents($root . '/merchant_customer_tickets.php'), 'wiringMerchantComplaintQueryState'), 'split_b12_merchant_ct_auto_open');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'wiringDeepLinkHealthCheck'), 'split_b12_platform_health');
+$assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'wiring_deep_link_workflow'"), 'split_b12_config_dev_loads');
+require_once $root . '/includes/wiring_deep_link_workflow.php';
+$dspState = wiringAdminDisputesQueryState(['q' => 'DSP1234567890ABCD']);
+$assert($dspState['highlightDisputeId'] === 'DSP1234567890ABCD', 'split_b12_runtime_dsp_highlight');
+$assert(wiringDeepLinkComplaintActionUrl('New customer complaint', 'CT1234567890ABCD') === 'merchant_customer_tickets.php?q=CT1234567890ABCD', 'split_b12_runtime_ct_notify_url');
+$assert(wiringDeepLinkComplaintActionUrl('New customer complaint', 'Please review') === 'merchant_customer_tickets.php', 'split_b12_runtime_complaint_title_not_dashboard');
+
 // P9-04…08 honesty (market peers) — no fake orchestrator / coverage / licence / brand blur
 $regP9 = (string)file_get_contents($root . '/admin_gateway_registry.php');
 $assert(str_contains($regP9, 'Partner Registry') && !str_contains($regP9, 'Gateway Orchestrator'), 'p9_04_no_orchestrator_product_title');

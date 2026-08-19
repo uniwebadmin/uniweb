@@ -95,7 +95,13 @@ if (isset($_GET['action'], $_GET['id']) && verifyCsrf($_GET['token'] ?? '')) {
 }
 
 $filterMerchantId = (int)($_GET['merchant_id'] ?? 0);
-$disputeQ = mb_substr(trim((string)($_GET['q'] ?? ($_GET['id'] ?? ''))), 0, 100);
+if (!function_exists('wiringAdminDisputesQueryState') && is_file(__DIR__ . '/includes/wiring_deep_link_workflow.php')) {
+    require_once __DIR__ . '/includes/wiring_deep_link_workflow.php';
+}
+$disputeQueryState = function_exists('wiringAdminDisputesQueryState')
+    ? wiringAdminDisputesQueryState($_GET)
+    : ['disputeQ' => mb_substr(trim((string)($_GET['q'] ?? ($_GET['id'] ?? ''))), 0, 100), 'highlightDisputeId' => ''];
+$disputeQ = (string)$disputeQueryState['disputeQ'];
 $statusFilter = preg_replace('/[^a-z_]/', '', strtolower(trim((string)($_GET['status'] ?? 'all'))));
 if (!in_array($statusFilter, ['all', 'open', 'under_review', 'forwarded_partner', 'resolved', 'closed'], true)) {
     $statusFilter = 'all';
@@ -142,9 +148,13 @@ try {
     $st->execute($listParams);
     $disputes = $st->fetchAll();
 }
-$highlightDisputeId = '';
-if ($disputeQ !== '' && preg_match('/^DSP[A-F0-9]{8,}$/i', $disputeQ)) {
+$highlightDisputeId = (string)($disputeQueryState['highlightDisputeId'] ?? '');
+if ($highlightDisputeId === '' && $disputeQ !== '' && preg_match('/^DSP[A-F0-9]{8,}$/i', $disputeQ)) {
     $highlightDisputeId = strtoupper($disputeQ);
+}
+if ($highlightDisputeId !== '' && function_exists('wiringAdminDisputesEnsureHighlightedRow')) {
+    $disputes = wiringAdminDisputesEnsureHighlightedRow($db, $disputes, $highlightDisputeId);
+} elseif ($highlightDisputeId !== '') {
     $exact = null;
     foreach ($disputes as $d) {
         if (strcasecmp((string)($d['dispute_id'] ?? ''), $highlightDisputeId) === 0) {
@@ -210,6 +220,23 @@ require_once __DIR__ . '/header.php';
         <a href="admin_customer_tickets.php" class="px-3 py-1.5 rounded-lg border border-gray-700 text-amber-300 hover:bg-white/5">Customer complaints</a>
     </div>
 </div>
+
+<?php
+$wiringEdu = null;
+if (function_exists('wiringDeepLinkAdminEducation')) {
+    $wiringEdu = wiringDeepLinkAdminEducation();
+} elseif (is_file(__DIR__ . '/includes/wiring_deep_link_workflow.php')) {
+    require_once __DIR__ . '/includes/wiring_deep_link_workflow.php';
+    $wiringEdu = wiringDeepLinkAdminEducation();
+}
+if (is_array($wiringEdu)):
+?>
+<div class="glass rounded-xl p-4 mb-4 border border-sky-500/20 text-xs text-gray-400">
+    <p class="font-semibold text-sky-300 mb-1"><?= e((string)$wiringEdu['title']) ?></p>
+    <p class="mb-2"><?= e((string)$wiringEdu['disputes']) ?></p>
+    <p><?= e((string)$wiringEdu['complaints']) ?></p>
+</div>
+<?php endif; ?>
 
 <?php if ($filterMerchantId > 0 || $statusFilter !== 'all' || $disputeQ !== ''): ?>
 <div class="glass rounded-xl p-3 mb-4 border border-sky-500/30 text-xs text-sky-200 flex flex-wrap items-center justify-between gap-2">

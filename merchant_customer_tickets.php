@@ -27,6 +27,20 @@ $viewId = (int)($_GET['id'] ?? 0);
 $view = $viewId ? getMerchantCustomerTicket($merchantId, $viewId) : null;
 $statusFilter = (string)($_GET['status'] ?? '');
 $ticketQ = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
+if (!function_exists('wiringMerchantComplaintQueryState') && is_file(__DIR__ . '/includes/wiring_deep_link_workflow.php')) {
+    require_once __DIR__ . '/includes/wiring_deep_link_workflow.php';
+}
+$complaintQueryState = function_exists('wiringMerchantComplaintQueryState')
+    ? wiringMerchantComplaintQueryState($merchantId, $ticketQ, $view !== null)
+    : ['redirect' => '', 'focusTicketId' => ''];
+if (($complaintQueryState['redirect'] ?? '') !== '') {
+    $extra = '';
+    if ($statusFilter !== '') {
+        $extra .= '&status=' . rawurlencode($statusFilter);
+    }
+    redirect($complaintQueryState['redirect'] . $extra);
+}
+$focusTicketId = (string)($complaintQueryState['focusTicketId'] ?? '');
 $listParams = listPageParams(20);
 $allTickets = getMerchantCustomerTickets($merchantId, $statusFilter ?: null);
 if ($ticketQ !== '') {
@@ -123,7 +137,7 @@ require_once __DIR__ . '/header.php';
                     <?php if (empty($tickets)): ?>
                     <tr><td colspan="6" class="p-0"><?= renderMerchantEmptyState('No customer complaints yet', 'When a payer raises a complaint on your transaction, it will appear here for you to reply.', null, null) ?></td></tr>
                     <?php else: foreach ($tickets as $tk): ?>
-                    <tr class="hover:bg-white/5 cursor-pointer" onclick="location.href='?id=<?= (int)$tk['id'] ?><?= $statusFilter !== '' ? '&status=' . urlencode($statusFilter) : '' ?>'">
+                    <tr id="complaint-<?= e($tk['ticket_id']) ?>" class="hover:bg-white/5 cursor-pointer <?= $focusTicketId !== '' && strcasecmp((string)$tk['ticket_id'], $focusTicketId) === 0 ? 'bg-sky-500/10 ring-1 ring-sky-500/30' : '' ?>" onclick="location.href='?id=<?= (int)$tk['id'] ?><?= $statusFilter !== '' ? '&status=' . urlencode($statusFilter) : '' ?><?= $ticketQ !== '' ? '&q=' . urlencode($ticketQ) : '' ?>'">
                         <td class="px-5 py-3 font-mono text-xs text-sky-400"><?= e($tk['ticket_id']) ?></td>
                         <td class="px-5 py-3 text-xs">+91 <?= e($tk['customer_phone']) ?></td>
                         <td class="px-5 py-3 max-w-[240px] truncate"><?= e($tk['subject']) ?></td>
@@ -138,4 +152,7 @@ require_once __DIR__ . '/header.php';
         <?= renderListPagination($listParams['page'], $ticketTotal, $listParams['perPage'], ['status' => $statusFilter, 'q' => $ticketQ]) ?>
     </div>
 </div>
+<?php if ($focusTicketId !== '' && !$view): ?>
+<script>document.getElementById('complaint-<?= e($focusTicketId) ?>')?.scrollIntoView({block:'center',behavior:'smooth'});</script>
+<?php endif; ?>
 <?php require_once __DIR__ . '/footer.php'; ?>
