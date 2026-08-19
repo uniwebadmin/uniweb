@@ -2,10 +2,13 @@
 declare(strict_types=1);
 
 /**
- * Wiring / deep-link — Audit B points #1–2 (diagram-first).
+ * Wiring / deep-link — Audit B (diagram-first).
  *
  * #1 Admin disputes honour ?q=DSP… (filter + highlight + scroll).
  * #2 Customer complaint (CT…) notifications → merchant_customer_tickets (not dashboard).
+ * #3 Settlement / batch / payment notifications → transactions.php (not settlements/dashboard).
+ * #4 KYC forward notifications include partner display name from registry.
+ * #5 Chargebacks silo merged — main lane Disputes; chargebacks.php legacy only.
  */
 
 function wiringDeepLinkIdPattern(string $prefix): string
@@ -138,20 +141,126 @@ function wiringMerchantComplaintQueryState(int $merchantId, string $ticketQ, boo
     return ['redirect' => $redirect, 'focusTicketId' => $focus];
 }
 
+/** Settlement / batch / payment money alerts → transaction ledger (not settlements page). */
+function wiringDeepLinkSettlementActionUrl(string $title, string $message = ''): ?string
+{
+    $titleLower = strtolower($title);
+    $hay = strtolower($title . ' ' . $message);
+    $needles = [
+        'settlement',
+        'batch complete',
+        'batch submitted',
+        'payment received',
+        'payment approved',
+    ];
+    foreach ($needles as $needle) {
+        if (str_contains($titleLower, $needle) || str_contains($hay, $needle)) {
+            return 'transactions.php';
+        }
+    }
+    if (str_contains($titleLower, 'payment')) {
+        return 'transactions.php';
+    }
+    return null;
+}
+
+function wiringKycForwardPartnerLabel(string $partnerKey): string
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    if ($partnerKey === '') {
+        return 'Partner';
+    }
+    try {
+        if (function_exists('getPartnerRegistry')) {
+            $reg = getPartnerRegistry();
+            return (string)($reg[$partnerKey]['name'] ?? ucfirst($partnerKey));
+        }
+    } catch (Throwable $e) {
+        /* smoke / offline — fall through */
+    }
+    if (function_exists('partnerDisplayName')) {
+        try {
+            return partnerDisplayName($partnerKey);
+        } catch (Throwable $e) {
+            /* ok */
+        }
+    }
+    return ucfirst($partnerKey);
+}
+
+function wiringKycForwardNotifyBody(string $partnerKey, string $kind = 'forward', int $attempts = 0): string
+{
+    $label = wiringKycForwardPartnerLabel($partnerKey);
+    return match ($kind) {
+        'fail' => 'KYC submission to ' . $label . ' failed after ' . max(1, $attempts) . ' attempt(s). Staff will assist manually.',
+        'gateway' => 'Your KYC documents were submitted to ' . $label . ' for onboarding.',
+        default => 'Your KYC package has been submitted to ' . $label . '.',
+    };
+}
+
+function wiringDeepLinkKycActionUrl(string $title): ?string
+{
+    $titleLower = strtolower($title);
+    if (
+        str_contains($titleLower, 'kyc forwarded')
+        || str_contains($titleLower, 'kyc forward failed')
+        || str_contains($titleLower, 'gateway submission')
+        || str_contains($titleLower, 'kyc')
+    ) {
+        return 'kyc.php';
+    }
+    return null;
+}
+
+function wiringChargebackMerchantLaneUrl(): string
+{
+    return 'disputes.php';
+}
+
+function wiringChargebackAdminLaneUrl(): string
+{
+    return 'admin_disputes.php';
+}
+
+/** @param array<int,mixed> $legacyRows */
+function wiringChargebackMerchantShouldRedirect(array $legacyRows, array $query): bool
+{
+    if (!empty($query['legacy'])) {
+        return false;
+    }
+    return $legacyRows === [];
+}
+
+/** @return array{title:string,main_lane:string,legacy_page:string,rule:string} */
+function wiringChargebackSiloEducation(bool $forAdmin = false): array
+{
+    return [
+        'title' => $forAdmin ? 'Chargebacks — legacy ingest only' : 'Disputes — one main lane',
+        'main_lane' => $forAdmin ? wiringChargebackAdminLaneUrl() : wiringChargebackMerchantLaneUrl(),
+        'legacy_page' => $forAdmin ? 'admin_chargebacks.php' : 'chargebacks.php?legacy=1',
+        'rule' => 'New payment disputes and chargebacks → Disputes. Chargebacks page = old bank evidence rows only.',
+    ];
+}
+
 function wiringDeepLinkAdminEducation(): array
 {
     return [
-        'title' => 'Deep-link wiring — disputes & complaints',
-        'rule' => 'Diagram first, then code. Search / notify must open the same row as global search.',
-        'disputes' => 'admin_disputes.php?q=DSP… → filter list + highlight + scroll. POST keeps q via adminDisputesReturnUrl.',
-        'complaints' => 'CT… notify → merchant_customer_tickets.php (not dashboard). Exact CT auto-opens ticket detail.',
+        'title' => 'Deep-link wiring — Audit B (#1–5)',
+        'rule' => 'Diagram first, then code. Search / notify must open the same destination as global search.',
+        'disputes' => 'admin_disputes.php?q=DSP… → filter + highlight + scroll.',
+        'complaints' => 'CT… notify → merchant_customer_tickets.php (not dashboard).',
+        'settlement' => 'Settlement / batch / payment notify → transactions.php (not settlements list).',
+        'kyc' => 'KYC forward notify body includes partner display name from Partner Registry.',
+        'chargebacks' => 'Main lane = Disputes; chargebacks.php legacy only; search chargeback → admin_disputes.',
         'must_not' => [
             'Ignore q= on admin disputes',
-            'Send complaint notifications to dashboard.php',
-            'Open another merchant’s CT ticket',
+            'Complaint or settlement notify → dashboard',
+            'KYC Forwarded without partner name',
+            'Chargeback search → admin_chargebacks.php',
         ],
-        'diagram_phone' => '_inbox/chat/daigram/29-wiring-deep-link-b1-b2-phone.html',
-        'diagram_full' => '_inbox/chat/daigram/30-wiring-deep-link-b1-b2-full-diagrams.md',
+        'diagram_phone_b12' => '_inbox/chat/daigram/29-wiring-deep-link-b1-b2-phone.html',
+        'diagram_phone_b345' => '_inbox/chat/daigram/31-wiring-deep-link-b3-b5-phone.html',
+        'diagram_full_b345' => '_inbox/chat/daigram/32-wiring-deep-link-b3-b5-full-diagrams.md',
     ];
 }
 
@@ -163,21 +272,26 @@ function wiringDeepLinkHealthCheck(): array
         'workflow' => is_file($root . '/includes/wiring_deep_link_workflow.php'),
         'admin_disputes_q' => str_contains((string)@file_get_contents($root . '/admin_disputes.php'), 'highlightDisputeId'),
         'notif_ct' => str_contains((string)@file_get_contents($root . '/includes/notifications.php'), 'merchant_customer_tickets.php'),
-        'notif_not_dashboard_only' => str_contains((string)@file_get_contents($root . '/includes/notifications.php'), 'wiringDeepLinkComplaintActionUrl')
-            || str_contains((string)@file_get_contents($root . '/includes/notifications.php'), 'customer complaint'),
-        'merchant_ct_redirect' => str_contains((string)@file_get_contents($root . '/merchant_customer_tickets.php'), 'wiringMerchantComplaintQueryState')
-            || (str_contains((string)@file_get_contents($root . '/merchant_customer_tickets.php'), 'CT[A-F0-9]')
-                && str_contains((string)@file_get_contents($root . '/merchant_customer_tickets.php'), "redirect('merchant_customer_tickets.php?id=")),
+        'notif_settlement_txn' => str_contains((string)@file_get_contents($root . '/includes/notifications.php'), 'wiringDeepLinkSettlementActionUrl')
+            || (str_contains((string)@file_get_contents($root . '/includes/notifications.php'), 'batch complete')
+                && str_contains((string)@file_get_contents($root . '/includes/notifications.php'), 'transactions.php')),
+        'kyc_partner_label' => str_contains((string)@file_get_contents($root . '/includes/wiring_deep_link_workflow.php'), 'wiringKycForwardPartnerLabel')
+            && (str_contains((string)@file_get_contents($root . '/includes/partner_forward_queue.php'), 'wiringKycForwardNotifyBody')
+                || str_contains((string)@file_get_contents($root . '/includes/partner_forward_queue.php'), 'wiringKycForwardPartnerLabel')),
+        'chargeback_silo' => str_contains((string)@file_get_contents($root . '/global_search.php'), 'admin_disputes.php?q=')
+            && !str_contains((string)@file_get_contents($root . '/global_search.php'), 'admin_chargebacks.php?q=')
+            && str_contains((string)@file_get_contents($root . '/chargebacks.php'), 'disputes.php'),
+        'merchant_ct_redirect' => str_contains((string)@file_get_contents($root . '/merchant_customer_tickets.php'), 'wiringMerchantComplaintQueryState'),
     ];
     $ok = !in_array(false, $checks, true);
     $failed = array_keys(array_filter($checks, static fn ($v) => !$v));
 
     return [
         'id' => 'wiring_deep_link',
-        'label' => 'Wiring / deep-link (B1–B2)',
+        'label' => 'Wiring / deep-link (B1–B5)',
         'ok' => $ok,
-        'status' => $ok ? 'Disputes q= + CT notify wired' : 'Fix wiring — ' . implode(', ', $failed),
-        'detail' => 'DSP search highlight · CT notify → Customer Complaints · not dashboard',
+        'status' => $ok ? 'Disputes · CT · settlement · KYC label · chargeback lane' : 'Fix wiring — ' . implode(', ', $failed),
+        'detail' => 'DSP q= · CT complaints · settlement→transactions · KYC partner name · disputes main lane',
         'test_url' => 'admin_disputes.php?q=DSP',
     ];
 }

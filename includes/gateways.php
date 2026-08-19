@@ -400,8 +400,13 @@ function submitMerchantToGateway(int $merchantId, string $gateway, int $adminId,
         syncGatewaySubmissionToForwardQueue($merchantId, $gateway, $forwardSource, $submissionId);
     }
 
-    $partnerLabel = (function_exists('getPartnerRegistry') ? ((string)(getPartnerRegistry()[$gateway]['name'] ?? ucfirst($gateway))) : (function_exists('partnerDisplayName') ? partnerDisplayName($gateway) : ucfirst($gateway)));
-    createNotification($merchantId, 'Gateway Submission', 'Your KYC documents were submitted to ' . $partnerLabel . ' for onboarding.');
+    if (!function_exists('wiringKycForwardNotifyBody') && is_file(__DIR__ . '/wiring_deep_link_workflow.php')) {
+        require_once __DIR__ . '/wiring_deep_link_workflow.php';
+    }
+    $gwBody = function_exists('wiringKycForwardNotifyBody')
+        ? wiringKycForwardNotifyBody($gateway, 'gateway')
+        : ('Your KYC documents were submitted to ' . ucfirst($gateway) . ' for onboarding.');
+    createNotification($merchantId, 'Gateway Submission', $gwBody);
     logComplianceAudit($merchantId, $adminId, 'gateway_forward', 'Forwarded to ' . strtoupper($gateway));
     return true;
 }

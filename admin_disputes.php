@@ -234,7 +234,10 @@ if (is_array($wiringEdu)):
 <div class="glass rounded-xl p-4 mb-4 border border-sky-500/20 text-xs text-gray-400">
     <p class="font-semibold text-sky-300 mb-1"><?= e((string)$wiringEdu['title']) ?></p>
     <p class="mb-2"><?= e((string)$wiringEdu['disputes']) ?></p>
-    <p><?= e((string)$wiringEdu['complaints']) ?></p>
+    <p class="mb-2"><?= e((string)$wiringEdu['complaints']) ?></p>
+    <p class="mb-2"><?= e((string)($wiringEdu['settlement'] ?? '')) ?></p>
+    <p class="mb-2"><?= e((string)($wiringEdu['kyc'] ?? '')) ?></p>
+    <p><?= e((string)($wiringEdu['chargebacks'] ?? '')) ?></p>
 </div>
 <?php endif; ?>
 

@@ -1093,6 +1093,16 @@ $assert($dspState['highlightDisputeId'] === 'DSP1234567890ABCD', 'split_b12_runt
 $assert(wiringDeepLinkComplaintActionUrl('New customer complaint', 'CT1234567890ABCD') === 'merchant_customer_tickets.php?q=CT1234567890ABCD', 'split_b12_runtime_ct_notify_url');
 $assert(wiringDeepLinkComplaintActionUrl('New customer complaint', 'Please review') === 'merchant_customer_tickets.php', 'split_b12_runtime_complaint_title_not_dashboard');
 
+// Wiring / deep-link — Audit B #3–5 (settlement txn · KYC partner name · chargeback lane)
+$assert(str_contains($wiringFlow, 'function wiringDeepLinkSettlementActionUrl') && str_contains($wiringFlow, 'function wiringKycForwardPartnerLabel'), 'split_b345_workflow_core_functions');
+$assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'wiringDeepLinkSettlementActionUrl'), 'split_b345_notif_settlement_workflow');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'wiringKycForwardNotifyBody'), 'split_b345_forward_queue_partner_label');
+$assert(str_contains((string)file_get_contents($root . '/includes/gateways.php'), 'wiringKycForwardNotifyBody'), 'split_b345_gateway_submit_partner_label');
+$assert(str_contains((string)file_get_contents($root . '/chargebacks.php'), 'wiringChargebackMerchantShouldRedirect'), 'split_b345_chargebacks_silo_redirect');
+$assert(wiringDeepLinkSettlementActionUrl('Settlement Batch Complete', '₹100') === 'transactions.php', 'split_b345_runtime_settlement_to_transactions');
+$assert(str_contains(wiringKycForwardNotifyBody('payu', 'forward'), 'submitted to Payu') || str_contains(wiringKycForwardNotifyBody('payu', 'forward'), 'submitted to PayU'), 'split_b345_runtime_kyc_body_has_partner');
+$assert(wiringDeepLinkKycActionUrl('KYC Forwarded') === 'kyc.php', 'split_b345_runtime_kyc_notify_url');
+
 // P9-04…08 honesty (market peers) — no fake orchestrator / coverage / licence / brand blur
 $regP9 = (string)file_get_contents($root . '/admin_gateway_registry.php');
 $assert(str_contains($regP9, 'Partner Registry') && !str_contains($regP9, 'Gateway Orchestrator'), 'p9_04_no_orchestrator_product_title');

@@ -21,15 +21,26 @@ if (!$rows && strcasecmp((string)($merchant['email'] ?? ''), 'demo@uniweb.co.in'
     ensureDemoChargebacks($merchantId);
     $rows = listMerchantChargebacks($merchantId);
 }
-if (!$rows && !isset($_GET['legacy'])) {
+if (!function_exists('wiringChargebackMerchantShouldRedirect') && is_file(__DIR__ . '/includes/wiring_deep_link_workflow.php')) {
+    require_once __DIR__ . '/includes/wiring_deep_link_workflow.php';
+}
+if (function_exists('wiringChargebackMerchantShouldRedirect') && wiringChargebackMerchantShouldRedirect($rows, $_GET)) {
+    redirect(wiringChargebackMerchantLaneUrl());
+} elseif (!$rows && !isset($_GET['legacy'])) {
     redirect('disputes.php');
 }
+$siloEdu = function_exists('wiringChargebackSiloEducation') ? wiringChargebackSiloEducation(false) : null;
 $pageTitle = 'Chargebacks';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="glass rounded-xl p-4 mb-6 border border-sky-500/25 text-sm text-gray-400">
+    <?php if (is_array($siloEdu)): ?>
+    <p><?= e((string)$siloEdu['rule']) ?> <a href="<?= e((string)$siloEdu['main_lane']) ?>" class="text-sky-400 hover:underline">Disputes</a> — your main lane on UniWeb.</p>
+    <p class="text-xs text-gray-600 mt-1">Legacy bank chargeback evidence only: <a href="<?= e((string)$siloEdu['legacy_page']) ?>" class="text-gray-500 hover:underline">open legacy list</a>.</p>
+    <?php else: ?>
     <p>For new disputes and day-to-day chargeback workflow, use <a href="disputes.php" class="text-sky-400 hover:underline">Disputes</a> — your main lane on UniWeb (one console, like market payment companies).</p>
     <p class="text-xs text-gray-600 mt-1">This page is for legacy chargeback evidence rows only.</p>
+    <?php endif; ?>
 </div>
 <div class="glass rounded-xl overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-800">

@@ -382,19 +382,16 @@ function processPerPartnerForwardQueue(int $limit = 20, ?int $merchantId = null,
                         $itemId,
                     ]);
                 $results['success']++;
-                $partnerLabel = $partnerKey;
-                if (function_exists('getPartnerRegistry')) {
-                    $reg = getPartnerRegistry();
-                    $partnerLabel = (string)($reg[$partnerKey]['name'] ?? ucfirst($partnerKey));
-                } elseif (function_exists('partnerDisplayName')) {
-                    $partnerLabel = partnerDisplayName($partnerKey);
-                } else {
-                    $partnerLabel = ucfirst($partnerKey);
+                if (!function_exists('wiringKycForwardNotifyBody') && is_file(__DIR__ . '/wiring_deep_link_workflow.php')) {
+                    require_once __DIR__ . '/wiring_deep_link_workflow.php';
                 }
+                $fwdBody = function_exists('wiringKycForwardNotifyBody')
+                    ? wiringKycForwardNotifyBody($partnerKey, 'forward')
+                    : ('Your KYC package has been submitted to ' . ucfirst($partnerKey) . '.');
                 if (function_exists('notifyMerchant')) {
-                    notifyMerchant($merchantId, 'KYC Forwarded', 'Your KYC package has been submitted to ' . $partnerLabel . '.', 'kyc_fwd_' . $merchantId . '_' . $partnerKey);
+                    notifyMerchant($merchantId, 'KYC Forwarded', $fwdBody, 'kyc_fwd_' . $merchantId . '_' . $partnerKey);
                 } elseif (function_exists('createNotification')) {
-                    createNotification($merchantId, 'KYC Forwarded', 'Your KYC package has been submitted to ' . $partnerLabel . '.');
+                    createNotification($merchantId, 'KYC Forwarded', $fwdBody);
                 }
             } elseif (!empty($result['staged'])) {
                 // 5b: keys OK + package built, but live partner API adapter not live yet — do not fake success or fail-retry spam
@@ -413,19 +410,16 @@ function processPerPartnerForwardQueue(int $limit = 20, ?int $merchantId = null,
                     $db->prepare("UPDATE partner_forward_queue SET status='failed', error_message=? WHERE id=?")
                         ->execute([$err, $itemId]);
                     $results['failed']++;
-                    $failLabel = $partnerKey;
-                    if (function_exists('getPartnerRegistry')) {
-                        $reg = getPartnerRegistry();
-                        $failLabel = (string)($reg[$partnerKey]['name'] ?? ucfirst($partnerKey));
-                    } elseif (function_exists('partnerDisplayName')) {
-                        $failLabel = partnerDisplayName($partnerKey);
-                    } else {
-                        $failLabel = ucfirst($partnerKey);
+                    if (!function_exists('wiringKycForwardNotifyBody') && is_file(__DIR__ . '/wiring_deep_link_workflow.php')) {
+                        require_once __DIR__ . '/wiring_deep_link_workflow.php';
                     }
+                    $failBody = function_exists('wiringKycForwardNotifyBody')
+                        ? wiringKycForwardNotifyBody($partnerKey, 'fail', $attempts)
+                        : ('KYC submission to ' . ucfirst($partnerKey) . ' failed after ' . $attempts . ' attempts. Staff will assist manually.');
                     if (!$terminal && function_exists('notifyMerchant')) {
-                        notifyMerchant($merchantId, 'KYC Forward Failed', 'KYC submission to ' . $failLabel . ' failed after ' . $attempts . ' attempts. Staff will assist manually.', 'kyc_fwd_fail_' . $merchantId . '_' . $partnerKey);
+                        notifyMerchant($merchantId, 'KYC Forward Failed', $failBody, 'kyc_fwd_fail_' . $merchantId . '_' . $partnerKey);
                     } elseif (!$terminal && function_exists('createNotification')) {
-                        createNotification($merchantId, 'KYC Forward Failed', 'KYC submission to ' . $failLabel . ' failed after ' . $attempts . ' attempts. Staff will assist manually.');
+                        createNotification($merchantId, 'KYC Forward Failed', $failBody);
                     }
                 } else {
                     $nextRetry = date('Y-m-d H:i:s', time() + ($attempts * 1800));

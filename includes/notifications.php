@@ -188,10 +188,20 @@ if (!function_exists('notificationActionUrl')) {
         if (str_contains($titleLower, 'kyc forwarded') || str_contains($titleLower, 'kyc forward failed')) {
             return 'kyc.php';
         }
-        if (str_contains($titleLower, 'kyc')) {
+        if (function_exists('wiringDeepLinkKycActionUrl')) {
+            $kycUrl = wiringDeepLinkKycActionUrl($title);
+            if ($kycUrl !== null) {
+                return $kycUrl;
+            }
+        } elseif (str_contains($titleLower, 'kyc')) {
             return 'kyc.php';
         }
-        if (
+        if (function_exists('wiringDeepLinkSettlementActionUrl')) {
+            $moneyUrl = wiringDeepLinkSettlementActionUrl($title, $message);
+            if ($moneyUrl !== null) {
+                return $moneyUrl;
+            }
+        } elseif (
             str_contains($titleLower, 'settlement')
             || str_contains($titleLower, 'batch complete')
             || str_contains($titleLower, 'batch submitted')
