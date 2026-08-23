@@ -561,6 +561,40 @@ function getPartnerRegistry(): array
             ],
             'flags' => ['integration_matrix' => true, 'merchant_visibility' => true, 'kyc_forward' => false, 'gateway_submit' => false],
         ],
+        'toucanpay' => [
+            'name' => 'ToucanPay',
+            'type' => 'gateway',
+            'icon' => '🦜',
+            'color' => 'cyan',
+            'use' => $banking['toucanpay']['use'] ?? 'RBI PA/PG — UPI, cards, BBPS, cross-border (SuperStream)',
+            'signup' => $banking['toucanpay']['signup'] ?? '',
+            'docs' => $banking['toucanpay']['docs'] ?? '',
+            'dashboard' => $banking['toucanpay']['dashboard'] ?? '',
+            'email' => $banking['toucanpay']['email'] ?? '',
+            'admin_page' => 'admin_partner.php?p=toucanpay',
+            'webhook' => '',
+            'env_key' => 'toucanpay_environment',
+            'config_keys' => [
+                'toucanpay_environment' => ['label' => 'Environment', 'type' => 'select', 'options' => ['sandbox' => 'Sandbox', 'production' => 'Production']],
+                'toucanpay_api_key' => ['label' => 'API Key', 'type' => 'text'],
+                'toucanpay_api_secret' => ['label' => 'API Secret', 'type' => 'password'],
+                'toucanpay_merchant_id' => ['label' => 'Merchant ID (optional)', 'type' => 'text'],
+                'toucanpay_base_url' => ['label' => 'API Base URL (optional)', 'type' => 'text'],
+            ],
+            'checklist' => [
+                'Book demo / contract on toucanpay.in',
+                'Get sandbox API credentials from ToucanPay',
+                'Paste Test keys in Partner Detail → Keys',
+                'Live checkout wiring follows ToucanPay API spec (scaffold — keys first)',
+            ],
+            'flags' => [
+                'integration_matrix' => true,
+                'merchant_visibility' => true,
+                'gateway_submit' => false,
+                'kyc_forward' => false,
+                'checkout_pg' => false,
+            ],
+        ],
     ];
     return $registry;
 }
@@ -746,6 +780,14 @@ function partnerTestConnection(string $partnerKey): array
         $ok = (bool)getPartnerSetting('cashfree', 'cashfree_app_id', '');
         $msg = $ok ? 'Cashfree keys saved.' : 'Add cashfree_app_id + cashfree_secret_key in Partner Detail → Keys.';
         partnerLogApi('cashfree', 'config_check', 'GET', null, $msg, $ok ? 200 : 0, $ok ? 'ok' : 'pending');
+        return ['ok' => $ok, 'message' => $msg];
+    }
+    if ($partnerKey === 'toucanpay') {
+        $ok = (bool)getPartnerSetting('toucanpay', 'toucanpay_api_key', '');
+        $msg = $ok
+            ? 'ToucanPay keys saved — checkout API wiring follows ToucanPay spec when live.'
+            : 'Add toucanpay_api_key + toucanpay_api_secret in Partner Detail → Keys (from ToucanPay sandbox).';
+        partnerLogApi('toucanpay', 'config_check', 'GET', null, $msg, $ok ? 200 : 0, $ok ? 'ok' : 'pending');
         return ['ok' => $ok, 'message' => $msg];
     }
     if ($partnerKey === 'decentro') {

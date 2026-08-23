@@ -187,6 +187,15 @@ function getBankingPartners(): array
             'email' => 'support@digio.in',
             'payout_note' => 'Digio — eSign / DigiLocker; not a collection PG.',
         ],
+        'toucanpay' => [
+            'name' => 'ToucanPay',
+            'use' => 'RBI PA/PG — UPI, cards, netbanking, BBPS, cross-border settlement (SuperStream)',
+            'signup' => 'https://toucanpay.in/',
+            'docs' => 'https://toucanpay.in/',
+            'dashboard' => 'https://toucanpay.in/',
+            'email' => 'support@toucanpayments.com',
+            'payout_note' => 'Regulated PG partner — paste API keys when ToucanPay shares sandbox/live credentials. Checkout adapter follows their API spec.',
+        ],
     ];
 }
 

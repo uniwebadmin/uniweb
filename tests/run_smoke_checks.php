@@ -938,7 +938,7 @@ $peReg = (string)file_get_contents($root . '/includes/partner_engine.php');
 $pmReg = (string)file_get_contents($root . '/includes/payment_methods.php');
 $imReg = (string)file_get_contents($root . '/includes/integration_matrix_workflow.php');
 $gwReg = (string)file_get_contents($root . '/includes/gateways.php');
-$assert(str_contains($peReg, "'worldline'") && str_contains($peReg, "'digio'") && str_contains($peReg, 'function getGatewaySubmissionPartnerKeys') && str_contains($peReg, 'function getIntegrationMatrixPartnerLabels'), 'p6b_partner_registry_canonical_helpers');
+$assert(str_contains($peReg, "'worldline'") && str_contains($peReg, "'digio'") && str_contains($peReg, "'toucanpay'") && str_contains($peReg, 'function getGatewaySubmissionPartnerKeys') && str_contains($peReg, 'function getIntegrationMatrixPartnerLabels'), 'p6b_partner_registry_canonical_helpers');
 $assert(!str_contains($peReg, "'sapaisa'"), 'p6b_sapaisa_removed_from_registry');
 $assert(str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'function purgeOrphanPartnerGatewayRows'), 'p6b_purge_orphan_partner_rows');
 $assert(is_file($root . '/migrations/068_remove_sapaisa_partner.sql'), 'p6b_migration_068_remove_sapaisa');
