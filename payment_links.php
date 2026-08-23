@@ -281,7 +281,10 @@ if ($createdId !== '') {
                         <td class="px-5 py-3 font-mono text-xs">
                             <a href="<?= e($payUrl) ?>" target="_blank" class="text-sky-400 hover:underline"<?= uiStopClick() ?>><?= e($link['link_id']) ?></a>
                         </td>
-                        <td class="px-5 py-3 text-xs"><?= e($methodLabel) ?></td>
+                        <td class="px-5 py-3 text-xs">
+                            <?= e($methodLabel) ?>
+                            <p class="text-[10px] text-gray-600 mt-0.5"><?= e(checkoutLinkModeCollectionSummary($link, $merchant)) ?></p>
+                        </td>
                         <td class="px-5 py-3 font-semibold"><?php
                             if (function_exists('paymentLinkIsOpenAmount') && paymentLinkIsOpenAmount($link)) {
                                 echo '<span class="text-sky-400">Open</span>';

@@ -109,12 +109,227 @@ function wiringDeepLinkDisputeActionUrl(string $title, string $message): ?string
     $hay = $title . ' ' . $message;
     $titleLower = strtolower($title);
     if (preg_match('/\b(DSP[A-F0-9]{8,})\b/i', $hay, $m)) {
-        return 'disputes.php?id=' . rawurlencode(strtoupper($m[1]));
+        return 'disputes.php?q=' . rawurlencode(strtoupper($m[1]));
     }
     if (str_contains($titleLower, 'dispute') || str_contains($titleLower, 'chargeback')) {
         return 'disputes.php';
     }
     return null;
+}
+
+/** Audit B #13 — merchant disputes ?q=DSP… parity with admin. */
+/** @return array{disputeQ:string,highlightDisputeId:string,viewKey:string} */
+function wiringMerchantDisputesQueryState(array $get): array
+{
+    $disputeQ = mb_substr(trim((string)($get['q'] ?? '')), 0, 100);
+    $viewKey = mb_substr(trim((string)($get['id'] ?? '')), 0, 100);
+    $highlight = '';
+    if ($disputeQ !== '' && preg_match(wiringDeepLinkIdPattern('DSP'), $disputeQ)) {
+        $highlight = wiringDeepLinkNormalizeId($disputeQ, 'DSP');
+        if ($viewKey === '') {
+            $viewKey = $highlight;
+        }
+    } elseif ($viewKey !== '' && preg_match(wiringDeepLinkIdPattern('DSP'), $viewKey)) {
+        $highlight = wiringDeepLinkNormalizeId($viewKey, 'DSP');
+    }
+    return ['disputeQ' => $disputeQ, 'highlightDisputeId' => $highlight, 'viewKey' => $viewKey];
+}
+
+/** Audit B #23 — merchant TXN notify / search → transactions list with highlight. */
+function wiringDeepLinkTxnListUrl(string $txnId, bool $forAdmin = false): string
+{
+    $enc = rawurlencode(strtoupper(trim($txnId)));
+    if ($forAdmin) {
+        return 'admin_transactions.php?q=' . $enc;
+    }
+    return 'transactions.php?q=' . $enc;
+}
+
+function wiringDeepLinkTxnActionUrl(string $title, string $message, bool $forAdmin = false): ?string
+{
+    $hay = $title . ' ' . $message;
+    if (preg_match('/\b(TXN[A-F0-9]{8,})\b/i', $hay, $m)) {
+        return wiringDeepLinkTxnListUrl(strtoupper($m[1]), $forAdmin);
+    }
+    $titleLower = strtolower($title);
+    if (
+        str_contains($titleLower, 'payment received')
+        || str_contains($titleLower, 'payment successful')
+        || str_contains($titleLower, 'new payment')
+    ) {
+        return $forAdmin ? 'admin_transactions.php' : 'transactions.php';
+    }
+    return null;
+}
+
+/** Audit B #24 — admin/staff KYC queue deep-link. */
+function wiringDeepLinkAdminKycActionUrl(string $title, string $message = ''): ?string
+{
+    $hay = $title . ' ' . $message;
+    $titleLower = strtolower($title);
+    if (preg_match('/\bmerchant\s*#?\s*(\d+)\b/i', $hay, $m)) {
+        return 'admin_kyc.php?q=' . rawurlencode($m[1]);
+    }
+    if (preg_match('/\b(UW[A-F0-9]{6,12})\b/i', $hay, $m)) {
+        return 'admin_kyc.php?q=' . rawurlencode(strtoupper($m[1]));
+    }
+    if (
+        str_contains($titleLower, 'kyc')
+        || str_contains($titleLower, 'verification')
+        || str_contains($titleLower, 'onboarding')
+    ) {
+        return 'admin_kyc.php';
+    }
+    return null;
+}
+
+/**
+ * Audit B #14 / #22 — admin & staff alert routing (support / KYC / disputes / txn).
+ * Used when ops pages add in-app alerts; mirrors global search destinations.
+ */
+function wiringOpsNotificationActionUrl(array $row): string
+{
+    $title = (string)($row['title'] ?? '');
+    $message = (string)($row['message'] ?? ($row['body'] ?? ''));
+    $hay = $title . ' ' . $message;
+    $titleLower = strtolower($title);
+
+    if (preg_match('/\b(TKT[A-F0-9]{8,})\b/i', $hay, $m)) {
+        return 'admin_support.php?q=' . rawurlencode(strtoupper($m[1]));
+    }
+    if (str_contains($titleLower, 'support ticket') || (str_contains($titleLower, 'support') && str_contains($titleLower, 'ticket'))) {
+        return 'admin_support.php';
+    }
+
+    if (preg_match('/\b(DSP[A-F0-9]{8,})\b/i', $hay, $m)) {
+        return 'admin_disputes.php?q=' . rawurlencode(strtoupper($m[1]));
+    }
+    if (str_contains($titleLower, 'dispute') || str_contains($titleLower, 'chargeback')) {
+        return 'admin_disputes.php';
+    }
+
+    $txnUrl = wiringDeepLinkTxnActionUrl($title, $message, true);
+    if ($txnUrl !== null) {
+        return $txnUrl;
+    }
+
+    $kycUrl = wiringDeepLinkAdminKycActionUrl($title, $message);
+    if ($kycUrl !== null) {
+        return $kycUrl;
+    }
+
+    if (function_exists('wiringDeepLinkSettlementActionUrl')) {
+        $moneyUrl = wiringDeepLinkSettlementActionUrl($title, $message);
+        if ($moneyUrl !== null) {
+            return 'admin_transactions.php';
+        }
+    }
+
+    return 'admin_dashboard.php';
+}
+
+/** Audit B #19 — chargeback ingest row → linked dispute when transaction matches. */
+function wiringChargebackAdminDisputeUrl(array $chargebackRow): ?string
+{
+    $txnId = (int)($chargebackRow['transaction_id'] ?? 0);
+    if ($txnId <= 0) {
+        return null;
+    }
+    try {
+        $st = getDB()->prepare('SELECT dispute_id FROM disputes WHERE transaction_id = ? ORDER BY id DESC LIMIT 1');
+        $st->execute([$txnId]);
+        $dsp = trim((string)($st->fetchColumn() ?: ''));
+        if ($dsp !== '') {
+            return 'admin_disputes.php?q=' . rawurlencode($dsp);
+        }
+    } catch (Throwable $e) {
+        /* smoke / offline */
+    }
+    return null;
+}
+
+/** Audit B #17 — merchant profile status chips (KYC · mode · collection · methods). */
+/** @return list<array{label:string,tone:string,href?:string}> */
+function wiringMerchantProfileStatusChips(array $merchant): array
+{
+    $chips = [];
+    $mode = function_exists('merchantAccountMode') ? merchantAccountMode($merchant) : (string)($merchant['account_mode'] ?? 'test');
+    $chips[] = [
+        'label' => $mode === 'live' ? 'Live Mode' : 'Test Mode',
+        'tone' => $mode === 'live' ? 'emerald' : 'amber',
+        'href' => 'dashboard.php',
+    ];
+    $kyc = strtolower((string)($merchant['kyc_status'] ?? 'pending'));
+    $chips[] = [
+        'label' => 'KYC: ' . ucfirst($kyc),
+        'tone' => in_array($kyc, ['verified', 'approved'], true) ? 'emerald' : 'amber',
+        'href' => 'kyc.php',
+    ];
+    if (function_exists('checkoutCollectionCustomerLabel')) {
+        $chips[] = [
+            'label' => checkoutCollectionCustomerLabel($merchant),
+            'tone' => 'sky',
+            'href' => 'collection_settings.php',
+        ];
+    }
+    $enabled = 0;
+    if (function_exists('get_available_pay_methods')) {
+        try {
+            $enabled = count(get_available_pay_methods((int)($merchant['id'] ?? 0)));
+        } catch (Throwable $e) {
+            $enabled = 0;
+        }
+    }
+    $chips[] = [
+        'label' => $enabled . ' payment method' . ($enabled === 1 ? '' : 's') . ' ON',
+        'tone' => $enabled > 0 ? 'sky' : 'gray',
+        'href' => 'payment_methods.php',
+    ];
+    return $chips;
+}
+
+function wiringMerchantProfileChipClass(string $tone): string
+{
+    return match ($tone) {
+        'emerald' => 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+        'amber' => 'bg-amber-500/15 text-amber-200 border-amber-500/30',
+        'sky' => 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+        default => 'bg-gray-800 text-gray-400 border-gray-700',
+    };
+}
+
+/** @return array{id:string,label:string,ok:bool,status:string,detail:string,test_url?:string} */
+function wiringDeepLinkHealthCheckB10B25(): array
+{
+    $root = dirname(__DIR__);
+    $wiring = (string)@file_get_contents($root . '/includes/wiring_deep_link_workflow.php');
+    $customize = (string)@file_get_contents($root . '/includes/checkout_customize.php');
+    $health = (string)@file_get_contents($root . '/includes/platform_health.php');
+    $checks = [
+        'b10_customize_registry' => str_contains($customize, 'checkoutCustomizeMerchantMethodPartners'),
+        'b11_health_registry' => str_contains($health, 'adminPartnerTestUrl') && str_contains($health, 'admin_gateway_registry.php'),
+        'b12_upi_banner' => str_contains((string)@file_get_contents($root . '/qr_upi_print.php'), 'bypass the UniWeb ledger'),
+        'b13_merchant_dsp_q' => str_contains((string)@file_get_contents($root . '/disputes.php'), 'wiringMerchantDisputesQueryState'),
+        'b14_ops_notify' => str_contains($wiring, 'function wiringOpsNotificationActionUrl'),
+        'b16_id_click_txn' => str_contains((string)@file_get_contents($root . '/includes/id_click.php'), 'transactions.php?q='),
+        'b17_profile_chips' => str_contains((string)@file_get_contents($root . '/my_account.php'), 'wiringMerchantProfileStatusChips'),
+        'b19_chargeback_row' => str_contains((string)@file_get_contents($root . '/admin_chargebacks.php'), 'wiringChargebackAdminDisputeUrl'),
+        'b21_search_txn_q' => str_contains((string)@file_get_contents($root . '/global_search.php'), 'transactions.php?q='),
+        'b23_notif_txn_list' => str_contains((string)@file_get_contents($root . '/includes/notifications.php'), 'wiringDeepLinkTxnActionUrl'),
+        'b24_admin_kyc_url' => str_contains($wiring, 'function wiringDeepLinkAdminKycActionUrl'),
+        'b9_collection' => str_contains((string)@file_get_contents($root . '/includes/checkout_collection_workflow.php'), 'checkoutCollectionWorkflowHealthCheck'),
+    ];
+    $ok = !in_array(false, $checks, true);
+    $failed = array_keys(array_filter($checks, static fn ($v) => !$v));
+
+    return [
+        'id' => 'wiring_deep_link_b10_b25',
+        'label' => 'Wiring / deep-link (B10–B25)',
+        'ok' => $ok,
+        'status' => $ok ? 'Checkout · registry · disputes · txn · KYC · chargeback row' : 'Fix B10–B25 — ' . implode(', ', $failed),
+        'detail' => 'Customize partners · health→registry · merchant DSP q= · TXN list · profile chips',
+        'test_url' => 'disputes.php?q=DSP',
+    ];
 }
 
 /**
@@ -209,6 +424,9 @@ function wiringDeepLinkSettlementActionUrl(string $title, string $message = ''):
         'batch submitted',
         'payment received',
         'payment approved',
+        'payout sent',
+        'payout complete',
+        'payout processed',
     ];
     foreach ($needles as $needle) {
         if (str_contains($titleLower, $needle) || str_contains($hay, $needle)) {
@@ -342,13 +560,16 @@ function wiringDeepLinkHealthCheck(): array
         'merchant_ct_redirect' => str_contains((string)@file_get_contents($root . '/merchant_customer_tickets.php'), 'wiringMerchantComplaintQueryState'),
         'admin_support_tkt' => str_contains((string)@file_get_contents($root . '/admin_support.php'), 'focusTicketId')
             && str_contains((string)@file_get_contents($root . '/admin_support.php'), 'wiringAdminSupportQueryState'),
+        'b10_b25_batch' => function_exists('wiringDeepLinkHealthCheckB10B25')
+            ? wiringDeepLinkHealthCheckB10B25()['ok']
+            : is_file($root . '/includes/checkout_collection_workflow.php'),
     ];
     $ok = !in_array(false, $checks, true);
     $failed = array_keys(array_filter($checks, static fn ($v) => !$v));
 
     return [
         'id' => 'wiring_deep_link',
-        'label' => 'Wiring / deep-link (B1–B6)',
+        'label' => 'Wiring / deep-link (B1–B25)',
         'ok' => $ok,
         'status' => $ok ? 'DSP · CT · TKT · settlement · KYC · chargeback lane' : 'Fix wiring — ' . implode(', ', $failed),
         'detail' => 'Disputes q= · CT complaints · TKT support focus · settlement→txn · KYC name · disputes lane',

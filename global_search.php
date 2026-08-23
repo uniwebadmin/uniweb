@@ -173,11 +173,11 @@ foreach ($featureAliases as $alias => $url) {
     }
     $baseUrl = strtok($url, '?') ?: $url;
     $matchedLabel = null;
-    foreach ($featurePages as [$furl, $flabel]) {
+        foreach ($featurePages as [$furl, $flabel]) {
         if ($furl === $baseUrl || $furl === $url) {
             $matchedLabel = (string)$flabel;
-            break;
-        }
+                break;
+            }
     }
     if ($matchedLabel === null && $isAdmin && $canPage($baseUrl)) {
         $matchedLabel = ucwords(str_replace(['_', '.php'], [' ', ''], basename($baseUrl)));
@@ -213,7 +213,7 @@ if ($isMerchant) {
         ORDER BY created_at DESC LIMIT {$MAX_PER_TYPE}",
         [$merchantId, $isTest, $like, $like, $like, $like, $like, $like]
     ) as $row) {
-        $add('Transaction', (string)$row['txn_id'], formatMoney((float)$row['amount']) . ' · ' . ucfirst((string)$row['status']) . ' · ' . ($row['customer_name'] ?: $row['customer_phone'] ?: $row['utr'] ?: 'Customer'), transactionDetailUrl((string)$row['txn_id']));
+        $add('Transaction', (string)$row['txn_id'], formatMoney((float)$row['amount']) . ' · ' . ucfirst((string)$row['status']) . ' · ' . ($row['customer_name'] ?: $row['customer_phone'] ?: $row['utr'] ?: 'Customer'), 'transactions.php?q=' . rawurlencode((string)$row['txn_id']));
     }
 
     $settlementParts = ["LOWER(TRIM(COALESCE(settlement_id,''))) LIKE ?", "LOWER(TRIM(COALESCE(utr,''))) LIKE ?"];
@@ -259,8 +259,8 @@ if ($isMerchant) {
         ORDER BY created_at DESC LIMIT 10",
         [$merchantId, $like, $like, $like]
     ) as $row) {
-        $add('Refund', (string)$row['refund_id'], formatMoney((float)$row['amount']) . ' · ' . ucfirst((string)$row['status']) . ' · ' . $row['txn_id'], 'refunds.php?q=' . rawurlencode((string)$row['refund_id']));
-    }
+            $add('Refund', (string)$row['refund_id'], formatMoney((float)$row['amount']) . ' · ' . ucfirst((string)$row['status']) . ' · ' . $row['txn_id'], 'refunds.php?q=' . rawurlencode((string)$row['refund_id']));
+        }
 
     foreach ($fetchRows(
         "SELECT invoice_id, customer_name, total_amount, status FROM invoices WHERE merchant_id=? AND (
@@ -467,9 +467,9 @@ if ($isMerchant) {
     if ($canRefunds) {
         foreach ($fetchRows(
             "SELECT r.refund_id, r.amount, r.status, r.txn_id, r.merchant_id, m.business_name
-                FROM refunds r JOIN merchants m ON m.id=r.merchant_id WHERE (
-                LOWER(TRIM(COALESCE(r.refund_id,''))) LIKE ? OR LOWER(TRIM(COALESCE(r.txn_id,''))) LIKE ? OR
-                LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(r.amount AS CHAR) LIKE ?)
+            FROM refunds r JOIN merchants m ON m.id=r.merchant_id WHERE (
+            LOWER(TRIM(COALESCE(r.refund_id,''))) LIKE ? OR LOWER(TRIM(COALESCE(r.txn_id,''))) LIKE ? OR
+            LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(r.amount AS CHAR) LIKE ?)
                 ORDER BY r.created_at DESC LIMIT 10",
             [$like, $like, $like, $like]
         ) as $row) {
@@ -497,9 +497,9 @@ if ($isMerchant) {
     if ($canForward) {
         foreach ($fetchRows(
             "SELECT fq.id, fq.partner_key, fq.status, fq.merchant_id, m.business_name
-                FROM partner_forward_queue fq JOIN merchants m ON m.id=fq.merchant_id WHERE (
-                LOWER(TRIM(COALESCE(fq.partner_key,''))) LIKE ? OR LOWER(TRIM(COALESCE(fq.status,''))) LIKE ? OR
-                LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(fq.id AS CHAR) LIKE ?)
+            FROM partner_forward_queue fq JOIN merchants m ON m.id=fq.merchant_id WHERE (
+            LOWER(TRIM(COALESCE(fq.partner_key,''))) LIKE ? OR LOWER(TRIM(COALESCE(fq.status,''))) LIKE ? OR
+            LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(fq.id AS CHAR) LIKE ?)
                 ORDER BY fq.created_at DESC LIMIT 10",
             [$like, $like, $like, $like]
         ) as $row) {
@@ -513,9 +513,9 @@ if ($isMerchant) {
     if ($canKyc) {
         foreach ($fetchRows(
             "SELECT kv.id, kv.verification_status, kv.merchant_id, m.business_name
-                FROM kyc_verifications kv JOIN merchants m ON m.id=kv.merchant_id WHERE (
-                LOWER(TRIM(COALESCE(kv.verification_status,''))) LIKE ? OR
-                LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(kv.id AS CHAR) LIKE ?)
+            FROM kyc_verifications kv JOIN merchants m ON m.id=kv.merchant_id WHERE (
+            LOWER(TRIM(COALESCE(kv.verification_status,''))) LIKE ? OR
+            LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR CAST(kv.id AS CHAR) LIKE ?)
                 ORDER BY kv.created_at DESC LIMIT 10",
             [$like, $like, $like]
         ) as $row) {

@@ -294,6 +294,7 @@ function getPlatformServiceHealth(): array
             'status' => isGatewayConfigured('razorpay') ? ($activePg === 'razorpay' ? 'New-merchant template' : 'Configured') : 'Not configured',
             'detail' => isGatewayConfigured('razorpay') ? gatewayStatusLabel('razorpay') : 'Add keys in Partner Registry → Keys',
             'test_url' => function_exists('adminPartnerTestUrl') ? adminPartnerTestUrl('razorpay') : 'admin_gateway_detail.php?partner=razorpay&tab=test',
+            'registry_url' => 'admin_gateway_registry.php',
         ],
         [
             'id' => 'cashfree',
@@ -302,6 +303,7 @@ function getPlatformServiceHealth(): array
             'status' => isGatewayConfigured('cashfree') ? ($activePg === 'cashfree' ? 'New-merchant template' : 'Configured') : 'Not configured',
             'detail' => isGatewayConfigured('cashfree') ? gatewayStatusLabel('cashfree') : 'Add keys in Partner Registry → Keys',
             'test_url' => function_exists('adminPartnerTestUrl') ? adminPartnerTestUrl('cashfree') : 'admin_gateway_detail.php?partner=cashfree&tab=test',
+            'registry_url' => 'admin_gateway_registry.php',
         ],
         [
             'id' => 'payu',
@@ -310,6 +312,7 @@ function getPlatformServiceHealth(): array
             'status' => isGatewayConfigured('payu') ? ($activePg === 'payu' ? 'New-merchant template' : 'Configured') : 'Not configured',
             'detail' => isGatewayConfigured('payu') ? gatewayStatusLabel('payu') : 'Add keys in Partner Registry → Keys',
             'test_url' => function_exists('adminPartnerTestUrl') ? adminPartnerTestUrl('payu') : 'admin_gateway_detail.php?partner=payu&tab=test',
+            'registry_url' => 'admin_gateway_registry.php',
         ],
         [
             'id' => 'axis',
@@ -383,6 +386,22 @@ function getPlatformServiceHealth(): array
             'status' => 'Workflow missing',
             'detail' => 'includes/forward_queue_workflow.php not loaded',
             'test_url' => 'admin_forward_queue.php?status=staged',
+        ],
+        function_exists('checkoutCollectionWorkflowHealthCheck') ? checkoutCollectionWorkflowHealthCheck() : [
+            'id' => 'checkout_collection_b9',
+            'label' => 'Checkout collection label (B9)',
+            'ok' => false,
+            'status' => 'Workflow missing',
+            'detail' => 'includes/checkout_collection_workflow.php not loaded',
+            'test_url' => 'payment_links.php',
+        ],
+        function_exists('wiringDeepLinkHealthCheckB10B25') ? wiringDeepLinkHealthCheckB10B25() : [
+            'id' => 'wiring_deep_link_b10_b25',
+            'label' => 'Wiring / deep-link (B10–B25)',
+            'ok' => false,
+            'status' => 'Workflow missing',
+            'detail' => 'includes/wiring_deep_link_workflow.php B10–B25 batch',
+            'test_url' => 'checkout_customize.php',
         ],
         routeSplitHealthCheck(),
         smtpHealthCheck(),

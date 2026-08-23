@@ -98,7 +98,9 @@ function forwardQueueWorkflowHealthCheck(): array
         'cross_link_submit' => str_contains($fwdPage, forwardQueueManualPage()),
         'cross_link_queue' => str_contains($gwPage, forwardQueueAutoPage()),
         'sync_fn' => str_contains($pfq, forwardQueueSyncFunction()),
-        'gateways_sync_call' => str_contains((string)@file_get_contents($root . '/includes/gateways.php'), forwardQueueSyncFunction()),
+        'gateways_sync_call' => str_contains((string)@file_get_contents($root . '/includes/gateways.php'), forwardQueueSyncFunction())
+            && str_contains((string)@file_get_contents($root . '/includes/gateways.php'), 'updateGatewaySubmissionStatus')
+            && str_contains((string)@file_get_contents($root . '/includes/gateways.php'), 'manual_status'),
     ];
 
     $ok = !in_array(false, $checks, true);

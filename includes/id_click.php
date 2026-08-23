@@ -77,9 +77,12 @@ if (!function_exists('uwIdClickAudience')) {
                 if ($audience === 'customer') {
                     return 'customer_portal.php#txns';
                 }
-                return function_exists('transactionDetailUrl')
-                    ? transactionDetailUrl($id)
-                    : ('transaction_detail.php?txn=' . $enc);
+                if ($audience === 'merchant') {
+                    return 'transactions.php?q=' . $enc;
+                }
+                return function_exists('wiringDeepLinkTxnListUrl')
+                    ? wiringDeepLinkTxnListUrl($id, true)
+                    : ('admin_transactions.php?q=' . $enc);
 
             case 'LNK':
                 return 'checkout.php?link=' . $enc;

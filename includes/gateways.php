@@ -475,6 +475,17 @@ function updateGatewaySubmissionStatus(int $submissionId, string $status, int $a
     }
     $db->prepare('UPDATE gateway_submissions SET status = ?, gateway_response = ? WHERE id = ?')
         ->execute([$status, $response, $submissionId]);
+    if (!function_exists('syncGatewaySubmissionToForwardQueue') && is_file(__DIR__ . '/partner_forward_queue.php')) {
+        require_once __DIR__ . '/partner_forward_queue.php';
+    }
+    if (function_exists('syncGatewaySubmissionToForwardQueue')) {
+        syncGatewaySubmissionToForwardQueue(
+            (int)$sub['merchant_id'],
+            (string)$sub['gateway'],
+            'manual_status',
+            $submissionId
+        );
+    }
     $gwLabel = strtoupper((string)$sub['gateway']);
     logComplianceAudit((int)$sub['merchant_id'], $adminId, 'gateway_status', $gwLabel . ' -> ' . $status . ($response !== '' ? (' (' . $response . ')') : ''));
     if (in_array($status, ['approved', 'rejected'], true)) {

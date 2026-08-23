@@ -42,11 +42,15 @@ $disputes = $db->prepare('SELECT d.*, t.txn_id, t.amount FROM disputes d JOIN tr
 $disputes->execute([$merchant['id']]);
 $disputeList = $disputes->fetchAll() ?: [];
 
-$disputeQ = mb_substr(trim((string)($_GET['q'] ?? '')), 0, 100);
-$viewKey = trim((string)($_GET['id'] ?? ''));
-if ($viewKey === '' && $disputeQ !== '') {
-    $viewKey = $disputeQ;
+if (!function_exists('wiringMerchantDisputesQueryState') && is_file(__DIR__ . '/includes/wiring_deep_link_workflow.php')) {
+    require_once __DIR__ . '/includes/wiring_deep_link_workflow.php';
 }
+$dspState = function_exists('wiringMerchantDisputesQueryState')
+    ? wiringMerchantDisputesQueryState($_GET)
+    : ['disputeQ' => mb_substr(trim((string)($_GET['q'] ?? '')), 0, 100), 'highlightDisputeId' => '', 'viewKey' => trim((string)($_GET['id'] ?? ''))];
+$disputeQ = $dspState['disputeQ'];
+$highlightDisputeId = $dspState['highlightDisputeId'];
+$viewKey = $dspState['viewKey'];
 
 if ($disputeQ !== '') {
     $qLower = strtolower($disputeQ);
@@ -129,7 +133,7 @@ require_once __DIR__ . '/header.php';
     </div>
     <div class="lg:col-span-2 space-y-6">
         <?php if ($view): ?>
-        <div class="glass rounded-xl p-6 border border-sky-500/30" id="dispute-detail">
+        <div class="glass rounded-xl p-6 border border-sky-500/30 <?= $highlightDisputeId !== '' && strcasecmp((string)$view['dispute_id'], $highlightDisputeId) === 0 ? 'ring-2 ring-sky-500/50' : '' ?>" id="dispute-detail">
             <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
                 <div>
                     <p class="font-mono text-sm text-sky-400"><?= e($view['dispute_id']) ?></p>
@@ -210,9 +214,10 @@ require_once __DIR__ . '/header.php';
                 <tbody class="divide-y divide-gray-800">
                     <?php foreach ($disputeList as $d):
                         $isOpen = $view && strcasecmp((string)$view['dispute_id'], (string)$d['dispute_id']) === 0;
+                        $isHighlight = $highlightDisputeId !== '' && strcasecmp((string)$d['dispute_id'], $highlightDisputeId) === 0;
                         $rowHref = 'disputes.php?id=' . rawurlencode((string)$d['dispute_id']);
                     ?>
-                    <tr class="hover:bg-white/5 cursor-pointer <?= $isOpen ? 'bg-sky-500/10' : '' ?>" onclick="location.href='<?= e($rowHref) ?>#dispute-detail'">
+                    <tr class="hover:bg-white/5 cursor-pointer <?= $isOpen || $isHighlight ? 'bg-sky-500/10 ring-1 ring-sky-500/40' : '' ?>" onclick="location.href='<?= e($rowHref) ?>#dispute-detail'"<?= $isHighlight ? ' id="dispute-highlight-row"' : '' ?>>
                         <td class="px-5 py-3 font-mono text-xs"><a href="<?= e($rowHref) ?>#dispute-detail" class="text-sky-400 hover:underline" onclick="event.stopPropagation()"><?= e($d['dispute_id']) ?></a></td>
                         <td class="px-5 py-3 font-mono text-xs" onclick="event.stopPropagation()"><?= txnDetailLink((string)$d['txn_id']) ?></td>
                         <td class="px-5 py-3"><?= formatMoney(capStatAmount((float)$d['amount'])) ?></td>
@@ -241,4 +246,12 @@ require_once __DIR__ . '/header.php';
         </div>
     </div>
 </div>
+<?php if ($highlightDisputeId !== ''): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var el = document.getElementById('dispute-detail') || document.getElementById('dispute-highlight-row');
+    if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+});
+</script>
+<?php endif; ?>
 <?php require_once __DIR__ . '/footer.php'; ?>

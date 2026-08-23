@@ -157,12 +157,18 @@ if (!function_exists('notificationActionUrl')) {
             return 'merchant_customer_tickets.php';
         }
 
-        // Transaction id in body → ledger detail
-        if (preg_match('/\b(TXN[A-F0-9]{8,})\b/i', $hay, $m)) {
+        // Transaction id in body → transactions list with highlight (Audit B #23)
+        if (!function_exists('wiringDeepLinkTxnActionUrl') && is_file(__DIR__ . '/wiring_deep_link_workflow.php')) {
+            require_once __DIR__ . '/wiring_deep_link_workflow.php';
+        }
+        if (function_exists('wiringDeepLinkTxnActionUrl')) {
+            $txnListUrl = wiringDeepLinkTxnActionUrl($title, $message, false);
+            if ($txnListUrl !== null) {
+                return $txnListUrl;
+            }
+        } elseif (preg_match('/\b(TXN[A-F0-9]{8,})\b/i', $hay, $m)) {
             $txnId = strtoupper($m[1]);
-            return function_exists('transactionDetailUrl')
-                ? transactionDetailUrl($txnId)
-                : ('transaction_detail.php?txn=' . rawurlencode($txnId));
+            return 'transactions.php?q=' . rawurlencode($txnId);
         }
 
         // Support reply: "Support Reply: TKT…" → ticket detail
@@ -207,6 +213,9 @@ if (!function_exists('notificationActionUrl')) {
             || str_contains($titleLower, 'batch submitted')
             || str_contains($titleLower, 'payment received')
             || str_contains($titleLower, 'payment approved')
+            || str_contains($titleLower, 'payout sent')
+            || str_contains($titleLower, 'payout complete')
+            || str_contains($titleLower, 'payout processed')
         ) {
             return 'transactions.php';
         }

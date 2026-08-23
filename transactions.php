@@ -70,6 +70,10 @@ $countStmt = $db->prepare("SELECT COUNT(*) as cnt FROM transactions WHERE $where
 $countStmt->execute($params); $total = (int)$countStmt->fetch()['cnt'];
 $stmt = $db->prepare("SELECT * FROM transactions WHERE $where ORDER BY created_at DESC LIMIT $perPage OFFSET $offset");
 $stmt->execute($params); $transactions = $stmt->fetchAll();
+$highlightTxnId = '';
+if ($q !== '' && preg_match('/^TXN[A-F0-9]{8,}$/i', $q)) {
+    $highlightTxnId = strtoupper($q);
+}
 $pageTitle = 'Transactions';
 require_once __DIR__ . '/header.php';
 ?>
@@ -149,12 +153,13 @@ require_once __DIR__ . '/header.php';
                 <?php else: foreach ($transactions as $t):
                     $rowReason = null;
                     $st = strtolower((string)($t['status'] ?? ''));
+                    $isHighlightTxn = $highlightTxnId !== '' && strcasecmp((string)($t['txn_id'] ?? ''), $highlightTxnId) === 0;
                     if (in_array($st, ['failed', 'error', 'pending', 'processing', 'initiated', 'expired', 'cancelled', 'canceled'], true)
                         && function_exists('transactionStatusExplainer')) {
                         $rowReason = transactionStatusExplainer($t);
                     }
                 ?>
-                <tr class="hover:bg-white/5 cursor-pointer" onclick="location.href='<?= e(transactionDetailUrl($t['txn_id'])) ?>'">
+                <tr class="hover:bg-white/5 cursor-pointer <?= $isHighlightTxn ? 'bg-sky-500/10 ring-2 ring-sky-500/50' : '' ?>" onclick="location.href='<?= e(transactionDetailUrl($t['txn_id'])) ?>'"<?= $isHighlightTxn ? ' id="txn-highlight-row"' : '' ?>>
                     <td class="px-5 py-3 font-mono text-xs"><a href="<?= e(transactionDetailUrl($t['txn_id'])) ?>" class="text-sky-400 hover:underline"><?= e($t['txn_id']) ?></a></td>
                     <td class="px-5 py-3"><?= e(maskCustomerContact($t['customer_phone'] ?? null, $t['customer_name'] ?? null)) ?></td>
                     <td class="px-5 py-3 font-semibold"><?= formatMoney((float)$t['amount']) ?></td>
@@ -186,4 +191,12 @@ require_once __DIR__ . '/header.php';
         </table>
     </div>
 </div>
+<?php if ($highlightTxnId !== ''): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var el = document.getElementById('txn-highlight-row');
+    if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+});
+</script>
+<?php endif; ?>
 <?php require_once __DIR__ . '/footer.php'; ?>

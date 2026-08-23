@@ -403,6 +403,14 @@ function processPerPartnerForwardQueue(int $limit = 20, ?int $merchantId = null,
                         $itemId,
                     ]);
                 $results['staged'] = ($results['staged'] ?? 0) + 1;
+                if (!function_exists('wiringKycForwardNotifyBody') && is_file(__DIR__ . '/wiring_deep_link_workflow.php')) {
+                    require_once __DIR__ . '/wiring_deep_link_workflow.php';
+                }
+                $stagedLabel = function_exists('wiringKycForwardPartnerLabel') ? wiringKycForwardPartnerLabel($partnerKey) : ucfirst($partnerKey);
+                $stagedBody = 'Your KYC package is prepared for ' . $stagedLabel . ' — queued, not sent to the partner yet. Staff will forward when ready.';
+                if (function_exists('notifyMerchant')) {
+                    notifyMerchant($merchantId, 'KYC package prepared (queued)', $stagedBody, 'kyc_staged_' . $merchantId . '_' . $partnerKey);
+                }
             } else {
                 $err = (string)($result['error'] ?? 'Unknown error');
                 $terminal = !empty($result['terminal']);

@@ -225,6 +225,7 @@ require_once __DIR__ . '/header.php';
                     <span>GPay</span><span>&middot;</span><span>PhonePe</span><span>&middot;</span><span>Paytm</span><span>&middot;</span><span>BHIM</span>
                 </div>
                 <p class="text-[10px] text-gray-400 mt-2">Powered by <?= e(APP_NAME) ?></p>
+                <p class="text-[9px] text-amber-700 mt-2 font-semibold leading-snug">Off-ledger: payment may bypass UniWeb transactions &amp; settlement.</p>
             </div>
             <p class="text-xs text-gray-500 mt-4 text-center no-print">
                 Scans are logged by UniWeb, but the money always goes straight to your bank UPI — it may bypass the UniWeb ledger.

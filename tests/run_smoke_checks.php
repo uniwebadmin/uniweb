@@ -1107,6 +1107,12 @@ $assert(wiringDeepLinkKycActionUrl('KYC Forwarded') === 'kyc.php', 'split_b345_r
 $fwdQFlow = (string)file_get_contents($root . '/includes/forward_queue_workflow.php');
 $assert(str_contains($wiringFlow, 'function wiringAdminSupportQueryState') && str_contains($wiringFlow, 'function wiringAdminSupportEnsureFocusedTicket'), 'split_b68_wiring_support_tkt_functions');
 $assert(str_contains((string)file_get_contents($root . '/admin_support.php'), 'wiringAdminSupportQueryState') && str_contains((string)file_get_contents($root . '/admin_support.php'), 'ring-sky-500'), 'split_b68_admin_support_tkt_highlight');
+$assert(str_contains((string)file_get_contents($root . '/admin_support.php'), 'other tickets collapsed'), 'split_b68_admin_support_collapse_others');
+$gwLibB8 = (string)file_get_contents($root . '/includes/gateways.php');
+$assert(str_contains($gwLibB8, 'function updateGatewaySubmissionStatus') && str_contains($gwLibB8, 'manual_status') && str_contains($gwLibB8, 'syncGatewaySubmissionToForwardQueue'), 'split_b68_gateway_status_syncs_queue');
+$assert(wiringDeepLinkSettlementActionUrl('Payout sent', '₹100') === 'transactions.php', 'split_b68_runtime_payout_notify_to_txn');
+$assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'forwardStagedEdu') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'forwardStagedAdminEducation'), 'split_b68_dashboard_staged_card');
+$assert(str_contains((string)file_get_contents($root . '/header.php'), 'admin_support.php') && str_contains((string)file_get_contents($root . '/header.php'), 'support</a>'), 'split_b68_header_support_badge');
 $assert(str_contains($fwdQFlow, 'function forwardStagedAdminEducation') && str_contains($fwdQFlow, 'function forwardQueueWorkflowHealthCheck'), 'split_b68_forward_queue_workflow');
 $assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'forwardStagedAdminEducation'), 'split_b68_forward_queue_staged_edu');
 $assert(str_contains((string)file_get_contents($root . '/admin_gateway_submit.php'), 'gatewaySubmitVsForwardQueueEducation'), 'split_b68_gateway_submit_sync_edu');
@@ -1116,6 +1122,48 @@ require_once $root . '/includes/forward_queue_workflow.php';
 $tktState = wiringAdminSupportQueryState(['q' => 'TKT1234567890ABCD']);
 $assert($tktState['focusTicketId'] === 'TKT1234567890ABCD', 'split_b68_runtime_tkt_focus');
 $assert(forwardStagedStatusKey() === 'staged' && str_contains(forwardStagedDefinition(), 'not sent'), 'split_b68_runtime_staged_definition');
+
+// Wiring / checkout — Audit B #9 (collection mode label on checkout)
+$b9Flow = (string)file_get_contents($root . '/includes/checkout_collection_workflow.php');
+$collLib = (string)file_get_contents($root . '/includes/collection.php');
+$bannerLibB9 = (string)file_get_contents($root . '/includes/checkout_mode_banner.php');
+$assert(str_contains($b9Flow, 'function checkoutCollectionWorkflowHealthCheck'), 'split_b9_workflow_core');
+$assert(str_contains($collLib, 'function resolveEffectiveCollectionModeKey') && str_contains($collLib, 'function checkoutCollectionCustomerLabel'), 'split_b9_collection_helpers');
+$assert(str_contains($bannerLibB9, 'function renderCheckoutModeAndCollectionBanner'), 'split_b9_unified_banner');
+$assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'renderCheckoutModeAndCollectionBanner'), 'split_b9_checkout_wired');
+$assert(str_contains((string)file_get_contents($root . '/payment_links.php'), 'checkoutLinkModeCollectionSummary'), 'split_b9_merchant_link_summary');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'checkoutCollectionWorkflowHealthCheck'), 'split_b9_platform_health');
+$assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'checkout_collection_workflow'"), 'split_b9_config_dev_loads');
+require_once $root . '/includes/checkout_collection_workflow.php';
+require_once $root . '/includes/collection.php';
+$testLink = ['is_test' => 1, 'collection_mode' => 'direct_upi', 'account_mode' => 'test'];
+$assert(checkoutCollectionCustomerLabel($testLink) === 'Direct UPI (your business VPA)', 'split_b9_runtime_direct_upi_label');
+$assert(str_contains(checkoutLinkModeCollectionSummary(['is_test' => 1, 'collection_mode' => 'platform_pg'], ['account_mode' => 'test']), 'Test Mode'), 'split_b9_runtime_test_mode_summary');
+$b9Health = checkoutCollectionWorkflowHealthCheck();
+$assert($b9Health['ok'] === true && $b9Health['id'] === 'checkout_collection_b9', 'split_b9_runtime_health_green');
+
+// Wiring / deep-link — Audit B #10–25 (batch)
+$assert(str_contains($wiringFlow, 'function checkoutCustomizeMerchantMethodPartners') || str_contains((string)file_get_contents($root . '/includes/checkout_customize.php'), 'checkoutCustomizeMerchantMethodPartners'), 'split_b10_customize_registry_partners');
+$assert(str_contains((string)file_get_contents($root . '/checkout_customize.php'), 'checkoutCustomizeMerchantMethodPartners'), 'split_b10_customize_page_wired');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'admin_gateway_registry.php'), 'split_b11_health_registry_link');
+$assert(str_contains((string)file_get_contents($root . '/qr_upi_print.php'), 'Off-ledger'), 'split_b12_upi_poster_warning');
+$assert(str_contains((string)file_get_contents($root . '/disputes.php'), 'wiringMerchantDisputesQueryState'), 'split_b13_merchant_disputes_q');
+$assert(str_contains($wiringFlow, 'function wiringOpsNotificationActionUrl'), 'split_b14_ops_notify_routing');
+$assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'wiringDeepLinkTxnActionUrl'), 'split_b15_txn_notify_list');
+$assert(str_contains((string)file_get_contents($root . '/includes/id_click.php'), 'transactions.php?q='), 'split_b16_id_click_txn_merchant');
+$assert(str_contains((string)file_get_contents($root . '/my_account.php'), 'wiringMerchantProfileStatusChips'), 'split_b17_profile_chips');
+$assert(str_contains((string)file_get_contents($root . '/admin_chargebacks.php'), 'wiringChargebackAdminDisputeUrl'), 'split_b19_chargeback_dispute_row');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'KYC package prepared (queued)'), 'split_b20_staged_honest_notify');
+$assert(str_contains((string)file_get_contents($root . '/global_search.php'), 'transactions.php?q='), 'split_b21_search_txn_q');
+$assert(str_contains($wiringFlow, 'function wiringDeepLinkAdminKycActionUrl'), 'split_b24_admin_kyc_notify_url');
+$assert(str_contains($wiringFlow, 'function wiringDeepLinkHealthCheckB10B25'), 'split_b25_batch_health');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'wiringDeepLinkHealthCheckB10B25'), 'split_b25_platform_health');
+require_once $root . '/includes/wiring_deep_link_workflow.php';
+$assert(wiringDeepLinkDisputeActionUrl('Dispute update', 'DSP1234567890ABCD') === 'disputes.php?q=DSP1234567890ABCD', 'split_b13_runtime_dsp_q_url');
+$assert(wiringDeepLinkTxnActionUrl('Payment received', 'TXN1234567890ABCD') === 'transactions.php?q=TXN1234567890ABCD', 'split_b23_runtime_txn_list_url');
+$b1025Health = wiringDeepLinkHealthCheckB10B25();
+$assert($b1025Health['ok'] === true, 'split_b25_runtime_health_green');
+
 $assert(str_contains(gatewaySubmitVsForwardQueueEducation()['sync'], 'syncGatewaySubmissionToForwardQueue'), 'split_b68_runtime_sync_education');
 
 // P9-04…08 honesty (market peers) — no fake orchestrator / coverage / licence / brand blur

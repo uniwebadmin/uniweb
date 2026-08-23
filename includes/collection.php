@@ -626,4 +626,46 @@ function checkoutHandlerLabel(string $handler): string
         default => 'Secure checkout',
     };
 }
+
+/** Audit B #9 — effective collection rail for a checkout link (link → method → merchant). */
+function resolveEffectiveCollectionModeKey(array $link): string
+{
+    if (!empty($link['link_collection_mode'])) {
+        $mode = (string)$link['link_collection_mode'];
+        if ($mode !== '') {
+            return $mode;
+        }
+    }
+    if (!empty($link['gateway_code']) && (string)$link['gateway_code'] === 'axis') {
+        return 'axis_va';
+    }
+    if (!empty($link['payment_method'])) {
+        $cat = getPaymentMethodCatalog()[(string)$link['payment_method']] ?? null;
+        if ($cat && !empty($cat['collection_mode'])) {
+            return (string)$cat['collection_mode'];
+        }
+    }
+    return getMerchantCollectionMode($link);
+}
+
+/** Customer-facing collection label on checkout (matches actual rail, not generic "Secure checkout"). */
+function checkoutCollectionCustomerLabel(array $link): string
+{
+    return merchantCollectionModeLabel(resolveEffectiveCollectionModeKey($link));
+}
+
+/** Merchant payment-link row: Test/Live + collection rail (Audit B #9). */
+function checkoutLinkModeCollectionSummary(array $link, ?array $merchant = null): string
+{
+    $ctx = $link;
+    if ($merchant !== null) {
+        $ctx = array_merge($merchant, $link);
+    }
+    $isTest = !empty($link['is_test'])
+        || (isset($link['account_mode']) && merchantAccountMode($ctx) === 'test')
+        || ($merchant !== null && isDashboardTestMode($merchant));
+    $modeLabel = $isTest ? 'Test Mode' : 'Live Mode';
+    return $modeLabel . ' · ' . checkoutCollectionCustomerLabel($ctx);
+}
+
 // End of collection.php

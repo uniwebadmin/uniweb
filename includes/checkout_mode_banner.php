@@ -19,12 +19,55 @@ function checkoutLinkIsTest(array $link): bool
 
 function renderCheckoutModeBanner(?array $link = null, bool $forceTest = false): void
 {
-    $isTest = $forceTest || ($link !== null && checkoutLinkIsTest($link));
-    if ($isTest) {
+    if ($link !== null) {
+        renderCheckoutModeAndCollectionBanner($link, false, null, null, $forceTest);
+        return;
+    }
+    if ($forceTest) {
         echo '<div class="mode-test-stripe">⚡ TEST MODE — Sandbox payment · No real money will move</div>';
         return;
     }
     echo '<div class="bg-emerald-600/20 border-b border-emerald-500/30 text-center text-xs text-emerald-300 py-2 px-4">● LIVE MODE — Real payment settlement</div>';
+}
+
+/**
+ * Audit B #9 — Test/Live stripe + honest collection rail label on checkout.
+ *
+ * @param array<string,mixed> $link
+ */
+function renderCheckoutModeAndCollectionBanner(array $link, bool $allowInstantPay = false, ?string $handler = null, ?string $lockedMethod = null, bool $forceTest = false): void
+{
+    $isTest = $forceTest || checkoutLinkIsTest($link);
+
+    if ($allowInstantPay) {
+        echo '<div class="bg-amber-500 text-dark-900 text-center text-sm font-semibold py-2 px-4">⚡ TEST MODE — Sandbox · Use Instant Test Pay · No real money</div>';
+    } elseif ($isTest) {
+        echo '<div class="mode-test-stripe">⚡ TEST MODE — Sandbox payment · No real money will move</div>';
+    } else {
+        echo '<div class="bg-emerald-600/20 border-b border-emerald-500/30 text-center text-xs text-emerald-300 py-2 px-4">● LIVE MODE — Real payment settlement</div>';
+    }
+
+    $collLabel = function_exists('checkoutCollectionCustomerLabel')
+        ? checkoutCollectionCustomerLabel($link)
+        : '';
+    if ($collLabel === '') {
+        return;
+    }
+
+    $parts = [$collLabel];
+    if ($lockedMethod !== null && $lockedMethod !== '') {
+        $parts[] = 'Dedicated link: ' . $lockedMethod;
+    } elseif ($handler !== null && $handler !== '' && function_exists('checkoutHandlerLabel')) {
+        $handlerLabel = checkoutHandlerLabel($handler);
+        if ($handlerLabel !== '' && stripos($collLabel, $handlerLabel) === false) {
+            $parts[] = $handlerLabel;
+        }
+    }
+    if ($isTest) {
+        $parts[] = 'Sandbox — no real settlement';
+    }
+
+    echo '<div class="bg-dark-900 border-b border-gray-800 text-center text-xs text-gray-400 py-2 px-4">' . e(implode(' · ', $parts)) . '</div>';
 }
 
 function gatewaySettingIsSecret(string $key): bool

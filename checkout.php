@@ -453,16 +453,7 @@ endif;
         </div>
     </header>
 
-    <?php if ($allowInstantPay): ?>
-    <div class="bg-amber-500 text-dark-900 text-center text-sm font-semibold py-2 px-4">⚡ TEST MODE — Sandbox · Use Instant Test Pay · No real money</div>
-    <?php elseif (!$isTestCheckout): ?>
-    <div class="bg-emerald-600/20 border-b border-emerald-500/30 text-center text-xs text-emerald-300 py-2 px-4">● LIVE MODE — Real UPI settlement · For Instant Test Pay, switch merchant dashboard to Test Mode and create a new link</div>
-    <?php endif; ?>
-    <?php if ($lockedMethod): ?>
-    <div class="bg-sky-500/10 border-b border-sky-500/20 text-center text-xs text-sky-300 py-2">Dedicated link: <?= e($lockedMethod) ?> · <?= e(checkoutHandlerLabel($handler)) ?></div>
-    <?php else: ?>
-    <div class="bg-dark-900 border-b border-gray-800 text-center text-xs text-gray-500 py-2"><?= e(checkoutHandlerLabel($handler)) ?></div>
-    <?php endif; ?>
+    <?php renderCheckoutModeAndCollectionBanner($link, $allowInstantPay, $handler, $lockedMethod); ?>
 
     <main class="flex-1 flex items-center justify-center px-4 py-4">
         <div class="w-full max-w-lg">

@@ -196,3 +196,63 @@ function resolveCheckoutCustomize(array $merchant): array
         'hide_powered_by' => $hide,
     ];
 }
+
+/** Audit B #10 — partner display name from Partner Registry (not hardcoded). */
+function checkoutCustomizePartnerLabel(string $partnerKey): string
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    if ($partnerKey === '' || $partnerKey === 'direct' || $partnerKey === 'instant') {
+        return 'Direct UPI (your VPA)';
+    }
+    if (!function_exists('wiringKycForwardPartnerLabel') && is_file(__DIR__ . '/wiring_deep_link_workflow.php')) {
+        require_once __DIR__ . '/wiring_deep_link_workflow.php';
+    }
+    if (function_exists('wiringKycForwardPartnerLabel')) {
+        return wiringKycForwardPartnerLabel($partnerKey);
+    }
+    if (function_exists('getPartnerRegistry')) {
+        $reg = getPartnerRegistry();
+        return (string)($reg[$partnerKey]['name'] ?? ucfirst($partnerKey));
+    }
+    return ucfirst($partnerKey);
+}
+
+/**
+ * Audit B #10 — enabled checkout methods with registry partner names for merchant customize page.
+ *
+ * @return list<array{method_key:string,method_label:string,partner_key:string,partner_name:string}>
+ */
+function checkoutCustomizeMerchantMethodPartners(int $merchantId): array
+{
+    if (!function_exists('get_available_pay_methods')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+    if (!function_exists('getPaymentMethodCatalog')) {
+        require_once __DIR__ . '/provision.php';
+    }
+    $methods = get_available_pay_methods($merchantId);
+    $catalog = getPaymentMethodCatalog();
+    $rows = [];
+    foreach ($methods as $m) {
+        $key = (string)($m['key'] ?? '');
+        if ($key === '') {
+            continue;
+        }
+        $cat = $catalog[$key] ?? null;
+        $gw = strtolower((string)($cat['gateway'] ?? 'direct'));
+        if ($gw === 'direct' || $gw === 'instant') {
+            $partnerKey = 'direct';
+        } else {
+            $partnerKey = $gw;
+        }
+        $rows[] = [
+            'method_key' => $key,
+            'method_label' => function_exists('merchantPaymentMethodLabel')
+                ? merchantPaymentMethodLabel($key, (string)($m['label'] ?? ''))
+                : (string)($m['label'] ?? $key),
+            'partner_key' => $partnerKey,
+            'partner_name' => checkoutCustomizePartnerLabel($partnerKey),
+        ];
+    }
+    return $rows;
+}

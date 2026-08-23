@@ -361,8 +361,8 @@ function createAdditionalVirtualAccount(int $merchantId, string $gateway = 'axis
     }
 
     if ($gateway === 'axis') {
-        $va = createAxisVirtualAccount($merchant);
-        if (!$va || empty($va['va_number'])) {
+    $va = createAxisVirtualAccount($merchant);
+    if (!$va || empty($va['va_number'])) {
             $hint = function_exists('axisAllowMock') && axisAllowMock()
                 ? 'Mock VA is ON but creation still failed — check Error Log.'
                 : 'Axis did not return a VA in ~15s. Check Partner Registry → Axis keys, IP whitelist, and Error Log.';

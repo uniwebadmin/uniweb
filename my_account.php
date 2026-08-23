@@ -88,6 +88,10 @@ if ($pendingContact && (int)$pendingContact['merchant_id'] !== (int)$merchant['i
 
 $pageTitle = 'My Account';
 require_once __DIR__ . '/header.php';
+if (!function_exists('wiringMerchantProfileStatusChips') && is_file(__DIR__ . '/includes/wiring_deep_link_workflow.php')) {
+    require_once __DIR__ . '/includes/wiring_deep_link_workflow.php';
+}
+$profileChips = function_exists('wiringMerchantProfileStatusChips') ? wiringMerchantProfileStatusChips($merchant) : [];
 ?>
 
 <div class="max-w-2xl">
@@ -96,6 +100,13 @@ require_once __DIR__ . '/header.php';
         <div>
             <p class="text-xs text-gray-500">Account status</p>
             <p class="mt-1 flex flex-wrap items-center gap-2"><?= accountModeBadge($merchant) ?> <?= statusBadge($merchant['kyc_status'] ?? 'pending') ?></p>
+            <?php if ($profileChips !== []): ?>
+            <div class="mt-2 flex flex-wrap gap-2">
+                <?php foreach ($profileChips as $chip): ?>
+                <a href="<?= e($chip['href'] ?? 'my_account.php') ?>" class="text-[11px] px-2 py-0.5 rounded-full border <?= e(wiringMerchantProfileChipClass((string)$chip['tone'])) ?>"><?= e($chip['label']) ?></a>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
         </div>
         <?= renderMerchantModeToggle($merchant, 'header') ?>
     </div>

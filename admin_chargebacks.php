@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('wiringChargebackAdminDisputeUrl') && is_file(__DIR__ . '/includes/wiring_deep_link_workflow.php')) {
+    require_once __DIR__ . '/includes/wiring_deep_link_workflow.php';
+}
 requireStaffAccess(['super', 'ceo', 'ops', 'staff_manager']);
 $db = getDB();
 
@@ -83,9 +86,16 @@ require_once __DIR__ . '/header.php';
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr><th class="px-4 py-3 text-left">Ref</th><th class="px-4 py-3 text-left">Merchant</th><th class="px-4 py-3 text-left">Amount</th><th class="px-4 py-3 text-left">Due</th><th class="px-4 py-3 text-left">Status</th><th class="px-4 py-3 text-left">Resolve</th></tr></thead>
             <tbody class="divide-y divide-gray-800">
             <?php if (!$rows): ?><tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No open chargebacks.</td></tr><?php endif; ?>
-            <?php foreach ($rows as $row): ?>
+            <?php foreach ($rows as $row):
+                $disputeUrl = function_exists('wiringChargebackAdminDisputeUrl') ? wiringChargebackAdminDisputeUrl($row) : null;
+            ?>
             <tr>
-                <td class="px-4 py-3 font-mono text-xs"><?= txnDetailLink($row['chargeback_ref']) ?></td>
+                <td class="px-4 py-3 font-mono text-xs">
+                    <?= txnDetailLink($row['chargeback_ref']) ?>
+                    <?php if ($disputeUrl): ?>
+                    <a href="<?= e($disputeUrl) ?>" class="block text-[10px] text-sky-400 hover:underline mt-1">Open dispute →</a>
+                    <?php endif; ?>
+                </td>
                 <td class="px-4 py-3"><?= adminMerchantLink((int)$row['merchant_id'], $row['business_name']) ?></td>
                 <td class="px-4 py-3"><?= formatMoney((float)$row['amount']) ?></td>
                 <td class="px-4 py-3 text-xs"><?= e($row['evidence_due_at'] ?? '-') ?></td>

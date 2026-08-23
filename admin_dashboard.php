@@ -84,6 +84,10 @@ if ($db) {
     $forwardStaged = (int)($fwdStats['by_status']['staged'] ?? 0);
     $forwardQueued = (int)($fwdStats['by_status']['queued'] ?? 0) + (int)($fwdStats['by_status']['processing'] ?? 0);
 }
+if (!function_exists('forwardStagedAdminEducation') && is_file(__DIR__ . '/includes/forward_queue_workflow.php')) {
+    require_once __DIR__ . '/includes/forward_queue_workflow.php';
+}
+$forwardStagedEdu = function_exists('forwardStagedAdminEducation') ? forwardStagedAdminEducation() : null;
 
 $pageTitle = 'Admin Dashboard';
 require_once __DIR__ . '/header.php';
@@ -122,7 +126,7 @@ require_once __DIR__ . '/header.php';
 <details class="mb-6 sm:mb-8">
     <summary class="cursor-pointer text-xs text-gray-500 hover:text-gray-300">Advanced pages</summary>
     <div class="flex flex-wrap gap-2 sm:gap-3 mt-3">
-        <a href="admin_link_audit.php" class="glass px-3 py-2 rounded-xl text-xs text-sky-400">Link Audit</a>
+        <a href="admin_watchdog.php?tab=rules" class="glass px-3 py-2 rounded-xl text-xs text-sky-400">Link Watchdog</a>
         <a href="admin_partner_decentro.php" class="glass px-3 py-2 rounded-xl text-xs text-violet-300">Decentro Checklist</a>
         <a href="admin_reconciliation.php" class="glass px-3 py-2 rounded-xl text-xs text-sky-400">Reconciliation</a>
         <a href="admin_risk_engine.php" class="glass px-3 py-2 rounded-xl text-xs text-red-400">Risk Engine</a>
@@ -135,7 +139,7 @@ require_once __DIR__ . '/header.php';
         <a href="admin_webhook_reliability.php" class="glass px-3 py-2 rounded-xl text-xs text-amber-400">Webhooks</a>
         <a href="admin_reports.php" class="glass px-3 py-2 rounded-xl text-xs text-sky-400">Reports</a>
         <a href="admin_circuit_breaker.php" class="glass px-3 py-2 rounded-xl text-xs text-red-400">Circuit Breaker</a>
-        <a href="admin_throughput.php" class="glass px-3 py-2 rounded-xl text-xs text-emerald-400">Throughput</a>
+        <a href="admin_transaction_monitor.php" class="glass px-3 py-2 rounded-xl text-xs text-emerald-400">Txn Monitor</a>
         <a href="admin_sub_merchants.php" class="glass px-3 py-2 rounded-xl text-xs text-violet-400">Sub-Merchants</a>
         <a href="admin_integration_matrix.php" class="glass px-3 py-2 rounded-xl text-xs text-sky-400">Integration Matrix</a>
         <a href="admin_ledger_state.php" class="glass px-3 py-2 rounded-xl text-xs text-emerald-400">Ledger State</a>
@@ -157,6 +161,24 @@ require_once __DIR__ . '/header.php';
         <a href="admin_refunds.php?status=pending" class="rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/5 p-4 hover:border-fuchsia-500/50"><p class="text-xs text-gray-500">Money · Refund 3d+</p><p class="text-2xl font-bold text-fuchsia-400 mt-1"><?= $agedRefunds ?></p><p class="text-xs text-gray-500 mt-1">aged customer refund(s)</p></a>
     </div>
 </div>
+
+<?php if ($forwardStaged > 0 && is_array($forwardStagedEdu)): ?>
+<div class="glass rounded-xl p-5 mb-8 border border-amber-500/35 bg-amber-500/5">
+    <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+        <div>
+            <p class="font-semibold text-amber-300"><?= e((string)$forwardStagedEdu['title']) ?></p>
+            <p class="text-sm text-gray-400 mt-1"><?= e((string)$forwardStagedEdu['staged_meaning']) ?></p>
+        </div>
+        <a href="<?= e((string)($forwardStagedEdu['filter_url'] ?? 'admin_forward_queue.php?status=staged')) ?>" class="text-xs px-3 py-2 rounded-lg border border-amber-500/40 text-amber-300 hover:bg-amber-500/10">View staged (<?= (int)$forwardStaged ?>)</a>
+    </div>
+    <p class="text-xs text-gray-500 mb-2"><?= e((string)$forwardStagedEdu['mostly_staged']) ?></p>
+    <ul class="text-xs text-gray-400 list-disc pl-5 space-y-1">
+        <?php foreach (($forwardStagedEdu['next_steps'] ?? []) as $step): ?>
+        <li><?= e((string)$step) ?></li>
+        <?php endforeach; ?>
+    </ul>
+</div>
+<?php endif; ?>
 
 <?php if ($opsAllClear): ?>
 <div class="glass rounded-xl p-4 mb-8 border border-emerald-500/40 bg-emerald-500/5 flex flex-wrap items-center justify-between gap-3">

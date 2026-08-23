@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 }
 
 $cc = getMerchantCheckoutCustomize($merchantId);
+$methodPartners = checkoutCustomizeMerchantMethodPartners($merchantId);
 
 $pageTitle = 'Customize Checkout Page';
 require_once __DIR__ . '/header.php';
@@ -53,6 +54,23 @@ require_once __DIR__ . '/header.php';
         <p class="text-sm text-gray-400">Customization is <strong class="text-gray-500">OFF</strong>. Save settings and tick <strong class="text-gray-300">Enable</strong> to activate.</p>
     </div>
     <?php endif; ?>
+
+    <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-6 mb-6">
+        <h2 class="text-lg font-bold text-white mb-2">Your checkout payment methods</h2>
+        <p class="text-xs text-gray-500 mb-4">Partner names come from Partner Registry — customers see method labels only on checkout, not partner brands.</p>
+        <?php if ($methodPartners === []): ?>
+        <p class="text-sm text-amber-400/90">No payment methods ON yet. <a href="payment_methods.php" class="text-sky-400 underline">Enable methods</a> or use Test Mode Instant Pay.</p>
+        <?php else: ?>
+        <ul class="space-y-2">
+            <?php foreach ($methodPartners as $mp): ?>
+            <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-800 bg-dark-900/40 px-3 py-2 text-sm">
+                <span class="text-white font-medium"><?= e($mp['method_label']) ?></span>
+                <span class="text-xs text-gray-500">via <?= e($mp['partner_name']) ?></span>
+            </li>
+            <?php endforeach; ?>
+        </ul>
+        <?php endif; ?>
+    </div>
 
     <form method="POST" class="space-y-6">
         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">

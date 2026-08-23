@@ -161,6 +161,13 @@ if (is_array($supportEdu)):
 </div>
 <?php endif; ?>
 
+<?php if ($focusTicketId !== ''): ?>
+<div class="glass rounded-xl p-3 mb-4 border border-sky-500/30 text-xs text-sky-200 flex flex-wrap items-center justify-between gap-2">
+    <span>Showing ticket <strong class="font-mono"><?= e($focusTicketId) ?></strong> — other tickets collapsed below.</span>
+    <a href="admin_support.php" class="text-sky-400 hover:underline">Show all tickets</a>
+</div>
+<?php endif; ?>
+
 <form method="GET" class="glass rounded-xl p-4 mb-6 border border-gray-800 flex flex-wrap gap-3 items-end no-print" aria-label="Filter support tickets">
     <div class="flex-1 min-w-[180px]"><?= uxLabel('support-q', 'Search') ?><input id="support-q" name="q" value="<?= e($q) ?>" class="input-field mt-1 text-sm" placeholder="Ticket ID / subject / merchant"></div>
     <div><?= uxLabel('support-status', 'Status') ?><select id="support-status" name="status" class="input-field mt-1 text-sm"><?php foreach (['all'=>'All','open'=>'Open','in_progress'=>'In Progress','resolved'=>'Resolved','closed'=>'Closed'] as $sk=>$sl): ?><option value="<?= $sk ?>" <?= $statusFilter===$sk?'selected':'' ?>><?= $sl ?></option><?php endforeach; ?></select></div>
@@ -171,6 +178,18 @@ if (is_array($supportEdu)):
     <?php if (empty($tickets)): ?>
     <?= uxEmptyState('No support tickets yet', 'Merchant support requests from the portal appear here for your team to reply.') ?>
     <?php else: foreach ($tickets as $t):
+        $isFocused = $focusTicketId !== '' && strcasecmp((string)$t['ticket_id'], $focusTicketId) === 0;
+        if ($focusTicketId !== '' && !$isFocused):
+    ?>
+    <a href="admin_support.php?q=<?= e(rawurlencode((string)$t['ticket_id'])) ?>" class="glass rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-2 border border-gray-800 hover:border-sky-500/30 text-sm">
+        <span class="font-mono text-xs text-gray-500"><?= e($t['ticket_id']) ?></span>
+        <span class="text-gray-300 truncate max-w-md"><?= e($t['subject']) ?></span>
+        <?= statusBadge($t['status']) ?>
+        <span class="text-xs text-sky-400">Open ticket →</span>
+    </a>
+    <?php
+            continue;
+        endif;
         $ticketAgeSeconds = max(0, time() - (strtotime((string)($t['created_at'] ?? '')) ?: time()));
         $ticketAgeHours = (int)floor($ticketAgeSeconds / 3600);
         $ticketOverdue = in_array($t['status'] ?? '', ['open', 'in_progress'], true) && $ticketAgeSeconds >= 86400;
@@ -179,7 +198,7 @@ if (is_array($supportEdu)):
         $thread = $threadStmt->fetchAll();
         $hasAdminThreadReply = (bool)array_filter($thread, static fn(array $row): bool => $row['sender_type'] === 'admin');
     ?>
-    <div class="glass rounded-xl p-6<?= $focusTicketId !== '' && strcasecmp((string)$t['ticket_id'], $focusTicketId) === 0 ? ' ring-1 ring-sky-500/40 bg-sky-500/10' : '' ?>" id="ticket-<?= e($t['ticket_id']) ?>"<?= $focusTicketId !== '' && strcasecmp((string)$t['ticket_id'], $focusTicketId) === 0 ? ' style="scroll-margin-top:6rem"' : '' ?>>
+    <div class="glass rounded-xl p-6<?= $isFocused ? ' ring-2 ring-sky-500/50 bg-sky-500/10' : '' ?>" id="ticket-<?= e($t['ticket_id']) ?>"<?= $isFocused ? ' style="scroll-margin-top:6rem"' : '' ?>>
         <div class="flex flex-wrap justify-between gap-2 mb-3">
             <div>
                 <span class="font-mono text-xs text-gray-500"><?= e($t['ticket_id']) ?></span>
