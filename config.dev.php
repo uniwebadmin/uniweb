@@ -503,6 +503,7 @@ $__includes = [
     'wiring_deep_link_workflow',
     'forward_queue_workflow',
     'checkout_collection_workflow',
+    'global_search_workflow',
     'payout_partner_api',
     'payout_worker',
     'client_context',

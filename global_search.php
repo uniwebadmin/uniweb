@@ -78,6 +78,9 @@ $featureAliases = [
     'registry' => 'admin_gateway_registry.php',
     'partners' => 'admin_gateway_registry.php',
     'partner registry' => 'admin_gateway_registry.php',
+    'payment order' => $isMerchant ? 'transactions.php' : 'admin_transactions.php',
+    'payment orders' => $isMerchant ? 'transactions.php' : 'admin_transactions.php',
+    'orders' => $isMerchant ? 'transactions.php' : 'admin_transactions.php',
     'pg keys' => 'admin_gateway_registry.php',
     'partner keys' => 'admin_gateway_registry.php',
     'gateway keys' => 'admin_gateway_registry.php',
@@ -150,6 +153,26 @@ $featureAliases = [
     'error log' => 'admin_error_log.php',
     'api docs' => 'api_docs.php',
     'webhooks' => $isMerchant ? 'api_settings.php' : 'admin_gateway_registry.php',
+    'migrations' => 'gateway_settings.php',
+    'migration' => 'gateway_settings.php',
+    'apply migrations' => 'gateway_settings.php',
+    'auto kyc' => 'admin_auto_kyc.php',
+    'integration matrix' => 'admin_integration_matrix.php',
+    'integration' => 'admin_integration_matrix.php',
+    'reconciliation' => 'admin_reconciliation.php',
+    'recon' => 'admin_reconciliation.php',
+    'audit log' => 'admin_audit_log.php',
+    'audit' => 'admin_audit_log.php',
+    'beneficiary' => $isMerchant ? 'beneficiaries.php' : 'admin_payout.php',
+    'beneficiaries' => $isMerchant ? 'beneficiaries.php' : 'admin_payout.php',
+    'bulk payout' => 'admin_bulk_payout.php',
+    'rolling reserve' => 'admin_rolling_reserve.php',
+    'reserve' => 'admin_rolling_reserve.php',
+    'digio' => 'admin_gateway_registry.php',
+    'toucanpay' => 'admin_gateway_registry.php',
+    'toucan' => 'admin_gateway_registry.php',
+    'hold window' => 'gateway_settings.php',
+    'settlement hold' => 'gateway_settings.php',
 ];
 
 $qlower = mb_strtolower($q);
@@ -181,6 +204,17 @@ foreach ($featureAliases as $alias => $url) {
     }
     if ($matchedLabel === null && $isAdmin && $canPage($baseUrl)) {
         $matchedLabel = ucwords(str_replace(['_', '.php'], [' ', ''], basename($baseUrl)));
+    }
+    if ($matchedLabel === null && $isMerchant) {
+        foreach ($featurePages as [$furl, $flabel]) {
+            if ($furl === $baseUrl) {
+                $matchedLabel = (string)$flabel;
+                break;
+            }
+        }
+        if ($matchedLabel === null && in_array($baseUrl, array_column($featurePages, 0), true)) {
+            $matchedLabel = ucwords(str_replace(['_', '.php'], [' ', ''], basename($baseUrl)));
+        }
     }
     if ($matchedLabel !== null) {
         $add('Page', $matchedLabel, (string)$url, (string)$url);
@@ -278,6 +312,21 @@ if ($isMerchant) {
         [$merchantId, $like, $like, $like]
     ) as $row) {
         $add('Ticket', (string)$row['ticket_id'], ucfirst((string)$row['status']) . ' · ' . (string)$row['subject'], 'support_ticket.php?id=' . rawurlencode((string)$row['ticket_id']));
+    }
+
+    foreach ($fetchRows(
+        "SELECT po.order_ref, po.status, po.expected_amount, po.provider, pl.link_id
+        FROM payment_orders po
+        LEFT JOIN payment_links pl ON pl.id = po.payment_link_id
+        WHERE po.merchant_id=? AND (
+            LOWER(TRIM(COALESCE(po.order_ref,''))) LIKE ? OR LOWER(TRIM(COALESCE(po.provider_order_id,''))) LIKE ? OR
+            LOWER(TRIM(COALESCE(po.provider,''))) LIKE ? OR CAST(po.expected_amount AS CHAR) LIKE ? OR
+            LOWER(TRIM(COALESCE(pl.link_id,''))) LIKE ?)
+        ORDER BY po.created_at DESC LIMIT 10",
+        [$merchantId, $like, $like, $like, $like, $like]
+    ) as $row) {
+        $sub = formatMoney((float)$row['expected_amount']) . ' · ' . ucfirst((string)$row['status']) . ' · ' . ($row['link_id'] ?: $row['provider']);
+        $add('Payment Order', (string)$row['order_ref'], $sub, 'transactions.php?q=' . rawurlencode((string)$row['order_ref']));
     }
 
     foreach ($fetchRows(
@@ -391,7 +440,26 @@ if ($isMerchant) {
             if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
                 continue;
             }
-            $add('Transaction', (string)$row['txn_id'], formatMoney((float)$row['amount']) . ' · ' . ucfirst((string)$row['status']) . ' · ' . $row['business_name'], transactionDetailUrl((string)$row['txn_id']));
+            $add('Transaction', (string)$row['txn_id'], formatMoney((float)$row['amount']) . ' · ' . ucfirst((string)$row['status']) . ' · ' . $row['business_name'], 'admin_transactions.php?q=' . rawurlencode((string)$row['txn_id']));
+        }
+
+        foreach ($fetchRows(
+            "SELECT po.order_ref, po.status, po.expected_amount, po.provider, po.merchant_id, m.business_name, pl.link_id
+            FROM payment_orders po
+            JOIN merchants m ON m.id = po.merchant_id
+            LEFT JOIN payment_links pl ON pl.id = po.payment_link_id
+            WHERE (
+                LOWER(TRIM(COALESCE(po.order_ref,''))) LIKE ? OR LOWER(TRIM(COALESCE(po.provider_order_id,''))) LIKE ? OR
+                LOWER(TRIM(COALESCE(po.provider,''))) LIKE ? OR LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR
+                CAST(po.expected_amount AS CHAR) LIKE ? OR LOWER(TRIM(COALESCE(pl.link_id,''))) LIKE ?)
+            ORDER BY po.created_at DESC LIMIT 10",
+            [$like, $like, $like, $like, $like, $like]
+        ) as $row) {
+            if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
+                continue;
+            }
+            $sub = formatMoney((float)$row['expected_amount']) . ' · ' . ucfirst((string)$row['status']) . ' · ' . $row['business_name'];
+            $add('Payment Order', (string)$row['order_ref'], $sub, 'admin_transactions.php?q=' . rawurlencode((string)$row['order_ref']));
         }
     }
 

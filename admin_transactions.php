@@ -46,9 +46,12 @@ if ($q !== '') {
         LOWER(TRIM(COALESCE(t.customer_name,''))) LIKE ? OR LOWER(TRIM(COALESCE(t.customer_phone,''))) LIKE ? OR
         LOWER(TRIM(COALESCE(t.customer_email,''))) LIKE ? OR LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR
         LOWER(TRIM(COALESCE(m.merchant_code,''))) LIKE ? OR CAST(t.amount AS CHAR) LIKE ? OR
-        t.payment_link_id IN (SELECT id FROM payment_links WHERE LOWER(TRIM(link_id)) LIKE ?)
+        t.payment_link_id IN (SELECT id FROM payment_links WHERE LOWER(TRIM(link_id)) LIKE ?) OR
+        t.payment_link_id IN (SELECT payment_link_id FROM payment_orders WHERE (
+            LOWER(TRIM(COALESCE(order_ref,''))) LIKE ? OR LOWER(TRIM(COALESCE(provider_order_id,''))) LIKE ?
+        ))
     )";
-    array_push($params, $like, $like, $like, $like, $like, $like, $like, $like, $like);
+    array_push($params, $like, $like, $like, $like, $like, $like, $like, $like, $like, $like);
 }
 if ($method !== 'all' && in_array($method, ['upi','card','netbanking','wallet','qr','razorpay','cashfree','payu'], true)) {
     $where .= ' AND t.payment_method = ?'; $params[] = $method;
@@ -64,6 +67,10 @@ try {
 }
 if (!isSuperAdmin()) {
     $transactions = array_values(array_filter($transactions, static fn(array $row): bool => staffHasMerchantAccess((int)$row['merchant_id'])));
+}
+$highlightTxnId = '';
+if ($q !== '' && preg_match('/^TXN[A-F0-9]{8,}$/i', $q)) {
+    $highlightTxnId = strtoupper($q);
 }
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     $csvRows = [];
@@ -117,8 +124,10 @@ require_once __DIR__ . '/header.php';
             <th class="px-5 py-3 text-left">Status</th><th class="px-5 py-3 text-left">Actions</th>
         </tr></thead>
         <tbody class="divide-y divide-gray-800">
-            <?php foreach ($transactions as $t): ?>
-            <tr<?= uiRowClick(transactionDetailUrl($t['txn_id'])) ?>>
+            <?php foreach ($transactions as $t):
+                $isHighlightTxn = $highlightTxnId !== '' && strcasecmp((string)($t['txn_id'] ?? ''), $highlightTxnId) === 0;
+            ?>
+            <tr<?= uiRowClick(transactionDetailUrl($t['txn_id'])) ?><?= $isHighlightTxn ? ' class="bg-sky-500/10 ring-2 ring-sky-500/50"' : '' ?><?= $isHighlightTxn ? ' id="txn-highlight-row"' : '' ?>>
                 <td class="px-5 py-3 font-mono text-xs"><?= txnDetailLink($t['txn_id']) ?></td>
                 <td class="px-5 py-3">
                     <a href="admin_view_merchant.php?id=<?= (int)$t['merchant_id'] ?>" class="hover:text-sky-300">
@@ -145,4 +154,12 @@ require_once __DIR__ . '/header.php';
     </div>
     <?php endif; ?>
 </div>
+<?php if ($highlightTxnId !== ''): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var el = document.getElementById('txn-highlight-row');
+    if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+});
+</script>
+<?php endif; ?>
 <?php require_once __DIR__ . '/footer.php'; ?>

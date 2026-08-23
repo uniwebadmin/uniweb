@@ -158,10 +158,10 @@ if (!function_exists('uwIdClickAudience')) {
 
             case 'ORD':
                 if ($audience === 'admin') {
-                    return 'admin_payout.php?q=' . $enc;
+                    return 'admin_transactions.php?q=' . $enc;
                 }
                 if ($audience === 'merchant') {
-                    return 'merchant_payout.php?q=' . $enc;
+                    return 'transactions.php?q=' . $enc;
                 }
                 return null;
 

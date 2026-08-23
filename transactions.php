@@ -44,9 +44,12 @@ if ($q !== '') {
         LOWER(TRIM(COALESCE(description,''))) LIKE ? OR
         CAST(amount AS CHAR) LIKE ? OR
         LOWER(CAST(COALESCE(metadata,'') AS CHAR)) LIKE ? OR
-        payment_link_id IN (SELECT id FROM payment_links WHERE LOWER(TRIM(link_id)) LIKE ?)
+        payment_link_id IN (SELECT id FROM payment_links WHERE LOWER(TRIM(link_id)) LIKE ?) OR
+        payment_link_id IN (SELECT payment_link_id FROM payment_orders WHERE merchant_id = ? AND (
+            LOWER(TRIM(COALESCE(order_ref,''))) LIKE ? OR LOWER(TRIM(COALESCE(provider_order_id,''))) LIKE ?
+        ))
     )";
-    array_push($params, $like, $like, $like, $like, $like, $like, $like, $like, $like);
+    array_push($params, $like, $like, $like, $like, $like, $like, $like, $like, $like, (int)$merchant['id'], $like, $like);
 }
 if ($method !== 'all' && in_array($method, ['upi', 'card', 'netbanking', 'wallet', 'qr', 'razorpay', 'cashfree', 'payu'], true)) {
     $where .= ' AND payment_method = ?';

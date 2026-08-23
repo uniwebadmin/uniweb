@@ -1164,6 +1164,19 @@ $assert(wiringDeepLinkTxnActionUrl('Payment received', 'TXN1234567890ABCD') === 
 $b1025Health = wiringDeepLinkHealthCheckB10B25();
 $assert($b1025Health['ok'] === true, 'split_b25_runtime_health_green');
 
+// Global search — Phase 6 SRCH-02 (payment orders + ORD id_click)
+$gsFlow = (string)file_get_contents($root . '/includes/global_search_workflow.php');
+$assert(str_contains($gsFlow, 'function globalSearchWorkflowHealthCheck'), 'split_srch02_workflow_core');
+$assert(str_contains((string)file_get_contents($root . '/global_search.php'), 'FROM payment_orders po'), 'split_srch02_payment_orders_in_search');
+$assert(str_contains((string)file_get_contents($root . '/includes/id_click.php'), "return 'admin_transactions.php?q='") && str_contains((string)file_get_contents($root . '/includes/id_click.php'), "case 'ORD'"), 'split_srch02_ord_id_click_admin_txn');
+$assert(str_contains((string)file_get_contents($root . '/admin_transactions.php'), 'payment_orders'), 'split_srch02_admin_txn_order_ref_search');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'globalSearchWorkflowHealthCheck'), 'split_srch02_platform_health');
+$assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'global_search_workflow'"), 'split_srch02_config_dev_loads');
+require_once $root . '/includes/global_search_workflow.php';
+$assert(globalSearchWorkflowHealthCheck()['ok'] === true, 'split_srch02_runtime_health_green');
+$assert(str_contains((string)file_get_contents($root . '/global_search.php'), "'migrations'") && str_contains((string)file_get_contents($root . '/global_search.php'), "'toucanpay'"), 'split_srch03_ops_aliases');
+$assert(str_contains((string)file_get_contents($root . '/includes/schema_ensure.php'), "if (!function_exists('getDB'))"), 'split_schema_ensure_getdb_guard');
+
 $assert(str_contains(gatewaySubmitVsForwardQueueEducation()['sync'], 'syncGatewaySubmissionToForwardQueue'), 'split_b68_runtime_sync_education');
 
 // P9-04…08 honesty (market peers) — no fake orchestrator / coverage / licence / brand blur

@@ -522,6 +522,10 @@ function ensureCollationConsistency(): void
         return;
     }
 
+    if (!function_exists('getDB')) {
+        return;
+    }
+
     try {
         $db = getDB();
         $target = 'utf8mb4_unicode_ci';
@@ -632,7 +636,9 @@ function closePublicContactInquiry(string $inquiryId): bool
     }
 }
 
-ensureCollationConsistency();
+if (function_exists('getDB')) {
+    ensureCollationConsistency();
+}
 if (!schemaEnsureSkipHeavy()) {
     ensureMissingColumns();
     ensureSensitivePiiColumnWidths();
