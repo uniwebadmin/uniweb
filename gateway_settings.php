@@ -456,6 +456,9 @@ $gatewayCards = [
         if (!function_exists('autoKycRiskReadinessReport')) {
             require_once __DIR__ . '/includes/auto_kyc_risk_workflow.php';
         }
+        if (!function_exists('getPhase11RouteDecisionLog') && is_file(__DIR__ . '/includes/smart_routing.php')) {
+            require_once __DIR__ . '/includes/smart_routing.php';
+        }
         $recurringReady = function_exists('getRecurringReadinessChecklist') ? getRecurringReadinessChecklist() : ['items' => [], 'done' => 0, 'total' => 0, 'ready' => false];
         $routeSplitReady = function_exists('getRouteSplitReadinessChecklist') ? getRouteSplitReadinessChecklist() : ['items' => [], 'done' => 0, 'total' => 0, 'ready' => false, 'phase' => 'parked'];
         $routeSplitReport = routeSplitReadinessReport();
@@ -467,6 +470,7 @@ $gatewayCards = [
         $payoutLiveOn = ($settingsMap['payout_live_enabled'] ?? '0') === '1';
         $recurringOn = ($settingsMap['recurring_autopay_approved'] ?? '0') === '1';
         $routeSplitOn = ($settingsMap['route_split_live_enabled'] ?? '0') === '1';
+        $phase11RouteLog = function_exists('getPhase11RouteDecisionLog') ? getPhase11RouteDecisionLog(10) : [];
         ?>
         <div id="live-money-switches" class="rounded-xl border border-violet-500/40 bg-violet-500/5 p-5 my-4 space-y-4">
             <?= settingsSectionHeading('Live Money Switches', 'violet', 'text-base') ?>
@@ -489,12 +493,12 @@ $gatewayCards = [
                     <p class="text-[11px] text-gray-600 mt-2">Create mandate → customer UPI approval → cron debits.</p>
                 </div>
                 <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4 sm:col-span-2 lg:col-span-1">
-                    <label class="text-sm text-gray-300 font-medium">Route / Split live (Phase 11)</label>
+                    <label class="text-sm text-gray-300 font-medium">Phase 11 Route / Smart partner routing</label>
                     <select name="settings[route_split_live_enabled]" class="input-field mt-2">
-                        <option value="0" <?= !$routeSplitOn ? 'selected' : '' ?>>OFF — parked · standard settlement only</option>
-                        <option value="1" <?= $routeSplitOn ? 'selected' : '' ?>>ON — unlock live status + future SDK</option>
+                        <option value="0" <?= !$routeSplitOn ? 'selected' : '' ?>>OFF — parked · fixed partner checkout (default)</option>
+                        <option value="1" <?= $routeSplitOn ? 'selected' : '' ?>>ON — smart routing + Route/Split APIs when partner config live</option>
                     </select>
-                    <p class="text-[11px] text-gray-600 mt-2">Razorpay Route / Cashfree Easy Split / PayU Split. Commission (M/P) works without this.</p>
+                    <p class="text-[11px] text-gray-600 mt-2">Default OFF — zero effect on live payments. When ON: health + priority partner pick at checkout; capture split when partner route_status=live. One click — no redeploy.</p>
                 </div>
             </div>
             <?php if (!empty($routeSplitReady['items'])): ?>
@@ -516,6 +520,33 @@ $gatewayCards = [
                     </li>
                     <?php endforeach; ?>
                 </ul>
+            </div>
+            <?php endif; ?>
+            <?php if ($routeSplitOn || !empty($phase11RouteLog)): ?>
+            <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-3 text-xs">
+                <p class="font-medium text-gray-300 mb-2">Phase 11 routing log (honest partner choice)</p>
+                <?php if (!$routeSplitOn): ?>
+                <p class="text-amber-300/90 mb-2">Parked — turn ON when 2+ partners live. No routing while OFF.</p>
+                <?php endif; ?>
+                <?php if (empty($phase11RouteLog)): ?>
+                <p class="text-gray-600">No routing decisions yet. When ON, checkout logs which partner was chosen and why.</p>
+                <?php else: ?>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-[10px] text-left">
+                        <thead><tr class="text-gray-500 border-b border-gray-800"><th class="py-1 pr-2">Time</th><th class="py-1 pr-2">Partner</th><th class="py-1 pr-2">Outcome</th><th class="py-1">Reason</th></tr></thead>
+                        <tbody>
+                        <?php foreach ($phase11RouteLog as $logRow): ?>
+                        <tr class="border-b border-gray-900/80">
+                            <td class="py-1 pr-2 text-gray-500 whitespace-nowrap"><?= e(substr((string)($logRow['created_at'] ?? ''), 0, 16)) ?></td>
+                            <td class="py-1 pr-2 text-sky-300"><?= e((string)($logRow['chosen_partner'] ?? '—')) ?></td>
+                            <td class="py-1 pr-2"><?= e((string)($logRow['outcome'] ?? '')) ?></td>
+                            <td class="py-1 text-gray-400"><?= e((string)($logRow['reason'] ?? '')) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?php endif; ?>
             </div>
             <?php endif; ?>
             <?php if (!empty($recurringReady['items'])): ?>

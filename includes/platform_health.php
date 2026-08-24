@@ -10,7 +10,7 @@ function routeSplitHealthCheck(): array
     if (!function_exists('getRouteSplitReadinessChecklist')) {
         return [
             'id' => 'route_split',
-            'label' => 'Route / Split (Phase 11)',
+            'label' => 'Phase 11 Route / Smart routing',
             'ok' => false,
             'status' => 'Module missing',
             'detail' => 'includes/split_settlement.php not loaded',
@@ -30,7 +30,7 @@ function routeSplitHealthCheck(): array
             : 'M/P commission on capture works. Live Route SDK not started.';
         return [
             'id' => 'route_split',
-            'label' => 'Route / Split (Phase 11)',
+            'label' => 'Phase 11 Route / Smart routing',
             'ok' => true,
             'status' => 'Parked — standard settlement active',
             'detail' => $detail,

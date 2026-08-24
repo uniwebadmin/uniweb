@@ -1740,6 +1740,18 @@ $assert(is_file($root . '/includes/cloud_modules.php') && str_contains((string)f
 $assert(str_contains((string)file_get_contents($root . '/includes/onboarding_state_machine.php'), 'notifyMerchant'), 'prio4_onboarding_notify_dedup');
 $assert(is_file($root . '/docs/DEEP_AUDIT_ORDERED.md') && is_file($root . '/docs/DEEP_AUDIT_FULL_A_TO_Z.md'), 'prioC_audit_id_sources_present');
 
+// Phase 11 Route — full engine built, default parked OFF (single Owner toggle)
+$srP11 = (string)file_get_contents($root . '/includes/smart_routing.php');
+$assert(str_contains($srP11, 'function phase11RouteEngineActive') && str_contains($srP11, 'function phase11SelectCheckoutPartner'), 'p11_phase11_engine_functions');
+$assert(str_contains($srP11, 'phase11_route_decisions') && str_contains($srP11, 'function phase11LogRouteDecision'), 'p11_honest_route_decision_log');
+$assert(str_contains($srP11, 'if (!phase11RouteEngineActive())') && str_contains($srP11, 'Phase 11 parked'), 'p11_smart_routing_gated_when_off');
+$assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'phase11RouteEngineActive') && !str_contains((string)file_get_contents($root . '/checkout.php'), 'bothTabsAvailable'), 'p11_checkout_no_silent_routing_when_parked');
+$assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Phase 11 Route / Smart partner routing'), 'p11_single_owner_toggle_label');
+require_once $root . '/includes/smart_routing.php';
+$assert(!phase11RouteEngineActive(), 'p11_engine_off_by_default_local');
+$p11Pick = phase11SelectCheckoutPartner(0, 'card');
+$assert(is_array($p11Pick) && array_key_exists('reason', $p11Pick), 'p11_select_partner_returns_reason');
+
 $payload = [
     'ok' => $failed === 0,
     'passed' => $passed,

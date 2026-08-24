@@ -346,19 +346,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
     }
     $smartRouted = null;
-    $bothTabsAvailable = in_array('razorpay', $validKeys, true) && in_array('cashfree', $validKeys, true);
-    if (($selectedPay === 'razorpay' || $selectedPay === 'cashfree') && $handler !== 'razorpay_route' && $handler !== 'cashfree_route' && $bothTabsAvailable) {
-        // Smart routing: try the healthier gateway first, auto-divert to the other tab on failure — only when both tabs exist for this merchant.
+    $phase11RoutingOn = function_exists('phase11RouteEngineActive') && phase11RouteEngineActive();
+    $cardPgSelected = ($selectedPay === 'razorpay' || $selectedPay === 'cashfree');
+    $routeHandlersClear = $handler !== 'razorpay_route' && $handler !== 'cashfree_route';
+    if ($phase11RoutingOn && $cardPgSelected && $routeHandlersClear) {
+        // Phase 11 ON: smart partner routing (Registry keys + health failover). Methods-only checkout — no partner brand CTA.
         $returnUrl = APP_URL . '/payment_cashfree_return.php?order_id={order_id}';
         $smartRouted = createCardOrderWithSmartRouting($payAmount, $link, $returnUrl);
-        if ($smartRouted['routed_to'] === 'razorpay') {
+        if (($smartRouted['routed_to'] ?? null) === 'razorpay') {
             $razorpayOrder = $smartRouted['razorpay'];
             $selectedPay = 'razorpay';
-        } elseif ($smartRouted['routed_to'] === 'cashfree') {
+        } elseif (($smartRouted['routed_to'] ?? null) === 'cashfree') {
             $cashfreeSession = $smartRouted['cashfree']['payment_session_id'] ?? null;
             $selectedPay = 'cashfree';
+        } elseif (!empty($smartRouted['phase11']) && empty($smartRouted['routed_to']) && ($error ?? '') === '') {
+            $error = 'Card checkout is temporarily unavailable. No partner with valid keys could create an order.';
         }
-        if ($smartRouted['diverted']) {
+        if (!empty($smartRouted['diverted'])) {
             foreach ($paymentMethods as $m) { if ($m['key'] === $selectedPay) { $currentMethod = $m; break; } }
         }
     } elseif ($selectedPay === 'razorpay' || ($handler === 'razorpay_route' && !isGatewayConfigured('payu'))) {

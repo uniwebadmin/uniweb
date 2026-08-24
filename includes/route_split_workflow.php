@@ -27,8 +27,8 @@ function routeSplitIsParked(): bool
 
 function routeSplitParkedDisclaimer(): string
 {
-    return 'Route / Easy Split (Phase 11) is parked. Commission still applies on capture via M/P ledger. '
-        . 'Money settles through standard wallet → bank (T+0/T+1/T+2). Owner enables live Route in Platform Settings when commercial is signed.';
+    return 'Phase 11 Route is PARKED (default OFF). Checkout uses the merchant-selected method — no smart partner routing. '
+        . 'Turn ON in Gateway Settings → Live Money Switches when 2+ partners have Registry keys. Commission still applies via M/P ledger.';
 }
 
 /** Steps merchants/admins see for today's live path. */
@@ -78,8 +78,8 @@ function routeSplitPhase(): string
 function routeSplitParkedReason(?string $partnerKey = null): string
 {
     if (routeSplitIsParked()) {
-        return 'Route / Easy Split is parked (Phase 11). Commission still works via standard settlement (M/P on capture). '
-            . 'Turn ON in Platform Settings → Live Money Switches when partner commercial is signed.';
+        return 'Phase 11 Route is parked (default OFF). Checkout uses fixed partner path — no silent routing. '
+            . 'Turn ON: Gateway Settings → Live Money Switches → Phase 11 Route / Smart partner routing.';
     }
     if ($partnerKey !== null && $partnerKey !== '') {
         if (!function_exists('canUsePartnerRoute')) {

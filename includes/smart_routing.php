@@ -2,10 +2,13 @@
 declare(strict_types=1);
 
 /**
- * VIP Feature — Smart Routing.
- * Tracks live health of each card/netbanking gateway (Razorpay/Cashfree/PayU) and
- * automatically prefers a healthy one when the primary gateway's API is down,
- * instead of failing the checkout outright.
+ * Phase 11 — Smart partner routing (checkout PG selection + health failover).
+ *
+ * Single Owner switch: gateway_settings route_split_live_enabled (default OFF / parked).
+ * When OFF: checkout uses fixed merchant-selected partner — no silent routing.
+ * When ON: eligible Registry partners ranked by health + priority; honest decision log.
+ *
+ * Capture-time Route/Split API remains gated separately via canUsePartnerRoute().
  */
 
 function ensureGatewayHealthEventsTable(): void
@@ -25,6 +28,253 @@ function ensureGatewayHealthEventsTable(): void
             INDEX idx_gw_time (gateway, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     } catch (Throwable $e) { /* ok */ }
+}
+
+function ensurePhase11RouteDecisionLogTable(): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    try {
+        getDB()->exec("CREATE TABLE IF NOT EXISTS phase11_route_decisions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            merchant_id INT DEFAULT NULL,
+            link_id VARCHAR(64) DEFAULT NULL,
+            method_key VARCHAR(32) DEFAULT NULL,
+            chosen_partner VARCHAR(24) DEFAULT NULL,
+            reason VARCHAR(255) NOT NULL,
+            candidates_json TEXT DEFAULT NULL,
+            engine_on TINYINT(1) NOT NULL DEFAULT 0,
+            outcome ENUM('selected','failover','none','error') NOT NULL DEFAULT 'selected',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_time (created_at),
+            INDEX idx_partner (chosen_partner, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) { /* ok */ }
+}
+
+/** True when Owner enabled Phase 11 Route (same switch as Route/Split live). */
+function phase11RouteEngineActive(): bool
+{
+    if (!function_exists('routeSplitLiveEnabled')) {
+        if (is_file(__DIR__ . '/split_settlement.php')) {
+            require_once __DIR__ . '/split_settlement.php';
+        }
+    }
+    return function_exists('routeSplitLiveEnabled') && routeSplitLiveEnabled();
+}
+
+/** @return list<string> */
+function phase11CheckoutPartnerPriority(): array
+{
+    if (!function_exists('getBankingPartners') && is_file(__DIR__ . '/partners.php')) {
+        require_once __DIR__ . '/partners.php';
+    }
+    if (!function_exists('getCheckoutPgPartnerKeys')) {
+        if (is_file(__DIR__ . '/partner_engine.php')) {
+            require_once __DIR__ . '/partner_engine.php';
+        }
+    }
+    if (function_exists('getCheckoutPgPartnerKeys')) {
+        try {
+            $keys = getCheckoutPgPartnerKeys();
+            if ($keys !== []) {
+                return array_values(array_map(static fn(string $k): string => strtolower(trim($k)), $keys));
+            }
+        } catch (Throwable $e) {
+            /* fall through to default priority */
+        }
+    }
+    return ['razorpay', 'cashfree', 'payu'];
+}
+
+function phase11PartnerSupportsCheckoutMethod(string $partnerKey, string $checkoutMethod): bool
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    $checkoutMethod = strtolower(trim($checkoutMethod));
+    return match ($partnerKey) {
+        'razorpay', 'cashfree' => in_array($checkoutMethod, ['card', 'razorpay', 'cashfree'], true),
+        'payu' => in_array($checkoutMethod, ['card', 'payu', 'payu_upi'], true),
+        default => false,
+    };
+}
+
+function phase11MerchantAllowsPartnerCheckout(int $merchantId, string $partnerKey, string $checkoutMethod): bool
+{
+    if ($merchantId <= 0) {
+        return true;
+    }
+    if (!function_exists('getMerchantEnabledMethods') && is_file(__DIR__ . '/provision.php')) {
+        require_once __DIR__ . '/provision.php';
+    }
+    $enabled = [];
+    if (function_exists('getMerchantEnabledMethods')) {
+        try {
+            $st = getDB()->prepare('SELECT enabled_methods FROM merchants WHERE id=? LIMIT 1');
+            $st->execute([$merchantId]);
+            $row = $st->fetch();
+            if ($row && !empty($row['enabled_methods'])) {
+                $decoded = json_decode((string)$row['enabled_methods'], true);
+                if (is_array($decoded)) {
+                    $enabled = $decoded;
+                }
+            }
+        } catch (Throwable $e) {
+            return true;
+        }
+    }
+    if ($enabled === []) {
+        return true;
+    }
+    $partnerKey = strtolower(trim($partnerKey));
+    $need = match ($partnerKey) {
+        'razorpay' => ['razorpay', 'credit_card', 'debit_card'],
+        'cashfree' => ['cashfree', 'credit_card', 'debit_card'],
+        'payu' => ['payu_upi', 'credit_card', 'debit_card', 'netbanking', 'wallet', 'emi'],
+        default => [],
+    };
+    foreach ($need as $k) {
+        if (in_array($k, $enabled, true)) {
+            return true;
+        }
+    }
+    return $checkoutMethod === 'card' && (
+        in_array('credit_card', $enabled, true) || in_array('debit_card', $enabled, true)
+    );
+}
+
+/**
+ * Registry partners with keys + merchant method eligibility.
+ *
+ * @return list<string>
+ */
+function phase11EligibleCheckoutPartners(int $merchantId, string $checkoutMethod = 'card'): array
+{
+    $eligible = [];
+    foreach (phase11CheckoutPartnerPriority() as $partner) {
+        if (!function_exists('isGatewayConfigured') || !isGatewayConfigured($partner)) {
+            continue;
+        }
+        if (!phase11PartnerSupportsCheckoutMethod($partner, $checkoutMethod)) {
+            continue;
+        }
+        if (!phase11MerchantAllowsPartnerCheckout($merchantId, $partner, $checkoutMethod)) {
+            continue;
+        }
+        $eligible[] = $partner;
+    }
+    return $eligible;
+}
+
+/**
+ * Rank partners: healthy first, then registry priority order.
+ *
+ * @param list<string> $partners
+ * @return list<string>
+ */
+function phase11RankPartnersForRouting(array $partners): array
+{
+    $priority = phase11CheckoutPartnerPriority();
+    $rank = static function (string $p) use ($priority): int {
+        $idx = array_search(strtolower($p), $priority, true);
+        return $idx === false ? 99 : (int)$idx;
+    };
+    usort($partners, static function (string $a, string $b) use ($rank): int {
+        $ha = isGatewayHealthy($a) ? 0 : 1;
+        $hb = isGatewayHealthy($b) ? 0 : 1;
+        if ($ha !== $hb) {
+            return $ha <=> $hb;
+        }
+        return $rank($a) <=> $rank($b);
+    });
+    return array_values($partners);
+}
+
+/**
+ * @return array{partner:?string,reason:string,candidates:list<string>,ranked:list<string>}
+ */
+function phase11SelectCheckoutPartner(int $merchantId, string $checkoutMethod = 'card', ?string $preferredTab = null): array
+{
+    $eligible = phase11EligibleCheckoutPartners($merchantId, $checkoutMethod);
+    if ($eligible === []) {
+        return [
+            'partner' => null,
+            'reason' => 'No partner with Registry keys + enabled methods for this checkout.',
+            'candidates' => [],
+            'ranked' => [],
+        ];
+    }
+    $ranked = phase11RankPartnersForRouting($eligible);
+    $preferredTab = $preferredTab !== null ? strtolower(trim($preferredTab)) : '';
+    if ($preferredTab !== '' && in_array($preferredTab, $ranked, true)) {
+        $healthy = isGatewayHealthy($preferredTab) ? 'healthy' : 'degraded';
+        return [
+            'partner' => $preferredTab,
+            'reason' => 'Merchant tab ' . $preferredTab . ' (' . $healthy . ', priority order)',
+            'candidates' => $eligible,
+            'ranked' => $ranked,
+        ];
+    }
+    $chosen = $ranked[0];
+    $reason = count($ranked) === 1
+        ? 'Only partner with keys — ' . $chosen
+        : (isGatewayHealthy($chosen)
+            ? 'Health + priority — chose ' . $chosen . ' over ' . implode(', ', array_slice($ranked, 1))
+            : 'Failover rank — best available ' . $chosen);
+
+    return [
+        'partner' => $chosen,
+        'reason' => $reason,
+        'candidates' => $eligible,
+        'ranked' => $ranked,
+    ];
+}
+
+function phase11LogRouteDecision(
+    ?string $chosenPartner,
+    string $reason,
+    array $candidates,
+    string $outcome,
+    int $merchantId = 0,
+    ?string $linkId = null,
+    ?string $methodKey = null
+): void {
+    ensurePhase11RouteDecisionLogTable();
+    try {
+        getDB()->prepare(
+            'INSERT INTO phase11_route_decisions
+             (merchant_id, link_id, method_key, chosen_partner, reason, candidates_json, engine_on, outcome)
+             VALUES (?,?,?,?,?,?,?,?)'
+        )->execute([
+            $merchantId > 0 ? $merchantId : null,
+            $linkId !== null && $linkId !== '' ? mb_substr($linkId, 0, 64) : null,
+            $methodKey !== null && $methodKey !== '' ? mb_substr($methodKey, 0, 32) : null,
+            $chosenPartner !== null && $chosenPartner !== '' ? mb_substr($chosenPartner, 0, 24) : null,
+            mb_substr($reason, 0, 255),
+            $candidates !== [] ? json_encode(array_values($candidates), JSON_UNESCAPED_UNICODE) : null,
+            phase11RouteEngineActive() ? 1 : 0,
+            in_array($outcome, ['selected', 'failover', 'none', 'error'], true) ? $outcome : 'selected',
+        ]);
+    } catch (Throwable $e) { /* non-fatal */ }
+}
+
+/** Recent honest routing log for Admin (Gateway Settings). */
+function getPhase11RouteDecisionLog(int $limit = 15): array
+{
+    ensurePhase11RouteDecisionLogTable();
+    try {
+        $st = getDB()->prepare(
+            'SELECT id, merchant_id, link_id, method_key, chosen_partner, reason, outcome, engine_on, created_at
+             FROM phase11_route_decisions ORDER BY id DESC LIMIT ?'
+        );
+        $st->bindValue(1, max(1, min(50, $limit)), PDO::PARAM_INT);
+        $st->execute();
+        return $st->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
 }
 
 function recordGatewayOutcome(string $gateway, bool $ok, ?string $detail = null): void
@@ -52,7 +302,7 @@ function isGatewayHealthy(string $gateway): bool
                 return true;
             }
         }
-        return false; // last 3 events in window were all failures
+        return false;
     } catch (Throwable $e) {
         return true;
     }
@@ -62,9 +312,9 @@ function gatewayHealthSummary(): array
 {
     ensureGatewayHealthEventsTable();
     $out = [];
-    foreach (['razorpay', 'cashfree', 'payu'] as $gw) {
+    foreach (phase11CheckoutPartnerPriority() as $gw) {
         $out[$gw] = [
-            'configured' => isGatewayConfigured($gw),
+            'configured' => function_exists('isGatewayConfigured') && isGatewayConfigured($gw),
             'healthy' => isGatewayHealthy($gw),
         ];
     }
@@ -72,24 +322,36 @@ function gatewayHealthSummary(): array
 }
 
 /**
- * Try Razorpay order; on failure/timeout, auto-divert to Cashfree, then flags
- * PayU as the manual fallback tab. Returns which gateway actually produced a usable order.
+ * Phase 11 checkout order creation — only when route_split_live_enabled=1.
+ * When parked (OFF), returns routed_to=null immediately (caller uses fixed partner path).
  */
 function createCardOrderWithSmartRouting(float $amount, array $link, string $returnUrl): array
 {
-    // Circuit breaker check — skip gateways with open circuits
-    $cbAvailable = function_exists('isCircuitBreakerAllowed');
-    $preferred = isGatewayHealthy('razorpay') ? 'razorpay' : 'cashfree';
-    if ($cbAvailable && !isCircuitBreakerAllowed($preferred)) {
-        $preferred = $preferred === 'razorpay' ? 'cashfree' : 'razorpay';
-    }
-    $order = ['razorpay' => null, 'cashfree' => null, 'routed_to' => null, 'diverted' => false];
+    $merchantId = (int)($link['merchant_id'] ?? 0);
+    $linkId = (string)($link['link_id'] ?? '');
+    $order = ['razorpay' => null, 'cashfree' => null, 'payu' => null, 'routed_to' => null, 'diverted' => false, 'phase11' => false, 'reason' => ''];
 
+    if (!phase11RouteEngineActive()) {
+        $order['reason'] = 'Phase 11 parked — fixed partner path (no smart routing).';
+        return $order;
+    }
+
+    $order['phase11'] = true;
+    $selection = phase11SelectCheckoutPartner($merchantId, 'card');
+    $ranked = $selection['ranked'];
+
+    if ($selection['partner'] === null || $ranked === []) {
+        $order['reason'] = $selection['reason'];
+        phase11LogRouteDecision(null, $selection['reason'], [], 'none', $merchantId, $linkId, 'card');
+        return $order;
+    }
+
+    $cbAvailable = function_exists('isCircuitBreakerAllowed');
+    $firstPreferred = $ranked[0];
     $tryOrder = function (string $gw) use ($link, $returnUrl, $cbAvailable) {
         if (!isGatewayConfigured($gw)) {
             return null;
         }
-        // Circuit breaker: fail fast if open
         if ($cbAvailable && !isCircuitBreakerAllowed($gw)) {
             return null;
         }
@@ -97,33 +359,50 @@ function createCardOrderWithSmartRouting(float $amount, array $link, string $ret
             $res = createBoundGatewayCheckoutOrder($link, $gw, $returnUrl);
         } catch (Throwable $e) {
             recordGatewayOutcome($gw, false, $e->getMessage());
-            if ($cbAvailable) recordCircuitBreakerFailure($gw);
+            if ($cbAvailable) {
+                recordCircuitBreakerFailure($gw);
+            }
             return null;
         }
         $ok = is_array($res) && ($gw === 'razorpay' ? !empty($res['id']) : !empty($res['payment_session_id']));
         recordGatewayOutcome($gw, $ok, $ok ? null : 'no_response');
         if ($cbAvailable) {
-            if ($ok) recordCircuitBreakerSuccess($gw);
-            else recordCircuitBreakerFailure($gw);
+            if ($ok) {
+                recordCircuitBreakerSuccess($gw);
+            } else {
+                recordCircuitBreakerFailure($gw);
+            }
         }
         return $ok ? $res : null;
     };
 
-    $result = $tryOrder($preferred);
-    if ($result) {
-        $order[$preferred] = $result;
-        $order['routed_to'] = $preferred;
-        return $order;
+    $attempted = [];
+    foreach ($ranked as $idx => $gw) {
+        $attempted[] = $gw;
+        $result = $tryOrder($gw);
+        if ($result) {
+            $order[$gw] = $result;
+            $order['routed_to'] = $gw;
+            $order['diverted'] = $idx > 0;
+            $reason = $idx === 0
+                ? $selection['reason']
+                : ('Failover to ' . $gw . ' after ' . implode(', ', array_slice($ranked, 0, $idx)) . ' failed');
+            $order['reason'] = $reason;
+            phase11LogRouteDecision(
+                $gw,
+                $reason,
+                $ranked,
+                $idx === 0 ? 'selected' : 'failover',
+                $merchantId,
+                $linkId,
+                'card'
+            );
+            return $order;
+        }
     }
 
-    $fallback = $preferred === 'razorpay' ? 'cashfree' : 'razorpay';
-    $result2 = $tryOrder($fallback);
-    if ($result2) {
-        $order[$fallback] = $result2;
-        $order['routed_to'] = $fallback;
-        $order['diverted'] = true;
-        return $order;
-    }
-
+    $failReason = 'All eligible partners failed order create: ' . implode(', ', $attempted);
+    $order['reason'] = $failReason;
+    phase11LogRouteDecision(null, $failReason, $ranked, 'error', $merchantId, $linkId, 'card');
     return $order;
 }
