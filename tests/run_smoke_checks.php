@@ -1722,6 +1722,24 @@ if ($liveBase) {
     $assert($reg['ok'], 'live_merchant_register_after_demo_removed', $reg['code'] . ' ' . $reg['url']);
 }
 
+// Owner priority motive 1-7 + ABC completion batch (diagram #46 / #47)
+require_once $root . '/includes/route_split_workflow.php';
+$prioGate7 = routeSplitExecuteGate('razorpay', 'route_mode');
+$assert(($prioGate7['mode'] ?? '') === 'route_mode_parked' && empty($prioGate7['dispatch']), 'prio7_route_parked_default');
+$assert(function_exists('routeSplitIsParked') && routeSplitIsParked(), 'prio7_route_split_is_parked_flag');
+$assert(!str_contains($checkoutSrc, 'Pay with Razorpay') && !str_contains($checkoutSrc, 'Powered by PayU'), 'prio1_checkout_no_partner_brand_cta');
+$assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Partner Registry → Partner Detail → Keys'), 'prio2_keys_plane_registry_banner');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_control.php'), 'pinelabs_access_code'), 'prio2_pinelabs_canonical_alias');
+$assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'not sent to the bank/partner yet'), 'prio3_kyc_forward_staged_honest');
+$assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'merchant_customer_tickets.php?q='), 'prio4_notify_ct_to_complaints');
+$assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'disputes.php?id='), 'prio4_notify_dsp_to_disputes');
+$assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'transactions.php'), 'prio4_notify_settlement_to_transactions');
+$assert(str_contains($navSrc, "'owner_today'") && str_contains($navSrc, "'collapsed' => true"), 'prio5_admin_today_advanced_collapsed');
+$assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'Partner Registry'), 'prio5_admin_dashboard_daily_chips');
+$assert(is_file($root . '/includes/cloud_modules.php') && str_contains((string)file_get_contents($root . '/includes/cloud_modules.php'), 'notifications.php'), 'prio6_p0_04_cloud_modules_bridge');
+$assert(str_contains((string)file_get_contents($root . '/includes/onboarding_state_machine.php'), 'notifyMerchant'), 'prio4_onboarding_notify_dedup');
+$assert(is_file($root . '/docs/DEEP_AUDIT_ORDERED.md') && is_file($root . '/docs/DEEP_AUDIT_FULL_A_TO_Z.md'), 'prioC_audit_id_sources_present');
+
 $payload = [
     'ok' => $failed === 0,
     'passed' => $passed,

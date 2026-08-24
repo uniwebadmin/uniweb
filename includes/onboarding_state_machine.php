@@ -126,21 +126,27 @@ function merchant_transition(int $merchantId, string $to, string $reason = ''): 
         );
     }
 
-    // Merchant notification
-    if (function_exists('createNotification')) {
-        $notifMsg = match($to) {
-            'kyc_verified' => 'Your KYC has been verified. Documents are being prepared for partner submission.',
-            'queue_forward' => 'Your documents are scheduled for partner submission.',
-            'partner_pending' => 'Your application has been forwarded to our banking partners.',
-            'live' => 'Your account is now LIVE. You can accept real payments.',
-            'kyc_failed' => 'KYC verification failed. ' . ($reason ?: 'Please check the errors and resubmit.'),
-            'hold' => 'Your onboarding is on hold. ' . ($reason ?: 'Our team will contact you.'),
-            'rejected' => 'Your application was rejected. ' . ($reason ?: 'Contact support for details.'),
-            'suspended' => 'Your account has been suspended. ' . ($reason ?: 'Contact support.'),
-            default => null,
-        };
-        if ($notifMsg) {
-            try { createNotification($merchantId, 'Onboarding Update', $notifMsg); } catch (Throwable $e) {}
+    // Merchant notification — generic copy (no partner brand names on onboarding updates).
+    $notifMsg = match ($to) {
+        'kyc_verified' => 'Your KYC has been verified. Documents are being prepared for partner submission.',
+        'queue_forward' => 'Your documents are scheduled for partner submission.',
+        'partner_pending' => 'Your application has been forwarded to our banking partners.',
+        'live' => 'Your account is now LIVE. You can accept real payments.',
+        'kyc_failed' => 'KYC verification failed. ' . ($reason ?: 'Please check the errors and resubmit.'),
+        'hold' => 'Your onboarding is on hold. ' . ($reason ?: 'Our team will contact you.'),
+        'rejected' => 'Your application was rejected. ' . ($reason ?: 'Contact support for details.'),
+        'suspended' => 'Your account has been suspended. ' . ($reason ?: 'Contact support.'),
+        default => null,
+    };
+    if ($notifMsg !== null) {
+        try {
+            if (function_exists('notifyMerchant')) {
+                notifyMerchant($merchantId, 'Onboarding Update', $notifMsg, 'onboarding:' . $to . ':' . $merchantId);
+            } elseif (function_exists('createNotification')) {
+                createNotification($merchantId, 'Onboarding Update', $notifMsg);
+            }
+        } catch (Throwable $e) {
+            /* non-fatal */
         }
     }
 
