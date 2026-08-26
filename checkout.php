@@ -118,7 +118,7 @@ $isOpenAmount = function_exists('paymentLinkIsOpenAmount')
     ? paymentLinkIsOpenAmount(array_merge($link, $plRow ?: []))
     : ((float)($plRow['amount'] ?? 0) <= 0);
 
-// Open-amount links: customer must enter ₹ before Instant Test Pay / UPI / PG
+// Open-amount links: customer must enter ₹ before UniWeb Test Pay / UPI / PG
 $openAmountError = '';
 if ($isOpenAmount) {
     $enteredAmount = 0.0;
@@ -178,7 +178,7 @@ $link['amount'] = $payAmount;
 $link['status'] = $plRow['status'] ?? 'active';
 // Checkout customization
 $wlBrand = resolveCheckoutCustomize($link);
-// Instant Test Pay: Test Mode links only
+// UniWeb Test Pay: Test Mode links only
 $allowInstantPay = $isTestCheckout;
 if ($link['status'] !== 'active') {
     renderCheckoutUnavailable(
@@ -453,7 +453,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && $selectedP
         // handled above
     } elseif ($utr === '') {
         $error = $allowInstantPay
-            ? 'Use Instant Test Pay above, or enter a UPI reference (10–22 characters).'
+            ? 'Use UniWeb Test Pay above, or enter a UPI reference (10–22 characters).'
             : 'After paying to the UPI ID, enter your UPI UTR / reference (10–22 characters).';
     } else {
         $result = confirmUpiPaymentForLink($link, $utr, $allowInstantPay);
@@ -599,8 +599,8 @@ endif;
                         <input type="hidden" name="action" value="test_pay">
                         <input type="hidden" name="pay" value="upi">
                         <?php renderCheckoutCustomerFields($link); ?>
-                        <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-dark-900 py-4 rounded-xl font-semibold text-lg">⚡ Instant Test Pay <?= formatMoney($payAmount) ?> — UPI</button>
-                        <p class="text-xs text-amber-400/80 text-center mt-2">Sandbox only — completes instantly without a real UPI transfer.</p>
+                        <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-dark-900 py-4 rounded-xl font-semibold text-lg">⚡ UniWeb Test Pay <?= formatMoney($payAmount) ?> — UPI</button>
+                        <p class="text-xs text-amber-400/80 text-center mt-2">UniWeb Test Mode — sandbox only, no real UPI transfer.</p>
                     </form>
                     <details class="mb-4">
                         <summary class="cursor-pointer text-xs text-gray-500 mb-2">Optional: scan QR / enter UTR (sandbox)</summary>
@@ -613,7 +613,7 @@ endif;
                     <?php endif; ?>
                     <?php if ($upiPa === ''): ?>
                     <div class="bg-red-500/10 border border-red-500/30 text-red-300 text-sm px-4 py-3 rounded-xl mb-4">
-                        No UPI ID on this merchant. Add a real VPA under My Account, or use <strong class="text-white">Test Mode → Instant Test Pay</strong>.
+                        No UPI ID on file for this merchant. Use <strong class="text-white">UniWeb Test Mode → UniWeb Test Pay</strong> below, or ask the merchant to add a UPI ID.
                     </div>
                     <?php else: ?>
                     <div class="bg-white rounded-2xl p-5 text-center mb-4 border-2 border-emerald-100 shadow-lg shadow-emerald-900/10">
@@ -625,7 +625,7 @@ endif;
                         <?php endif; ?>
                     </div>
                     <?php endif; ?>
-                    <p class="text-xs text-center text-gray-500 mb-3" id="upi-poll-status"><?= $allowInstantPay ? 'Sandbox — Instant Test Pay above marks this link paid.' : 'Waiting for verified bank or gateway confirmation. Do not close this page.' ?></p>
+                    <p class="text-xs text-center text-gray-500 mb-3" id="upi-poll-status"><?= $allowInstantPay ? 'UniWeb Test Mode — UniWeb Test Pay above marks this link paid.' : 'Waiting for verified bank confirmation. Do not close this page.' ?></p>
                     <?php if ($upiPa !== ''): ?>
                     <a href="<?= e($upiData) ?>" class="block text-center bg-sky-600 hover:bg-sky-500 text-white py-3 rounded-xl font-semibold text-sm mb-2">Open UPI App →</a>
                     <p class="text-[11px] text-center text-gray-600 mb-3">Opens your UPI app to complete payment.</p>
@@ -640,7 +640,7 @@ endif;
                         <p class="text-[11px] text-gray-600 text-center">Sandbox only: use any unique 10–22 character test reference.</p>
                     </form>
                     <?php else: ?>
-                    <div class="bg-sky-500/10 border border-sky-500/30 text-sky-200 text-xs px-4 py-3 rounded-xl">For your safety, manually entered UTRs cannot confirm a Live payment. UniWeb will update this page only after a signed bank or payment-partner event.</div>
+                    <div class="bg-sky-500/10 border border-sky-500/30 text-sky-200 text-xs px-4 py-3 rounded-xl">For your safety, manually entered UTRs cannot confirm a Live payment. UniWeb will update this page only after verified bank confirmation.</div>
                     <?php endif; ?>
                     <?php if ($allowInstantPay): ?></details><?php endif; ?>
                     <?php endif; ?>
@@ -653,22 +653,22 @@ endif;
                         <input type="hidden" name="action" value="test_pay">
                         <input type="hidden" name="pay" value="<?= e($selectedPay) ?>">
                         <?php renderCheckoutCustomerFields($link); ?>
-                        <p class="text-xs text-amber-400 text-center">Test Mode — complete payment here (no redirect). Use Instant Test for demo / approval.</p>
+                        <p class="text-xs text-amber-400 text-center">UniWeb Test Mode — complete payment here (no redirect).</p>
                         <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-dark-900 py-4 rounded-xl font-semibold text-lg">
-                            Instant Test Pay <?= formatMoney($payAmount) ?> — <?= e($currentMethod['label'] ?? 'Card') ?>
+                            UniWeb Test Pay <?= formatMoney($payAmount) ?> — <?= e($currentMethod['label'] ?? 'Card') ?>
                         </button>
                     </form>
                     <details class="text-xs text-gray-500 mb-2">
-                        <summary class="cursor-pointer text-sky-400 mb-2">Optional: open test gateway redirect</summary>
+                        <summary class="cursor-pointer text-sky-400 mb-2">Optional: continue to secure checkout redirect</summary>
                         <form method="POST" action="<?= e($pf['action']) ?>">
                             <?php foreach ($pf['fields'] as $k => $v): ?>
                             <input type="hidden" name="<?= e($k) ?>" value="<?= e((string)$v) ?>">
                             <?php endforeach; ?>
                             <button type="submit" class="w-full border border-gray-700 text-gray-300 py-3 rounded-xl font-semibold">
-                                Continue to test gateway
+                                Continue to secure checkout
                             </button>
                         </form>
-                        <p class="text-center mt-2 text-gray-600">If the redirect does not complete, use Instant Test above.</p>
+                        <p class="text-center mt-2 text-gray-600">If redirect does not complete, use UniWeb Test Pay above.</p>
                     </details>
                     <?php else: ?>
                     <form method="POST" action="<?= e($pf['action']) ?>">
@@ -690,7 +690,7 @@ endif;
                         <input type="hidden" name="pay" value="razorpay">
                         <?php renderCheckoutCustomerFields($link); ?>
                         <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-dark-900 py-4 rounded-xl font-semibold text-lg">
-                            Instant Test Pay <?= formatMoney($payAmount) ?>
+                            UniWeb Test Pay <?= formatMoney($payAmount) ?>
                         </button>
                     </form>
                     <?php endif; ?>
@@ -722,7 +722,7 @@ endif;
                         <input type="hidden" name="pay" value="cashfree">
                         <?php renderCheckoutCustomerFields($link); ?>
                         <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-dark-900 py-4 rounded-xl font-semibold text-lg">
-                            Instant Test Pay <?= formatMoney($payAmount) ?>
+                            UniWeb Test Pay <?= formatMoney($payAmount) ?>
                         </button>
                     </form>
                     <?php endif; ?>
@@ -742,9 +742,9 @@ endif;
                         <input type="hidden" name="action" value="test_pay">
                         <input type="hidden" name="pay" value="<?= e($selectedPay) ?>">
                         <?php renderCheckoutCustomerFields($link); ?>
-                        <p class="text-xs text-amber-400 text-center">Test Mode — instant demo payment (no gateway redirect)</p>
+                        <p class="text-xs text-amber-400 text-center">UniWeb Test Mode — sandbox demo payment (no redirect)</p>
                         <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-dark-900 py-4 rounded-xl font-semibold text-lg">
-                            Instant Test Pay <?= formatMoney($payAmount) ?> — <?= e($currentMethod['label'] ?? 'Demo') ?>
+                            UniWeb Test Pay <?= formatMoney($payAmount) ?> — <?= e($currentMethod['label'] ?? 'Demo') ?>
                         </button>
                     </form>
                     <?php else: ?>

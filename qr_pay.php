@@ -168,7 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($amount < 1) {
             $error = 'Enter an amount of at least ₹1.';
         } elseif ($isTest && $amount > 100) {
-            $error = 'Test Mode amount must be ₹1–₹100.';
+            $error = 'UniWeb Test Mode amount must be ₹1–₹100.';
         } elseif (!$isTest && $amount > $liveCap) {
             $error = 'Amount exceeds the maximum allowed limit.';
         } else {
@@ -196,7 +196,7 @@ require_once __DIR__ . '/header.php';
     <div class="w-full max-w-md">
         <div class="text-center mb-7">
             <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
-            <p class="text-xs mt-3 <?= $isTest ? 'text-amber-400' : 'text-emerald-400' ?>"><?= $isTest ? 'TEST MODE · No real money' : 'LIVE PAYMENT' ?></p>
+            <p class="text-xs mt-3 <?= $isTest ? 'text-amber-400' : 'text-emerald-400' ?>"><?= $isTest ? 'UniWeb Test Mode · No real money' : 'Live payment' ?></p>
         </div>
         <div class="glass rounded-2xl p-8">
             <p class="text-xs text-gray-500 uppercase"><?= $qrType === 'all_methods' ? 'All Payment Methods QR' : 'Dynamic UPI QR' ?></p>

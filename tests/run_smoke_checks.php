@@ -1798,6 +1798,9 @@ $assert(str_contains((string)file_get_contents($root . '/api.php'), 'merchantApi
 $assert(str_contains((string)file_get_contents($root . '/includes/partner_engine.php'), 'function partnerIntegrationState'), 'partner_integration_state_labels');
 $assert(str_contains($irSrc, 'intelligentRoutingSuccessRateWindowHours') && str_contains($irSrc, 'attempt_failed'), 'routing_success_window_and_attempt_log');
 $assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'pgCheckoutPartner'), 'checkout_pg_pool_internal_routing');
+$assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'UniWeb Test Pay') && !str_contains((string)file_get_contents($root . '/checkout.php'), 'Instant Test Pay'), 'brand_checkout_uniweb_test_pay_cta');
+$assert(str_contains((string)file_get_contents($root . '/qr_pay.php'), 'UniWeb Test Mode'), 'brand_qr_pay_uniweb_test_banner');
+$assert(!str_contains((string)file_get_contents($root . '/checkout.php'), 'Continue to test gateway') && !str_contains((string)file_get_contents($root . '/checkout.php'), 'test gateway redirect'), 'brand_no_test_gateway_cta');
 $assert(!str_contains((string)file_get_contents($root . '/checkout.php'), 'Pay with Razorpay') && !str_contains((string)file_get_contents($root . '/checkout.php'), 'Powered by PayU'), 'brand_zero_partner_cta_checkout');
 
 $payload = [
