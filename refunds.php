@@ -42,7 +42,15 @@ if ($refundQ !== '') {
 }
 $refundTotal = count($refunds);
 $refunds = array_slice($refunds, $listParams['offset'], $listParams['perPage']);
-$txns = $db->prepare("SELECT id, txn_id, amount FROM transactions WHERE merchant_id = ? AND status = 'success' AND id NOT IN (SELECT transaction_id FROM refunds WHERE status IN ('pending','completed')) ORDER BY created_at DESC LIMIT 30");
+$txns = $db->prepare(
+    "SELECT t.id, t.txn_id, t.amount,
+        (t.amount - COALESCE((SELECT SUM(r.amount) FROM refunds r WHERE r.transaction_id=t.id AND r.status IN ('pending','completed')),0)) AS refundable
+     FROM transactions t
+     WHERE t.merchant_id = ?
+       AND t.status IN ('success','refunded')
+       AND (t.amount - COALESCE((SELECT SUM(r.amount) FROM refunds r WHERE r.transaction_id=t.id AND r.status IN ('pending','completed')),0)) > 0.001
+     ORDER BY t.created_at DESC LIMIT 30"
+);
 $txns->execute([$merchant['id']]);
 $txnList = $txns->fetchAll();
 $pageTitle = 'Refunds';

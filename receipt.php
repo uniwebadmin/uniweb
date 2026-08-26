@@ -32,17 +32,20 @@ $txn = null;
 if ($adminView || $merchant) {
     $txn = fetchTransactionDetail($txnId, $merchantId, $adminView);
 } elseif ($isCustomer) {
-    $stmt = getDB()->prepare("SELECT t.*, m.business_name, m.merchant_code, m.email AS merchant_email, m.phone AS merchant_phone,
-        m.collection_mode AS merchant_collection_mode, m.account_mode,
-        pl.link_id, pl.description AS link_description, pl.customer_name AS link_customer_name,
-        pl.customer_phone AS link_customer_phone, pl.payment_method AS link_payment_method,
-        pl.gateway_code AS link_gateway, pl.link_label
-        FROM transactions t
-        JOIN merchants m ON t.merchant_id = m.id
-        LEFT JOIN payment_links pl ON t.payment_link_id = pl.id
-        WHERE t.txn_id = ? AND t.customer_phone = ? LIMIT 1");
-    $stmt->execute([$txnId, $customerPhone]);
-    $txn = $stmt->fetch() ?: null;
+    $owned = findCustomerOwnedTransaction($customerPhone, $txnId);
+    if ($owned) {
+        $stmt = getDB()->prepare("SELECT t.*, m.business_name, m.merchant_code, m.email AS merchant_email, m.phone AS merchant_phone,
+            m.collection_mode AS merchant_collection_mode, m.account_mode,
+            pl.link_id, pl.description AS link_description, pl.customer_name AS link_customer_name,
+            pl.customer_phone AS link_customer_phone, pl.payment_method AS link_payment_method,
+            pl.gateway_code AS link_gateway, pl.link_label
+            FROM transactions t
+            JOIN merchants m ON t.merchant_id = m.id
+            LEFT JOIN payment_links pl ON t.payment_link_id = pl.id
+            WHERE t.txn_id = ? LIMIT 1");
+        $stmt->execute([$txnId]);
+        $txn = $stmt->fetch() ?: null;
+    }
 }
 
 if (!$txn) {

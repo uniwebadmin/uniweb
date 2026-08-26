@@ -431,6 +431,53 @@ function findCustomerOwnedTransaction(string $phone, string $txnId): ?array
     return null;
 }
 
+/** Refunds for customer portal — keyed by txn_id. */
+function getCustomerRefundsByTxn(string $phone): array
+{
+    $phone = customerNormalizePhone($phone) ?: $phone;
+    if ($phone === '') {
+        return [];
+    }
+    $db = getDB();
+    $out = [];
+    try {
+        $st = $db->prepare(
+            "SELECT r.refund_id, r.amount, r.status, r.reason, r.failure_reason, r.created_at, t.txn_id
+             FROM refunds r
+             JOIN transactions t ON t.id = r.transaction_id
+             LEFT JOIN payment_links pl ON pl.id = t.payment_link_id
+             WHERE RIGHT(REGEXP_REPLACE(COALESCE(NULLIF(TRIM(t.customer_phone),''), NULLIF(TRIM(pl.customer_phone),''), ''), '[^0-9]', ''), 10) = ?
+             ORDER BY r.created_at DESC LIMIT 50"
+        );
+        $st->execute([$phone]);
+        foreach ($st->fetchAll() ?: [] as $row) {
+            $key = (string)($row['txn_id'] ?? '');
+            if ($key !== '') {
+                $out[$key][] = $row;
+            }
+        }
+    } catch (Throwable $e) {
+        try {
+            $st = $db->prepare(
+                "SELECT r.refund_id, r.amount, r.status, r.reason, r.failure_reason, r.created_at, t.txn_id
+                 FROM refunds r JOIN transactions t ON t.id = r.transaction_id
+                 WHERE t.customer_phone LIKE CONCAT('%', ?)
+                 ORDER BY r.created_at DESC LIMIT 50"
+            );
+            $st->execute([$phone]);
+            foreach ($st->fetchAll() ?: [] as $row) {
+                $key = (string)($row['txn_id'] ?? '');
+                if ($key !== '') {
+                    $out[$key][] = $row;
+                }
+            }
+        } catch (Throwable $e2) {
+            return [];
+        }
+    }
+    return $out;
+}
+
 function getCustomerTickets(string $phone, int $limit = 50): array
 {
     ensureCustomerPortalSchema();

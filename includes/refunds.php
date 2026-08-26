@@ -12,7 +12,7 @@ function ensureRefundsEngine(): void
 
 function notifyMerchantRefundProcessed(int $merchantId, string $refundId, string $txnRef, float $amount): void
 {
-    $message = formatMoney($amount) . ' refunded for ' . $txnRef . ' (' . $refundId . ').';
+    $message = $refundId . ' — ' . formatMoney($amount) . ' refunded for ' . $txnRef . '.';
     if (function_exists('notifyMerchant')) {
         notifyMerchant($merchantId, 'Refund Processed', $message, 'refund_ok_' . $refundId);
     } elseif (function_exists('createNotification')) {
@@ -23,7 +23,7 @@ function notifyMerchantRefundProcessed(int $merchantId, string $refundId, string
 function notifyMerchantRefundFailed(int $merchantId, string $refundId, string $txnRef, float $amount, string $reason): void
 {
     $reason = trim($reason);
-    $message = formatMoney($amount) . ' refund for ' . $txnRef . ' (' . $refundId . ') could not be completed.';
+    $message = $refundId . ' — ' . formatMoney($amount) . ' refund for ' . $txnRef . ' could not be completed.';
     if ($reason !== '') {
         $message .= ' ' . mb_substr($reason, 0, 200);
     }
@@ -59,6 +59,12 @@ function markProviderRefundFailed(int $refundRowId, string $failureReason): arra
         (float)$refund['amount'],
         $failureReason
     );
+    $txnSt = getDB()->prepare('SELECT * FROM transactions WHERE id=?');
+    $txnSt->execute([(int)$refund['transaction_id']]);
+    $txnRow = $txnSt->fetch() ?: [];
+    if ($txnRow) {
+        notifyCustomerRefundTerminal($refund, $txnRow, 'failed', $failureReason);
+    }
     if (function_exists('uwRecordAuditEvent')) {
         uwRecordAuditEvent('refund_failed', [
             'merchant_id' => (int)$refund['merchant_id'],
@@ -69,6 +75,53 @@ function markProviderRefundFailed(int $refundRowId, string $failureReason): arra
         ]);
     }
     return ['ok' => true, 'status' => 'failed'];
+}
+
+/**
+ * Honest customer notify on terminal refund — email when address exists; track link in body.
+ * No fake SMS when channel not configured.
+ */
+function notifyCustomerRefundTerminal(array $refund, array $txn, string $terminalStatus, string $detailReason = ''): void
+{
+    $email = trim((string)($txn['customer_email'] ?? ''));
+    $txnRef = (string)($txn['txn_id'] ?? '');
+    $refundId = (string)($refund['refund_id'] ?? '');
+    $amount = formatMoney((float)($refund['amount'] ?? 0));
+    $trackUrl = APP_URL . '/payment_status.php?txn_id=' . rawurlencode($txnRef);
+    $portalUrl = APP_URL . '/customer_login.php';
+
+    if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        if (!function_exists('sendPlatformEmail') && is_file(__DIR__ . '/mailer.php')) {
+            require_once __DIR__ . '/mailer.php';
+        }
+        if (function_exists('sendPlatformEmail')) {
+            $subject = $terminalStatus === 'completed'
+                ? 'Refund processed — ' . APP_NAME
+                : 'Refund update — ' . APP_NAME;
+            $body = '<p>Your payment ' . e($txnRef) . ' — refund ' . e($refundId) . ' — ' . e($amount) . '.</p>'
+                . '<p>Status: <strong>' . e($terminalStatus) . '</strong>'
+                . ($detailReason !== '' ? (' — ' . e(mb_substr($detailReason, 0, 300))) : '')
+                . '</p>'
+                . '<p><a href="' . e($trackUrl) . '">Track payment status</a> · '
+                . '<a href="' . e($portalUrl) . '">Customer portal</a></p>';
+            sendPlatformEmail($email, $subject, $body, true);
+        }
+    }
+}
+
+function refundRemainingAmount(int $transactionId): float
+{
+    $db = getDB();
+    $st = $db->prepare('SELECT amount, is_test FROM transactions WHERE id=?');
+    $st->execute([$transactionId]);
+    $txn = $st->fetch();
+    if (!$txn) {
+        return 0.0;
+    }
+    $cap = sanitizePaymentAmount((float)$txn['amount'], !empty($txn['is_test']));
+    $usedSt = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM refunds WHERE transaction_id=? AND status IN ('pending','completed')");
+    $usedSt->execute([$transactionId]);
+    return max(0, round($cap - (float)$usedSt->fetchColumn(), 2));
 }
 
 function processRefund(int $transactionId, float $amount, string $reason, ?int $adminId = null): array
@@ -83,16 +136,20 @@ function processRefund(int $transactionId, float $amount, string $reason, ?int $
     if (!$txn) {
         return ['ok' => false, 'error' => 'Transaction not found.'];
     }
-    if ($txn['status'] !== 'success') {
-        return ['ok' => false, 'error' => 'Only successful transactions can be refunded.'];
+    if ($txn['status'] !== 'success' && $txn['status'] !== 'refunded') {
+        return ['ok' => false, 'error' => 'Only successful or partially refunded transactions can be refunded.'];
+    }
+
+    $pendingDup = $db->prepare("SELECT refund_id FROM refunds WHERE transaction_id=? AND status='pending' LIMIT 1");
+    $pendingDup->execute([$transactionId]);
+    $existingPending = $pendingDup->fetchColumn();
+    if ($existingPending) {
+        return ['ok' => false, 'error' => 'A refund is already pending for this transaction (' . $existingPending . '). Wait for completion or failure.'];
     }
 
     $isTest = !empty($txn['is_test']);
     $capturedAmount = sanitizePaymentAmount((float)$txn['amount'], $isTest);
-    $usedSt = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM refunds WHERE transaction_id=? AND status IN ('pending','completed')");
-    $usedSt->execute([$transactionId]);
-    $alreadyRefunding = round((float)$usedSt->fetchColumn(), 2);
-    $max = max(0, round($capturedAmount - $alreadyRefunding, 2));
+    $max = refundRemainingAmount($transactionId);
     if ($amount <= 0) {
         $amount = $max;
     }
@@ -134,6 +191,7 @@ function processRefund(int $transactionId, float $amount, string $reason, ?int $
         $db->prepare("UPDATE refunds SET status='failed',provider='razorpay',provider_status='request_failed',failure_reason=?,processed_at=NOW() WHERE refund_id=?")
             ->execute([$failReason, $refundId]);
         notifyMerchantRefundFailed((int)$txn['merchant_id'], $refundId, (string)$txn['txn_id'], $amount, $failReason);
+        notifyCustomerRefundTerminal(['refund_id' => $refundId, 'amount' => $amount], $txn, 'failed', $failReason);
         if (function_exists('uwRecordAuditEvent')) {
             uwRecordAuditEvent('refund_failed', [
                 'merchant_id' => (int)$txn['merchant_id'],
@@ -151,6 +209,7 @@ function processRefund(int $transactionId, float $amount, string $reason, ?int $
         $db->prepare("UPDATE refunds SET status='failed',provider='razorpay',provider_refund_id=?,provider_status='mismatch',failure_reason=?,processed_at=NOW() WHERE refund_id=?")
             ->execute([(string)$providerRefund['id'], 'Provider refund response did not match the request.', $refundId]);
         notifyMerchantRefundFailed((int)$txn['merchant_id'], $refundId, (string)$txn['txn_id'], $amount, 'Provider refund response did not match the request.');
+        notifyCustomerRefundTerminal(['refund_id' => $refundId, 'amount' => $amount], $txn, 'failed', 'Provider refund response did not match the request.');
         return ['ok' => false, 'error' => 'Provider refund response mismatch. Support has been notified.'];
     }
     $providerStatus = strtolower((string)($providerRefund['status'] ?? 'pending'));
@@ -300,6 +359,12 @@ function completeProviderRefund(string $refundId, string $providerReference): ar
         'amount' => (float)$refund['amount'],
         'provider_reference' => $providerReference,
     ]);
+    $txnSt = getDB()->prepare('SELECT * FROM transactions WHERE id=?');
+    $txnSt->execute([(int)$refund['transaction_id']]);
+    $txnRow = $txnSt->fetch() ?: [];
+    if ($txnRow) {
+        notifyCustomerRefundTerminal($refund, $txnRow, 'completed', (string)($refund['reason'] ?? ''));
+    }
     return ['ok' => true, 'duplicate' => false];
 }
 

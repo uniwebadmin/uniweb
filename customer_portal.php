@@ -13,6 +13,7 @@ $filters = [
     'amount_max' => trim($_GET['amount_max'] ?? ''),
 ];
 $txns = getCustomerTransactions($phone, 100, $filters);
+$refundsByTxn = getCustomerRefundsByTxn($phone);
 $tickets = getCustomerTickets($phone);
 $openTickets = count(array_filter($tickets, static fn($t) => in_array(($t['status'] ?? ''), ['open', 'in_progress'], true)));
 
@@ -69,7 +70,7 @@ require_once __DIR__ . '/header.php';
                 <div>
                     <label class="text-[10px] uppercase text-slate-500 font-semibold" for="cp-status">Status</label>
                     <select id="cp-status" name="status" class="cp-input mt-1 !py-2">
-                        <?php foreach (['all' => 'All statuses', 'success' => 'Success', 'pending' => 'Pending', 'failed' => 'Failed'] as $k => $lbl): ?>
+                        <?php foreach (['all' => 'All statuses', 'success' => 'Success', 'pending' => 'Pending', 'failed' => 'Failed', 'refunded' => 'Refunded'] as $k => $lbl): ?>
                         <option value="<?= e($k) ?>" <?= $filters['status'] === $k ? 'selected' : '' ?>><?= e($lbl) ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -117,6 +118,12 @@ require_once __DIR__ . '/header.php';
                     <div class="hidden sm:block text-sm font-bold text-slate-900"><?= formatMoney((float)$t['amount']) ?></div>
                     <div>
                         <?= statusBadge((string)$t['status']) ?>
+                        <?php
+                        $txnRefunds = $refundsByTxn[(string)$t['txn_id']] ?? [];
+                        foreach ($txnRefunds as $rf):
+                        ?>
+                        <p class="text-[10px] text-violet-700 mt-1">Refund <?= e($rf['refund_id']) ?> — <?= e($rf['status']) ?> <?= $rf['failure_reason'] ? '— ' . e(mb_substr((string)$rf['failure_reason'], 0, 80)) : '' ?></p>
+                        <?php endforeach; ?>
                         <?php if ($reason): ?><p class="cp-reason"><?= e($reason) ?></p><?php endif; ?>
                     </div>
                     <div class="flex items-center gap-2">

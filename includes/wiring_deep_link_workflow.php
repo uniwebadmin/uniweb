@@ -162,6 +162,25 @@ function wiringDeepLinkTxnActionUrl(string $title, string $message, bool $forAdm
     return null;
 }
 
+/** Refund RFD… → refunds list (merchant) or admin refunds (staff). */
+function wiringDeepLinkRefundActionUrl(string $title, string $message, bool $forAdmin = false): ?string
+{
+    $hay = $title . ' ' . $message;
+    $titleLower = strtolower($title);
+    if (!str_contains($titleLower, 'refund')) {
+        return null;
+    }
+    if (preg_match('/\b(RFD[A-F0-9]{8,})\b/i', $hay, $m)) {
+        $rfd = strtoupper($m[1]);
+        return $forAdmin ? 'admin_refunds.php?q=' . rawurlencode($rfd) : 'refunds.php?q=' . rawurlencode($rfd);
+    }
+    if (preg_match('/\b(TXN[A-F0-9]{8,})\b/i', $hay, $m)) {
+        $txn = strtoupper($m[1]);
+        return $forAdmin ? 'admin_refunds.php?q=' . rawurlencode($txn) : 'refunds.php?q=' . rawurlencode($txn);
+    }
+    return $forAdmin ? 'admin_refunds.php' : 'refunds.php';
+}
+
 /** Audit B #24 — admin/staff KYC queue deep-link. */
 function wiringDeepLinkAdminKycActionUrl(string $title, string $message = ''): ?string
 {

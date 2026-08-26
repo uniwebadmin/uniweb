@@ -157,6 +157,17 @@ if (!function_exists('notificationActionUrl')) {
             return 'merchant_customer_tickets.php';
         }
 
+        // Refund RFD… → refunds page (before generic TXN fallback)
+        if (!function_exists('wiringDeepLinkRefundActionUrl') && is_file(__DIR__ . '/wiring_deep_link_workflow.php')) {
+            require_once __DIR__ . '/wiring_deep_link_workflow.php';
+        }
+        if (function_exists('wiringDeepLinkRefundActionUrl')) {
+            $refundUrl = wiringDeepLinkRefundActionUrl($title, $message, false);
+            if ($refundUrl !== null) {
+                return $refundUrl;
+            }
+        }
+
         // Transaction id in body → transactions list with highlight (Audit B #23)
         if (!function_exists('wiringDeepLinkTxnActionUrl') && is_file(__DIR__ . '/wiring_deep_link_workflow.php')) {
             require_once __DIR__ . '/wiring_deep_link_workflow.php';

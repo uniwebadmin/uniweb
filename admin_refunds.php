@@ -75,7 +75,11 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     sendCsvDownload(['Refund ID', 'Merchant', 'Transaction', 'Amount', 'Status', 'Date'], $csvRows, 'refunds-' . date('Y-m-d') . '.csv');
 }
 
-$txnSql = "SELECT t.id, t.txn_id, t.amount, t.merchant_id, m.business_name FROM transactions t JOIN merchants m ON m.id=t.merchant_id WHERE t.status='success' AND t.id NOT IN (SELECT transaction_id FROM refunds WHERE status IN ('pending','completed'))";
+$txnSql = "SELECT t.id, t.txn_id, t.amount, t.merchant_id, m.business_name,
+    (t.amount - COALESCE((SELECT SUM(r.amount) FROM refunds r WHERE r.transaction_id=t.id AND r.status IN ('pending','completed')),0)) AS refundable
+    FROM transactions t JOIN merchants m ON m.id=t.merchant_id
+    WHERE t.status IN ('success','refunded')
+    AND (t.amount - COALESCE((SELECT SUM(r.amount) FROM refunds r WHERE r.transaction_id=t.id AND r.status IN ('pending','completed')),0)) > 0.001";
 $txnParams = [];
 if ($merchantFilter > 0) {
     $txnSql .= ' AND t.merchant_id = ?';
@@ -113,7 +117,7 @@ require_once __DIR__ . '/header.php';
             <div><?= uxLabel('refund-txn', 'Transaction', true) ?>
                 <select id="refund-txn" name="transaction_id" required class="input-field mt-1" aria-required="true">
                     <option value="">Select transaction</option>
-                    <?php foreach ($txns as $t): ?><option value="<?= $t['id'] ?>"><?= e($t['txn_id']) ?> — <?= e($t['business_name']) ?> — <?= formatMoney(capStatAmount((float)$t['amount'])) ?></option><?php endforeach; ?>
+                    <?php foreach ($txns as $t): ?><option value="<?= $t['id'] ?>"><?= e($t['txn_id']) ?> — <?= e($t['business_name']) ?> — <?= formatMoney(capStatAmount((float)$t['amount'])) ?><?= isset($t['refundable']) ? (' (refundable ' . formatMoney((float)$t['refundable']) . ')') : '' ?></option><?php endforeach; ?>
                 </select>
             </div>
             <div><?= uxLabel('refund-amount', 'Amount (blank = full)') ?><input id="refund-amount" type="number" name="amount" min="0" step="0.01" class="input-field mt-1" placeholder="Full refund"></div>

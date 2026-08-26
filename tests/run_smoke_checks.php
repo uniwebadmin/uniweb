@@ -819,7 +819,7 @@ $assert(!is_file($root . '/admin_dispute_bulk.php') && !is_file($root . '/disput
 $assert(!is_file($root . '/demo.php') && !is_file($root . '/ping.php'), 'wiring_demo_ping_deleted');
 $assert(!is_file($root . '/AGENTS.md') && is_file($root . '/.cursor/AGENTS.md'), 'wiring_root_md_agents_moved_off_webroot');
 $assert(str_contains((string)file_get_contents($root . '/mobile.php'), "redirect('index.php')"), 'wiring_mobile_redirect_home');
-$assert(str_contains((string)file_get_contents($root . '/cust.php'), "redirect('index.php"), 'wiring_cust_redirect_home');
+$assert(str_contains((string)file_get_contents($root . '/cust.php'), "redirect('customer_login.php"), 'wiring_cust_redirect_login');
 $assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), "filterMerchantId") && str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'merchant_id'), 'wiring_disputes_merchant_id_filter');
 $assert(str_contains((string)file_get_contents($root . '/admin_customer_tickets.php'), '$filterMerchantId') && str_contains((string)file_get_contents($root . '/admin_customer_tickets.php'), 'adminMerchantLink'), 'wiring_customer_tickets_filter_and_open_merchant');
 $assert(str_contains((string)file_get_contents($root . '/admin_support.php'), '$filterMerchantId'), 'wiring_support_merchant_id_filter');
@@ -1775,6 +1775,19 @@ $assert(str_contains($pfqAc, 'function getForwardQueueRowTimeline'), 'chain_a_qu
 $assert(str_contains((string)file_get_contents($root . '/admin_kyc.php'), 'forward_partners_now'), 'chain_a_admin_kyc_forward_button');
 $assert(str_contains($finAc, 'function postPrimaryPaymentCaptureLedger') && str_contains($finAc, 'applyPaymentCaptureSplitAndRoute'), 'chain_b_primary_ledger_helper');
 $assert(str_contains($finAc, 'Ledger write failed — payment not marked settled'), 'chain_b_fail_closed_capture');
+
+// Owner three-workstreams — Refund notify, Customer portal, Intelligent routing
+$irSrc = (string)@file_get_contents($root . '/includes/intelligent_routing.php');
+$assert(str_contains((string)file_get_contents($root . '/includes/refunds.php'), 'function notifyCustomerRefundTerminal'), 'ws1_customer_refund_notify');
+$assert(str_contains((string)file_get_contents($root . '/includes/wiring_deep_link_workflow.php'), 'function wiringDeepLinkRefundActionUrl'), 'ws1_refund_deeplink');
+$assert(str_contains((string)file_get_contents($root . '/includes/refunds.php'), 'function refundRemainingAmount'), 'ws1_partial_refund_eligibility');
+$assert(str_contains((string)file_get_contents($root . '/includes/customer_portal.php'), 'function getCustomerRefundsByTxn'), 'ws2_customer_refund_visibility');
+$assert(str_contains((string)file_get_contents($root . '/payment_status.php'), 'findCustomerOwnedTransaction'), 'ws2_payment_status_idor_gate');
+$assert(str_contains((string)file_get_contents($root . '/cust.php'), 'customer_login.php'), 'ws2_cust_short_url');
+$assert(is_file($root . '/includes/intelligent_routing.php') && str_contains($irSrc, 'function intelligentRoutingEnabled') && str_contains($irSrc, 'intelligent_route_decisions'), 'ws3_intelligent_routing_module');
+$assert(str_contains($irSrc, "getSetting('intelligent_routing_enabled', '0')"), 'ws3_intelligent_default_off');
+$assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'intelligent_routing_enabled'), 'ws3_gateway_toggle');
+$assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'createCardOrderWithIntelligentRouting'), 'ws3_checkout_wired');
 
 $payload = [
     'ok' => $failed === 0,

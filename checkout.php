@@ -346,10 +346,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
     }
     $smartRouted = null;
+    if (!function_exists('intelligentRoutingEnabled') && is_file(__DIR__ . '/includes/intelligent_routing.php')) {
+        require_once __DIR__ . '/includes/intelligent_routing.php';
+    }
+    $intelligentOn = function_exists('intelligentRoutingEnabled') && intelligentRoutingEnabled();
     $phase11RoutingOn = function_exists('phase11RouteEngineActive') && phase11RouteEngineActive();
     $cardPgSelected = ($selectedPay === 'razorpay' || $selectedPay === 'cashfree');
     $routeHandlersClear = $handler !== 'razorpay_route' && $handler !== 'cashfree_route';
-    if ($phase11RoutingOn && $cardPgSelected && $routeHandlersClear) {
+    if ($intelligentOn && $cardPgSelected && $routeHandlersClear) {
+        $returnUrl = APP_URL . '/payment_cashfree_return.php?order_id={order_id}';
+        $smartRouted = createCardOrderWithIntelligentRouting($payAmount, $link, $returnUrl);
+        if (($smartRouted['routed_to'] ?? null) === 'razorpay') {
+            $razorpayOrder = $smartRouted['razorpay'];
+            $selectedPay = 'razorpay';
+        } elseif (($smartRouted['routed_to'] ?? null) === 'cashfree') {
+            $cashfreeSession = $smartRouted['cashfree']['payment_session_id'] ?? null;
+            $selectedPay = 'cashfree';
+        } elseif (!empty($smartRouted['intelligent']) && empty($smartRouted['routed_to']) && ($error ?? '') === '') {
+            $error = 'Card checkout is temporarily unavailable. No partner with valid keys could create an order.';
+        }
+        if (!empty($smartRouted['diverted'])) {
+            foreach ($paymentMethods as $m) { if ($m['key'] === $selectedPay) { $currentMethod = $m; break; } }
+        }
+    } elseif ($phase11RoutingOn && $cardPgSelected && $routeHandlersClear) {
         // Phase 11 ON: smart partner routing (Registry keys + health failover). Methods-only checkout — no partner brand CTA.
         $returnUrl = APP_URL . '/payment_cashfree_return.php?order_id={order_id}';
         $smartRouted = createCardOrderWithSmartRouting($payAmount, $link, $returnUrl);

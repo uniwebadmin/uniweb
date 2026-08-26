@@ -459,6 +459,9 @@ $gatewayCards = [
         if (!function_exists('getPhase11RouteDecisionLog') && is_file(__DIR__ . '/includes/smart_routing.php')) {
             require_once __DIR__ . '/includes/smart_routing.php';
         }
+        if (!function_exists('getIntelligentRouteDecisionLog') && is_file(__DIR__ . '/includes/intelligent_routing.php')) {
+            require_once __DIR__ . '/includes/intelligent_routing.php';
+        }
         $recurringReady = function_exists('getRecurringReadinessChecklist') ? getRecurringReadinessChecklist() : ['items' => [], 'done' => 0, 'total' => 0, 'ready' => false];
         $routeSplitReady = function_exists('getRouteSplitReadinessChecklist') ? getRouteSplitReadinessChecklist() : ['items' => [], 'done' => 0, 'total' => 0, 'ready' => false, 'phase' => 'parked'];
         $routeSplitReport = routeSplitReadinessReport();
@@ -470,7 +473,10 @@ $gatewayCards = [
         $payoutLiveOn = ($settingsMap['payout_live_enabled'] ?? '0') === '1';
         $recurringOn = ($settingsMap['recurring_autopay_approved'] ?? '0') === '1';
         $routeSplitOn = ($settingsMap['route_split_live_enabled'] ?? '0') === '1';
+        $intelligentOn = ($settingsMap['intelligent_routing_enabled'] ?? '0') === '1';
+        $intelligentStrategy = $settingsMap['intelligent_routing_strategy'] ?? 'score';
         $phase11RouteLog = function_exists('getPhase11RouteDecisionLog') ? getPhase11RouteDecisionLog(10) : [];
+        $intelligentRouteLog = function_exists('getIntelligentRouteDecisionLog') ? getIntelligentRouteDecisionLog(10) : [];
         ?>
         <div id="live-money-switches" class="rounded-xl border border-violet-500/40 bg-violet-500/5 p-5 my-4 space-y-4">
             <?= settingsSectionHeading('Live Money Switches', 'violet', 'text-base') ?>
@@ -499,6 +505,19 @@ $gatewayCards = [
                         <option value="1" <?= $routeSplitOn ? 'selected' : '' ?>>ON — smart routing + Route/Split APIs when partner config live</option>
                     </select>
                     <p class="text-[11px] text-gray-600 mt-2">Default OFF — zero effect on live payments. When ON: health + priority partner pick at checkout; capture split when partner route_status=live. One click — no redeploy.</p>
+                </div>
+                <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4 sm:col-span-2">
+                    <label class="text-sm text-gray-300 font-medium">Intelligent routing (score-based; ML weights optional)</label>
+                    <select name="settings[intelligent_routing_enabled]" class="input-field mt-2">
+                        <option value="0" <?= !$intelligentOn ? 'selected' : '' ?>>OFF — fixed partner checkout (default)</option>
+                        <option value="1" <?= $intelligentOn ? 'selected' : '' ?>>ON — score/rules partner selection at checkout</option>
+                    </select>
+                    <select name="settings[intelligent_routing_strategy]" class="input-field mt-2 text-sm">
+                        <option value="fixed" <?= $intelligentStrategy === 'fixed' ? 'selected' : '' ?>>Strategy: fixed / merchant default</option>
+                        <option value="rules" <?= $intelligentStrategy === 'rules' ? 'selected' : '' ?>>Strategy: rules (method + amount band)</option>
+                        <option value="score" <?= $intelligentStrategy === 'score' ? 'selected' : '' ?>>Strategy: score-based (success-rate + health)</option>
+                    </select>
+                    <p class="text-[11px] text-gray-600 mt-2">Default OFF. When ON, takes precedence over Phase 11 at card checkout. Decisions logged below. Not a neural model — documented extension point for ML weights JSON.</p>
                 </div>
             </div>
             <?php if (!empty($routeSplitReady['items'])): ?>
@@ -539,6 +558,62 @@ $gatewayCards = [
                         <tr class="border-b border-gray-900/80">
                             <td class="py-1 pr-2 text-gray-500 whitespace-nowrap"><?= e(substr((string)($logRow['created_at'] ?? ''), 0, 16)) ?></td>
                             <td class="py-1 pr-2 text-sky-300"><?= e((string)($logRow['chosen_partner'] ?? '—')) ?></td>
+                            <td class="py-1 pr-2"><?= e((string)($logRow['outcome'] ?? '')) ?></td>
+                            <td class="py-1 text-gray-400"><?= e((string)($logRow['reason'] ?? '')) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+            <?php if ($intelligentOn || !empty($intelligentRouteLog)): ?>
+            <div class="rounded-lg border border-teal-500/30 bg-teal-500/5 p-3 text-xs">
+                <p class="font-medium text-teal-300 mb-2">Intelligent routing log (score-based — default OFF)</p>
+                <?php if (!$intelligentOn): ?>
+                <p class="text-amber-300/90 mb-2">Toggle OFF — checkout uses fixed partner unless Phase 11 is ON separately.</p>
+                <?php endif; ?>
+                <?php if (empty($intelligentRouteLog)): ?>
+                <p class="text-gray-600">No intelligent routing decisions yet.</p>
+                <?php else: ?>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-[10px] text-left">
+                        <thead><tr class="text-gray-500 border-b border-gray-800"><th class="py-1 pr-2">Time</th><th class="py-1 pr-2">Partner</th><th class="py-1 pr-2">Strategy</th><th class="py-1 pr-2">Outcome</th><th class="py-1">Reason</th></tr></thead>
+                        <tbody>
+                        <?php foreach ($intelligentRouteLog as $logRow): ?>
+                        <tr class="border-b border-gray-900/80">
+                            <td class="py-1 pr-2 text-gray-500 whitespace-nowrap"><?= e(substr((string)($logRow['created_at'] ?? ''), 0, 16)) ?></td>
+                            <td class="py-1 pr-2 text-teal-300"><?= e((string)($logRow['chosen_partner'] ?? '—')) ?></td>
+                            <td class="py-1 pr-2"><?= e((string)($logRow['strategy'] ?? '')) ?></td>
+                            <td class="py-1 pr-2"><?= e((string)($logRow['outcome'] ?? '')) ?></td>
+                            <td class="py-1 text-gray-400"><?= e((string)($logRow['reason'] ?? '')) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+            <?php if ($intelligentOn || !empty($intelligentRouteLog)): ?>
+            <div class="rounded-lg border border-teal-500/30 bg-teal-500/5 p-3 text-xs">
+                <p class="font-medium text-teal-300 mb-2">Intelligent routing log (score-based — default OFF)</p>
+                <?php if (!$intelligentOn): ?>
+                <p class="text-amber-300/90 mb-2">Toggle OFF — checkout uses fixed partner unless Phase 11 is ON separately.</p>
+                <?php endif; ?>
+                <?php if (empty($intelligentRouteLog)): ?>
+                <p class="text-gray-600">No intelligent routing decisions yet.</p>
+                <?php else: ?>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-[10px] text-left">
+                        <thead><tr class="text-gray-500 border-b border-gray-800"><th class="py-1 pr-2">Time</th><th class="py-1 pr-2">Partner</th><th class="py-1 pr-2">Strategy</th><th class="py-1 pr-2">Outcome</th><th class="py-1">Reason</th></tr></thead>
+                        <tbody>
+                        <?php foreach ($intelligentRouteLog as $logRow): ?>
+                        <tr class="border-b border-gray-900/80">
+                            <td class="py-1 pr-2 text-gray-500 whitespace-nowrap"><?= e(substr((string)($logRow['created_at'] ?? ''), 0, 16)) ?></td>
+                            <td class="py-1 pr-2 text-teal-300"><?= e((string)($logRow['chosen_partner'] ?? '—')) ?></td>
+                            <td class="py-1 pr-2"><?= e((string)($logRow['strategy'] ?? '')) ?></td>
                             <td class="py-1 pr-2"><?= e((string)($logRow['outcome'] ?? '')) ?></td>
                             <td class="py-1 text-gray-400"><?= e((string)($logRow['reason'] ?? '')) ?></td>
                         </tr>

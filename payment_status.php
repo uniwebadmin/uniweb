@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/customer_portal.php';
 $pageTitle = 'Track Payment';
 $txn = null;
 $txnList = null;
@@ -8,7 +9,7 @@ $otpStep = false;
 $prefillTxn = trim($_GET['txn_id'] ?? $_POST['txn_id'] ?? '');
 
 if (isset($_GET['cancel_otp'])) {
-    unset($_SESSION['pending_customer_phone']);
+    unset($_SESSION['pending_customer_phone'], $_SESSION['pending_customer_txn']);
     redirect('payment_status.php');
 }
 
@@ -18,8 +19,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (isset($_POST['otp_code'])) {
         // Step 2: verify OTP before revealing any transaction list tied to this phone number.
         $phone = $_SESSION['pending_customer_phone'] ?? '';
-        if ($phone && verifyOTP('customer_phone_' . $phone, $_POST['otp_code'], 'customer_lookup')) {
+        if (!empty($_SESSION['pending_customer_txn']) && verifyOTP('customer_txn_' . $_SESSION['pending_customer_txn'], $_POST['otp_code'], 'customer_lookup')) {
+            $pendingTxn = (string)$_SESSION['pending_customer_txn'];
+            $phone = $_SESSION['pending_customer_phone'] ?? '';
+            unset($_SESSION['pending_customer_phone'], $_SESSION['pending_customer_txn']);
+            if ($phone && findCustomerOwnedTransaction($phone, $pendingTxn)) {
+                $stmt = getDB()->prepare('SELECT t.*, m.business_name, pl.link_id AS recovery_link_id, pl.status AS recovery_link_status, pl.expires_at AS recovery_link_expires_at FROM transactions t JOIN merchants m ON t.merchant_id = m.id LEFT JOIN payment_links pl ON pl.id = t.payment_link_id WHERE t.txn_id = ?');
+                $stmt->execute([$pendingTxn]);
+                $txn = $stmt->fetch();
+            }
+            if (!$txn) {
+                $error = 'Could not verify payment ownership.';
+            }
+        } elseif ($phone && verifyOTP('customer_phone_' . $phone, $_POST['otp_code'], 'customer_lookup')) {
             unset($_SESSION['pending_customer_phone']);
+            unset($_SESSION['pending_customer_txn']);
             $stmt = getDB()->prepare('SELECT t.*, m.business_name FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE t.customer_phone = ? ORDER BY t.created_at DESC LIMIT 10');
             $stmt->execute([$phone]);
             $txnList = $stmt->fetchAll();
@@ -35,11 +49,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $txnId = trim($_POST['txn_id'] ?? '');
         $phone = trim($_POST['phone'] ?? '');
         if ($txnId) {
-            $stmt = getDB()->prepare('SELECT t.*, m.business_name, pl.link_id AS recovery_link_id, pl.status AS recovery_link_status, pl.expires_at AS recovery_link_expires_at FROM transactions t JOIN merchants m ON t.merchant_id = m.id LEFT JOIN payment_links pl ON pl.id = t.payment_link_id WHERE t.txn_id = ?');
-            $stmt->execute([$txnId]);
-            $txn = $stmt->fetch();
-            if (!$txn) {
-                $error = 'No payment found with that Transaction ID.';
+            $phoneDigits = preg_replace('/\D/', '', $phone) ?? '';
+            if (isCustomerLoggedIn()) {
+                $owned = findCustomerOwnedTransaction(currentCustomerPhone(), $txnId);
+                if ($owned) {
+                    $stmt = getDB()->prepare('SELECT t.*, m.business_name, pl.link_id AS recovery_link_id, pl.status AS recovery_link_status, pl.expires_at AS recovery_link_expires_at FROM transactions t JOIN merchants m ON t.merchant_id = m.id LEFT JOIN payment_links pl ON pl.id = t.payment_link_id WHERE t.txn_id = ?');
+                    $stmt->execute([$txnId]);
+                    $txn = $stmt->fetch();
+                } else {
+                    $error = 'This payment is not linked to your account.';
+                }
+            } elseif (strlen($phoneDigits) === 10) {
+                $owned = findCustomerOwnedTransaction($phoneDigits, $txnId);
+                if ($owned) {
+                    $otp = generateOTP('customer_txn_' . $txnId, 'customer_lookup');
+                    $waResult = ['ok' => false];
+                    if (getSetting('whatsapp_enabled', '0') === '1') {
+                        $waResult = sendWhatsAppOtp($phoneDigits, $otp);
+                    }
+                    if (empty($waResult['ok'])) {
+                        $error = 'Phone verification is temporarily unavailable. Log in to the customer portal or try again later.';
+                    } else {
+                        $_SESSION['pending_customer_phone'] = $phoneDigits;
+                        $_SESSION['pending_customer_txn'] = $txnId;
+                        $otpStep = true;
+                    }
+                } else {
+                    $error = 'No payment found for this Transaction ID and phone number.';
+                }
+            } else {
+                $error = 'Enter the mobile number used at checkout to view this payment.';
             }
         } elseif ($phone) {
             $digits = preg_replace('/\D/', '', $phone);
@@ -65,12 +104,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 } elseif ($prefillTxn !== '') {
-    $stmt = getDB()->prepare('SELECT t.*, m.business_name, pl.link_id AS recovery_link_id, pl.status AS recovery_link_status, pl.expires_at AS recovery_link_expires_at FROM transactions t JOIN merchants m ON t.merchant_id = m.id LEFT JOIN payment_links pl ON pl.id = t.payment_link_id WHERE t.txn_id = ?');
-    $stmt->execute([$prefillTxn]);
-    $txn = $stmt->fetch();
-    if (!$txn) {
-        $error = 'No payment found with that Transaction ID.';
+    if (isCustomerLoggedIn()) {
+        $owned = findCustomerOwnedTransaction(currentCustomerPhone(), $prefillTxn);
+        if ($owned) {
+            $stmt = getDB()->prepare('SELECT t.*, m.business_name, pl.link_id AS recovery_link_id, pl.status AS recovery_link_status, pl.expires_at AS recovery_link_expires_at FROM transactions t JOIN merchants m ON t.merchant_id = m.id LEFT JOIN payment_links pl ON pl.id = t.payment_link_id WHERE t.txn_id = ?');
+            $stmt->execute([$prefillTxn]);
+            $txn = $stmt->fetch();
+        } else {
+            $error = 'This payment is not linked to your account.';
+        }
     }
+    // Without login: txn_id prefill only — user must enter phone + OTP on the form (no public leak).
 }
 
 if (isset($_SESSION['pending_customer_phone'])) {
