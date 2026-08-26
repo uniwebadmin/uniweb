@@ -2,19 +2,21 @@
   "openapi": "3.0.3",
   "info": {
     "title": "UniWeb Merchant API",
-    "version": "2.0.0",
-    "description": "Mode-scoped Merchant API. Authenticate with X-API-Key and X-API-Secret. Write requests also require Idempotency-Key."
+    "version": "1.0.0",
+    "description": "UniWeb Merchant API v1. Authenticate with X-API-Key and X-API-Secret. Write requests require Idempotency-Key. All responses include api_version. Documentation: /api_docs.php"
   },
   "servers": [{ "url": "https://uniweb.co.in" }],
   "paths": {
     "/api/v1/": {
       "post": {
-        "summary": "Merchant API v1",
+        "summary": "UniWeb Merchant API v1",
+        "description": "Single endpoint — pass action in JSON body. See api_docs.php for copy-paste examples.",
         "parameters": [
           {
             "name": "X-API-Key",
             "in": "header",
             "required": true,
+            "description": "uw_test_… (sandbox) or uw_live_… (live)",
             "schema": { "type": "string" }
           },
           {
@@ -27,7 +29,7 @@
             "name": "Idempotency-Key",
             "in": "header",
             "required": false,
-            "description": "Required for create_payment_link and create_refund. Reuse only for an identical request.",
+            "description": "Required for create_payment_link and create_refund.",
             "schema": { "type": "string", "maxLength": 100 }
           }
         ],
@@ -35,22 +37,22 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["action"],
-                "properties": {
-                  "action": {
-                    "type": "string",
-                    "enum": [
-                      "create_payment_link",
-                      "check_status",
-                      "list_transactions",
-                      "get_balance",
-                      "create_refund",
-                      "list_refunds",
-                      "list_payment_links",
-                      "get_payment_link"
-                    ]
+              "schema": { "$ref": "#/components/schemas/MerchantApiRequest" },
+              "examples": {
+                "create_payment_link": {
+                  "summary": "Create payment link",
+                  "value": {
+                    "action": "create_payment_link",
+                    "amount": 500,
+                    "description": "Order #123",
+                    "customer_phone": "9876543210"
+                  }
+                },
+                "check_status": {
+                  "summary": "Check payment status",
+                  "value": {
+                    "action": "check_status",
+                    "txn_id": "TXN20260826123456"
                   }
                 }
               }
@@ -58,13 +60,57 @@
           }
         },
         "responses": {
-          "200": { "description": "Success" },
-          "400": { "description": "Bad request" },
-          "401": { "description": "Invalid API key" },
-          "403": { "description": "Mode mismatch" },
-          "404": { "description": "Not found" },
-          "409": { "description": "Idempotency conflict" },
-          "429": { "description": "Rate limit exceeded" }
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SuccessResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Mode mismatch or origin not allowed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded — Retry-After header in seconds"
+          }
         }
       }
     }
@@ -83,11 +129,52 @@
       }
     },
     "schemas": {
+      "MerchantApiRequest": {
+        "type": "object",
+        "required": ["action"],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "create_payment_link",
+              "check_status",
+              "list_transactions",
+              "get_balance",
+              "create_refund",
+              "list_refunds",
+              "list_payment_links",
+              "get_payment_link"
+            ]
+          }
+        }
+      },
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "api_version": { "type": "string", "example": "v1" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["success", "error_code", "error", "api_version"],
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "error_code": {
+            "type": "string",
+            "example": "amount_out_of_range",
+            "description": "Stable machine-readable code — see api_docs.php#error-codes"
+          },
+          "error": { "type": "string", "example": "Amount must be between 1 and 200000000." },
+          "api_version": { "type": "string", "example": "v1" }
+        }
+      },
       "WebhookPayload": {
         "type": "object",
         "properties": {
+          "id": { "type": "string", "example": "EVT20260826123456" },
           "event": { "type": "string", "example": "payment.success" },
-          "timestamp": { "type": "integer" },
+          "created_at": { "type": "string", "format": "date-time" },
           "data": { "type": "object" }
         }
       }
@@ -98,13 +185,36 @@
     "payment.success": {
       "post": {
         "summary": "Outbound webhook to merchant URL",
-        "description": "Queued delivery with retries. HMAC-SHA256 signature in X-UniWeb-Signature over raw JSON; X-UniWeb-Event-Id is stable across retries.",
+        "description": "UniWeb POSTs to your configured HTTPS URL. Verify X-UniWeb-Signature = HMAC-SHA256(raw JSON body, signing secret). Headers: X-UniWeb-Event, X-UniWeb-Event-Id. Retries with backoff.",
+        "parameters": [
+          {
+            "name": "X-UniWeb-Signature",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "X-UniWeb-Event",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "X-UniWeb-Event-Id",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": { "$ref": "#/components/schemas/WebhookPayload" }
             }
           }
+        },
+        "responses": {
+          "200": { "description": "Acknowledged — any 2xx stops retries for this attempt" }
         }
       }
     }

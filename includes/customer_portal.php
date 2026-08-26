@@ -16,6 +16,69 @@ function customerPortalScopeCopy(): string
     return 'This portal is for payments and complaints only. It is not a PPI or stored-value wallet.';
 }
 
+/** HMAC signing key for post-checkout track links (signed callback). */
+function paymentTrackSigningKey(): string
+{
+    $seed = defined('ENCRYPTION_KEY') ? (string)constant('ENCRYPTION_KEY') : '';
+    if ($seed === '' && defined('DB_NAME')) {
+        $seed = (string)constant('DB_NAME');
+    }
+    if ($seed === '') {
+        $seed = 'uniweb_payment_track_v1';
+    }
+    return hash('sha256', 'uniweb_payment_track_v1:' . $seed, true);
+}
+
+/** @return array{exp:int,sig:string} */
+function paymentTrackSignatureParts(string $txnId, ?int $exp = null): array
+{
+    $txnId = trim($txnId);
+    $exp = $exp ?? (time() + 30 * 86400);
+    $payload = $txnId . '.' . $exp;
+    return [
+        'exp' => $exp,
+        'sig' => hash_hmac('sha256', $payload, paymentTrackSigningKey()),
+    ];
+}
+
+function verifyPaymentTrackSignature(string $txnId, string $sig, int $exp): bool
+{
+    $txnId = trim($txnId);
+    $sig = trim($sig);
+    if ($txnId === '' || $sig === '' || $exp < time()) {
+        return false;
+    }
+    $expected = paymentTrackSignatureParts($txnId, $exp)['sig'];
+    return hash_equals($expected, $sig);
+}
+
+function buildPaymentTrackUrl(string $txnId): string
+{
+    $parts = paymentTrackSignatureParts($txnId);
+    return APP_URL . '/payment_status.php?txn_id=' . rawurlencode(trim($txnId))
+        . '&exp=' . $parts['exp']
+        . '&sig=' . rawurlencode($parts['sig']);
+}
+
+/** Load one transaction row for the public track page (no PII beyond what checkout already showed). */
+function fetchPaymentStatusTransaction(string $txnId): ?array
+{
+    $txnId = trim($txnId);
+    if ($txnId === '') {
+        return null;
+    }
+    $stmt = getDB()->prepare(
+        'SELECT t.*, m.business_name, pl.link_id AS recovery_link_id, pl.status AS recovery_link_status, pl.expires_at AS recovery_link_expires_at
+         FROM transactions t
+         JOIN merchants m ON t.merchant_id = m.id
+         LEFT JOIN payment_links pl ON pl.id = t.payment_link_id
+         WHERE t.txn_id = ? LIMIT 1'
+    );
+    $stmt->execute([$txnId]);
+    $row = $stmt->fetch();
+    return $row ?: null;
+}
+
 function ensureCustomerPortalSchema(): void
 {
     static $done = false;

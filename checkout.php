@@ -16,6 +16,9 @@ if (!function_exists('getCheckoutPaymentMethods') && is_file(__DIR__ . '/include
 
 require_once __DIR__ . '/includes/checkout_mode_banner.php';
 require_once __DIR__ . '/includes/checkout_customize.php';
+if (!function_exists('buildPaymentTrackUrl') && is_file(__DIR__ . '/includes/customer_portal.php')) {
+    require_once __DIR__ . '/includes/customer_portal.php';
+}
 
 /**
  * Render a branded, navigable checkout error page instead of a bare white die() screen.
@@ -521,7 +524,7 @@ endif;
                 <script>setTimeout(function(){ window.location.href = <?= json_encode($wlBrand['redirect_url']) ?>; }, 3000);</script>
                 <a href="<?= e($wlBrand['redirect_url']) ?>" class="inline-block mt-4 text-sm text-sky-400 hover:underline">Continue →</a>
                 <?php else: ?>
-                <a href="payment_status.php<?= $successTxnId ? '?txn_id=' . rawurlencode((string)$successTxnId) : '' ?>" class="inline-block mt-6 text-sm text-sky-400 hover:underline">Track payment status →</a>
+                <a href="<?= e($successTxnId ? buildPaymentTrackUrl((string)$successTxnId) : 'payment_status.php') ?>" class="inline-block mt-6 text-sm text-sky-400 hover:underline">Track payment status →</a>
                 <?php endif; ?>
             </div>
             <?php else: ?>

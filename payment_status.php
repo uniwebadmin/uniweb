@@ -1,77 +1,110 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/customer_portal.php';
+ensureCustomerPortalSchema();
 $pageTitle = 'Track Payment';
 $txn = null;
 $txnList = null;
 $error = '';
+$notice = '';
 $otpStep = false;
 $prefillTxn = trim($_GET['txn_id'] ?? $_POST['txn_id'] ?? '');
+$trackSig = trim($_GET['sig'] ?? '');
+$trackExp = (int)($_GET['exp'] ?? 0);
 
 if (isset($_GET['cancel_otp'])) {
-    unset($_SESSION['pending_customer_phone'], $_SESSION['pending_customer_txn']);
+    unset($_SESSION['pending_customer_phone'], $_SESSION['pending_customer_txn'], $_SESSION['customer_lookup_demo_otp']);
     redirect('payment_status.php');
+}
+
+/** Signed link from checkout success — no phone OTP required. */
+function paymentStatusViaSignedTrack(string $txnId, string $sig, int $exp): ?array
+{
+    if (!verifyPaymentTrackSignature($txnId, $sig, $exp)) {
+        return null;
+    }
+    return fetchPaymentStatusTransaction($txnId);
+}
+
+/** Merchant viewing their own transaction while logged in. */
+function paymentStatusViaMerchant(string $txnId): ?array
+{
+    if (!isLoggedIn() || isAdminLoggedIn()) {
+        return null;
+    }
+    $merchant = getMerchant();
+    $stmt = getDB()->prepare(
+        'SELECT t.*, m.business_name, pl.link_id AS recovery_link_id, pl.status AS recovery_link_status, pl.expires_at AS recovery_link_expires_at
+         FROM transactions t
+         JOIN merchants m ON t.merchant_id = m.id
+         LEFT JOIN payment_links pl ON pl.id = t.payment_link_id
+         WHERE t.txn_id = ? AND t.merchant_id = ? LIMIT 1'
+    );
+    $stmt->execute([$txnId, (int)$merchant['id']]);
+    $row = $stmt->fetch();
+    return $row ?: null;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
         $error = 'Security token expired. Refresh and try again.';
     } elseif (isset($_POST['otp_code'])) {
-        // Step 2: verify OTP before revealing any transaction list tied to this phone number.
-        $phone = $_SESSION['pending_customer_phone'] ?? '';
-        if (!empty($_SESSION['pending_customer_txn']) && verifyOTP('customer_txn_' . $_SESSION['pending_customer_txn'], $_POST['otp_code'], 'customer_lookup')) {
-            $pendingTxn = (string)$_SESSION['pending_customer_txn'];
-            $phone = $_SESSION['pending_customer_phone'] ?? '';
+        $phone = (string)($_SESSION['pending_customer_phone'] ?? '');
+        if ($phone === '') {
+            redirect('payment_status.php');
+        }
+        $res = verifyCustomerOtp($phone, (string)$_POST['otp_code']);
+        if ($res['ok']) {
+            unset($_SESSION['customer_lookup_demo_otp']);
+            $pendingTxn = (string)($_SESSION['pending_customer_txn'] ?? '');
             unset($_SESSION['pending_customer_phone'], $_SESSION['pending_customer_txn']);
-            if ($phone && findCustomerOwnedTransaction($phone, $pendingTxn)) {
-                $stmt = getDB()->prepare('SELECT t.*, m.business_name, pl.link_id AS recovery_link_id, pl.status AS recovery_link_status, pl.expires_at AS recovery_link_expires_at FROM transactions t JOIN merchants m ON t.merchant_id = m.id LEFT JOIN payment_links pl ON pl.id = t.payment_link_id WHERE t.txn_id = ?');
-                $stmt->execute([$pendingTxn]);
-                $txn = $stmt->fetch();
+            if ($pendingTxn !== '' && findCustomerOwnedTransaction($phone, $pendingTxn)) {
+                $txn = fetchPaymentStatusTransaction($pendingTxn);
+            } else {
+                $stmt = getDB()->prepare('SELECT t.*, m.business_name FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE t.customer_phone = ? ORDER BY t.created_at DESC LIMIT 10');
+                $stmt->execute([$phone]);
+                $txnList = $stmt->fetchAll();
+                if (empty($txnList)) {
+                    $error = 'No payments found for this number.';
+                }
             }
-            if (!$txn) {
+            if ($pendingTxn !== '' && !$txn) {
                 $error = 'Could not verify payment ownership.';
             }
-        } elseif ($phone && verifyOTP('customer_phone_' . $phone, $_POST['otp_code'], 'customer_lookup')) {
-            unset($_SESSION['pending_customer_phone']);
-            unset($_SESSION['pending_customer_txn']);
-            $stmt = getDB()->prepare('SELECT t.*, m.business_name FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE t.customer_phone = ? ORDER BY t.created_at DESC LIMIT 10');
-            $stmt->execute([$phone]);
-            $txnList = $stmt->fetchAll();
-            if (empty($txnList)) {
-                $error = 'No payments found for this number.';
-            }
         } else {
-            recordVelocityEvent('customer_lookup', $phone);
-            $error = 'Invalid or expired code. Please try again.';
+            if (function_exists('recordVelocityEvent')) {
+                recordVelocityEvent('customer_lookup', $phone);
+            }
+            $error = $res['message'];
             $otpStep = true;
         }
     } else {
         $txnId = trim($_POST['txn_id'] ?? '');
         $phone = trim($_POST['phone'] ?? '');
         if ($txnId) {
-            $phoneDigits = preg_replace('/\D/', '', $phone) ?? '';
+            $phoneDigits = customerNormalizePhone($phone);
             if (isCustomerLoggedIn()) {
                 $owned = findCustomerOwnedTransaction(currentCustomerPhone(), $txnId);
                 if ($owned) {
-                    $stmt = getDB()->prepare('SELECT t.*, m.business_name, pl.link_id AS recovery_link_id, pl.status AS recovery_link_status, pl.expires_at AS recovery_link_expires_at FROM transactions t JOIN merchants m ON t.merchant_id = m.id LEFT JOIN payment_links pl ON pl.id = t.payment_link_id WHERE t.txn_id = ?');
-                    $stmt->execute([$txnId]);
-                    $txn = $stmt->fetch();
+                    $txn = fetchPaymentStatusTransaction($txnId);
                 } else {
                     $error = 'This payment is not linked to your account.';
                 }
-            } elseif (strlen($phoneDigits) === 10) {
+            } elseif ($phoneDigits !== '') {
                 $owned = findCustomerOwnedTransaction($phoneDigits, $txnId);
                 if ($owned) {
-                    $otp = generateOTP('customer_txn_' . $txnId, 'customer_lookup');
-                    $waResult = ['ok' => false];
-                    if (getSetting('whatsapp_enabled', '0') === '1') {
-                        $waResult = sendWhatsAppOtp($phoneDigits, $otp);
-                    }
-                    if (empty($waResult['ok'])) {
-                        $error = 'Phone verification is temporarily unavailable. Log in to the customer portal or try again later.';
+                    $res = requestCustomerOtp($phoneDigits);
+                    if (!$res['ok']) {
+                        $error = $res['message'];
                     } else {
                         $_SESSION['pending_customer_phone'] = $phoneDigits;
                         $_SESSION['pending_customer_txn'] = $txnId;
+                        if (($res['channel'] ?? '') === 'demo' && !empty($res['demo_otp'])) {
+                            $_SESSION['customer_lookup_demo_otp'] = $res['demo_otp'];
+                        } else {
+                            unset($_SESSION['customer_lookup_demo_otp']);
+                        }
+                        $notice = $res['message'];
                         $otpStep = true;
                     }
                 } else {
@@ -81,40 +114,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Enter the mobile number used at checkout to view this payment.';
             }
         } elseif ($phone) {
-            $digits = preg_replace('/\D/', '', $phone);
-            if (strlen($digits) !== 10) {
+            $digits = customerNormalizePhone($phone);
+            if ($digits === '') {
                 $error = 'Enter a valid 10-digit mobile number.';
-            } elseif (checkVelocityBlock('customer_lookup')['blocked']) {
+            } elseif (function_exists('checkVelocityBlock') && checkVelocityBlock('customer_lookup')['blocked']) {
                 $v = checkVelocityBlock('customer_lookup');
                 $error = 'Too many attempts. Please try again in ~' . $v['retry_after_minutes'] . ' min.';
             } else {
-                $otp = generateOTP('customer_phone_' . $digits, 'customer_lookup');
-                $waResult = ['ok' => false];
-                if (getSetting('whatsapp_enabled', '0') === '1') {
-                    $waResult = sendWhatsAppOtp($digits, $otp);
-                }
-                if (empty($waResult['ok'])) {
-                    unset($_SESSION['pending_customer_phone']);
-                    $error = 'Phone verification is temporarily unavailable. Use your Transaction ID or try again later.';
+                $res = requestCustomerOtp($digits);
+                if (!$res['ok']) {
+                    unset($_SESSION['pending_customer_phone'], $_SESSION['pending_customer_txn']);
+                    $error = $res['message'];
                 } else {
                     $_SESSION['pending_customer_phone'] = $digits;
+                    unset($_SESSION['pending_customer_txn']);
+                    if (($res['channel'] ?? '') === 'demo' && !empty($res['demo_otp'])) {
+                        $_SESSION['customer_lookup_demo_otp'] = $res['demo_otp'];
+                    } else {
+                        unset($_SESSION['customer_lookup_demo_otp']);
+                    }
+                    $notice = $res['message'];
                     $otpStep = true;
                 }
             }
         }
     }
 } elseif ($prefillTxn !== '') {
-    if (isCustomerLoggedIn()) {
+    if ($trackSig !== '' && $trackExp > 0) {
+        $txn = paymentStatusViaSignedTrack($prefillTxn, $trackSig, $trackExp);
+        if (!$txn) {
+            $error = 'This track link has expired or the signature could not be verified. Enter your mobile number below or request a new link from checkout.';
+        }
+    } elseif (isCustomerLoggedIn()) {
         $owned = findCustomerOwnedTransaction(currentCustomerPhone(), $prefillTxn);
         if ($owned) {
-            $stmt = getDB()->prepare('SELECT t.*, m.business_name, pl.link_id AS recovery_link_id, pl.status AS recovery_link_status, pl.expires_at AS recovery_link_expires_at FROM transactions t JOIN merchants m ON t.merchant_id = m.id LEFT JOIN payment_links pl ON pl.id = t.payment_link_id WHERE t.txn_id = ?');
-            $stmt->execute([$prefillTxn]);
-            $txn = $stmt->fetch();
+            $txn = fetchPaymentStatusTransaction($prefillTxn);
         } else {
             $error = 'This payment is not linked to your account.';
         }
+    } elseif (($merchantTxn = paymentStatusViaMerchant($prefillTxn)) !== null) {
+        $txn = $merchantTxn;
     }
-    // Without login: txn_id prefill only — user must enter phone + OTP on the form (no public leak).
+    // Unsigned txn_id only — user must enter phone + OTP (no public leak).
 }
 
 if (isset($_SESSION['pending_customer_phone'])) {
@@ -128,10 +169,17 @@ require_once __DIR__ . '/header.php';
     <p class="text-gray-500 text-center text-sm mb-8">Check payment status using Transaction ID or Phone Number</p>
 
     <?php if ($error): ?><div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg mb-6"><?= e($error) ?></div><?php endif; ?>
+    <?php if ($notice): ?><div class="bg-sky-500/10 border border-sky-500/30 text-sky-300 text-sm px-4 py-3 rounded-lg mb-6"><?= e($notice) ?></div><?php endif; ?>
 
     <?php if ($otpStep): ?>
     <div class="glass rounded-2xl p-8 mb-8">
-        <p class="text-xs text-gray-500 text-center mb-4">Verification code sent to your WhatsApp.</p>
+        <?php if (!empty($_SESSION['customer_lookup_demo_otp'])): ?>
+        <div class="bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm px-4 py-3 rounded-lg mb-4 text-center">
+            Test / demo mode — your code: <strong class="font-mono tracking-widest"><?= e((string)$_SESSION['customer_lookup_demo_otp']) ?></strong>
+        </div>
+        <?php else: ?>
+        <p class="text-xs text-gray-500 text-center mb-4">Verification code sent to your mobile.</p>
+        <?php endif; ?>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <p class="text-sm text-gray-400 text-center">We need to confirm this is your number before showing payment history.</p>
@@ -140,7 +188,7 @@ require_once __DIR__ . '/header.php';
             <p class="text-center text-xs mt-2"><a href="payment_status.php?cancel_otp=1" class="text-gray-500 hover:text-white">← Try a different number</a></p>
         </form>
     </div>
-    <?php else: ?>
+    <?php elseif (!$txn && empty($txnList)): ?>
     <div class="glass rounded-2xl p-8 mb-8">
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">

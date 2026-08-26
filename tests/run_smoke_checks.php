@@ -722,7 +722,8 @@ $assert(str_contains((string)file_get_contents($root . '/payment_links.php'), 'P
 $assert(str_contains((string)file_get_contents($root . '/qr_code.php'), 'Not a full white-label UniWeb app'), 'b4_qr_no_full_wl');
 $assert(str_contains((string)file_get_contents($root . '/merchant_website.php'), 'Put a Pay button on your website'), 'b4_website_pay_button_copy');
 $assert(str_contains((string)file_get_contents($root . '/checkout_customize.php'), 'Your domain + this checkout look'), 'b4_customize_branding_limit');
-$assert(str_contains((string)file_get_contents($root . '/api_docs.php'), 'Put on your site:'), 'b4_api_docs_put_on_site');
+$apiDocsSrc = (string)file_get_contents($root . '/api_docs.php');
+$assert(str_contains($apiDocsSrc, 'UniWeb Merchant API') && str_contains($apiDocsSrc, 'payment_url'), 'b4_api_docs_put_on_site');
 $assert(str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), "['merchant_website.php', 'Website / Pay button'"), 'b4_nav_website_under_collect');
 $assert(str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'function paymentMethodDisplayPriority'), 'b5_upi_first_priority_helper');
 $assert(str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'sortPaymentMethodsUpiFirst'), 'b5_upi_first_sort_helper');
@@ -1783,6 +1784,11 @@ $assert(str_contains((string)file_get_contents($root . '/includes/wiring_deep_li
 $assert(str_contains((string)file_get_contents($root . '/includes/refunds.php'), 'function refundRemainingAmount'), 'ws1_partial_refund_eligibility');
 $assert(str_contains((string)file_get_contents($root . '/includes/customer_portal.php'), 'function getCustomerRefundsByTxn'), 'ws2_customer_refund_visibility');
 $assert(str_contains((string)file_get_contents($root . '/payment_status.php'), 'findCustomerOwnedTransaction'), 'ws2_payment_status_idor_gate');
+$custPortalTrack = (string)file_get_contents($root . '/includes/customer_portal.php');
+$payStatusTrack = (string)file_get_contents($root . '/payment_status.php');
+$assert(str_contains($custPortalTrack, 'function buildPaymentTrackUrl') && str_contains($custPortalTrack, 'function verifyPaymentTrackSignature'), 'payment_track_signed_url_helpers');
+$assert(str_contains($payStatusTrack, 'verifyPaymentTrackSignature') && str_contains($payStatusTrack, 'requestCustomerOtp'), 'payment_status_signed_track_and_demo_otp');
+$assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'buildPaymentTrackUrl'), 'checkout_success_signed_track_link');
 $assert(str_contains((string)file_get_contents($root . '/cust.php'), 'customer_login.php'), 'ws2_cust_short_url');
 $assert(is_file($root . '/includes/intelligent_routing.php') && str_contains($irSrc, 'function intelligentRoutingEnabled') && str_contains($irSrc, 'intelligent_route_decisions'), 'ws3_intelligent_routing_module');
 $assert(str_contains($irSrc, "getSetting('intelligent_routing_enabled', '0')"), 'ws3_intelligent_default_off');
@@ -1802,6 +1808,15 @@ $assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'UniWeb
 $assert(str_contains((string)file_get_contents($root . '/qr_pay.php'), 'UniWeb Test Mode'), 'brand_qr_pay_uniweb_test_banner');
 $assert(!str_contains((string)file_get_contents($root . '/checkout.php'), 'Continue to test gateway') && !str_contains((string)file_get_contents($root . '/checkout.php'), 'test gateway redirect'), 'brand_no_test_gateway_cta');
 $assert(!str_contains((string)file_get_contents($root . '/checkout.php'), 'Pay with Razorpay') && !str_contains((string)file_get_contents($root . '/checkout.php'), 'Powered by PayU'), 'brand_zero_partner_cta_checkout');
+
+// Merchant API docs — UniWeb voice, Razorpay/Cashfree-class structure, zero partner product names
+$assert(str_contains($apiDocsSrc, 'id="create-payment"') && str_contains($apiDocsSrc, 'id="webhooks"') && str_contains($apiDocsSrc, 'id="errors"'), 'api_docs_core_sections');
+$assert(str_contains($apiDocsSrc, 'X-UniWeb-Signature') && str_contains($apiDocsSrc, 'hash_hmac') && str_contains($apiDocsSrc, 'timingSafeEqual'), 'api_docs_webhook_verify_examples');
+$assert(str_contains($apiDocsSrc, 'merchantApiErrorCatalog') || str_contains($apiDocsSrc, 'error_code'), 'api_docs_error_codes');
+$assert(!str_contains($apiDocsSrc, 'Gateway Webhooks (Admin)') && !str_contains($apiDocsSrc, 'Razorpay:') && !str_contains($apiDocsSrc, 'Cashfree:'), 'api_docs_no_partner_brand');
+$assert(!str_contains($apiDocsSrc, 'NBFC') && !str_contains($apiDocsSrc, 'PPI'), 'api_docs_no_nbfc_ppi');
+$openapiSrc = (string)file_get_contents($root . '/openapi.json');
+$assert(str_contains($openapiSrc, 'UniWeb Merchant API') && str_contains($openapiSrc, 'error_code'), 'openapi_merchant_api_v1');
 
 $payload = [
     'ok' => $failed === 0,

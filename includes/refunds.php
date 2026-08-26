@@ -83,11 +83,14 @@ function markProviderRefundFailed(int $refundRowId, string $failureReason): arra
  */
 function notifyCustomerRefundTerminal(array $refund, array $txn, string $terminalStatus, string $detailReason = ''): void
 {
+    if (!function_exists('buildPaymentTrackUrl') && is_file(__DIR__ . '/customer_portal.php')) {
+        require_once __DIR__ . '/customer_portal.php';
+    }
     $email = trim((string)($txn['customer_email'] ?? ''));
     $txnRef = (string)($txn['txn_id'] ?? '');
     $refundId = (string)($refund['refund_id'] ?? '');
     $amount = formatMoney((float)($refund['amount'] ?? 0));
-    $trackUrl = APP_URL . '/payment_status.php?txn_id=' . rawurlencode($txnRef);
+    $trackUrl = buildPaymentTrackUrl($txnRef);
     $portalUrl = APP_URL . '/customer_login.php';
 
     if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
