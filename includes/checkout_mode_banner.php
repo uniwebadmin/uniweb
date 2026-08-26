@@ -24,7 +24,7 @@ function renderCheckoutModeBanner(?array $link = null, bool $forceTest = false):
         return;
     }
     if ($forceTest) {
-        echo '<div class="mode-test-stripe">⚡ TEST MODE — Sandbox payment · No real money will move</div>';
+        echo '<div class="mode-test-stripe">⚡ UniWeb Test Mode — sandbox payment · no real money</div>';
         return;
     }
     echo '<div class="bg-emerald-600/20 border-b border-emerald-500/30 text-center text-xs text-emerald-300 py-2 px-4">● LIVE MODE — Real payment settlement</div>';
@@ -40,9 +40,9 @@ function renderCheckoutModeAndCollectionBanner(array $link, bool $allowInstantPa
     $isTest = $forceTest || checkoutLinkIsTest($link);
 
     if ($allowInstantPay) {
-        echo '<div class="bg-amber-500 text-dark-900 text-center text-sm font-semibold py-2 px-4">⚡ TEST MODE — Sandbox · Use Instant Test Pay · No real money</div>';
+        echo '<div class="bg-amber-500 text-dark-900 text-center text-sm font-semibold py-2 px-4">⚡ UniWeb Test Mode — sandbox · use UniWeb Test Pay · no real money</div>';
     } elseif ($isTest) {
-        echo '<div class="mode-test-stripe">⚡ TEST MODE — Sandbox payment · No real money will move</div>';
+        echo '<div class="mode-test-stripe">⚡ UniWeb Test Mode — sandbox payment · no real money</div>';
     } else {
         echo '<div class="bg-emerald-600/20 border-b border-emerald-500/30 text-center text-xs text-emerald-300 py-2 px-4">● LIVE MODE — Real payment settlement</div>';
     }

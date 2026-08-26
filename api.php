@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (is_file(__DIR__ . '/includes/merchant_api_errors.php')) {
+    require_once __DIR__ . '/includes/merchant_api_errors.php';
+}
 
 header('Content-Type: application/json');
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
@@ -16,14 +19,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
         $allowed = (bool)$st->fetchColumn();
     }
     if (!$allowed) {
-        jsonResponse(['error' => 'Origin not allowed'], 403);
+        merchantApiRespondError('origin_not_allowed');
     }
     header('Access-Control-Allow-Origin: ' . $normalizedOrigin);
     header('Vary: Origin');
     http_response_code(204);
     exit;
 }
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') { jsonResponse(['error' => 'Method not allowed'], 405); }
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') { merchantApiRespondError('method_not_allowed'); }
 
 define('API_VERSION', 'v1');
 
@@ -32,33 +35,33 @@ $apiSecret = $_SERVER['HTTP_X_API_SECRET'] ?? '';
 $rawInput = file_get_contents('php://input') ?: '';
 $input = json_decode($rawInput, true);
 if (!is_array($input)) {
-    jsonResponse(['error' => 'A valid JSON body is required'], 400);
+    merchantApiRespondError('invalid_json');
 }
 $action = $input['action'] ?? '';
 $requiredScope = apiScopeForAction($action);
 
 if (!$requiredScope) {
-    jsonResponse(['error' => 'Unknown action'], 400);
+    merchantApiRespondError('unknown_action');
 }
 if (!$apiKey || !$apiSecret) {
-    jsonResponse(['error' => 'X-API-Key and X-API-Secret are required'], 401);
+    merchantApiRespondError('missing_credentials');
 }
 try {
     $merchant = authenticateMerchantApiCredential($apiKey, $apiSecret, $requiredScope);
 } catch (RuntimeException $e) {
     if ($e->getMessage() === 'API rate limit exceeded.') {
         header('Retry-After: 60');
-        jsonResponse(['error' => $e->getMessage()], 429);
+        merchantApiRespondError('rate_limited');
     }
-    jsonResponse(['error' => 'API authentication failed'], 401);
+    merchantApiRespondError('auth_failed');
 }
 if (!$merchant) {
-    jsonResponse(['error' => 'Invalid credentials or insufficient scope'], 401);
+    merchantApiRespondError('auth_failed');
 }
 if ($origin !== '') {
     $credential = ['allowed_origins' => $merchant['api_allowed_origins'] ?? null];
     if (!apiOriginAllowed($credential, $origin)) {
-        jsonResponse(['error' => 'Origin not allowed'], 403);
+        merchantApiRespondError('origin_not_allowed');
     }
     header('Access-Control-Allow-Origin: ' . normalizeApiOrigin($origin));
     header('Vary: Origin');
@@ -78,10 +81,10 @@ switch ($action) {
         $customerPhone = trim($input['customer_phone'] ?? '');
         $customerName = trim($input['customer_name'] ?? '');
 
-        if ($amount < 1 || $amount > livePaymentAmountCap()) { jsonResponse(['error' => 'Amount must be between 1 and 200000000'], 400); }
-        if (mb_strlen($description) > 255) { jsonResponse(['error' => 'Description is too long'], 400); }
+        if ($amount < 1 || $amount > livePaymentAmountCap()) { merchantApiRespondError('amount_out_of_range'); }
+        if (mb_strlen($description) > 255) { merchantApiRespondError('description_too_long'); }
         if (!$liveAllowed && !$usingTestKey) {
-            jsonResponse(['error' => 'Account in Test Mode. Use test API key or complete KYC for live payments.'], 403);
+            merchantApiRespondError('mode_mismatch');
         }
         try {
             $idempotency = claimApiIdempotency((int)$merchant['id'], $apiMode, $_SERVER['HTTP_IDEMPOTENCY_KEY'] ?? '', $input);
@@ -91,7 +94,7 @@ switch ($action) {
                 exit;
             }
         } catch (Throwable $e) {
-            jsonResponse(['error' => $e->getMessage()], 409);
+            merchantApiRespondError('idempotency_conflict', $e->getMessage());
         }
 
         $linkId = generateId('LNK');
@@ -120,13 +123,13 @@ switch ($action) {
 
     case 'check_status':
         $txnId = $input['txn_id'] ?? '';
-        if (!$txnId) { jsonResponse(['error' => 'txn_id required'], 400); }
+        if (!$txnId) { merchantApiRespondError('missing_txn_id'); }
 
         $stmt = $db->prepare('SELECT txn_id, amount, status, payment_method, utr, created_at FROM transactions WHERE txn_id = ? AND merchant_id = ? AND COALESCE(is_test,0)=?');
         $stmt->execute([$txnId, $merchant['id'], $modeFlag]);
         $txn = $stmt->fetch();
 
-        if (!$txn) { jsonResponse(['error' => 'Transaction not found'], 404); }
+        if (!$txn) { merchantApiRespondError('not_found', 'Transaction not found'); }
         jsonResponse(['success' => true, 'api_version' => API_VERSION, 'transaction' => $txn]);
         break;
 
@@ -170,14 +173,14 @@ switch ($action) {
 
     case 'create_refund':
         if (!$liveAllowed && !$usingTestKey) {
-            jsonResponse(['error' => 'Account in Test Mode. Use test API key or complete KYC for live refunds.'], 403);
+            merchantApiRespondError('mode_mismatch', 'Account is in Test Mode. Use a test API key or complete KYC for live refunds.');
         }
         $txnId = trim($input['txn_id'] ?? '');
-        if (!$txnId) { jsonResponse(['error' => 'txn_id required'], 400); }
+        if (!$txnId) { merchantApiRespondError('missing_txn_id'); }
         $st = $db->prepare('SELECT id FROM transactions WHERE txn_id = ? AND merchant_id = ? AND status = ? AND COALESCE(is_test,0)=?');
         $st->execute([$txnId, $merchant['id'], 'success', $modeFlag]);
         $txn = $st->fetch();
-        if (!$txn) { jsonResponse(['error' => 'Successful transaction not found'], 404); }
+        if (!$txn) { merchantApiRespondError('txn_not_refundable'); }
         $amount = (float)($input['amount'] ?? 0);
         $reason = trim($input['reason'] ?? 'API refund request');
         try {
@@ -188,13 +191,13 @@ switch ($action) {
                 exit;
             }
         } catch (Throwable $e) {
-            jsonResponse(['error' => $e->getMessage()], 409);
+            merchantApiRespondError('idempotency_conflict', $e->getMessage());
         }
         $result = processRefund((int)$txn['id'], $amount, $reason);
         if (!$result['ok']) {
-            $response = ['error' => $result['error'] ?? 'Refund failed'];
+            $response = ['error' => $result['error'] ?? 'Refund failed', 'error_code' => 'refund_failed'];
             completeApiIdempotency((int)$idempotency['id'], 400, $response);
-            jsonResponse($response, 400);
+            merchantApiRespondError('refund_failed', $response['error']);
         }
         $response = ['success' => true, 'api_version' => API_VERSION, 'refund_id' => $result['refund_id'], 'amount' => $result['amount'], 'status' => $result['status'] ?? 'pending'];
         completeApiIdempotency((int)$idempotency['id'], 200, $response);
@@ -229,15 +232,15 @@ switch ($action) {
     case 'get_payment_link':
         ensurePaymentLinkAnalytics();
         $linkId = trim($input['link_id'] ?? '');
-        if (!$linkId) { jsonResponse(['error' => 'link_id required'], 400); }
+        if (!$linkId) { merchantApiRespondError('missing_link_id'); }
         $st = $db->prepare('SELECT link_id, amount, status, view_count, description, expires_at, created_at FROM payment_links WHERE link_id = ? AND merchant_id = ? AND COALESCE(is_test,0)=?');
         $st->execute([$linkId, $merchant['id'], $modeFlag]);
         $row = $st->fetch();
-        if (!$row) { jsonResponse(['error' => 'Payment link not found'], 404); }
+        if (!$row) { merchantApiRespondError('not_found', 'Payment link not found'); }
         $row['payment_url'] = APP_URL . '/checkout.php?link=' . $linkId;
         jsonResponse(['success' => true, 'api_version' => API_VERSION, 'payment_link' => $row]);
         break;
 
     default:
-        jsonResponse(['error' => 'Unknown action. Available: create_payment_link, check_status, list_transactions, get_balance, create_refund, list_refunds, list_payment_links, get_payment_link'], 400);
+        merchantApiRespondError('unknown_action');
 }

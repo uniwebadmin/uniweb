@@ -27,6 +27,24 @@ function intelligentRoutingStrategy(): string
     return in_array($s, ['fixed', 'rules', 'score'], true) ? $s : 'score';
 }
 
+/** Rolling window for live success-rate signal (hours). Default 7 days. */
+function intelligentRoutingSuccessRateWindowHours(): int
+{
+    if (!function_exists('getSetting')) {
+        return 168;
+    }
+    $h = (int)getSetting('intelligent_routing_success_window_hours', '168');
+    return max(1, min(720, $h));
+}
+
+function intelligentRoutingMinSampleSize(): int
+{
+    if (!function_exists('getSetting')) {
+        return 5;
+    }
+    return max(3, min(50, (int)getSetting('intelligent_routing_min_sample', '5')));
+}
+
 /** Optional ML weights JSON path (future hook — safe defaults when missing). */
 function intelligentRoutingMlWeights(): array
 {
@@ -60,11 +78,18 @@ function ensureIntelligentRouteDecisionLogTable(): void
             scores_json TEXT DEFAULT NULL,
             candidates_json TEXT DEFAULT NULL,
             engine_on TINYINT(1) NOT NULL DEFAULT 0,
-            outcome ENUM('selected','failover','fallback_fixed','none','error') NOT NULL DEFAULT 'selected',
+            outcome ENUM('selected','failover','fallback_fixed','none','error','attempt_failed') NOT NULL DEFAULT 'selected',
+            attempt_index TINYINT UNSIGNED DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_ir_time (created_at),
             INDEX idx_ir_partner (chosen_partner, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) { /* ok */ }
+    try {
+        getDB()->exec("ALTER TABLE intelligent_route_decisions MODIFY outcome ENUM('selected','failover','fallback_fixed','none','error','attempt_failed') NOT NULL DEFAULT 'selected'");
+    } catch (Throwable $e) { /* ok */ }
+    try {
+        getDB()->exec('ALTER TABLE intelligent_route_decisions ADD COLUMN attempt_index TINYINT UNSIGNED DEFAULT NULL');
     } catch (Throwable $e) { /* ok */ }
 }
 
@@ -79,14 +104,15 @@ function logIntelligentRouteDecision(
     string $method = 'card',
     ?float $amount = null,
     ?array $scores = null,
-    ?string $txnId = null
+    ?string $txnId = null,
+    ?int $attemptIndex = null
 ): void {
     ensureIntelligentRouteDecisionLogTable();
     try {
         getDB()->prepare(
             'INSERT INTO intelligent_route_decisions
-             (merchant_id,link_id,txn_id,method_key,amount,chosen_partner,strategy,reason_code,reason,scores_json,candidates_json,engine_on,outcome)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)'
+             (merchant_id,link_id,txn_id,method_key,amount,chosen_partner,strategy,reason_code,reason,scores_json,candidates_json,engine_on,outcome,attempt_index)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
         )->execute([
             $merchantId > 0 ? $merchantId : null,
             $linkId,
@@ -101,6 +127,7 @@ function logIntelligentRouteDecision(
             json_encode($candidates, JSON_UNESCAPED_SLASHES),
             intelligentRoutingEnabled() ? 1 : 0,
             $outcome,
+            $attemptIndex,
         ]);
     } catch (Throwable $e) { /* ok */ }
 }
@@ -232,19 +259,33 @@ function intelligentScorePartners(array $partners, string $method, ?float $amoun
 
 function intelligentPartnerSuccessRate(string $partner, string $method): float
 {
+    $partner = strtolower(trim($partner));
+    $hours = intelligentRoutingSuccessRateWindowHours();
+    $minSample = intelligentRoutingMinSampleSize();
     try {
         $st = getDB()->prepare(
             "SELECT
-                SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) AS ok,
+                SUM(CASE WHEN t.status='success' THEN 1 ELSE 0 END) AS ok,
                 COUNT(*) AS total
-             FROM transactions
-             WHERE payment_method LIKE ?
-               AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)"
+             FROM transactions t
+             WHERE COALESCE(t.is_test, 0) = 0
+               AND t.created_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)
+               AND (
+                    t.payment_method = ?
+                    OR t.payment_method LIKE ?
+                    OR t.payment_method LIKE ?
+                    OR EXISTS (
+                        SELECT 1 FROM payment_order_transactions pot
+                        JOIN payment_orders po ON po.id = pot.payment_order_id
+                        WHERE pot.transaction_id = t.id AND po.provider = ?
+                    )
+               )"
         );
-        $st->execute([$partner . '%']);
+        $likeMethod = $partner . '%';
+        $st->execute([$hours, $partner, $likeMethod, $partner . '-%', $partner]);
         $row = $st->fetch();
         $total = (int)($row['total'] ?? 0);
-        if ($total < 5) {
+        if ($total < $minSample) {
             return 0.75;
         }
         return round((int)($row['ok'] ?? 0) / max(1, $total), 4);
@@ -292,13 +333,32 @@ function intelligentRulesPickPartner(array $eligible, string $method, ?float $am
 }
 
 /**
+ * Map checkout tab key to routing method bucket for scoring.
+ */
+function intelligentRoutingMethodBucket(string $payKey): string
+{
+    $payKey = strtolower(trim($payKey));
+    return match ($payKey) {
+        'upi', 'payu_upi', 'upi_p2m' => 'upi',
+        'dc', 'cc', 'razorpay', 'cashfree' => 'card',
+        'nb' => 'netbanking',
+        'emi' => 'emi',
+        'wallet' => 'wallet',
+        default => 'card',
+    };
+}
+
+/**
  * Intelligent routing checkout order creation — only when intelligent_routing_enabled=1.
  * When OFF: caller must use fixed / Phase 11 path unchanged.
+ *
+ * @return array{razorpay:?array,cashfree:?array,payu:?array,routed_to:?string,diverted:bool,intelligent:bool,reason:string,method:string}
  */
-function createCardOrderWithIntelligentRouting(float $amount, array $link, string $returnUrl): array
+function createCardOrderWithIntelligentRouting(float $amount, array $link, string $returnUrl, string $checkoutPayKey = 'card'): array
 {
     $merchantId = (int)($link['merchant_id'] ?? 0);
     $linkId = (string)($link['link_id'] ?? '');
+    $methodBucket = intelligentRoutingMethodBucket($checkoutPayKey);
     $order = [
         'razorpay' => null,
         'cashfree' => null,
@@ -307,6 +367,7 @@ function createCardOrderWithIntelligentRouting(float $amount, array $link, strin
         'diverted' => false,
         'intelligent' => false,
         'reason' => '',
+        'method' => $methodBucket,
     ];
 
     if (!intelligentRoutingEnabled()) {
@@ -317,7 +378,7 @@ function createCardOrderWithIntelligentRouting(float $amount, array $link, strin
     $order['intelligent'] = true;
     $selection = intelligentChoosePartner([
         'merchant_id' => $merchantId,
-        'method' => 'card',
+        'method' => $methodBucket,
         'amount' => $amount,
         'preferred_partner' => (string)($link['gateway_code'] ?? ''),
     ]);
@@ -333,7 +394,7 @@ function createCardOrderWithIntelligentRouting(float $amount, array $link, strin
             'none',
             $merchantId,
             $linkId,
-            'card',
+            $methodBucket,
             $amount,
             $selection['scores']
         );
@@ -393,12 +454,28 @@ function createCardOrderWithIntelligentRouting(float $amount, array $link, strin
                 $idx === 0 ? 'selected' : 'failover',
                 $merchantId,
                 $linkId,
-                'card',
+                $methodBucket,
                 $amount,
-                $selection['scores']
+                $selection['scores'],
+                null,
+                $idx
             );
             return $order;
         }
+        logIntelligentRouteDecision(
+            $gw,
+            'order_create_failed',
+            'Order create failed for ' . $gw . ' — trying next eligible partner.',
+            $ranked,
+            'attempt_failed',
+            $merchantId,
+            $linkId,
+            $methodBucket,
+            $amount,
+            $selection['scores'],
+            null,
+            $idx
+        );
     }
 
     $failReason = 'All eligible partners failed order create: ' . implode(', ', $attempted);
@@ -411,7 +488,7 @@ function createCardOrderWithIntelligentRouting(float $amount, array $link, strin
         'error',
         $merchantId,
         $linkId,
-        'card',
+        $methodBucket,
         $amount,
         $selection['scores']
     );

@@ -146,6 +146,7 @@ require_once __DIR__ . '/header.php';
                             <span class="text-[10px] px-2 py-0.5 rounded-full <?= $isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700/50 text-gray-400' ?>">
                                 <?= $isActive ? '● Active' : '○ Inactive' ?>
                             </span>
+                            <?= function_exists('partnerIntegrationStateBadgeHtml') ? partnerIntegrationStateBadgeHtml((string)$g['gateway_key']) : '' ?>
                             <?php if ($hasKeys): ?>
                             <span class="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400">Keys Saved</span>
                             <?php elseif ($partnerInfo): ?>

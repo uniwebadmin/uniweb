@@ -832,3 +832,70 @@ function partnerConfiguredCount(): array
     }
     return ['total' => $total, 'ready' => $ready];
 }
+
+/**
+ * Honest integration state for admin UI — LIVE / STUB / PARKED only (NEVER products removed from code).
+ *
+ * @return array{state:string,label:string,hint:string}
+ */
+function partnerIntegrationState(string $partnerKey): array
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    $checkoutPg = partnerHasRegistryFlag($partnerKey, 'checkout_pg');
+    $explicitStub = in_array($partnerKey, ['phonepe', 'pinelabs', 'worldline', 'toucanpay', 'digio'], true);
+    $flags = getPartnerRegistry()[$partnerKey]['flags'] ?? [];
+
+    if (isset($flags['checkout_pg']) && $flags['checkout_pg'] === false) {
+        return [
+            'state' => 'STUB',
+            'label' => 'STUB',
+            'hint' => 'Registry + keys UI — live web checkout/API not wired yet.',
+        ];
+    }
+    if ($explicitStub && !$checkoutPg) {
+        return [
+            'state' => 'STUB',
+            'label' => 'STUB',
+            'hint' => 'Partner scaffold — paste keys; collect checkout follows in a later release.',
+        ];
+    }
+    if ($partnerKey === 'rbl') {
+        return [
+            'state' => 'STUB',
+            'label' => 'STUB',
+            'hint' => 'RBL operational gate — VA/payout when bank rail is live.',
+        ];
+    }
+    if ($checkoutPg) {
+        return [
+            'state' => 'LIVE',
+            'label' => 'LIVE',
+            'hint' => 'Collect path works when Registry keys are saved (Test or Live).',
+        ];
+    }
+    if (partnerHasRegistryFlag($partnerKey, 'kyc_forward') || partnerHasRegistryFlag($partnerKey, 'gateway_submit')) {
+        return [
+            'state' => 'STUB',
+            'label' => 'STUB',
+            'hint' => 'Forward/KYC rail — staged queue until live partner API succeeds.',
+        ];
+    }
+    return [
+        'state' => 'PARKED',
+        'label' => 'PARKED',
+        'hint' => 'Not on the live collect path — configure when commercial deal starts.',
+    ];
+}
+
+function partnerIntegrationStateBadgeHtml(string $partnerKey): string
+{
+    $s = partnerIntegrationState($partnerKey);
+    $color = match ($s['state']) {
+        'LIVE' => 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+        'STUB' => 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+        'PARKED' => 'bg-slate-500/15 text-slate-300 border-slate-500/30',
+        default => 'bg-gray-700/50 text-gray-400 border-gray-600',
+    };
+    $title = htmlspecialchars($s['hint'], ENT_QUOTES, 'UTF-8');
+    return '<span class="text-[10px] px-2 py-0.5 rounded border ' . $color . '" title="' . $title . '">' . htmlspecialchars($s['label'], ENT_QUOTES, 'UTF-8') . '</span>';
+}

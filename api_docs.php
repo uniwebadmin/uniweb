@@ -135,7 +135,8 @@ require_once __DIR__ . '/header.php';
                 <div class="rounded-lg border border-gray-800 p-3"><span class="text-amber-400 font-mono">409</span> — Idempotency-Key reused with a different payload</div>
                 <div class="rounded-lg border border-gray-800 p-3"><span class="text-amber-400 font-mono">429</span> — Rate limited (see <code class="text-gray-400">Retry-After</code>)</div>
             </div>
-            <p class="text-xs text-gray-500 mt-3">All responses are JSON. Errors include an <code class="text-gray-400">error</code> string.</p>
+            <p class="text-xs text-gray-500 mt-3">All responses are JSON. Errors include <code class="text-gray-400">error_code</code> (stable machine id) and <code class="text-gray-400">error</code> (human message). Success responses include <code class="text-gray-400">api_version: v1</code>.</p>
+            <p class="text-xs text-gray-500 mt-2">Stable <code class="text-gray-400">error_code</code> values: invalid_json · unknown_action · missing_credentials · auth_failed · origin_not_allowed · mode_mismatch · not_found · amount_out_of_range · missing_txn_id · missing_link_id · idempotency_conflict · rate_limited · refund_failed · txn_not_refundable</p>
         </div>
     </div>
 </div>

@@ -237,7 +237,7 @@ try {
     $paymentMethods = getCheckoutPaymentMethods($link);
 } catch (Throwable $e) {
     logPlatformError('error', 'Checkout method list failed: ' . $e->getMessage(), ['link_id' => $linkId]);
-    $paymentMethods = [['key' => 'upi', 'label' => 'UPI / QR', 'sub' => 'Google Pay · PhonePe · Paytm', 'icon' => '📱', 'type' => 'p2m']];
+    $paymentMethods = [['key' => 'upi', 'label' => 'UPI / QR', 'sub' => 'Any UPI app on your phone', 'icon' => '📱', 'type' => 'p2m']];
 }
 if ($paymentMethods === []) {
     $paymentMethods = [['key' => 'upi', 'label' => 'UPI / QR', 'sub' => 'No other methods enabled', 'icon' => '📱', 'type' => 'p2m']];
@@ -304,6 +304,7 @@ $cashfreeSession = null;
 $payuForms = [];
 $axisVa = null;
 $decentroQr = null;
+$pgCheckoutPartner = null;
 $withPayuSplit = $handler === 'payu_split';
 
 if ($handler === 'axis_va') {
@@ -351,22 +352,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
     $intelligentOn = function_exists('intelligentRoutingEnabled') && intelligentRoutingEnabled();
     $phase11RoutingOn = function_exists('phase11RouteEngineActive') && phase11RouteEngineActive();
-    $cardPgSelected = ($selectedPay === 'razorpay' || $selectedPay === 'cashfree');
+    $pgPoolSelected = ($currentMethod['type'] ?? '') === 'pg_pool';
+    $legacyPgTab = in_array($selectedPay, ['razorpay', 'cashfree'], true);
+    $cardPgSelected = $pgPoolSelected || $legacyPgTab;
     $routeHandlersClear = $handler !== 'razorpay_route' && $handler !== 'cashfree_route';
     if ($intelligentOn && $cardPgSelected && $routeHandlersClear) {
         $returnUrl = APP_URL . '/payment_cashfree_return.php?order_id={order_id}';
-        $smartRouted = createCardOrderWithIntelligentRouting($payAmount, $link, $returnUrl);
+        $smartRouted = createCardOrderWithIntelligentRouting($payAmount, $link, $returnUrl, $selectedPay);
         if (($smartRouted['routed_to'] ?? null) === 'razorpay') {
             $razorpayOrder = $smartRouted['razorpay'];
-            $selectedPay = 'razorpay';
+            $pgCheckoutPartner = 'razorpay';
         } elseif (($smartRouted['routed_to'] ?? null) === 'cashfree') {
             $cashfreeSession = $smartRouted['cashfree']['payment_session_id'] ?? null;
-            $selectedPay = 'cashfree';
+            $pgCheckoutPartner = 'cashfree';
         } elseif (!empty($smartRouted['intelligent']) && empty($smartRouted['routed_to']) && ($error ?? '') === '') {
-            $error = 'Card checkout is temporarily unavailable. No partner with valid keys could create an order.';
-        }
-        if (!empty($smartRouted['diverted'])) {
-            foreach ($paymentMethods as $m) { if ($m['key'] === $selectedPay) { $currentMethod = $m; break; } }
+            $error = 'This payment method is temporarily unavailable. Please try UPI or another method.';
         }
     } elseif ($phase11RoutingOn && $cardPgSelected && $routeHandlersClear) {
         // Phase 11 ON: smart partner routing (Registry keys + health failover). Methods-only checkout — no partner brand CTA.
@@ -374,37 +374,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $smartRouted = createCardOrderWithSmartRouting($payAmount, $link, $returnUrl);
         if (($smartRouted['routed_to'] ?? null) === 'razorpay') {
             $razorpayOrder = $smartRouted['razorpay'];
-            $selectedPay = 'razorpay';
+            $pgCheckoutPartner = 'razorpay';
         } elseif (($smartRouted['routed_to'] ?? null) === 'cashfree') {
             $cashfreeSession = $smartRouted['cashfree']['payment_session_id'] ?? null;
-            $selectedPay = 'cashfree';
+            $pgCheckoutPartner = 'cashfree';
         } elseif (!empty($smartRouted['phase11']) && empty($smartRouted['routed_to']) && ($error ?? '') === '') {
-            $error = 'Card checkout is temporarily unavailable. No partner with valid keys could create an order.';
+            $error = 'This payment method is temporarily unavailable. Please try UPI or another method.';
         }
-        if (!empty($smartRouted['diverted'])) {
-            foreach ($paymentMethods as $m) { if ($m['key'] === $selectedPay) { $currentMethod = $m; break; } }
+    } elseif ($pgPoolSelected && !$intelligentOn && !$phase11RoutingOn) {
+        $returnUrl = APP_URL . '/payment_cashfree_return.php?order_id={order_id}';
+        foreach (['razorpay', 'cashfree'] as $gw) {
+            if (!isGatewayConfigured($gw)) {
+                continue;
+            }
+            try {
+                $res = createBoundGatewayCheckoutOrder($link, $gw, $returnUrl);
+                if ($gw === 'razorpay' && !empty($res['id'])) {
+                    $razorpayOrder = $res;
+                    $pgCheckoutPartner = 'razorpay';
+                    break;
+                }
+                if ($gw === 'cashfree' && !empty($res['payment_session_id'])) {
+                    $cashfreeSession = $res['payment_session_id'];
+                    $pgCheckoutPartner = 'cashfree';
+                    break;
+                }
+            } catch (Throwable $e) {
+                logPlatformError('warning', 'PG pool order create failed: ' . $e->getMessage(), ['link_id' => $linkId, 'gw' => $gw]);
+            }
         }
-    } elseif ($selectedPay === 'razorpay' || ($handler === 'razorpay_route' && !isGatewayConfigured('payu'))) {
+        if ($pgCheckoutPartner === null && ($error ?? '') === '') {
+            $error = 'This payment method is not active yet. Try UPI or switch to UniWeb Test Mode.';
+        }
+    } elseif ($legacyPgTab || ($selectedPay === 'razorpay' || ($handler === 'razorpay_route' && !isGatewayConfigured('payu')))) {
         if (isGatewayConfigured('razorpay')) {
             try {
                 $razorpayOrder = createBoundGatewayCheckoutOrder($link, 'razorpay');
+                $pgCheckoutPartner = 'razorpay';
             } catch (Throwable $e) {
-                $error = 'Card & UPI checkout is temporarily unavailable.';
+                $error = 'Card checkout is temporarily unavailable.';
                 logPlatformError('error', 'Bound card checkout order creation failed.', ['error' => $e->getMessage(), 'link_id' => $linkId]);
             }
         }
-    } elseif ($selectedPay === 'cashfree' && isGatewayConfigured('cashfree')) {
+    } elseif (($legacyPgTab && $selectedPay === 'cashfree') || ($pgCheckoutPartner === null && $selectedPay === 'cashfree' && isGatewayConfigured('cashfree'))) {
         $returnUrl = APP_URL . '/payment_cashfree_return.php?order_id={order_id}';
         $cf = null;
         try {
             $cf = createBoundGatewayCheckoutOrder($link, 'cashfree', $returnUrl);
         } catch (Throwable $e) {
             $cf = null;
-            $error = 'Card & UPI checkout is temporarily unavailable.';
+            $error = 'Card checkout is temporarily unavailable.';
             $level = str_contains($e->getMessage(), 'do not match the payment order mode') ? 'warning' : 'error';
             logPlatformError($level, 'Bound card checkout order creation failed: ' . $e->getMessage(), ['link_id' => $linkId]);
         }
         $cashfreeSession = is_array($cf) ? ($cf['payment_session_id'] ?? null) : null;
+        if ($cashfreeSession !== null) {
+            $pgCheckoutPartner = 'cashfree';
+        }
         if ($cashfreeSession === null && ($error ?? '') === '') {
             $error = 'This payment method is not available in this Test/Live mode. Use UPI or another method.';
         }
@@ -602,7 +628,7 @@ endif;
                     <p class="text-xs text-center text-gray-500 mb-3" id="upi-poll-status"><?= $allowInstantPay ? 'Sandbox — Instant Test Pay above marks this link paid.' : 'Waiting for verified bank or gateway confirmation. Do not close this page.' ?></p>
                     <?php if ($upiPa !== ''): ?>
                     <a href="<?= e($upiData) ?>" class="block text-center bg-sky-600 hover:bg-sky-500 text-white py-3 rounded-xl font-semibold text-sm mb-2">Open UPI App →</a>
-                    <p class="text-[11px] text-center text-gray-600 mb-3">Opens Google Pay, PhonePe, Paytm or another UPI app on your phone.</p>
+                    <p class="text-[11px] text-center text-gray-600 mb-3">Opens your UPI app to complete payment.</p>
                     <a href="<?= e($whatsappLink) ?>" target="_blank" rel="noopener" class="block text-center bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 py-2 rounded-xl text-sm mb-4">WhatsApp Pay Link</a>
                     <?php endif; ?>
                     <?php if ($allowInstantPay): ?>
@@ -656,7 +682,7 @@ endif;
                     <p class="text-xs text-gray-600 text-center mt-3">Secured checkout<?= $withPayuSplit ? ' · Auto settlement' : '' ?></p>
                     <?php endif; ?>
 
-                    <?php elseif ($selectedPay === 'razorpay' && $razorpayOrder && $razorpayKey): ?>
+                    <?php elseif ((($pgCheckoutPartner ?? '') === 'razorpay' || $selectedPay === 'razorpay') && $razorpayOrder && $razorpayKey): ?>
                     <?php if ($allowInstantPay): ?>
                     <form method="POST" class="space-y-3 mb-4">
                         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -668,7 +694,7 @@ endif;
                         </button>
                     </form>
                     <?php endif; ?>
-                    <button id="pay-btn" type="button" class="w-full bg-sky-600 hover:bg-sky-500 text-white py-4 rounded-xl font-semibold text-lg"><?= $allowInstantPay ? 'Test payment (sandbox)' : 'Pay ' . formatMoney($payAmount) ?></button>
+                    <button id="pay-btn" type="button" class="w-full bg-sky-600 hover:bg-sky-500 text-white py-4 rounded-xl font-semibold text-lg"><?= $allowInstantPay ? 'UniWeb Test Pay (sandbox)' : 'Pay ' . formatMoney($payAmount) ?></button>
                     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
                     <script>
                     document.getElementById('pay-btn').onclick=function(){
@@ -688,7 +714,7 @@ endif;
                     };
                     </script>
 
-                    <?php elseif ($selectedPay === 'cashfree' && $cashfreeSession): ?>
+                    <?php elseif ((($pgCheckoutPartner ?? '') === 'cashfree' || $selectedPay === 'cashfree') && $cashfreeSession): ?>
                     <?php if ($allowInstantPay): ?>
                     <form method="POST" class="space-y-3 mb-4">
                         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -700,7 +726,7 @@ endif;
                         </button>
                     </form>
                     <?php endif; ?>
-                    <button id="cf-button" type="button" class="w-full bg-sky-600 hover:bg-sky-500 text-white py-4 rounded-xl font-semibold text-lg"><?= $allowInstantPay ? 'Test payment (sandbox)' : 'Pay ' . formatMoney($payAmount) ?></button>
+                    <button id="cf-button" type="button" class="w-full bg-sky-600 hover:bg-sky-500 text-white py-4 rounded-xl font-semibold text-lg"><?= $allowInstantPay ? 'UniWeb Test Pay (sandbox)' : 'Pay ' . formatMoney($payAmount) ?></button>
                     <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
                     <script>
                     const cashfree = Cashfree({ mode: "<?= getPartnerEnvironment('cashfree', 'production') === 'sandbox' ? 'sandbox' : 'production' ?>" });
@@ -723,8 +749,8 @@ endif;
                     </form>
                     <?php else: ?>
                     <div class="bg-dark-900/60 border border-gray-800 rounded-xl px-4 py-6 text-center">
-                        <p class="text-sm text-gray-300 mb-1">This method is enabled, but partner keys are not set yet.</p>
-                        <p class="text-xs text-gray-500">Use <strong class="text-white">UPI / QR</strong> if a UPI ID is set, or switch the merchant dashboard to <strong class="text-amber-300">Test Mode</strong> for Instant Test Pay.</p>
+                        <p class="text-sm text-gray-300 mb-1">This method is enabled, but UniWeb has not activated live processing yet.</p>
+                        <p class="text-xs text-gray-500">Use <strong class="text-white">UPI / QR</strong> if available, or switch the merchant dashboard to <strong class="text-amber-300">UniWeb Test Mode</strong> for sandbox pay.</p>
                     </div>
                     <?php endif; ?>
                     <?php endif; ?>

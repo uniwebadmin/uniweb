@@ -511,7 +511,7 @@ function getCheckoutPaymentMethods(array $link): array
         if (function_exists('logPlatformError')) {
             logPlatformError('error', 'Checkout method list failed: ' . $e->getMessage(), ['link_id' => $link['link_id'] ?? '']);
         }
-        return [['key' => 'upi', 'label' => 'UPI / QR', 'sub' => 'Google Pay · PhonePe · Paytm', 'icon' => '📱', 'type' => 'p2m']];
+        return [['key' => 'upi', 'label' => 'UPI / QR', 'sub' => checkoutUniwebMethodSubline('upi', false, true), 'icon' => '📱', 'type' => 'p2m']];
     }
 }
 
@@ -566,35 +566,55 @@ function buildCheckoutPaymentMethods(array $link): array
         return in_array($want, $enabled, true);
     };
 
+    $poolPg = checkoutPgPoolEnabledForLink($link, $rzpConfigured, $cfConfigured);
+
     if ($allow('upi_p2m') || in_array($handler, ['direct_upi', 'axis_va'], true) || empty($link['payment_method'])) {
-        $methods[] = ['key' => 'upi', 'label' => 'UPI / QR', 'sub' => 'Google Pay · PhonePe · Paytm', 'icon' => '📱', 'type' => 'p2m'];
+        $methods[] = ['key' => 'upi', 'label' => 'UPI / QR', 'sub' => checkoutUniwebMethodSubline('upi', $isTest, true), 'icon' => '📱', 'type' => 'p2m'];
     }
 
-    // Render tabs from merchant method flags. Live keys are not required to SHOW the UI.
     if ($allow('debit_card')) {
-        $methods[] = ['key' => 'dc', 'label' => 'Debit Card', 'sub' => $payuConfigured ? 'Visa · Mastercard · RuPay' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for activation'), 'icon' => '💳', 'type' => 'payu', 'pg' => 'DC'];
+        if ($payuConfigured) {
+            $methods[] = ['key' => 'dc', 'label' => 'Debit Card', 'sub' => checkoutUniwebMethodSubline('dc', $isTest, true), 'icon' => '💳', 'type' => 'payu', 'pg' => 'DC'];
+        } elseif ($poolPg) {
+            $methods[] = ['key' => 'dc', 'label' => 'Debit Card', 'sub' => checkoutUniwebMethodSubline('dc', $isTest, true), 'icon' => '💳', 'type' => 'pg_pool', 'pg' => 'DC'];
+        } else {
+            $methods[] = ['key' => 'dc', 'label' => 'Debit Card', 'sub' => checkoutUniwebMethodSubline('dc', $isTest, false), 'icon' => '💳', 'type' => 'payu', 'pg' => 'DC'];
+        }
     }
     if ($allow('credit_card')) {
-        $methods[] = ['key' => 'cc', 'label' => 'Credit Card', 'sub' => $payuConfigured ? 'Visa · Mastercard · Amex' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for activation'), 'icon' => '💳', 'type' => 'payu', 'pg' => 'CC'];
+        if ($payuConfigured) {
+            $methods[] = ['key' => 'cc', 'label' => 'Credit Card', 'sub' => checkoutUniwebMethodSubline('cc', $isTest, true), 'icon' => '💳', 'type' => 'payu', 'pg' => 'CC'];
+        } elseif ($poolPg) {
+            $methods[] = ['key' => 'cc', 'label' => 'Credit Card', 'sub' => checkoutUniwebMethodSubline('cc', $isTest, true), 'icon' => '💳', 'type' => 'pg_pool', 'pg' => 'CC'];
+        } else {
+            $methods[] = ['key' => 'cc', 'label' => 'Credit Card', 'sub' => checkoutUniwebMethodSubline('cc', $isTest, false), 'icon' => '💳', 'type' => 'payu', 'pg' => 'CC'];
+        }
     }
     if ($allow('netbanking')) {
-        $methods[] = ['key' => 'nb', 'label' => 'Net Banking', 'sub' => $payuConfigured ? 'All major banks' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for activation'), 'icon' => '🏦', 'type' => 'payu', 'pg' => 'NB'];
+        if ($payuConfigured) {
+            $methods[] = ['key' => 'nb', 'label' => 'Net Banking', 'sub' => checkoutUniwebMethodSubline('nb', $isTest, true), 'icon' => '🏦', 'type' => 'payu', 'pg' => 'NB'];
+        } elseif ($poolPg) {
+            $methods[] = ['key' => 'nb', 'label' => 'Net Banking', 'sub' => checkoutUniwebMethodSubline('nb', $isTest, true), 'icon' => '🏦', 'type' => 'pg_pool', 'pg' => 'NB'];
+        } else {
+            $methods[] = ['key' => 'nb', 'label' => 'Net Banking', 'sub' => checkoutUniwebMethodSubline('nb', $isTest, false), 'icon' => '🏦', 'type' => 'payu', 'pg' => 'NB'];
+        }
     }
     if ($allow('emi')) {
-        $methods[] = ['key' => 'emi', 'label' => 'EMI', 'sub' => $payuConfigured ? 'Card EMI · No Cost EMI' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for activation'), 'icon' => '📅', 'type' => 'payu', 'pg' => 'EMI'];
+        $methods[] = ['key' => 'emi', 'label' => 'EMI', 'sub' => checkoutUniwebMethodSubline('emi', $isTest, $payuConfigured || $poolPg), 'icon' => '📅', 'type' => $payuConfigured ? 'payu' : ($poolPg ? 'pg_pool' : 'payu'), 'pg' => 'EMI'];
     }
     if ($allow('wallet')) {
-        $methods[] = ['key' => 'wallet', 'label' => 'Wallets', 'sub' => $payuConfigured ? 'Paytm · PhonePe · Amazon Pay' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for activation'), 'icon' => '👛', 'type' => 'payu', 'pg' => 'CASH'];
+        $methods[] = ['key' => 'wallet', 'label' => 'Wallets', 'sub' => checkoutUniwebMethodSubline('wallet', $isTest, $payuConfigured || $poolPg), 'icon' => '👛', 'type' => $payuConfigured ? 'payu' : ($poolPg ? 'pg_pool' : 'payu'), 'pg' => 'CASH'];
     }
     if ($allow('payu_upi')) {
-        $methods[] = ['key' => 'payu_upi', 'label' => 'UPI', 'sub' => $payuConfigured ? 'Google Pay · PhonePe · Paytm' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for activation'), 'icon' => '⚡', 'type' => 'payu', 'pg' => 'UPI'];
+        if ($payuConfigured) {
+            $methods[] = ['key' => 'payu_upi', 'label' => 'UPI', 'sub' => checkoutUniwebMethodSubline('payu_upi', $isTest, true), 'icon' => '⚡', 'type' => 'payu', 'pg' => 'UPI'];
+        } elseif ($poolPg) {
+            $methods[] = ['key' => 'payu_upi', 'label' => 'UPI', 'sub' => checkoutUniwebMethodSubline('payu_upi', $isTest, true), 'icon' => '⚡', 'type' => 'pg_pool', 'pg' => 'UPI'];
+        } else {
+            $methods[] = ['key' => 'payu_upi', 'label' => 'UPI', 'sub' => checkoutUniwebMethodSubline('payu_upi', $isTest, false), 'icon' => '⚡', 'type' => 'payu', 'pg' => 'UPI'];
+        }
     }
-    if ($allow('razorpay') || $handler === 'razorpay_route') {
-        $methods[] = ['key' => 'razorpay', 'label' => 'Cards & UPI', 'sub' => $rzpConfigured ? 'Visa · Mastercard · UPI' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for activation'), 'icon' => '🔒', 'type' => 'razorpay'];
-    }
-    if ($allow('cashfree') || $handler === 'cashfree_route') {
-        $methods[] = ['key' => 'cashfree', 'label' => 'Cards & UPI', 'sub' => $cfConfigured ? 'Visa · Mastercard · Net Banking' : ($isTest ? 'Test Mode — Instant Pay' : 'Waiting for activation'), 'icon' => '💰', 'type' => 'cashfree'];
-    }
+    // Partner rails (razorpay/cashfree) are never separate customer tabs — internal pg_pool routing only.
 
     // Dedicated method link — only that checkout tab
     if (!empty($link['payment_method'])) {
@@ -609,9 +629,13 @@ function buildCheckoutPaymentMethods(array $link): array
                 $methods = [[
                     'key' => $payKey,
                     'label' => $cat['label'],
-                    'sub' => $isTest ? 'Test Mode — Instant Pay' : 'Awaiting gateway configuration',
+                    'sub' => $isTest ? checkoutUniwebMethodSubline($payKey, true, false) : 'Awaiting activation',
                     'icon' => $cat['icon'] ?? '💳',
-                    'type' => ($cat['gateway'] ?? '') === 'payu' ? 'payu' : (($cat['gateway'] ?? '') === 'razorpay' ? 'razorpay' : (($cat['gateway'] ?? '') === 'cashfree' ? 'cashfree' : 'p2m')),
+                    'type' => match ($cat['gateway'] ?? '') {
+                        'payu' => 'payu',
+                        'razorpay', 'cashfree' => 'pg_pool',
+                        default => 'p2m',
+                    },
                     'pg' => match ($payKey) {
                         'dc' => 'DC', 'cc' => 'CC', 'nb' => 'NB', 'emi' => 'EMI', 'wallet' => 'CASH', 'payu_upi' => 'UPI', default => '',
                     },
@@ -621,7 +645,7 @@ function buildCheckoutPaymentMethods(array $link): array
     }
 
     if (empty($methods)) {
-        $methods[] = ['key' => 'upi', 'label' => 'UPI / QR', 'sub' => 'Google Pay · PhonePe · Paytm', 'icon' => '📱', 'type' => 'p2m'];
+        $methods[] = ['key' => 'upi', 'label' => 'UPI / QR', 'sub' => checkoutUniwebMethodSubline('upi', $isTest, true), 'icon' => '📱', 'type' => 'p2m'];
     }
 
     return $methods;
@@ -636,6 +660,39 @@ function checkoutHandlerLabel(string $handler): string
         'platform_pg' => 'Secure checkout',
         default => 'Secure checkout',
     };
+}
+
+/** Customer-facing method subline — UniWeb methods only (no PG partner names). */
+function checkoutUniwebMethodSubline(string $methodKey, bool $isTest, bool $configured = true): string
+{
+    if ($isTest) {
+        return 'UniWeb Test — sandbox instant pay';
+    }
+    if (!$configured) {
+        return 'Waiting for activation';
+    }
+    return match ($methodKey) {
+        'upi', 'payu_upi', 'upi_p2m' => 'Any UPI app on your phone',
+        'dc' => 'Visa · Mastercard · RuPay',
+        'cc' => 'Visa · Mastercard · Amex',
+        'nb' => 'All major banks',
+        'emi' => 'Card EMI options',
+        'wallet' => 'Popular mobile wallets',
+        default => 'Secured by UniWeb',
+    };
+}
+
+/** Merchant has API-based PG pool (RZP/CF) without exposing partner tabs on checkout. */
+function checkoutPgPoolEnabledForLink(array $link, bool $rzpConfigured, bool $cfConfigured): bool
+{
+    $enabled = getMerchantEnabledMethods($link);
+    if (function_exists('normalizeCheckoutMethodKeys')) {
+        $enabled = normalizeCheckoutMethodKeys($enabled);
+    }
+    $handler = resolveCheckoutHandlerForLink($link);
+    return ($rzpConfigured || $cfConfigured)
+        && (in_array('razorpay', $enabled, true) || in_array('cashfree', $enabled, true)
+            || in_array($handler, ['razorpay_route', 'cashfree_route', 'platform_pg'], true));
 }
 
 /** Audit B #9 — effective collection rail for a checkout link (link → method → merchant). */

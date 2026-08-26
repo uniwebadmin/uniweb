@@ -1600,7 +1600,7 @@ $assert(!str_contains($checkoutSrc, 'Pay with Razorpay') && !str_contains($check
 $assert(!str_contains((string)file_get_contents($root . '/includes/checkout_footer.php'), 'via Razorpay'), 'motive_checkout_footer_no_partner_list');
 $assert(str_contains((string)file_get_contents($root . '/includes/provision.php'), "'label' => 'UPI'") && !str_contains((string)file_get_contents($root . '/includes/provision.php'), 'UPI via PayU'), 'motive_provision_method_labels_generic');
 $assert(str_contains((string)file_get_contents($root . '/merchant_website.php'), 'no separate signup with payment networks'), 'motive_merchant_website_no_direct_pg_nudge');
-$assert(str_contains($checkoutSrc, 'This method is enabled, but partner keys are not set yet'), 'p2_checkout_empty_method_state');
+$assert(str_contains($checkoutSrc, 'UniWeb has not activated live processing yet') || str_contains($checkoutSrc, 'This method is enabled, but partner keys are not set yet'), 'p2_checkout_empty_method_state');
 $assert(str_contains($qrImg, 'UPI ID missing'), 'p2_qr_image_upi_missing_png');
 $assert(str_contains($qrImg, 'function qrFlushAllBuffers'), 'p2_qr_image_flushes_output_buffers');
 $assert(str_contains((string)file_get_contents($root . '/includes/qr_svg.php'), 'require_upi=1'), 'p2_upi_qr_url_requires_pa');
@@ -1788,6 +1788,17 @@ $assert(is_file($root . '/includes/intelligent_routing.php') && str_contains($ir
 $assert(str_contains($irSrc, "getSetting('intelligent_routing_enabled', '0')"), 'ws3_intelligent_default_off');
 $assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'intelligent_routing_enabled'), 'ws3_gateway_toggle');
 $assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'createCardOrderWithIntelligentRouting'), 'ws3_checkout_wired');
+
+// Master directive — brand lock, API errors, routing hardening
+$collBrand = (string)file_get_contents($root . '/includes/collection.php');
+$assert(str_contains($collBrand, 'function checkoutUniwebMethodSubline') && str_contains($collBrand, 'pg_pool') && !str_contains($collBrand, "'key' => 'razorpay'"), 'brand_checkout_no_partner_tabs');
+$assert(str_contains((string)file_get_contents($root . '/includes/checkout_mode_banner.php'), 'UniWeb Test Mode'), 'brand_uniweb_test_banner');
+$assert(is_file($root . '/includes/merchant_api_errors.php') && str_contains((string)file_get_contents($root . '/includes/merchant_api_errors.php'), 'error_code'), 'api_stable_error_codes');
+$assert(str_contains((string)file_get_contents($root . '/api.php'), 'merchantApiRespondError'), 'api_uses_stable_errors');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_engine.php'), 'function partnerIntegrationState'), 'partner_integration_state_labels');
+$assert(str_contains($irSrc, 'intelligentRoutingSuccessRateWindowHours') && str_contains($irSrc, 'attempt_failed'), 'routing_success_window_and_attempt_log');
+$assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'pgCheckoutPartner'), 'checkout_pg_pool_internal_routing');
+$assert(!str_contains((string)file_get_contents($root . '/checkout.php'), 'Pay with Razorpay') && !str_contains((string)file_get_contents($root . '/checkout.php'), 'Powered by PayU'), 'brand_zero_partner_cta_checkout');
 
 $payload = [
     'ok' => $failed === 0,

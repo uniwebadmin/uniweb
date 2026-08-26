@@ -517,7 +517,9 @@ $gatewayCards = [
                         <option value="rules" <?= $intelligentStrategy === 'rules' ? 'selected' : '' ?>>Strategy: rules (method + amount band)</option>
                         <option value="score" <?= $intelligentStrategy === 'score' ? 'selected' : '' ?>>Strategy: score-based (success-rate + health)</option>
                     </select>
-                    <p class="text-[11px] text-gray-600 mt-2">Default OFF. When ON, takes precedence over Phase 11 at card checkout. Decisions logged below. Not a neural model — documented extension point for ML weights JSON.</p>
+                    <p class="text-[11px] text-gray-600 mt-2">Default OFF. When ON, takes precedence over Phase 11 at checkout. Uses live txn success-rate window + health signals. Decisions logged below.</p>
+                    <label class="text-[11px] text-gray-500 block mt-3">Success-rate window (hours, default 168 = 7 days)</label>
+                    <input type="number" name="settings[intelligent_routing_success_window_hours]" min="1" max="720" value="<?= e((string)($settingsMap['intelligent_routing_success_window_hours'] ?? '168')) ?>" class="input-field mt-1 text-sm">
                 </div>
             </div>
             <?php if (!empty($routeSplitReady['items'])): ?>

@@ -300,6 +300,7 @@ require_once __DIR__ . '/header.php';
                     <?php if ((int)$gateway['supports_payout']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-sky-500/10 text-sky-400">Payout</span><?php endif; ?>
                     <?php if ((int)$gateway['supports_refund']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400">Refund</span><?php endif; ?>
                     <?php if ((int)$gateway['supports_recurring']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-violet-500/10 text-violet-400">Recurring</span><?php endif; ?>
+                    <?= function_exists('partnerIntegrationStateBadgeHtml') ? partnerIntegrationStateBadgeHtml($partnerKey) : '' ?>
                 </div>
             </div>
             <div class="flex flex-col items-end gap-2">
