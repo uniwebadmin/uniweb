@@ -10,6 +10,67 @@ function ensureRefundsEngine(): void
     // Schema changes are versioned under migrations/. Request-time DDL is forbidden.
 }
 
+function notifyMerchantRefundProcessed(int $merchantId, string $refundId, string $txnRef, float $amount): void
+{
+    $message = formatMoney($amount) . ' refunded for ' . $txnRef . ' (' . $refundId . ').';
+    if (function_exists('notifyMerchant')) {
+        notifyMerchant($merchantId, 'Refund Processed', $message, 'refund_ok_' . $refundId);
+    } elseif (function_exists('createNotification')) {
+        createNotification($merchantId, 'Refund Processed', $message, 'refund_ok_' . $refundId);
+    }
+}
+
+function notifyMerchantRefundFailed(int $merchantId, string $refundId, string $txnRef, float $amount, string $reason): void
+{
+    $reason = trim($reason);
+    $message = formatMoney($amount) . ' refund for ' . $txnRef . ' (' . $refundId . ') could not be completed.';
+    if ($reason !== '') {
+        $message .= ' ' . mb_substr($reason, 0, 200);
+    }
+    if (function_exists('notifyMerchant')) {
+        notifyMerchant($merchantId, 'Refund Failed', $message, 'refund_fail_' . $refundId);
+    } elseif (function_exists('createNotification')) {
+        createNotification($merchantId, 'Refund Failed', $message, 'refund_fail_' . $refundId);
+    }
+}
+
+function markProviderRefundFailed(int $refundRowId, string $failureReason): array
+{
+    $db = getDB();
+    $st = $db->prepare(
+        'SELECT r.*, t.txn_id FROM refunds r JOIN transactions t ON t.id=r.transaction_id WHERE r.id=? LIMIT 1'
+    );
+    $st->execute([$refundRowId]);
+    $refund = $st->fetch();
+    if (!$refund) {
+        return ['ok' => false, 'error' => 'Refund not found.'];
+    }
+    if (($refund['status'] ?? '') === 'failed') {
+        return ['ok' => true, 'duplicate' => true];
+    }
+    $failureReason = mb_substr(trim($failureReason), 0, 500);
+    $db->prepare(
+        "UPDATE refunds SET status='failed',provider_status='failed',failure_reason=?,processed_at=NOW() WHERE id=? AND status='pending'"
+    )->execute([$failureReason, $refundRowId]);
+    notifyMerchantRefundFailed(
+        (int)$refund['merchant_id'],
+        (string)$refund['refund_id'],
+        (string)$refund['txn_id'],
+        (float)$refund['amount'],
+        $failureReason
+    );
+    if (function_exists('uwRecordAuditEvent')) {
+        uwRecordAuditEvent('refund_failed', [
+            'merchant_id' => (int)$refund['merchant_id'],
+            'actor_type' => 'system',
+            'resource_type' => 'refund',
+            'resource_id' => (string)$refund['refund_id'],
+            'reason' => $failureReason,
+        ]);
+    }
+    return ['ok' => true, 'status' => 'failed'];
+}
+
 function processRefund(int $transactionId, float $amount, string $reason, ?int $adminId = null): array
 {
     ensureRefundsEngine();
@@ -48,6 +109,18 @@ function processRefund(int $transactionId, float $amount, string $reason, ?int $
     $db->prepare('INSERT INTO refunds (refund_id, merchant_id, transaction_id, amount, status, reason, admin_note) VALUES (?,?,?,?,?,?,?)')
         ->execute([$refundId, (int)$txn['merchant_id'], $transactionId, $amount, 'pending', $reason, $adminId ? 'admin:' . $adminId : null]);
 
+    if (function_exists('uwRecordAuditEvent')) {
+        uwRecordAuditEvent('refund_requested', [
+            'merchant_id' => (int)$txn['merchant_id'],
+            'actor_type' => $adminId ? 'staff' : 'system',
+            'actor_id' => $adminId ? (string)$adminId : null,
+            'resource_type' => 'refund',
+            'resource_id' => $refundId,
+            'reason' => $reason,
+            'after_state' => ['transaction_id' => $transactionId, 'txn_ref' => (string)$txn['txn_id'], 'amount' => $amount],
+        ]);
+    }
+
     if ($isTest) {
         $db->prepare("UPDATE refunds SET provider='sandbox',provider_refund_id=?,provider_status='processed' WHERE refund_id=?")
             ->execute(['sandbox_' . $refundId, $refundId]);
@@ -57,8 +130,19 @@ function processRefund(int $transactionId, float $amount, string $reason, ?int $
 
     $providerRefund = createRazorpayRefund((string)$txn['utr'], $amount, $refundId);
     if (!$providerRefund || empty($providerRefund['id'])) {
+        $failReason = 'Razorpay refund request failed.';
         $db->prepare("UPDATE refunds SET status='failed',provider='razorpay',provider_status='request_failed',failure_reason=?,processed_at=NOW() WHERE refund_id=?")
-            ->execute(['Razorpay refund request failed.', $refundId]);
+            ->execute([$failReason, $refundId]);
+        notifyMerchantRefundFailed((int)$txn['merchant_id'], $refundId, (string)$txn['txn_id'], $amount, $failReason);
+        if (function_exists('uwRecordAuditEvent')) {
+            uwRecordAuditEvent('refund_failed', [
+                'merchant_id' => (int)$txn['merchant_id'],
+                'actor_type' => 'system',
+                'resource_type' => 'refund',
+                'resource_id' => $refundId,
+                'reason' => $failReason,
+            ]);
+        }
         return ['ok' => false, 'error' => 'Razorpay refund request failed. No wallet balance was changed.'];
     }
     if ((string)($providerRefund['payment_id'] ?? '') !== (string)$txn['utr']
@@ -66,6 +150,7 @@ function processRefund(int $transactionId, float $amount, string $reason, ?int $
     ) {
         $db->prepare("UPDATE refunds SET status='failed',provider='razorpay',provider_refund_id=?,provider_status='mismatch',failure_reason=?,processed_at=NOW() WHERE refund_id=?")
             ->execute([(string)$providerRefund['id'], 'Provider refund response did not match the request.', $refundId]);
+        notifyMerchantRefundFailed((int)$txn['merchant_id'], $refundId, (string)$txn['txn_id'], $amount, 'Provider refund response did not match the request.');
         return ['ok' => false, 'error' => 'Provider refund response mismatch. Support has been notified.'];
     }
     $providerStatus = strtolower((string)($providerRefund['status'] ?? 'pending'));
@@ -185,7 +270,22 @@ function completeProviderRefund(string $refundId, string $providerReference): ar
         }
         throw $e;
     }
-    createNotification((int)$refund['merchant_id'], 'Refund Processed', formatMoney((float)$refund['amount']) . ' refunded for ' . $refund['txn_id']);
+    notifyMerchantRefundProcessed(
+        (int)$refund['merchant_id'],
+        $refundId,
+        (string)$refund['txn_id'],
+        (float)$refund['amount']
+    );
+    if (function_exists('uwRecordAuditEvent')) {
+        uwRecordAuditEvent('refund_completed', [
+            'merchant_id' => (int)$refund['merchant_id'],
+            'actor_type' => 'system',
+            'resource_type' => 'refund',
+            'resource_id' => $refundId,
+            'reason' => 'Provider-confirmed refund for ' . $refund['txn_id'],
+            'after_state' => ['amount' => (float)$refund['amount'], 'provider_reference' => $providerReference],
+        ]);
+    }
     if (function_exists('sendTemplatedEmail')) {
         sendTemplatedEmail((int)$refund['merchant_id'], 'refund_processed', [
             'amount' => formatMoney((float)$refund['amount']),

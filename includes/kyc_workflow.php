@@ -209,6 +209,49 @@ function advanceMerchantForwardAfterVerify(int $merchantId): array
 }
 
 /**
+ * Explicit Admin “Forward to partners now” — requires KYC verified.
+ *
+ * @return array{ok:bool,error?:string,forward?:array<string,mixed>}
+ */
+function forwardMerchantToPartnersNow(int $merchantId, string $source = 'admin_manual'): array
+{
+    if ($merchantId < 1) {
+        return ['ok' => false, 'error' => 'Invalid merchant.'];
+    }
+    $st = getDB()->prepare('SELECT kyc_status FROM merchants WHERE id=? LIMIT 1');
+    $st->execute([$merchantId]);
+    $kycStatus = strtolower(trim((string)$st->fetchColumn()));
+    if ($kycStatus !== 'verified') {
+        return ['ok' => false, 'error' => 'KYC must be verified before partner forward.'];
+    }
+    if (!function_exists('merchant_transition')) {
+        require_once __DIR__ . '/onboarding_state_machine.php';
+    }
+    merchant_transition($merchantId, 'queue_forward', 'Manual forward to partners (' . $source . ')');
+    $forward = advanceMerchantForwardAfterVerify($merchantId);
+    if (function_exists('recordImmutableAudit')) {
+        recordImmutableAudit(
+            'kyc_forward_manual',
+            $merchantId,
+            'merchant',
+            (string)$merchantId,
+            'Explicit forward to partners — source=' . $source
+        );
+    }
+    if (function_exists('uwRecordAuditEvent')) {
+        uwRecordAuditEvent('kyc_forward_manual', [
+            'merchant_id' => $merchantId,
+            'actor_type' => 'staff',
+            'resource_type' => 'merchant',
+            'resource_id' => (string)$merchantId,
+            'reason' => 'Explicit forward to partners',
+            'after_state' => $forward,
+        ]);
+    }
+    return ['ok' => true, 'forward' => $forward];
+}
+
+/**
  * Single canonical KYC verify + forward enqueue (manual, auto, checker).
  *
  * @return array{ok:bool,error?:string,already?:bool}

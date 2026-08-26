@@ -535,6 +535,315 @@ function completeApiIdempotency(int $id, int $statusCode, array $response): void
         ->execute([$statusCode, $body, $id]);
 }
 
+function transactionHasPaymentLedger(int $transactionId, string $txnRef, int $merchantId): bool
+{
+    $db = getDB();
+    $st = $db->prepare(
+        "SELECT id FROM ledger_journals WHERE business_type='payment_capture'
+         AND (business_reference=? OR business_reference=? OR metadata LIKE ?) LIMIT 1"
+    );
+    $st->execute([$txnRef, 'txn:' . $txnRef, '%"transaction_id":' . $transactionId . '%']);
+    if ((int)$st->fetchColumn() > 0) {
+        return true;
+    }
+    $legacy = $db->prepare(
+        "SELECT id FROM ledger_journals WHERE business_type='wallet_credit' AND business_reference=? LIMIT 1"
+    );
+    $legacy->execute(['merchant:' . $merchantId . ':' . $txnRef]);
+    return (int)$legacy->fetchColumn() > 0;
+}
+
+/**
+ * Chain B primary ledger write — ONE path for payment_capture journal + merchant wallet sync.
+ * Idempotent via business_reference = txn_id. Fail-closed: returns ok=false on write error.
+ *
+ * @param array<string,mixed> $split platform_fee, merchant_net
+ * @param array<string,mixed> $metadata extra journal metadata
+ * @return array{ok:bool,duplicate?:bool,journal_id?:int,ledger_posted?:bool,error?:string}
+ */
+function postPrimaryPaymentCaptureLedger(
+    int $transactionId,
+    string $txnRef,
+    int $merchantId,
+    float $amount,
+    array $split,
+    string $provider,
+    string $mode,
+    string $currency,
+    string $description,
+    array $metadata = []
+): array {
+    requireFinancialTables();
+    if ($transactionId < 1 || $txnRef === '' || $merchantId < 1) {
+        return ['ok' => false, 'error' => 'Invalid payment capture ledger inputs.'];
+    }
+    if (transactionHasPaymentLedger($transactionId, $txnRef, $merchantId)) {
+        return ['ok' => true, 'duplicate' => true, 'ledger_posted' => false];
+    }
+
+    try {
+        $providerAccount = getOrCreateLedgerAccount(
+            'provider_receivable:' . $provider,
+            'provider',
+            null,
+            'asset',
+            $mode,
+            $currency
+        );
+        $merchantAccount = getOrCreateLedgerAccount(
+            'merchant_payable:' . $merchantId,
+            'merchant',
+            $merchantId,
+            'liability',
+            $mode,
+            $currency
+        );
+        $entries = [
+            ['account_id' => $providerAccount, 'side' => 'debit', 'amount' => round($amount, 2)],
+            ['account_id' => $merchantAccount, 'side' => 'credit', 'amount' => (float)$split['merchant_net']],
+        ];
+        if ((float)$split['platform_fee'] > 0) {
+            $feeAccount = getOrCreateLedgerAccount('platform_fee_revenue', 'platform', null, 'revenue', $mode, $currency);
+            $entries[] = ['account_id' => $feeAccount, 'side' => 'credit', 'amount' => (float)$split['platform_fee']];
+        }
+        $journalId = postBalancedJournal(
+            'payment_capture',
+            $txnRef,
+            $mode,
+            $currency,
+            $entries,
+            $description,
+            array_merge(['transaction_id' => $transactionId, 'merchant_id' => $merchantId], $metadata)
+        );
+
+        $db = getDB();
+        $merchantBalance = merchantLedgerBalance($merchantId, $mode);
+        $wtExists = $db->prepare("SELECT id FROM wallet_transactions WHERE transaction_id=? AND type='credit' LIMIT 1");
+        $wtExists->execute([$transactionId]);
+        if (!$wtExists->fetchColumn()) {
+            $db->prepare(
+                'INSERT INTO wallet_transactions (merchant_id,type,amount,balance_after,reference,description,transaction_id) VALUES (?,?,?,?,?,?,?)'
+            )->execute([
+                $merchantId,
+                'credit',
+                (float)$split['merchant_net'],
+                $merchantBalance,
+                $txnRef,
+                'Payment capture',
+                $transactionId,
+            ]);
+        }
+        $db->prepare('UPDATE merchants SET wallet_balance=? WHERE id=?')->execute([$merchantBalance, $merchantId]);
+        try {
+            $db->prepare('UPDATE transactions SET wallet_credited=1 WHERE id=?')->execute([$transactionId]);
+        } catch (Throwable $e) {
+            // column may not exist yet
+        }
+
+        return ['ok' => true, 'duplicate' => false, 'journal_id' => $journalId, 'ledger_posted' => true];
+    } catch (Throwable $e) {
+        if (function_exists('logPlatformError')) {
+            logPlatformError('error', 'Primary payment_capture ledger failed', [
+                'transaction_id' => $transactionId,
+                'txn_ref' => $txnRef,
+                'error' => $e->getMessage(),
+            ]);
+        }
+        return ['ok' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/** Split record, platform fee wallet, partner route — idempotent where helpers allow. */
+function applyPaymentCaptureSplitAndRoute(int $transactionId, int $merchantId, array $split, string $provider, string $feeLabel): void
+{
+    if ((float)($split['platform_fee'] ?? 0) > 0) {
+        if (function_exists('recordSplitPayment')) {
+            recordSplitPayment($transactionId, $merchantId, $split, $provider);
+        }
+        if (function_exists('creditPlatformFeeWallet')) {
+            creditPlatformFeeWallet((float)$split['platform_fee'], $transactionId, 'Commission from ' . $feeLabel);
+        }
+    }
+    if (function_exists('executePartnerRouteSplit')) {
+        try {
+            executePartnerRouteSplit($transactionId, $merchantId, $split, $provider);
+        } catch (Throwable $splitEx) {
+            if (function_exists('logPlatformError')) {
+                logPlatformError('warning', 'Partner route split deferred', [
+                    'transaction_id' => $transactionId,
+                    'error' => $splitEx->getMessage(),
+                ]);
+            }
+        }
+    }
+}
+
+/**
+ * Canonical post-success chain: ledger (payment_capture) → wallet → settlement → notify → audit.
+ * Idempotent — safe to call from webhooks, checkout, and legacy collection paths.
+ */
+function finalizeSuccessfulPaymentTransaction(int $transactionId, array $opts = []): array
+{
+    requireFinancialTables();
+    if (!function_exists('ensureWalletEngine') && is_file(__DIR__ . '/wallet.php')) {
+        require_once __DIR__ . '/wallet.php';
+    }
+    ensureWalletEngine();
+
+    $db = getDB();
+    $st = $db->prepare(
+        'SELECT t.*, m.commission_rate, m.collection_mode FROM transactions t JOIN merchants m ON m.id=t.merchant_id WHERE t.id=?'
+    );
+    $st->execute([$transactionId]);
+    $txn = $st->fetch();
+    if (!$txn || ($txn['status'] ?? '') !== 'success') {
+        return ['ok' => false, 'error' => 'Transaction not successful.'];
+    }
+
+    $txnRef = (string)($txn['txn_id'] ?? '');
+    $merchantId = (int)$txn['merchant_id'];
+    $amount = round((float)$txn['amount'], 2);
+    $isTest = !empty($txn['is_test']);
+    $mode = $isTest ? 'test' : 'live';
+    $currency = 'INR';
+    $provider = strtolower(trim((string)($opts['provider'] ?? $txn['payment_method'] ?? 'sandbox')));
+    if ($provider === '') {
+        $provider = 'sandbox';
+    }
+
+    $split = [
+        'platform_fee' => (float)($txn['platform_fee'] ?? 0),
+        'merchant_net' => (float)($txn['split_amount'] ?? 0),
+        'mdr_m' => (float)($txn['mdr_m'] ?? 0),
+        'mdr_p' => (float)($txn['mdr_p'] ?? 0),
+        'partner_fee' => (float)($txn['partner_fee'] ?? 0),
+        'pricing_snapshot' => $txn['pricing_snapshot'] ?? null,
+    ];
+    if ($split['merchant_net'] <= 0 && $split['platform_fee'] <= 0) {
+        $link = [
+            'merchant_id' => $merchantId,
+            'amount' => $amount,
+            'commission_rate' => $txn['commission_rate'],
+            'collection_mode' => $txn['collection_mode'],
+        ];
+        $calc = calculateSplitBreakdown($amount, $link);
+        $split = array_merge($split, $calc);
+    }
+
+    $ledgerPosted = false;
+    if (empty($opts['skip_ledger'])) {
+        $ledger = postPrimaryPaymentCaptureLedger(
+            $transactionId,
+            $txnRef,
+            $merchantId,
+            $amount,
+            $split,
+            $provider,
+            $mode,
+            $currency,
+            'Payment capture for ' . $txnRef
+        );
+        if (!$ledger['ok'] && empty($ledger['duplicate'])) {
+            return ['ok' => false, 'error' => 'Ledger write failed: ' . ($ledger['error'] ?? 'unknown')];
+        }
+        $ledgerPosted = !empty($ledger['ledger_posted']);
+        if (!$ledgerPosted && !isTransactionWalletCredited($transactionId)) {
+            creditWalletsFromTransaction($transactionId);
+        }
+    } elseif (!isTransactionWalletCredited($transactionId)) {
+        creditWalletsFromTransaction($transactionId);
+    }
+
+    applyPaymentCaptureSplitAndRoute($transactionId, $merchantId, $split, $provider, $txnRef);
+
+    if (function_exists('addTransactionToSettlementBatch')) {
+        try {
+            addTransactionToSettlementBatch($transactionId, $merchantId);
+        } catch (Throwable $e) {
+            // non-fatal
+        }
+    }
+
+    if (!empty($opts['run_risk_hooks'])) {
+        if (function_exists('recordTransactionRisk')) {
+            recordTransactionRisk(
+                $transactionId,
+                $merchantId,
+                $amount,
+                ['email' => (string)($txn['customer_email'] ?? ''), 'phone' => (string)($txn['customer_phone'] ?? '')]
+            );
+        }
+        if (function_exists('evaluateTransactionRiskFull')) {
+            evaluateTransactionRiskFull(
+                $merchantId,
+                $amount,
+                ['email' => (string)($txn['customer_email'] ?? ''), 'phone' => (string)($txn['customer_phone'] ?? '')],
+                $transactionId
+            );
+        }
+        if (function_exists('recordNodalCollection')) {
+            recordNodalCollection($transactionId, $merchantId, $amount, 'Customer collection from ' . ($txn['customer_email'] ?? 'customer'));
+        }
+        if (function_exists('updateMerchantRiskScore')) {
+            updateMerchantRiskScore($merchantId);
+        }
+        if (function_exists('applyRollingReserveHold')) {
+            applyRollingReserveHold($merchantId, $transactionId, $amount);
+        }
+    }
+
+    if (empty($opts['skip_audit']) && function_exists('uwRecordAuditEvent')) {
+        uwRecordAuditEvent('payment_capture', [
+            'merchant_id' => $merchantId,
+            'actor_type' => 'system',
+            'resource_type' => 'transaction',
+            'resource_id' => $txnRef,
+            'reason' => 'Payment capture finalized for ' . $txnRef,
+            'after_state' => [
+                'amount' => $amount,
+                'merchant_net' => $split['merchant_net'],
+                'platform_fee' => $split['platform_fee'],
+                'transaction_id' => $transactionId,
+                'ledger_posted' => $ledgerPosted,
+            ],
+        ]);
+    }
+
+    if (empty($opts['skip_notify'])) {
+        notifyMerchantPaymentCaptured($merchantId, $txn, isset($opts['link_id']) ? (string)$opts['link_id'] : null);
+    }
+
+    return ['ok' => true, 'transaction_id' => $transactionId, 'ledger_posted' => $ledgerPosted];
+}
+
+/** In-app notify + outbound webhook/email for a verified payment (dedup via pay_txn_* event_key). */
+function notifyMerchantPaymentCaptured(int $merchantId, array $txn, ?string $linkId = null): void
+{
+    $txnRef = (string)($txn['txn_id'] ?? '');
+    $amount = (float)($txn['amount'] ?? 0);
+    $message = formatMoney($amount) . ' payment verified. ' . $txnRef;
+    if ($txnRef === '') {
+        $message = formatMoney($amount) . ' payment verified.';
+    }
+    if (function_exists('notifyMerchant')) {
+        notifyMerchant($merchantId, 'Payment Received', $message, 'pay_txn_' . ($txnRef !== '' ? $txnRef : ('id' . (int)($txn['id'] ?? 0))));
+    } elseif (function_exists('createNotification')) {
+        createNotification($merchantId, 'Payment Received', $message, 'pay_txn_' . $txnRef);
+    }
+    if (!function_exists('notifyMerchantPaymentSuccess') && is_file(__DIR__ . '/merchant_webhooks.php')) {
+        require_once __DIR__ . '/merchant_webhooks.php';
+    }
+    if (function_exists('notifyMerchantPaymentSuccess')) {
+        notifyMerchantPaymentSuccess($merchantId, $txn, $linkId);
+    }
+    if (function_exists('sendTemplatedEmail')) {
+        sendTemplatedEmail($merchantId, 'payment_received', [
+            'amount' => formatMoney($amount),
+            'txn_id' => $txnRef,
+        ]);
+    }
+}
+
 function captureVerifiedPaymentOrder(array $verification): array
 {
     requireFinancialTables();
@@ -677,61 +986,29 @@ function captureVerifiedPaymentOrder(array $verification): array
         $db->prepare('INSERT INTO payment_order_transactions (payment_order_id,transaction_id) VALUES (?,?)')
             ->execute([(int)$order['id'], $transactionId]);
 
-        $providerAccount = getOrCreateLedgerAccount(
-            'provider_receivable:' . strtolower((string)$verification['provider']),
-            'provider',
-            null,
-            'asset',
-            $order['mode'],
-            $order['currency']
-        );
-        $merchantAccount = getOrCreateLedgerAccount(
-            'merchant_payable:' . (int)$order['merchant_id'],
-            'merchant',
+        $ledger = postPrimaryPaymentCaptureLedger(
+            $transactionId,
+            $txnRef,
             (int)$order['merchant_id'],
-            'liability',
-            $order['mode'],
-            $order['currency']
-        );
-        $entries = [
-            ['account_id' => $providerAccount, 'side' => 'debit', 'amount' => $amount],
-            ['account_id' => $merchantAccount, 'side' => 'credit', 'amount' => (float)$split['merchant_net']],
-        ];
-        if ((float)$split['platform_fee'] > 0) {
-            $feeAccount = getOrCreateLedgerAccount('platform_fee_revenue', 'platform', null, 'revenue', $order['mode'], $order['currency']);
-            $entries[] = ['account_id' => $feeAccount, 'side' => 'credit', 'amount' => (float)$split['platform_fee']];
-        }
-        postBalancedJournal(
-            'payment_capture',
-            (string)$verification['provider'] . ':' . (string)$verification['provider_payment_id'],
-            $order['mode'],
-            $order['currency'],
-            $entries,
+            $amount,
+            $split,
+            strtolower((string)$verification['provider']),
+            (string)$order['mode'],
+            (string)$order['currency'],
             'Verified payment capture for ' . $order['order_ref'],
-            ['payment_order_id' => (int)$order['id'], 'transaction_id' => $transactionId]
+            ['payment_order_id' => (int)$order['id']]
         );
-
-        $merchantBalance = merchantLedgerBalance((int)$order['merchant_id'], $order['mode']);
-        $db->prepare('INSERT INTO wallet_transactions (merchant_id,type,amount,balance_after,reference,description,transaction_id) VALUES (?,?,?,?,?,?,?)')
-            ->execute([(int)$order['merchant_id'], 'credit', (float)$split['merchant_net'], $merchantBalance, $txnRef, 'Verified payment capture', $transactionId]);
-        $db->prepare('UPDATE merchants SET wallet_balance=? WHERE id=?')->execute([$merchantBalance, (int)$order['merchant_id']]);
-
-        if ((float)$split['platform_fee'] > 0) {
-            recordSplitPayment($transactionId, (int)$order['merchant_id'], $split, (string)$verification['provider']);
-            creditPlatformFeeWallet((float)$split['platform_fee'], $transactionId, 'Commission from ' . $order['order_ref']);
+        if (!$ledger['ok'] && empty($ledger['duplicate'])) {
+            throw new RuntimeException('Ledger write failed — payment not marked settled: ' . ($ledger['error'] ?? 'unknown'));
         }
 
-        // F3: Execute partner route/split (idempotent, non-blocking)
-        if (function_exists('executePartnerRouteSplit')) {
-            try {
-                executePartnerRouteSplit($transactionId, (int)$order['merchant_id'], $split, (string)$verification['provider']);
-            } catch (Throwable $splitEx) {
-                logPlatformError('warning', 'Partner route split deferred', [
-                    'transaction_id' => $transactionId,
-                    'error' => $splitEx->getMessage(),
-                ]);
-            }
-        }
+        applyPaymentCaptureSplitAndRoute(
+            $transactionId,
+            (int)$order['merchant_id'],
+            $split,
+            (string)$verification['provider'],
+            (string)$order['order_ref']
+        );
 
         $db->prepare("UPDATE payment_orders SET status='paid', paid_at=NOW() WHERE id=?")->execute([(int)$order['id']]);
         $db->prepare("UPDATE payment_links SET status='paid', paid_at=NOW() WHERE id=?")->execute([(int)$order['payment_link_id']]);
@@ -753,17 +1030,14 @@ function captureVerifiedPaymentOrder(array $verification): array
 
     try {
         addTransactionToSettlementBatch($transactionId, (int)$link['merchant_id']);
-        if (function_exists('notifyMerchant')) {
-            notifyMerchant((int)$link['merchant_id'], 'Payment Received', formatMoney((float)$link['amount']) . ' payment verified.', 'pay_txn_' . $txnRef);
-        } else {
-            createNotification((int)$link['merchant_id'], 'Payment Received', formatMoney((float)$link['amount']) . ' payment verified.');
-        }
-        if (function_exists('sendTemplatedEmail')) {
-            sendTemplatedEmail((int)$link['merchant_id'], 'payment_received', [
-                'amount' => formatMoney((float)$link['amount']),
-                'txn_id' => $txnRef,
-            ]);
-        }
+        $txnSt = getDB()->prepare('SELECT * FROM transactions WHERE id=?');
+        $txnSt->execute([$transactionId]);
+        $txnRow = $txnSt->fetch() ?: [];
+        notifyMerchantPaymentCaptured(
+            (int)$link['merchant_id'],
+            $txnRow,
+            isset($link['link_id']) ? (string)$link['link_id'] : null
+        );
     } catch (Throwable $e) {
         logPlatformError('warning', 'Verified payment post-processing failed.', [
             'transaction_id' => $transactionId,

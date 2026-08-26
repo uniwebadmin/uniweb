@@ -16,6 +16,8 @@ $gwSyncEdu = function_exists('gatewaySubmitVsForwardQueueEducation') ? gatewaySu
 
 $statusFilter = trim((string)($_GET['status'] ?? ''));
 $q = mb_substr(trim((string)($_GET['q'] ?? '')), 0, 100);
+$detailId = (int)($_GET['item_id'] ?? 0);
+$detailTimeline = ($detailId > 0 && function_exists('getForwardQueueRowTimeline')) ? getForwardQueueRowTimeline($detailId) : [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
@@ -104,6 +106,17 @@ require_once __DIR__ . '/header.php';
             <input type="hidden" name="status" value="<?= e($statusFilter) ?>">
             <button class="btn-primary px-4 py-2.5 text-sm whitespace-nowrap">Search</button>
         </form>
+        <?php if ($detailId > 0 && $detailTimeline !== []): ?>
+        <div class="mt-4 rounded-lg border border-sky-500/30 bg-sky-500/5 p-4">
+            <p class="text-sm font-semibold text-sky-300 mb-2">Queue row #<?= $detailId ?> — timeline</p>
+            <ol class="space-y-2 text-xs text-gray-300">
+                <?php foreach ($detailTimeline as $ev): ?>
+                <li><span class="text-gray-500"><?= e($ev['at'] !== '' ? $ev['at'] : '—') ?></span> · <strong><?= e($ev['event']) ?></strong> — <?= e($ev['detail']) ?></li>
+                <?php endforeach; ?>
+            </ol>
+            <a href="admin_forward_queue.php<?= $statusFilter !== '' || $q !== '' ? ('?' . http_build_query(array_filter(['status' => $statusFilter ?: null, 'q' => $q ?: null]))) : '' ?>" class="text-xs text-gray-500 hover:text-white mt-2 inline-block">Close timeline</a>
+        </div>
+        <?php endif; ?>
     </div>
 
     <div id="forward-results" class="glass rounded-xl overflow-hidden">
@@ -137,13 +150,17 @@ require_once __DIR__ . '/header.php';
                         $colors = [
                             'queued' => 'bg-blue-500/20 text-blue-400',
                             'processing' => 'bg-purple-500/20 text-purple-400',
+                            'staged' => 'bg-sky-500/20 text-sky-300',
                             'success' => 'bg-emerald-500/20 text-emerald-400',
                             'retry' => 'bg-amber-500/20 text-amber-400',
                             'failed' => 'bg-red-500/20 text-red-400',
                         ];
-                        $cls = $colors[$row['status']] ?? 'bg-gray-500/20 text-gray-400';
+                        $statusKey = (string)$row['status'];
+                        $cls = $colors[$statusKey] ?? 'bg-gray-500/20 text-gray-400';
+                        $statusLabel = function_exists('forwardQueueAdminStatusLabel') ? forwardQueueAdminStatusLabel($statusKey) : $statusKey;
                         ?>
-                        <span class="px-2 py-0.5 rounded-full text-xs font-medium <?= $cls ?>"><?= e($row['status']) ?></span>
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium <?= $cls ?>" title="<?= e($statusLabel) ?>"><?= e($statusKey) ?></span>
+                        <p class="text-[10px] text-gray-500 mt-0.5 max-w-[140px]"><?= e($statusLabel) ?></p>
                     </td>
                     <td class="px-4 py-3 text-gray-400"><?= (int)$row['attempts'] ?>/<?= (int)$row['max_attempts'] ?></td>
                     <td class="px-4 py-3 text-gray-400 text-xs"><?= e($row['schedule_at'] ?? '—') ?></td>
@@ -152,13 +169,14 @@ require_once __DIR__ . '/header.php';
                     <td class="px-4 py-3 text-gray-500 text-xs max-w-xs truncate" title="<?= e($row['error_message'] ?? '') ?>"><?= e($row['error_message'] ?? '—') ?></td>
                     <td class="px-4 py-3">
                         <?php if (in_array((string)$row['status'], ['failed', 'staged'], true)): ?>
-                        <form method="POST" action="admin_forward_queue.php" onsubmit="return confirm('Re-queue this item?')">
+                        <form method="POST" action="admin_forward_queue.php" onsubmit="return confirm('Re-queue this item?')" class="inline">
                             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                             <input type="hidden" name="action" value="requeue">
                             <input type="hidden" name="item_id" value="<?= (int)$row['id'] ?>">
                             <button type="submit" class="text-xs text-amber-400 hover:text-amber-300">Re-queue</button>
                         </form>
                         <?php endif; ?>
+                        <a href="?item_id=<?= (int)$row['id'] ?><?= $statusFilter !== '' ? '&status=' . urlencode($statusFilter) : '' ?><?= $q !== '' ? '&q=' . urlencode($q) : '' ?>" class="text-xs text-sky-400 hover:text-sky-300 ml-2">Timeline</a>
                     </td>
                 </tr>
                 <?php endforeach; endif; ?>

@@ -40,7 +40,7 @@ if ($success) {
     $dup->execute([$mihpayid]);
     if (!$dup->fetch()) {
         createTransactionFromPayment($link, 'payu', 'success', $mihpayid, merchantAccountMode($link) === 'test');
-        finalizePaymentLink((int)$link['id'], (int)$link['merchant_id'], (float)$link['amount'], formatMoney((float)$link['amount']) . ' received.');
+        getDB()->prepare("UPDATE payment_links SET status='paid', paid_at=NOW() WHERE id=?")->execute([(int)$link['id']]);
     }
     $pageTitle = 'Payment Successful';
 } else {

@@ -70,7 +70,7 @@ function gatewaySubmitVsForwardQueueEducation(): array
 {
     return [
         'title' => 'Gateway Submit ↔ Forward Queue — one data path',
-        'auto_screen' => forwardQueueAutoPage() . ' — auto queue after Admin Verify (one row per partner with keys)',
+        'auto_screen' => forwardQueueAutoPage() . ' — auto queue after Admin Verify (one row per KYC-forward partner)',
         'manual_screen' => forwardQueueManualPage() . ' — Multi-Gateway Forward bulk / status updates',
         'sync' => forwardQueueSyncFunction() . '() keeps gateway_submissions and partner_forward_queue aligned',
         'tables' => 'gateway_submissions (manual audit) + partner_forward_queue (worker queue)',
@@ -81,6 +81,43 @@ function gatewaySubmitVsForwardQueueEducation(): array
         ],
         'diagram_phone' => '_inbox/chat/daigram/33-wiring-forward-b6-b8-phone.html',
         'diagram_full' => '_inbox/chat/daigram/34-wiring-forward-b6-b8-full-diagrams.md',
+    ];
+}
+
+/** Documented trigger points for Chain A (Owner proof). */
+function forwardQueueTriggerPoints(): array
+{
+    return [
+        [
+            'trigger' => 'Admin KYC verify (super solo)',
+            'file' => 'admin_kyc.php',
+            'action' => 'verify_merchant_now',
+            'handler' => 'verifyMerchantKycNow() → completeMerchantKycVerification() → advanceMerchantForwardAfterVerify()',
+        ],
+        [
+            'trigger' => 'Admin KYC verify (checker approve)',
+            'file' => 'includes/onboarding_security.php',
+            'action' => 'kyc_merchant_verify',
+            'handler' => 'applyApprovedControlAction() → completeMerchantKycVerification() → advanceMerchantForwardAfterVerify()',
+        ],
+        [
+            'trigger' => 'Auto KYC verify',
+            'file' => 'includes/auto_kyc.php',
+            'action' => 'cron / admin run',
+            'handler' => 'completeMerchantKycVerification() → advanceMerchantForwardAfterVerify()',
+        ],
+        [
+            'trigger' => 'Explicit Forward to partners',
+            'file' => 'admin_kyc.php',
+            'action' => 'forward_partners_now',
+            'handler' => 'forwardMerchantToPartnersNow() → enqueueMerchantToAllEnabledPartners() → processPerPartnerForwardQueue()',
+        ],
+        [
+            'trigger' => 'Live enable (checker)',
+            'file' => 'includes/onboarding_security.php',
+            'action' => 'merchant_live_enable',
+            'handler' => 'advanceMerchantForwardAfterVerify() after live gate',
+        ],
     ];
 }
 

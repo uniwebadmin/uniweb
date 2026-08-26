@@ -182,12 +182,12 @@ function enqueueMerchantToAllEnabledPartners(int $merchantId): void
         require_once __DIR__ . '/partner_engine.php';
     }
 
-    $registry = getPartnerRegistry();
-    $targets = [];
-    foreach (array_keys($registry) as $partnerKey) {
-        $partnerKey = (string)$partnerKey;
-        if (partnerIsConfigured($partnerKey)) {
-            $targets[] = $partnerKey;
+    $targets = function_exists('getKycForwardPartnerKeys') ? getKycForwardPartnerKeys() : [];
+    if ($targets === []) {
+        foreach (array_keys(getPartnerRegistry()) as $partnerKey) {
+            if (partnerIsConfigured((string)$partnerKey)) {
+                $targets[] = (string)$partnerKey;
+            }
         }
     }
     if ($targets === []) {
@@ -215,6 +215,15 @@ function enqueueMerchantToAllEnabledPartners(int $merchantId): void
             $queueId = enqueuePartnerForward($merchantId, $partnerKey, $payload);
             if ($queueId > 0) {
                 $enqueued++;
+                if ($partnerKey !== 'unassigned' && !partnerIsConfigured($partnerKey)) {
+                    getDB()->prepare(
+                        "UPDATE partner_forward_queue SET status='staged', error_message=?, updated_at=NOW()
+                         WHERE id=? AND status='queued'"
+                    )->execute([
+                        'Partner keys not configured — paste in Partner Registry, then re-queue.',
+                        $queueId,
+                    ]);
+                }
                 if (function_exists('logAutoKycRun')) {
                     logAutoKycRun($merchantId, 'partner_enqueued', "Enqueued to {$partnerKey} (queue_id={$queueId})");
                 }
@@ -228,6 +237,17 @@ function enqueueMerchantToAllEnabledPartners(int $merchantId): void
 
     if ($enqueued === 0 && function_exists('logAutoKycRun')) {
         logAutoKycRun($merchantId, 'partner_enqueue_skip', 'Already queued or insert skipped (idempotent)');
+    }
+
+    if ($enqueued > 0 && function_exists('uwRecordAuditEvent')) {
+        uwRecordAuditEvent('kyc_forward_enqueued', [
+            'merchant_id' => $merchantId,
+            'actor_type' => 'system',
+            'resource_type' => 'merchant',
+            'resource_id' => (string)$merchantId,
+            'reason' => 'KYC forward queue rows enqueued after verify',
+            'after_state' => ['partners_enqueued' => $enqueued],
+        ]);
     }
 }
 
@@ -755,6 +775,76 @@ function merchantForwardQueueStatusLabel(string $status): string
         'paused' => 'Paused',
         default => ucfirst(str_replace('_', ' ', $status)),
     };
+}
+
+/** Admin matrix — honest labels; success only when partner API confirmed. */
+function forwardQueueAdminStatusLabel(string $status): string
+{
+    return match ($status) {
+        'queued' => 'Queued',
+        'processing' => 'Processing',
+        'staged' => 'Staged — not sent to bank/partner yet',
+        'success' => 'Sent — partner API confirmed',
+        'retry' => 'Retry scheduled',
+        'failed' => 'Failed — see reason',
+        'paused' => 'Paused',
+        'cancelled' => 'Cancelled',
+        default => ucfirst(str_replace('_', ' ', $status)),
+    };
+}
+
+/**
+ * Timeline events for one forward queue row (Admin detail / proof).
+ *
+ * @return list<array{at:string,event:string,detail:string}>
+ */
+function getForwardQueueRowTimeline(int $queueId): array
+{
+    ensurePartnerForwardQueueTable();
+    $st = getDB()->prepare('SELECT * FROM partner_forward_queue WHERE id=? LIMIT 1');
+    $st->execute([$queueId]);
+    $row = $st->fetch();
+    if (!$row) {
+        return [];
+    }
+    $timeline = [];
+    $timeline[] = [
+        'at' => (string)($row['created_at'] ?? ''),
+        'event' => 'Row created',
+        'detail' => 'Partner: ' . ($row['partner_key'] ?? '—') . ' · initial enqueue',
+    ];
+    if (!empty($row['schedule_at'])) {
+        $timeline[] = [
+            'at' => (string)$row['schedule_at'],
+            'event' => 'Scheduled',
+            'detail' => 'Worker eligible after this time (hold window / IST policy)',
+        ];
+    }
+    if (!empty($row['last_attempt_at'])) {
+        $timeline[] = [
+            'at' => (string)$row['last_attempt_at'],
+            'event' => 'Last attempt #' . (int)($row['attempts'] ?? 0),
+            'detail' => forwardQueueAdminStatusLabel((string)($row['status'] ?? '')),
+        ];
+    }
+    if (!empty($row['updated_at']) && ($row['updated_at'] ?? '') !== ($row['created_at'] ?? '')) {
+        $timeline[] = [
+            'at' => (string)$row['updated_at'],
+            'event' => 'Status: ' . forwardQueueAdminStatusLabel((string)($row['status'] ?? '')),
+            'detail' => trim((string)($row['error_message'] ?? '')) ?: (string)($row['partner_reference'] ?? '—'),
+        ];
+    }
+    if (!empty($row['partner_response'])) {
+        $resp = json_decode((string)$row['partner_response'], true);
+        if (is_array($resp) && !empty($resp['message'])) {
+            $timeline[] = [
+                'at' => (string)($row['updated_at'] ?? $row['last_attempt_at'] ?? ''),
+                'event' => 'Adapter response',
+                'detail' => (string)$resp['message'],
+            ];
+        }
+    }
+    return $timeline;
 }
 
 /**

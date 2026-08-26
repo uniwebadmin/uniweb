@@ -357,30 +357,41 @@ function createTransactionFromPayment(array $link, string $method, string $statu
     }
     $id = (int)$db->lastInsertId();
     if ($status === 'success') {
-        if ($split['platform_fee'] > 0) {
-            recordSplitPayment($id, (int)$link['merchant_id'], $split, $method);
+        if (!function_exists('finalizeSuccessfulPaymentTransaction') && is_file(__DIR__ . '/financial_integrity.php')) {
+            require_once __DIR__ . '/financial_integrity.php';
         }
-        creditWalletsFromTransaction($id);
-        addTransactionToSettlementBatch($id, (int)$link['merchant_id']);
-        $txnSt = $db->prepare('SELECT txn_id, amount, status, payment_method, utr FROM transactions WHERE id = ?');
-        $txnSt->execute([$id]);
-        $txnRow = $txnSt->fetch();
-        if ($txnRow) {
-            $linkId = null;
-            if (!empty($link['link_id'])) {
-                $linkId = $link['link_id'];
-            } elseif (!empty($link['id'])) {
-                $lid = $db->prepare('SELECT link_id FROM payment_links WHERE id = ?');
-                $lid->execute([(int)$link['id']]);
-                $linkId = $lid->fetchColumn() ?: null;
+        $linkId = null;
+        if (!empty($link['link_id'])) {
+            $linkId = $link['link_id'];
+        } elseif (!empty($link['id'])) {
+            $lid = $db->prepare('SELECT link_id FROM payment_links WHERE id = ?');
+            $lid->execute([(int)$link['id']]);
+            $linkId = $lid->fetchColumn() ?: null;
+        }
+        if (function_exists('finalizeSuccessfulPaymentTransaction')) {
+            finalizeSuccessfulPaymentTransaction($id, [
+                'provider' => $methodStored,
+                'link_id' => $linkId !== null ? (string)$linkId : null,
+                'run_risk_hooks' => true,
+            ]);
+        } else {
+            if ($split['platform_fee'] > 0) {
+                recordSplitPayment($id, (int)$link['merchant_id'], $split, $method);
             }
-            notifyMerchantPaymentSuccess((int)$link['merchant_id'], $txnRow, $linkId);
-            recordTransactionRisk($id, (int)$link['merchant_id'], $amount, ['email' => $customerEmail ?? '', 'phone' => $customerPhone ?? '']);
-            evaluateTransactionRiskFull((int)$link['merchant_id'], $amount, ['email' => $customerEmail ?? '', 'phone' => $customerPhone ?? ''], $id);
-            recordNodalCollection($id, (int)$link['merchant_id'], $amount, 'Customer collection from ' . ($customerEmail ?? 'customer'));
-            updateMerchantRiskScore((int)$link['merchant_id']);
-            if (function_exists('applyRollingReserveHold')) {
-                applyRollingReserveHold((int)$link['merchant_id'], $id, $amount);
+            creditWalletsFromTransaction($id);
+            addTransactionToSettlementBatch($id, (int)$link['merchant_id']);
+            $txnSt = $db->prepare('SELECT txn_id, amount, status, payment_method, utr FROM transactions WHERE id = ?');
+            $txnSt->execute([$id]);
+            $txnRow = $txnSt->fetch();
+            if ($txnRow) {
+                notifyMerchantPaymentSuccess((int)$link['merchant_id'], $txnRow, $linkId);
+                recordTransactionRisk($id, (int)$link['merchant_id'], $amount, ['email' => $customerEmail ?? '', 'phone' => $customerPhone ?? '']);
+                evaluateTransactionRiskFull((int)$link['merchant_id'], $amount, ['email' => $customerEmail ?? '', 'phone' => $customerPhone ?? ''], $id);
+                recordNodalCollection($id, (int)$link['merchant_id'], $amount, 'Customer collection from ' . ($customerEmail ?? 'customer'));
+                updateMerchantRiskScore((int)$link['merchant_id']);
+                if (function_exists('applyRollingReserveHold')) {
+                    applyRollingReserveHold((int)$link['merchant_id'], $id, $amount);
+                }
             }
         }
     }

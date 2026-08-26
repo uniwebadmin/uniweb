@@ -269,8 +269,12 @@ function retryRazorpayWebhook(array $payload, string $eventType): bool
             completeProviderRefund((string)$refund['refund_id'], $refundProviderId);
         } elseif ($eventType === 'refund.failed' || $providerStatus === 'failed') {
             $failureReason = mb_substr((string)($providerRefund['error_description'] ?? 'Razorpay marked the refund failed.'), 0, 500);
-            getDB()->prepare("UPDATE refunds SET status='failed',provider_status='failed',failure_reason=?,processed_at=NOW() WHERE id=? AND status='pending'")
-                ->execute([$failureReason, (int)$refund['id']]);
+            if (!function_exists('markProviderRefundFailed') && is_file(__DIR__ . '/refunds.php')) {
+                require_once __DIR__ . '/refunds.php';
+            }
+            if (function_exists('markProviderRefundFailed')) {
+                markProviderRefundFailed((int)$refund['id'], $failureReason);
+            }
         }
         return true;
     }

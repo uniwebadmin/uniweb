@@ -1752,6 +1752,30 @@ $assert(!phase11RouteEngineActive(), 'p11_engine_off_by_default_local');
 $p11Pick = phase11SelectCheckoutPartner(0, 'card');
 $assert(is_array($p11Pick) && array_key_exists('reason', $p11Pick), 'p11_select_partner_returns_reason');
 
+// AUTO-CHAIN — money + ops sequential wiring (Owner directive)
+$finAc = (string)file_get_contents($root . '/includes/financial_integrity.php');
+$collAc = (string)file_get_contents($root . '/includes/collection.php');
+$refAc = (string)file_get_contents($root . '/includes/refunds.php');
+$kycAc = (string)file_get_contents($root . '/includes/kyc_workflow.php');
+$assert(str_contains($finAc, 'function finalizeSuccessfulPaymentTransaction') && str_contains($finAc, 'function notifyMerchantPaymentCaptured'), 'ac1_payment_finalize_helpers');
+$assert(str_contains($finAc, "'payment_capture'") && str_contains($finAc, 'function transactionHasPaymentLedger'), 'ac1_ledger_idempotent_primary_path');
+$assert(str_contains($finAc, 'payment verified. ') && str_contains($finAc, 'pay_txn_'), 'ac2_payment_notify_txn_deeplink');
+$assert(str_contains($collAc, 'finalizeSuccessfulPaymentTransaction'), 'ac1_collection_uses_finalize');
+$assert(str_contains($refAc, 'function notifyMerchantRefundProcessed') && str_contains($refAc, 'function markProviderRefundFailed'), 'ac3_refund_notify_fail_closed');
+$assert(str_contains($refAc, 'refund_ok_') && str_contains($refAc, 'uwRecordAuditEvent(\'refund_completed\''), 'ac3_refund_dedup_and_audit');
+$assert(str_contains($kycAc, 'enqueueMerchantToAllEnabledPartners') && str_contains($kycAc, 'advanceMerchantForwardAfterVerify'), 'ac4_kyc_verify_forward_queue');
+$assert(str_contains($kycAc, 'recordImmutableAudit') && str_contains($kycAc, 'kyc_verified_'), 'ac5_kyc_verify_audit_notify');
+
+// Chain A + B — Owner two-chain directive
+$fwdWf = (string)file_get_contents($root . '/includes/forward_queue_workflow.php');
+$pfqAc = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
+$assert(str_contains($fwdWf, 'function forwardQueueTriggerPoints') && str_contains($kycAc, 'function forwardMerchantToPartnersNow'), 'chain_a_trigger_points_and_manual_forward');
+$assert(str_contains($pfqAc, 'getKycForwardPartnerKeys') && str_contains($pfqAc, 'function forwardQueueAdminStatusLabel'), 'chain_a_multi_partner_staged_labels');
+$assert(str_contains($pfqAc, 'function getForwardQueueRowTimeline'), 'chain_a_queue_timeline');
+$assert(str_contains((string)file_get_contents($root . '/admin_kyc.php'), 'forward_partners_now'), 'chain_a_admin_kyc_forward_button');
+$assert(str_contains($finAc, 'function postPrimaryPaymentCaptureLedger') && str_contains($finAc, 'applyPaymentCaptureSplitAndRoute'), 'chain_b_primary_ledger_helper');
+$assert(str_contains($finAc, 'Ledger write failed — payment not marked settled'), 'chain_b_fail_closed_capture');
+
 $payload = [
     'ok' => $failed === 0,
     'passed' => $passed,

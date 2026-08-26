@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $reason = (string)$norm['reason'];
     }
     try {
-        if (in_array($action, ['approve_doc', 'verify_merchant', 'verify_merchant_now', 'live_enable', 'verify_video', 'reject_video', 'reject_doc', 'force_hold', 'force_reject', 'force_resubmit'], true)) {
+        if (in_array($action, ['approve_doc', 'verify_merchant', 'verify_merchant_now', 'live_enable', 'verify_video', 'reject_video', 'reject_doc', 'force_hold', 'force_reject', 'force_resubmit', 'forward_partners_now'], true)) {
             requireStaffKycMutation();
         }
         if (in_array($action, ['approve_request', 'reject_request', 'live_enable', 'verify_merchant_now'], true) && !$canChecker) {
@@ -69,6 +69,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             verifyMerchantKycNow($id, $reason);
             flash('success', 'Merchant KYC verified. Live money still needs the separate Live activation gate.');
+        } elseif ($action === 'forward_partners_now') {
+            requireMerchantAccess($id);
+            if (!function_exists('forwardMerchantToPartnersNow') && is_file(__DIR__ . '/includes/kyc_workflow.php')) {
+                require_once __DIR__ . '/includes/kyc_workflow.php';
+            }
+            $fwd = forwardMerchantToPartnersNow($id, 'admin_kyc_manual');
+            if (empty($fwd['ok'])) {
+                throw new RuntimeException($fwd['error'] ?? 'Forward to partners failed.');
+            }
+            $processed = (int)($fwd['forward']['forward']['processed'] ?? 0);
+            $staged = (int)($fwd['forward']['forward']['staged'] ?? 0);
+            flash('success', 'Partner forward queued. Processed ' . $processed . ' row(s)' . ($staged > 0 ? (', ' . $staged . ' staged (not sent to bank yet)') : '') . '.');
         } elseif ($action === 'live_enable') {
             requireStepUpAuth();
             requireMerchantAccess($id);
@@ -269,6 +281,7 @@ try {
         $liveCandidates = [];
     }
 }
+$verifiedForwardMerchants = array_slice($liveCandidates, 0, 20);
 $videoQueue = [];
 try {
     $videoQueue = $db->query(
@@ -357,7 +370,7 @@ require_once __DIR__ . '/header.php';
         <li><strong class="text-gray-300">Pending documents</strong> — approve each file (clean scan required)</li>
         <li><strong class="text-gray-300">Video queue</strong> — verify recording when required</li>
         <li><strong class="text-gray-300">Verify merchant</strong> — only when readiness is green (same gate for Auto + Manual)</li>
-        <li><strong class="text-gray-300">Partner forward</strong> — automatic after verify (Staged until keys pasted)</li>
+        <li><strong class="text-gray-300">Partner forward</strong> — automatic after verify, or <strong class="text-violet-300">Forward to partners</strong> on verified merchants (Staged until keys pasted)</li>
         <li><strong class="text-gray-300">Live activation</strong> — separate gate; verified ≠ live money</li>
     </ol>
     <p class="text-[11px] text-gray-600 mt-2">Master status: <code class="text-sky-400">merchants.kyc_status</code>. Helpers: documents, verifications, checker queue, forward queue.</p>
@@ -598,11 +611,36 @@ require_once __DIR__ . '/header.php';
                 <?php else: ?>
                 <span class="text-xs text-amber-400/90 px-3 py-1.5">Complete docs/video first</span>
                 <?php endif; ?>
-                <a href="admin_gateway_submit.php?merchant_id=<?= $pendingMid ?>" class="text-xs bg-violet-600/20 text-violet-400 px-3 py-1.5 rounded-lg text-center flex-1 sm:flex-none">1-Click Partner Forward</a>
+                <a href="admin_gateway_submit.php?merchant_id=<?= $pendingMid ?>" class="text-xs bg-violet-600/20 text-violet-400 px-3 py-1.5 rounded-lg text-center flex-1 sm:flex-none">Multi-Gateway Forward</a>
                 <?php endif; ?>
             </div>
         </div>
         <?php endforeach; endif; ?>
     </div>
+
+    <?php if (!empty($verifiedForwardMerchants ?? [])): ?>
+    <div id="forward-queue" class="glass rounded-xl overflow-hidden min-w-0 mt-6">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-800">
+            <h2 class="font-semibold">Verified — Forward to partners</h2>
+            <p class="text-xs text-gray-500 mt-1">KYC already verified. Use <strong class="text-violet-300">Forward to partners</strong> to re-run queue (one row per KYC-forward partner). Staged = not sent to bank yet.</p>
+        </div>
+        <?php foreach ($verifiedForwardMerchants as $vm):
+            $vmId = (int)$vm['id'];
+        ?>
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+            <div class="min-w-0">
+                <p class="font-medium text-sm"><?= adminMerchantLink($vmId, $vm['business_name'], 'font-medium text-sm text-white hover:text-sky-300') ?></p>
+                <p class="text-xs text-gray-500"><?= adminMerchantLink($vmId, $vm['merchant_code'], 'font-mono text-sky-400') ?></p>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+                <a href="admin_forward_queue.php?q=<?= urlencode((string)$vm['merchant_code']) ?>" class="text-xs bg-gray-700/50 text-gray-300 px-3 py-1.5 rounded-lg">Forward Queue</a>
+                <?php if ($canMutateKyc): ?>
+                <form method="post" class="inline"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="forward_partners_now"><input type="hidden" name="id" value="<?= $vmId ?>"><button class="text-xs bg-violet-600 text-white px-3 py-1.5 rounded-lg">Forward to partners</button></form>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>
