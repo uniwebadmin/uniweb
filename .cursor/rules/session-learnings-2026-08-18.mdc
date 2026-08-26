@@ -13,6 +13,7 @@ When a task is **fully done** (smoke green locally):
 3. Tell Owner in Hindi: kya push hua, live OK ya nahi
 
 Do **not** leave completed work uncommitted. Do **not** push half-done work.
+Do **not** ask Owner "commit/push karein?" — task complete + smoke green = commit → push `main` automatically.
 
 ## Point complete report (Owner order — Aug 2026)
 
