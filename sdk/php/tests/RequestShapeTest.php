@@ -14,7 +14,7 @@ spl_autoload_register(static function (string $class): void {
 });
 
 use UniWeb\Client\Client;
-use UniWeb\Client\Config;
+use UniWeb\Client\ClientConfig;
 use UniWeb\Client\HttpTransport;
 use UniWeb\Client\Webhook;
 
@@ -46,7 +46,7 @@ function assertTrue(bool $cond, string $msg): void
     }
 }
 
-$config = new Config('uw_test_shape_key', 'uws_shape_secret', Config::MODE_TEST, 'https://uniweb.co.in/api/v1/');
+$config = new ClientConfig('uw_test_shape_key', 'uws_shape_secret', ClientConfig::MODE_TEST, 'https://uniweb.co.in/api/v1/');
 $mock = new MockTransport();
 $client = new Client($config, $mock);
 

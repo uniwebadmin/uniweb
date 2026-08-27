@@ -196,12 +196,12 @@ function verifyUniWebWebhook(rawBody, signature, signingSecret) {
                     <pre class="bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300">composer require uniweb/merchant-sdk:@dev
 
 use UniWeb\Client\Client;
-use UniWeb\Client\Config;
+use UniWeb\Client\ClientConfig;
 
-$uniweb = new Client(new Config(
+$uniweb = new Client(new ClientConfig(
     apiKey: 'uw_test_…',
     apiSecret: 'uws_…',
-    mode: Config::MODE_TEST,
+    mode: ClientConfig::MODE_TEST,
 ));
 
 $link = $uniweb->createPaymentLink([

@@ -35,13 +35,13 @@ Or add to `composer.json`:
 require 'vendor/autoload.php';
 
 use UniWeb\Client\Client;
-use UniWeb\Client\Config;
+use UniWeb\Client\ClientConfig;
 use UniWeb\Client\Webhook;
 
-$config = new Config(
+$config = new ClientConfig(
     apiKey: 'uw_test_your_key',
     apiSecret: 'uws_your_secret',
-    mode: Config::MODE_TEST,
+    mode: ClientConfig::MODE_TEST,
     baseUrl: 'https://uniweb.co.in/api/v1/',
 );
 

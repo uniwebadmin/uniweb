@@ -17,7 +17,7 @@ final class Client
     private const USER_AGENT = 'UniWeb-PHP-SDK/1.0';
 
     public function __construct(
-        private readonly Config $config,
+        private readonly ClientConfig $config,
         private readonly ?HttpTransport $transport = null,
     ) {
     }
