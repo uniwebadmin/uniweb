@@ -137,7 +137,9 @@ $backupWgetCmd = 'wget -q -O /dev/null "' . $backupUrl . '"';
 $pageTitle = 'Platform Settings';
 require_once __DIR__ . '/header.php';
 $activePg = $settingsMap['active_payment_gateway'] ?? 'razorpay';
-$gatewayGaps = function_exists('getGatewaySetupGaps') ? getGatewaySetupGaps() : [];
+$gatewayGaps = function_exists('getCriticalCollectGatewayGaps')
+    ? getCriticalCollectGatewayGaps()
+    : (function_exists('getGatewaySetupGaps') ? getGatewaySetupGaps() : []);
 if (!function_exists('methodKeysReadinessReport')) {
     require_once __DIR__ . '/includes/method_keys_workflow.php';
 }
@@ -158,7 +160,7 @@ $gatewayCards = [
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
             <p class="font-semibold text-sky-300 text-sm">Money & partner keys live in Partner Registry</p>
-            <p class="text-xs text-gray-400 mt-1">Paste Razorpay / Cashfree / PayU / Decentro / Axis keys only under <a href="admin_gateway_registry.php" class="text-sky-400 underline">Partner Registry → Partner Detail → Keys</a> (Test first, then Live). Merchants never see partner secrets. This page is platform-wide only: SMTP, cron, email, SEO, WhatsApp — it does not accept live PG API keys.</p>
+            <p class="text-xs text-gray-400 mt-1">Paste Razorpay / Cashfree / PayU / Decentro / Axis keys only under <a href="admin_gateway_registry.php" class="text-sky-400 underline">Partner Registry → Partner Detail → Keys</a> (Test first, then Live). Merchants never see partner secrets. This page is platform-wide only: SMTP, cron, email, SEO, WhatsApp. This page does not accept live PG API keys.</p>
         </div>
         <a href="admin_gateway_registry.php" class="shrink-0 text-xs px-4 py-2 rounded-lg bg-sky-600/20 text-sky-400 hover:bg-sky-600/30">Partner Registry →</a>
     </div>
@@ -170,33 +172,35 @@ $gatewayCards = [
     </div>
     <?php endif; ?>
 </div>
-<div class="glass rounded-xl p-4 mb-6 border border-emerald-500/25 max-w-4xl text-xs text-gray-400">
-    <p class="font-semibold text-emerald-300 text-sm mb-2">Live corridor (soft launch) — do these before advertise</p>
-    <ul class="space-y-1 list-disc list-inside">
-        <li>CR-01 on live Hostinger <code class="text-gray-500">config.php</code> (notifications) — never overwrite DB password / encryption key.</li>
-        <li>Below: <strong class="text-gray-300">Apply pending migrations</strong> → <code class="text-sky-300">ok: true</code> (incl. <strong class="text-gray-300">072</strong> method key normalize).</li>
-        <li>Partner Test keys + Test Connection → merchant Test Mode → <strong class="text-gray-300">Instant Test Pay</strong> once.</li>
-        <li>SMTP section + backup notify email on this page.</li>
-    </ul>
+<div class="glass rounded-xl p-4 mb-6 border border-gray-800 max-w-4xl text-xs text-gray-400">
+    <p class="font-semibold text-gray-200 text-sm mb-2">Before you go live</p>
+    <ol class="space-y-1.5 list-decimal list-inside text-gray-500">
+        <li><a href="admin_gateway_registry.php" class="text-sky-400 hover:underline">Partner Registry</a> → paste Test keys → Test Connection</li>
+        <li>Below: <strong class="text-gray-300">Apply pending migrations</strong> → <code class="text-sky-300">ok: true</code></li>
+        <li>Merchant test checkout once — <strong class="text-gray-300">UniWeb Test Pay</strong> (no real money)</li>
+        <li>SMTP + backup notify email on this page</li>
+    </ol>
+    <p class="text-[10px] text-gray-600 mt-3">Full system health &amp; workflow audit → <a href="admin_platform_status.php" class="text-sky-400">Platform Status</a> · <a href="admin_watchdog.php?tab=auto" class="text-sky-400">Watchdog</a></p>
 </div>
-<div class="glass rounded-xl p-4 mb-6 border border-violet-500/30 max-w-4xl text-xs">
-    <p class="font-semibold text-violet-300 text-sm mb-2">Method key aliases (Audit #10 · migration 072)</p>
-    <p class="text-gray-400 mb-3"><?= e($methodKeysReport['message']) ?></p>
+<details class="glass rounded-xl p-4 mb-6 border border-gray-800 max-w-4xl text-xs group">
+    <summary class="cursor-pointer text-gray-400 font-medium list-none flex items-center justify-between gap-2">
+        <span>Advanced — Method key aliases (migration 072)</span>
+        <span class="text-[10px] text-gray-600 group-open:hidden">Show</span>
+    </summary>
+    <div class="mt-4 pt-4 border-t border-gray-800">
+    <p class="text-gray-500 mb-3"><?= e($methodKeysReport['message']) ?></p>
     <div class="grid sm:grid-cols-2 gap-3">
-        <div class="rounded-lg border border-emerald-500/25 bg-emerald-950/20 p-3">
-            <p class="text-[10px] uppercase text-emerald-400 mb-2">Canonical examples</p>
+        <div class="rounded-lg border border-gray-800 p-3">
+            <p class="text-[10px] uppercase text-gray-500 mb-2">Canonical examples</p>
             <?php foreach ($methodKeysReport['examples'] as $ex): ?>
             <p class="font-mono text-[11px] text-gray-400 mb-1">
-                <span class="text-amber-300"><?= e($ex['alias']) ?></span>
-                → <span class="text-emerald-300"><?= e($ex['canonical']) ?></span>
-                <?php if ($ex['registry'] !== $ex['canonical']): ?>
-                <span class="text-gray-600"> (registry: <?= e($ex['registry']) ?>)</span>
-                <?php endif; ?>
+                <span class="text-gray-500"><?= e($ex['alias']) ?></span>
+                → <span class="text-emerald-400/90"><?= e($ex['canonical']) ?></span>
             </p>
             <?php endforeach; ?>
         </div>
-        <div class="rounded-lg border border-slate-600/40 bg-slate-900/30 p-3">
-            <p class="text-[10px] uppercase text-slate-400 mb-2">Single writers (always normalize)</p>
+        <div class="rounded-lg border border-gray-800 p-3">
+            <p class="text-[10px] uppercase text-gray-500 mb-2">Single writers</p>
             <ul class="text-[11px] text-gray-500 space-y-1 list-disc list-inside">
                 <?php foreach ($methodKeysReport['writers'] as $fn): ?>
                 <li><code class="text-gray-400"><?= e($fn) ?>()</code></li>
@@ -204,26 +208,28 @@ $gatewayCards = [
             </ul>
         </div>
     </div>
-</div>
+    </div>
+</details>
 <?php if (!empty($gatewayGaps)): ?>
-<div class="glass rounded-xl p-5 mb-6 border border-amber-500/40 bg-amber-500/5 max-w-4xl">
+<div class="glass rounded-xl p-5 mb-6 border border-amber-500/30 max-w-4xl">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <p class="font-semibold text-amber-300">Live launch — <?= count($gatewayGaps) ?> gateway(s) need keys</p>
-        <a href="admin_gateway_registry.php" class="text-xs text-sky-400">Partner Registry → Keys</a>
-    </div>
-    <div class="grid sm:grid-cols-2 gap-2 text-xs">
-        <?php foreach ($gatewayGaps as $gap): ?>
-        <div class="rounded-lg border border-gray-800 px-3 py-2">
-            <span class="text-amber-400">● <?= e($gap['label']) ?></span>
-            <span class="text-gray-500 block mt-0.5"><?= e($gap['status']) ?></span>
+        <div>
+            <p class="font-semibold text-amber-200 text-sm">Action needed — payment partner keys</p>
+            <p class="text-xs text-gray-500 mt-0.5"><?= count($gatewayGaps) ?> collect partner(s) need keys before live checkout tests</p>
         </div>
-        <?php endforeach; ?>
+        <a href="admin_gateway_registry.php" class="text-xs px-3 py-2 rounded-lg bg-sky-600/20 text-sky-400 hover:bg-sky-600/30 shrink-0">Partner Registry →</a>
     </div>
-    <p class="text-[10px] text-gray-600 mt-3">When partner production keys arrive: add them in <a href="admin_gateway_registry.php" class="text-sky-400">Partner Registry → Partner Detail → Keys</a>, then use Test Connection above. This page does not accept live PG API keys.</p>
+    <ul class="space-y-2 text-sm">
+        <?php foreach ($gatewayGaps as $gap): ?>
+        <li class="rounded-lg border border-gray-800 px-3 py-2.5 flex flex-wrap items-center justify-between gap-2">
+            <span><span class="text-amber-300 font-medium"><?= e($gap['label']) ?></span><span class="text-gray-500 text-xs block mt-0.5"><?= e($gap['detail'] ?? $gap['status'] ?? 'Keys not configured') ?></span></span>
+        </li>
+        <?php endforeach; ?>
+    </ul>
 </div>
 <?php else: ?>
-<div class="glass rounded-xl p-4 mb-6 border border-emerald-500/30 bg-emerald-500/5 max-w-4xl">
-    <p class="text-sm text-emerald-300">● Critical payment gateways configured — ready for live checkout tests.</p>
+<div class="glass rounded-xl p-4 mb-6 border border-emerald-500/25 max-w-4xl">
+    <p class="text-sm text-emerald-300">● Razorpay, Cashfree, and PayU keys configured — ready for checkout tests.</p>
 </div>
 <?php endif; ?>
 <div class="max-w-4xl space-y-6">
@@ -401,16 +407,21 @@ $gatewayCards = [
         <div><label class="text-sm text-gray-400">Default Collection Mode (new merchants)</label>
             <select name="settings[default_collection_mode]" class="input-field mt-1">
                 <?php
-                $adminModeCurrent = (string)($settingsMap['default_collection_mode'] ?? 'direct_upi');
+                $adminModeRaw = (string)($settingsMap['default_collection_mode'] ?? 'platform_pg');
+                $adminModeCurrent = sanitizeDefaultCollectionMode($adminModeRaw);
+                $adminModeParkedSaved = $adminModeRaw !== '' && $adminModeRaw !== $adminModeCurrent;
                 $adminModes = function_exists('getAdminTemplateCollectionModes')
-                    ? getAdminTemplateCollectionModes($adminModeCurrent)
+                    ? getAdminTemplateCollectionModes($adminModeRaw)
                     : getCollectionModes();
                 foreach ($adminModes as $k => $label):
                 ?>
                 <option value="<?= e($k) ?>" <?= $adminModeCurrent === $k ? 'selected' : '' ?>><?= e($label) ?></option>
                 <?php endforeach; ?>
             </select>
-            <p class="text-[11px] text-gray-600 mt-1">Live choices: Direct UPI, Platform PG, Axis VA. Route/Split SDK is not live.</p>
+            <?php if ($adminModeParkedSaved): ?>
+            <p class="text-[11px] text-amber-400 mt-1">Saved default was a parked Route/Split mode — showing live-safe default until you Save.</p>
+            <?php endif; ?>
+            <p class="text-[11px] text-gray-600 mt-1">Live-safe only: Direct UPI, Platform checkout (UniWeb methods pool), or Axis VA. Route/Split SDK is not live — not offered to new merchants.</p>
         </div>
         <div><label class="text-sm text-gray-400">Platform margin (%) — UniWeb commission default</label>
             <input type="number" step="0.01" name="settings[platform_margin_pct]" value="<?= e($settingsMap['platform_margin_pct'] ?? '0.10') ?>" class="input-field mt-1" title="Default UniWeb cut on successful collections">
@@ -478,53 +489,98 @@ $gatewayCards = [
         $phase11RouteLog = function_exists('getPhase11RouteDecisionLog') ? getPhase11RouteDecisionLog(10) : [];
         $intelligentRouteLog = function_exists('getIntelligentRouteDecisionLog') ? getIntelligentRouteDecisionLog(10) : [];
         ?>
-        <div id="live-money-switches" class="rounded-xl border border-violet-500/40 bg-violet-500/5 p-5 my-4 space-y-4">
+        <div id="live-money-switches" class="rounded-xl border border-violet-500/30 bg-violet-950/20 p-5 my-4 space-y-4">
             <?= settingsSectionHeading('Live Money Switches', 'violet', 'text-base') ?>
-            <p class="text-xs text-gray-500 -mt-3">Same pattern as Razorpay / Cashfree: paste partner keys in Registry first, then turn ON after compliance review. Default OFF — no live money until you enable.</p>
-            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <p class="text-xs text-gray-500 -mt-3">Owner-controlled. Default OFF — no live money movement until you turn ON and paste partner keys in Registry.</p>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-2 gap-4">
                 <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4">
-                    <label class="text-sm text-gray-300 font-medium">Payout live money (RazorpayX / Cashfree Payouts)</label>
+                    <label class="text-sm text-gray-300 font-medium">Payouts to bank accounts</label>
                     <select name="settings[payout_live_enabled]" class="input-field mt-2">
-                        <option value="0" <?= !$payoutLiveOn ? 'selected' : '' ?>>OFF — scaffold / test UTR only</option>
-                        <option value="1" <?= $payoutLiveOn ? 'selected' : '' ?>>ON — real bank transfers (needs Registry keys)</option>
+                        <option value="0" <?= !$payoutLiveOn ? 'selected' : '' ?>>OFF — test/scaffold only (default)</option>
+                        <option value="1" <?= $payoutLiveOn ? 'selected' : '' ?>>ON — real bank transfers</option>
                     </select>
-                    <p class="text-[11px] text-gray-600 mt-2">Requires partner payout keys + merchant checker approval.</p>
+                    <p class="text-[11px] text-gray-600 mt-2">Needs payout partner keys in Registry + merchant checker approval. Does not affect checkout collect.</p>
                 </div>
                 <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4">
-                    <label class="text-sm text-gray-300 font-medium">Recurring / AutoPay (UPI Autopay + eNACH)</label>
+                    <label class="text-sm text-gray-300 font-medium">Recurring / AutoPay mandates</label>
                     <select name="settings[recurring_autopay_approved]" class="input-field mt-2">
-                        <option value="0" <?= !$recurringOn ? 'selected' : '' ?>>OFF — merchants see gated message</option>
-                        <option value="1" <?= $recurringOn ? 'selected' : '' ?>>ON — mandate registration + live debits allowed</option>
+                        <option value="0" <?= !$recurringOn ? 'selected' : '' ?>>OFF — gated for merchants (default)</option>
+                        <option value="1" <?= $recurringOn ? 'selected' : '' ?>>ON — mandate registration + live debits</option>
                     </select>
-                    <p class="text-[11px] text-gray-600 mt-2">Create mandate → customer UPI approval → cron debits.</p>
+                    <p class="text-[11px] text-gray-600 mt-2">UPI Autopay + eNACH. Separate from one-time checkout.</p>
                 </div>
-                <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4 sm:col-span-2 lg:col-span-1">
-                    <label class="text-sm text-gray-300 font-medium">Phase 11 Route / Smart partner routing</label>
+                <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4">
+                    <label class="text-sm text-gray-300 font-medium">Phase 11 — Route / smart partner routing</label>
                     <select name="settings[route_split_live_enabled]" class="input-field mt-2">
-                        <option value="0" <?= !$routeSplitOn ? 'selected' : '' ?>>OFF — parked · fixed partner checkout (default)</option>
-                        <option value="1" <?= $routeSplitOn ? 'selected' : '' ?>>ON — smart routing + Route/Split APIs when partner config live</option>
+                        <option value="0" <?= !$routeSplitOn ? 'selected' : '' ?>>OFF — parked · fixed checkout (default)</option>
+                        <option value="1" <?= $routeSplitOn ? 'selected' : '' ?>>ON — smart routing when partner Route config is live</option>
                     </select>
-                    <p class="text-[11px] text-gray-600 mt-2">Default OFF — zero effect on live payments. When ON: health + priority partner pick at checkout; capture split when partner route_status=live. One click — no redeploy.</p>
+                    <p class="text-[11px] text-gray-600 mt-2">Does not move split money without partner Route keys. Owner toggle only.</p>
                 </div>
-                <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4 sm:col-span-2">
-                    <label class="text-sm text-gray-300 font-medium">Intelligent routing (score-based; ML weights optional)</label>
+                <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4">
+                    <label class="text-sm text-gray-300 font-medium">Intelligent routing (score-based)</label>
                     <select name="settings[intelligent_routing_enabled]" class="input-field mt-2">
                         <option value="0" <?= !$intelligentOn ? 'selected' : '' ?>>OFF — fixed partner checkout (default)</option>
-                        <option value="1" <?= $intelligentOn ? 'selected' : '' ?>>ON — score/rules partner selection at checkout</option>
+                        <option value="1" <?= $intelligentOn ? 'selected' : '' ?>>ON — score/rules partner pick at checkout</option>
                     </select>
                     <select name="settings[intelligent_routing_strategy]" class="input-field mt-2 text-sm">
                         <option value="fixed" <?= $intelligentStrategy === 'fixed' ? 'selected' : '' ?>>Strategy: fixed / merchant default</option>
-                        <option value="rules" <?= $intelligentStrategy === 'rules' ? 'selected' : '' ?>>Strategy: rules (method + amount band)</option>
-                        <option value="score" <?= $intelligentStrategy === 'score' ? 'selected' : '' ?>>Strategy: score-based (success-rate + health)</option>
+                        <option value="rules" <?= $intelligentStrategy === 'rules' ? 'selected' : '' ?>>Strategy: rules (method + amount)</option>
+                        <option value="score" <?= $intelligentStrategy === 'score' ? 'selected' : '' ?>>Strategy: score (success-rate + health)</option>
                     </select>
-                    <p class="text-[11px] text-gray-600 mt-2">Default OFF. When ON, takes precedence over Phase 11 at checkout. Uses live txn success-rate window + health signals. Decisions logged below.</p>
-                    <label class="text-[11px] text-gray-500 block mt-3">Success-rate window (hours, default 168 = 7 days)</label>
+                    <label class="text-[11px] text-gray-500 block mt-3">Success-rate window (hours)</label>
                     <input type="number" name="settings[intelligent_routing_success_window_hours]" min="1" max="720" value="<?= e((string)($settingsMap['intelligent_routing_success_window_hours'] ?? '168')) ?>" class="input-field mt-1 text-sm">
+                    <p class="text-[11px] text-gray-600 mt-2">Default OFF. When ON, overrides Phase 11 at checkout. Owner-controlled.</p>
                 </div>
             </div>
+            <?php if ($routeSplitOn && !empty($phase11RouteLog)): ?>
+            <details class="rounded-lg border border-gray-800 bg-dark-900/40 p-3 text-xs">
+                <summary class="cursor-pointer text-gray-400 font-medium">Phase 11 routing log (last <?= count($phase11RouteLog) ?>)</summary>
+                <div class="overflow-x-auto mt-3">
+                    <table class="w-full text-[10px] text-left">
+                        <thead><tr class="text-gray-500 border-b border-gray-800"><th class="py-1 pr-2">Time</th><th class="py-1 pr-2">Partner</th><th class="py-1 pr-2">Outcome</th><th class="py-1">Reason</th></tr></thead>
+                        <tbody>
+                        <?php foreach ($phase11RouteLog as $logRow): ?>
+                        <tr class="border-b border-gray-900/80">
+                            <td class="py-1 pr-2 text-gray-500 whitespace-nowrap"><?= e(substr((string)($logRow['created_at'] ?? ''), 0, 16)) ?></td>
+                            <td class="py-1 pr-2 text-sky-300"><?= e((string)($logRow['chosen_partner'] ?? '—')) ?></td>
+                            <td class="py-1 pr-2"><?= e((string)($logRow['outcome'] ?? '')) ?></td>
+                            <td class="py-1 text-gray-400"><?= e((string)($logRow['reason'] ?? '')) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+            <?php endif; ?>
+            <?php if ($intelligentOn && !empty($intelligentRouteLog)): ?>
+            <details class="rounded-lg border border-gray-800 bg-dark-900/40 p-3 text-xs">
+                <summary class="cursor-pointer text-gray-400 font-medium">Intelligent routing log (last <?= count($intelligentRouteLog) ?>)</summary>
+                <div class="overflow-x-auto mt-3">
+                    <table class="w-full text-[10px] text-left">
+                        <thead><tr class="text-gray-500 border-b border-gray-800"><th class="py-1 pr-2">Time</th><th class="py-1 pr-2">Partner</th><th class="py-1 pr-2">Strategy</th><th class="py-1 pr-2">Outcome</th><th class="py-1">Reason</th></tr></thead>
+                        <tbody>
+                        <?php foreach ($intelligentRouteLog as $logRow): ?>
+                        <tr class="border-b border-gray-900/80">
+                            <td class="py-1 pr-2 text-gray-500 whitespace-nowrap"><?= e(substr((string)($logRow['created_at'] ?? ''), 0, 16)) ?></td>
+                            <td class="py-1 pr-2 text-teal-300"><?= e((string)($logRow['chosen_partner'] ?? '—')) ?></td>
+                            <td class="py-1 pr-2"><?= e((string)($logRow['strategy'] ?? '')) ?></td>
+                            <td class="py-1 pr-2"><?= e((string)($logRow['outcome'] ?? '')) ?></td>
+                            <td class="py-1 text-gray-400"><?= e((string)($logRow['reason'] ?? '')) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+            <?php endif; ?>
+            <details class="rounded-lg border border-gray-800 bg-dark-900/30 p-4 text-xs group">
+                <summary class="cursor-pointer text-gray-500 font-medium">Internal workflow audit — full detail on Platform Status / Watchdog</summary>
+                <p class="text-gray-600 mt-3 mb-4">Collapsed by default. Use <a href="admin_platform_status.php" class="text-sky-400 underline">Platform Status</a> for all service health including workflow checks.</p>
+                <div class="space-y-3">
             <?php if (!empty($routeSplitReady['items'])): ?>
-            <div class="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
-                <p class="font-medium text-amber-300 mb-1">Phase 11 — <?= !empty($routeSplitReport['parked']) ? 'PARKED (default)' : 'Owner switch ON' ?></p>
+            <div class="rounded-lg border border-gray-800 p-3">
+                <p class="font-medium text-amber-300 mb-1">Phase 11 Route / Smart partner routing — <?= !empty($routeSplitReport['parked']) ? 'PARKED (default)' : 'Owner switch ON' ?></p>
                 <p class="text-gray-500 mb-2"><?= e($routeSplitReport['disclaimer'] ?? '') ?></p>
                 <p class="font-medium text-amber-300 mb-2">Route / Split readiness — <?= (int)$routeSplitReady['done'] ?>/<?= (int)$routeSplitReady['total'] ?> · Phase: <?= e($routeSplitReady['phase'] ?? 'parked') ?></p>
                 <p class="text-gray-500 mb-2"><?= e($routeSplitReport['message'] ?? '') ?></p>
@@ -541,89 +597,6 @@ $gatewayCards = [
                     </li>
                     <?php endforeach; ?>
                 </ul>
-            </div>
-            <?php endif; ?>
-            <?php if ($routeSplitOn || !empty($phase11RouteLog)): ?>
-            <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-3 text-xs">
-                <p class="font-medium text-gray-300 mb-2">Phase 11 routing log (honest partner choice)</p>
-                <?php if (!$routeSplitOn): ?>
-                <p class="text-amber-300/90 mb-2">Parked — turn ON when 2+ partners live. No routing while OFF.</p>
-                <?php endif; ?>
-                <?php if (empty($phase11RouteLog)): ?>
-                <p class="text-gray-600">No routing decisions yet. When ON, checkout logs which partner was chosen and why.</p>
-                <?php else: ?>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-[10px] text-left">
-                        <thead><tr class="text-gray-500 border-b border-gray-800"><th class="py-1 pr-2">Time</th><th class="py-1 pr-2">Partner</th><th class="py-1 pr-2">Outcome</th><th class="py-1">Reason</th></tr></thead>
-                        <tbody>
-                        <?php foreach ($phase11RouteLog as $logRow): ?>
-                        <tr class="border-b border-gray-900/80">
-                            <td class="py-1 pr-2 text-gray-500 whitespace-nowrap"><?= e(substr((string)($logRow['created_at'] ?? ''), 0, 16)) ?></td>
-                            <td class="py-1 pr-2 text-sky-300"><?= e((string)($logRow['chosen_partner'] ?? '—')) ?></td>
-                            <td class="py-1 pr-2"><?= e((string)($logRow['outcome'] ?? '')) ?></td>
-                            <td class="py-1 text-gray-400"><?= e((string)($logRow['reason'] ?? '')) ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-                <?php endif; ?>
-            </div>
-            <?php endif; ?>
-            <?php if ($intelligentOn || !empty($intelligentRouteLog)): ?>
-            <div class="rounded-lg border border-teal-500/30 bg-teal-500/5 p-3 text-xs">
-                <p class="font-medium text-teal-300 mb-2">Intelligent routing log (score-based — default OFF)</p>
-                <?php if (!$intelligentOn): ?>
-                <p class="text-amber-300/90 mb-2">Toggle OFF — checkout uses fixed partner unless Phase 11 is ON separately.</p>
-                <?php endif; ?>
-                <?php if (empty($intelligentRouteLog)): ?>
-                <p class="text-gray-600">No intelligent routing decisions yet.</p>
-                <?php else: ?>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-[10px] text-left">
-                        <thead><tr class="text-gray-500 border-b border-gray-800"><th class="py-1 pr-2">Time</th><th class="py-1 pr-2">Partner</th><th class="py-1 pr-2">Strategy</th><th class="py-1 pr-2">Outcome</th><th class="py-1">Reason</th></tr></thead>
-                        <tbody>
-                        <?php foreach ($intelligentRouteLog as $logRow): ?>
-                        <tr class="border-b border-gray-900/80">
-                            <td class="py-1 pr-2 text-gray-500 whitespace-nowrap"><?= e(substr((string)($logRow['created_at'] ?? ''), 0, 16)) ?></td>
-                            <td class="py-1 pr-2 text-teal-300"><?= e((string)($logRow['chosen_partner'] ?? '—')) ?></td>
-                            <td class="py-1 pr-2"><?= e((string)($logRow['strategy'] ?? '')) ?></td>
-                            <td class="py-1 pr-2"><?= e((string)($logRow['outcome'] ?? '')) ?></td>
-                            <td class="py-1 text-gray-400"><?= e((string)($logRow['reason'] ?? '')) ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-                <?php endif; ?>
-            </div>
-            <?php endif; ?>
-            <?php if ($intelligentOn || !empty($intelligentRouteLog)): ?>
-            <div class="rounded-lg border border-teal-500/30 bg-teal-500/5 p-3 text-xs">
-                <p class="font-medium text-teal-300 mb-2">Intelligent routing log (score-based — default OFF)</p>
-                <?php if (!$intelligentOn): ?>
-                <p class="text-amber-300/90 mb-2">Toggle OFF — checkout uses fixed partner unless Phase 11 is ON separately.</p>
-                <?php endif; ?>
-                <?php if (empty($intelligentRouteLog)): ?>
-                <p class="text-gray-600">No intelligent routing decisions yet.</p>
-                <?php else: ?>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-[10px] text-left">
-                        <thead><tr class="text-gray-500 border-b border-gray-800"><th class="py-1 pr-2">Time</th><th class="py-1 pr-2">Partner</th><th class="py-1 pr-2">Strategy</th><th class="py-1 pr-2">Outcome</th><th class="py-1">Reason</th></tr></thead>
-                        <tbody>
-                        <?php foreach ($intelligentRouteLog as $logRow): ?>
-                        <tr class="border-b border-gray-900/80">
-                            <td class="py-1 pr-2 text-gray-500 whitespace-nowrap"><?= e(substr((string)($logRow['created_at'] ?? ''), 0, 16)) ?></td>
-                            <td class="py-1 pr-2 text-teal-300"><?= e((string)($logRow['chosen_partner'] ?? '—')) ?></td>
-                            <td class="py-1 pr-2"><?= e((string)($logRow['strategy'] ?? '')) ?></td>
-                            <td class="py-1 pr-2"><?= e((string)($logRow['outcome'] ?? '')) ?></td>
-                            <td class="py-1 text-gray-400"><?= e((string)($logRow['reason'] ?? '')) ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-                <?php endif; ?>
             </div>
             <?php endif; ?>
             <?php if (!empty($recurringReady['items'])): ?>
@@ -724,6 +697,8 @@ $gatewayCards = [
                 <p class="text-gray-600">Threshold: <?= (int)($autoKycRiskReport['threshold'] ?? 3) ?> verify_failed · <a href="admin_auto_kyc.php" class="text-sky-400 underline">Auto KYC Engine</a> · <a href="admin_kyc.php" class="text-sky-400 underline">Manual KYC Review</a></p>
             </div>
             <?php endif; ?>
+                </div>
+            </details>
         </div>
         <?= settingsSectionHeading('SEO — Google Search Console', 'emerald') ?>
         <p class="text-xs text-gray-500 mb-2">Paste the HTML-tag verification token from Google Search Console (the <code class="text-gray-400">content</code> value only). It is rendered as <code class="text-gray-400">&lt;meta name="google-site-verification"&gt;</code> on every page via <code class="text-gray-400">header.php</code>. Setting key: <code class="text-gray-400">google_site_verification</code>.</p>

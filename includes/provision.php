@@ -196,7 +196,7 @@ function getMerchantProvisionProfile(array $merchant): array
 
     $base = $profiles[$entity] ?? [
         'profile' => 'default',
-        'collection_mode' => getSetting('default_collection_mode', 'platform_pg'),
+        'collection_mode' => defaultCollectionModeForNewMerchants(),
         'methods' => ['upi_p2m', 'debit_card', 'credit_card', 'payu_upi', 'razorpay', 'cashfree'],
         'label' => 'Standard B2B profile',
     ];
@@ -390,11 +390,11 @@ function applyMerchantSignupPreferences(int $merchantId, string $collectionMode,
     $db = getDB();
     $modes = array_keys(getCollectionModes());
     if (!in_array($collectionMode, $modes, true)) {
-        $collectionMode = getSetting('default_collection_mode', 'direct_upi');
+        $collectionMode = defaultCollectionModeForNewMerchants();
     }
     // P11-01: new merchants must not start on live Route/Easy Split.
-    if (!in_array($collectionMode, ['direct_upi', 'platform_pg'], true)) {
-        $collectionMode = 'direct_upi';
+    if (!in_array($collectionMode, ['direct_upi', 'platform_pg', 'axis_va'], true)) {
+        $collectionMode = defaultCollectionModeForNewMerchants();
     }
     $catalogKeys = array_keys(getPaymentMethodCatalog());
     if (!function_exists('normalizeCheckoutMethodKeys') && is_file(__DIR__ . '/payment_methods.php')) {

@@ -665,4 +665,11 @@ function getGatewaySetupGaps(): array
     return $gaps;
 }
 
+/** Payment collect gateways only — for Platform Settings launch panel (not internal workflow labels). */
+function getCriticalCollectGatewayGaps(): array
+{
+    $collectIds = ['razorpay', 'cashfree', 'payu'];
+    return array_values(array_filter(getGatewaySetupGaps(), static fn(array $svc): bool => in_array($svc['id'] ?? '', $collectIds, true)));
+}
+
 bootstrapAutoAuditOnShutdown();

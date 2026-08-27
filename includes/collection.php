@@ -23,8 +23,8 @@ function getMerchantCollectionMode(array $merchant): string
     $mode = $merchant['collection_mode'] ?? '';
     $modes = array_keys(getCollectionModes());
     if ($mode && in_array($mode, $modes, true)) return $mode;
-    $default = getSetting('default_collection_mode', 'direct_upi');
-    return in_array($default, $modes, true) ? $default : 'direct_upi';
+    $default = defaultCollectionModeForNewMerchants();
+    return in_array($default, $modes, true) ? $default : 'platform_pg';
 }
 
 function merchantCollectionModeLabel(string $mode): string
@@ -76,6 +76,22 @@ function getAdminTemplateCollectionModes(?string $currentMode = null): array
         $out[$current] = $all[$current] . $suffix;
     }
     return $out;
+}
+
+/** Live-safe default for new merchants — never Route/Split parked rails. */
+function sanitizeDefaultCollectionMode(string $mode): string
+{
+    $mode = trim($mode);
+    $liveSafe = ['direct_upi', 'platform_pg', 'axis_va'];
+    if (in_array($mode, $liveSafe, true)) {
+        return $mode;
+    }
+    return 'platform_pg';
+}
+
+function defaultCollectionModeForNewMerchants(): string
+{
+    return sanitizeDefaultCollectionMode(getSetting('default_collection_mode', 'platform_pg'));
 }
 
 function collectionModeLabel(string $mode, bool $merchantFacing = false): string
