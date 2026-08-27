@@ -1,0 +1,29 @@
+{
+  "name": "uniweb",
+  "version": "1.0.0",
+  "description": "Official UniWeb Merchant API client for Node.js",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --experimental-vm-modules tests/request-shape.test.js"
+  },
+  "keywords": ["uniweb", "payments", "merchant", "api"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/uniwebadmin/uniweb.git",
+    "directory": "sdk/node"
+  }
+}

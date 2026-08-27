@@ -1820,6 +1820,16 @@ $assert(!str_contains($apiDocsSrc, 'NBFC') && !str_contains($apiDocsSrc, 'PPI'),
 $openapiSrc = (string)file_get_contents($root . '/openapi.json');
 $assert(str_contains($openapiSrc, 'UniWeb Merchant API') && str_contains($openapiSrc, 'error_code'), 'openapi_merchant_api_v1');
 
+// Phase 1 — UniWeb SDK libraries (PHP + Node)
+$sdkPhpClient = (string)file_get_contents($root . '/sdk/php/src/Client.php');
+$sdkNodeClient = (string)file_get_contents($root . '/sdk/node/src/client.ts');
+$assert(str_contains($sdkPhpClient, 'namespace UniWeb\\Client') && str_contains($sdkPhpClient, 'createPaymentLink') && str_contains($sdkPhpClient, 'Idempotency-Key'), 'sdk_php_client_shape');
+$assert(str_contains((string)file_get_contents($root . '/sdk/php/src/Webhook.php'), 'verifySignature') && str_contains($sdkPhpClient, 'ApiException'), 'sdk_php_webhook_and_errors');
+$assert(str_contains($sdkNodeClient, 'createPaymentLink') && str_contains($sdkNodeClient, 'Idempotency-Key') && str_contains((string)file_get_contents($root . '/sdk/node/src/webhook.ts'), 'verifySignature'), 'sdk_node_client_shape');
+$assert(str_contains($apiDocsSrc, 'id="sdk-libraries"') && str_contains($apiDocsSrc, 'uniweb/merchant-sdk') && !str_contains($apiDocsSrc, 'Razorpay SDK'), 'api_docs_sdk_section');
+$sdkShapeOut = shell_exec('php "' . $root . '/sdk/php/tests/RequestShapeTest.php" 2>&1') ?? '';
+$assert(str_contains($sdkShapeOut, 'SDK shape tests OK'), 'sdk_php_shape_test_runs');
+
 $payload = [
     'ok' => $failed === 0,
     'passed' => $passed,

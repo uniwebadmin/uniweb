@@ -26,6 +26,7 @@ require_once __DIR__ . '/header.php';
         <a href="#create-payment" class="hover:text-brand-400">Create payment</a> ·
         <a href="#check-status" class="hover:text-brand-400">Status</a> ·
         <a href="#webhooks" class="hover:text-brand-400">Webhooks</a> ·
+        <a href="#sdk-libraries" class="hover:text-brand-400">SDK Libraries</a> ·
         <a href="#errors" class="hover:text-brand-400">Error codes</a> ·
         <a href="#test-live" class="hover:text-brand-400">Test vs Live</a> ·
         <a href="#endpoints" class="hover:text-brand-400">All endpoints</a>
@@ -182,6 +183,55 @@ function verifyUniWebWebhook(rawBody, signature, signingSecret) {
 // Express example: use express.raw({ type: 'application/json' }) for the route
 // const ok = verifyUniWebWebhook(req.body, req.get('X-UniWeb-Signature'), process.env.UNIWEB_WEBHOOK_SECRET);</pre>
             <p class="text-xs text-gray-500 mt-2">Failed deliveries retry with exponential backoff (up to 8 attempts). Return HTTP 2xx quickly; process asynchronously if needed. <code class="text-gray-400">X-UniWeb-Event-Id</code> is stable across retries — use it for idempotent handling on your side.</p>
+        </div>
+
+        <div class="glass rounded-xl p-6 border border-violet-500/20" id="sdk-libraries">
+            <h2 class="font-semibold text-violet-300 mb-2">SDK Libraries</h2>
+            <p class="text-sm text-gray-400 mb-4">Official UniWeb client libraries — same Merchant API, UniWeb brand only. Install from the monorepo today; Packagist and npm publish when Owner enables.</p>
+            <div class="grid sm:grid-cols-2 gap-4 mb-6 text-sm">
+                <div class="rounded-lg border border-gray-800 p-4">
+                    <h3 class="font-semibold text-brand-400 mb-2">PHP SDK</h3>
+                    <p class="text-xs text-gray-500 mb-2">Package: <code class="text-gray-300">uniweb/merchant-sdk</code></p>
+                    <p class="text-xs text-gray-500 mb-3">Path: <a href="https://github.com/uniwebadmin/uniweb/tree/main/sdk/php" class="text-sky-400 hover:underline" target="_blank" rel="noopener">github.com/uniwebadmin/uniweb/sdk/php</a></p>
+                    <pre class="bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300">composer require uniweb/merchant-sdk:@dev
+
+use UniWeb\Client\Client;
+use UniWeb\Client\Config;
+
+$uniweb = new Client(new Config(
+    apiKey: 'uw_test_…',
+    apiSecret: 'uws_…',
+    mode: Config::MODE_TEST,
+));
+
+$link = $uniweb->createPaymentLink([
+    'amount' => 500,
+    'description' => 'Order #1',
+]);
+// Redirect customer to $link['payment_url']</pre>
+                </div>
+                <div class="rounded-lg border border-gray-800 p-4">
+                    <h3 class="font-semibold text-brand-400 mb-2">Node.js SDK</h3>
+                    <p class="text-xs text-gray-500 mb-2">Package: <code class="text-gray-300">uniweb</code></p>
+                    <p class="text-xs text-gray-500 mb-3">Path: <a href="https://github.com/uniwebadmin/uniweb/tree/main/sdk/node" class="text-sky-400 hover:underline" target="_blank" rel="noopener">github.com/uniwebadmin/uniweb/sdk/node</a></p>
+                    <pre class="bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300">npm install github:uniwebadmin/uniweb#main:sdk/node
+
+import { Client } from 'uniweb';
+
+const uniweb = new Client({
+  apiKey: 'uw_test_…',
+  apiSecret: 'uws_…',
+  mode: 'test',
+});
+
+const link = await uniweb.createPaymentLink({
+  amount: 500,
+  description: 'Order #1',
+});</pre>
+                </div>
+            </div>
+            <p class="text-xs text-gray-500 mb-2">Both SDKs include: <code class="text-gray-400">createPaymentLink</code>, <code class="text-gray-400">checkStatus</code>, <code class="text-gray-400">createRefund</code>, <code class="text-gray-400">getBalance</code>, <code class="text-gray-400">listTransactions</code>, automatic <code class="text-gray-400">Idempotency-Key</code> on writes, and <code class="text-gray-400">verifySignature()</code> for webhooks. Errors map to typed exceptions with stable <code class="text-gray-400">error_code</code>. Secrets are never logged.</p>
+            <p class="text-xs text-gray-500">Webhook verify (PHP): <code class="text-gray-400">UniWeb\Client\Webhook::verifySignature($raw, $sig, $secret)</code> · Node: <code class="text-gray-400">verifySignature(rawBody, header, secret)</code></p>
         </div>
 
         <div class="glass rounded-xl p-6" id="test-live">
