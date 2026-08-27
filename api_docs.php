@@ -295,8 +295,12 @@ const link = await uniweb.createPaymentLink({
                 ['list_payment_links', 'List Payment Links', '{"action":"list_payment_links","limit":20,"offset":0}', 'Paginated links with view_count.'],
                 ['get_payment_link', 'Get Payment Link', '{"action":"get_payment_link","link_id":"LNK..."}', 'Single link including payment_url.'],
             ];
-            foreach ($endpoints as [$action, $title, $body, $desc, $anchor]):
-                $anchor = $anchor ?? '';
+            foreach ($endpoints as $ep):
+                $action = $ep[0];
+                $title = $ep[1];
+                $body = $ep[2];
+                $desc = $ep[3];
+                $anchor = $ep[4] ?? '';
             ?>
             <div class="mb-5 pb-5 border-b border-gray-800 last:border-0 last:mb-0 last:pb-0">
                 <h3 class="font-medium text-sm mb-1"><?= e($title) ?><?php if ($anchor): ?> <a href="<?= e($anchor) ?>" class="text-xs text-sky-500 hover:underline">↑</a><?php endif; ?></h3>

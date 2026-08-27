@@ -1830,6 +1830,7 @@ $assert(str_contains($sdkPhpClient, 'namespace UniWeb\\Client') && str_contains(
 $assert(str_contains((string)file_get_contents($root . '/sdk/php/src/Webhook.php'), 'verifySignature') && str_contains($sdkPhpClient, 'ApiException'), 'sdk_php_webhook_and_errors');
 $assert(str_contains($sdkNodeClient, 'createPaymentLink') && str_contains($sdkNodeClient, 'Idempotency-Key') && str_contains((string)file_get_contents($root . '/sdk/node/src/webhook.ts'), 'verifySignature'), 'sdk_node_client_shape');
 $assert(str_contains($apiDocsSrc, 'id="sdk-libraries"') && str_contains($apiDocsSrc, 'uniweb/merchant-sdk') && !str_contains($apiDocsSrc, 'Razorpay SDK'), 'api_docs_sdk_section');
+$assert(str_contains($apiDocsSrc, '$anchor = $ep[4] ??') && !preg_match('/foreach\s*\(\s*\$endpoints\s+as\s+\[\$/', $apiDocsSrc), 'api_docs_endpoints_safe_destructure');
 $sdkShapeOut = shell_exec('php "' . $root . '/sdk/php/tests/RequestShapeTest.php" 2>&1') ?? '';
 $assert(str_contains($sdkShapeOut, 'SDK shape tests OK'), 'sdk_php_shape_test_runs');
 
