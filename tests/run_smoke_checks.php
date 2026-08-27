@@ -1788,6 +1788,8 @@ $custPortalTrack = (string)file_get_contents($root . '/includes/customer_portal.
 $payStatusTrack = (string)file_get_contents($root . '/payment_status.php');
 $assert(str_contains($custPortalTrack, 'function buildPaymentTrackUrl') && str_contains($custPortalTrack, 'function verifyPaymentTrackSignature'), 'payment_track_signed_url_helpers');
 $assert(str_contains($payStatusTrack, 'verifyPaymentTrackSignature') && str_contains($payStatusTrack, 'requestCustomerOtp'), 'payment_status_signed_track_and_demo_otp');
+$assert(str_contains($payStatusTrack, 'UniWeb Verified') && str_contains($custPortalTrack, 'grantCheckoutTrackAccess'), 'payment_track_verified_badge_and_session');
+$assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'UniWeb Verified'), 'checkout_success_verified_badge');
 $assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'buildPaymentTrackUrl'), 'checkout_success_signed_track_link');
 $assert(str_contains((string)file_get_contents($root . '/cust.php'), 'customer_login.php'), 'ws2_cust_short_url');
 $assert(is_file($root . '/includes/intelligent_routing.php') && str_contains($irSrc, 'function intelligentRoutingEnabled') && str_contains($irSrc, 'intelligent_route_decisions'), 'ws3_intelligent_routing_module');

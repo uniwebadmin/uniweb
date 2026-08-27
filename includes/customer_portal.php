@@ -60,6 +60,32 @@ function buildPaymentTrackUrl(string $txnId): string
         . '&sig=' . rawurlencode($parts['sig']);
 }
 
+/** Same-browser checkout success — no OTP until grant expires (2 h). */
+function grantCheckoutTrackAccess(string $txnId): void
+{
+    $txnId = trim($txnId);
+    if ($txnId === '') {
+        return;
+    }
+    if (!isset($_SESSION['checkout_track_grants']) || !is_array($_SESSION['checkout_track_grants'])) {
+        $_SESSION['checkout_track_grants'] = [];
+    }
+    $_SESSION['checkout_track_grants'][$txnId] = time() + 7200;
+}
+
+function hasCheckoutTrackAccess(string $txnId): bool
+{
+    $txnId = trim($txnId);
+    if ($txnId === '') {
+        return false;
+    }
+    $grants = $_SESSION['checkout_track_grants'] ?? [];
+    if (!is_array($grants)) {
+        return false;
+    }
+    return (int)($grants[$txnId] ?? 0) >= time();
+}
+
 /** Load one transaction row for the public track page (no PII beyond what checkout already showed). */
 function fetchPaymentStatusTransaction(string $txnId): ?array
 {

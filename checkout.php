@@ -290,6 +290,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && ($_POST['a
         $txnRow = getDB()->prepare('SELECT txn_id FROM transactions WHERE id = ?');
         $txnRow->execute([$txnDbId]);
         $successTxnId = $txnRow->fetchColumn() ?: null;
+        if ($successTxnId) {
+            grantCheckoutTrackAccess((string)$successTxnId);
+        }
         $success = true;
         } catch (Throwable $e) {
             $error = function_exists('userFacingError')
@@ -467,6 +470,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && $selectedP
             }
         } else {
             $successTxnId = $result['txn_id'] ?? null;
+            if ($successTxnId) {
+                grantCheckoutTrackAccess((string)$successTxnId);
+            }
             $success = true;
         }
     }
@@ -517,14 +523,21 @@ endif;
                 <h2 class="text-xl font-bold mb-2">Payment Successful</h2>
                 <p class="text-gray-400 text-sm"><?= e($wlBrand['active'] && !empty($wlBrand['success_message']) ? $wlBrand['success_message'] : 'Your payment has been confirmed. A receipt will be sent to the merchant.') ?></p>
                 <?php if ($successTxnId): ?>
-                <p class="text-xs text-gray-500 mt-3 font-mono">Transaction ID: <?= e($successTxnId) ?></p>
+                <?php $signedTrackUrl = buildPaymentTrackUrl((string)$successTxnId); ?>
+                <div class="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">
+                    <span class="font-semibold">UniWeb Verified</span><span class="text-emerald-400/80">· signed secure link</span>
+                </div>
+                <p class="text-xs text-gray-500 mt-3 font-mono break-all">
+                    Transaction ID:
+                    <a href="<?= e($signedTrackUrl) ?>" class="text-sky-400 hover:underline"><?= e($successTxnId) ?></a>
+                </p>
                 <?php endif; ?>
                 <?php if ($wlBrand['active'] && !empty($wlBrand['redirect_url'])): ?>
                 <p class="text-xs text-gray-500 mt-4">You will be redirected shortly…</p>
                 <script>setTimeout(function(){ window.location.href = <?= json_encode($wlBrand['redirect_url']) ?>; }, 3000);</script>
                 <a href="<?= e($wlBrand['redirect_url']) ?>" class="inline-block mt-4 text-sm text-sky-400 hover:underline">Continue →</a>
                 <?php else: ?>
-                <a href="<?= e($successTxnId ? buildPaymentTrackUrl((string)$successTxnId) : 'payment_status.php') ?>" class="inline-block mt-6 text-sm text-sky-400 hover:underline">Track payment status →</a>
+                <a href="<?= e(!empty($successTxnId) ? buildPaymentTrackUrl((string)$successTxnId) : 'payment_status.php') ?>" class="inline-block mt-6 text-sm text-sky-400 hover:underline">Track payment status →</a>
                 <?php endif; ?>
             </div>
             <?php else: ?>

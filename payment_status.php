@@ -8,6 +8,7 @@ $txnList = null;
 $error = '';
 $notice = '';
 $otpStep = false;
+$trackVerified = false;
 $prefillTxn = trim($_GET['txn_id'] ?? $_POST['txn_id'] ?? '');
 $trackSig = trim($_GET['sig'] ?? '');
 $trackExp = (int)($_GET['exp'] ?? 0);
@@ -142,8 +143,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 } elseif ($prefillTxn !== '') {
     if ($trackSig !== '' && $trackExp > 0) {
         $txn = paymentStatusViaSignedTrack($prefillTxn, $trackSig, $trackExp);
-        if (!$txn) {
-            $error = 'This track link has expired or the signature could not be verified. Enter your mobile number below or request a new link from checkout.';
+        if ($txn) {
+            $trackVerified = true;
+        } elseif (hasCheckoutTrackAccess($prefillTxn)) {
+            $txn = fetchPaymentStatusTransaction($prefillTxn);
+            if ($txn) {
+                $trackVerified = true;
+            }
+        } elseif (($merchantTxn = paymentStatusViaMerchant($prefillTxn)) !== null) {
+            $txn = $merchantTxn;
+            $trackVerified = true;
+        } else {
+            $error = 'This secure track link could not be verified. Enter the mobile number used at checkout, or pay again and use the new Track link from the success page.';
+        }
+    } elseif (hasCheckoutTrackAccess($prefillTxn)) {
+        $txn = fetchPaymentStatusTransaction($prefillTxn);
+        if ($txn) {
+            $trackVerified = true;
         }
     } elseif (isCustomerLoggedIn()) {
         $owned = findCustomerOwnedTransaction(currentCustomerPhone(), $prefillTxn);
@@ -167,6 +183,13 @@ require_once __DIR__ . '/header.php';
 <div class="pt-24 pb-16 max-w-2xl mx-auto px-4">
     <h1 class="text-3xl font-bold text-center mb-2">Track Your <span class="gradient-text">Payment</span></h1>
     <p class="text-gray-500 text-center text-sm mb-8">Check payment status using Transaction ID or Phone Number</p>
+
+    <?php if ($trackVerified && $txn): ?>
+    <div class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm px-4 py-3 rounded-lg mb-6 flex items-center gap-2 justify-center">
+        <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-200">✓</span>
+        <span><strong>UniWeb Verified</strong> — signed secure track link</span>
+    </div>
+    <?php endif; ?>
 
     <?php if ($error): ?><div class="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg mb-6"><?= e($error) ?></div><?php endif; ?>
     <?php if ($notice): ?><div class="bg-sky-500/10 border border-sky-500/30 text-sky-300 text-sm px-4 py-3 rounded-lg mb-6"><?= e($notice) ?></div><?php endif; ?>
