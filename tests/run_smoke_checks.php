@@ -818,6 +818,7 @@ $assert(str_contains((string)file_get_contents($root . '/admin_support.php'), 'A
 $assert(!is_file($root . '/admin_dispute_bulk.php') && !is_file($root . '/dispute_app.php'), 'b9_no_new_dispute_app');
 // WIRING-C1-C2-HYGIENE-ORDERED
 $assert(!is_file($root . '/demo.php') && !is_file($root . '/ping.php'), 'wiring_demo_ping_deleted');
+$assert(str_contains((string)file_get_contents($root . '/.htaccess'), 'RewriteRule ^demo/?$ merchant_register.php'), 'wiring_demo_htaccess_redirects_signup');
 $assert(!is_file($root . '/AGENTS.md') && is_file($root . '/.cursor/AGENTS.md'), 'wiring_root_md_agents_moved_off_webroot');
 $assert(str_contains((string)file_get_contents($root . '/mobile.php'), "redirect('index.php')"), 'wiring_mobile_redirect_home');
 $assert(str_contains((string)file_get_contents($root . '/cust.php'), "redirect('customer_login.php"), 'wiring_cust_redirect_login');
