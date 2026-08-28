@@ -30,8 +30,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         } else {
             $code = 'AG' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
             $db->prepare('INSERT INTO merchants (merchant_code,name,email,phone,password,business_name,business_type,business_entity_type,agent_commission,api_key,api_secret,upi_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-                ->execute([$code, $name, $email, $phone, password_hash($password, PASSWORD_ARGON2ID), $business, 'retail', 'sole_proprietorship', $commission, 'uk_' . bin2hex(random_bytes(16)), 'us_' . bin2hex(random_bytes(24)), strtolower(preg_replace('/\s+/', '', $business)) . '@uniweb']);
+                ->execute([$code, $name, $email, $phone, password_hash($password, PASSWORD_ARGON2ID), $business, 'retail', 'sole_proprietorship', $commission, null, null, strtolower(preg_replace('/\s+/', '', $business)) . '@uniweb']);
             $id = (int)$db->lastInsertId();
+            if (function_exists('bootstrapMerchantApiCredentialsOnSignup')) {
+                bootstrapMerchantApiCredentialsOnSignup($id);
+            }
             $link = addSubMerchant((int)$merchant['id'], $id, 'franchise');
             if (!($link['ok'] ?? false)) {
                 $db->prepare("UPDATE merchants SET status='deleted' WHERE id=?")->execute([$id]);

@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                         $code, $name, $email, $phone, $pending['password_hash'],
                         $business, $bType, $bEntity, null, '',
                         'India', '', '', '', '',
-                        'uk_' . bin2hex(random_bytes(16)), 'us_' . bin2hex(random_bytes(24)),
+                        null, null,
                         'merchant' . strtolower(substr($code, 2)) . '@uniweb',
                         $signupMode === 'email' ? date('Y-m-d H:i:s') : null,
                         $signupMode === 'mobile' ? date('Y-m-d H:i:s') : null,
@@ -93,13 +93,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 }
                 recordVelocityEvent('merchant_signup', 'merchant:' . $id);
                 try {
-                    $db->prepare('UPDATE merchants SET test_api_key=?, test_api_secret=?, account_mode=?, provision_profile=?, enabled_methods=?, collection_mode=?, auto_provisioned=1 WHERE id=?')
-                        ->execute(['test_' . bin2hex(random_bytes(16)), 'testsec_' . bin2hex(random_bytes(24)), 'test', 'auto_p2m', json_encode(['upi_p2m']), 'direct_upi', $id]);
+                    $db->prepare('UPDATE merchants SET account_mode=?, provision_profile=?, enabled_methods=?, collection_mode=?, auto_provisioned=1 WHERE id=?')
+                        ->execute(['test', 'auto_p2m', json_encode(['upi_p2m']), 'direct_upi', $id]);
                 } catch (Throwable $e) {
                     try {
-                        $db->prepare('UPDATE merchants SET test_api_key=?, test_api_secret=?, account_mode=?, enabled_methods=? WHERE id=?')
-                            ->execute(['test_' . bin2hex(random_bytes(16)), 'testsec_' . bin2hex(random_bytes(24)), 'test', json_encode(['upi_p2m']), $id]);
+                        $db->prepare('UPDATE merchants SET account_mode=?, enabled_methods=? WHERE id=?')
+                            ->execute(['test', json_encode(['upi_p2m']), $id]);
                     } catch (Throwable $e2) { /* ok */ }
+                }
+                if (function_exists('bootstrapMerchantApiCredentialsOnSignup')) {
+                    $signupCred = bootstrapMerchantApiCredentialsOnSignup($id);
+                    if (!empty($signupCred['key']) && !empty($signupCred['secret'])) {
+                        $_SESSION['new_api_credential'] = [
+                            'key' => $signupCred['key'],
+                            'secret' => $signupCred['secret'],
+                            'mode' => $signupCred['mode'] ?? 'test',
+                        ];
+                    }
                 }
 
                 if (function_exists('bootstrapMerchantMethodAutomation') === false) {

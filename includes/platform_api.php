@@ -184,10 +184,91 @@ function maskApiKey(?string $key, int $show = 8): string
     return substr($key, 0, $show) . '…' . substr($key, -4);
 }
 
-/** Ensure live + test API keys exist (approval / merchant portal) */
+function merchantHasActiveApiCredential(int $merchantId, string $mode): bool
+{
+    if (!financialTablesReady()) {
+        return false;
+    }
+    $st = getDB()->prepare("SELECT id FROM api_credentials WHERE merchant_id=? AND mode=? AND status='active' LIMIT 1");
+    $st->execute([$merchantId, $mode]);
+    return (bool)$st->fetchColumn();
+}
+
+/** Remove retired plaintext merchant API columns — auth uses api_credentials only. */
+function clearLegacyMerchantApiKeyColumns(int $merchantId): void
+{
+    try {
+        getDB()->prepare('UPDATE merchants SET api_key=NULL, api_secret=NULL, test_api_key=NULL, test_api_secret=NULL WHERE id=?')
+            ->execute([$merchantId]);
+    } catch (Throwable $e) {
+        /* ok */
+    }
+}
+
+function getMerchantApiCredentialSummaries(int $merchantId): array
+{
+    $out = ['test' => null, 'live' => null];
+    if (!financialTablesReady()) {
+        return $out;
+    }
+    $st = getDB()->prepare("SELECT mode, key_prefix, last_used_at, created_at FROM api_credentials WHERE merchant_id=? AND status='active' ORDER BY mode, created_at DESC");
+    $st->execute([$merchantId]);
+    foreach ($st->fetchAll() as $row) {
+        $mode = (string)($row['mode'] ?? '');
+        if (($mode === 'test' || $mode === 'live') && $out[$mode] === null) {
+            $out[$mode] = $row;
+        }
+    }
+    return $out;
+}
+
+/** Create missing hashed credentials; wipe legacy plaintext columns on merchants. */
 function ensureMerchantApiKeys(int $merchantId): void
 {
-    // Credentials are created explicitly so the raw secret can be shown exactly once.
+    if (!financialTablesReady()) {
+        return;
+    }
+    $st = getDB()->prepare("SELECT * FROM merchants WHERE id=? AND status!='deleted' LIMIT 1");
+    $st->execute([$merchantId]);
+    $merchant = $st->fetch();
+    if (!$merchant) {
+        return;
+    }
+    if (!merchantHasActiveApiCredential($merchantId, 'test')) {
+        try {
+            createMerchantApiCredential($merchantId, 'test');
+        } catch (Throwable $e) {
+            error_log('ensureMerchantApiKeys test: ' . $e->getMessage());
+        }
+    }
+    if (isMerchantLive($merchant) && !merchantHasActiveApiCredential($merchantId, 'live')) {
+        try {
+            createMerchantApiCredential($merchantId, 'live');
+        } catch (Throwable $e) {
+            error_log('ensureMerchantApiKeys live: ' . $e->getMessage());
+        }
+    }
+    clearLegacyMerchantApiKeyColumns($merchantId);
+}
+
+/** Signup: create test credential and return raw key+secret for one-time display. */
+function bootstrapMerchantApiCredentialsOnSignup(int $merchantId): ?array
+{
+    if (!financialTablesReady()) {
+        return null;
+    }
+    if (merchantHasActiveApiCredential($merchantId, 'test')) {
+        clearLegacyMerchantApiKeyColumns($merchantId);
+        return null;
+    }
+    try {
+        $credential = createMerchantApiCredential($merchantId, 'test');
+        clearLegacyMerchantApiKeyColumns($merchantId);
+        return $credential;
+    } catch (Throwable $e) {
+        error_log('bootstrapMerchantApiCredentialsOnSignup: ' . $e->getMessage());
+        return null;
+    }
 }
 
 /** Regenerate a merchant's API credentials (test or live) and notify them by email + in-app. */
@@ -232,6 +313,8 @@ function regenerateMerchantApiKey(int $merchantId, string $mode = 'live', ?int $
         logStaffActivity('api_key_regenerated', "{$label} key regenerated for merchant #{$merchantId}", $merchantId);
     }
 
+    clearLegacyMerchantApiKeyColumns($merchantId);
+
     return ['ok' => true, 'mode' => $mode, 'key' => $newKey, 'secret' => $newSecret, 'scopes' => $credential['scopes']];
 }
 
@@ -257,25 +340,42 @@ function getMerchantApiKeyRows(int $limit = 50): array
 {
     $db = getDB();
     $stmt = $db->prepare("SELECT id, merchant_code, business_name, email, kyc_status, account_mode, status,
-        api_key, api_secret, test_api_key, test_api_secret,
         payu_child_key, razorpay_linked_account_id, cashfree_vendor_id,
         website_url, website_status
         FROM merchants WHERE status != 'deleted' ORDER BY created_at DESC LIMIT ?");
     $stmt->execute([$limit]);
+    $merchants = $stmt->fetchAll();
     $rows = [];
-    foreach ($stmt->fetchAll() as $m) {
+    $credByMerchant = [];
+    if (financialTablesReady() && $merchants) {
+        $ids = array_map(static fn(array $m): int => (int)$m['id'], $merchants);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $credSt = $db->prepare("SELECT merchant_id, mode, key_prefix FROM api_credentials WHERE status='active' AND merchant_id IN ($placeholders) ORDER BY merchant_id, mode, created_at DESC");
+        $credSt->execute($ids);
+        foreach ($credSt->fetchAll() as $cred) {
+            $mid = (int)$cred['merchant_id'];
+            $mode = (string)$cred['mode'];
+            if (!isset($credByMerchant[$mid][$mode])) {
+                $credByMerchant[$mid][$mode] = (string)$cred['key_prefix'];
+            }
+        }
+    }
+    foreach ($merchants as $m) {
+        $mid = (int)$m['id'];
+        $livePrefix = $credByMerchant[$mid]['live'] ?? '';
+        $testPrefix = $credByMerchant[$mid]['test'] ?? '';
         $rows[] = [
-            'id' => (int)$m['id'],
+            'id' => $mid,
             'merchant_code' => $m['merchant_code'],
             'business_name' => $m['business_name'],
             'email' => $m['email'],
             'kyc_status' => $m['kyc_status'],
             'live' => isMerchantLive($m),
             'status' => $m['status'],
-            'api_key_masked' => maskApiKey($m['api_key'] ?? ''),
-            'test_api_key_masked' => maskApiKey($m['test_api_key'] ?? ''),
-            'has_live_keys' => !empty($m['api_key']) && !empty($m['api_secret']),
-            'has_test_keys' => !empty($m['test_api_key']),
+            'api_key_masked' => $livePrefix !== '' ? maskApiKey($livePrefix . '…') : '—',
+            'test_api_key_masked' => $testPrefix !== '' ? maskApiKey($testPrefix . '…') : '—',
+            'has_live_keys' => $livePrefix !== '',
+            'has_test_keys' => $testPrefix !== '',
             'split_ids' => array_filter([
                 !empty($m['payu_child_key']) ? 'PayU child' : null,
                 !empty($m['razorpay_linked_account_id']) ? 'Razorpay Route' : null,
@@ -295,7 +395,9 @@ function getWebsitePlatformStats(): array
     $withWebsite = (int)$db->query("SELECT COUNT(*) FROM merchants WHERE status != 'deleted' AND website_url IS NOT NULL AND website_url != ''")->fetchColumn();
     $verified = (int)$db->query("SELECT COUNT(*) FROM merchants WHERE website_status = 'verified'")->fetchColumn();
     $pending = (int)$db->query("SELECT COUNT(*) FROM merchants WHERE website_status = 'pending'")->fetchColumn();
-    $withApi = (int)$db->query("SELECT COUNT(*) FROM merchants WHERE status != 'deleted' AND api_key IS NOT NULL AND api_key != ''")->fetchColumn();
+    $withApi = financialTablesReady()
+        ? (int)$db->query("SELECT COUNT(DISTINCT merchant_id) FROM api_credentials WHERE status='active'")->fetchColumn()
+        : 0;
     return [
         'merchants' => $total,
         'with_website' => $withWebsite,

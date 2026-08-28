@@ -254,8 +254,8 @@ function createAdditionalBusiness(array $currentUser, string $pan, ?string $gsti
             $gstin ? sensitiveEncrypt($gstin) : null,
             '',
             'India', '', '', '', '',
-            'uk_' . bin2hex(random_bytes(16)),
-            'us_' . bin2hex(random_bytes(24)),
+            null,
+            null,
             'merchant' . strtolower(substr($code, 2)) . '@uniweb',
             'test',
             'auto_p2m',
@@ -264,6 +264,10 @@ function createAdditionalBusiness(array $currentUser, string $pan, ?string $gsti
             1,
         ]);
         $newId = (int)$db->lastInsertId();
+
+        if (function_exists('bootstrapMerchantApiCredentialsOnSignup')) {
+            bootstrapMerchantApiCredentialsOnSignup($newId);
+        }
 
         // Link user to new merchant
         linkUserToMerchant($currentUser['email'], $currentUser['phone'] ?? '', $newId, 'owner');

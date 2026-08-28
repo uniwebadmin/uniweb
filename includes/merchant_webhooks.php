@@ -127,7 +127,7 @@ function dispatchMerchantWebhook(int $merchantId, string $event, array $data): a
 {
     ensureMerchantWebhookEngine();
     $db = getDB();
-    $st = $db->prepare('SELECT id, webhook_url, webhook_signing_secret, api_secret, test_api_secret FROM merchants WHERE id = ?');
+    $st = $db->prepare('SELECT id, webhook_url, webhook_signing_secret FROM merchants WHERE id = ?');
     $st->execute([$merchantId]);
     $merchant = $st->fetch();
     if (!$merchant) {

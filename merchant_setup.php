@@ -127,10 +127,22 @@ $addressValues = [
 $pageTitle = __('setup_title');
 $hideNav = true;
 $footerVariant = 'auth';
+$signupApiCredential = $_SESSION['new_api_credential'] ?? null;
 require_once __DIR__ . '/header.php';
 ?>
 
 <div class="max-w-2xl mx-auto space-y-6">
+<?php if ($signupApiCredential): unset($_SESSION['new_api_credential']); ?>
+<div class="glass rounded-xl p-5 border border-emerald-500/40 bg-emerald-500/5">
+    <h2 class="font-semibold text-emerald-300 mb-2">Your Test API key — copy now</h2>
+    <p class="text-xs text-gray-500 mb-3">Secret is shown once. You can regenerate anytime from API Settings.</p>
+    <label class="text-xs text-gray-500">API Key</label>
+    <input readonly class="input-field font-mono text-xs mt-1 mb-3" value="<?= e($signupApiCredential['key'] ?? '') ?>">
+    <label class="text-xs text-gray-500">API Secret</label>
+    <input readonly class="input-field font-mono text-xs mt-1 mb-3" value="<?= e($signupApiCredential['secret'] ?? '') ?>">
+    <a href="api_settings.php" class="text-xs text-sky-400 hover:underline">Open API Settings →</a>
+</div>
+<?php endif; ?>
 
     <div class="mb-2">
         <h1 class="text-xl font-bold"><?= __('setup_title') ?></h1>

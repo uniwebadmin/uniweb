@@ -21,10 +21,9 @@ function ensureDemoMerchant(): array
                 'demomerchant@paytm', 'submitted', 'test', 'direct_upi', 0.10, 'active',
             ]);
         $merchantId = (int)$db->lastInsertId();
-        try {
-            $db->prepare('UPDATE merchants SET test_api_key=?, test_api_secret=? WHERE id=?')
-                ->execute(['test_demo_' . bin2hex(random_bytes(8)), 'testsec_demo', $merchantId]);
-        } catch (Throwable $e) { /* ok */ }
+        if (function_exists('bootstrapMerchantApiCredentialsOnSignup')) {
+            bootstrapMerchantApiCredentialsOnSignup($merchantId);
+        }
         $stmt->execute([$email]);
         $merchant = $stmt->fetch();
         if (function_exists('bootstrapMerchantMethodAutomation')) {

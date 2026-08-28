@@ -52,10 +52,17 @@ if (isset($_GET['action']) && $_GET['action'] === 'regen_key' && verifyCsrf($_GE
     $mode = ($_GET['mode'] ?? 'live') === 'test' ? 'test' : 'live';
     $result = regenerateMerchantApiKey($id, $mode, (int)($_SESSION['admin_id'] ?? 0));
     logStaffActivity('regen_api_key', ucfirst($mode) . ' key regenerated for merchant #' . $id, $id, 'merchant', (string)$id);
+    if (!empty($result['ok'])) {
+        $_SESSION['admin_new_api_credential'] = [
+            'key' => $result['key'],
+            'secret' => $result['secret'],
+            'mode' => $result['mode'],
+        ];
+    }
     flash($result['ok'] ? 'success' : 'error', $result['ok']
-        ? ucfirst($mode) . ' API key regenerated. Merchant notified by email + dashboard.'
+        ? ucfirst($mode) . ' API credential regenerated — copy the one-time key below. Merchant notified by email.'
         : ($result['error'] ?? 'Failed.'));
-    redirect('admin_edit_merchant.php?id=' . $id);
+    redirect('admin_edit_merchant.php?id=' . $id . '#api-keys');
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
@@ -182,6 +189,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     flash('success', 'Merchant profile updated.');
     redirect('admin_edit_merchant.php?id=' . $id);
 }
+
+ensureMerchantApiKeys($id);
+$apiCredentialSummaries = getMerchantApiCredentialSummaries($id);
+$adminNewCredential = $_SESSION['admin_new_api_credential'] ?? null;
+unset($_SESSION['admin_new_api_credential']);
 
 $pageTitle = 'Edit Merchant — ' . $merchant['merchant_code'];
 require_once __DIR__ . '/header.php';
@@ -428,12 +440,23 @@ $methodCatalog = getPaymentMethodCatalog();
             <a href="admin_virtual_accounts.php?merchant_id=<?= $id ?>" class="text-xs text-brand-400 block mt-1"><?= $primaryVaNumber !== '' ? 'Manage Virtual Accounts →' : 'Virtual Accounts (create Axis VA) →' ?></a>
         </div>
         <div class="glass rounded-xl p-4 sm:p-5 text-xs text-gray-500 space-y-3" id="api-keys">
+            <?php if ($adminNewCredential): ?>
+            <div class="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-3 mb-2">
+                <p class="font-semibold text-emerald-300 mb-1">Copy <?= e(ucfirst((string)($adminNewCredential['mode'] ?? 'test'))) ?> credential now</p>
+                <p class="text-[11px] text-gray-600 mb-2">Shown once — secret is stored as hash only.</p>
+                <p class="text-gray-500">Key</p>
+                <code class="text-brand-400 break-all block mb-2"><?= e($adminNewCredential['key'] ?? '') ?></code>
+                <p class="text-gray-500">Secret</p>
+                <code class="text-amber-400 break-all block"><?= e($adminNewCredential['secret'] ?? '') ?></code>
+            </div>
+            <?php endif; ?>
             <div>
-                <p class="text-[10px] uppercase text-gray-600 mb-1">UniWeb API (give to merchant)</p>
-                <p class="text-gray-500">Live key:</p>
-                <code class="text-brand-400 break-all block"><?= e($merchant['api_key'] ?? '—') ?></code>
-                <p class="text-gray-500 mt-2">Test key:</p>
-                <code class="text-amber-400 break-all block"><?= e($merchant['test_api_key'] ?? '—') ?></code>
+                <p class="text-[10px] uppercase text-gray-600 mb-1">UniWeb API (hashed in api_credentials)</p>
+                <p class="text-gray-500">Live prefix:</p>
+                <code class="text-brand-400 break-all block"><?= e(($apiCredentialSummaries['live']['key_prefix'] ?? 'Not created') . (isset($apiCredentialSummaries['live']) ? '…' : '')) ?></code>
+                <p class="text-gray-500 mt-2">Test prefix:</p>
+                <code class="text-amber-400 break-all block"><?= e(($apiCredentialSummaries['test']['key_prefix'] ?? 'Not created') . (isset($apiCredentialSummaries['test']) ? '…' : '')) ?></code>
+                <p class="text-[11px] text-gray-600 mt-2">Plaintext keys are not stored on merchants table. Regenerate to issue a new credential.</p>
             </div>
             <div class="flex flex-wrap gap-2 pt-1">
                 <a href="?id=<?= $id ?>&action=regen_key&mode=live&token=<?= csrfToken() ?>" class="text-red-400 border border-red-500/30 px-2.5 py-1 rounded" onclick="return confirm('Regenerate LIVE API key for this merchant? Old key stops working immediately. Merchant gets an email.')">↻ Regen Live</a>

@@ -411,7 +411,8 @@ $assert(str_contains((string)file_get_contents($root . '/admin_throughput.php'),
 $assert(str_contains((string)file_get_contents($root . '/chargebacks.php'), '>Chargebacks</h2>') && !str_contains((string)file_get_contents($root . '/chargebacks.php'), 'Disputes &amp; chargebacks'), 'dup05_chargebacks_title_only');
 $colSetDup = (string)file_get_contents($root . '/collection_settings.php');
 $assert(str_contains($colSetDup, 'do not dual-write enabled_methods') && !str_contains($colSetDup, 'enabled_methods=?'), 'dup02_collection_no_method_dual_write');
-$assert(str_contains((string)file_get_contents($root . '/admin_financial_reports.php'), 'Reports hub') && str_contains((string)file_get_contents($root . '/admin_reports.php'), 'Reports hub'), 'dup03_reports_hub_tabs');
+$assert(str_contains((string)file_get_contents($root . '/admin_financial_reports.php'), 'Reports hub') && str_contains((string)file_get_contents($root . '/admin_financial_reports.php'), 'view=ops'), 'dup03_reports_hub_tabs');
+$assert(str_contains((string)file_get_contents($root . '/admin_reports.php'), 'admin_financial_reports.php') && str_contains((string)file_get_contents($root . '/admin_reports.php'), "\$params['view'] = 'ops'"), 'dup03_admin_reports_redirects');
 $walletIconPos = strpos($navSrc, "['wallet.php', 'Settlement Balance', '");
 $stlIconPos = strpos($navSrc, "['settlements.php'");
 $assert($walletIconPos !== false && $stlIconPos !== false, 'dup01_balance_and_settlements_in_nav');
@@ -931,6 +932,10 @@ $assert(str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'fu
 $assert(str_contains((string)file_get_contents($root . '/includes/va_manager.php'), "gateway === 'rbl'") && str_contains((string)file_get_contents($root . '/includes/va_manager.php'), 'createRblVirtualAccount'), 'va_manager_rbl_when_operational');
 $assert(str_contains((string)file_get_contents($root . '/includes/partner_keys_workflow.php'), 'rbl_client_id') && str_contains((string)file_get_contents($root . '/includes/partner_keys_workflow.php'), 'rbl_no_demo_defaults'), 'partner_keys_rbl_legacy_blocklist');
 $assert(is_file($root . '/migrations/075_wipe_legacy_rbl_plaintext_keys.sql'), 'migration_075_rbl_plaintext_wipe');
+$platformApiSrc = (string)file_get_contents($root . '/includes/platform_api.php');
+$assert(str_contains($platformApiSrc, 'bootstrapMerchantApiCredentialsOnSignup') && str_contains($platformApiSrc, 'clearLegacyMerchantApiKeyColumns'), 'merchant_api_credentials_retire_legacy');
+$assert(is_file($root . '/migrations/076_retire_merchant_plaintext_api_keys.sql'), 'migration_076_merchant_plaintext_wipe');
+$assert(!str_contains((string)file_get_contents($root . '/merchant_register.php'), 'test_api_key=?'), 'merchant_register_no_plaintext_test_keys');
 $assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'No demo defaults') && str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), "partnerKey === 'rbl'"), 'admin_rbl_no_demo_defaults_hint');
 $assert(str_contains((string)file_get_contents($root . '/includes/cloud_modules.php'), "'auto_kyc.php'") && str_contains((string)file_get_contents($root . '/config.dev.php'), "'auto_kyc'"), 'p6a_auto_kyc_loaded_via_cloud_modules');
 $assert(str_contains((string)file_get_contents($root . '/includes/va_manager.php'), 'vaSupportedCreationGateways') && str_contains((string)file_get_contents($root . '/includes/gateways.php'), "'pinelabs'"), 'p6a_va_supported_list_and_pinelabs_enum');

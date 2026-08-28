@@ -138,7 +138,7 @@ require_once __DIR__ . '/header.php';
         <a href="admin_security_hardening.php" class="glass px-3 py-2 rounded-xl text-xs text-red-400">Security</a>
         <a href="admin_gateway_matrix.php" class="glass px-3 py-2 rounded-xl text-xs text-sky-400">Gateway Matrix</a>
         <a href="admin_webhook_reliability.php" class="glass px-3 py-2 rounded-xl text-xs text-amber-400">Webhooks</a>
-        <a href="admin_reports.php" class="glass px-3 py-2 rounded-xl text-xs text-sky-400">Reports</a>
+        <a href="admin_financial_reports.php?view=ops" class="glass px-3 py-2 rounded-xl text-xs text-sky-400">Reports</a>
         <a href="admin_circuit_breaker.php" class="glass px-3 py-2 rounded-xl text-xs text-red-400">Circuit Breaker</a>
         <a href="admin_transaction_monitor.php" class="glass px-3 py-2 rounded-xl text-xs text-emerald-400">Txn Monitor</a>
         <a href="admin_sub_merchants.php" class="glass px-3 py-2 rounded-xl text-xs text-violet-400">Sub-Merchants</a>
