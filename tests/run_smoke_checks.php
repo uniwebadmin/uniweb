@@ -829,8 +829,8 @@ $assert(str_contains((string)file_get_contents($root . '/admin_kyc.php'), '$filt
 $assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'adminMerchantLink'), 'wiring_disputes_open_merchant');
 $assert(!str_contains((string)file_get_contents($root . '/admin_disputes.php'), "transactionDetailUrl(\$d['txn_id'])"), 'phase1_a2_dispute_id_not_txn_link');
 $assert(str_contains((string)file_get_contents($root . '/admin_view_merchant.php'), '>Merchant API<'), 'phase1_a4_merchant_api_chip_label');
-// Block 10 — Live corridor soft-launch checklist (owner clicks; no new app)
-$assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'Live corridor — soft launch checklist'), 'b10_admin_live_corridor_checklist');
+// Block 10 — Before you go live checklist (dashboard + platform settings; no new app)
+$assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'Before you go live') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'Apply pending migrations'), 'b10_admin_live_corridor_checklist');
 $assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Before you go live') && str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Apply pending migrations'), 'b10_gateway_soft_launch_banner');
 // Admin template: hide parked Split/Route from Platform Settings dropdown
 $colLibPark = (string)file_get_contents($root . '/includes/collection.php');

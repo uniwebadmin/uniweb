@@ -99,15 +99,16 @@ require_once __DIR__ . '/header.php';
     <p class="text-xs text-gray-600 mt-2"><a href="compare.php" target="_blank" rel="noopener" class="text-sky-400 hover:underline">Full market compare →</a></p>
 </div>
 
-<div class="glass rounded-xl p-5 mb-6 border border-emerald-500/25 text-sm text-gray-300">
-    <p class="font-semibold text-emerald-300 mb-1">Live corridor — soft launch checklist (before advertise)</p>
-    <ol class="text-xs text-gray-500 list-decimal list-inside space-y-1.5 mt-2">
-        <li>CR-01: live <code class="text-gray-400">config.php</code> — remove old <code class="text-gray-400">createNotification</code>; keep <code class="text-gray-400">includes/notifications.php</code> (Hostinger File Manager; never overwrite secrets).</li>
-        <li><a href="gateway_settings.php#cron-security" class="text-sky-400 hover:underline">Apply pending migrations</a> → JSON <code class="text-sky-300">ok: true</code> (never DROP database).</li>
-        <li><a href="admin_gateway_registry.php" class="text-sky-400 hover:underline">Partner Registry → Keys</a>: paste Test keys → Test Connection → then one merchant <strong class="text-gray-300">Instant Test Pay</strong> on a Test Mode link.</li>
-        <li><a href="gateway_settings.php" class="text-sky-400 hover:underline">SMTP</a> + backup notify email — so backup mail arrives.</li>
-        <li>Then soft launch. Disputes queue stays <a href="admin_disputes.php" class="text-sky-400 hover:underline">Admin first</a>.</li>
+<div class="glass rounded-xl p-5 mb-6 border border-gray-800 text-sm text-gray-400">
+    <p class="font-semibold text-gray-200 text-sm mb-2">Before you go live</p>
+    <ol class="text-xs text-gray-500 list-decimal list-inside space-y-1.5">
+        <li><a href="admin_gateway_registry.php" class="text-sky-400 hover:underline">Partner Registry</a> → paste Test keys → Test Connection</li>
+        <li><a href="gateway_settings.php#cron-security" class="text-sky-400 hover:underline">Platform Settings</a> → <strong class="text-gray-300">Apply pending migrations</strong> → <code class="text-sky-300">ok: true</code></li>
+        <li>One merchant <strong class="text-gray-300">UniWeb Test Pay</strong> checkout (no real money)</li>
+        <li><a href="gateway_settings.php" class="text-sky-400 hover:underline">SMTP</a> + backup notify email on Platform Settings</li>
     </ol>
+    <p class="text-[10px] text-gray-600 mt-3">Full system health → <a href="admin_platform_status.php" class="text-sky-400 hover:underline">Platform Status</a> · <a href="admin_watchdog.php?tab=auto" class="text-sky-400 hover:underline">Watchdog</a> · Disputes → <a href="admin_disputes.php" class="text-sky-400 hover:underline">Admin first</a></p>
+    <p class="text-[10px] text-amber-500/80 mt-2">One-time Hostinger: live <code class="text-gray-500">config.php</code> — remove old <code class="text-gray-500">createNotification()</code> if still there (CR-01). Never overwrite the whole file.</p>
 </div>
 
 <div class="flex flex-wrap gap-2 sm:gap-3 mb-4">
