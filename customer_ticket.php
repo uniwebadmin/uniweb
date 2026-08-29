@@ -63,18 +63,7 @@ $cpNavActive = 'complaints';
 $bodyClass = trim(($bodyClass ?? '') . ' customer-portal-shell');
 require_once __DIR__ . '/header.php';
 ?>
-<div class="cp-shell">
-    <header class="cp-topbar">
-        <div class="cp-topbar-inner">
-            <?php $logoHref = 'customer_portal.php'; $logoSize = 'sm'; require __DIR__ . '/includes/brand_logo_safe.php'; ?>
-            <?php require __DIR__ . '/includes/customer_portal_nav.php'; ?>
-            <div class="flex items-center gap-2">
-                <a href="customer_logout.php" class="cp-btn cp-btn-ghost text-xs !py-1.5 !px-3">Logout</a>
-            </div>
-        </div>
-    </header>
-
-    <main class="cp-main py-8 space-y-5 flex-1 w-full" style="max-width:720px">
+<div class="cp-main py-8 space-y-5 flex-1 w-full cp-main-narrow">
         <a href="customer_portal.php#complaints" class="text-sm font-semibold text-teal-700 hover:underline">← Back to my payments</a>
         <p class="text-xs text-slate-500 mt-2"><?= e(customerPortalScopeCopy()) ?></p>
         <?php if ($error): ?><div class="cp-alert cp-alert-error"><?= e($error) ?></div><?php endif; ?>
@@ -147,10 +136,9 @@ require_once __DIR__ . '/header.php';
             </form>
         </section>
         <?php endif; ?>
-    </main>
 
-    <footer class="cp-footer">
-        <div class="cp-footer-inner" style="max-width:720px">
+    <footer class="cp-footer cp-footer-narrow">
+        <div class="cp-footer-inner">
             <span>&copy; <?= date('Y') ?> <?= COMPANY_LEGAL_NAME ?></span>
         </div>
     </footer>

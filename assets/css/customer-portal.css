@@ -37,6 +37,50 @@ body.customer-portal-shell .cp-shell {
   flex-direction: column;
 }
 
+body.customer-portal-shell .cp-portal-layout {
+  min-height: 100vh;
+  width: 100%;
+}
+
+body.customer-portal-shell .cp-sidebar {
+  background: rgba(255, 255, 255, 0.92);
+  border-right: 1px solid var(--cp-line);
+  backdrop-filter: blur(12px);
+}
+
+body.customer-portal-shell .cp-sidebar-link {
+  color: #475569;
+  font-weight: 600;
+}
+
+body.customer-portal-shell .cp-sidebar-link:hover {
+  color: var(--cp-brand-deep);
+  background: rgba(13, 148, 136, 0.08);
+}
+
+body.customer-portal-shell .cp-sidebar-link.is-active,
+body.customer-portal-shell .cp-sidebar-link.active {
+  color: var(--cp-brand-deep);
+  background: rgba(13, 148, 136, 0.14);
+}
+
+body.customer-portal-shell .cp-portal-top {
+  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.78);
+  border-bottom: 1px solid var(--cp-line);
+}
+
+body.customer-portal-shell .cp-content-area {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+body.customer-portal-shell .cp-main-narrow,
+body.customer-portal-shell .cp-footer-narrow .cp-footer-inner {
+  max-width: 720px;
+}
+
 body.customer-portal-shell .cp-topbar {
   backdrop-filter: blur(12px);
   background: rgba(255, 255, 255, 0.78);
@@ -48,6 +92,7 @@ body.customer-portal-shell .cp-topbar {
 
 body.customer-portal-shell .cp-topbar-inner,
 body.customer-portal-shell .cp-main,
+body.customer-portal-shell .cp-content-area .cp-main,
 body.customer-portal-shell .cp-footer-inner {
   width: 100%;
   max-width: 1080px;

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /** Shared page footer markup — also used when root footer.php is missing on live. */
-if (!empty($isMerchant) || !empty($isAdmin)): ?>
+if (!empty($isMerchant) || !empty($isAdmin) || !empty($customerPortalUi)): ?>
         </div>
     </main>
 </div>

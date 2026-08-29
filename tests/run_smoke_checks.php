@@ -697,7 +697,9 @@ $assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.ph
 $assert(str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), 'Partners (rails / keys)'), 'b2_nav_partners_rails_keys');
 $assert(str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), "'owner_today'") && str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), "'title' => 'Today'"), 'g1_admin_today_group');
 $assert(str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), 'Platform Settings (SMTP / cron)'), 'g1_platform_settings_not_keys_home');
-$assert(str_contains((string)file_get_contents($root . '/header.php'), "force_open"), 'g1_today_force_open_in_header');
+$assert(!str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), "'force_open'"), 'g1_today_not_force_open');
+$assert(str_contains((string)file_get_contents($root . '/header.php'), 'bindSidebarAccordion'), 'g1_sidebar_accordion_single_open');
+$assert(str_contains((string)file_get_contents($root . '/header.php'), 'cp-sidebar'), 'g1_customer_portal_sidebar');
 $assert(str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), "'money_more'") && str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), "['merchant_launch.php', 'Launch Center'"), 'g2_merchant_launch_and_money_fold');
 $assert(str_contains((string)file_get_contents($root . '/admin_login.php'), 'Owner / Admin sign in') && str_contains((string)file_get_contents($root . '/staff_login.php'), 'Employee / Staff sign in'), 'g3_admin_staff_login_labels');
 $assert(str_contains((string)file_get_contents($root . '/login.php'), 'Shop / Merchant portal') && str_contains((string)file_get_contents($root . '/customer_login.php'), 'Customer — pay & complaints'), 'g3_shop_customer_login_labels');
@@ -881,6 +883,9 @@ $assert(str_contains($errCatchP8, 'There is no active transaction') && str_conta
 $assert(str_contains($finP8, 'function uniwebPdoCommit') && str_contains($finP8, 'function uniwebPreparePaymentCaptureSchema'), 'p8_capture_ddl_before_transaction');
 $walletSettleSrc = (string)file_get_contents($root . '/includes/wallet.php');
 $assert(str_contains($walletSettleSrc, 'ensureAuditLogTable') && str_contains($walletSettleSrc, 'uniwebPdoCommit($db)') && str_contains($walletSettleSrc, 'uniwebPdoRollback($db)'), 'platform_settle_ddl_before_txn');
+$pageUxSrc = (string)file_get_contents($root . '/includes/page_ux.php');
+$assert(str_contains($pageUxSrc, 'data-merchant-select') && str_contains($pageUxSrc, 'renderTxnRefSearchField'), 'merchant_select_searchable');
+$assert(str_contains((string)file_get_contents($root . '/header.php'), "if (t === 'light')") && !str_contains((string)file_get_contents($root . '/header.php'), "if (t !== 'dark')"), 'theme_default_dark');
 $wdSrc = (string)file_get_contents($root . '/includes/link_watchdog.php');
 $assert(str_contains($wdSrc, '$st === 503') && str_contains($wdSrc, "basename(\$relFile) === 'health.php'"), 'p8_watchdog_retries_503');
 $assert(str_contains((string)file_get_contents($root . '/includes/platform_api.php'), "'ok' => true") && str_contains((string)file_get_contents($root . '/includes/platform_api.php'), 'error(s) in Error Log — open admin_error_log.php'), 'p8_error_log_self_check_not_fail');

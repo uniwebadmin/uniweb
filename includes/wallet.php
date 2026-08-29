@@ -865,13 +865,26 @@ function creditPlatformFeeWallet(float $feeAmount, int $transactionId, string $d
 /**
  * B4: Get platform wallet transaction history.
  */
-function getPlatformWalletTransactions(int $limit = 100, int $offset = 0): array
+function getPlatformWalletTransactions(int $limit = 100, int $offset = 0, string $q = ''): array
 {
     ensureWalletEngine();
     try {
-        $st = getDB()->prepare("SELECT * FROM platform_wallet_transactions ORDER BY created_at DESC LIMIT ? OFFSET ?");
-        $st->bindValue(1, $limit, PDO::PARAM_INT);
-        $st->bindValue(2, $offset, PDO::PARAM_INT);
+        $q = trim($q);
+        $where = '';
+        $params = [];
+        if ($q !== '') {
+            $like = '%' . mb_strtolower($q) . '%';
+            $where = " WHERE (LOWER(COALESCE(reference,'')) LIKE ? OR LOWER(COALESCE(description,'')) LIKE ? OR CAST(amount AS CHAR) LIKE ?)";
+            $params = [$like, $like, $like];
+        }
+        $sql = 'SELECT * FROM platform_wallet_transactions' . $where . ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+        $st = getDB()->prepare($sql);
+        $i = 1;
+        foreach ($params as $p) {
+            $st->bindValue($i++, $p);
+        }
+        $st->bindValue($i++, $limit, PDO::PARAM_INT);
+        $st->bindValue($i, $offset, PDO::PARAM_INT);
         $st->execute();
         return $st->fetchAll();
     } catch (Throwable $e) {
@@ -882,11 +895,18 @@ function getPlatformWalletTransactions(int $limit = 100, int $offset = 0): array
 /**
  * B4: Count platform wallet transactions for pagination.
  */
-function countPlatformWalletTransactions(): int
+function countPlatformWalletTransactions(string $q = ''): int
 {
     ensureWalletEngine();
     try {
-        return (int)getDB()->query('SELECT COUNT(*) FROM platform_wallet_transactions')->fetchColumn();
+        $q = trim($q);
+        if ($q === '') {
+            return (int)getDB()->query('SELECT COUNT(*) FROM platform_wallet_transactions')->fetchColumn();
+        }
+        $like = '%' . mb_strtolower($q) . '%';
+        $st = getDB()->prepare("SELECT COUNT(*) FROM platform_wallet_transactions WHERE LOWER(COALESCE(reference,'')) LIKE ? OR LOWER(COALESCE(description,'')) LIKE ? OR CAST(amount AS CHAR) LIKE ?");
+        $st->execute([$like, $like, $like]);
+        return (int)$st->fetchColumn();
     } catch (Throwable $e) {
         return 0;
     }

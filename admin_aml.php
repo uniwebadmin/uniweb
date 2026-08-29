@@ -24,7 +24,19 @@ if (isset($_GET['action'], $_GET['id']) && verifyCsrf($_GET['token'] ?? '')) {
     redirect('admin_aml.php');
 }
 
-$flags = $db->query('SELECT af.*, m.business_name, m.merchant_code, m.id AS merchant_row_id, t.txn_id, t.amount FROM aml_flags af JOIN merchants m ON af.merchant_id=m.id LEFT JOIN transactions t ON af.transaction_id=t.id ORDER BY FIELD(af.severity,"high","medium","low"), af.created_at DESC LIMIT 100')->fetchAll();
+$flags = [];
+$amlQ = trim($_GET['q'] ?? '');
+$flagSql = 'SELECT af.*, m.business_name, m.merchant_code, m.id AS merchant_row_id, t.txn_id, t.amount FROM aml_flags af JOIN merchants m ON af.merchant_id=m.id LEFT JOIN transactions t ON af.transaction_id=t.id';
+$flagParams = [];
+if ($amlQ !== '') {
+    $like = '%' . mb_strtolower($amlQ) . '%';
+    $flagSql .= " WHERE (LOWER(COALESCE(m.business_name,'')) LIKE ? OR LOWER(COALESCE(m.merchant_code,'')) LIKE ? OR LOWER(COALESCE(t.txn_id,'')) LIKE ? OR LOWER(COALESCE(af.description,'')) LIKE ? OR LOWER(COALESCE(af.flag_type,'')) LIKE ?)";
+    $flagParams = [$like, $like, $like, $like, $like];
+}
+$flagSql .= ' ORDER BY FIELD(af.severity,"high","medium","low"), af.created_at DESC LIMIT 100';
+$flagStmt = $db->prepare($flagSql);
+$flagStmt->execute($flagParams);
+$flags = $flagStmt->fetchAll();
 $monthVol = (float)$db->query("SELECT COALESCE(SUM(LEAST(amount, 1000)),0) FROM transactions WHERE status='success' AND MONTH(created_at)=MONTH(CURDATE())")->fetchColumn();
 $stats = [
     'open' => (int)$db->query("SELECT COUNT(*) FROM aml_flags WHERE status='open'")->fetchColumn(),
@@ -56,6 +68,12 @@ require_once __DIR__ . '/header.php';
     </div>
     <p class="text-xs text-gray-500 mt-4">Flags auto-open for high-value success txns and incomplete-KYC active merchants. Review or Clear from the table below.</p>
 </div>
+
+<form method="GET" class="glass rounded-xl p-4 mb-4 border border-gray-800 flex flex-wrap gap-3 items-end">
+    <div class="flex-1 min-w-[220px]"><label class="text-[10px] text-gray-600 uppercase block mb-1">Search merchant / TXN</label><?= renderTxnRefSearchField('q', $amlQ, 'Merchant name, code, TXN…', '') ?></div>
+    <button type="submit" class="btn-primary px-4 py-2.5 text-sm">Search</button>
+    <?php if ($amlQ !== ''): ?><a href="admin_aml.php" class="text-xs text-gray-400 hover:text-white px-2 py-2.5">Clear</a><?php endif; ?>
+</form>
 
 <div class="glass rounded-xl overflow-hidden min-w-0">
     <div class="px-4 sm:px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">AML Flags</h2></div>

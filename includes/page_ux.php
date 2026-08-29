@@ -309,10 +309,28 @@ CSS;
         int $selectedId = 0,
         bool $required = false,
         bool $includeEmpty = true,
-        string $emptyLabel = 'Select merchant…'
+        string $emptyLabel = 'Select merchant…',
+        bool $searchable = true,
+        bool $includeAllOption = false,
+        string $selectExtraAttrs = ''
     ): string {
-        $html = '<select name="' . e($name) . '" class="input-field mt-1 w-full min-w-[12rem]"' . ($required ? ' required' : '') . '>';
-        if ($includeEmpty) {
+        $selectClass = 'input-field w-full min-w-[12rem]';
+        if ($searchable) {
+            $selectClass .= ' mt-1';
+        } else {
+            $selectClass .= ' mt-1';
+        }
+        $html = $searchable
+            ? '<div class="uniweb-merchant-select" data-merchant-select>'
+            : '<div class="mt-1">';
+        if ($searchable) {
+            $html .= '<input type="search" data-merchant-select-filter class="input-field text-sm w-full mb-1" placeholder="Search merchant name or code…" autocomplete="off" aria-label="Search merchants">';
+        }
+        $html .= '<select name="' . e($name) . '" class="' . $selectClass . '"' . ($required ? ' required' : '') . ($selectExtraAttrs !== '' ? ' ' . $selectExtraAttrs : '') . '>';
+        if ($includeAllOption) {
+            $html .= '<option value="0"' . ($selectedId === 0 ? ' selected' : '') . '>All merchants</option>';
+        }
+        if ($includeEmpty && !$includeAllOption) {
             $html .= '<option value="">' . e($emptyLabel) . '</option>';
         }
         foreach (adminMerchantSelectRows() as $m) {
@@ -325,7 +343,42 @@ CSS;
             $label .= ' (#' . $id . ')';
             $html .= '<option value="' . $id . '"' . ($selectedId === $id ? ' selected' : '') . '>' . e($label) . '</option>';
         }
-        return $html . '</select>';
+        return $html . '</select></div>';
+    }
+
+    /** Reusable TXN / settlement / refund reference search field. */
+    function renderTxnRefSearchField(
+        string $name = 'q',
+        string $value = '',
+        string $placeholder = 'TXN / ORD / UTR / settlement / refund ref…',
+        string $extraClass = 'mt-1'
+    ): string {
+        return '<input type="search" name="' . e($name) . '" value="' . e($value) . '" class="input-field text-sm w-full ' . e(trim($extraClass)) . '" placeholder="' . e($placeholder) . '" autocomplete="off">';
+    }
+
+    function resolveInternalTransactionId(?string $ref, int $merchantId = 0): ?int
+    {
+        $ref = trim((string)$ref);
+        if ($ref === '') {
+            return null;
+        }
+        if (ctype_digit($ref)) {
+            $n = (int)$ref;
+            return $n > 0 ? $n : null;
+        }
+        try {
+            if ($merchantId > 0) {
+                $st = getDB()->prepare('SELECT id FROM transactions WHERE txn_id=? AND merchant_id=? LIMIT 1');
+                $st->execute([$ref, $merchantId]);
+            } else {
+                $st = getDB()->prepare('SELECT id FROM transactions WHERE txn_id=? LIMIT 1');
+                $st->execute([$ref]);
+            }
+            $id = $st->fetchColumn();
+            return $id ? (int)$id : null;
+        } catch (Throwable $e) {
+            return null;
+        }
     }
 
     /** Link TXN/ORD refs inside platform wallet ledger descriptions. */

@@ -85,7 +85,7 @@ function uniwebAdminNavGroups(): array
         ['id' => 'dashboard', 'title' => 'Dashboard', 'items' => [
             ['admin_dashboard.php', 'Overview'],
         ]],
-        ['id' => 'owner_today', 'title' => 'Today', 'force_open' => true, 'items' => [
+        ['id' => 'owner_today', 'title' => 'Today', 'items' => [
             ['admin_kyc.php', 'KYC Review'],
             ['admin_gateway_registry.php', 'Partner Registry'],
             ['admin_support.php', 'Support Tickets'],

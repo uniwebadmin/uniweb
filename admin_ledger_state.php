@@ -62,12 +62,7 @@ require_once __DIR__ . '/header.php';
             <form method="POST" class="space-y-3">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="rebuild_one">
-                <select name="merchant_id" class="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm border border-gray-700" required>
-                    <option value="">Select merchant…</option>
-                    <?php foreach ($merchants as $m): ?>
-                        <option value="<?= (int)$m['id'] ?>"><?= htmlspecialchars($m['business_name'] ?: $m['email']) ?> (#<?= (int)$m['id'] ?>, bal: <?= formatMoney((float)$m['wallet_balance']) ?>)</option>
-                    <?php endforeach; ?>
-                </select>
+                <?= renderAdminMerchantSelect('merchant_id', 0, true, true, 'Select merchant…') ?>
                 <button type="submit" class="w-full bg-sky-600 hover:bg-sky-700 text-white rounded-lg py-2 text-sm font-medium">Rebuild Balance from Ledger</button>
             </form>
         </div>
@@ -78,12 +73,7 @@ require_once __DIR__ . '/header.php';
             <form method="POST" class="space-y-3">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="view_breakdown">
-                <select name="merchant_id" class="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm border border-gray-700" required>
-                    <option value="">Select merchant…</option>
-                    <?php foreach ($merchants as $m): ?>
-                        <option value="<?= (int)$m['id'] ?>"><?= htmlspecialchars($m['business_name'] ?: $m['email']) ?> (#<?= (int)$m['id'] ?>)</option>
-                    <?php endforeach; ?>
-                </select>
+                <?= renderAdminMerchantSelect('merchant_id', 0, true, true, 'Select merchant…') ?>
                 <button type="submit" class="w-full bg-violet-600 hover:bg-violet-700 text-white rounded-lg py-2 text-sm font-medium">View Breakdown</button>
             </form>
         </div>

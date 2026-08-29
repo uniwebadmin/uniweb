@@ -27,8 +27,8 @@ $db = getDB();
 $needle = mb_strtolower($q);
 $like = '%' . $needle . '%';
 $results = [];
-$MAX_PER_TYPE = 20;
-$MAX_TOTAL = 60;
+$MAX_PER_TYPE = 25;
+$MAX_TOTAL = 100;
 
 $add = static function (string $type, ?string $title, ?string $subtitle, string $url) use (&$results, $MAX_TOTAL): void {
     if (count($results) >= $MAX_TOTAL) {
@@ -173,12 +173,39 @@ $featureAliases = [
     'toucan' => 'admin_gateway_registry.php',
     'hold window' => 'gateway_settings.php',
     'settlement hold' => 'gateway_settings.php',
+    'risk engine' => 'admin_risk_engine.php',
+    'rolling reserve' => 'admin_rolling_reserve.php',
+    'reserve hold' => 'admin_rolling_reserve.php',
+    'ledger state' => 'admin_ledger_state.php',
+    'ledger' => 'admin_ledger_state.php',
+    'rebuild balance' => 'admin_ledger_state.php',
+    'platform wallet' => 'admin_platform_wallet.php',
+    'platform fee ledger' => 'admin_platform_wallet.php',
+    'fee ledger' => 'admin_platform_wallet.php',
+    'incidents' => 'admin_incidents.php',
+    'uptime' => 'admin_incidents.php',
+    'status page' => 'admin_incidents.php',
+    'circuit breaker' => 'admin_circuit_breaker.php',
+    'gateway health' => 'admin_gateway_health.php',
+    'gateway metrics' => 'admin_gateway_health.php',
+    'gateway matrix' => 'admin_gateway_matrix.php',
+    'routing matrix' => 'admin_gateway_matrix.php',
+    'security hardening' => 'admin_security_hardening.php',
+    'deep audit' => 'admin_audit_plan.php',
+    'audit plan' => 'admin_audit_plan.php',
+    'reason map' => 'admin_reason_map.php',
+    'chargebacks legacy' => 'admin_chargebacks.php',
+    'grievance' => 'admin_grievance.php',
+    'bulk payout' => 'admin_bulk_payout.php',
+    'settlement batches' => 'admin_settlement_batches.php',
+    'transaction monitor' => 'admin_transaction_monitor.php',
+    'reconciliation' => 'admin_reconciliation.php',
 ];
 
 $qlower = mb_strtolower($q);
 $pageHits = 0;
 foreach ($featurePages as [$url, $label]) {
-    if ($pageHits >= 12) {
+    if ($pageHits >= 25) {
         break;
     }
     $labelLower = mb_strtolower((string)$label);
@@ -188,7 +215,7 @@ foreach ($featurePages as [$url, $label]) {
     }
 }
 foreach ($featureAliases as $alias => $url) {
-    if ($pageHits >= 12) {
+    if ($pageHits >= 25) {
         break;
     }
     if (!str_contains($alias, $qlower) && $alias !== $qlower) {
@@ -768,6 +795,18 @@ if ($isMerchant) {
                 continue;
             }
             $add('Complaint', (string)$row['ticket_id'], ucfirst((string)$row['status']) . ' · ' . ($row['business_name'] ?: $row['customer_name'] ?: $row['subject']), 'admin_customer_tickets.php?q=' . rawurlencode((string)$row['ticket_id']));
+        }
+    }
+
+    if ($canPage('admin_platform_wallet.php')) {
+        foreach ($fetchRows(
+            "SELECT reference, description, amount, type FROM platform_wallet_transactions WHERE (
+            LOWER(COALESCE(reference,'')) LIKE ? OR LOWER(COALESCE(description,'')) LIKE ?)
+            ORDER BY created_at DESC LIMIT 10",
+            [$like, $like]
+        ) as $row) {
+            $ref = (string)($row['reference'] ?? '');
+            $add('Platform Ledger', $ref ?: 'Platform entry', formatMoney((float)($row['amount'] ?? 0)) . ' · ' . ucfirst((string)($row['type'] ?? '')), 'admin_platform_wallet.php?q=' . rawurlencode($ref ?: trim((string)($row['description'] ?? ''))));
         }
     }
 }

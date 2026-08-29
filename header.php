@@ -54,13 +54,13 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     <?php endif; ?>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/uniweb.min.css?v=20260815a">
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/theme-light.css?v=20260815a">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/theme-light.css?v=20260829b">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/public-pages.css?v=20260815a">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/portal-polish.css?v=20260815a">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/ui-components.css?v=20260829a">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/mobile-safe.css?v=20260829d">
     <?php if (!empty($customerPortalUi)): ?>
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/customer-portal.css?v=20260724b">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/customer-portal.css?v=20260829a">
     <?php endif; ?>
     <?php if (!empty($authPortalUi)): ?>
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/auth-portal.css?v=20260811a">
@@ -68,11 +68,11 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     <script>
     (function(){
         try {
-            // Light mode is the default for website + merchant + admin + staff.
+            // Dark mode is the default for website + merchant + admin + staff.
             var t = localStorage.getItem('uniweb_theme');
-            if (t !== 'dark') document.documentElement.setAttribute('data-theme', 'light');
+            if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
         } catch (e) {
-            document.documentElement.setAttribute('data-theme', 'light');
+            /* keep dark default */
         }
     })();
     </script>
@@ -195,7 +195,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
             }));
             $cur = basename($_SERVER['PHP_SELF']);
             foreach ($merchantNav as $group):
-                $isOpen = empty($group['collapsed']);
+                $isOpen = false;
                 foreach ($group['items'] as $item) {
                     if (isset($item[0]) && $cur === $item[0]) { $isOpen = true; break; }
                 }
@@ -286,7 +286,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
             unset($group);
             $cur = basename($_SERVER['PHP_SELF']);
             foreach ($adminNav as $group):
-                $isOpen = !empty($group['force_open']);
+                $isOpen = false;
                 foreach ($group['items'] as $item) {
                     if (isset($item[0]) && $cur === $item[0]) { $isOpen = true; break; }
                 }
@@ -393,6 +393,46 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
         </header>
         <div class="p-4 sm:p-6 flex-1 portal-content-frame">
 <?php endif; ?>
+
+<?php if (!empty($customerPortalUi)):
+    $cpPhone = function_exists('currentCustomerPhone') ? (string)currentCustomerPhone() : '';
+    $cpPhoneDisplay = (function_exists('sensitiveUiPlain') ? (sensitiveUiPlain($cpPhone) ?: $cpPhone) : $cpPhone);
+    $cpNavActive = $cpNavActive ?? 'dashboard';
+?>
+<div id="cp-overlay" class="overlay fixed inset-0 bg-black/60 z-40 lg:hidden"></div>
+<div class="cp-portal-layout portal-shell flex flex-1 min-h-screen">
+    <aside id="cp-sidebar" class="cp-sidebar sidebar-shell w-64 fixed inset-y-0 left-0 z-50 lg:z-30 mobile-drawer lg:translate-x-0 lg:!transform-none flex flex-col">
+        <div class="p-5 border-b border-teal-100 shrink-0">
+            <?php $logoHref = 'customer_portal.php'; $logoSize = 'sm'; require __DIR__ . '/includes/brand_logo_safe.php'; ?>
+            <p class="text-sm font-semibold text-slate-900 mt-3">Customer Portal</p>
+            <?php if ($cpPhoneDisplay !== ''): ?>
+            <p class="text-[10px] text-slate-500 font-mono mt-0.5">+91 <?= e($cpPhoneDisplay) ?></p>
+            <?php endif; ?>
+        </div>
+        <?php require __DIR__ . '/includes/customer_portal_nav.php'; ?>
+        <div class="sidebar-footer p-4 border-t border-teal-100">
+            <a href="customer_logout.php" class="flex items-center gap-2 text-sm text-red-500 hover:text-red-600 px-3 py-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                Logout
+            </a>
+        </div>
+    </aside>
+    <main class="portal-main flex-1 lg:ml-64 flex flex-col min-w-0 w-full">
+        <header class="cp-portal-top portal-top-bar px-3 sm:px-6 py-3 sticky top-0 z-20 flex items-center gap-2">
+            <button type="button" id="cp-sidebar-toggle" class="lg:hidden p-2 text-slate-500 hover:text-teal-700 shrink-0 -ml-1" aria-label="Menu">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <h1 class="flex-1 min-w-0 truncate text-sm sm:text-lg font-semibold text-slate-900"><?= e($pageTitle) ?></h1>
+            <div class="portal-header-tools flex items-center gap-2 shrink-0">
+                <?php if ($cpPhoneDisplay !== ''): ?>
+                <span class="cp-phone-chip hidden sm:inline-flex">+91 <?= e($cpPhoneDisplay) ?></span>
+                <?php endif; ?>
+                <button type="button" onclick="toggleUniwebTheme()" class="theme-toggle-btn shrink-0" title="Toggle dark / light mode" aria-label="Toggle theme"><span data-theme-icon>🌙</span></button>
+                <a href="customer_logout.php" class="cp-btn cp-btn-ghost text-xs !py-1.5 !px-3 sm:hidden">Logout</a>
+            </div>
+        </header>
+        <div class="cp-content-area flex-1 w-full">
+<?php endif; ?>
 <script>
 function toggleUniwebTheme(){
     const html=document.documentElement;
@@ -415,44 +455,50 @@ function toggleUniwebTheme(){
     }
     bind('sidebar-toggle','sidebar-panel','sidebar-overlay');
     bind('admin-sidebar-toggle','admin-sidebar','admin-overlay');
-    document.querySelectorAll('.admin-group-toggle').forEach(btn=>{
-        btn.addEventListener('click',()=>{
-            const group=btn.closest('.admin-sidebar-group');
-            const panel=group.querySelector('.admin-group-panel');
-            const chevron=group.querySelector('.admin-group-chevron');
-            const open=group.getAttribute('data-open')==='1';
-            if(panel){
+    bind('cp-sidebar-toggle','cp-sidebar','cp-overlay');
+    function sidebarAccordionClose(group,panelSel,chevronSel,toggleSel){
+        const panel=group.querySelector(panelSel);
+        const chevron=group.querySelector(chevronSel);
+        const btn=group.querySelector(toggleSel);
+        if(panel){
+            panel.style.maxHeight=panel.scrollHeight+'px';
+            requestAnimationFrame(()=>{panel.style.maxHeight='0px';});
+        }
+        if(chevron){chevron.style.transform='rotate(0deg)';}
+        if(btn){btn.setAttribute('aria-expanded','false');}
+        group.setAttribute('data-open','0');
+    }
+    function sidebarAccordionOpen(group,panelSel,chevronSel,toggleSel){
+        const panel=group.querySelector(panelSel);
+        const chevron=group.querySelector(chevronSel);
+        const btn=group.querySelector(toggleSel);
+        if(panel){panel.style.maxHeight=panel.scrollHeight+'px';}
+        if(chevron){chevron.style.transform='rotate(90deg)';}
+        if(btn){btn.setAttribute('aria-expanded','true');}
+        group.setAttribute('data-open','1');
+    }
+    function bindSidebarAccordion(toggleSel,groupSel,panelSel,chevronSel){
+        document.querySelectorAll(toggleSel).forEach(btn=>{
+            btn.addEventListener('click',()=>{
+                const group=btn.closest(groupSel);
+                if(!group)return;
+                const open=group.getAttribute('data-open')==='1';
+                const nav=group.parentElement;
                 if(open){
-                    panel.style.maxHeight=panel.scrollHeight+'px';
-                    requestAnimationFrame(()=>{panel.style.maxHeight='0px';});
-                }else{
-                    panel.style.maxHeight=panel.scrollHeight+'px';
+                    sidebarAccordionClose(group,panelSel,chevronSel,toggleSel);
+                    return;
                 }
-            }
-            if(chevron){chevron.style.transform=open?'rotate(0deg)':'rotate(90deg)';}
-            btn.setAttribute('aria-expanded',open?'false':'true');
-            group.setAttribute('data-open',open?'0':'1');
+                nav.querySelectorAll(groupSel).forEach(g=>{
+                    if(g!==group&&g.getAttribute('data-open')==='1'){
+                        sidebarAccordionClose(g,panelSel,chevronSel,toggleSel);
+                    }
+                });
+                sidebarAccordionOpen(group,panelSel,chevronSel,toggleSel);
+            });
         });
-    });
-    document.querySelectorAll('.merchant-group-toggle').forEach(btn=>{
-        btn.addEventListener('click',()=>{
-            const group=btn.closest('.merchant-sidebar-group');
-            const panel=group.querySelector('.merchant-group-panel');
-            const chevron=group.querySelector('.merchant-group-chevron');
-            const open=group.getAttribute('data-open')==='1';
-            if(panel){
-                if(open){
-                    panel.style.maxHeight=panel.scrollHeight+'px';
-                    requestAnimationFrame(()=>{panel.style.maxHeight='0px';});
-                }else{
-                    panel.style.maxHeight=panel.scrollHeight+'px';
-                }
-            }
-            if(chevron){chevron.style.transform=open?'rotate(0deg)':'rotate(90deg)';}
-            btn.setAttribute('aria-expanded',open?'false':'true');
-            group.setAttribute('data-open',open?'0':'1');
-        });
-    });
+    }
+    bindSidebarAccordion('.admin-group-toggle','.admin-sidebar-group','.admin-group-panel','.admin-group-chevron');
+    bindSidebarAccordion('.merchant-group-toggle','.merchant-sidebar-group','.merchant-group-panel','.merchant-group-chevron');
     const pbtn=document.getElementById('profile-menu-btn'),pmenu=document.getElementById('profile-menu'),pwrap=document.getElementById('profile-menu-wrap');
     if(pbtn&&pmenu){
         pbtn.addEventListener('click',e=>{e.stopPropagation();pmenu.classList.toggle('hidden');});

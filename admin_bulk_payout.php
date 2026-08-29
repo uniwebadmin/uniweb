@@ -229,15 +229,7 @@ require_once __DIR__ . '/header.php';
                     <input type="hidden" name="action" value="upload_bulk">
                     <div class="mb-4">
                         <label class="block text-sm text-gray-400 mb-2">Merchant</label>
-                        <select name="merchant_id" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm">
-                            <option value="">Select merchant…</option>
-                            <?php
-                            $merchants = $db->query("SELECT id, business_name, merchant_code FROM merchants WHERE status='active' ORDER BY business_name")->fetchAll();
-                            foreach ($merchants as $m):
-                            ?>
-                            <option value="<?= (int)$m['id'] ?>"><?= e($m['business_name']) ?> (<?= e($m['merchant_code']) ?>)</option>
-                            <?php endforeach; ?>
-                        </select>
+                        <?= renderAdminMerchantSelect('merchant_id', 0, true, true, 'Select merchant…') ?>
                     </div>
                     <div class="mb-4">
                         <label class="block text-sm text-gray-400 mb-2">CSV File</label>

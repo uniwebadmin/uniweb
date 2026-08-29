@@ -10,6 +10,7 @@ $adminSection = 'financial';
 
 $actionFilter = trim($_GET['action'] ?? '');
 $merchantFilter = (int)($_GET['merchant_id'] ?? 0);
+$q = trim($_GET['q'] ?? '');
 $from = trim($_GET['from'] ?? '');
 $to = trim($_GET['to'] ?? '');
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) $from = '';
@@ -19,7 +20,7 @@ $perPage = 50;
 $offset = ($page - 1) * $perPage;
 
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
-    $rows = getAllAuditLog(5000, 0, $actionFilter ?: null, $merchantFilter ?: null, $from, $to);
+    $rows = getAllAuditLog(5000, 0, $actionFilter ?: null, $merchantFilter ?: null, $from, $to, $q);
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="audit-log-' . date('Y-m-d') . '.csv"');
     $out = fopen('php://output', 'w');
@@ -40,8 +41,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     exit;
 }
 
-$auditEntries = getAllAuditLog($perPage, $offset, $actionFilter ?: null, $merchantFilter ?: null, $from, $to);
-$totalEntries = countAuditLog($actionFilter ?: null, $merchantFilter ?: null, $from, $to);
+$auditEntries = getAllAuditLog($perPage, $offset, $actionFilter ?: null, $merchantFilter ?: null, $from, $to, $q);
+$totalEntries = countAuditLog($actionFilter ?: null, $merchantFilter ?: null, $from, $to, $q);
 $totalPages = max(1, (int)ceil($totalEntries / $perPage));
 
 // Get distinct actions for filter dropdown
@@ -57,19 +58,20 @@ require_once __DIR__ . '/header.php';
     <p class="text-sm text-gray-500 mb-6">All money actions recorded permanently. Rows cannot be updated or deleted (DB triggers enforce immutability).</p>
 
     <!-- Filters -->
-    <form method="GET" class="flex flex-wrap gap-3 mb-6">
+    <form method="GET" class="flex flex-wrap gap-3 mb-6 items-end">
         <select name="action" class="bg-gray-800 text-white rounded-lg px-3 py-2 text-sm border border-gray-700">
             <option value="">All actions</option>
             <?php foreach ($distinctActions as $a): ?>
             <option value="<?= e($a['action']) ?>" <?= $actionFilter === $a['action'] ? 'selected' : '' ?>><?= e($a['action']) ?></option>
             <?php endforeach; ?>
         </select>
-        <input type="number" name="merchant_id" placeholder="Merchant ID" value="<?= $merchantFilter ?: '' ?>" class="bg-gray-800 text-white rounded-lg px-3 py-2 text-sm border border-gray-700 w-32">
+        <div class="min-w-[14rem]"><label class="text-[10px] text-gray-600 uppercase block mb-1">Merchant</label><?= renderAdminMerchantSelect('merchant_id', $merchantFilter, false, true, 'All merchants') ?></div>
+        <div class="min-w-[12rem]"><label class="text-[10px] text-gray-600 uppercase block mb-1">Search TXN / resource</label><?= renderTxnRefSearchField('q', $q, 'TXN / event / resource…', '') ?></div>
         <input type="date" name="from" value="<?= e($from) ?>" class="bg-gray-800 text-white rounded-lg px-3 py-2 text-sm border border-gray-700">
         <input type="date" name="to" value="<?= e($to) ?>" class="bg-gray-800 text-white rounded-lg px-3 py-2 text-sm border border-gray-700">
         <button type="submit" class="bg-sky-600 hover:bg-sky-700 text-white rounded-lg px-4 py-2 text-sm">Filter</button>
         <a href="admin_audit_log.php" class="text-gray-400 hover:text-white text-sm px-3 py-2">Reset</a>
-        <a href="admin_audit_log.php?<?= e(http_build_query(['action' => $actionFilter, 'merchant_id' => $merchantFilter ?: '', 'from' => $from, 'to' => $to, 'export' => 'csv'])) ?>" class="text-sky-400 hover:text-white text-sm px-3 py-2">Download CSV</a>
+        <a href="admin_audit_log.php?<?= e(http_build_query(['action' => $actionFilter, 'merchant_id' => $merchantFilter ?: '', 'q' => $q, 'from' => $from, 'to' => $to, 'export' => 'csv'])) ?>" class="text-sky-400 hover:text-white text-sm px-3 py-2">Download CSV</a>
     </form>
 
     <div class="text-xs text-gray-500 mb-4"><?= number_format($totalEntries) ?> total entries · Page <?= $page ?> of <?= $totalPages ?></div>

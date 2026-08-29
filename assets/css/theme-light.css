@@ -1,4 +1,4 @@
-/* UniWeb — Light Mode (default). Applied when <html data-theme="light"> */
+/* UniWeb — Light Mode (optional). Applied when <html data-theme="light"> — slate + emerald palette */
 
 html[data-theme="light"] {
   color-scheme: light;
@@ -6,57 +6,57 @@ html[data-theme="light"] {
 
 html[data-theme="light"] body.bg-dark-950,
 html[data-theme="light"] body {
-  background-color: #f6f1e7 !important;
-  color: #292524 !important;
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
 }
 
 html[data-theme="light"] .bg-dark-950,
 html[data-theme="light"] footer.bg-dark-950 {
-  background-color: #fffdf8 !important;
+  background-color: #ffffff !important;
 }
 
 html[data-theme="light"] .bg-dark-900,
 html[data-theme="light"] .bg-dark-900\/90,
 html[data-theme="light"] .bg-dark-900\/95,
 html[data-theme="light"] .bg-dark-900\/50 {
-  background-color: #fffdf8 !important;
+  background-color: #f8fafc !important;
 }
 
 html[data-theme="light"] .bg-dark-800,
 html[data-theme="light"] .bg-dark-800\/50 {
-  background-color: #ede4d3 !important;
+  background-color: #e2e8f0 !important;
 }
 
 html[data-theme="light"] .glass {
-  background: #fffdf8 !important;
-  border-color: #d9c9ac !important;
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
   border-width: 1.5px;
-  box-shadow: 0 1px 3px rgba(120, 90, 40, 0.07);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 html[data-theme="light"] .stat-card {
-  background: #fffdf8 !important;
-  border-color: #d9c9ac !important;
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
   border-width: 1.5px;
 }
 
 html[data-theme="light"] .input-field,
 html[data-theme="light"] select.input-field,
 html[data-theme="light"] textarea.input-field {
-  background: #fffdf8 !important;
-  border-color: #d3c2a3 !important;
-  color: #292524 !important;
+  background: #ffffff !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
 }
 
 html[data-theme="light"] .input-field::placeholder {
-  color: #9a8f7d !important;
+  color: #64748b !important;
 }
 
 html[data-theme="light"] .sidebar-shell,
 html[data-theme="light"] .sidebar-footer,
 html[data-theme="light"] aside {
-  background: #fffdf8 !important;
-  border-color: #d9c9ac !important;
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
 }
 
 html[data-theme="light"] .border-gray-800,
@@ -65,38 +65,38 @@ html[data-theme="light"] .border-gray-800\/70,
 html[data-theme="light"] .border-gray-800\/80,
 html[data-theme="light"] .border-gray-900,
 html[data-theme="light"] .divide-gray-800 > * {
-  border-color: #d9c9ac !important;
+  border-color: #cbd5e1 !important;
 }
 
 html[data-theme="light"] .border-gray-700 {
-  border-color: #cbb896 !important;
+  border-color: #94a3b8 !important;
 }
 
 /* Strong readable text — light mode was washing fonts out before */
 html[data-theme="light"] .text-white,
 html[data-theme="light"] .text-gray-100,
 html[data-theme="light"] .text-gray-200 {
-  color: #1c1917 !important;
+  color: #0f172a !important;
 }
 
 html[data-theme="light"] .text-gray-300 {
-  color: #292524 !important;
+  color: #1e293b !important;
 }
 
 html[data-theme="light"] .text-gray-400 {
-  color: #44403c !important;
+  color: #334155 !important;
 }
 
 html[data-theme="light"] .text-gray-500 {
-  color: #57534e !important;
+  color: #475569 !important;
 }
 
 html[data-theme="light"] .text-gray-600 {
-  color: #78716c !important;
+  color: #64748b !important;
 }
 
 html[data-theme="light"] .text-gray-700 {
-  color: #44403c !important;
+  color: #334155 !important;
 }
 
 html[data-theme="light"] h1,
@@ -104,21 +104,21 @@ html[data-theme="light"] h2,
 html[data-theme="light"] h3,
 html[data-theme="light"] .font-bold,
 html[data-theme="light"] .font-semibold {
-  color: #1c1917;
+  color: #0f172a;
 }
 
 html[data-theme="light"] .hover\:bg-white\/5:hover,
 html[data-theme="light"] .hover\:bg-white\/10:hover {
-  background-color: rgba(120, 90, 40, 0.06) !important;
+  background-color: rgba(16, 185, 129, 0.06) !important;
 }
 
 html[data-theme="light"] .bg-white\/5 {
-  background-color: rgba(120, 90, 40, 0.05) !important;
+  background-color: rgba(16, 185, 129, 0.04) !important;
 }
 
 html[data-theme="light"] table thead,
 html[data-theme="light"] .bg-dark-900\/50 {
-  background-color: #f2e9d8 !important;
+  background-color: #e2e8f0 !important;
 }
 
 html[data-theme="light"] a.text-white:hover,
@@ -127,36 +127,35 @@ html[data-theme="light"] .hover\:text-white:hover {
 }
 
 html[data-theme="light"] .sidebar-link {
-  color: #57534e !important;
+  color: #475569 !important;
 }
 html[data-theme="light"] .sidebar-link:hover,
 html[data-theme="light"] .sidebar-link.active {
-  color: #292524 !important;
-  background: #fdf0e2 !important;
+  color: #0f766e !important;
+  background: #ecfdf5 !important;
 }
 
 html[data-theme="light"] nav.glass,
 html[data-theme="light"] header {
-  background: rgba(255, 253, 248, 0.95) !important;
-  border-color: #d9c9ac !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-color: #cbd5e1 !important;
 }
 
 html[data-theme="light"] footer {
-  background: #fffdf8 !important;
-  border-color: #d9c9ac !important;
-  color: #44403c !important;
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
 }
 
-/* Public homepage: never leave dark gradients behind dark text in light mode. */
 html[data-theme="light"] .public-hero {
-  background: linear-gradient(135deg, #fdf8f0 0%, #fdf0e2 48%, #f6f1e7 100%) !important;
+  background: linear-gradient(135deg, #f0fdfa 0%, #f8fafc 48%, #f1f5f9 100%) !important;
 }
 html[data-theme="light"] .public-hero > .absolute.inset-0 {
-  background: linear-gradient(135deg, rgba(234,88,12,.10), #fdf8f0 48%, rgba(13,148,136,.10)) !important;
+  background: linear-gradient(135deg, rgba(16,185,129,.12), #f8fafc 48%, rgba(14,165,233,.10)) !important;
 }
 html[data-theme="light"] [class*="from-dark-950"][class*="to-dark-950"],
 html[data-theme="light"] [class*="via-dark-950"] {
-  background-image: linear-gradient(to bottom, #fdf8f0, #fffdf8, #f6f1e7) !important;
+  background-image: linear-gradient(to bottom, #f0fdfa, #ffffff, #f1f5f9) !important;
 }
 
 html[data-theme="light"] footer a {

@@ -118,14 +118,7 @@ require_once __DIR__ . '/header.php';
         <form method="GET" class="flex flex-col sm:flex-row gap-3 sm:items-end">
             <div class="flex-1 min-w-0">
                 <label class="text-sm text-gray-400">Merchant</label>
-                <select name="merchant_id" class="input-field mt-1 w-full" onchange="this.form.submit()">
-                    <option value="">Select a merchant…</option>
-                    <?php foreach ($merchants as $m): ?>
-                    <option value="<?= (int)$m['id'] ?>" <?= $selectedId === (int)$m['id'] ? 'selected' : '' ?>>
-                        <?= e($m['business_name'] ?: $m['name']) ?> (<?= e($m['merchant_code']) ?>) — KYC: <?= e($m['kyc_status']) ?>
-                    </option>
-                    <?php endforeach; ?>
-                </select>
+                <?= renderAdminMerchantSelect('merchant_id', $selectedId, false, true, 'Select a merchant…', true, false, 'onchange="this.form.submit()"') ?>
             </div>
             <noscript><button type="submit" class="border border-gray-700 rounded-lg hover:bg-white/5 px-4 py-2.5">Load</button></noscript>
         </form>

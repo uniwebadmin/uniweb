@@ -123,7 +123,7 @@ function getAuditLogByAction(string $action, int $limit = 100): array
     }
 }
 
-function auditLogFilterWhere(?string $actionFilter = null, ?int $merchantFilter = null, string $from = '', string $to = ''): array
+function auditLogFilterWhere(?string $actionFilter = null, ?int $merchantFilter = null, string $from = '', string $to = '', string $q = ''): array
 {
     $where = '1=1';
     $params = [];
@@ -143,17 +143,23 @@ function auditLogFilterWhere(?string $actionFilter = null, ?int $merchantFilter 
         $where .= ' AND DATE(created_at) <= ?';
         $params[] = $to;
     }
+    $q = trim($q);
+    if ($q !== '') {
+        $like = '%' . mb_strtolower($q) . '%';
+        $where .= " AND (LOWER(COALESCE(event_id,'')) LIKE ? OR LOWER(COALESCE(resource_id,'')) LIKE ? OR LOWER(COALESCE(resource_type,'')) LIKE ? OR LOWER(COALESCE(reason,'')) LIKE ? OR LOWER(COALESCE(action,'')) LIKE ?)";
+        array_push($params, $like, $like, $like, $like, $like);
+    }
     return [$where, $params];
 }
 
 /**
  * Get all audit log entries (admin view).
  */
-function getAllAuditLog(int $limit = 200, int $offset = 0, ?string $actionFilter = null, ?int $merchantFilter = null, string $from = '', string $to = ''): array
+function getAllAuditLog(int $limit = 200, int $offset = 0, ?string $actionFilter = null, ?int $merchantFilter = null, string $from = '', string $to = '', string $q = ''): array
 {
     ensureAuditLogTable();
     try {
-        [$where, $params] = auditLogFilterWhere($actionFilter, $merchantFilter, $from, $to);
+        [$where, $params] = auditLogFilterWhere($actionFilter, $merchantFilter, $from, $to, $q);
         $limit = max(1, min(5000, $limit));
         $offset = max(0, $offset);
         $sql = "SELECT * FROM immutable_audit_log WHERE {$where} ORDER BY created_at DESC LIMIT {$limit} OFFSET {$offset}";
@@ -168,11 +174,11 @@ function getAllAuditLog(int $limit = 200, int $offset = 0, ?string $actionFilter
 /**
  * Count total audit log entries (for pagination).
  */
-function countAuditLog(?string $actionFilter = null, ?int $merchantFilter = null, string $from = '', string $to = ''): int
+function countAuditLog(?string $actionFilter = null, ?int $merchantFilter = null, string $from = '', string $to = '', string $q = ''): int
 {
     ensureAuditLogTable();
     try {
-        [$where, $params] = auditLogFilterWhere($actionFilter, $merchantFilter, $from, $to);
+        [$where, $params] = auditLogFilterWhere($actionFilter, $merchantFilter, $from, $to, $q);
         $st = getDB()->prepare("SELECT COUNT(*) FROM immutable_audit_log WHERE {$where}");
         $st->execute($params);
         return (int)$st->fetchColumn();

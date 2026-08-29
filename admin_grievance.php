@@ -14,12 +14,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $action = $_POST['action'] ?? '';
 
     if ($action === 'create_complaint') {
+        $merchantId = (int)($_POST['merchant_id'] ?? 0);
+        $txnRef = trim((string)($_POST['txn_ref'] ?? ''));
         $result = createGrievanceComplaint([
-            'merchant_id' => !empty($_POST['merchant_id']) ? (int)$_POST['merchant_id'] : null,
+            'merchant_id' => $merchantId > 0 ? $merchantId : null,
             'customer_name' => trim($_POST['customer_name'] ?? ''),
             'customer_email' => trim($_POST['customer_email'] ?? ''),
             'customer_phone' => trim($_POST['customer_phone'] ?? ''),
-            'transaction_id' => !empty($_POST['transaction_id']) ? (int)$_POST['transaction_id'] : null,
+            'transaction_id' => resolveInternalTransactionId($txnRef, $merchantId),
             'category' => trim($_POST['category'] ?? 'other'),
             'subject' => trim($_POST['subject'] ?? ''),
             'description' => trim($_POST['description'] ?? ''),
@@ -120,8 +122,8 @@ require_once __DIR__ . '/header.php';
                 <div><label class="text-sm text-gray-400">Customer Name</label><input type="text" name="customer_name" class="input-field mt-1 w-full"></div>
                 <div><label class="text-sm text-gray-400">Customer Email</label><input type="email" name="customer_email" class="input-field mt-1 w-full"></div>
                 <div><label class="text-sm text-gray-400">Customer Phone</label><input type="text" name="customer_phone" class="input-field mt-1 w-full"></div>
-                <div><label class="text-sm text-gray-400">Merchant ID (optional)</label><input type="number" name="merchant_id" class="input-field mt-1 w-full"></div>
-                <div><label class="text-sm text-gray-400">Transaction ID (optional)</label><input type="number" name="transaction_id" class="input-field mt-1 w-full"></div>
+                <div><label class="text-sm text-gray-400">Merchant (optional)</label><?= renderAdminMerchantSelect('merchant_id', 0, false, true, 'Select merchant…') ?></div>
+                <div><label class="text-sm text-gray-400">Transaction (optional)</label><?= renderTxnRefSearchField('txn_ref', '', 'TXN ID…', 'mt-1') ?></div>
                 <div><label class="text-sm text-gray-400">Category</label>
                     <select name="category" class="input-field mt-1 w-full">
                         <option value="payment_failure">Payment Failure</option>

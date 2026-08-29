@@ -223,7 +223,7 @@ function cancelReserveHold(int $transactionId): bool
 /**
  * Get holds for a merchant with filters.
  */
-function getMerchantReserveHolds(int $merchantId, string $status = '', int $limit = 100): array
+function getMerchantReserveHolds(int $merchantId, string $status = '', int $limit = 100, string $txnQ = ''): array
 {
     ensureRollingReserveTables();
     $sql = "SELECT h.*, t.amount as txn_amount, t.txn_id as txn_ref
@@ -234,6 +234,13 @@ function getMerchantReserveHolds(int $merchantId, string $status = '', int $limi
     if ($status !== '') {
         $sql .= " AND h.status=?";
         $params[] = $status;
+    }
+    $txnQ = trim($txnQ);
+    if ($txnQ !== '') {
+        $sql .= " AND (LOWER(COALESCE(t.txn_id,'')) LIKE ? OR CAST(h.transaction_id AS CHAR) LIKE ?)";
+        $like = '%' . mb_strtolower($txnQ) . '%';
+        $params[] = $like;
+        $params[] = '%' . preg_replace('/\D/', '', $txnQ) . '%';
     }
     $sql .= " ORDER BY h.created_at DESC LIMIT ?";
     $params[] = $limit;
@@ -253,9 +260,10 @@ function getHoldsDueForRelease(): array
     ensureRollingReserveTables();
     $today = date('Y-m-d');
     $st = getDB()->prepare(
-        "SELECT h.*, m.business_name, m.merchant_code
+        "SELECT h.*, m.business_name, m.merchant_code, t.txn_id AS txn_ref
          FROM rolling_reserve_holds h
          JOIN merchants m ON m.id=h.merchant_id
+         LEFT JOIN transactions t ON t.id=h.transaction_id
          WHERE h.status='held' AND h.release_date <= ?
          ORDER BY h.release_date ASC"
     );

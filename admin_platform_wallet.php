@@ -25,10 +25,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 $page = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 50;
 $offset = ($page - 1) * $perPage;
+$ledgerQ = trim((string)($_GET['q'] ?? ''));
 
 $platformBalance = getPlatformWalletBalance();
-$transactions = getPlatformWalletTransactions($perPage, $offset);
-$totalTxns = countPlatformWalletTransactions();
+$transactions = getPlatformWalletTransactions($perPage, $offset, $ledgerQ);
+$totalTxns = countPlatformWalletTransactions($ledgerQ);
 $totalPages = max(1, (int)ceil($totalTxns / $perPage));
 
 // Total commission earned
@@ -120,10 +121,16 @@ require_once __DIR__ . '/header.php';
     </div>
     <?php endif; ?>
 
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex flex-wrap items-center justify-between mb-4 gap-3">
         <h2 class="font-semibold">Platform Wallet Transactions</h2>
         <span class="text-xs text-gray-500"><?= number_format($totalTxns) ?> entries · Page <?= $page ?> of <?= $totalPages ?></span>
     </div>
+
+    <form method="GET" class="glass rounded-xl p-4 mb-4 border border-gray-800 flex flex-wrap gap-3 items-end">
+        <div class="flex-1 min-w-[220px]"><label class="text-[10px] text-gray-600 uppercase block mb-1">Search reference / TXN</label><?= renderTxnRefSearchField('q', $ledgerQ, 'PSTL / PFEE / TXN / description…', '') ?></div>
+        <button type="submit" class="btn-primary px-4 py-2.5 text-sm">Search</button>
+        <?php if ($ledgerQ !== ''): ?><a href="admin_platform_wallet.php" class="text-xs text-gray-400 hover:text-white px-2 py-2.5">Clear</a><?php endif; ?>
+    </form>
 
     <div class="glass rounded-xl overflow-hidden">
         <div class="overflow-x-auto"><table class="w-full text-sm">
@@ -152,7 +159,7 @@ require_once __DIR__ . '/header.php';
     <?php if ($totalPages > 1): ?>
     <div class="flex justify-center gap-2 mt-6">
         <?php for ($i = max(1, $page - 4); $i <= min($totalPages, $page + 4); $i++): ?>
-        <a href="?page=<?= $i ?>" class="px-3 py-1.5 rounded-lg text-sm <?= $i === $page ? 'bg-sky-600 text-white' : 'glass text-gray-400 hover:text-white' ?>"><?= $i ?></a>
+        <a href="?page=<?= $i ?><?= $ledgerQ !== '' ? '&q=' . rawurlencode($ledgerQ) : '' ?>" class="px-3 py-1.5 rounded-lg text-sm <?= $i === $page ? 'bg-sky-600 text-white' : 'glass text-gray-400 hover:text-white' ?>"><?= $i ?></a>
         <?php endfor; ?>
     </div>
     <?php endif; ?>

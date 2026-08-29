@@ -44,9 +44,10 @@ $dueHolds = getHoldsDueForRelease();
 // Holds list
 $holdsMerchantId = (int)($_GET['merchant_id'] ?? 0);
 $holdsStatus = trim($_GET['status'] ?? '');
+$holdsTxnQ = trim($_GET['txn_q'] ?? '');
 $allHolds = [];
 if ($holdsMerchantId > 0) {
-    $allHolds = getMerchantReserveHolds($holdsMerchantId, $holdsStatus, 200);
+    $allHolds = getMerchantReserveHolds($holdsMerchantId, $holdsStatus, 200, $holdsTxnQ);
 }
 
 // Config for selected merchant
@@ -103,7 +104,7 @@ require_once __DIR__ . '/header.php';
                 <?php foreach ($dueHolds as $h): ?>
                 <tr>
                     <td class="px-4 py-3 text-xs"><?= e($h['business_name']) ?> <span class="font-mono text-gray-500"><?= e($h['merchant_code']) ?></span></td>
-                    <td class="px-4 py-3 text-xs font-mono"><?= (int)$h['transaction_id'] ?></td>
+                    <td class="px-4 py-3 text-xs font-mono"><?php if (!empty($h['txn_ref'])): ?><a href="admin_transactions.php?q=<?= rawurlencode((string)$h['txn_ref']) ?>" class="text-sky-400 hover:underline"><?= e($h['txn_ref']) ?></a><?php else: ?><?= (int)$h['transaction_id'] ?><?php endif; ?></td>
                     <td class="px-4 py-3 text-xs"><?= formatMoney((float)$h['held_amount']) ?></td>
                     <td class="px-4 py-3 text-xs"><?= e($h['release_date']) ?></td>
                     <td class="px-4 py-3">
@@ -123,9 +124,12 @@ require_once __DIR__ . '/header.php';
 
     <?php if ($activeTab === 'holds'): ?>
     <div class="glass rounded-xl p-4 sm:p-6 mb-4">
-        <form method="GET" class="flex flex-col sm:flex-row gap-3 items-end">
-            <div><label class="text-sm text-gray-400">Merchant</label>
+        <form method="GET" class="flex flex-col sm:flex-row flex-wrap gap-3 items-end">
+            <div class="min-w-[14rem]"><label class="text-sm text-gray-400">Merchant</label>
                 <?= renderAdminMerchantSelect('merchant_id', $holdsMerchantId, false, true, 'Select merchant…') ?>
+            </div>
+            <div class="min-w-[10rem]"><label class="text-sm text-gray-400">Transaction</label>
+                <?= renderTxnRefSearchField('txn_q', $holdsTxnQ, 'TXN / internal ID…', '') ?>
             </div>
             <div><label class="text-sm text-gray-400">Status</label>
                 <select name="status" class="input-field mt-1 w-full">
@@ -149,7 +153,7 @@ require_once __DIR__ . '/header.php';
                 <?php if (empty($allHolds)): ?><tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">No holds found. Select a merchant above.</td></tr>
                 <?php else: foreach ($allHolds as $h): ?>
                 <tr>
-                    <td class="px-4 py-3 text-xs font-mono"><?= (int)$h['transaction_id'] ?></td>
+                    <td class="px-4 py-3 text-xs font-mono"><?php if (!empty($h['txn_ref'])): ?><a href="admin_transactions.php?q=<?= rawurlencode((string)$h['txn_ref']) ?>" class="text-sky-400 hover:underline"><?= e($h['txn_ref']) ?></a><?php else: ?><?= (int)$h['transaction_id'] ?><?php endif; ?></td>
                     <td class="px-4 py-3 text-xs"><?= formatMoney((float)$h['held_amount']) ?></td>
                     <td class="px-4 py-3 text-xs"><?= (float)$h['hold_percentage'] ?>%</td>
                     <td class="px-4 py-3 text-xs"><?= formatDate($h['held_at']) ?></td>

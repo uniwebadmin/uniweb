@@ -15,7 +15,7 @@ $searchHistoryScope = isset($_SESSION['admin_id'])
     <div class="max-w-2xl mx-auto mt-[8vh] rounded-2xl border border-gray-700 bg-dark-900 shadow-2xl overflow-hidden">
         <div class="flex items-center gap-3 px-4 border-b border-gray-700">
             <span class="text-gray-500 text-xl">⌕</span>
-            <input id="uniweb-spotlight-input" type="search" class="w-full bg-transparent py-4 text-base outline-none text-white placeholder:text-gray-500" placeholder="Pages, TXN…, LNK…, GSTIN, PAN, name, phone…" autocomplete="off">
+            <input id="uniweb-spotlight-input" type="search" class="w-full bg-transparent py-4 text-base outline-none text-white placeholder:text-gray-500" placeholder="Pages, TXN, LNK, STL, RFD, merchant, GSTIN, PAN…" autocomplete="off">
             <button type="button" data-spotlight-close class="text-xs text-gray-500 border border-gray-700 rounded px-2 py-1">ESC</button>
         </div>
         <div id="uniweb-spotlight-results" class="max-h-[60vh] overflow-y-auto p-2">
@@ -52,7 +52,7 @@ $searchHistoryScope = isset($_SESSION['admin_id'])
         rows.forEach(r=>{
             const t=r.type; if(!groups[t]){groups[t]=[];order.push(t)} groups[t].push(r);
         });
-        const typeOrder=['Page','ID','Merchant','Staff','Transaction','Settlement','Payment Link','QR Code','Refund','Invoice','Ticket','Complaint','Mandate','Dispute','Team','Forward Queue','KYC'];
+        const typeOrder=['Page','ID','Merchant','Staff','Transaction','Settlement','Payment Link','QR Code','Refund','Invoice','Ticket','Complaint','Mandate','Dispute','Team','Forward Queue','KYC','Platform Ledger','Chargeback','Payout'];
         order.sort((a,b)=>{const ia=typeOrder.indexOf(a),ib=typeOrder.indexOf(b);return(ia===-1?99:ia)-(ib===-1?99:ib)});
         order.forEach(type=>{
             const items=groups[type];
@@ -101,5 +101,34 @@ $searchHistoryScope = isset($_SESSION['admin_id'])
         form.querySelectorAll('input[type=text],input[type=search]').forEach(el=>el.addEventListener('input',()=>{clearTimeout(wait);wait=setTimeout(refresh,400)}));
     });
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bindLiveForms);else bindLiveForms();
+
+    const initMerchantSelects=()=>{
+        document.querySelectorAll('[data-merchant-select]').forEach(wrap=>{
+            if(wrap.dataset.bound==='1')return;
+            wrap.dataset.bound='1';
+            const input=wrap.querySelector('[data-merchant-select-filter]');
+            const select=wrap.querySelector('select');
+            if(!input||!select)return;
+            const sync=()=>{
+                const q=input.value.trim().toLowerCase();
+                let visible=0;
+                Array.from(select.options).forEach(opt=>{
+                    if(opt.value===''||opt.value==='0'){opt.hidden=false;visible++;return;}
+                    const show=q===''||opt.textContent.toLowerCase().includes(q);
+                    opt.hidden=!show;
+                    if(show)visible++;
+                });
+                if(q!==''&&visible===1){
+                    const only=Array.from(select.options).find(o=>!o.hidden&&o.value!==''&&o.value!=='0');
+                    if(only)select.value=only.value;
+                }
+            };
+            input.addEventListener('input',sync);
+            input.addEventListener('keydown',e=>{
+                if(e.key==='Enter'){e.preventDefault();sync();select.focus();}
+            });
+        });
+    };
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initMerchantSelects);else initMerchantSelects();
 })();
 </script>

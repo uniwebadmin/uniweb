@@ -11,9 +11,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         requireStepUpAuth();
         $action = (string)($_POST['action'] ?? '');
         if ($action === 'ingest') {
+            $merchantId = (int)($_POST['merchant_id'] ?? 0);
+            $txnRef = trim((string)($_POST['txn_ref'] ?? ''));
             $result = ingestChargeback([
-                'merchant_id' => (int)($_POST['merchant_id'] ?? 0),
-                'transaction_id' => (int)($_POST['transaction_id'] ?? 0) ?: null,
+                'merchant_id' => $merchantId,
+                'transaction_id' => resolveInternalTransactionId($txnRef, $merchantId),
                 'amount' => (float)($_POST['amount'] ?? 0),
                 'provider' => trim((string)($_POST['provider'] ?? 'razorpay')),
                 'provider_dispute_id' => trim((string)($_POST['provider_dispute_id'] ?? '')) ?: null,
@@ -68,7 +70,7 @@ require_once __DIR__ . '/header.php';
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="ingest">
             <div><label class="text-xs text-gray-500">Merchant</label><?= renderAdminMerchantSelect('merchant_id', 0, true, true, 'Select merchant…') ?></div>
-            <div><label class="text-xs text-gray-500">Transaction ID</label><input type="number" name="transaction_id" inputmode="numeric" class="input-field mt-1 w-full"></div>
+            <div><label class="text-xs text-gray-500">Transaction</label><?= renderTxnRefSearchField('txn_ref', '', 'TXN ID (optional)…', 'mt-1') ?></div>
             <div><label class="text-xs text-gray-500">Amount</label><input type="number" step="0.01" name="amount" required inputmode="decimal" class="input-field mt-1 w-full"></div>
             <div><label class="text-xs text-gray-500">Provider dispute ID</label><input name="provider_dispute_id" class="input-field mt-1 w-full"></div>
             <div><label class="text-xs text-gray-500">Reason</label><input name="reason_text" class="input-field mt-1 w-full"></div>
