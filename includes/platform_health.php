@@ -172,17 +172,37 @@ function intelligentRoutingHealthCheck(): array
             'label' => 'Intelligent routing',
             'ok' => true,
             'status' => 'Switch OFF (default)',
-            'detail' => 'Fixed checkout routing. Turn ON only when 2+ collect partners have Registry keys.',
+            'detail' => 'Fixed checkout routing unchanged. Turn ON only when 2+ collect partners have Registry keys.',
             'test_url' => 'gateway_settings.php#live-money-switches',
         ];
     }
-    $collectReady = isGatewayConfigured('razorpay') || isGatewayConfigured('cashfree') || isGatewayConfigured('payu');
+    $readiness = intelligentRoutingReadiness(0, 'card');
+    if ($readiness['usable_count'] === 0) {
+        return [
+            'id' => 'intelligent_routing',
+            'label' => 'Intelligent routing',
+            'ok' => false,
+            'status' => 'Owner ON — no usable collect partners',
+            'detail' => 'Paste Registry keys for Razorpay/Cashfree. PayU uses separate form path — not score-routed.',
+            'test_url' => 'gateway_settings.php#live-money-switches',
+        ];
+    }
+    if (!$readiness['failover_capable']) {
+        return [
+            'id' => 'intelligent_routing',
+            'label' => 'Intelligent routing',
+            'ok' => true,
+            'status' => 'Owner ON — single partner (fixed path)',
+            'detail' => intelligentRoutingStrategyDoc() . ' · ' . $readiness['usable_count'] . ' partner key(s) — failover needs 2+ healthy.',
+            'test_url' => 'gateway_settings.php#live-money-switches',
+        ];
+    }
     return [
         'id' => 'intelligent_routing',
         'label' => 'Intelligent routing',
-        'ok' => $collectReady,
-        'status' => $collectReady ? 'Owner ON — score/rules active' : 'Owner ON — collect keys missing',
-        'detail' => 'Strategy: ' . intelligentRoutingStrategy() . ' · overrides Phase 11 at checkout when ON',
+        'ok' => true,
+        'status' => 'Owner ON — score/rules + failover ready',
+        'detail' => intelligentRoutingStrategyDoc() . ' · ' . $readiness['healthy_count'] . ' healthy partner(s).',
         'test_url' => 'gateway_settings.php#live-money-switches',
     ];
 }

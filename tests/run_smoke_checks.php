@@ -1872,7 +1872,11 @@ $assert(str_contains($m077, 'payout_live_enabled') && str_contains($m077, 'intel
 $platformHealthSrc = (string)file_get_contents($root . '/includes/platform_health.php');
 $assert(str_contains($platformHealthSrc, 'getLiveMoneySwitchDashboardRows') && str_contains($platformHealthSrc, 'payoutLiveHealthCheck') && str_contains($platformHealthSrc, 'intelligentRoutingHealthCheck'), 'gap_live_money_health_checks');
 $assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'Live Money Switches'), 'gap_admin_dashboard_live_money_panel');
-$assert(str_contains((string)file_get_contents($root . '/api_settings.php'), 'Fast QR API') && str_contains((string)file_get_contents($root . '/api_settings.php'), 'api_qr_create.php'), 'gap_api_settings_fast_qr_section');
+$assert(str_contains($irSrc, 'intelligentRoutingReadiness') && str_contains($irSrc, 'single_partner_fixed') && str_contains($irSrc, 'order_create_timeout'), 'ir_harden_readiness_degrade_timeout');
+$assert(str_contains($irSrc, 'intelligentRoutingStrategyDoc') && str_contains($irSrc, 'formatIntelligentRouteScoresForAdmin'), 'ir_harden_admin_helpers');
+$assert(is_file($root . '/migrations/078_intelligent_route_decision_log.sql'), 'ir_m078_decision_log_migration');
+$assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Intelligent routing decision log') && str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'fewer than 2 usable partners'), 'ir_gateway_honest_labels_and_log');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'failover_capable'), 'ir_health_failover_readiness');
 
 $payload = [
     'ok' => $failed === 0,

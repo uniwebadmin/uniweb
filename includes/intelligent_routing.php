@@ -56,6 +56,106 @@ function intelligentRoutingMlWeights(): array
     return is_array($decoded) ? $decoded : ['success_rate' => 0.5, 'latency' => 0.2, 'health' => 0.3];
 }
 
+/** Human-readable strategy doc for Admin (no fake ML / multi-PG claims). */
+function intelligentRoutingStrategyDoc(): string
+{
+    return match (intelligentRoutingStrategy()) {
+        'fixed' => 'Fixed — merchant/default partner only. No score ranking.',
+        'rules' => 'Rules — method + amount band first; score tie-break when no rule matches.',
+        default => 'Score — live success-rate (rolling window) + gateway health + latency proxy. Failover tries next healthy partner only.',
+    };
+}
+
+/** Checkout partners that use order-API create (PayU uses separate form redirect). */
+function intelligentRoutingOrderApiPartners(): array
+{
+    return ['razorpay', 'cashfree'];
+}
+
+function intelligentRoutingOrderCreateTimeoutSeconds(): int
+{
+    if (!function_exists('getSetting')) {
+        return 12;
+    }
+    return max(5, min(30, (int)getSetting('intelligent_routing_order_timeout_seconds', '12')));
+}
+
+/**
+ * Partners with Registry keys + method support + circuit breaker open.
+ *
+ * @return list<string>
+ */
+function intelligentRoutingUsablePartners(int $merchantId, string $method): array
+{
+    if (!function_exists('phase11EligibleCheckoutPartners')) {
+        require_once __DIR__ . '/smart_routing.php';
+    }
+    $method = strtolower(trim($method));
+    $orderApi = intelligentRoutingOrderApiPartners();
+    $usable = [];
+    foreach (phase11EligibleCheckoutPartners($merchantId, $method) as $partner) {
+        if (!in_array($partner, $orderApi, true)) {
+            continue;
+        }
+        if (!function_exists('isGatewayConfigured') || !isGatewayConfigured($partner)) {
+            continue;
+        }
+        if (function_exists('isCircuitBreakerAllowed') && !isCircuitBreakerAllowed($partner)) {
+            continue;
+        }
+        $usable[] = $partner;
+    }
+    return $usable;
+}
+
+/**
+ * Usable partners that pass short-term health check (failover targets only).
+ *
+ * @return list<string>
+ */
+function intelligentRoutingHealthyPartners(int $merchantId, string $method): array
+{
+    if (!function_exists('isGatewayHealthy')) {
+        require_once __DIR__ . '/smart_routing.php';
+    }
+    return array_values(array_filter(
+        intelligentRoutingUsablePartners($merchantId, $method),
+        static fn(string $p): bool => isGatewayHealthy($p)
+    ));
+}
+
+/**
+ * Platform/merchant readiness for honest degrade + Admin warnings.
+ *
+ * @return array{usable_count:int,healthy_count:int,failover_capable:bool,usable:list<string>,healthy:list<string>}
+ */
+function intelligentRoutingReadiness(int $merchantId = 0, string $method = 'card'): array
+{
+    $method = strtolower(trim($method));
+    $usable = intelligentRoutingUsablePartners($merchantId, $method);
+    $healthy = intelligentRoutingHealthyPartners($merchantId, $method);
+    return [
+        'usable_count' => count($usable),
+        'healthy_count' => count($healthy),
+        'failover_capable' => count($healthy) >= 2,
+        'usable' => $usable,
+        'healthy' => $healthy,
+    ];
+}
+
+function isIntelligentGatewayOrderCreateSuccess(string $gateway, ?array $response): bool
+{
+    if (!is_array($response)) {
+        return false;
+    }
+    $gateway = strtolower(trim($gateway));
+    return match ($gateway) {
+        'razorpay' => !empty($response['id']),
+        'cashfree' => !empty($response['payment_session_id']),
+        default => false,
+    };
+}
+
 function ensureIntelligentRouteDecisionLogTable(): void
 {
     static $done = false;
@@ -149,6 +249,23 @@ function getIntelligentRouteDecisionLog(int $limit = 20): array
     }
 }
 
+/** Short scores line for Admin log table. */
+function formatIntelligentRouteScoresForAdmin(?string $scoresJson): string
+{
+    if ($scoresJson === null || trim($scoresJson) === '') {
+        return '—';
+    }
+    $decoded = json_decode($scoresJson, true);
+    if (!is_array($decoded) || $decoded === []) {
+        return '—';
+    }
+    $parts = [];
+    foreach ($decoded as $partner => $score) {
+        $parts[] = (string)$partner . '=' . (is_numeric($score) ? number_format((float)$score, 2) : (string)$score);
+    }
+    return implode(', ', $parts);
+}
+
 /**
  * @return array{partner:?string,reason_code:string,reason:string,ranked:list<string>,scores:array<string,float>,strategy:string}
  */
@@ -165,6 +282,7 @@ function intelligentChoosePartner(array $context): array
     }
 
     $eligible = phase11EligibleCheckoutPartners($merchantId, $method);
+    $eligible = array_values(array_intersect($eligible, intelligentRoutingOrderApiPartners()));
     if ($eligible === []) {
         return [
             'partner' => null,
@@ -376,39 +494,112 @@ function createCardOrderWithIntelligentRouting(float $amount, array $link, strin
     }
 
     $order['intelligent'] = true;
-    $selection = intelligentChoosePartner([
-        'merchant_id' => $merchantId,
-        'method' => $methodBucket,
-        'amount' => $amount,
-        'preferred_partner' => (string)($link['gateway_code'] ?? ''),
-    ]);
-    $ranked = $selection['ranked'];
+    $readiness = intelligentRoutingReadiness($merchantId, $methodBucket);
+    $preferred = strtolower(trim((string)($link['gateway_code'] ?? '')));
+    $selectionScores = null;
+    $selectionReasonCode = 'single_partner_fixed';
+    $selectionReason = '';
+    $attemptList = [];
 
-    if ($selection['partner'] === null || $ranked === []) {
-        $order['reason'] = $selection['reason'];
+    if ($readiness['usable_count'] === 0) {
+        $order['reason'] = 'No usable collect partners (Registry keys + circuit breaker).';
         logIntelligentRouteDecision(
             null,
-            $selection['reason_code'],
-            $selection['reason'],
-            $ranked,
+            'no_usable',
+            $order['reason'],
+            [],
             'none',
             $merchantId,
             $linkId,
             $methodBucket,
             $amount,
-            $selection['scores']
+            null
         );
         return $order;
     }
 
+    if ($readiness['usable_count'] < 2) {
+        $fixed = $preferred !== '' && in_array($preferred, $readiness['usable'], true)
+            ? $preferred
+            : $readiness['usable'][0];
+        $fixedReason = 'Single partner with keys — fixed path (failover needs 2+ healthy partners).';
+        $selectionReason = $fixedReason;
+        $selectionScores = [$fixed => 1.0];
+        logIntelligentRouteDecision(
+            $fixed,
+            'single_partner_fixed',
+            $fixedReason,
+            $readiness['usable'],
+            'fallback_fixed',
+            $merchantId,
+            $linkId,
+            $methodBucket,
+            $amount,
+            [$fixed => 1.0]
+        );
+        $attemptList = [$fixed];
+    } else {
+        $selection = intelligentChoosePartner([
+            'merchant_id' => $merchantId,
+            'method' => $methodBucket,
+            'amount' => $amount,
+            'preferred_partner' => $preferred,
+        ]);
+        $ranked = $selection['ranked'];
+
+        if ($selection['partner'] === null || $ranked === []) {
+            $order['reason'] = $selection['reason'];
+            logIntelligentRouteDecision(
+                null,
+                $selection['reason_code'],
+                $selection['reason'],
+                $ranked,
+                'none',
+                $merchantId,
+                $linkId,
+                $methodBucket,
+                $amount,
+                $selection['scores']
+            );
+            return $order;
+        }
+
+        $attemptList = [$ranked[0]];
+        foreach (array_slice($ranked, 1) as $gw) {
+            if (in_array($gw, $readiness['healthy'], true)) {
+                $attemptList[] = $gw;
+            }
+        }
+        $selectionScores = $selection['scores'];
+        $selectionReasonCode = $selection['reason_code'];
+        $selectionReason = $selection['reason'];
+        if (count($attemptList) === 1 && !$readiness['failover_capable']) {
+            logIntelligentRouteDecision(
+                $attemptList[0],
+                'no_failover_target',
+                'Primary selected — no second healthy partner for failover.',
+                $ranked,
+                'fallback_fixed',
+                $merchantId,
+                $linkId,
+                $methodBucket,
+                $amount,
+                $selection['scores']
+            );
+        }
+    }
+
     $cbAvailable = function_exists('isCircuitBreakerAllowed');
-    $tryOrder = function (string $gw) use ($link, $returnUrl, $cbAvailable) {
+    $timeoutSec = intelligentRoutingOrderCreateTimeoutSeconds();
+
+    $tryOrder = function (string $gw) use ($link, $returnUrl, $cbAvailable, $timeoutSec) {
         if (!isGatewayConfigured($gw)) {
-            return null;
+            return ['ok' => false, 'detail' => 'not_configured'];
         }
         if ($cbAvailable && !isCircuitBreakerAllowed($gw)) {
-            return null;
+            return ['ok' => false, 'detail' => 'circuit_open'];
         }
+        $started = microtime(true);
         try {
             $res = createBoundGatewayCheckoutOrder($link, $gw, $returnUrl);
         } catch (Throwable $e) {
@@ -418,9 +609,18 @@ function createCardOrderWithIntelligentRouting(float $amount, array $link, strin
             if ($cbAvailable && function_exists('recordCircuitBreakerFailure')) {
                 recordCircuitBreakerFailure($gw);
             }
-            return null;
+            return ['ok' => false, 'detail' => 'exception', 'error' => $e->getMessage()];
         }
-        $ok = is_array($res) && ($gw === 'razorpay' ? !empty($res['id']) : !empty($res['payment_session_id']));
+        if ((microtime(true) - $started) > $timeoutSec) {
+            if (function_exists('recordGatewayOutcome')) {
+                recordGatewayOutcome($gw, false, 'timeout');
+            }
+            if ($cbAvailable && function_exists('recordCircuitBreakerFailure')) {
+                recordCircuitBreakerFailure($gw);
+            }
+            return ['ok' => false, 'detail' => 'timeout'];
+        }
+        $ok = isIntelligentGatewayOrderCreateSuccess($gw, is_array($res) ? $res : null);
         if (function_exists('recordGatewayOutcome')) {
             recordGatewayOutcome($gw, $ok, $ok ? null : 'no_response');
         }
@@ -431,48 +631,52 @@ function createCardOrderWithIntelligentRouting(float $amount, array $link, strin
                 recordCircuitBreakerFailure($gw);
             }
         }
-        return $ok ? $res : null;
+        return $ok ? ['ok' => true, 'response' => $res] : ['ok' => false, 'detail' => 'no_response'];
     };
 
     $attempted = [];
-    foreach ($ranked as $idx => $gw) {
+    foreach ($attemptList as $idx => $gw) {
         $attempted[] = $gw;
         $result = $tryOrder($gw);
-        if ($result) {
-            $order[$gw] = $result;
+        if (!empty($result['ok']) && !empty($result['response'])) {
+            $order[$gw] = $result['response'];
             $order['routed_to'] = $gw;
             $order['diverted'] = $idx > 0;
             $reason = $idx === 0
-                ? $selection['reason']
-                : ('Failover to ' . $gw . ' after ' . implode(', ', array_slice($ranked, 0, $idx)) . ' failed');
+                ? ($selectionReason !== '' ? $selectionReason : 'Fixed partner — ' . $gw)
+                : ('Failover to ' . $gw . ' after ' . implode(', ', array_slice($attemptList, 0, $idx)) . ' failed');
             $order['reason'] = $reason;
             logIntelligentRouteDecision(
                 $gw,
-                $idx === 0 ? $selection['reason_code'] : 'failover',
+                $idx === 0 ? $selectionReasonCode : 'failover',
                 $reason,
-                $ranked,
+                $attemptList,
                 $idx === 0 ? 'selected' : 'failover',
                 $merchantId,
                 $linkId,
                 $methodBucket,
                 $amount,
-                $selection['scores'],
+                $selectionScores,
                 null,
                 $idx
             );
             return $order;
         }
+        $failDetail = (string)($result['detail'] ?? 'failed');
+        $failMsg = $failDetail === 'timeout'
+            ? 'Order create timed out for ' . $gw . ' — trying next healthy partner.'
+            : 'Order create failed for ' . $gw . ' (' . $failDetail . ') — trying next eligible partner.';
         logIntelligentRouteDecision(
             $gw,
-            'order_create_failed',
-            'Order create failed for ' . $gw . ' — trying next eligible partner.',
-            $ranked,
+            $failDetail === 'timeout' ? 'order_create_timeout' : 'order_create_failed',
+            $failMsg,
+            $attemptList,
             'attempt_failed',
             $merchantId,
             $linkId,
             $methodBucket,
             $amount,
-            $selection['scores'],
+            $selectionScores,
             null,
             $idx
         );
@@ -484,13 +688,13 @@ function createCardOrderWithIntelligentRouting(float $amount, array $link, strin
         null,
         'order_create_failed',
         $failReason,
-        $ranked,
+        $attemptList,
         'error',
         $merchantId,
         $linkId,
         $methodBucket,
         $amount,
-        $selection['scores']
+        $selectionScores
     );
     return $order;
 }

@@ -495,8 +495,12 @@ $gatewayCards = [
         $routeSplitOn = ($settingsMap['route_split_live_enabled'] ?? '0') === '1';
         $intelligentOn = ($settingsMap['intelligent_routing_enabled'] ?? '0') === '1';
         $intelligentStrategy = $settingsMap['intelligent_routing_strategy'] ?? 'score';
+        $intelligentReadiness = ($intelligentOn && function_exists('intelligentRoutingReadiness'))
+            ? intelligentRoutingReadiness(0, 'card')
+            : ['usable_count' => 0, 'healthy_count' => 0, 'failover_capable' => false, 'usable' => [], 'healthy' => []];
+        $intelligentStrategyDoc = function_exists('intelligentRoutingStrategyDoc') ? intelligentRoutingStrategyDoc() : '';
         $phase11RouteLog = function_exists('getPhase11RouteDecisionLog') ? getPhase11RouteDecisionLog(10) : [];
-        $intelligentRouteLog = function_exists('getIntelligentRouteDecisionLog') ? getIntelligentRouteDecisionLog(10) : [];
+        $intelligentRouteLog = function_exists('getIntelligentRouteDecisionLog') ? getIntelligentRouteDecisionLog(15) : [];
         ?>
         <div id="live-money-switches" class="rounded-xl border border-violet-500/30 bg-violet-950/20 p-5 my-4 space-y-4">
             <?= settingsSectionHeading('Live Money Switches', 'violet', 'text-base') ?>
@@ -539,7 +543,14 @@ $gatewayCards = [
                     </select>
                     <label class="text-[11px] text-gray-500 block mt-3">Success-rate window (hours)</label>
                     <input type="number" name="settings[intelligent_routing_success_window_hours]" min="1" max="720" value="<?= e((string)($settingsMap['intelligent_routing_success_window_hours'] ?? '168')) ?>" class="input-field mt-1 text-sm">
-                    <p class="text-[11px] text-gray-600 mt-2">Default OFF. When ON, overrides Phase 11 at checkout. Owner-controlled.</p>
+                    <p class="text-[11px] text-gray-600 mt-2">Default OFF. When ON, overrides Phase 11 at checkout. Card/UPI pool only — customer sees UniWeb methods, not partner names. Failover needs <strong class="text-gray-500">2+ healthy</strong> Registry partners (Razorpay/Cashfree order-API). Not “always live multi-PG” until keys + health allow it.</p>
+                    <?php if ($intelligentOn): ?>
+                    <p class="text-[11px] mt-2 <?= !empty($intelligentReadiness['failover_capable']) ? 'text-emerald-500/90' : 'text-amber-400' ?>">
+                        <?= e($intelligentStrategyDoc) ?>
+                        · Usable: <?= (int)$intelligentReadiness['usable_count'] ?> · Healthy: <?= (int)$intelligentReadiness['healthy_count'] ?>
+                        <?= !empty($intelligentReadiness['failover_capable']) ? '· Failover ready' : '· Single-partner fixed path (no failover)' ?>
+                    </p>
+                    <?php endif; ?>
                 </div>
             </div>
             <?php if ($routeSplitOn && empty($routeSplitReady['ready'])): ?>
@@ -547,6 +558,12 @@ $gatewayCards = [
                 <p class="font-medium text-amber-300">Phase 11 switch is ON — Route config is not ready yet</p>
                 <p class="text-gray-400 mt-1"><?= e($routeSplitReport['message'] ?? 'Checkout still uses fixed partner until Route keys and readiness checks pass in Partner Registry.') ?></p>
                 <p class="text-[11px] text-gray-500 mt-2">Readiness: <?= (int)$routeSplitReady['done'] ?>/<?= (int)$routeSplitReady['total'] ?> · Phase: <?= e($routeSplitReady['phase'] ?? 'parked') ?>. Turn OFF the switch above if you only need standard collect checkout.</p>
+            </div>
+            <?php endif; ?>
+            <?php if ($intelligentOn && (int)$intelligentReadiness['usable_count'] < 2): ?>
+            <div class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+                <p class="font-medium text-amber-300">Intelligent routing ON — fewer than 2 usable partners</p>
+                <p class="text-gray-400 mt-1">Checkout uses an honest <strong class="text-gray-300">fixed path</strong> for the one configured partner. Add a second Razorpay/Cashfree key in Partner Registry for score pick + failover. PayU collect stays on its own form path.</p>
             </div>
             <?php endif; ?>
             <?php if ($routeSplitOn && !empty($phase11RouteLog)): ?>
@@ -569,25 +586,32 @@ $gatewayCards = [
                 </div>
             </details>
             <?php endif; ?>
-            <?php if ($intelligentOn && !empty($intelligentRouteLog)): ?>
-            <details class="rounded-lg border border-gray-800 bg-dark-900/40 p-3 text-xs">
-                <summary class="cursor-pointer text-gray-400 font-medium">Intelligent routing log (last <?= count($intelligentRouteLog) ?>)</summary>
+            <?php if ($intelligentOn): ?>
+            <details class="rounded-lg border border-gray-800 bg-dark-900/40 p-3 text-xs" <?= !empty($intelligentRouteLog) ? 'open' : '' ?>>
+                <summary class="cursor-pointer text-gray-400 font-medium">Intelligent routing decision log (last <?= count($intelligentRouteLog) ?>)</summary>
+                <?php if (empty($intelligentRouteLog)): ?>
+                <p class="text-gray-600 mt-3">No checkout attempts logged yet. Open a card payment link after turning ON — each partner pick / failover / failure is recorded here.</p>
+                <?php else: ?>
                 <div class="overflow-x-auto mt-3">
                     <table class="w-full text-[10px] text-left">
-                        <thead><tr class="text-gray-500 border-b border-gray-800"><th class="py-1 pr-2">Time</th><th class="py-1 pr-2">Partner</th><th class="py-1 pr-2">Strategy</th><th class="py-1 pr-2">Outcome</th><th class="py-1">Reason</th></tr></thead>
+                        <thead><tr class="text-gray-500 border-b border-gray-800"><th class="py-1 pr-2">Time</th><th class="py-1 pr-2">Partner</th><th class="py-1 pr-2">Strategy</th><th class="py-1 pr-2">Outcome</th><th class="py-1 pr-2">Failover</th><th class="py-1 pr-2">Scores</th><th class="py-1">Reason</th></tr></thead>
                         <tbody>
                         <?php foreach ($intelligentRouteLog as $logRow): ?>
+                        <?php $outcome = (string)($logRow['outcome'] ?? ''); ?>
                         <tr class="border-b border-gray-900/80">
                             <td class="py-1 pr-2 text-gray-500 whitespace-nowrap"><?= e(substr((string)($logRow['created_at'] ?? ''), 0, 16)) ?></td>
                             <td class="py-1 pr-2 text-teal-300"><?= e((string)($logRow['chosen_partner'] ?? '—')) ?></td>
                             <td class="py-1 pr-2"><?= e((string)($logRow['strategy'] ?? '')) ?></td>
-                            <td class="py-1 pr-2"><?= e((string)($logRow['outcome'] ?? '')) ?></td>
+                            <td class="py-1 pr-2"><?= e($outcome) ?></td>
+                            <td class="py-1 pr-2"><?= $outcome === 'failover' || ((int)($logRow['attempt_index'] ?? 0) > 0 && $outcome === 'selected') ? 'yes' : ($outcome === 'attempt_failed' ? 'retry' : 'no') ?></td>
+                            <td class="py-1 pr-2 text-gray-500 max-w-[120px] truncate" title="<?= e(formatIntelligentRouteScoresForAdmin((string)($logRow['scores_json'] ?? ''))) ?>"><?= e(formatIntelligentRouteScoresForAdmin((string)($logRow['scores_json'] ?? ''))) ?></td>
                             <td class="py-1 text-gray-400"><?= e((string)($logRow['reason'] ?? '')) ?></td>
                         </tr>
                         <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
+                <?php endif; ?>
             </details>
             <?php endif; ?>
             <details class="rounded-lg border border-gray-800 bg-dark-900/30 p-4 text-xs group">
