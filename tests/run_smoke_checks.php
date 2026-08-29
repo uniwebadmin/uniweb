@@ -1879,6 +1879,11 @@ $assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'),
 $assert(str_contains($irSrc, 'attachIntelligentRouteDecisionTxnId') && str_contains($irSrc, 'intelligentTryPayUCheckoutForm'), 'ir_txn_correlation_and_payu_routing');
 $assert(str_contains((string)file_get_contents($root . '/includes/financial_integrity.php'), 'attachIntelligentRouteDecisionTxnId'), 'ir_finalize_attach_txn');
 $assert(str_contains((string)file_get_contents($root . '/checkout.php'), "=== 'payu'") && str_contains((string)file_get_contents($root . '/checkout.php'), 'smartRouted[\'payu\']'), 'ir_checkout_payu_routed');
+$assert(str_contains((string)file_get_contents($root . '/includes/route_split_workflow.php'), 'Phase 11 ON — Route config incomplete') && str_contains($gsPark, 'phase11InlineWarning') && str_contains($gsPark, 'phase11SwitchInlineWarning()'), 'p11_gateway_inline_warning_next_to_switch');
+$assert(str_contains((string)file_get_contents($root . '/includes/route_split_workflow.php'), 'function phase11SwitchInlineWarning'), 'p11_phase11_switch_inline_warning_helper');
+$assert(str_contains((string)file_get_contents($root . '/includes/split_settlement.php'), 'function routeSplitStatusDescriptions'), 'p11_route_status_descriptions');
+$assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'routeSplitStatusDescriptions'), 'p11_partner_commercial_status_legend');
+$assert(!str_contains((string)file_get_contents($root . '/checkout.php'), 'Auto settlement') && !str_contains((string)file_get_contents($root . '/payment_payu_return.php'), 'merchant share sent directly'), 'p11_customer_no_fake_split_claim');
 
 $payload = [
     'ok' => $failed === 0,

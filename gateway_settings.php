@@ -501,6 +501,7 @@ $gatewayCards = [
         $intelligentStrategyDoc = function_exists('intelligentRoutingStrategyDoc') ? intelligentRoutingStrategyDoc() : '';
         $phase11RouteLog = function_exists('getPhase11RouteDecisionLog') ? getPhase11RouteDecisionLog(10) : [];
         $intelligentRouteLog = function_exists('getIntelligentRouteDecisionLog') ? getIntelligentRouteDecisionLog(15) : [];
+        $phase11InlineWarning = function_exists('phase11SwitchInlineWarning') ? phase11SwitchInlineWarning() : null;
         ?>
         <div id="live-money-switches" class="rounded-xl border border-violet-500/30 bg-violet-950/20 p-5 my-4 space-y-4">
             <?= settingsSectionHeading('Live Money Switches', 'violet', 'text-base') ?>
@@ -523,12 +524,27 @@ $gatewayCards = [
                     <p class="text-[11px] text-gray-600 mt-2">UPI Autopay + eNACH. Separate from one-time checkout.</p>
                 </div>
                 <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4">
-                    <label class="text-sm text-gray-300 font-medium">Phase 11 — Route / smart partner routing</label>
+                    <label class="text-sm text-gray-300 font-medium">Phase 11 — Route / smart checkout routing</label>
                     <select name="settings[route_split_live_enabled]" class="input-field mt-2">
-                        <option value="0" <?= !$routeSplitOn ? 'selected' : '' ?>>OFF — parked · fixed checkout (default)</option>
-                        <option value="1" <?= $routeSplitOn ? 'selected' : '' ?>>ON — smart routing when partner Route config is live</option>
+                        <option value="0" <?= !$routeSplitOn ? 'selected' : '' ?>>OFF — fixed checkout · no live split (default)</option>
+                        <option value="1" <?= $routeSplitOn ? 'selected' : '' ?>>ON — smart checkout routing (split transfers separate)</option>
                     </select>
-                    <p class="text-[11px] text-gray-600 mt-2">Does not move split money without partner Route keys. Owner toggle only.</p>
+                    <p class="text-[11px] text-gray-600 mt-2">Does not move marketplace split money by itself. Live Route / Easy Split needs partner Commercial config + transfer SDK.</p>
+                    <?php if ($routeSplitOn): ?>
+                    <p class="text-[11px] mt-2 <?= !empty($routeSplitReady['ready']) ? 'text-emerald-500/90' : 'text-amber-400' ?>">
+                        Switch ON · Readiness <?= (int)$routeSplitReady['done'] ?>/<?= (int)$routeSplitReady['total'] ?>
+                        <?= !empty($routeSplitReady['ready']) ? '· Config complete (SDK still required for live split)' : '· Live split blocked — finish partner Route config' ?>
+                    </p>
+                    <?php else: ?>
+                    <p class="text-[11px] text-gray-600 mt-2">Default OFF — standard collect + M/P settlement only.</p>
+                    <?php endif; ?>
+                    <?php if ($phase11InlineWarning !== null): ?>
+                    <div class="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-[11px]">
+                        <p class="font-medium text-amber-300"><?= e($phase11InlineWarning['title']) ?></p>
+                        <p class="text-gray-400 mt-1"><?= e($phase11InlineWarning['body']) ?></p>
+                        <p class="text-gray-500 mt-2">Readiness <?= e($phase11InlineWarning['readiness']) ?> · <a href="admin_gateway_registry.php" class="text-sky-400 underline">Partner Registry</a></p>
+                    </div>
+                    <?php endif; ?>
                 </div>
                 <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4">
                     <label class="text-sm text-gray-300 font-medium">Intelligent routing (score-based)</label>
@@ -553,11 +569,11 @@ $gatewayCards = [
                     <?php endif; ?>
                 </div>
             </div>
-            <?php if ($routeSplitOn && empty($routeSplitReady['ready'])): ?>
+            <?php if ($routeSplitOn && empty($routeSplitReady['ready']) && $phase11InlineWarning === null): ?>
             <div class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
                 <p class="font-medium text-amber-300">Phase 11 switch is ON — Route config is not ready yet</p>
-                <p class="text-gray-400 mt-1"><?= e($routeSplitReport['message'] ?? 'Checkout still uses fixed partner until Route keys and readiness checks pass in Partner Registry.') ?></p>
-                <p class="text-[11px] text-gray-500 mt-2">Readiness: <?= (int)$routeSplitReady['done'] ?>/<?= (int)$routeSplitReady['total'] ?> · Phase: <?= e($routeSplitReady['phase'] ?? 'parked') ?>. Turn OFF the switch above if you only need standard collect checkout.</p>
+                <p class="text-gray-400 mt-1"><?= e($routeSplitReport['message'] ?? 'Checkout may smart-route collect partners; live split transfers stay off until Commercial config is complete.') ?></p>
+                <p class="text-[11px] text-gray-500 mt-2">Readiness: <?= (int)$routeSplitReady['done'] ?>/<?= (int)$routeSplitReady['total'] ?> · Turn OFF above if you only need standard collect checkout.</p>
             </div>
             <?php endif; ?>
             <?php if ($intelligentOn && (int)$intelligentReadiness['usable_count'] < 2): ?>

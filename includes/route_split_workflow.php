@@ -27,8 +27,7 @@ function routeSplitIsParked(): bool
 
 function routeSplitParkedDisclaimer(): string
 {
-    return 'Phase 11 Route is PARKED (default OFF). Checkout uses the merchant-selected method — no smart partner routing. '
-        . 'Turn ON in Gateway Settings → Live Money Switches when 2+ partners have Registry keys. Commission still applies via M/P ledger.';
+    return 'Phase 11 is OFF (default). Checkout uses a fixed collect partner. Commission still posts via standard M/P settlement — not live Route/Easy Split transfers.';
 }
 
 /** Steps merchants/admins see for today's live path. */
@@ -78,18 +77,41 @@ function routeSplitPhase(): string
 function routeSplitParkedReason(?string $partnerKey = null): string
 {
     if (routeSplitIsParked()) {
-        return 'Phase 11 Route is parked (default OFF). Checkout uses fixed partner path — no silent routing. '
-            . 'Turn ON: Gateway Settings → Live Money Switches → Phase 11 Route / Smart partner routing.';
+        return 'Phase 11 is OFF (default). Checkout uses a fixed collect partner — no smart routing, no live Route/Easy Split transfers.';
     }
     if ($partnerKey !== null && $partnerKey !== '') {
         if (!function_exists('canUsePartnerRoute')) {
             require_once __DIR__ . '/split_settlement.php';
         }
         if (function_exists('canUsePartnerRoute') && canUsePartnerRoute($partnerKey)) {
-            return 'Route live-ready for ' . $partnerKey . ' — capture may call partner transfer API when keys + linked IDs are set.';
+            return 'Partner config allows Route intent — capture-time transfer still requires Platform switch ON and live transfer SDK.';
         }
     }
-    return 'Owner switch ON. Set Partner Commercial → route_mode + ready_for_api/live, paste linked account hints + merchant vendor IDs.';
+    return 'Platform switch ON. Complete Partner Commercial → route status ready_for_api or live, linked account hint, and merchant vendor IDs.';
+}
+
+/**
+ * Amber warning for Platform Settings when Phase 11 switch ON but partner config incomplete.
+ *
+ * @return array{title:string,body:string,readiness:string}|null
+ */
+function phase11SwitchInlineWarning(): ?array
+{
+    if (routeSplitIsParked()) {
+        return null;
+    }
+    if (!function_exists('getRouteSplitReadinessChecklist')) {
+        require_once __DIR__ . '/split_settlement.php';
+    }
+    $ready = getRouteSplitReadinessChecklist();
+    if (!empty($ready['ready'])) {
+        return null;
+    }
+    return [
+        'title' => 'Phase 11 ON — Route config incomplete',
+        'body' => 'Smart checkout routing may run when collect keys exist. Live Route / Easy Split money movement is not active until Partner Detail → Commercial is ready_for_api or live, linked account hints are saved, and the transfer SDK is enabled.',
+        'readiness' => (int)($ready['done'] ?? 0) . '/' . (int)($ready['total'] ?? 0),
+    ];
 }
 
 /**
@@ -148,7 +170,7 @@ function routeSplitMerchantEducation(): array
         'title' => 'Settlement vs Route / Split',
         'today' => 'UniWeb uses standard settlement today — money settles to your wallet / bank on T+0/T+1/T+2 after commission is cut.',
         'today_flow' => routeSplitTodaySettlementFlow(),
-        'parked' => 'Route / Split (Phase 11) is parked — Admin prepares partner config only. No marketplace multi-vendor split yet.',
+        'parked' => 'Route / Split is not a live marketplace product on your account. UniWeb uses standard settlement today.',
         'future_flow' => routeSplitFutureCaptureSplitFlow(),
         'merchant_action' => 'You do not paste Route or vendor IDs here — Admin manages partner programme in Registry.',
     ];

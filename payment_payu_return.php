@@ -62,7 +62,7 @@ renderCheckoutModeBanner($link);
         <?php if ($success): ?>
         <p class="text-3xl font-bold text-sky-400 my-3"><?= formatMoney((float)$link['amount']) ?></p>
         <p class="text-gray-400 text-sm">Reference: <?= e($post['mihpayid'] ?? '') ?></p>
-        <p class="text-xs text-gray-500 mt-4">Settlement initiated — merchant share sent directly.</p>
+        <p class="text-xs text-gray-500 mt-4">Payment recorded. Merchant settlement follows your UniWeb schedule — not live marketplace Route/Easy Split unless Admin has enabled it.</p>
         <?php else: ?>
         <p class="text-gray-400 text-sm mt-4">Payment was not completed. Please try again.</p>
         <a href="checkout.php?link=<?= e($linkId) ?>" class="inline-block mt-6 btn-primary px-6 py-2">Retry Payment</a>

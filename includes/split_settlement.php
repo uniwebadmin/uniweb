@@ -527,10 +527,20 @@ function routeSplitStatusLabel(string $status): string
 {
     return match (strtolower($status)) {
         'scaffold' => 'Scaffold — config save only',
-        'ready_for_api' => 'Ready for API — keys + commercial done, SDK not live',
-        'live' => 'Live — partner transfer API enabled',
+        'ready_for_api' => 'Ready for API — keys/hints saved; transfers off',
+        'live' => 'Live intent — needs Platform switch ON + SDK',
         default => ucfirst($status),
     };
+}
+
+/** Admin legend for route_status values (Partner Detail → Commercial). */
+function routeSplitStatusDescriptions(): array
+{
+    return [
+        'scaffold' => 'Save route fields only. No partner transfer API. Standard UniWeb settlement applies.',
+        'ready_for_api' => 'Keys and commercial route config saved. Transfer API still blocked until Platform switch ON and SDK capability.',
+        'live' => 'Owner marked live intent. Requires Gateway Settings → Phase 11 ON, linked account / vendor IDs, and live transfer SDK — not automatic marketplace split.',
+    ];
 }
 
 /** Provider display name. */

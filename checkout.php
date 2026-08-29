@@ -706,7 +706,7 @@ endif;
                             Pay <?= formatMoney($payAmount) ?>
                         </button>
                     </form>
-                    <p class="text-xs text-gray-600 text-center mt-3">Secured checkout<?= $withPayuSplit ? ' · Auto settlement' : '' ?></p>
+                    <p class="text-xs text-gray-600 text-center mt-3">Secured checkout · UniWeb settlement</p>
                     <?php endif; ?>
 
                     <?php elseif ((($pgCheckoutPartner ?? '') === 'razorpay' || $selectedPay === 'razorpay') && $razorpayOrder && $razorpayKey): ?>

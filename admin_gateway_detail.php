@@ -596,8 +596,8 @@ require_once __DIR__ . '/header.php';
 
         <!-- Section B: Route / Split (Phase 11) -->
         <div class="rounded-lg border border-violet-500/30 bg-violet-500/5 p-4 mb-6">
-            <h4 class="text-sm font-semibold text-violet-300 mb-1">Route / Split — market bar vs UniWeb</h4>
-            <p class="text-xs text-gray-500 mb-3">Peers move money to linked accounts at capture. UniWeb <strong class="text-gray-300">today</strong> uses standard settlement + M/P commission on ledger. <strong class="text-amber-300">Future</strong> = live partner transfer SDK when Phase 11 is built.</p>
+            <h4 class="text-sm font-semibold text-violet-300 mb-1">Route / Split — programme config (not live split by default)</h4>
+            <p class="text-xs text-gray-500 mb-3">UniWeb <strong class="text-gray-300">today</strong>: standard settlement + M/P commission. Partner Route / Easy Split transfer API runs only when Platform switch ON, status below, linked IDs, and SDK capability.</p>
             <div class="overflow-x-auto">
                 <table class="w-full text-[11px] min-w-[720px]">
                     <thead class="text-gray-500 uppercase">
@@ -640,8 +640,16 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <div class="rounded-lg border border-gray-800 p-4">
-            <h4 class="text-sm font-semibold mb-1">Section B — Route / Split config (save only until SDK)</h4>
-            <p class="text-xs text-gray-600 mb-3">Prepare partner programme fields. No provider API calls until Phase 11 SDK ships. Status <code class="text-amber-400">live</code> requires Platform Settings switch ON.</p>
+            <h4 class="text-sm font-semibold mb-1">Section B — Route / Split config</h4>
+            <p class="text-xs text-gray-600 mb-3">Prepare partner programme fields. No provider API calls / live marketplace split until Platform switch ON + transfer SDK.</p>
+            <?php $routeStatusHelp = function_exists('routeSplitStatusDescriptions') ? routeSplitStatusDescriptions() : []; ?>
+            <?php if ($routeStatusHelp !== []): ?>
+            <ul class="text-[11px] text-gray-500 space-y-1 mb-4 list-disc list-inside">
+                <?php foreach ($routeStatusHelp as $key => $desc): ?>
+                <li><strong class="text-gray-400"><?= e($key) ?>:</strong> <?= e($desc) ?></li>
+                <?php endforeach; ?>
+            </ul>
+            <?php endif; ?>
 
             <form method="POST" class="space-y-4">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -694,7 +702,12 @@ require_once __DIR__ . '/header.php';
                         <?php foreach (['scaffold', 'ready_for_api', 'live'] as $rs): ?>
                         <?php
                         $liveLocked = ($rs === 'live' && !$routeOwnerLive);
-                        $liveLabel = $rs === 'live' ? ($routeOwnerLive ? 'live (Owner switch ON — SDK still required)' : 'live (locked — enable Platform switch first)') : $rs;
+                        $liveLabel = match ($rs) {
+                            'scaffold' => 'scaffold — save only',
+                            'ready_for_api' => 'ready_for_api — keys/hints; transfers off',
+                            'live' => $routeOwnerLive ? 'live intent — SDK still required' : 'live (locked — enable Platform switch first)',
+                            default => $rs,
+                        };
                         ?>
                         <option value="<?= $rs ?>" <?= $routeCfg['route_status'] === $rs ? 'selected' : '' ?> <?= $liveLocked ? 'disabled' : '' ?>><?= e($liveLabel) ?></option>
                         <?php endforeach; ?>
@@ -708,7 +721,7 @@ require_once __DIR__ . '/header.php';
 
         <div class="mt-6 pt-4 border-t border-gray-800 text-xs text-gray-500">
             <p><strong class="text-gray-400">P</strong> = Partner MDR (Section A) · <strong class="text-gray-400">M</strong> = Merchant MDR · <strong class="text-gray-400">UniWeb commission</strong> ≈ M − P on successful captures</p>
-            <p class="mt-1">Settlement today: <strong class="text-emerald-400">standard_settle_mode</strong> (T+0/T+1/T+2 engine). Route mode calls live partner API when switch ON.</p>
+            <p class="mt-1">Settlement today: <strong class="text-emerald-400">standard_settle_mode</strong> (T+0/T+1/T+2). Live Route/Easy Split transfers run only when Platform switch ON, status live, and SDK gate open.</p>
             <p class="mt-1"><a href="admin_settlements.php" class="text-sky-400 underline">Settlements → partner transfer queue</a></p>
         </div>
     </div>
