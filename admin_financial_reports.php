@@ -117,6 +117,23 @@ $byMethod = $db->prepare(
 $byMethod->execute([$from, $to]);
 $methods = $byMethod->fetchAll();
 
+$testSummary = ['txn_count' => 0, 'gross' => 0.0];
+try {
+    $testSt = $db->prepare(
+        "SELECT COUNT(*) AS txn_count, COALESCE(SUM(amount),0) AS gross
+         FROM transactions
+         WHERE COALESCE(is_test,0)=1 AND status IN ('success','refunded')
+           AND DATE(created_at) BETWEEN ? AND ?"
+    );
+    $testSt->execute([$from, $to]);
+    $testSummary = $testSt->fetch() ?: $testSummary;
+} catch (Throwable $e) {
+    /* ok */
+}
+
+$liveTxnCount = (int)($s['txn_count'] ?? 0);
+$testTxnCount = (int)($testSummary['txn_count'] ?? 0);
+
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="financial_report_' . $from . '_' . $to . '.csv"');
@@ -157,7 +174,18 @@ require_once __DIR__ . '/header.php';
     <a href="admin_chargebacks.php" class="glass px-4 py-2.5 rounded-xl text-sm text-center">Chargebacks</a>
 </div>
 
-<p class="text-xs text-gray-500 mb-4">Live (non-test) success/refund rows only. Staff access: super / CEO / finance / ops / staff manager.</p>
+<p class="text-xs text-gray-500 mb-4">This tab counts <strong class="text-gray-300">live money only</strong> — real payments where <code class="text-gray-400">is_test=0</code>. Test Mode / UniWeb Test Pay is excluded (use <a href="?view=ops" class="text-sky-400 hover:underline">Ops day summary</a> for all activity including test).</p>
+
+<?php if ($liveTxnCount === 0 && $testTxnCount > 0): ?>
+<div class="glass rounded-xl p-4 mb-4 border border-amber-500/30 bg-amber-500/5 text-sm text-amber-100/90">
+    <p class="font-semibold text-amber-200">No live volume in this date range</p>
+    <p class="text-xs mt-1 text-amber-100/80">Test Mode activity in the same range: <strong><?= number_format($testTxnCount) ?></strong> payment(s) · <?= formatMoney((float)($testSummary['gross'] ?? 0)) ?>. Live gross stays ₹0 until merchants go live and real partner money flows. Check <a href="gateway_settings.php#live-money-switches" class="text-sky-300 hover:underline">Platform Settings → Live Money Switches</a>.</p>
+</div>
+<?php elseif ($liveTxnCount === 0 && $testTxnCount === 0): ?>
+<div class="glass rounded-xl p-4 mb-4 border border-gray-700 text-sm text-gray-400">
+    <p>No payments (live or test) in <?= e($from) ?> → <?= e($to) ?>. Try a wider range or use <a href="?view=ops" class="text-sky-400 hover:underline">Ops day summary</a>.</p>
+</div>
+<?php endif; ?>
 
 <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mb-6 sm:mb-8">
     <div class="glass rounded-xl p-4 sm:p-5 min-w-0"><p class="text-xs text-gray-500">Txn count</p><p class="text-xl font-bold mt-1"><?= (int)($s['txn_count'] ?? 0) ?></p></div>
