@@ -306,7 +306,14 @@ $gatewayCards = [
     </div>
 </div>
 <div class="glass rounded-xl p-6">
-    <?= settingsMainHeading('Gateway Status') ?>
+    <details class="group">
+        <summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            <div class="flex items-center justify-between gap-3 mb-2">
+                <?= settingsMainHeading('Gateway Status') ?>
+                <span class="shrink-0 text-xs text-gray-500 group-open:hidden">Show partner grid ↓</span>
+                <span class="shrink-0 text-xs text-gray-500 hidden group-open:inline">Hide partner grid ↑</span>
+            </div>
+        </summary>
     <p class="text-xs text-gray-500 mb-4">Test connection for gateways configured in <a href="admin_gateway_registry.php" class="text-sky-400">Partner Registry</a>. Default checkout gateway (new merchants only): <span class="text-brand-400 font-medium"><?= e(ucfirst($activePg)) ?></span></p>
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <?php foreach ($gatewayCards as $card):
@@ -339,6 +346,7 @@ $gatewayCards = [
         </div>
         <?php endforeach; ?>
     </div>
+    </details>
 </div>
 <div class="glass rounded-xl p-6">
     <?= settingsMainHeading('Platform Settings') ?>
@@ -435,6 +443,7 @@ $gatewayCards = [
                 <option value="<?= $val ?>" <?= ($settingsMap['active_payment_gateway'] ?? 'razorpay') === $val ? 'selected' : '' ?>><?= e($label) ?></option>
                 <?php endforeach; ?>
             </select>
+            <p class="text-[11px] text-gray-600 mt-1">Collect checkout only (Card · UPI · Net Banking). Easy Split / Route payout rails are parked — not configured here.</p>
         </div>
         <div class="rounded-xl border border-sky-500/30 bg-sky-500/5 p-4 my-4 text-sm text-gray-400 space-y-2">
             <p class="font-medium text-sky-300">Partner keys, methods &amp; MDR → Partner Registry</p>
@@ -533,6 +542,13 @@ $gatewayCards = [
                     <p class="text-[11px] text-gray-600 mt-2">Default OFF. When ON, overrides Phase 11 at checkout. Owner-controlled.</p>
                 </div>
             </div>
+            <?php if ($routeSplitOn && empty($routeSplitReady['ready'])): ?>
+            <div class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+                <p class="font-medium text-amber-300">Phase 11 switch is ON — Route config is not ready yet</p>
+                <p class="text-gray-400 mt-1"><?= e($routeSplitReport['message'] ?? 'Checkout still uses fixed partner until Route keys and readiness checks pass in Partner Registry.') ?></p>
+                <p class="text-[11px] text-gray-500 mt-2">Readiness: <?= (int)$routeSplitReady['done'] ?>/<?= (int)$routeSplitReady['total'] ?> · Phase: <?= e($routeSplitReady['phase'] ?? 'parked') ?>. Turn OFF the switch above if you only need standard collect checkout.</p>
+            </div>
+            <?php endif; ?>
             <?php if ($routeSplitOn && !empty($phase11RouteLog)): ?>
             <details class="rounded-lg border border-gray-800 bg-dark-900/40 p-3 text-xs">
                 <summary class="cursor-pointer text-gray-400 font-medium">Phase 11 routing log (last <?= count($phase11RouteLog) ?>)</summary>

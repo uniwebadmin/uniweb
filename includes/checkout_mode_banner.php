@@ -164,6 +164,14 @@ function saveGatewaySettingsPreservingSecrets(array $posted, PDO $db): void
             $n = (int)$val;
             $val = (string)(($n >= 5 && $n <= 120) ? $n : 10);
         }
+        if ($key === 'default_collection_mode') {
+            if (!function_exists('sanitizeDefaultCollectionMode') && is_file(__DIR__ . '/collection.php')) {
+                require_once __DIR__ . '/collection.php';
+            }
+            $val = function_exists('sanitizeDefaultCollectionMode')
+                ? sanitizeDefaultCollectionMode($val)
+                : (in_array($val, ['direct_upi', 'platform_pg', 'axis_va'], true) ? $val : 'platform_pg');
+        }
         $db->prepare('INSERT INTO gateway_settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=?')
             ->execute([$key, $val, $val]);
     }

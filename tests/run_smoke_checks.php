@@ -843,6 +843,12 @@ $assert(!preg_match('/foreach\s*\(\s*getCollectionModes\(\)/', $gsPark), 'gatewa
 $assert(str_contains($colLibPark, 'sanitizeDefaultCollectionMode') && str_contains($colLibPark, 'defaultCollectionModeForNewMerchants'), 'collection_sanitize_default_mode_new_merchants');
 $assert(str_contains($gsPark, 'sanitizeDefaultCollectionMode') && str_contains($gsPark, 'getCriticalCollectGatewayGaps'), 'gateway_settings_professional_launch_panel');
 $assert(str_contains($gsPark, 'Internal workflow audit') && str_contains($gsPark, 'admin_platform_status.php'), 'gateway_settings_audit_collapsed');
+$bannerSave = (string)file_get_contents($root . '/includes/checkout_mode_banner.php');
+$assert(str_contains($bannerSave, "if (\$key === 'default_collection_mode')") && str_contains($bannerSave, 'sanitizeDefaultCollectionMode'), 'gateway_save_sanitizes_default_collection_mode');
+$assert(str_contains($gsPark, 'Phase 11 switch is ON') && str_contains($gsPark, 'Route config is not ready'), 'gateway_settings_phase11_inline_warning');
+$assert(str_contains($gsPark, 'Show partner grid') && str_contains($gsPark, '<details class="group">'), 'gateway_settings_gateway_status_collapsed');
+$assert(str_contains((string)file_get_contents($root . '/merchant_setup.php'), 'defaultCollectionModeForNewMerchants'), 'merchant_setup_uses_platform_default_collection_mode');
+$assert(str_contains($gsPark, 'Collect checkout only') && str_contains($gsPark, 'Easy Split / Route payout rails are parked'), 'gateway_settings_default_pg_collect_only_help');
 $assert(str_contains((string)file_get_contents($root . '/merchant_launch.php'), 'Instant Test Pay'), 'b10_merchant_launch_instant_test_pay');
 $assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'CR-01') && str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'stale_createNotification'), 'b10_cr01_stale_notification_guard');
 $assert(str_contains($contactP7, 'recordPublicContactInquiry') && str_contains($contactP7, 'sendPlatformEmail') && str_contains($contactP7, '1 business day'), 'p7_contact_saves_ticket_and_sla');

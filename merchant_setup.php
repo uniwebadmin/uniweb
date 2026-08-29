@@ -37,10 +37,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     // If masked value submitted, treat as unchanged
     if ($pan && str_starts_with($pan, '*')) $pan = '';
     if ($gstin && str_starts_with($gstin, '*')) $gstin = '';
-    $collectionMode = $_POST['collection_mode'] ?? getSetting('default_collection_mode', 'direct_upi');
+    $platformDefaultMode = function_exists('defaultCollectionModeForNewMerchants')
+        ? defaultCollectionModeForNewMerchants()
+        : 'platform_pg';
+    $collectionMode = $_POST['collection_mode'] ?? $platformDefaultMode;
     $allowedModes = array_keys(getMerchantFacingCollectionModes($merchant));
     if (!in_array($collectionMode, $allowedModes, true)) {
-        $collectionMode = 'direct_upi';
+        $collectionMode = $platformDefaultMode;
     }
     $enabledMethods = array_values(array_intersect(
         array_keys(getPaymentMethodCatalog()),
