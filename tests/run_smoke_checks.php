@@ -190,6 +190,7 @@ $assert(str_contains($settleDue, 'merchantSettlementDelayMinutes'), 'settlement_
 $prov = (string)file_get_contents($root . '/includes/provision.php');
 $assert(!str_contains($prov, "'nbfc'") && str_contains($prov, "'instant_settlement'"), 'catalog_no_nbfc_keeps_instant');
 $reg = (string)file_get_contents($root . '/merchant_register.php');
+$assert(!str_contains($reg, '$business = $invBusiness') && str_contains($reg, "'business_name' =>") && str_contains($reg, "\$pending['business_name']"), 'merchant_register_verify_business_name_from_pending');
 $assert(str_contains($reg, 'bootstrapMerchantMethodAutomation'), 'signup_auto_queues_methods');
 $assert(str_contains($mReq, 'function merchantEntitledMethods') && str_contains($mReq, 'function merchantLockedMethods'), 'method_request_entitlement_helpers');
 $colPage = (string)file_get_contents($root . '/collection_settings.php');

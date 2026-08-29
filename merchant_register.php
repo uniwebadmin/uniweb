@@ -68,9 +68,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 $showOtpStep = false;
             } else {
                 $code = 'UW' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
-                $business = $invBusiness !== '' ? $invBusiness : 'My Business';
-                $bType = $inviteData['business_type'] ?? 'retail';
-                $bEntity = $inviteData['business_entity_type'] ?? 'individual';
+                if ($inviteData === null && !empty($pending['invite_token'])) {
+                    try {
+                        $invSt = $db->prepare('SELECT * FROM onboarding_invites WHERE token=? AND used_by IS NULL AND expires_at > NOW() LIMIT 1');
+                        $invSt->execute([(string)$pending['invite_token']]);
+                        $inviteData = $invSt->fetch() ?: null;
+                    } catch (Throwable $e) {
+                        $inviteData = null;
+                    }
+                }
+                $business = trim((string)($pending['business_name'] ?? ''));
+                if ($business === '' && is_array($inviteData)) {
+                    $business = trim((string)($inviteData['business_name'] ?? ''));
+                }
+                if ($business === '') {
+                    $nameTrim = trim((string)($pending['name'] ?? ''));
+                    if ($nameTrim !== '' && strcasecmp($nameTrim, 'Merchant') !== 0) {
+                        $business = $nameTrim;
+                    } elseif (!empty($pending['email']) && str_contains((string)$pending['email'], '@')) {
+                        $local = strstr((string)$pending['email'], '@', true) ?: '';
+                        $localLabel = ucfirst(trim(preg_replace('/[^a-zA-Z0-9]/', ' ', $local)));
+                        $business = ($localLabel !== '' && strcasecmp($localLabel, 'Merchant') !== 0)
+                            ? ($localLabel . ' Business')
+                            : 'My Business';
+                    } else {
+                        $business = 'My Business';
+                    }
+                }
+                $business = mb_substr($business, 0, 120);
+                $bType = (is_array($inviteData) ? ($inviteData['business_type'] ?? null) : null) ?? 'retail';
+                $bEntity = (is_array($inviteData) ? ($inviteData['business_entity_type'] ?? null) : null) ?? 'individual';
                 $db->prepare('INSERT INTO merchants (merchant_code,name,email,phone,password,business_name,business_type,business_entity_type,pan_number,address,country,state,district,city,pincode,api_key,api_secret,upi_id,email_verified_at,phone_verified_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
                     ->execute([
                         $code, $name, $email, $phone, $pending['password_hash'],
@@ -206,10 +233,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                     'email' => $email,
                     'phone' => $phone,
                     'name' => $name,
+                    'business_name' => trim((string)($invBusiness !== '' ? $invBusiness : '')),
                     'password_hash' => password_hash($password, PASSWORD_ARGON2ID),
                     'signup_mode' => $signupMode,
                     'otp_identifier' => $otpTarget,
                     'demo_otp' => $delivery['demo_otp'],
+                    'invite_token' => ($inviteToken !== '' && $inviteData) ? $inviteToken : null,
                 ];
                 flash('success', $signupMode === 'email' ? __('flash_otp_sent_email') : __('flash_otp_sent_mobile'));
                 $showOtpStep = true;
