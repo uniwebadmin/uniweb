@@ -1,0 +1,206 @@
+/**
+ * UniWeb mobile layout safety — prevent cards, headings, and copy from
+ * extending past the viewport. Loaded last (after portal-polish.css).
+ */
+
+html {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
+body {
+  max-width: 100%;
+  width: 100%;
+}
+
+/* Flex/grid children must shrink on narrow screens. */
+.portal-shell,
+.portal-main,
+.portal-content-frame,
+.public-site,
+.company-page,
+.public-doc-page {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.portal-content-frame {
+  box-sizing: border-box;
+}
+
+@media (max-width: 639px) {
+  .portal-content-frame {
+    padding: 0.75rem !important;
+  }
+
+  .portal-main > header {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+}
+
+/* Page titles — no horizontal push from long admin page names. */
+.portal-main > header h1 {
+  min-width: 0;
+  max-width: calc(100vw - 6.5rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.9375rem;
+  line-height: 1.3;
+}
+
+@media (min-width: 640px) {
+  .portal-main > header h1 {
+    max-width: none;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    font-size: 1.125rem;
+  }
+}
+
+/* Cards stay inside body; only inner table wrappers scroll sideways. */
+.portal-main .glass,
+.portal-main .stat-card,
+.public-site .glass,
+.company-card,
+.blog-card,
+.contact-form-card {
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.portal-main .glass .overflow-x-auto,
+.portal-main .table-responsive,
+.public-site .overflow-x-auto,
+.company-page .overflow-x-auto {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.portal-main .glass h2,
+.portal-main .glass h3,
+.portal-main .glass p,
+.portal-main .glass li,
+.public-site h1,
+.public-site h2,
+.public-site h3,
+.public-site p,
+.company-hero h1,
+.company-title,
+.company-card h2,
+.company-card h3 {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Platform Status / health cards — long file paths must wrap. */
+.portal-main .glass .truncate,
+.portal-main .glass [class*="truncate"] {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+}
+
+@media (min-width: 768px) {
+  .portal-main .glass .truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Readiness rows stack on phone. */
+@media (max-width: 639px) {
+  .portal-main .glass .flex.items-center.justify-between.gap-4.rounded-lg {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .portal-main .glass .flex.items-center.justify-between.gap-4.rounded-lg > span:last-child {
+    text-align: left;
+    width: 100%;
+  }
+}
+
+/* Top action button rows (Platform Status, etc.). */
+.portal-main .flex.flex-wrap.gap-3,
+.portal-main .flex.flex-wrap.gap-2 {
+  max-width: 100%;
+}
+
+.portal-main .flex.flex-wrap.gap-3 > a,
+.portal-main .flex.flex-wrap.gap-3 > button {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.35;
+}
+
+/* Code / API docs blocks. */
+pre,
+.public-site pre,
+.portal-main pre {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Public hero + doc shells. */
+.public-doc-shell,
+.company-shell,
+.max-w-4xl,
+.max-w-5xl,
+.max-w-7xl {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Public nav — keep CTA inside screen on small phones. */
+@media (max-width: 400px) {
+  .public-site nav .max-w-7xl > .flex {
+    gap: 0.35rem;
+  }
+
+  .public-site nav a[href="merchant_register.php"].bg-brand-600 {
+    padding-left: 0.65rem;
+    padding-right: 0.65rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Health/service grid — one column on very small screens. */
+@media (max-width: 479px) {
+  .portal-main .grid.sm\:grid-cols-2,
+  .portal-main .grid.lg\:grid-cols-3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Large stat numbers must not overflow card. */
+.portal-main .text-4xl,
+.portal-main .text-3xl {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.15;
+}
+
+/* Flash toast — stay on screen. */
+#flash-msg {
+  left: 0.75rem;
+  right: 0.75rem;
+  max-width: calc(100vw - 1.5rem);
+}

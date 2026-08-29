@@ -170,12 +170,13 @@ body,
   white-space: nowrap;
 }
 
-/* Cards keep content inside borders, but tables must scroll sideways. */
+/* Cards keep content inside borders; tables scroll in their own wrapper. */
 .portal-main .glass,
 .customer-portal-shell .cp-panel,
 .stat-card {
-  overflow-x: auto;
-  overflow-y: hidden;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
 }
 
 /* Allow auto overflow on scrollable card sections. */

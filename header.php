@@ -58,6 +58,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/public-pages.css?v=20260815a">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/portal-polish.css?v=20260815a">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/ui-components.css?v=20260829a">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/mobile-safe.css?v=20260829a">
     <?php if (!empty($customerPortalUi)): ?>
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/customer-portal.css?v=20260724b">
     <?php endif; ?>
@@ -231,7 +232,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                 <button type="button" id="sidebar-toggle" class="lg:hidden p-2 text-gray-400 hover:text-white shrink-0" aria-label="Menu">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
-                <h1 class="text-lg font-semibold whitespace-nowrap"><?= e($pageTitle) ?></h1>
+                <h1 class="text-base sm:text-lg font-semibold min-w-0 truncate max-w-[calc(100vw-7rem)] sm:max-w-none sm:overflow-visible sm:whitespace-normal"><?= e($pageTitle) ?></h1>
             </div>
             <div class="flex items-center gap-2 sm:gap-3">
                 <span class="hidden xl:inline text-[10px] text-gray-500 font-mono" title="India Standard Time"><span data-ist-clock><?= e(date('d M, h:i:s A')) ?> IST</span> · Session <span data-session-countdown><?= gmdate('i:s', (int)$sessionInfo['remaining']) ?></span></span>
@@ -318,7 +319,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
             <button type="button" id="admin-sidebar-toggle" class="lg:hidden p-2 text-gray-400 hover:text-white shrink-0" aria-label="Menu">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
-            <h1 class="text-lg font-semibold whitespace-nowrap"><?= e($pageTitle) ?></h1>
+            <h1 class="text-base sm:text-lg font-semibold min-w-0 truncate max-w-[calc(100vw-7rem)] sm:max-w-none sm:overflow-visible sm:whitespace-normal"><?= e($pageTitle) ?></h1>
             </div>
             <div class="flex items-center gap-2 flex-wrap justify-end">
                 <span class="hidden xl:inline text-[10px] text-gray-500 font-mono" title="30-minute inactivity timeout"><span data-ist-clock><?= e(date('d M, h:i:s A')) ?> IST</span> · Session <span data-session-countdown><?= gmdate('i:s', (int)$sessionInfo['remaining']) ?></span></span>
@@ -378,7 +379,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
             <button type="button" id="admin-sidebar-toggle" class="lg:hidden p-2 text-gray-400 hover:text-white shrink-0" aria-label="Menu">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
-            <h1 class="text-lg font-semibold whitespace-nowrap"><?= e($pageTitle) ?></h1>
+            <h1 class="text-base sm:text-lg font-semibold min-w-0 truncate max-w-[calc(100vw-7rem)] sm:max-w-none sm:overflow-visible sm:whitespace-normal"><?= e($pageTitle) ?></h1>
             </div>
             <div class="flex items-center gap-2 flex-wrap justify-end">
                 <span class="hidden md:inline text-[10px] text-gray-500 font-mono" title="30-minute inactivity timeout"><span data-ist-clock><?= e(date('d M, h:i:s A')) ?> IST</span> · Session <span data-session-countdown><?= gmdate('i:s', (int)$sessionInfo['remaining']) ?></span></span>

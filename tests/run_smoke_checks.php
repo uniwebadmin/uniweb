@@ -1959,6 +1959,8 @@ $assert(str_contains($phSrc, 'function ensurePlatformWorkflowHealthModules') && 
 require_once $root . '/includes/platform_health.php';
 ensurePlatformWorkflowHealthModules();
 $assert(function_exists('autoKycEngineHealthCheck') && function_exists('forwardQueueWorkflowHealthCheck'), 'platform_health_workflow_fns_load');
+$assert(str_contains((string)file_get_contents($root . '/header.php'), 'mobile-safe.css'), 'mobile_safe_css_linked');
+$assert(is_file($root . '/assets/css/mobile-safe.css'), 'mobile_safe_css_file');
 $p13ApiDocs = (string)file_get_contents($root . '/api_docs.php');
 $p13PhpReadme = (string)file_get_contents($root . '/sdk/php/README.md');
 $p13NodeReadme = (string)file_get_contents($root . '/sdk/node/README.md');
