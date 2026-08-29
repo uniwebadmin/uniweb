@@ -62,11 +62,17 @@ function intelligentRoutingStrategyDoc(): string
     return match (intelligentRoutingStrategy()) {
         'fixed' => 'Fixed — merchant/default partner only. No score ranking.',
         'rules' => 'Rules — method + amount band first; score tie-break when no rule matches.',
-        default => 'Score — live success-rate (rolling window) + gateway health + latency proxy. Failover tries next healthy partner only.',
+        default => 'Score — live success-rate (rolling window) + gateway health + latency proxy. Razorpay/Cashfree order-API or PayU form redirect. Failover tries next healthy partner only.',
     };
 }
 
-/** Checkout partners that use order-API create (PayU uses separate form redirect). */
+/** Checkout partners eligible for intelligent score routing (includes PayU form redirect). */
+function intelligentRoutingCheckoutPartners(): array
+{
+    return ['razorpay', 'cashfree', 'payu'];
+}
+
+/** @deprecated Use intelligentRoutingCheckoutPartners() */
 function intelligentRoutingOrderApiPartners(): array
 {
     return ['razorpay', 'cashfree'];
@@ -91,10 +97,10 @@ function intelligentRoutingUsablePartners(int $merchantId, string $method): arra
         require_once __DIR__ . '/smart_routing.php';
     }
     $method = strtolower(trim($method));
-    $orderApi = intelligentRoutingOrderApiPartners();
+    $eligiblePartners = intelligentRoutingCheckoutPartners();
     $usable = [];
     foreach (phase11EligibleCheckoutPartners($merchantId, $method) as $partner) {
-        if (!in_array($partner, $orderApi, true)) {
+        if (!in_array($partner, $eligiblePartners, true)) {
             continue;
         }
         if (!function_exists('isGatewayConfigured') || !isGatewayConfigured($partner)) {
@@ -152,8 +158,117 @@ function isIntelligentGatewayOrderCreateSuccess(string $gateway, ?array $respons
     return match ($gateway) {
         'razorpay' => !empty($response['id']),
         'cashfree' => !empty($response['payment_session_id']),
+        'payu' => !empty($response['action']) && !empty($response['fields']),
         default => false,
     };
+}
+
+/** Map stored payment_method to routing partner key for audit correlation. */
+function intelligentRoutingPartnerKeyFromPaymentMethod(string $method): ?string
+{
+    $method = strtolower(trim($method));
+    if (in_array($method, intelligentRoutingCheckoutPartners(), true)) {
+        return $method;
+    }
+    if (str_starts_with($method, 'payu')) {
+        return 'payu';
+    }
+    return null;
+}
+
+/**
+ * After payment success, link TXN id to the latest routing decision for this link + partner.
+ */
+function attachIntelligentRouteDecisionTxnId(?string $linkId, string $partner, string $txnId): bool
+{
+    $linkId = trim((string)$linkId);
+    $txnId = trim($txnId);
+    $partner = intelligentRoutingPartnerKeyFromPaymentMethod($partner) ?? strtolower(trim($partner));
+    if ($linkId === '' || $txnId === '' || $partner === '') {
+        return false;
+    }
+    ensureIntelligentRouteDecisionLogTable();
+    try {
+        $find = getDB()->prepare(
+            "SELECT id FROM intelligent_route_decisions
+             WHERE link_id = ? AND chosen_partner = ? AND (txn_id IS NULL OR txn_id = '')
+               AND outcome IN ('selected','failover','fallback_fixed')
+             ORDER BY id DESC LIMIT 1"
+        );
+        $find->execute([$linkId, $partner]);
+        $row = $find->fetch();
+        if (!$row) {
+            return false;
+        }
+        getDB()->prepare('UPDATE intelligent_route_decisions SET txn_id = ? WHERE id = ? AND (txn_id IS NULL OR txn_id = \'\')')
+            ->execute([mb_substr($txnId, 0, 40), (int)$row['id']]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function intelligentRoutingPayuPgFromPayKey(string $payKey, string $enforcePg = ''): string
+{
+    $enforcePg = strtoupper(trim($enforcePg));
+    if ($enforcePg !== '') {
+        return $enforcePg;
+    }
+    return match (strtolower(trim($payKey))) {
+        'dc' => 'DC',
+        'cc' => 'CC',
+        'nb' => 'NB',
+        'emi' => 'EMI',
+        'wallet' => 'CASH',
+        'payu_upi', 'upi' => 'UPI',
+        default => '',
+    };
+}
+
+/**
+ * Build PayU redirect form as intelligent-routing attempt (same partner pick, form-based checkout).
+ *
+ * @return array{ok:bool,detail?:string,payu_form?:array{action:string,fields:array<string,string>}}
+ */
+function intelligentTryPayUCheckoutForm(array $link, float $amount, string $checkoutPayKey, bool $withPayuSplit, string $enforcePg = ''): array
+{
+    if (!function_exists('buildPayUPaymentForm')) {
+        require_once __DIR__ . '/gateways.php';
+    }
+    if (!isGatewayConfigured('payu')) {
+        return ['ok' => false, 'detail' => 'not_configured'];
+    }
+    if (function_exists('isCircuitBreakerAllowed') && !isCircuitBreakerAllowed('payu')) {
+        return ['ok' => false, 'detail' => 'circuit_open'];
+    }
+    $pg = intelligentRoutingPayuPgFromPayKey($checkoutPayKey, $enforcePg);
+    try {
+        $form = buildPayUPaymentForm($link, $link, $withPayuSplit, $pg, $checkoutPayKey, $amount);
+    } catch (Throwable $e) {
+        if (function_exists('recordGatewayOutcome')) {
+            recordGatewayOutcome('payu', false, $e->getMessage());
+        }
+        if (function_exists('recordCircuitBreakerFailure')) {
+            recordCircuitBreakerFailure('payu');
+        }
+        return ['ok' => false, 'detail' => 'exception'];
+    }
+    if (!is_array($form) || empty($form['action']) || empty($form['fields'])) {
+        if (function_exists('recordGatewayOutcome')) {
+            recordGatewayOutcome('payu', false, 'payu_form_empty');
+        }
+        if (function_exists('recordCircuitBreakerFailure')) {
+            recordCircuitBreakerFailure('payu');
+        }
+        return ['ok' => false, 'detail' => 'payu_form_failed'];
+    }
+    if (function_exists('recordGatewayOutcome')) {
+        recordGatewayOutcome('payu', true, null);
+    }
+    if (function_exists('recordCircuitBreakerSuccess')) {
+        recordCircuitBreakerSuccess('payu');
+    }
+    return ['ok' => true, 'payu_form' => $form];
 }
 
 function ensureIntelligentRouteDecisionLogTable(): void
@@ -282,7 +397,7 @@ function intelligentChoosePartner(array $context): array
     }
 
     $eligible = phase11EligibleCheckoutPartners($merchantId, $method);
-    $eligible = array_values(array_intersect($eligible, intelligentRoutingOrderApiPartners()));
+    $eligible = array_values(array_intersect($eligible, intelligentRoutingCheckoutPartners()));
     if ($eligible === []) {
         return [
             'partner' => null,
@@ -472,7 +587,7 @@ function intelligentRoutingMethodBucket(string $payKey): string
  *
  * @return array{razorpay:?array,cashfree:?array,payu:?array,routed_to:?string,diverted:bool,intelligent:bool,reason:string,method:string}
  */
-function createCardOrderWithIntelligentRouting(float $amount, array $link, string $returnUrl, string $checkoutPayKey = 'card'): array
+function createCardOrderWithIntelligentRouting(float $amount, array $link, string $returnUrl, string $checkoutPayKey = 'card', bool $withPayuSplit = false, string $payuEnforcePg = ''): array
 {
     $merchantId = (int)($link['merchant_id'] ?? 0);
     $linkId = (string)($link['link_id'] ?? '');
@@ -592,7 +707,10 @@ function createCardOrderWithIntelligentRouting(float $amount, array $link, strin
     $cbAvailable = function_exists('isCircuitBreakerAllowed');
     $timeoutSec = intelligentRoutingOrderCreateTimeoutSeconds();
 
-    $tryOrder = function (string $gw) use ($link, $returnUrl, $cbAvailable, $timeoutSec) {
+    $tryOrder = function (string $gw) use ($link, $returnUrl, $cbAvailable, $timeoutSec, $amount, $checkoutPayKey, $withPayuSplit, $payuEnforcePg) {
+        if ($gw === 'payu') {
+            return intelligentTryPayUCheckoutForm($link, $amount, $checkoutPayKey, $withPayuSplit, $payuEnforcePg);
+        }
         if (!isGatewayConfigured($gw)) {
             return ['ok' => false, 'detail' => 'not_configured'];
         }
@@ -638,8 +756,14 @@ function createCardOrderWithIntelligentRouting(float $amount, array $link, strin
     foreach ($attemptList as $idx => $gw) {
         $attempted[] = $gw;
         $result = $tryOrder($gw);
-        if (!empty($result['ok']) && !empty($result['response'])) {
-            $order[$gw] = $result['response'];
+        if (!empty($result['ok'])) {
+            if ($gw === 'payu' && !empty($result['payu_form'])) {
+                $order['payu'] = $result['payu_form'];
+            } elseif (!empty($result['response'])) {
+                $order[$gw] = $result['response'];
+            } else {
+                continue;
+            }
             $order['routed_to'] = $gw;
             $order['diverted'] = $idx > 0;
             $reason = $idx === 0

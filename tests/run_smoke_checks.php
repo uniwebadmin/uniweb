@@ -1876,7 +1876,9 @@ $assert(str_contains($irSrc, 'intelligentRoutingReadiness') && str_contains($irS
 $assert(str_contains($irSrc, 'intelligentRoutingStrategyDoc') && str_contains($irSrc, 'formatIntelligentRouteScoresForAdmin'), 'ir_harden_admin_helpers');
 $assert(is_file($root . '/migrations/078_intelligent_route_decision_log.sql'), 'ir_m078_decision_log_migration');
 $assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Intelligent routing decision log') && str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'fewer than 2 usable partners'), 'ir_gateway_honest_labels_and_log');
-$assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'failover_capable'), 'ir_health_failover_readiness');
+$assert(str_contains($irSrc, 'attachIntelligentRouteDecisionTxnId') && str_contains($irSrc, 'intelligentTryPayUCheckoutForm'), 'ir_txn_correlation_and_payu_routing');
+$assert(str_contains((string)file_get_contents($root . '/includes/financial_integrity.php'), 'attachIntelligentRouteDecisionTxnId'), 'ir_finalize_attach_txn');
+$assert(str_contains((string)file_get_contents($root . '/checkout.php'), "=== 'payu'") && str_contains((string)file_get_contents($root . '/checkout.php'), 'smartRouted[\'payu\']'), 'ir_checkout_payu_routed');
 
 $payload = [
     'ok' => $failed === 0,

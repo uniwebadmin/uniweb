@@ -543,7 +543,7 @@ $gatewayCards = [
                     </select>
                     <label class="text-[11px] text-gray-500 block mt-3">Success-rate window (hours)</label>
                     <input type="number" name="settings[intelligent_routing_success_window_hours]" min="1" max="720" value="<?= e((string)($settingsMap['intelligent_routing_success_window_hours'] ?? '168')) ?>" class="input-field mt-1 text-sm">
-                    <p class="text-[11px] text-gray-600 mt-2">Default OFF. When ON, overrides Phase 11 at checkout. Card/UPI pool only — customer sees UniWeb methods, not partner names. Failover needs <strong class="text-gray-500">2+ healthy</strong> Registry partners (Razorpay/Cashfree order-API). Not “always live multi-PG” until keys + health allow it.</p>
+                    <p class="text-[11px] text-gray-600 mt-2">Default OFF. When ON, overrides Phase 11 at checkout. Score pick across Razorpay, Cashfree, and PayU — customer sees UniWeb methods only. Failover needs <strong class="text-gray-500">2+ healthy</strong> Registry partners.</p>
                     <?php if ($intelligentOn): ?>
                     <p class="text-[11px] mt-2 <?= !empty($intelligentReadiness['failover_capable']) ? 'text-emerald-500/90' : 'text-amber-400' ?>">
                         <?= e($intelligentStrategyDoc) ?>
@@ -563,7 +563,7 @@ $gatewayCards = [
             <?php if ($intelligentOn && (int)$intelligentReadiness['usable_count'] < 2): ?>
             <div class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
                 <p class="font-medium text-amber-300">Intelligent routing ON — fewer than 2 usable partners</p>
-                <p class="text-gray-400 mt-1">Checkout uses an honest <strong class="text-gray-300">fixed path</strong> for the one configured partner. Add a second Razorpay/Cashfree key in Partner Registry for score pick + failover. PayU collect stays on its own form path.</p>
+                <p class="text-gray-400 mt-1">Checkout uses an honest <strong class="text-gray-300">fixed path</strong> for the one configured partner. Add a second collect partner key in Partner Registry for score pick + failover.</p>
             </div>
             <?php endif; ?>
             <?php if ($routeSplitOn && !empty($phase11RouteLog)): ?>
@@ -594,13 +594,14 @@ $gatewayCards = [
                 <?php else: ?>
                 <div class="overflow-x-auto mt-3">
                     <table class="w-full text-[10px] text-left">
-                        <thead><tr class="text-gray-500 border-b border-gray-800"><th class="py-1 pr-2">Time</th><th class="py-1 pr-2">Partner</th><th class="py-1 pr-2">Strategy</th><th class="py-1 pr-2">Outcome</th><th class="py-1 pr-2">Failover</th><th class="py-1 pr-2">Scores</th><th class="py-1">Reason</th></tr></thead>
+                        <thead><tr class="text-gray-500 border-b border-gray-800"><th class="py-1 pr-2">Time</th><th class="py-1 pr-2">Partner</th><th class="py-1 pr-2">TXN</th><th class="py-1 pr-2">Strategy</th><th class="py-1 pr-2">Outcome</th><th class="py-1 pr-2">Failover</th><th class="py-1 pr-2">Scores</th><th class="py-1">Reason</th></tr></thead>
                         <tbody>
                         <?php foreach ($intelligentRouteLog as $logRow): ?>
                         <?php $outcome = (string)($logRow['outcome'] ?? ''); ?>
                         <tr class="border-b border-gray-900/80">
                             <td class="py-1 pr-2 text-gray-500 whitespace-nowrap"><?= e(substr((string)($logRow['created_at'] ?? ''), 0, 16)) ?></td>
                             <td class="py-1 pr-2 text-teal-300"><?= e((string)($logRow['chosen_partner'] ?? '—')) ?></td>
+                            <td class="py-1 pr-2 font-mono text-sky-300"><?= e((string)($logRow['txn_id'] ?? '—')) ?></td>
                             <td class="py-1 pr-2"><?= e((string)($logRow['strategy'] ?? '')) ?></td>
                             <td class="py-1 pr-2"><?= e($outcome) ?></td>
                             <td class="py-1 pr-2"><?= $outcome === 'failover' || ((int)($logRow['attempt_index'] ?? 0) > 0 && $outcome === 'selected') ? 'yes' : ($outcome === 'attempt_failed' ? 'retry' : 'no') ?></td>

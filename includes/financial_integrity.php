@@ -813,6 +813,15 @@ function finalizeSuccessfulPaymentTransaction(int $transactionId, array $opts = 
         notifyMerchantPaymentCaptured($merchantId, $txn, isset($opts['link_id']) ? (string)$opts['link_id'] : null);
     }
 
+    if (!empty($opts['link_id']) && $txnRef !== '') {
+        if (!function_exists('attachIntelligentRouteDecisionTxnId') && is_file(__DIR__ . '/intelligent_routing.php')) {
+            require_once __DIR__ . '/intelligent_routing.php';
+        }
+        if (function_exists('attachIntelligentRouteDecisionTxnId')) {
+            attachIntelligentRouteDecisionTxnId((string)$opts['link_id'], $provider, $txnRef);
+        }
+    }
+
     return ['ok' => true, 'transaction_id' => $transactionId, 'ledger_posted' => $ledgerPosted];
 }
 
@@ -1038,6 +1047,12 @@ function captureVerifiedPaymentOrder(array $verification): array
             $txnRow,
             isset($link['link_id']) ? (string)$link['link_id'] : null
         );
+        if (!function_exists('attachIntelligentRouteDecisionTxnId') && is_file(__DIR__ . '/intelligent_routing.php')) {
+            require_once __DIR__ . '/intelligent_routing.php';
+        }
+        if (function_exists('attachIntelligentRouteDecisionTxnId') && !empty($link['link_id']) && $txnRef !== '') {
+            attachIntelligentRouteDecisionTxnId((string)$link['link_id'], strtolower((string)$verification['provider']), $txnRef);
+        }
     } catch (Throwable $e) {
         logPlatformError('warning', 'Verified payment post-processing failed.', [
             'transaction_id' => $transactionId,

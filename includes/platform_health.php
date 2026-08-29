@@ -183,7 +183,7 @@ function intelligentRoutingHealthCheck(): array
             'label' => 'Intelligent routing',
             'ok' => false,
             'status' => 'Owner ON — no usable collect partners',
-            'detail' => 'Paste Registry keys for Razorpay/Cashfree. PayU uses separate form path — not score-routed.',
+            'detail' => 'Paste Registry keys for Razorpay, Cashfree, and/or PayU.',
             'test_url' => 'gateway_settings.php#live-money-switches',
         ];
     }

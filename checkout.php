@@ -341,17 +341,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if ($selectedPay === 'upi' && function_exists('decentroSandboxCheckoutAvailable') && decentroSandboxCheckoutAvailable($link)) {
         $decentroQr = createDecentroSandboxCheckoutQr($link);
     }
-    if (isGatewayConfigured('payu') && function_exists('buildPayUPaymentForm')) {
-        foreach ($paymentMethods as $m) {
-            if (($m['type'] ?? '') === 'payu' && !empty($m['pg'])) {
-                try {
-                    $payuForms[$m['key']] = buildPayUPaymentForm($link, $link, $withPayuSplit, $m['pg'], $m['key'], $payAmount);
-                } catch (Throwable $e) {
-                    logPlatformError('warning', 'PayU checkout form failed: ' . $e->getMessage(), ['link_id' => $linkId, 'pay' => $m['key']]);
-                }
-            }
-        }
-    }
     $smartRouted = null;
     if (!function_exists('intelligentRoutingEnabled') && is_file(__DIR__ . '/includes/intelligent_routing.php')) {
         require_once __DIR__ . '/includes/intelligent_routing.php';
@@ -359,22 +348,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $intelligentOn = function_exists('intelligentRoutingEnabled') && intelligentRoutingEnabled();
     $phase11RoutingOn = function_exists('phase11RouteEngineActive') && phase11RouteEngineActive();
     $pgPoolSelected = ($currentMethod['type'] ?? '') === 'pg_pool';
+    $payuTabSelected = ($currentMethod['type'] ?? '') === 'payu';
     $legacyPgTab = in_array($selectedPay, ['razorpay', 'cashfree'], true);
-    $cardPgSelected = $pgPoolSelected || $legacyPgTab;
+    $cardPgSelected = $pgPoolSelected || $legacyPgTab || $payuTabSelected;
     $routeHandlersClear = $handler !== 'razorpay_route' && $handler !== 'cashfree_route';
     if ($intelligentOn && $cardPgSelected && $routeHandlersClear) {
         $returnUrl = APP_URL . '/payment_cashfree_return.php?order_id={order_id}';
-        $smartRouted = createCardOrderWithIntelligentRouting($payAmount, $link, $returnUrl, $selectedPay);
+        $smartRouted = createCardOrderWithIntelligentRouting(
+            $payAmount,
+            $link,
+            $returnUrl,
+            $selectedPay,
+            $withPayuSplit,
+            (string)($currentMethod['pg'] ?? '')
+        );
         if (($smartRouted['routed_to'] ?? null) === 'razorpay') {
             $razorpayOrder = $smartRouted['razorpay'];
             $pgCheckoutPartner = 'razorpay';
         } elseif (($smartRouted['routed_to'] ?? null) === 'cashfree') {
             $cashfreeSession = $smartRouted['cashfree']['payment_session_id'] ?? null;
             $pgCheckoutPartner = 'cashfree';
+        } elseif (($smartRouted['routed_to'] ?? null) === 'payu' && !empty($smartRouted['payu'])) {
+            $payuForms[$selectedPay] = $smartRouted['payu'];
+            $pgCheckoutPartner = 'payu';
         } elseif (!empty($smartRouted['intelligent']) && empty($smartRouted['routed_to']) && ($error ?? '') === '') {
             $error = 'This payment method is temporarily unavailable. Please try UPI or another method.';
         }
-    } elseif ($phase11RoutingOn && $cardPgSelected && $routeHandlersClear) {
+    } elseif ($phase11RoutingOn && ($pgPoolSelected || $legacyPgTab) && $routeHandlersClear) {
         // Phase 11 ON: smart partner routing (Registry keys + health failover). Methods-only checkout — no partner brand CTA.
         $returnUrl = APP_URL . '/payment_cashfree_return.php?order_id={order_id}';
         $smartRouted = createCardOrderWithSmartRouting($payAmount, $link, $returnUrl);
@@ -439,6 +439,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
         if ($cashfreeSession === null && ($error ?? '') === '') {
             $error = 'This payment method is not available in this Test/Live mode. Use UPI or another method.';
+        }
+    }
+    if (isGatewayConfigured('payu') && function_exists('buildPayUPaymentForm')) {
+        foreach ($paymentMethods as $m) {
+            if (($m['type'] ?? '') === 'payu' && !empty($m['pg']) && !isset($payuForms[$m['key']])) {
+                try {
+                    $payuForms[$m['key']] = buildPayUPaymentForm($link, $link, $withPayuSplit, $m['pg'], $m['key'], $payAmount);
+                } catch (Throwable $e) {
+                    logPlatformError('warning', 'PayU checkout form failed: ' . $e->getMessage(), ['link_id' => $linkId, 'pay' => $m['key']]);
+                }
+            }
         }
     }
   } catch (Throwable $e) {
@@ -661,7 +672,7 @@ endif;
                     <?php if ($allowInstantPay): ?></details><?php endif; ?>
                     <?php endif; ?>
 
-                    <?php elseif (($currentMethod['type'] ?? '') === 'payu' && !empty($payuForms[$selectedPay])): ?>
+                    <?php elseif ((($pgCheckoutPartner ?? '') === 'payu' || ($currentMethod['type'] ?? '') === 'payu') && !empty($payuForms[$selectedPay])): ?>
                     <?php $pf = $payuForms[$selectedPay]; ?>
                     <?php if ($allowInstantPay): ?>
                     <form method="POST" class="space-y-3 mb-4">

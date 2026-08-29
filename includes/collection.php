@@ -411,6 +411,24 @@ function createTransactionFromPayment(array $link, string $method, string $statu
             }
         }
     }
+    if ($status === 'success') {
+        $linkIdForRoute = null;
+        if (!empty($link['link_id'])) {
+            $linkIdForRoute = (string)$link['link_id'];
+        } elseif (!empty($link['id'])) {
+            $lid = $db->prepare('SELECT link_id FROM payment_links WHERE id = ?');
+            $lid->execute([(int)$link['id']]);
+            $linkIdForRoute = $lid->fetchColumn() ?: null;
+        }
+        if ($linkIdForRoute !== null && $linkIdForRoute !== '') {
+            if (!function_exists('attachIntelligentRouteDecisionTxnId') && is_file(__DIR__ . '/intelligent_routing.php')) {
+                require_once __DIR__ . '/intelligent_routing.php';
+            }
+            if (function_exists('attachIntelligentRouteDecisionTxnId')) {
+                attachIntelligentRouteDecisionTxnId($linkIdForRoute, $methodStored, $txnId);
+            }
+        }
+    }
     return $id;
 }
 
