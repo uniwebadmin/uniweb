@@ -108,6 +108,128 @@ function pgWebhookEventTooOld(?string $createdAt): bool
     return (time() - $ts) > $maxAge;
 }
 
+/** Read raw request body once — always before json_decode. */
+function pgWebhookReadRawBody(): string
+{
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+    $cached = file_get_contents('php://input');
+    if ($cached === false) {
+        $cached = '';
+    }
+    return $cached;
+}
+
+/** Normalized inbound headers (lowercase keys). Never log values that look like secrets. */
+function pgWebhookHeadersFromServer(): array
+{
+    $headers = [];
+    foreach ($_SERVER as $key => $value) {
+        if (!is_string($key) || !str_starts_with($key, 'HTTP_')) {
+            continue;
+        }
+        $name = strtolower(str_replace('_', '-', substr($key, 5)));
+        $headers[$name] = is_string($value) ? $value : (string)$value;
+    }
+    return $headers;
+}
+
+/**
+ * Central partner webhook signature verify — timing-safe compare inside adapters.
+ *
+ * Inbound policy (partner → UniWeb):
+ * - Invalid signature / fatal parse → HTTP 401/403 (partner may retry; handler stays idempotent).
+ * - Valid + duplicate event_id → HTTP 200 after durable dedup row exists.
+ * - Valid + new → HTTP 200 via webhookFastAck after registerGatewayEvent + recordWebhookEvent persist.
+ *
+ * @param array<string,mixed>|null $parsedForm Required for PayU (reverse hash on form fields, not raw body).
+ * @return array{ok:bool,scheme:string,http_code:int,reason:string}
+ */
+function pgWebhookVerifyPartner(string $partner, string $rawBody, ?array $parsedForm = null): array
+{
+    $partner = strtolower(trim($partner));
+    $headers = pgWebhookHeadersFromServer();
+
+    if ($partner === 'razorpay') {
+        $sig = (string)($headers['x-razorpay-signature'] ?? '');
+        $ok = $sig !== '' && verifyRazorpayWebhookSignature($rawBody, $sig);
+        return [
+            'ok' => $ok,
+            'scheme' => 'hmac_sha256_hex_body',
+            'http_code' => 401,
+            'reason' => $ok ? 'ok' : ($sig === '' ? 'missing_signature' : 'invalid_signature'),
+        ];
+    }
+
+    if ($partner === 'cashfree') {
+        $sig = (string)($headers['x-webhook-signature'] ?? '');
+        $ts = (string)($headers['x-webhook-timestamp'] ?? '');
+        $ok = verifyCashfreeWebhookSignature($rawBody, $sig, $ts);
+        return [
+            'ok' => $ok,
+            'scheme' => 'hmac_sha256_b64_timestamp_body',
+            'http_code' => 401,
+            'reason' => $ok ? 'ok' : ($sig === '' || $ts === '' ? 'missing_signature' : 'invalid_signature_or_stale_timestamp'),
+        ];
+    }
+
+    if ($partner === 'payu') {
+        $form = $parsedForm ?? [];
+        if ($form === [] && $rawBody !== '') {
+            $decoded = json_decode($rawBody, true);
+            if (is_array($decoded)) {
+                $form = $decoded;
+            }
+        }
+        if ($form === []) {
+            $form = array_merge($_GET ?? [], $_POST ?? []);
+        }
+        $ok = $form !== [] && verifyPayUResponseHash($form);
+        return [
+            'ok' => $ok,
+            'scheme' => 'reverse_sha512_form_hash',
+            'http_code' => 401,
+            'reason' => $ok ? 'ok' : 'invalid_hash',
+        ];
+    }
+
+    if ($partner === 'decentro') {
+        $sig = (string)($headers['x-decentro-signature'] ?? $headers['x-webhook-signature'] ?? $headers['decentro-signature'] ?? '');
+        $ok = verifyDecentroWebhookSignature($rawBody, $sig);
+        return [
+            'ok' => $ok,
+            'scheme' => 'hmac_sha256_hex_body',
+            'http_code' => 401,
+            'reason' => $ok ? 'ok' : 'invalid_signature',
+        ];
+    }
+
+    return [
+        'ok' => false,
+        'scheme' => 'unsupported',
+        'http_code' => 403,
+        'reason' => 'unsupported_partner',
+    ];
+}
+
+function verifyDecentroWebhookSignature(string $rawBody, string $signature): bool
+{
+    if (!function_exists('decentroClientSecret') && is_file(__DIR__ . '/partner_control.php')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    $clientSecret = function_exists('decentroClientSecret') ? decentroClientSecret() : '';
+    if ($clientSecret === '') {
+        return function_exists('isDecentroSandboxEnvironment') && isDecentroSandboxEnvironment();
+    }
+    if ($signature === '') {
+        return function_exists('isDecentroSandboxEnvironment') && isDecentroSandboxEnvironment();
+    }
+    $expected = hash_hmac('sha256', $rawBody, $clientSecret);
+    return hash_equals($expected, $signature);
+}
+
 function loadPaymentLinkRow(string $linkId): ?array
 {
     if ($linkId === '') {

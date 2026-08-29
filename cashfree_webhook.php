@@ -8,21 +8,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && empty($_POST)) {
     pgWebhookHealthResponse('cashfree');
 }
 
-$raw = file_get_contents('php://input') ?: '';
-$signature = $_SERVER['HTTP_X_WEBHOOK_SIGNATURE'] ?? '';
-$timestamp = $_SERVER['HTTP_X_WEBHOOK_TIMESTAMP'] ?? '';
-
-if (!verifyCashfreeWebhookSignature($raw, $signature, $timestamp)) {
+$raw = pgWebhookReadRawBody();
+$verify = pgWebhookVerifyPartner('cashfree', $raw);
+if (!$verify['ok']) {
     if (financialTablesReady()) {
         registerGatewayEvent('cashfree', $_SERVER['HTTP_X_WEBHOOK_ID'] ?? '', 'unknown', $raw, false);
     }
-    logPgWebhookVerifyFailure('cashfree', 'invalid_signature', null, null, null, [
-        'has_signature' => $signature !== '',
-        'has_timestamp' => $timestamp !== '',
+    logPgWebhookVerifyFailure('cashfree', (string)$verify['reason'], null, null, null, [
+        'has_signature' => (string)($_SERVER['HTTP_X_WEBHOOK_SIGNATURE'] ?? '') !== '',
+        'has_timestamp' => (string)($_SERVER['HTTP_X_WEBHOOK_TIMESTAMP'] ?? '') !== '',
         'event_id' => substr((string)($_SERVER['HTTP_X_WEBHOOK_ID'] ?? ''), 0, 64),
         'body_bytes' => strlen($raw),
+        'scheme' => (string)$verify['scheme'],
     ]);
-    jsonResponse(['error' => 'Invalid signature or stale timestamp'], 401);
+    pgWebhookRejectJson('cashfree', (string)$verify['reason'], (int)$verify['http_code']);
 }
 
 $payload = json_decode($raw, true);
@@ -43,7 +42,7 @@ $gatewayEvent = registerGatewayEvent('cashfree', $eventId, $event, $raw, true);
 if (!empty($gatewayEvent['duplicate'])) {
     jsonResponse(['ok' => true, 'duplicate' => true]);
 }
-$webhookEv = recordWebhookEvent($eventId, 'cashfree', $event, $raw, $signature);
+$webhookEv = recordWebhookEvent($eventId, 'cashfree', $event, $raw, (string)($_SERVER['HTTP_X_WEBHOOK_SIGNATURE'] ?? ''));
 if (!empty($webhookEv['is_duplicate'])) {
     jsonResponse(['ok' => true, 'duplicate' => true]);
 }

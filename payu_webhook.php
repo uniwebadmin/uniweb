@@ -8,25 +8,30 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && empty($_POST) && empty($_
     pgWebhookHealthResponse('payu');
 }
 
-$post = array_merge($_GET, $_POST);$raw = json_encode($post);
+$post = array_merge($_GET, $_POST);
+$raw = json_encode($post, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?: '';
 $linkId = (string)($post['udf1'] ?? '');
 $status = strtolower((string)($post['status'] ?? ''));
 $reference = (string)($post['mihpayid'] ?? $post['txnid'] ?? '');
 $amount = (float)($post['amount'] ?? 0);
 
-logPgWebhook('payu', 'received', $status, $reference, $linkId, $raw);
-
-if (!verifyPayUResponseHash($post)) {
-    logPgWebhookVerifyFailure('payu', 'invalid_hash', $status, $reference, $linkId, [
+$verify = pgWebhookVerifyPartner('payu', $raw, $post);
+if (!$verify['ok']) {
+    logPgWebhookVerifyFailure('payu', (string)$verify['reason'], $status, $reference, $linkId, [
         'status' => $status,
         'reference' => $reference !== '' ? $reference : null,
         'link_id' => $linkId !== '' ? $linkId : null,
+        'scheme' => (string)$verify['scheme'],
     ]);
-    http_response_code(401);
-    header('Content-Type: application/json');
-    echo json_encode(['error' => 'Invalid hash']);
-    exit;
+    pgWebhookRejectJson('payu', (string)$verify['reason'], (int)$verify['http_code'], $status, $reference);
 }
+
+logPgWebhook('payu', 'received', $status, $reference, $linkId, json_encode([
+    'status' => $status,
+    'reference' => $reference,
+    'link_id' => $linkId,
+    'body_bytes' => strlen($raw),
+], JSON_UNESCAPED_UNICODE) ?: '{}');
 
 $eventId = 'payu:' . ($reference ?: hash('sha256', $raw));
 $gatewayEvent = registerGatewayEvent('payu', $eventId, $status, $raw, true);

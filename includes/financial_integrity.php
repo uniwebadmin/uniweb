@@ -491,7 +491,7 @@ function claimApiIdempotency(int $merchantId, string $mode, string $key, array $
         $st = $db->prepare(
             'INSERT INTO api_idempotency_keys
              (merchant_id,mode,idempotency_key,request_hash,locked_until,expires_at)
-             VALUES (?,?,?,?,DATE_ADD(NOW(),INTERVAL 30 SECOND),DATE_ADD(NOW(),INTERVAL 24 HOUR))'
+             VALUES (?,?,?,?,DATE_ADD(NOW(),INTERVAL 30 SECOND),DATE_ADD(NOW(),INTERVAL 72 HOUR))'
         );
         $st->execute([$merchantId, $mode, $key, $hash]);
         return ['id' => (int)$db->lastInsertId(), 'replay' => false];

@@ -1837,10 +1837,19 @@ $assert(str_contains($p6Err, "'auth_invalid'") && str_contains($p6Err, "'partner
 $assert(str_contains($p6Ref, 'function resolveRefundProvider') && str_contains($p6Ref, 'function submitProviderRefund'), 'p9_multi_partner_refund_router');
 $assert(str_contains($p6Gw, 'function createCashfreeRefund') && str_contains($p6Gw, 'function createPayuRefund'), 'p9_cashfree_payu_refund_api');
 $assert(str_contains((string)file_get_contents($root . '/cashfree_webhook.php'), 'applyPartnerRefundWebhookEvent'), 'p6_cashfree_refund_webhook');
-$assert(str_contains((string)file_get_contents($root . '/payu_webhook.php'), 'applyPartnerRefundWebhookEvent') && str_contains((string)file_get_contents($root . '/payu_webhook.php'), 'http_response_code(401)'), 'p6_payu_refund_webhook_and_401');
+$assert(str_contains((string)file_get_contents($root . '/payu_webhook.php'), 'applyPartnerRefundWebhookEvent') && str_contains((string)file_get_contents($root . '/payu_webhook.php'), 'pgWebhookRejectJson') && str_contains($p6Pg, "'http_code' => 401"), 'p6_payu_refund_webhook_and_401');
 $assert(str_contains((string)file_get_contents($root . '/includes/chargebacks.php'), 'applyChargebackLostDebit') && str_contains((string)file_get_contents($root . '/includes/chargebacks.php'), "'expired'"), 'p6_chargeback_state_machine');
 $assert(str_contains((string)file_get_contents($root . '/includes/fraud_signals.php'), 'recordWebhookSignatureFailure'), 'p6_fraud_webhook_sig_fail');
 $assert(str_contains((string)file_get_contents($root . '/transaction_detail.php'), 'refundDisplayStatus'), 'p9_txn_detail_refund_honest_labels');
+
+// Webhook security + idempotency + retry policy
+$pgSec = (string)file_get_contents($root . '/includes/pg_webhooks.php');
+$retryPol = (string)file_get_contents($root . '/includes/partner_api_retry.php');
+$assert(str_contains($pgSec, 'function pgWebhookVerifyPartner') && str_contains($pgSec, 'function pgWebhookReadRawBody'), 'wh_central_verify_interface');
+$assert(str_contains($pgSec, 'hash_equals') && str_contains($pgSec, 'reverse_sha512_form_hash'), 'wh_timing_safe_adapters');
+$assert(str_contains((string)file_get_contents($root . '/razorpay_webhook.php'), 'pgWebhookVerifyPartner') && str_contains((string)file_get_contents($root . '/payu_webhook.php'), 'pgWebhookVerifyPartner'), 'wh_entry_uses_central_verify');
+$assert(str_contains($retryPol, 'partnerApiRetryMaxAttempts') && str_contains($retryPol, 'partnerApiExecuteWithRetry'), 'wh_outbound_retry_policy');
+$assert(str_contains((string)file_get_contents($root . '/includes/financial_integrity.php'), 'INTERVAL 72 HOUR'), 'wh_api_idempotency_72h_ttl');
 
 // Owner three-workstreams — Refund notify, Customer portal, Intelligent routing
 $irSrc = (string)@file_get_contents($root . '/includes/intelligent_routing.php');

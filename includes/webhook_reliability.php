@@ -8,8 +8,12 @@ declare(strict_types=1);
  *   1. Gateway sends webhook → recordWebhookEvent() checks idempotency
  *   2. If duplicate (same event_id) → return already-processed status
  *   3. If new → store in webhook_events, process, mark completed/failed
- *   4. Failed → schedule retry with exponential backoff
+ *   4. Failed → schedule retry with exponential backoff + jitter (internal UniWeb retry queue)
  *   5. After max_retries → move to dead_letter status
+ *
+ * Inbound HTTP (partner → UniWeb): invalid signature returns 401/403 (see pgWebhookVerifyPartner).
+ * Valid events return 200 only after gateway_events + webhook_events durable insert (webhookFastAck).
+ * Partner retries are safe — gateway_events UNIQUE (provider, event_id) + webhook_events UNIQUE event_id.
  */
 
 function ensureWebhookEventsTable(): void
@@ -137,8 +141,11 @@ function markWebhookFailed(int $eventId, string $error): void
             } catch (Throwable $e) {}
             alertWebhookDeadLetter($alertEvent);
         } else {
-            // Schedule retry with exponential backoff: 2^retry minutes
+            // Schedule retry with exponential backoff + jitter: 2^retry minutes (cap 60)
             $delayMinutes = min(60, (1 << $retryCount));
+            try {
+                $delayMinutes = min(60, $delayMinutes + random_int(0, 3));
+            } catch (Throwable $e) { /* ok */ }
             $nextRetry = date('Y-m-d H:i:s', time() + ($delayMinutes * 60));
             $db->prepare("UPDATE webhook_events SET status='failed', retry_count=?, last_error=?, next_retry_at=? WHERE id=?")
                 ->execute([$retryCount, mb_substr($error, 0, 2000), $nextRetry, $eventId]);

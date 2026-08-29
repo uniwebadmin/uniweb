@@ -8,19 +8,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && empty($_POST)) {
     pgWebhookHealthResponse('razorpay');
 }
 
-$raw = file_get_contents('php://input') ?: '';
-$signature = $_SERVER['HTTP_X_RAZORPAY_SIGNATURE'] ?? '';
-
-if (!verifyRazorpayWebhookSignature($raw, $signature)) {
+$raw = pgWebhookReadRawBody();
+$verify = pgWebhookVerifyPartner('razorpay', $raw);
+if (!$verify['ok']) {
     if (financialTablesReady()) {
         registerGatewayEvent('razorpay', $_SERVER['HTTP_X_RAZORPAY_EVENT_ID'] ?? '', 'unknown', $raw, false);
     }
-    logPgWebhookVerifyFailure('razorpay', 'invalid_signature', null, null, null, [
-        'has_signature' => $signature !== '',
+    logPgWebhookVerifyFailure('razorpay', (string)$verify['reason'], null, null, null, [
+        'has_signature' => (string)($_SERVER['HTTP_X_RAZORPAY_SIGNATURE'] ?? '') !== '',
         'event_id' => substr((string)($_SERVER['HTTP_X_RAZORPAY_EVENT_ID'] ?? ''), 0, 64),
         'body_bytes' => strlen($raw),
+        'scheme' => (string)$verify['scheme'],
     ]);
-    jsonResponse(['error' => 'Invalid signature'], 401);
+    pgWebhookRejectJson('razorpay', (string)$verify['reason'], (int)$verify['http_code']);
 }
 
 $payload = json_decode($raw, true);
@@ -42,7 +42,7 @@ $gatewayEvent = registerGatewayEvent('razorpay', $eventId, $event, $raw, true);
 if (!empty($gatewayEvent['duplicate'])) {
     jsonResponse(['ok' => true, 'duplicate' => true]);
 }
-$webhookEv = recordWebhookEvent($eventId, 'razorpay', $event, $raw, $signature);
+$webhookEv = recordWebhookEvent($eventId, 'razorpay', $event, $raw, (string)($_SERVER['HTTP_X_RAZORPAY_SIGNATURE'] ?? ''));
 if (!empty($webhookEv['is_duplicate'])) {
     jsonResponse(['ok' => true, 'duplicate' => true]);
 }

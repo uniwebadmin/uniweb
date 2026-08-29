@@ -390,6 +390,9 @@ function payuPostserviceRequest(string $command, string $var1, string $var2 = ''
     if ($c['key'] === '' || $c['salt'] === '' || $command === '' || $var1 === '') {
         return null;
     }
+    if (!function_exists('partnerApiExecuteWithRetry') && is_file(__DIR__ . '/partner_api_retry.php')) {
+        require_once __DIR__ . '/partner_api_retry.php';
+    }
     $hashStr = $c['key'] . '|' . $command . '|' . $var1 . '|' . $c['salt'];
     $hash = strtolower(hash('sha512', $hashStr));
     $post = ['key' => $c['key'], 'command' => $command, 'var1' => $var1, 'hash' => $hash];
@@ -399,17 +402,40 @@ function payuPostserviceRequest(string $command, string $var1, string $var2 = ''
     if ($var3 !== '') {
         $post['var3'] = $var3;
     }
-    $ch = curl_init(payuBaseUrl() . '/merchant/postservice?form=2');
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POSTFIELDS => http_build_query($post),
-        CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
-        CURLOPT_TIMEOUT => 30,
-    ]);
-    $response = (string)curl_exec($ch);
-    $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    $url = payuBaseUrl() . '/merchant/postservice?form=2';
+    $exec = function_exists('partnerApiExecuteWithRetry')
+        ? partnerApiExecuteWithRetry(static function () use ($url, $post): array {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POSTFIELDS => http_build_query($post),
+                CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+                CURLOPT_TIMEOUT => 30,
+            ]);
+            $response = (string)curl_exec($ch);
+            $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $err = curl_error($ch);
+            curl_close($ch);
+            return ['http' => $http, 'body' => $response, 'curl_error' => $err !== '' ? $err : null];
+        })
+        : null;
+    if (is_array($exec)) {
+        $response = (string)($exec['body'] ?? '');
+        $http = (int)($exec['http'] ?? 0);
+    } else {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POSTFIELDS => http_build_query($post),
+            CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+            CURLOPT_TIMEOUT => 30,
+        ]);
+        $response = (string)curl_exec($ch);
+        $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+    }
     if ($response === '') {
         return null;
     }

@@ -8,26 +8,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && empty($_POST)) {
     pgWebhookHealthResponse('decentro');
 }
 
-$raw = file_get_contents('php://input') ?: '';
+$raw = pgWebhookReadRawBody();
 
-// Decentro webhook signature verification
-// Decentro sends a webhook signature in the header that can be verified
-// using the client_secret. The exact header name may vary; we check common ones.
-$signature = $_SERVER['HTTP_X_DECENTRO_SIGNATURE']
-    ?? $_SERVER['HTTP_X_WEBHOOK_SIGNATURE']
-    ?? $_SERVER['HTTP_DECENTRO_SIGNATURE']
-    ?? '';
-
-if (!verifyDecentroWebhookSignature($raw, $signature)) {
+$verify = pgWebhookVerifyPartner('decentro', $raw);
+if (!$verify['ok']) {
     if (function_exists('financialTablesReady') && financialTablesReady()) {
         registerGatewayEvent('decentro', $_SERVER['HTTP_X_DECENTRO_EVENT_ID'] ?? '', 'unknown', $raw, false);
     }
-    logPgWebhookVerifyFailure('decentro', 'invalid_signature', null, null, null, [
-        'has_signature' => $signature !== '',
+    logPgWebhookVerifyFailure('decentro', (string)$verify['reason'], null, null, null, [
+        'has_signature' => (string)($_SERVER['HTTP_X_DECENTRO_SIGNATURE'] ?? $_SERVER['HTTP_X_WEBHOOK_SIGNATURE'] ?? '') !== '',
         'event_id' => substr((string)($_SERVER['HTTP_X_DECENTRO_EVENT_ID'] ?? ''), 0, 64),
         'body_bytes' => strlen($raw),
+        'scheme' => (string)$verify['scheme'],
     ]);
-    jsonResponse(['error' => 'Invalid signature'], 401);
+    pgWebhookRejectJson('decentro', (string)$verify['reason'], (int)$verify['http_code']);
 }
 
 $payload = json_decode($raw, true);
@@ -203,28 +197,3 @@ setGatewayEventStatus((int)$gatewayEvent['id'], 'processed');
 markWebhookCompleted((int)$webhookEv['id']);
 logPgWebhook('decentro', 'ignored', $eventType, null, null, '{"reason":"no_txn_id"}');
 jsonResponse(['ok' => true, 'ignored' => true, 'reason' => 'no_txn_id']);
-
-
-/**
- * Verify Decentro webhook signature.
- * Decentro uses HMAC-SHA256 with the client_secret to sign the raw body.
- * The signature is sent in a header (X-Decentro-Signature or similar).
- * If no signature header is present, we fall back to accepting the webhook
- * (since Decentro may not always send signatures in staging). In production,
- * the client_secret should be set and signatures verified.
- */
-function verifyDecentroWebhookSignature(string $rawBody, string $signature): bool
-{
-    if (!function_exists('decentroClientSecret') && is_file(__DIR__ . '/includes/partner_control.php')) {
-        require_once __DIR__ . '/includes/partner_control.php';
-    }
-    $clientSecret = decentroClientSecret();
-    if (!$clientSecret) {
-        return isDecentroSandboxEnvironment();
-    }
-    if ($signature === '') {
-        return isDecentroSandboxEnvironment();
-    }
-    $expected = hash_hmac('sha256', $rawBody, $clientSecret);
-    return hash_equals($expected, $signature);
-}
