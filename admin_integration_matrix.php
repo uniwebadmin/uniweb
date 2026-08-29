@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'finance', 'ops']);
+require_once __DIR__ . '/includes/ui/ui_components.php';
+require_once __DIR__ . '/includes/enums/capability_state.php';
 require_once __DIR__ . '/includes/integration_matrix.php';
 if (!function_exists('integrationMatrixReadinessReport')) {
     require_once __DIR__ . '/includes/integration_matrix_workflow.php';
@@ -19,9 +21,9 @@ $pageTitle = 'Integration Status Board';
 require_once __DIR__ . '/header.php';
 ?>
 <div class="mb-4 rounded-xl border border-sky-500/35 bg-sky-950/30 px-4 py-3 text-sm" role="status">
-    <p class="font-semibold text-sky-200">Scaffold board — reference &amp; checklist, not live API tests</p>
-    <p class="text-xs text-gray-400 mt-1"><?= e($report['message']) ?></p>
-    <p class="text-[11px] text-gray-500 mt-2"><?= (int)$report['partners'] ?> partners × <?= (int)$report['operations'] ?> operations from Partner Registry — derived list, not hardcoded.</p>
+    <?= uiPageHint('Integration Status Board', (string)$report['message'] . ' Matrix cells use STUB until live Test Connection passes.') ?>
+    <p class="text-[11px] text-gray-500 mt-3"><?= (int)$report['partners'] ?> partners × <?= (int)$report['operations'] ?> operations from Partner Registry — derived list, not hardcoded.</p>
+    <p class="mt-3 flex flex-wrap gap-2 items-center"><?= uiCapabilityLegend() ?></p>
     <p class="mt-3 flex flex-wrap gap-2">
         <a href="admin_gateway_registry.php" class="inline-flex items-center px-3 py-1.5 rounded-lg bg-violet-600/80 hover:bg-violet-500 text-white text-xs font-medium">Open Partner Registry →</a>
         <a href="gateway_settings.php" class="inline-flex items-center px-3 py-1.5 rounded-lg border border-gray-600 text-gray-300 hover:text-white text-xs">Platform Settings</a>
@@ -38,7 +40,7 @@ require_once __DIR__ . '/header.php';
 
 <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
     <?php foreach ([
-        ['Scaffold', $counts['scaffold'] ?? 0, 'text-sky-400'],
+        ['Scaffold (STUB)', $counts['scaffold'] ?? 0, 'text-sky-400'],
         ['Blocked (keys)', $counts['blocked_owner'] ?? 0, 'text-amber-400'],
         ['Blocked (Axis UAT)', $counts['blocked_axis_uat'] ?? 0, 'text-red-400'],
         ['Pending', $counts['pending'] ?? 0, 'text-gray-400'],

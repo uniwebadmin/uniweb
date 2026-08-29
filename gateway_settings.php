@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/ui/ui_components.php';
+require_once __DIR__ . '/includes/enums/capability_state.php';
 require_once __DIR__ . '/includes/whatsapp_webhooks.php';
 require_once __DIR__ . '/includes/checkout_mode_banner.php';
 requireSuperAdmin();
@@ -148,9 +150,9 @@ $gatewayCards = [
     ['id' => 'razorpay', 'label' => 'Razorpay', 'test' => true],
     ['id' => 'cashfree', 'label' => 'Cashfree', 'test' => true],
     ['id' => 'payu', 'label' => 'PayU', 'test' => true],
-    ['id' => 'phonepe', 'label' => 'PhonePe', 'test' => true, 'checkout' => false, 'note' => 'Keys stored now · checkout enabled in a later release'],
-    ['id' => 'pinelabs', 'label' => 'Pine Labs Plural', 'test' => true, 'checkout' => false, 'note' => 'Paste keys when received · sandbox stub only · checkout stays on roadmap'],
-    ['id' => 'worldline', 'label' => 'Worldline', 'test' => false, 'checkout' => false, 'note' => 'Paste keys when received · checkout stays on roadmap'],
+    ['id' => 'phonepe', 'label' => 'PhonePe', 'test' => true, 'checkout' => false, 'note' => 'Keys UI only — collect checkout not wired yet'],
+    ['id' => 'pinelabs', 'label' => 'Pine Labs Plural', 'test' => true, 'checkout' => false, 'note' => 'Paste keys when received — sandbox stub only'],
+    ['id' => 'worldline', 'label' => 'Worldline', 'test' => false, 'checkout' => false, 'note' => 'Paste keys when received — checkout STUB'],
     ['id' => 'axis', 'label' => 'Axis Bank', 'test' => true],
     ['id' => 'rbl', 'label' => 'RBL Bank', 'test' => true, 'checkout' => false, 'note' => 'Paste sandbox keys · VA + UPI Collection + Payouts'],
     ['id' => 'decentro', 'label' => 'Decentro KYC', 'test' => true],
@@ -328,9 +330,9 @@ $gatewayCards = [
         <div class="rounded-xl border p-4 <?= $cardClass ?>">
             <div class="flex items-start justify-between gap-2">
                 <div>
-                    <p class="font-medium text-sm">
+                    <p class="font-medium text-sm flex flex-wrap items-center gap-2">
                         <?= e($card['label']) ?>
-                        <?php if (!$checkoutReady): ?><span class="ml-1 align-middle text-[9px] uppercase tracking-wide text-amber-400 border border-amber-500/40 rounded px-1 py-0.5">Roadmap</span><?php endif; ?>
+                        <?php if (!$checkoutReady): ?><?= uiCapabilityPill(CapabilityState::STUB, $card['note'] ?? 'Checkout not wired') ?><?php elseif ($configured && in_array($card['id'], ['razorpay', 'cashfree', 'payu'], true)): ?><?= uiCapabilityPill(CapabilityState::LIVE, 'Collect when Registry keys saved') ?><?php endif; ?>
                     </p>
                     <p class="text-xs mt-1 <?= $statusClass ?>"><?= e(gatewayStatusLabel($card['id'])) ?></p>
                     <?php if (!$checkoutReady && !empty($card['note'])): ?>
@@ -505,10 +507,15 @@ $gatewayCards = [
         ?>
         <div id="live-money-switches" class="rounded-xl border border-violet-500/30 bg-violet-950/20 p-5 my-4 space-y-4">
             <?= settingsSectionHeading('Live Money Switches', 'violet', 'text-base') ?>
-            <p class="text-xs text-gray-500 -mt-3">Owner-controlled. Default OFF — no live money movement until you turn ON and paste partner keys in Registry.</p>
+            <?= uiPageHint('Capability labels', 'LIVE = real money path when keys allow. STUB = UI only. PARKED = Owner switch OFF by design (default).') ?>
+            <div class="flex flex-wrap gap-2"><?= uiCapabilityLegend() ?></div>
+            <p class="text-xs text-gray-500 -mt-1">Owner-controlled. Default OFF — no live money movement until you turn ON and paste partner keys in Registry.</p>
             <div class="grid sm:grid-cols-2 lg:grid-cols-2 gap-4">
                 <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4">
-                    <label class="text-sm text-gray-300 font-medium">Payouts to bank accounts</label>
+                    <div class="flex flex-wrap items-center gap-2 mb-1">
+                        <label class="text-sm text-gray-300 font-medium">Payouts to bank accounts</label>
+                        <?= $payoutLiveOn ? uiCapabilityPill(CapabilityState::LIVE, 'Real bank transfers when keys + approval') : uiCapabilityPill(CapabilityState::PARKED, 'Default OFF') ?>
+                    </div>
                     <select name="settings[payout_live_enabled]" class="input-field mt-2">
                         <option value="0" <?= !$payoutLiveOn ? 'selected' : '' ?>>OFF — gated (default)</option>
                         <option value="1" <?= $payoutLiveOn ? 'selected' : '' ?>>ON — real bank transfers</option>
@@ -516,7 +523,10 @@ $gatewayCards = [
                     <p class="text-[11px] text-gray-600 mt-2">Needs payout partner keys in Registry + merchant checker approval. Does not affect checkout collect.</p>
                 </div>
                 <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4">
-                    <label class="text-sm text-gray-300 font-medium">Recurring / AutoPay mandates</label>
+                    <div class="flex flex-wrap items-center gap-2 mb-1">
+                        <label class="text-sm text-gray-300 font-medium">Recurring / AutoPay mandates</label>
+                        <?= $recurringOn ? uiCapabilityPill(CapabilityState::LIVE, 'Mandate path when approved') : uiCapabilityPill(CapabilityState::PARKED, 'Default OFF') ?>
+                    </div>
                     <select name="settings[recurring_autopay_approved]" class="input-field mt-2">
                         <option value="0" <?= !$recurringOn ? 'selected' : '' ?>>OFF — gated for merchants (default)</option>
                         <option value="1" <?= $recurringOn ? 'selected' : '' ?>>ON — mandate registration + live debits</option>
@@ -524,7 +534,10 @@ $gatewayCards = [
                     <p class="text-[11px] text-gray-600 mt-2">UPI Autopay + eNACH. Separate from one-time checkout.</p>
                 </div>
                 <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4">
-                    <label class="text-sm text-gray-300 font-medium">Phase 11 — Route / smart checkout routing</label>
+                    <div class="flex flex-wrap items-center gap-2 mb-1">
+                        <label class="text-sm text-gray-300 font-medium">Phase 11 — Route / smart checkout routing</label>
+                        <?= $routeSplitOn ? uiCapabilityPill(CapabilityState::STUB, 'Switch ON — split SDK still PARKED') : uiCapabilityPill(CapabilityState::PARKED, 'Default OFF') ?>
+                    </div>
                     <select name="settings[route_split_live_enabled]" class="input-field mt-2">
                         <option value="0" <?= !$routeSplitOn ? 'selected' : '' ?>>OFF — fixed checkout · no live split (default)</option>
                         <option value="1" <?= $routeSplitOn ? 'selected' : '' ?>>ON — smart checkout routing (split transfers separate)</option>
@@ -547,7 +560,10 @@ $gatewayCards = [
                     <?php endif; ?>
                 </div>
                 <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4">
-                    <label class="text-sm text-gray-300 font-medium">Intelligent routing (score-based)</label>
+                    <div class="flex flex-wrap items-center gap-2 mb-1">
+                        <label class="text-sm text-gray-300 font-medium">Intelligent routing (score-based)</label>
+                        <?= $intelligentOn ? uiCapabilityPill(CapabilityState::STUB, 'Score pick at checkout — needs 2+ partners for failover') : uiCapabilityPill(CapabilityState::PARKED, 'Default OFF') ?>
+                    </div>
                     <select name="settings[intelligent_routing_enabled]" class="input-field mt-2">
                         <option value="0" <?= !$intelligentOn ? 'selected' : '' ?>>OFF — fixed checkout routing (default)</option>
                         <option value="1" <?= $intelligentOn ? 'selected' : '' ?>>ON — score/rules partner pick at checkout</option>

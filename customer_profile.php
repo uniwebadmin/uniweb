@@ -17,11 +17,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     if ($action === 'request_phone_change') {
         $newPhone = customerNormalizePhone((string)($_POST['new_phone'] ?? ''));
         if ($newPhone === '') {
-            flash('error', 'Valid 10-digit mobile number daalein.');
+            flash('error', 'कृपया सही 10 अंकों का मोबाइल नंबर दर्ज करें।');
             redirect('customer_profile.php');
         }
         if ($newPhone === $phone) {
-            flash('error', 'Yeh number pehle se registered hai.');
+            flash('error', 'यह नंबर पहले से पंजीबद्ध है।');
             redirect('customer_profile.php');
         }
         $res = requestCustomerOtp($newPhone);
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $newPhone = (string)($_SESSION['cust_phone_change_new'] ?? '');
         $otp = (string)($_POST['phone_change_otp'] ?? '');
         if ($newPhone === '' || $otp === '') {
-            flash('error', 'OTP daalein.');
+            flash('error', 'OTP दर्ज करें।');
             redirect('customer_profile.php');
         }
         $verify = verifyCustomerOtp($newPhone, $otp);

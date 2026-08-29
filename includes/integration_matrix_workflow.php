@@ -25,8 +25,8 @@ function integrationMatrixStatusDefinitions(): array
 {
     return [
         'scaffold' => [
-            'label' => 'Scaffold',
-            'class' => 'bg-sky-500/20 text-sky-300',
+            'label' => 'STUB',
+            'class' => 'ui-pill-stub',
             'hint' => 'Code path or checklist row exists — verify manually after keys',
         ],
         'blocked_owner' => [
@@ -222,6 +222,18 @@ function integrationMatrixStatusBadgeHtml(string $status): string
 {
     $defs = integrationMatrixStatusDefinitions();
     $meta = $defs[$status] ?? ['label' => 'Unknown', 'class' => 'bg-gray-700 text-gray-400', 'hint' => ''];
+    if (!function_exists('uiStatusPill') && is_file(__DIR__ . '/ui/ui_components.php')) {
+        require_once __DIR__ . '/ui/ui_components.php';
+    }
+    if (function_exists('uiStatusPill')) {
+        $variant = match ($status) {
+            'scaffold' => 'stub',
+            'blocked_owner', 'blocked_axis_uat', 'pending' => 'parked',
+            'pass' => 'live',
+            default => 'neutral',
+        };
+        return uiStatusPill($variant, (string)($meta['label'] ?? 'Unknown'), (string)($meta['hint'] ?? ''));
+    }
     $title = ($meta['hint'] ?? '') !== '' ? ' title="' . htmlspecialchars((string)$meta['hint'], ENT_QUOTES, 'UTF-8') . '"' : '';
     return '<span class="text-[10px] px-2 py-0.5 rounded ' . e($meta['class']) . '"' . $title . '>'
         . e($meta['label']) . '</span>';

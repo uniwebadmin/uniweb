@@ -15,6 +15,10 @@ if (!function_exists('ensurePartnerControlTables')) {
 if (!function_exists('adminPartnerDetailUrl')) {
     require_once __DIR__ . '/includes/ui_links.php';
 }
+if (!function_exists('uiCapabilityLegend') && is_file(__DIR__ . '/includes/ui/ui_components.php')) {
+    require_once __DIR__ . '/includes/ui/ui_components.php';
+    require_once __DIR__ . '/includes/enums/capability_state.php';
+}
 requireStaffAccess(['super', 'ceo', 'ops']);
 
 syncPartnerGateways();
@@ -101,6 +105,14 @@ require_once __DIR__ . '/header.php';
                 <p class="text-xs text-gray-500 mt-1">Bank and PG <strong class="text-gray-400">tech partners</strong> — keys, methods, activate. Flow: <strong class="text-gray-400">Test keys → Test Connection → Live keys</strong>. Per-merchant checkout methods are toggled on each partner’s <strong class="text-gray-400">Detail → Methods</strong> page (not bulk-edited on this list). Partners do not own merchants; every merchant stays under UniWeb Admin.</p>
                 <?php if (is_array($registryKindEdu)): ?>
                 <p class="text-[11px] text-violet-300/90 mt-2"><?= e($registryKindEdu['summary']) ?> UPI/Card/QR live under <strong class="text-gray-400">Payment Methods</strong>, not here.</p>
+                <?php endif; ?>
+                <?php if (function_exists('uiCapabilityLegend')): ?>
+                <div class="mt-3"><?= uiCapabilityLegend() ?></div>
+                <?php
+                $capCounts = function_exists('platformPartnerCapabilityCounts') ? platformPartnerCapabilityCounts() : null;
+                if ($capCounts): ?>
+                <p class="text-[10px] text-gray-600 mt-2">Partners: <?= (int)$capCounts['live'] ?> LIVE · <?= (int)$capCounts['stub'] ?> STUB · <?= (int)$capCounts['parked'] ?> PARKED</p>
+                <?php endif; ?>
                 <?php endif; ?>
             </div>
             <div class="flex gap-3">

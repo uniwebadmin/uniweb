@@ -890,7 +890,13 @@ function partnerIntegrationState(string $partnerKey): array
 
 function partnerIntegrationStateBadgeHtml(string $partnerKey): string
 {
+    if (!function_exists('uiCapabilityPill') && is_file(__DIR__ . '/ui/ui_components.php')) {
+        require_once __DIR__ . '/ui/ui_components.php';
+    }
     $s = partnerIntegrationState($partnerKey);
+    if (function_exists('uiCapabilityPill')) {
+        return uiCapabilityPill($s['state'], $s['hint']);
+    }
     $color = match ($s['state']) {
         'LIVE' => 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
         'STUB' => 'bg-amber-500/15 text-amber-300 border-amber-500/30',

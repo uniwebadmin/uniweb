@@ -785,7 +785,7 @@ $assert(str_contains($n3c, 'function notificationActionUrl') && str_contains($n3
 $assert(str_contains($n3c, 'TKT[A-F0-9]') && str_contains($n3c, 'DSP[A-F0-9]'), 'p3c_notif_extracts_tkt_and_dsp');
 // 4a: Integration Status Board is status-only — keys CTA points to Partner Registry
 $im4a = (string)file_get_contents($root . '/admin_integration_matrix.php');
-$assert(str_contains($im4a, 'Scaffold board') && str_contains($im4a, 'partner keys are not pasted here'), 'p4a_integration_board_keys_not_here');
+$assert(str_contains($im4a, 'Integration Status Board') && str_contains($im4a, 'partner keys are not pasted here'), 'p4a_integration_board_keys_not_here');
 $assert(str_contains($im4a, 'admin_gateway_registry.php') && str_contains($im4a, 'Open Partner Registry'), 'p4a_integration_board_registry_cta');
 $assert(str_contains($im4a, 'Integration Status Board') && !str_contains($im4a, 'Gateway × Operation Matrix'), 'p4a_integration_board_title_clear');
 $assert(str_contains($im4a, 'integrationMatrixReadinessReport') && str_contains($im4a, 'Status legend'), 'im11_admin_readiness_report_and_legend');
@@ -1899,6 +1899,17 @@ $assert(str_contains((string)file_get_contents($root . '/includes/checkout_mode_
 $assert(is_file($root . '/includes/merchant_api_errors.php') && str_contains((string)file_get_contents($root . '/includes/merchant_api_errors.php'), 'error_code'), 'api_stable_error_codes');
 $assert(str_contains((string)file_get_contents($root . '/api.php'), 'merchantApiRespondError'), 'api_uses_stable_errors');
 $assert(str_contains((string)file_get_contents($root . '/includes/partner_engine.php'), 'function partnerIntegrationState'), 'partner_integration_state_labels');
+$capEnum = (string)file_get_contents($root . '/includes/enums/capability_state.php');
+$uiComp = (string)file_get_contents($root . '/includes/ui/ui_components.php');
+$assert(str_contains($capEnum, 'class CapabilityState') && str_contains($capEnum, 'const STUB'), 'p12_capability_state_enum');
+$assert(str_contains($uiComp, 'function uiStatusPill') && str_contains($uiComp, 'function uiCapabilityPill'), 'p12_ui_components');
+$assert(str_contains((string)file_get_contents($root . '/assets/css/ui-components.css'), 'ui-pill-live'), 'p12_ui_css_wcag_tokens');
+require_once $root . '/includes/enums/capability_state.php';
+foreach (CapabilityState::cases() as $cs) {
+    $assert(CapabilityState::label($cs) !== 'UNKNOWN' && CapabilityState::badgeVariant($cs) !== 'neutral', 'p12_enum_case_' . strtolower($cs));
+}
+$assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'uiCapabilityPill') && !str_contains((string)file_get_contents($root . '/gateway_settings.php'), '>Roadmap<'), 'p12_gateway_settings_stub_pills');
+$assert(str_contains((string)file_get_contents($root . '/includes/integration_matrix_workflow.php'), "'label' => 'STUB'"), 'p12_matrix_scaffold_stub_label');
 $assert(str_contains($irSrc, 'intelligentRoutingSuccessRateWindowHours') && str_contains($irSrc, 'attempt_failed'), 'routing_success_window_and_attempt_log');
 $assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'pgCheckoutPartner'), 'checkout_pg_pool_internal_routing');
 $assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'UniWeb Test Pay') && !str_contains((string)file_get_contents($root . '/checkout.php'), 'Instant Test Pay'), 'brand_checkout_uniweb_test_pay_cta');

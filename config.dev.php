@@ -381,6 +381,12 @@ function generateId(string $prefix = ''): string
 
 function statusBadge(string $status): string
 {
+    if (!function_exists('uiPaymentStatusPill') && is_file(__DIR__ . '/includes/ui/ui_components.php')) {
+        require_once __DIR__ . '/includes/ui/ui_components.php';
+    }
+    if (function_exists('uiPaymentStatusPill')) {
+        return uiPaymentStatusPill($status);
+    }
     $map = [
         'success'   => 'bg-emerald-500/10 text-emerald-400',
         'paid'      => 'bg-emerald-500/10 text-emerald-400',
