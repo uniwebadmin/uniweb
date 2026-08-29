@@ -188,51 +188,85 @@ function verifyUniWebWebhook(rawBody, signature, signingSecret) {
 
         <div class="glass rounded-xl p-6 border border-violet-500/20" id="sdk-libraries">
             <h2 class="font-semibold text-violet-300 mb-2">SDK Libraries</h2>
-            <p class="text-sm text-gray-400 mb-4">Official UniWeb client libraries — same Merchant API, UniWeb brand only. Install from the monorepo today; Packagist and npm publish when Owner enables.</p>
+            <p class="text-sm text-gray-400 mb-3">Official UniWeb client libraries — same Merchant API as above, UniWeb brand only. No partner SDK wrappers; your customer never sees bank/PG product names.</p>
+            <p class="text-xs text-gray-500 mb-4">Quick start: copy <code class="text-gray-400">uw_test_…</code> + <code class="text-gray-400">uws_…</code> from <?php if (isLoggedIn()): ?><a href="api_settings.php" class="text-emerald-400 hover:underline">API Settings</a><?php else: ?><a href="login.php" class="text-emerald-400 hover:underline">Dashboard → API Settings</a><?php endif; ?> → install an SDK below → call <code class="text-gray-400">createPaymentLink</code> → redirect to <code class="text-gray-400">payment_url</code>. Full README: <a href="https://github.com/uniwebadmin/uniweb/tree/main/sdk/php" class="text-sky-400 hover:underline" target="_blank" rel="noopener">sdk/php</a> · <a href="https://github.com/uniwebadmin/uniweb/tree/main/sdk/node" class="text-sky-400 hover:underline" target="_blank" rel="noopener">sdk/node</a>.</p>
             <div class="grid sm:grid-cols-2 gap-4 mb-6 text-sm">
                 <div class="rounded-lg border border-gray-800 p-4">
                     <h3 class="font-semibold text-brand-400 mb-2">PHP SDK</h3>
                     <p class="text-xs text-gray-500 mb-2">Package: <code class="text-gray-300">uniweb/merchant-sdk</code></p>
-                    <p class="text-xs text-gray-500 mb-3">Path: <a href="https://github.com/uniwebadmin/uniweb/tree/main/sdk/php" class="text-sky-400 hover:underline" target="_blank" rel="noopener">github.com/uniwebadmin/uniweb/sdk/php</a></p>
-                    <pre class="bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300">composer require uniweb/merchant-sdk:@dev
-
-use UniWeb\Client\Client;
+                    <p class="text-xs text-gray-500 mb-3">Monorepo: <a href="https://github.com/uniwebadmin/uniweb/tree/main/sdk/php" class="text-sky-400 hover:underline" target="_blank" rel="noopener">github.com/uniwebadmin/uniweb/sdk/php</a></p>
+                    <p class="text-xs text-gray-500 mb-1">Install (path — until Packagist publish):</p>
+                    <pre class="bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300 mb-3">composer config repositories.uniweb-merchant-sdk path ../uniweb/sdk/php
+composer require uniweb/merchant-sdk:*</pre>
+                    <p class="text-xs text-gray-500 mb-1">Create payment link:</p>
+                    <pre class="bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300">use UniWeb\Client\Client;
 use UniWeb\Client\ClientConfig;
 
 $uniweb = new Client(new ClientConfig(
-    apiKey: 'uw_test_…',
-    apiSecret: 'uws_…',
+    apiKey: 'uw_test_your_key_here',
+    apiSecret: 'uws_your_secret_here',
     mode: ClientConfig::MODE_TEST,
 ));
 
 $link = $uniweb->createPaymentLink([
     'amount' => 500,
-    'description' => 'Order #1',
+    'description' => 'Order #123',
+    'customer_phone' => '9876543210',
 ]);
-// Redirect customer to $link['payment_url']</pre>
+header('Location: ' . $link['payment_url']);</pre>
                 </div>
                 <div class="rounded-lg border border-gray-800 p-4">
                     <h3 class="font-semibold text-brand-400 mb-2">Node.js SDK</h3>
                     <p class="text-xs text-gray-500 mb-2">Package: <code class="text-gray-300">uniweb</code></p>
-                    <p class="text-xs text-gray-500 mb-3">Path: <a href="https://github.com/uniwebadmin/uniweb/tree/main/sdk/node" class="text-sky-400 hover:underline" target="_blank" rel="noopener">github.com/uniwebadmin/uniweb/sdk/node</a></p>
-                    <pre class="bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300">npm install github:uniwebadmin/uniweb#main:sdk/node
-
-import { Client } from 'uniweb';
+                    <p class="text-xs text-gray-500 mb-3">Monorepo: <a href="https://github.com/uniwebadmin/uniweb/tree/main/sdk/node" class="text-sky-400 hover:underline" target="_blank" rel="noopener">github.com/uniwebadmin/uniweb/sdk/node</a></p>
+                    <p class="text-xs text-gray-500 mb-1">Install from Git (dist included):</p>
+                    <pre class="bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300 mb-3">npm install github:uniwebadmin/uniweb#main:sdk/node
+# Local checkout: npm install /path/to/uniweb1/sdk/node</pre>
+                    <p class="text-xs text-gray-500 mb-1">Create payment link:</p>
+                    <pre class="bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300">import { Client } from 'uniweb';
 
 const uniweb = new Client({
-  apiKey: 'uw_test_…',
-  apiSecret: 'uws_…',
+  apiKey: 'uw_test_your_key_here',
+  apiSecret: 'uws_your_secret_here',
   mode: 'test',
 });
 
 const link = await uniweb.createPaymentLink({
   amount: 500,
-  description: 'Order #1',
-});</pre>
+  description: 'Order #123',
+  customer_phone: '9876543210',
+});
+console.log(link.payment_url);</pre>
                 </div>
             </div>
-            <p class="text-xs text-gray-500 mb-2">Both SDKs include: <code class="text-gray-400">createPaymentLink</code>, <code class="text-gray-400">checkStatus</code>, <code class="text-gray-400">createRefund</code>, <code class="text-gray-400">getBalance</code>, <code class="text-gray-400">listTransactions</code>, automatic <code class="text-gray-400">Idempotency-Key</code> on writes, and <code class="text-gray-400">verifySignature()</code> for webhooks. Errors map to typed exceptions with stable <code class="text-gray-400">error_code</code>. Secrets are never logged.</p>
-            <p class="text-xs text-gray-500">Webhook verify (PHP): <code class="text-gray-400">UniWeb\Client\Webhook::verifySignature($raw, $sig, $secret)</code> · Node: <code class="text-gray-400">verifySignature(rawBody, header, secret)</code></p>
+            <p class="text-xs text-gray-500 mb-3">Methods (POST body <code class="text-gray-400">action</code> matches <a href="<?= e(APP_URL) ?>/openapi.json" class="text-sky-400 hover:underline" target="_blank" rel="noopener">openapi.json</a>): <code class="text-gray-400">createPaymentLink</code>, <code class="text-gray-400">checkStatus</code>, <code class="text-gray-400">createRefund</code>, <code class="text-gray-400">getBalance</code>, <code class="text-gray-400">listTransactions</code>, <code class="text-gray-400">listRefunds</code>, <code class="text-gray-400">listPaymentLinks</code>, <code class="text-gray-400">getPaymentLink</code>. Write calls send a unique <code class="text-gray-400">Idempotency-Key</code> header automatically. The SDK never logs your API secret.</p>
+            <p class="text-xs text-gray-500 mb-1">Error handling — read stable <code class="text-gray-400">error_code</code>:</p>
+            <pre class="bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300 mb-4">// PHP
+try {
+    $link = $uniweb->createPaymentLink(['amount' => 500]);
+} catch (\UniWeb\Client\Exception\ApiException $e) {
+    // $e->errorCode e.g. amount_out_of_range
+}
+
+// Node
+try {
+  await uniweb.createPaymentLink({ amount: 500 });
+} catch (err) {
+  if (err.errorCode) console.error(err.errorCode);
+}</pre>
+            <p class="text-xs text-gray-500 mb-1">Webhook verify — header <code class="text-gray-400">X-UniWeb-Signature</code> = HMAC-SHA256(raw JSON body, signing secret from API Settings):</p>
+            <pre class="bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300 mb-4">// PHP SDK
+use UniWeb\Client\Webhook;
+$raw = file_get_contents('php://input');
+$sig = $_SERVER['HTTP_X_UNIWEB_SIGNATURE'] ?? '';
+if (!Webhook::verifySignature($raw, $sig, $signingSecret)) {
+    http_response_code(401); exit;
+}
+
+// Node SDK — use raw body string, not parsed JSON
+import { verifySignature } from 'uniweb';
+const ok = verifySignature(rawBody, req.headers['x-uniweb-signature'], signingSecret);</pre>
+            <p class="text-xs text-gray-500">During signing-secret rotation, pass the previous secret as the optional fourth argument (PHP) or third optional param (Node) for a 48-hour grace window — same as the raw HMAC examples in <a href="#webhooks" class="text-sky-400 hover:underline">Webhooks</a> above.</p>
         </div>
 
         <div class="glass rounded-xl p-6" id="test-live">

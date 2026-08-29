@@ -1951,6 +1951,14 @@ $assert(str_contains($apiDocsSrc, 'id="sdk-libraries"') && str_contains($apiDocs
 $assert(str_contains($apiDocsSrc, '$anchor = $ep[4] ??') && !preg_match('/foreach\s*\(\s*\$endpoints\s+as\s+\[\$/', $apiDocsSrc), 'api_docs_endpoints_safe_destructure');
 $sdkShapeOut = shell_exec('php "' . $root . '/sdk/php/tests/RequestShapeTest.php" 2>&1') ?? '';
 $assert(str_contains($sdkShapeOut, 'SDK shape tests OK'), 'sdk_php_shape_test_runs');
+$p13ApiDocs = (string)file_get_contents($root . '/api_docs.php');
+$p13PhpReadme = (string)file_get_contents($root . '/sdk/php/README.md');
+$p13NodeReadme = (string)file_get_contents($root . '/sdk/node/README.md');
+$assert(str_contains($p13ApiDocs, 'repositories.uniweb-merchant-sdk path') && !str_contains($p13ApiDocs, 'merchant-sdk:@dev'), 'p13_api_docs_honest_php_install');
+$assert(str_contains($p13ApiDocs, 'Webhook::verifySignature') && str_contains($p13ApiDocs, "import { verifySignature } from 'uniweb'"), 'p13_api_docs_sdk_webhook_verify');
+$assert(str_contains($p13ApiDocs, 'errorCode') && str_contains($p13ApiDocs, 'customer_phone'), 'p13_api_docs_sdk_error_and_fields');
+$assert(str_contains($p13PhpReadme, 'createRefund') && str_contains($p13PhpReadme, 'errorCode') && str_contains($p13PhpReadme, 'API Settings'), 'p13_php_readme_complete');
+$assert(str_contains($p13NodeReadme, 'createRefund') && str_contains($p13NodeReadme, 'errorCode') && str_contains($p13NodeReadme, 'x-uniweb-signature'), 'p13_node_readme_complete');
 
 // Honest gaps — Fast QR canonical api_credentials + live money switch defaults OFF
 $fastQrSrc = (string)file_get_contents($root . '/includes/fast_qr_api.php');
