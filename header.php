@@ -58,7 +58,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/public-pages.css?v=20260815a">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/portal-polish.css?v=20260815a">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/ui-components.css?v=20260829a">
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/mobile-safe.css?v=20260829a">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/mobile-safe.css?v=20260829b">
     <?php if (!empty($customerPortalUi)): ?>
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/customer-portal.css?v=20260724b">
     <?php endif; ?>
@@ -227,20 +227,17 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
         </div>
     </aside>
     <main class="portal-main flex-1 lg:ml-64 flex flex-col min-w-0 w-full">
-        <header class="bg-dark-900/90 backdrop-blur border-b border-gray-800 px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-20">
-            <div class="flex items-center gap-3 min-w-0">
-                <button type="button" id="sidebar-toggle" class="lg:hidden p-2 text-gray-400 hover:text-white shrink-0" aria-label="Menu">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-                </button>
-                <h1 class="text-base sm:text-lg font-semibold min-w-0 truncate max-w-[calc(100vw-7rem)] sm:max-w-none sm:overflow-visible sm:whitespace-normal"><?= e($pageTitle) ?></h1>
-            </div>
-            <div class="flex items-center gap-2 sm:gap-3">
+        <header class="portal-top-bar bg-dark-900/90 backdrop-blur border-b border-gray-800 px-3 sm:px-6 py-3 sticky top-0 z-20 flex items-center gap-2">
+            <button type="button" id="sidebar-toggle" class="lg:hidden p-2 text-gray-400 hover:text-white shrink-0 -ml-1" aria-label="Menu">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <h1 class="flex-1 min-w-0 truncate text-sm sm:text-lg font-semibold"><?= e($pageTitle) ?></h1>
+            <div class="portal-header-tools flex items-center gap-1 sm:gap-2 shrink-0 flex-nowrap">
                 <span class="hidden xl:inline text-[10px] text-gray-500 font-mono" title="India Standard Time"><span data-ist-clock><?= e(date('d M, h:i:s A')) ?> IST</span> · Session <span data-session-countdown><?= gmdate('i:s', (int)$sessionInfo['remaining']) ?></span></span>
                 <?php require __DIR__ . '/includes/global_search_ui.php'; ?>
                 <?= renderMerchantModeToggle($merchant, 'header') ?>
-                <button type="button" onclick="toggleUniwebTheme()" class="theme-toggle-btn" title="Toggle dark / light mode" aria-label="Toggle theme"><span data-theme-icon>🌙</span></button>
-                <span class="text-xs text-gray-500 hidden md:inline font-mono"><?= e($merchant['merchant_code'] ?? '') ?></span>
-                <div class="relative" id="profile-menu-wrap">
+                <button type="button" onclick="toggleUniwebTheme()" class="theme-toggle-btn shrink-0" title="Toggle dark / light mode" aria-label="Toggle theme"><span data-theme-icon>🌙</span></button>
+                <div class="relative shrink-0" id="profile-menu-wrap">
                     <button type="button" id="profile-menu-btn" class="w-9 h-9 bg-brand-600 rounded-full flex items-center justify-center text-sm font-bold hover:ring-2 hover:ring-brand-400/50 transition" aria-label="Profile menu">
                         <?= strtoupper(substr($merchant['name'] ?? 'M', 0, 1)) ?>
                     </button>
@@ -314,14 +311,12 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
         </div>
     </aside>
     <main class="portal-main flex-1 lg:ml-64 flex flex-col min-w-0 w-full">
-        <header class="bg-dark-900 border-b border-gray-800 px-4 sm:px-6 py-4 sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3">
-            <div class="flex items-center gap-3 min-w-0">
-            <button type="button" id="admin-sidebar-toggle" class="lg:hidden p-2 text-gray-400 hover:text-white shrink-0" aria-label="Menu">
+        <header class="portal-top-bar bg-dark-900 border-b border-gray-800 px-3 sm:px-6 py-3 sticky top-0 z-20 flex items-center gap-2">
+            <button type="button" id="admin-sidebar-toggle" class="lg:hidden p-2 text-gray-400 hover:text-white shrink-0 -ml-1" aria-label="Menu">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
-            <h1 class="text-base sm:text-lg font-semibold min-w-0 truncate max-w-[calc(100vw-7rem)] sm:max-w-none sm:overflow-visible sm:whitespace-normal"><?= e($pageTitle) ?></h1>
-            </div>
-            <div class="flex items-center gap-2 flex-wrap justify-end">
+            <h1 class="flex-1 min-w-0 truncate text-sm sm:text-lg font-semibold"><?= e($pageTitle) ?></h1>
+            <div class="portal-header-tools flex items-center gap-1 sm:gap-2 shrink-0 flex-nowrap">
                 <span class="hidden xl:inline text-[10px] text-gray-500 font-mono" title="30-minute inactivity timeout"><span data-ist-clock><?= e(date('d M, h:i:s A')) ?> IST</span> · Session <span data-session-countdown><?= gmdate('i:s', (int)$sessionInfo['remaining']) ?></span></span>
                 <?php require __DIR__ . '/includes/global_search_ui.php'; ?>
             <?php
@@ -336,18 +331,18 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
             <?php if (function_exists('getAutoAuditStatusForHeader')):
                 $auditHdr = getAutoAuditStatusForHeader();
             ?>
-                <a href="admin_watchdog.php?tab=auto" class="text-xs px-2.5 py-1 rounded-full border <?= $auditHdr['audit_ok'] ? 'border-emerald-500/40 text-emerald-400 bg-emerald-500/10' : 'border-amber-500/40 text-amber-400 bg-amber-500/10' ?>" title="Auto-audit every <?= (int)$auditHdr['interval_min'] ?> min">● Audit</a>
+                <a href="admin_watchdog.php?tab=auto" class="text-xs px-2 py-1 rounded-full border <?= $auditHdr['audit_ok'] ? 'border-emerald-500/40 text-emerald-400 bg-emerald-500/10' : 'border-amber-500/40 text-amber-400 bg-amber-500/10' ?>" title="Auto-audit every <?= (int)$auditHdr['interval_min'] ?> min"><span class="portal-hdr-short">●</span><span class="portal-hdr-full">● Audit</span></a>
             <?php endif; ?>
-                <a href="admin_watchdog.php" class="text-xs px-2.5 py-1 rounded-full border border-gray-700 text-gray-400 hover:text-white">Watchdog</a>
+                <a href="admin_watchdog.php" class="text-xs px-2 py-1 rounded-full border border-gray-700 text-gray-400 hover:text-white" title="Watchdog"><span class="portal-hdr-short">WD</span><span class="portal-hdr-full">Watchdog</span></a>
                 <?php if ($openSupportHdr > 0): ?>
                 <a href="admin_support.php" class="text-xs px-2.5 py-1 rounded-full border border-sky-500/40 text-sky-300 bg-sky-500/10" title="Open support tickets"><?= (int)$openSupportHdr ?> support</a>
                 <?php endif; ?>
                 <?php if ($unresolvedHdr > 0): ?>
-                <a href="admin_error_log.php" class="text-xs px-2.5 py-1 rounded-full border border-red-500/40 text-red-400 bg-red-500/10"><?= (int)$unresolvedHdr ?> errors</a>
+                <a href="admin_error_log.php" class="text-xs px-2 py-1 rounded-full border border-red-500/40 text-red-400 bg-red-500/10" title="Error Log"><?= (int)$unresolvedHdr ?> <span class="portal-hdr-short">Err</span><span class="portal-hdr-full">errors</span></a>
                 <?php else: ?>
-                <a href="admin_error_log.php" class="text-xs px-2.5 py-1 rounded-full border border-gray-700 text-gray-400 hover:text-white">Error Log</a>
+                <a href="admin_error_log.php" class="text-xs px-2 py-1 rounded-full border border-gray-700 text-gray-400 hover:text-white" title="Error Log"><span class="portal-hdr-short">Log</span><span class="portal-hdr-full">Error Log</span></a>
                 <?php endif; ?>
-                <button type="button" onclick="toggleUniwebTheme()" class="theme-toggle-btn" title="Toggle dark / light mode" aria-label="Toggle theme"><span data-theme-icon>🌙</span></button>
+                <button type="button" onclick="toggleUniwebTheme()" class="theme-toggle-btn shrink-0" title="Toggle dark / light mode" aria-label="Toggle theme"><span data-theme-icon>🌙</span></button>
             </div>
         </header>
         <div class="p-4 sm:p-6 flex-1 portal-content-frame">
@@ -374,14 +369,12 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
         </div>
     </aside>
     <main class="portal-main flex-1 lg:ml-64 flex flex-col min-w-0 w-full">
-        <header class="bg-dark-900 border-b border-gray-800 px-4 sm:px-6 py-4 sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3">
-            <div class="flex items-center gap-3 min-w-0">
-            <button type="button" id="admin-sidebar-toggle" class="lg:hidden p-2 text-gray-400 hover:text-white shrink-0" aria-label="Menu">
+        <header class="portal-top-bar bg-dark-900 border-b border-gray-800 px-3 sm:px-6 py-3 sticky top-0 z-20 flex items-center gap-2">
+            <button type="button" id="admin-sidebar-toggle" class="lg:hidden p-2 text-gray-400 hover:text-white shrink-0 -ml-1" aria-label="Menu">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
-            <h1 class="text-base sm:text-lg font-semibold min-w-0 truncate max-w-[calc(100vw-7rem)] sm:max-w-none sm:overflow-visible sm:whitespace-normal"><?= e($pageTitle) ?></h1>
-            </div>
-            <div class="flex items-center gap-2 flex-wrap justify-end">
+            <h1 class="flex-1 min-w-0 truncate text-sm sm:text-lg font-semibold"><?= e($pageTitle) ?></h1>
+            <div class="portal-header-tools flex items-center gap-1 sm:gap-2 shrink-0 flex-nowrap">
                 <span class="hidden md:inline text-[10px] text-gray-500 font-mono" title="30-minute inactivity timeout"><span data-ist-clock><?= e(date('d M, h:i:s A')) ?> IST</span> · Session <span data-session-countdown><?= gmdate('i:s', (int)$sessionInfo['remaining']) ?></span></span>
                 <?php require __DIR__ . '/includes/global_search_ui.php'; ?>
                 <?php
@@ -395,7 +388,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                 ?>
                 <a href="admin_support.php" class="text-xs px-2.5 py-1 rounded-full border border-sky-500/40 text-sky-300 bg-sky-500/10"><?= (int)$openSupportStaffHdr ?> support</a>
                 <?php endif; ?>
-                <button type="button" onclick="toggleUniwebTheme()" class="theme-toggle-btn" title="Toggle dark / light mode" aria-label="Toggle theme"><span data-theme-icon>🌙</span></button>
+                <button type="button" onclick="toggleUniwebTheme()" class="theme-toggle-btn shrink-0" title="Toggle dark / light mode" aria-label="Toggle theme"><span data-theme-icon>🌙</span></button>
             </div>
         </header>
         <div class="p-4 sm:p-6 flex-1 portal-content-frame">

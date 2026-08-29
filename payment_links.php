@@ -251,16 +251,17 @@ if ($createdId !== '') {
         <p class="text-[11px] text-amber-400/90 mt-4">Card / UPI checkout links need UniWeb to activate payment methods (Admin enables them in Partner Registry). Until then use <strong>UPI</strong> or Test Instant Pay.</p>
         <?php endif; ?>
     </div>
-    <div id="payment-link-results" class="lg:col-span-2 glass rounded-xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap justify-between items-center gap-2">
+    <div id="payment-link-results" class="lg:col-span-2 glass rounded-xl overflow-hidden min-w-0 max-w-full">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex flex-wrap justify-between items-center gap-2">
             <h2 class="font-semibold">Your Payment Links</h2>
-            <div class="flex gap-2 items-center">
+            <div class="flex flex-wrap gap-2 items-center max-w-full">
                 <?= renderExportCsvLink('export_payment_links.php?' . http_build_query(['q' => $q, 'status' => $linkStatus])) ?>
-                <a href="merchant_payment_pack.php" class="text-xs text-sky-400">Generate ₹1 pack (all methods) →</a>
+                <a href="merchant_payment_pack.php" class="text-xs text-sky-400 break-words">Generate ₹1 pack (all methods) →</a>
             </div>
         </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+        <p class="px-4 sm:px-6 py-2 text-[11px] text-gray-500 border-b border-gray-800/60 md:hidden">Each link shows actions below — no sideways scroll needed on phone.</p>
+        <div class="overflow-x-auto payment-links-table-wrap md:block">
+            <table class="w-full text-sm payment-links-table min-w-0 md:min-w-[720px]">
                 <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
                     <th class="px-5 py-3 text-left">Link ID</th><th class="px-5 py-3 text-left">Method</th><th class="px-5 py-3 text-left">Amount</th>
                     <th class="px-5 py-3 text-left">Views</th><th class="px-5 py-3 text-left">Paid</th><th class="px-5 py-3 text-left">Conv.</th><th class="px-5 py-3 text-left">Status</th><th class="px-5 py-3 text-left">Expires</th><th class="px-5 py-3 text-left">Action</th>
@@ -277,37 +278,51 @@ if ($createdId !== '') {
                         $payUrl = buildPaymentLinkUrl($link['link_id'], $cat['pay_key'] ?? null);
                         $methodLabel = $link['link_label'] ?? ($cat['label'] ?? 'All Methods');
                     ?>
-                    <tr<?= uiRowClick($payUrl) ?>>
-                        <td class="px-5 py-3 font-mono text-xs">
-                            <a href="<?= e($payUrl) ?>" target="_blank" class="text-sky-400 hover:underline"<?= uiStopClick() ?>><?= e($link['link_id']) ?></a>
+                    <tr class="payment-link-row"<?= uiRowClick($payUrl) ?>>
+                        <td class="px-4 sm:px-5 py-3 font-mono text-xs" data-label="Link ID">
+                            <a href="<?= e($payUrl) ?>" target="_blank" class="text-sky-400 hover:underline break-all"<?= uiStopClick() ?>><?= e($link['link_id']) ?></a>
                         </td>
-                        <td class="px-5 py-3 text-xs">
+                        <td class="px-4 sm:px-5 py-3 text-xs" data-label="Method">
                             <?= e($methodLabel) ?>
-                            <p class="text-[10px] text-gray-600 mt-0.5"><?= e(checkoutLinkModeCollectionSummary($link, $merchant)) ?></p>
+                            <p class="text-[10px] text-gray-600 mt-0.5 break-words"><?= e(checkoutLinkModeCollectionSummary($link, $merchant)) ?></p>
                         </td>
-                        <td class="px-5 py-3 font-semibold"><?php
+                        <td class="px-4 sm:px-5 py-3 font-semibold" data-label="Amount"><?php
                             if (function_exists('paymentLinkIsOpenAmount') && paymentLinkIsOpenAmount($link)) {
                                 echo '<span class="text-sky-400">Open</span>';
                             } else {
                                 echo formatMoney(capStatAmount((float)$link['amount']));
                             }
                         ?></td>
-                        <td class="px-5 py-3 text-xs text-gray-400"><?= (int)($link['view_count'] ?? 0) ?></td>
-                        <td class="px-5 py-3 text-xs text-emerald-400"><?= (int)($link['paid_count'] ?? 0) ?></td>
-                        <td class="px-5 py-3 text-xs text-gray-400"><?php $v = (int)($link['view_count'] ?? 0); $p = (int)($link['paid_count'] ?? 0); echo $v > 0 ? round($p / $v * 100) . '%' : '—'; ?></td>
-                        <td class="px-5 py-3"><?= statusBadge($link['status']) ?></td>
-                        <td class="px-5 py-3 text-xs text-gray-500"><?= formatDate($link['expires_at']) ?></td>
-                        <td class="px-5 py-3 whitespace-nowrap"<?= uiStopClick() ?>>
-                            <?php if ($link['status'] === 'active'):
-                                $shareText = rawurlencode("Pay " . formatMoney((float)$link['amount']) . " via " . ($merchant['business_name'] ?? APP_NAME) . "\n" . $payUrl);
-                                $qrImgUrl = APP_URL . '/qr_image.php?d=' . rawurlencode(base64_encode(strtr($payUrl, '+/', '-_'))) . '&s=400&logo=1';
-                                $embedHtml = '<a href="' . e($payUrl) . '" target="_blank" style="display:inline-block;padding:12px 20px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">Pay Now</a>';
+                        <td class="px-4 sm:px-5 py-3 text-xs text-gray-400" data-label="Views"><?= (int)($link['view_count'] ?? 0) ?></td>
+                        <td class="px-4 sm:px-5 py-3 text-xs text-emerald-400" data-label="Paid"><?= (int)($link['paid_count'] ?? 0) ?></td>
+                        <td class="px-4 sm:px-5 py-3 text-xs text-gray-400" data-label="Conv."><?php $v = (int)($link['view_count'] ?? 0); $p = (int)($link['paid_count'] ?? 0); echo $v > 0 ? round($p / $v * 100) . '%' : '—'; ?></td>
+                        <td class="px-4 sm:px-5 py-3" data-label="Status"><?= statusBadge($link['status']) ?></td>
+                        <td class="px-4 sm:px-5 py-3 text-xs text-gray-500" data-label="Expires"><?= formatDate($link['expires_at']) ?></td>
+                        <td class="px-4 sm:px-5 py-3 payment-link-actions" data-label="Action"<?= uiStopClick() ?>>
+                            <?php
+                            $shareText = rawurlencode("Pay " . formatMoney((float)$link['amount']) . " via " . ($merchant['business_name'] ?? APP_NAME) . "\n" . $payUrl);
+                            $qrImgUrl = APP_URL . '/qr_image.php?d=' . rawurlencode(base64_encode(strtr($payUrl, '+/', '-_'))) . '&s=400&logo=1';
+                            $embedHtml = '<a href="' . e($payUrl) . '" target="_blank" style="display:inline-block;padding:12px 20px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">Pay Now</a>';
+                            $isActive = ($link['status'] === 'active');
+                            $isPaid = ($link['status'] === 'paid');
                             ?>
-                            <a href="<?= e($payUrl) ?>" target="_blank" class="text-xs bg-sky-600/20 text-sky-400 px-3 py-1 rounded-lg mr-1">Open</a>
-                            <button type="button" data-copy-url="<?= e($payUrl) ?>" onclick="copyPayUrl(this)" class="text-xs bg-brand-600/20 text-brand-400 px-3 py-1 rounded-lg mr-1">Copy</button>
-                            <button type="button" onclick="openLinkShareModal(<?= (int)$link['id'] ?>)" class="text-xs bg-emerald-600/20 text-emerald-400 px-3 py-1 rounded-lg mr-1">Share</button>
+                            <div class="flex flex-wrap gap-1.5 max-w-full">
+                            <?php if ($isActive): ?>
+                            <a href="<?= e($payUrl) ?>" target="_blank" class="text-xs bg-sky-600/20 text-sky-400 px-3 py-1 rounded-lg">Open</a>
+                            <button type="button" data-copy-url="<?= e($payUrl) ?>" onclick="copyPayUrl(this)" class="text-xs bg-brand-600/20 text-brand-400 px-3 py-1 rounded-lg">Copy</button>
+                            <button type="button" onclick="openLinkShareModal(<?= (int)$link['id'] ?>)" class="text-xs bg-emerald-600/20 text-emerald-400 px-3 py-1 rounded-lg">Share</button>
                             <button type="button" onclick="openLinkWebsiteModal(<?= (int)$link['id'] ?>)" class="text-xs bg-violet-600/20 text-violet-400 px-3 py-1 rounded-lg">Website</button>
+                            <?php elseif ($isPaid): ?>
+                            <a href="<?= e($payUrl) ?>" target="_blank" class="text-xs bg-sky-600/20 text-sky-400 px-3 py-1 rounded-lg">View</a>
+                            <button type="button" data-copy-url="<?= e($payUrl) ?>" onclick="copyPayUrl(this)" class="text-xs bg-brand-600/20 text-brand-400 px-3 py-1 rounded-lg">Copy</button>
+                            <?php elseif ($payUrl !== ''): ?>
+                            <button type="button" data-copy-url="<?= e($payUrl) ?>" onclick="copyPayUrl(this)" class="text-xs bg-brand-600/20 text-brand-400 px-3 py-1 rounded-lg">Copy</button>
+                            <?php else: ?>
+                            <span class="text-[11px] text-gray-500">—</span>
+                            <?php endif; ?>
+                            </div>
 
+                            <?php if ($isActive): ?>
                             <div id="link-share-<?= (int)$link['id'] ?>" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onclick="if(event.target===this) this.classList.add('hidden')">
                                 <div class="glass rounded-xl p-5 max-w-sm w-full">
                                     <h3 class="font-semibold mb-3">Share <?= e($link['link_id']) ?></h3>

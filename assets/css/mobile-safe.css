@@ -204,3 +204,151 @@ code {
   right: 0.75rem;
   max-width: calc(100vw - 1.5rem);
 }
+
+/* Portal header — one row: menu | title | tools (no wrap to second line). */
+.portal-top-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.portal-top-bar > h1 {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.portal-header-tools {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 58vw;
+  overflow: visible;
+}
+
+@media (min-width: 640px) {
+  .portal-header-tools {
+    max-width: none;
+    gap: 0.5rem;
+  }
+}
+
+.portal-header-tools .theme-toggle-btn,
+.portal-header-tools button[aria-label="Menu"] {
+  flex-shrink: 0;
+}
+
+/* Admin header pills — short labels on phone. */
+@media (max-width: 639px) {
+  .portal-hdr-full {
+    display: none;
+  }
+}
+
+@media (min-width: 640px) {
+  .portal-hdr-short {
+    display: none;
+  }
+}
+
+/* Payment links — card rows on phone (no sideways scroll for actions). */
+@media (max-width: 767px) {
+  .payment-links-table-wrap {
+    overflow-x: visible;
+  }
+
+  .payment-links-table {
+    display: block;
+    min-width: 0 !important;
+    width: 100%;
+  }
+
+  .payment-links-table thead {
+    display: none;
+  }
+
+  .payment-links-table tbody {
+    display: block;
+  }
+
+  .payment-links-table .payment-link-row {
+    display: block;
+    border: 1px solid rgba(55, 65, 81, 0.6);
+    border-radius: 0.75rem;
+    margin: 0.65rem 0.75rem;
+    padding: 0.35rem 0;
+    background: rgba(17, 24, 39, 0.35);
+  }
+
+  .payment-links-table .payment-link-row td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.45rem 0.85rem;
+    border: none;
+    text-align: right;
+  }
+
+  .payment-links-table .payment-link-row td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6b7280;
+    text-align: left;
+    padding-top: 0.15rem;
+  }
+
+  .payment-links-table .payment-link-row td[data-label="Link ID"] {
+    font-weight: 600;
+  }
+
+  .payment-links-table .payment-link-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .payment-links-table .payment-link-actions::before {
+    margin-bottom: 0.25rem;
+  }
+
+  .payment-links-table .payment-link-actions > div {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+/* API docs SDK grid — code blocks stay inside card. */
+#sdk-libraries {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+#sdk-libraries .grid > div {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+#sdk-libraries pre,
+.public-doc-page pre.api-pre {
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  white-space: pre;
+  word-break: normal;
+}

@@ -190,16 +190,16 @@ function verifyUniWebWebhook(rawBody, signature, signingSecret) {
             <h2 class="font-semibold text-violet-300 mb-2">SDK Libraries</h2>
             <p class="text-sm text-gray-400 mb-3">Official UniWeb client libraries — same Merchant API as above, UniWeb brand only. No partner SDK wrappers; your customer never sees bank/PG product names.</p>
             <p class="text-xs text-gray-500 mb-4">Quick start: copy <code class="text-gray-400">uw_test_…</code> + <code class="text-gray-400">uws_…</code> from <?php if (isLoggedIn()): ?><a href="api_settings.php" class="text-emerald-400 hover:underline">API Settings</a><?php else: ?><a href="login.php" class="text-emerald-400 hover:underline">Dashboard → API Settings</a><?php endif; ?> → install an SDK below → call <code class="text-gray-400">createPaymentLink</code> → redirect to <code class="text-gray-400">payment_url</code>. Full README: <a href="https://github.com/uniwebadmin/uniweb/tree/main/sdk/php" class="text-sky-400 hover:underline" target="_blank" rel="noopener">sdk/php</a> · <a href="https://github.com/uniwebadmin/uniweb/tree/main/sdk/node" class="text-sky-400 hover:underline" target="_blank" rel="noopener">sdk/node</a>.</p>
-            <div class="grid sm:grid-cols-2 gap-4 mb-6 text-sm">
-                <div class="rounded-lg border border-gray-800 p-4">
+            <div class="grid sm:grid-cols-2 gap-4 mb-6 text-sm min-w-0">
+                <div class="rounded-lg border border-gray-800 p-4 min-w-0 max-w-full overflow-hidden">
                     <h3 class="font-semibold text-brand-400 mb-2">PHP SDK</h3>
                     <p class="text-xs text-gray-500 mb-2">Package: <code class="text-gray-300">uniweb/merchant-sdk</code></p>
                     <p class="text-xs text-gray-500 mb-3">Monorepo: <a href="https://github.com/uniwebadmin/uniweb/tree/main/sdk/php" class="text-sky-400 hover:underline" target="_blank" rel="noopener">github.com/uniwebadmin/uniweb/sdk/php</a></p>
                     <p class="text-xs text-gray-500 mb-1">Install (path — until Packagist publish):</p>
-                    <pre class="bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300 mb-3">composer config repositories.uniweb-merchant-sdk path ../uniweb/sdk/php
+                    <pre class="api-pre bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300 mb-3 max-w-full">composer config repositories.uniweb-merchant-sdk path ../uniweb/sdk/php
 composer require uniweb/merchant-sdk:*</pre>
                     <p class="text-xs text-gray-500 mb-1">Create payment link:</p>
-                    <pre class="bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300">use UniWeb\Client\Client;
+                    <pre class="api-pre bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300 max-w-full">use UniWeb\Client\Client;
 use UniWeb\Client\ClientConfig;
 
 $uniweb = new Client(new ClientConfig(
@@ -215,15 +215,15 @@ $link = $uniweb->createPaymentLink([
 ]);
 header('Location: ' . $link['payment_url']);</pre>
                 </div>
-                <div class="rounded-lg border border-gray-800 p-4">
+                <div class="rounded-lg border border-gray-800 p-4 min-w-0 max-w-full overflow-hidden">
                     <h3 class="font-semibold text-brand-400 mb-2">Node.js SDK</h3>
                     <p class="text-xs text-gray-500 mb-2">Package: <code class="text-gray-300">uniweb</code></p>
                     <p class="text-xs text-gray-500 mb-3">Monorepo: <a href="https://github.com/uniwebadmin/uniweb/tree/main/sdk/node" class="text-sky-400 hover:underline" target="_blank" rel="noopener">github.com/uniwebadmin/uniweb/sdk/node</a></p>
                     <p class="text-xs text-gray-500 mb-1">Install from Git (dist included):</p>
-                    <pre class="bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300 mb-3">npm install github:uniwebadmin/uniweb#main:sdk/node
+                    <pre class="api-pre bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300 mb-3 max-w-full">npm install github:uniwebadmin/uniweb#main:sdk/node
 # Local checkout: npm install /path/to/uniweb1/sdk/node</pre>
                     <p class="text-xs text-gray-500 mb-1">Create payment link:</p>
-                    <pre class="bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300">import { Client } from 'uniweb';
+                    <pre class="api-pre bg-dark-900 p-3 rounded-lg text-xs overflow-x-auto text-gray-300 max-w-full">import { Client } from 'uniweb';
 
 const uniweb = new Client({
   apiKey: 'uw_test_your_key_here',
