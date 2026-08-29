@@ -1067,6 +1067,33 @@ function getPlatformFeeReport(int $days = 30): array
 }
 
 /**
+ * One-line merchant notice when partner transfer legs exist but live Route/Split is not active.
+ */
+function transactionPartnerSplitMerchantNotice(array $partnerTransfers): ?string
+{
+    if ($partnerTransfers === []) {
+        return null;
+    }
+    if (!function_exists('routeSplitExecuteGate')) {
+        require_once __DIR__ . '/route_split_workflow.php';
+    }
+    foreach ($partnerTransfers as $pt) {
+        if (($pt['status'] ?? '') !== 'processed') {
+            continue;
+        }
+        $partner = strtolower(trim((string)($pt['partner_key'] ?? '')));
+        if ($partner === '') {
+            continue;
+        }
+        $gate = routeSplitExecuteGate($partner, 'route_mode');
+        if (!empty($gate['dispatch'])) {
+            return null;
+        }
+    }
+    return 'Partner split lines are internal records only — not live marketplace Route/Easy Split. Your net settles via UniWeb standard settlement.';
+}
+
+/**
  * F6: Get partner transfers for a transaction.
  */
 function getTransactionPartnerTransfers(int $transactionId): array

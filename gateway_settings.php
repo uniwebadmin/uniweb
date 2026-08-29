@@ -587,12 +587,13 @@ $gatewayCards = [
                 <summary class="cursor-pointer text-gray-400 font-medium">Phase 11 routing log (last <?= count($phase11RouteLog) ?>)</summary>
                 <div class="overflow-x-auto mt-3">
                     <table class="w-full text-[10px] text-left">
-                        <thead><tr class="text-gray-500 border-b border-gray-800"><th class="py-1 pr-2">Time</th><th class="py-1 pr-2">Partner</th><th class="py-1 pr-2">Outcome</th><th class="py-1">Reason</th></tr></thead>
+                        <thead><tr class="text-gray-500 border-b border-gray-800"><th class="py-1 pr-2">Time</th><th class="py-1 pr-2">Partner</th><th class="py-1 pr-2">TXN</th><th class="py-1 pr-2">Outcome</th><th class="py-1">Reason</th></tr></thead>
                         <tbody>
                         <?php foreach ($phase11RouteLog as $logRow): ?>
                         <tr class="border-b border-gray-900/80">
                             <td class="py-1 pr-2 text-gray-500 whitespace-nowrap"><?= e(substr((string)($logRow['created_at'] ?? ''), 0, 16)) ?></td>
                             <td class="py-1 pr-2 text-sky-300"><?= e((string)($logRow['chosen_partner'] ?? '—')) ?></td>
+                            <td class="py-1 pr-2 font-mono text-sky-300"><?= e((string)($logRow['txn_id'] ?? '—')) ?></td>
                             <td class="py-1 pr-2"><?= e((string)($logRow['outcome'] ?? '')) ?></td>
                             <td class="py-1 text-gray-400"><?= e((string)($logRow['reason'] ?? '')) ?></td>
                         </tr>

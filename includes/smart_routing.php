@@ -53,6 +53,12 @@ function ensurePhase11RouteDecisionLogTable(): void
             INDEX idx_partner (chosen_partner, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     } catch (Throwable $e) { /* ok */ }
+    try {
+        getDB()->exec('ALTER TABLE phase11_route_decisions ADD COLUMN txn_id VARCHAR(40) DEFAULT NULL');
+    } catch (Throwable $e) { /* ok */ }
+    try {
+        getDB()->exec('ALTER TABLE phase11_route_decisions ADD INDEX idx_p11_txn (txn_id, created_at)');
+    } catch (Throwable $e) { /* ok */ }
 }
 
 /** True when Owner enabled Phase 11 Route (same switch as Route/Split live). */
@@ -260,13 +266,58 @@ function phase11LogRouteDecision(
     } catch (Throwable $e) { /* non-fatal */ }
 }
 
+/** Map payment_method to Phase 11 checkout partner key for audit correlation. */
+function phase11PartnerKeyFromPaymentMethod(string $method): ?string
+{
+    $method = strtolower(trim($method));
+    if (in_array($method, ['razorpay', 'cashfree', 'payu'], true)) {
+        return $method;
+    }
+    if (str_starts_with($method, 'payu')) {
+        return 'payu';
+    }
+    return null;
+}
+
+/**
+ * After payment success, link TXN id to the latest Phase 11 routing decision for this link + partner.
+ */
+function attachPhase11RouteDecisionTxnId(?string $linkId, string $partner, string $txnId): bool
+{
+    $linkId = trim((string)$linkId);
+    $txnId = trim($txnId);
+    $partner = phase11PartnerKeyFromPaymentMethod($partner) ?? strtolower(trim($partner));
+    if ($linkId === '' || $txnId === '' || $partner === '') {
+        return false;
+    }
+    ensurePhase11RouteDecisionLogTable();
+    try {
+        $find = getDB()->prepare(
+            "SELECT id FROM phase11_route_decisions
+             WHERE link_id = ? AND chosen_partner = ? AND (txn_id IS NULL OR txn_id = '')
+               AND outcome IN ('selected','failover')
+             ORDER BY id DESC LIMIT 1"
+        );
+        $find->execute([$linkId, $partner]);
+        $row = $find->fetch();
+        if (!$row) {
+            return false;
+        }
+        getDB()->prepare('UPDATE phase11_route_decisions SET txn_id = ? WHERE id = ? AND (txn_id IS NULL OR txn_id = \'\')')
+            ->execute([mb_substr($txnId, 0, 40), (int)$row['id']]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 /** Recent honest routing log for Admin (Gateway Settings). */
 function getPhase11RouteDecisionLog(int $limit = 15): array
 {
     ensurePhase11RouteDecisionLogTable();
     try {
         $st = getDB()->prepare(
-            'SELECT id, merchant_id, link_id, method_key, chosen_partner, reason, outcome, engine_on, created_at
+            'SELECT id, merchant_id, link_id, txn_id, method_key, chosen_partner, reason, outcome, engine_on, created_at
              FROM phase11_route_decisions ORDER BY id DESC LIMIT ?'
         );
         $st->bindValue(1, max(1, min(50, $limit)), PDO::PARAM_INT);

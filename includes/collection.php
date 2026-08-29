@@ -427,6 +427,12 @@ function createTransactionFromPayment(array $link, string $method, string $statu
             if (function_exists('attachIntelligentRouteDecisionTxnId')) {
                 attachIntelligentRouteDecisionTxnId($linkIdForRoute, $methodStored, $txnId);
             }
+            if (!function_exists('attachPhase11RouteDecisionTxnId') && is_file(__DIR__ . '/smart_routing.php')) {
+                require_once __DIR__ . '/smart_routing.php';
+            }
+            if (function_exists('attachPhase11RouteDecisionTxnId')) {
+                attachPhase11RouteDecisionTxnId($linkIdForRoute, $methodStored, $txnId);
+            }
         }
     }
     return $id;

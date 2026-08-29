@@ -1884,6 +1884,10 @@ $assert(str_contains((string)file_get_contents($root . '/includes/route_split_wo
 $assert(str_contains((string)file_get_contents($root . '/includes/split_settlement.php'), 'function routeSplitStatusDescriptions'), 'p11_route_status_descriptions');
 $assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'routeSplitStatusDescriptions'), 'p11_partner_commercial_status_legend');
 $assert(!str_contains((string)file_get_contents($root . '/checkout.php'), 'Auto settlement') && !str_contains((string)file_get_contents($root . '/payment_payu_return.php'), 'merchant share sent directly'), 'p11_customer_no_fake_split_claim');
+$assert(str_contains((string)file_get_contents($root . '/includes/smart_routing.php'), 'attachPhase11RouteDecisionTxnId'), 'p11_phase11_txn_attach');
+$assert(str_contains((string)file_get_contents($root . '/includes/split_settlement.php'), 'transactionPartnerSplitMerchantNotice'), 'p11_merchant_txn_split_notice');
+$assert(str_contains((string)file_get_contents($root . '/transaction_detail.php'), 'transactionPartnerSplitMerchantNotice'), 'p11_merchant_txn_detail_notice');
+$assert(is_file($root . '/migrations/079_phase11_route_decision_txn_id.sql'), 'p11_m079_phase11_txn_column');
 
 $payload = [
     'ok' => $failed === 0,

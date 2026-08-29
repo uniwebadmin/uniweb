@@ -289,6 +289,14 @@ require_once __DIR__ . '/header.php';
 
         <div class="glass rounded-xl p-5 text-sm">
             <h3 class="font-semibold mb-1">Amount Split</h3>
+            <?php
+            $partnerSplitNotice = (!$adminView && function_exists('transactionPartnerSplitMerchantNotice'))
+                ? transactionPartnerSplitMerchantNotice($partnerTransfers)
+                : null;
+            ?>
+            <?php if ($partnerSplitNotice !== null): ?>
+            <p class="text-xs text-amber-200/90 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 mb-3"><?= e($partnerSplitNotice) ?></p>
+            <?php endif; ?>
             <p class="text-[11px] text-gray-500 mb-3">On success: Gross → Admin cut + Partner cut + Merchant baaki. Percents come from Admin-saved commercial (M/P) at capture — not a live Route SDK.</p>
             <div class="space-y-2 text-xs">
                 <div class="flex justify-between"><span class="text-gray-500">Gross</span><span><?= formatMoney($split['gross']) ?></span></div>
