@@ -316,7 +316,7 @@ require_once __DIR__ . '/header.php';
         <details class="mt-4 border-t border-gray-800 pt-4">
             <summary class="cursor-pointer text-sm font-semibold text-violet-400">High-Volume Wizard (100+ QRs)</summary>
             <div class="space-y-4 mt-4">
-                <p class="text-xs text-gray-500">Generate many QR codes with a naming pattern, or upload a CSV. Uses the fast QR API for bulk creation.</p>
+                <p class="text-xs text-gray-500">Generate many QR codes with a naming pattern, or upload a CSV. Uses <code class="text-gray-400">api_qr_create.php</code> with your <a href="api_settings.php" class="text-sky-400 hover:underline">API Settings</a> key (<code class="text-gray-400">X-API-Key</code>).</p>
                 <form method="POST" class="space-y-3">
                     <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                     <input type="hidden" name="action" value="bulk_create">

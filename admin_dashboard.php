@@ -72,6 +72,7 @@ $watchdogIssues = $quickWatchdog ? (
 $platformWallet = (float)adminDashWidget('platform_wallet', static fn() => getPlatformWalletBalance(), 0);
 $readiness = adminDashWidget('readiness', static fn() => getPlatformReadiness(), ['pct' => 0, 'done' => 0, 'total' => 0, 'merchants' => 0, 'transactions' => 0]);
 $opsAllClear = ($unresolvedErrors === 0 && $watchdogIssues === 0 && $pendingKyc === 0 && ($lastAutoAudit && !empty($lastAutoAudit['ok'])));
+$liveMoneySwitches = adminDashWidget('live_money_switches', static fn() => function_exists('getLiveMoneySwitchDashboardRows') ? getLiveMoneySwitchDashboardRows() : [], []);
 $todayVol = capStatAmount((float)($todayTxn['t'] ?? 0));
 $monthVol = capStatAmount((float)($monthTxn['t'] ?? 0));
 $forwardStaged = 0;
@@ -106,10 +107,32 @@ require_once __DIR__ . '/header.php';
         <li><a href="gateway_settings.php#cron-security" class="text-sky-400 hover:underline">Platform Settings</a> → <strong class="text-gray-300">Apply pending migrations</strong> → <code class="text-sky-300">ok: true</code></li>
         <li>One merchant <strong class="text-gray-300">UniWeb Test Pay</strong> checkout (no real money)</li>
         <li><a href="gateway_settings.php" class="text-sky-400 hover:underline">SMTP</a> + backup notify email on Platform Settings</li>
+        <li><a href="gateway_settings.php#live-money-switches" class="text-sky-400 hover:underline">Live Money Switches</a> — Payout / Recurring / Phase 11 / Intelligent routing stay <strong class="text-gray-300">OFF</strong> until you turn ON</li>
     </ol>
     <p class="text-[10px] text-gray-600 mt-3">Full system health → <a href="admin_platform_status.php" class="text-sky-400 hover:underline">Platform Status</a> · <a href="admin_watchdog.php?tab=auto" class="text-sky-400 hover:underline">Watchdog</a> · Disputes → <a href="admin_disputes.php" class="text-sky-400 hover:underline">Admin first</a></p>
     <p class="text-[10px] text-amber-500/80 mt-2">One-time Hostinger: live <code class="text-gray-500">config.php</code> — remove old <code class="text-gray-500">createNotification()</code> if still there (CR-01). Never overwrite the whole file.</p>
 </div>
+
+<?php if (!empty($liveMoneySwitches)): ?>
+<div class="glass rounded-xl p-5 mb-6 border border-violet-500/25 text-sm">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <p class="font-semibold text-violet-300">Live Money Switches</p>
+        <a href="gateway_settings.php#live-money-switches" class="text-xs text-sky-400 hover:underline">Platform Settings →</a>
+    </div>
+    <p class="text-xs text-gray-500 mb-3">Default <strong class="text-gray-300">OFF</strong> — collect checkout works without these. Turn ON only when partner keys + compliance are ready.</p>
+    <div class="grid sm:grid-cols-2 gap-2">
+        <?php foreach ($liveMoneySwitches as $sw): ?>
+        <a href="<?= e($sw['url']) ?>" class="rounded-lg border px-3 py-2.5 <?= !empty($sw['on']) ? 'border-amber-500/40 bg-amber-500/10' : 'border-gray-800 bg-dark-900/40' ?> hover:border-violet-500/40 block">
+            <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-medium text-gray-200"><?= e($sw['label']) ?></span>
+                <span class="text-[10px] uppercase tracking-wide <?= !empty($sw['on']) ? 'text-amber-300' : 'text-emerald-400' ?>"><?= !empty($sw['on']) ? 'ON' : 'OFF' ?></span>
+            </div>
+            <p class="text-[10px] text-gray-500 mt-1"><?= e($sw['status']) ?></p>
+        </a>
+        <?php endforeach; ?>
+    </div>
+</div>
+<?php endif; ?>
 
 <div class="flex flex-wrap gap-2 sm:gap-3 mb-4">
     <a href="admin_support.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-sky-300 hover:text-sky-200">Support</a>

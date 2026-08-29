@@ -73,9 +73,9 @@ function recurringAutopayHealthCheck(): array
         return [
             'id' => 'recurring_autopay',
             'label' => 'Recurring / AutoPay',
-            'ok' => false,
-            'status' => 'Admin switch OFF',
-            'detail' => 'Enable in Platform Settings → Live Money Switches',
+            'ok' => true,
+            'status' => 'Switch OFF (default)',
+            'detail' => 'Mandates gated until you turn ON in Platform Settings → Live Money Switches.',
             'test_url' => 'gateway_settings.php#live-money-switches',
         ];
     }
@@ -99,6 +99,126 @@ function recurringAutopayHealthCheck(): array
         'detail' => 'UPI Autopay + eNACH · webhooks + cron required for debits',
         'test_url' => 'merchant_recurring.php',
     ];
+}
+
+/** @return array{id:string,label:string,ok:bool,status:string,detail:string,test_url?:string} */
+function payoutLiveHealthCheck(): array
+{
+    if (!function_exists('payoutLiveMoneyAllowed') && is_file(__DIR__ . '/payout.php')) {
+        require_once __DIR__ . '/payout.php';
+    }
+    if (!function_exists('payoutLiveMoneyAllowed')) {
+        return [
+            'id' => 'payout_live',
+            'label' => 'Payouts to bank',
+            'ok' => false,
+            'status' => 'Module missing',
+            'detail' => 'includes/payout.php not loaded',
+            'test_url' => 'gateway_settings.php#live-money-switches',
+        ];
+    }
+    $on = trim((string)getSetting('payout_live_enabled', '0')) === '1';
+    $keys = function_exists('payoutPartnerKeysConfigured') && payoutPartnerKeysConfigured();
+    $live = payoutLiveMoneyAllowed();
+    if (!$on) {
+        return [
+            'id' => 'payout_live',
+            'label' => 'Payouts to bank',
+            'ok' => true,
+            'status' => 'Switch OFF (default)',
+            'detail' => 'Collect first. Turn ON in Platform Settings → Live Money Switches when payout partner keys are ready.',
+            'test_url' => 'gateway_settings.php#live-money-switches',
+        ];
+    }
+    if (!$keys) {
+        return [
+            'id' => 'payout_live',
+            'label' => 'Payouts to bank',
+            'ok' => false,
+            'status' => 'Switch ON — keys missing',
+            'detail' => 'Paste payout partner keys in Partner Registry before live bank transfers.',
+            'test_url' => 'admin_gateway_registry.php',
+        ];
+    }
+    return [
+        'id' => 'payout_live',
+        'label' => 'Payouts to bank',
+        'ok' => $live,
+        'status' => $live ? 'Live rail ON' : 'Partial setup',
+        'detail' => function_exists('payoutActivationMessage') ? payoutActivationMessage() : 'Licensed partner dispatch',
+        'test_url' => 'admin_payout.php',
+    ];
+}
+
+/** @return array{id:string,label:string,ok:bool,status:string,detail:string,test_url?:string} */
+function intelligentRoutingHealthCheck(): array
+{
+    if (!function_exists('intelligentRoutingEnabled') && is_file(__DIR__ . '/intelligent_routing.php')) {
+        require_once __DIR__ . '/intelligent_routing.php';
+    }
+    if (!function_exists('intelligentRoutingEnabled')) {
+        return [
+            'id' => 'intelligent_routing',
+            'label' => 'Intelligent routing',
+            'ok' => false,
+            'status' => 'Module missing',
+            'detail' => 'includes/intelligent_routing.php not loaded',
+            'test_url' => 'gateway_settings.php#live-money-switches',
+        ];
+    }
+    if (!intelligentRoutingEnabled()) {
+        return [
+            'id' => 'intelligent_routing',
+            'label' => 'Intelligent routing',
+            'ok' => true,
+            'status' => 'Switch OFF (default)',
+            'detail' => 'Fixed checkout routing. Turn ON only when 2+ collect partners have Registry keys.',
+            'test_url' => 'gateway_settings.php#live-money-switches',
+        ];
+    }
+    $collectReady = isGatewayConfigured('razorpay') || isGatewayConfigured('cashfree') || isGatewayConfigured('payu');
+    return [
+        'id' => 'intelligent_routing',
+        'label' => 'Intelligent routing',
+        'ok' => $collectReady,
+        'status' => $collectReady ? 'Owner ON — score/rules active' : 'Owner ON — collect keys missing',
+        'detail' => 'Strategy: ' . intelligentRoutingStrategy() . ' · overrides Phase 11 at checkout when ON',
+        'test_url' => 'gateway_settings.php#live-money-switches',
+    ];
+}
+
+/**
+ * Admin dashboard rows — Live Money Switches at a glance.
+ *
+ * @return list<array{key:string,label:string,on:bool,status:string,detail:string,url:string}>
+ */
+function getLiveMoneySwitchDashboardRows(): array
+{
+    $checks = [
+        payoutLiveHealthCheck(),
+        recurringAutopayHealthCheck(),
+        routeSplitHealthCheck(),
+        intelligentRoutingHealthCheck(),
+    ];
+    $rows = [];
+    foreach ($checks as $c) {
+        $on = match ((string)($c['id'] ?? '')) {
+            'payout_live' => trim((string)getSetting('payout_live_enabled', '0')) === '1',
+            'recurring_autopay' => trim((string)getSetting('recurring_autopay_approved', '0')) === '1',
+            'route_split' => trim((string)getSetting('route_split_live_enabled', '0')) === '1',
+            'intelligent_routing' => trim((string)getSetting('intelligent_routing_enabled', '0')) === '1',
+            default => false,
+        };
+        $rows[] = [
+            'key' => (string)($c['id'] ?? ''),
+            'label' => (string)($c['label'] ?? ''),
+            'on' => $on,
+            'status' => (string)($c['status'] ?? ''),
+            'detail' => (string)($c['detail'] ?? ''),
+            'url' => (string)($c['test_url'] ?? 'gateway_settings.php#live-money-switches'),
+        ];
+    }
+    return $rows;
 }
 
 /** @return array{id:string,label:string,ok:bool,status:string,detail:string,test_url?:string} */

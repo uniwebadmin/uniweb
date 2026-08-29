@@ -1862,6 +1862,18 @@ $assert(str_contains($apiDocsSrc, '$anchor = $ep[4] ??') && !preg_match('/foreac
 $sdkShapeOut = shell_exec('php "' . $root . '/sdk/php/tests/RequestShapeTest.php" 2>&1') ?? '';
 $assert(str_contains($sdkShapeOut, 'SDK shape tests OK'), 'sdk_php_shape_test_runs');
 
+// Honest gaps — Fast QR canonical api_credentials + live money switch defaults OFF
+$fastQrSrc = (string)file_get_contents($root . '/includes/fast_qr_api.php');
+$assert(str_contains($fastQrSrc, 'authenticateMerchantApiKeyOnly') && !str_contains($fastQrSrc, 'merchant_api_credentials'), 'gap_fast_qr_uses_api_credentials');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_api.php'), 'function authenticateMerchantApiKeyOnly'), 'gap_platform_api_key_only_auth');
+$assert(is_file($root . '/migrations/077_live_money_switches_intelligent_routing_defaults.sql'), 'gap_m077_live_money_switch_defaults');
+$m077 = (string)file_get_contents($root . '/migrations/077_live_money_switches_intelligent_routing_defaults.sql');
+$assert(str_contains($m077, 'payout_live_enabled') && str_contains($m077, 'intelligent_routing_enabled') && str_contains($m077, 'route_split_live_enabled'), 'gap_m077_switch_keys');
+$platformHealthSrc = (string)file_get_contents($root . '/includes/platform_health.php');
+$assert(str_contains($platformHealthSrc, 'getLiveMoneySwitchDashboardRows') && str_contains($platformHealthSrc, 'payoutLiveHealthCheck') && str_contains($platformHealthSrc, 'intelligentRoutingHealthCheck'), 'gap_live_money_health_checks');
+$assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'Live Money Switches'), 'gap_admin_dashboard_live_money_panel');
+$assert(str_contains((string)file_get_contents($root . '/api_settings.php'), 'Fast QR API') && str_contains((string)file_get_contents($root . '/api_settings.php'), 'api_qr_create.php'), 'gap_api_settings_fast_qr_section');
+
 $payload = [
     'ok' => $failed === 0,
     'passed' => $passed,

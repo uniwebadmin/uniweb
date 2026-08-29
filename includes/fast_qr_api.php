@@ -143,32 +143,13 @@ function fastQrBatchCreate(int $merchantId, string $qrType, array $items, bool $
 }
 
 /**
- * Validate API key and return merchant.
+ * Validate API key and return merchant — uses canonical api_credentials (same as API Settings).
  */
 function fastQrAuthenticate(string $apiKey): ?array
 {
-    $apiKey = trim($apiKey);
-    if ($apiKey === '' || strlen($apiKey) < 20) return null;
-
-    try {
-        $db = getDB();
-        $st = $db->prepare(
-            "SELECT m.*, ak.mode, ak.scopes
-             FROM merchant_api_credentials ak
-             JOIN merchants m ON m.id = ak.merchant_id
-             WHERE ak.key_hash = SHA2(?, 256) AND ak.status = 'active' AND m.status = 'active'
-             LIMIT 1"
-        );
-        $st->execute([$apiKey]);
-        $merchant = $st->fetch();
-        if (!$merchant) return null;
-
-        // Check QR scope
-        $scopes = json_decode((string)($merchant['scopes'] ?? '[]'), true) ?: [];
-        if (!in_array('links:write', $scopes, true)) return null;
-
-        return $merchant;
-    } catch (Throwable $e) {
-        return null;
+    if (!function_exists('authenticateMerchantApiKeyOnly')) {
+        require_once __DIR__ . '/platform_api.php';
     }
+    $merchant = authenticateMerchantApiKeyOnly($apiKey, 'links:write');
+    return $merchant ?: null;
 }

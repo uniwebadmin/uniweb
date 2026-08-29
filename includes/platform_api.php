@@ -124,6 +124,40 @@ function authenticateMerchantApiCredential(string $key, string $secret, string $
     return $row;
 }
 
+/** Key-only auth for Fast QR / server-to-server paths that send X-API-Key without secret. */
+function authenticateMerchantApiKeyOnly(string $key, string $requiredScope): ?array
+{
+    requireFinancialTables();
+    $key = trim($key);
+    if ($key === '' || strlen($key) < 20) {
+        return null;
+    }
+    $st = getDB()->prepare(
+        "SELECT c.*, m.*,
+                c.id AS credential_id, c.mode AS credential_mode, c.scopes AS credential_scopes,
+                c.allowed_origins AS credential_allowed_origins
+         FROM api_credentials c JOIN merchants m ON m.id=c.merchant_id
+         WHERE c.key_hash=? AND c.status='active' AND m.status='active'
+           AND (c.expires_at IS NULL OR c.expires_at>NOW()) LIMIT 1"
+    );
+    $st->execute([hash('sha256', $key)]);
+    $row = $st->fetch();
+    if (!$row) {
+        return null;
+    }
+    $scopes = json_decode((string)$row['credential_scopes'], true);
+    if (!is_array($scopes) || !in_array($requiredScope, $scopes, true)) {
+        return null;
+    }
+    if ($row['credential_mode'] === 'live' && !isMerchantLive($row)) {
+        return null;
+    }
+    getDB()->prepare('UPDATE api_credentials SET last_used_at=NOW() WHERE id=?')->execute([(int)$row['credential_id']]);
+    $row['mode'] = (string)$row['credential_mode'];
+    $row['api_mode'] = $row['credential_mode'];
+    return $row;
+}
+
 function consumeApiRateLimit(int $credentialId, int $limit = 120): bool
 {
     $db = getDB();
