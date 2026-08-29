@@ -176,6 +176,66 @@ function partnerForwardQueueUpgradeLegacySchema(PDO $db): void
             } catch (Throwable $e) { /* ok */ }
         }
     }
+
+    partnerForwardQueueFixUniqueIndexes($db);
+}
+
+/**
+ * Older live DBs had UNIQUE(merchant_id) as uniq_merchant_forward — only one partner row
+ * per merchant. Drop that and use (merchant_id, partner_key) so bulk method sends do not 1062.
+ */
+function partnerForwardQueueFixUniqueIndexes(PDO $db): void
+{
+    try {
+        $legacy = $db->query(
+            "SHOW INDEX FROM partner_forward_queue WHERE Key_name='uniq_merchant_forward'"
+        )->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if ($legacy !== []) {
+            $db->exec('ALTER TABLE partner_forward_queue DROP INDEX uniq_merchant_forward');
+        }
+    } catch (Throwable $e) { /* ok */ }
+
+    try {
+        $composite = $db->query(
+            "SHOW INDEX FROM partner_forward_queue WHERE Key_name='uniq_merchant_partner'"
+        )->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if ($composite === []) {
+            $db->exec(
+                'ALTER TABLE partner_forward_queue ADD UNIQUE KEY uniq_merchant_partner (merchant_id, partner_key)'
+            );
+        }
+    } catch (Throwable $e) { /* duplicates or already applied */ }
+}
+
+function forwardQueueIsDuplicateKeyError(Throwable $e): bool
+{
+    if ($e instanceof PDOException && isset($e->errorInfo[1]) && (int)$e->errorInfo[1] === 1062) {
+        return true;
+    }
+    $msg = $e->getMessage();
+    return str_contains($msg, '1062') || str_contains($msg, 'Duplicate entry');
+}
+
+/** Return newest queue row id for merchant + partner (legacy: any partner for merchant). */
+function forwardQueueResolveExistingId(PDO $db, int $merchantId, string $partnerKey): int
+{
+    try {
+        $st = $db->prepare(
+            'SELECT id FROM partner_forward_queue WHERE merchant_id=? AND partner_key=? ORDER BY id DESC LIMIT 1'
+        );
+        $st->execute([$merchantId, $partnerKey]);
+        $id = (int)$st->fetchColumn();
+        if ($id > 0) {
+            return $id;
+        }
+        $st2 = $db->prepare(
+            'SELECT id FROM partner_forward_queue WHERE merchant_id=? ORDER BY id DESC LIMIT 1'
+        );
+        $st2->execute([$merchantId]);
+        return (int)$st2->fetchColumn();
+    } catch (Throwable $e) {
+        return 0;
+    }
 }
 
 /**
@@ -214,20 +274,34 @@ function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payl
 {
     ensurePartnerForwardQueueTable();
     $db = getDB();
+    $partnerKey = strtolower(trim($partnerKey));
+    if ($partnerKey === '') {
+        $partnerKey = 'unassigned';
+    }
 
-    // Idempotent: skip if a non-terminal row already exists for this merchant + partner
-    try {
-        $check = $db->prepare(
-            "SELECT id FROM partner_forward_queue
-             WHERE merchant_id=? AND partner_key=? AND status IN ('queued','retry','processing','staged','success')
-             LIMIT 1"
-        );
-        $check->execute([$merchantId, $partnerKey]);
-        $existingId = (int)$check->fetchColumn();
-        if ($existingId > 0) {
-            return $existingId; // already queued — do not flood duplicates
-        }
-    } catch (Throwable $e) { /* table may not exist yet — continue to insert */ }
+    $existingId = forwardQueueResolveExistingId($db, $merchantId, $partnerKey);
+    if ($existingId > 0) {
+        try {
+            $statusSt = $db->prepare('SELECT status FROM partner_forward_queue WHERE id=? LIMIT 1');
+            $statusSt->execute([$existingId]);
+            $status = (string)$statusSt->fetchColumn();
+            if (in_array($status, ['queued', 'retry', 'processing', 'staged', 'success'], true)) {
+                return $existingId;
+            }
+            if (in_array($status, ['failed', 'cancelled', 'paused'], true)) {
+                $schedule = forwardQueueNextScheduleAt();
+                $db->prepare(
+                    "UPDATE partner_forward_queue SET status='queued', partner_key=?, package_payload=?, schedule_at=?, attempts=0, error_message=NULL, updated_at=NOW() WHERE id=?"
+                )->execute([
+                    $partnerKey,
+                    $payload ? json_encode($payload) : null,
+                    $schedule->format('Y-m-d H:i:s'),
+                    $existingId,
+                ]);
+                return $existingId;
+            }
+        } catch (Throwable $e) { /* fall through to insert */ }
+    }
 
     $schedule = forwardQueueNextScheduleAt();
     try {
@@ -245,6 +319,13 @@ function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payl
         ]);
         return (int)$db->lastInsertId();
     } catch (Throwable $e) {
+        if (forwardQueueIsDuplicateKeyError($e)) {
+            $dupId = forwardQueueResolveExistingId($db, $merchantId, $partnerKey);
+            if ($dupId > 0) {
+                return $dupId;
+            }
+            return 0;
+        }
         logPlatformError('error', 'enqueuePartnerForward failed: ' . $e->getMessage(), ['merchant_id' => $merchantId]);
         return 0;
     }

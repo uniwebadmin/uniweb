@@ -598,7 +598,7 @@ $assert(str_contains($fwdP5, 'partnerIsConfigured($partnerKey)') && !str_contain
 $assert(!str_contains($fwdP5, 'isGatewayActive($partnerKey)'), 'p5a_enqueue_no_active_without_keys_tier');
 $assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'one queue row per partner that already has keys'), 'p5a_forward_queue_copy_keys');
 $qP5 = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
-$assert(str_contains($qP5, "status IN ('queued','retry','processing','staged','success')"), 'p5_forward_enqueue_idempotent');
+$assert(str_contains($qP5, 'forwardQueueResolveExistingId') && str_contains($qP5, 'forwardQueueIsDuplicateKeyError'), 'p5_forward_enqueue_idempotent');
 $assert(str_contains($kycFlowP5, 'enqueueMerchantToAllEnabledPartners'), 'p5_kyc_verify_enqueues_forward');
 // 5b: push uses partnerIsConfigured (not fake keys_configured); staged outcome until adapters
 $assert(str_contains($qP5, 'function pushPackageToPartner') && str_contains($qP5, 'partnerIsConfigured($partnerKey)') && !str_contains($qP5, "keys_configured"), 'p5b_push_uses_partnerIsConfigured');
@@ -1810,7 +1810,7 @@ $assert(str_contains($finAc, 'uniq_business_journal') || str_contains((string)fi
 $assert(str_contains((string)file_get_contents($root . '/includes/transaction_detail.php'), 'ledger_status'), 'p7_txn_detail_ledger_status');
 $assert(str_contains((string)file_get_contents($root . '/includes/wallet.php'), 'reconcilePendingPaymentLedgers'), 'p7_backfill_uses_reconcile');
 $assert(str_contains((string)file_get_contents($root . '/migrations/001_financial_integrity.sql'), 'uniq_api_idempotency'), 'p7_api_idempotency_unique');
-$assert(str_contains((string)file_get_contents($root . '/includes/split_settlement.php'), 'idempotency_key') && str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), "status IN ('queued','retry','processing','staged','success')"), 'p7_forward_and_transfer_idempotency');
+$assert(str_contains((string)file_get_contents($root . '/includes/split_settlement.php'), 'idempotency_key') && str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'forwardQueueResolveExistingId'), 'p7_forward_and_transfer_idempotency');
 
 // P8 — notify + deep-link + channel dedup
 $p8Notify = (string)file_get_contents($root . '/includes/notifications.php');
@@ -1996,6 +1996,9 @@ $assert(str_contains((string)file_get_contents($root . '/includes/smart_routing.
 $assert(str_contains((string)file_get_contents($root . '/includes/split_settlement.php'), 'transactionPartnerSplitMerchantNotice'), 'p11_merchant_txn_split_notice');
 $assert(str_contains((string)file_get_contents($root . '/transaction_detail.php'), 'transactionPartnerSplitMerchantNotice'), 'p11_merchant_txn_detail_notice');
 $assert(is_file($root . '/migrations/079_phase11_route_decision_txn_id.sql'), 'p11_m079_phase11_txn_column');
+$pfqDup = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
+$assert(str_contains($pfqDup, 'partnerForwardQueueFixUniqueIndexes') && str_contains($pfqDup, 'forwardQueueIsDuplicateKeyError'), 'forward_queue_duplicate_key_idempotent');
+$assert(is_file($root . '/migrations/080_partner_forward_queue_merchant_partner_unique.sql'), 'm080_forward_queue_merchant_partner_unique');
 
 $payload = [
     'ok' => $failed === 0,
