@@ -146,12 +146,6 @@ function sendTemplatedEmail(int $merchantId, string $template, array $vars = [])
         $smtpUser = getSetting('smtp_user', '');
         $smtpPass = getSetting('smtp_pass', '');
         if (!$smtpHost || !$smtpUser || !$smtpPass) {
-            if (function_exists('logPlatformError')) {
-                logPlatformError('warning', 'Templated email skipped: SMTP not configured', [
-                    'template' => $template,
-                    'merchant_id' => $merchantId,
-                ]);
-            }
             return;
         }
 
