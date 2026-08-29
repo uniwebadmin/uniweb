@@ -8,6 +8,9 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/method_requests.php';
 require_once __DIR__ . '/includes/method_partner_adapters.php';
+if (!function_exists('pgWebhookReadRawBody') && is_file(__DIR__ . '/includes/pg_webhooks.php')) {
+    require_once __DIR__ . '/includes/pg_webhooks.php';
+}
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -27,16 +30,14 @@ $secret = (string)($_SERVER['HTTP_X_UNIWEB_METHOD_SECRET']
     ?? '');
 
 // Also accept signed Razorpay/Cashfree headers as auth when body verifies.
-$raw = file_get_contents('php://input') ?: '';
-$rzpSig = (string)($_SERVER['HTTP_X_RAZORPAY_SIGNATURE'] ?? '');
-$cfSig = (string)($_SERVER['HTTP_X_WEBHOOK_SIGNATURE'] ?? $_SERVER['HTTP_X_CASHFREE_SIGNATURE'] ?? '');
-$cfTs = (string)($_SERVER['HTTP_X_WEBHOOK_TIMESTAMP'] ?? $_SERVER['HTTP_X_CASHFREE_TIMESTAMP'] ?? '');
+$raw = pgWebhookReadRawBody();
+$headers = pgWebhookHeadersFromServer();
 $authOk = verifyMethodPartnerWebhookSecret($secret);
-if (!$authOk && $rzpSig !== '' && function_exists('verifyRazorpayWebhookSignature')) {
-    $authOk = verifyRazorpayWebhookSignature($raw, $rzpSig);
+if (!$authOk && (string)($headers['x-razorpay-signature'] ?? '') !== '') {
+    $authOk = verifyWebhookSignature('razorpay', $raw, $headers);
 }
-if (!$authOk && $cfSig !== '' && function_exists('verifyCashfreeWebhookSignature')) {
-    $authOk = verifyCashfreeWebhookSignature($raw, $cfSig, $cfTs);
+if (!$authOk && (string)($headers['x-webhook-signature'] ?? '') !== '' && (string)($headers['x-webhook-timestamp'] ?? '') !== '') {
+    $authOk = verifyWebhookSignature('cashfree', $raw, $headers);
 }
 if (!$authOk) {
     http_response_code(401);

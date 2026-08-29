@@ -135,6 +135,7 @@ require_once __DIR__ . '/header.php';
         <div class="glass rounded-xl p-6 border border-sky-500/20" id="webhooks">
             <h2 class="font-semibold text-sky-400 mb-2">Outbound Webhooks</h2>
             <p class="text-sm text-gray-400 mb-3">Set your HTTPS webhook URL and signing secret in Dashboard → API Settings. UniWeb POSTs JSON to your server when payments complete. Always verify the HMAC signature — never trust the body alone.</p>
+            <p class="text-xs text-gray-500 mb-3">When you rotate your signing secret in API Settings, UniWeb keeps the previous secret valid for 48 hours so deliveries in flight still verify. Update your server to accept both secrets during that window, then drop the old one.</p>
             <p class="text-xs text-gray-500 mb-1">Delivery headers:</p>
             <pre class="bg-dark-900 p-4 rounded-lg text-xs overflow-x-auto text-gray-300 mb-4">Content-Type: application/json
 X-UniWeb-Event: payment.success

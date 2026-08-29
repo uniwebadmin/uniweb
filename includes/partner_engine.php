@@ -166,6 +166,7 @@ function getPartnerRegistry(): array
                 'razorpay_environment' => ['label' => 'Environment', 'type' => 'select', 'options' => ['test' => 'Test', 'live' => 'Live']],
                 'razorpay_key_id' => ['label' => 'Key ID', 'type' => 'text'],
                 'razorpay_key_secret' => ['label' => 'Key Secret', 'type' => 'password'],
+                'razorpay_webhook_secret' => ['label' => 'Webhook Secret (optional — falls back to Key Secret)', 'type' => 'password'],
             ],
             'checklist' => [
                 'Create Razorpay account',

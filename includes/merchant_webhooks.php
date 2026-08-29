@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+if (!function_exists('cryptoTimingSafeEqual') && is_file(__DIR__ . '/crypto_compare.php')) {
+    require_once __DIR__ . '/crypto_compare.php';
+}
+
 function ensureMerchantWebhookEngine(): void
 {
     // Schema changes are versioned under migrations/. Request-time DDL is forbidden.
@@ -20,13 +24,34 @@ function signMerchantWebhookPayload(string $payload, string $secret): string
     return hash_hmac('sha256', $payload, $secret);
 }
 
-function verifyMerchantWebhookSignature(string $payload, string $signature, string $secret): bool
+function verifyMerchantWebhookSignature(string $payload, string $signature, string $secret, ?string $previousSecret = null): bool
 {
     if ($signature === '' || $secret === '') {
         return false;
     }
     $expected = signMerchantWebhookPayload($payload, $secret);
-    return hash_equals($expected, $signature);
+    if (cryptoTimingSafeEqual($expected, $signature)) {
+        return true;
+    }
+    if ($previousSecret !== null && $previousSecret !== '' && $previousSecret !== $secret) {
+        $expectedPrev = signMerchantWebhookPayload($payload, $previousSecret);
+        return cryptoTimingSafeEqual($expectedPrev, $signature);
+    }
+    return false;
+}
+
+/** Merchant outbound webhook verify grace — previous secret valid after rotation. */
+function merchantWebhookPreviousSecretValid(?string $rotatedAt): bool
+{
+    if ($rotatedAt === null || trim($rotatedAt) === '') {
+        return false;
+    }
+    $ts = strtotime($rotatedAt);
+    if ($ts === false) {
+        return false;
+    }
+    $grace = function_exists('webhookSecretRotationGraceSeconds') ? webhookSecretRotationGraceSeconds() : 172800;
+    return time() <= ($ts + $grace);
 }
 
 function merchantWebhookDeliveryOk(?int $code): bool

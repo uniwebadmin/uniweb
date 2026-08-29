@@ -11,6 +11,9 @@ if (!function_exists('isGatewayActive')) {
 if (!function_exists('getPartnerSetting') && is_file(__DIR__ . '/partner_control.php')) {
     require_once __DIR__ . '/partner_control.php';
 }
+if (!function_exists('cryptoTimingSafeEqual') && is_file(__DIR__ . '/crypto_compare.php')) {
+    require_once __DIR__ . '/crypto_compare.php';
+}
 
 function createRazorpayOrder(float $amount, string $receipt, array $notes = []): ?array
 {
@@ -1005,16 +1008,42 @@ function generatePayUHash(string $key, string $txnid, string $amount, string $pr
 
 function verifyPayUResponseHash(array $post): bool
 {
-    $c = payuCredentials();
-    if (!$c['salt'] || empty($post['hash'])) return false;
+    if (empty($post['hash'])) {
+        return false;
+    }
+    if (!function_exists('partnerWebhookSecretCandidates') && is_file(__DIR__ . '/webhook_secret_rotation.php')) {
+        require_once __DIR__ . '/webhook_secret_rotation.php';
+    }
+    $salts = function_exists('partnerWebhookSecretCandidates')
+        ? partnerWebhookSecretCandidates('payu')
+        : [];
+    if ($salts === []) {
+        $c = payuCredentials();
+        if (!empty($c['salt'])) {
+            $salts = [(string)$c['salt']];
+        }
+    }
+    foreach ($salts as $salt) {
+        if (verifyPayUResponseHashWithSalt($post, (string)$salt)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function verifyPayUResponseHashWithSalt(array $post, string $salt): bool
+{
+    if ($salt === '' || empty($post['hash'])) {
+        return false;
+    }
     $status = $post['status'] ?? '';
     $str = implode('|', [
-        $c['salt'], $status, '', '', '', '', '',
+        $salt, $status, '', '', '', '', '',
         $post['udf5'] ?? '', $post['udf4'] ?? '', $post['udf3'] ?? '', $post['udf2'] ?? '', $post['udf1'] ?? '',
         $post['email'] ?? '', $post['firstname'] ?? '', $post['productinfo'] ?? '', $post['amount'] ?? '',
         $post['txnid'] ?? '', $post['key'] ?? '',
     ]);
-    return hash_equals(strtolower($post['hash']), strtolower(hash('sha512', $str)));
+    return cryptoTimingSafeEqual(strtolower((string)$post['hash']), strtolower(hash('sha512', $str)));
 }
 
 function buildPayUSplitRequest(float $amount, array $merchant): string

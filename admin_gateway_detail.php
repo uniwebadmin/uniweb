@@ -12,6 +12,9 @@ if (!function_exists('ensurePartnerControlTables')) {
 if (!function_exists('requeuePartnerForwardAfterKeysSaved')) {
     require_once __DIR__ . '/includes/partner_forward_queue.php';
 }
+if (!function_exists('rotatePartnerWebhookSigningSecret') && is_file(__DIR__ . '/includes/webhook_secret_rotation.php')) {
+    require_once __DIR__ . '/includes/webhook_secret_rotation.php';
+}
 if (!function_exists('payoutPartnerKeysConfigured')) {
     require_once __DIR__ . '/includes/payout.php';
 }
@@ -119,6 +122,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         flash($last4 === 'no_keys' ? 'warning' : 'success', $msg);
         if (function_exists('logStaffActivity')) { logStaffActivity('partner_keys_saved', 'Saved ' . $env . ' keys for ' . $partnerKey . ' (last4: ' . ($last4 ?: 'n/a') . ')', null, 'partner', $partnerKey); }
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=keys&env=' . $env);
+    }
+
+    if ($action === 'rotate_webhook_secret') {
+        $env = trim((string)($_POST['env'] ?? 'live'));
+        if (!in_array($env, ['test', 'live'], true)) {
+            $env = 'live';
+        }
+        $newSecret = trim((string)($_POST['new_webhook_secret'] ?? ''));
+        $adminId = isAdminLoggedIn() ? (int)($_SESSION['admin_id'] ?? 0) : null;
+        $rot = rotatePartnerWebhookSigningSecret($partnerKey, $env, $newSecret, $adminId ?: null);
+        flash(!empty($rot['ok']) ? 'success' : 'error', (string)($rot['message'] ?? 'Rotation failed.'));
+        if (!empty($rot['ok']) && function_exists('logStaffActivity')) {
+            logStaffActivity('webhook_secret_rotated', 'Rotated webhook secret for ' . $partnerKey . ' (' . $env . ')', null, 'partner', $partnerKey);
+        }
+        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=webhooks&env=' . $env);
+    }
+
+    if ($action === 'clear_webhook_previous') {
+        $env = trim((string)($_POST['env'] ?? 'live'));
+        if (!in_array($env, ['test', 'live'], true)) {
+            $env = 'live';
+        }
+        $adminId = isAdminLoggedIn() ? (int)($_SESSION['admin_id'] ?? 0) : null;
+        $clr = clearPartnerWebhookPreviousSecret($partnerKey, $env, $adminId ?: null);
+        flash(!empty($clr['ok']) ? 'success' : 'warning', (string)($clr['message'] ?? 'Clear failed.'));
+        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=webhooks&env=' . $env);
     }
 
     if ($action === 'copy_test_keys_to_live') {
@@ -727,9 +756,21 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <?php elseif ($activeTab === 'webhooks'): ?>
+    <?php
+        $webhookEnv = trim((string)($_GET['env'] ?? 'live'));
+        if (!in_array($webhookEnv, ['test', 'live'], true)) {
+            $webhookEnv = 'live';
+        }
+        $whRot = function_exists('partnerWebhookRotationStatus')
+            ? partnerWebhookRotationStatus($partnerKey, $webhookEnv)
+            : ['primary_configured' => false, 'previous_active' => false, 'grace_until' => null, 'primary_key' => ''];
+        $whGraceH = function_exists('webhookSecretRotationGraceSeconds')
+            ? (int)floor(webhookSecretRotationGraceSeconds() / 3600)
+            : 48;
+    ?>
     <div class="glass rounded-xl p-6 border border-gray-800">
         <h3 class="font-semibold mb-1">Webhook Configuration</h3>
-        <p class="text-xs text-gray-500 mb-4">Configure this URL at the partner's dashboard. UniWeb verifies signatures and processes events idempotently.</p>
+        <p class="text-xs text-gray-500 mb-4">HTTPS URL only at the partner dashboard. UniWeb verifies signatures on raw body bytes, rejects replays, and applies events idempotently. Secrets are never logged.</p>
         <?php $webhookUrl = $webhookUrl ?? ($gateway['webhook_url'] ?: ($partner['webhook'] ?? '')); ?>
         <?php if ($webhookUrl): ?>
         <div class="bg-dark-900/50 rounded-lg p-3 mb-4">
@@ -744,6 +785,38 @@ require_once __DIR__ . '/header.php';
             <p>Method partner webhook URL: <code class="text-sky-400"><?= e(rtrim(APP_URL, '/')) ?>/method_partner_webhook.php</code></p>
             <p class="mt-1">Auth header: <code class="text-gray-400">X-UniWeb-Method-Secret</code> — configure in Partner Detail → Keys tab.</p>
         </div>
+        <?php if (function_exists('partnerWebhookSigningSecretKey') && partnerWebhookSigningSecretKey($partnerKey) !== null): ?>
+        <div class="mt-6 pt-4 border-t border-gray-800">
+            <h4 class="text-sm font-semibold mb-2">Webhook signing secret rotation</h4>
+            <p class="text-xs text-gray-500 mb-3">Paste the new secret from the partner dashboard after you rotate there. Previous secret stays valid for <?= (int)$whGraceH ?> hours so in-flight webhooks are not dropped.</p>
+            <p class="text-xs mb-3">
+                Status (<?= e($webhookEnv) ?>):
+                <?php if (!empty($whRot['primary_configured'])): ?><span class="text-emerald-400">Primary configured</span><?php else: ?><span class="text-amber-400">No primary secret</span><?php endif; ?>
+                <?php if (!empty($whRot['previous_active'])): ?>
+                · <span class="text-sky-400">Previous active until <?= e((string)$whRot['grace_until']) ?></span>
+                <?php endif; ?>
+            </p>
+            <form method="POST" class="flex flex-wrap gap-3 items-end mb-3">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="rotate_webhook_secret">
+                <input type="hidden" name="env" value="<?= e($webhookEnv) ?>">
+                <div class="flex-1 min-w-[220px]">
+                    <label class="text-xs text-gray-500">New webhook secret (from partner dashboard)</label>
+                    <input type="password" name="new_webhook_secret" required autocomplete="off" class="input-field mt-1 font-mono text-xs w-full" placeholder="Paste new secret — not shown after save">
+                </div>
+                <button type="submit" class="btn-primary px-4 py-2 text-sm" onclick="return confirm('Rotate webhook secret for <?= e($partnerKey) ?> (<?= e($webhookEnv) ?>)? Current secret moves to previous for <?= (int)$whGraceH ?>h grace.')">Rotate webhook secret</button>
+            </form>
+            <?php if (!empty($whRot['previous_active'])): ?>
+            <form method="POST" class="inline">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="clear_webhook_previous">
+                <input type="hidden" name="env" value="<?= e($webhookEnv) ?>">
+                <button type="submit" class="text-xs px-3 py-2 rounded-lg border border-gray-700 text-gray-400 hover:text-white" onclick="return confirm('Clear previous secret now? Webhooks signed with the old secret will fail immediately.')">Clear previous secret now</button>
+            </form>
+            <?php endif; ?>
+            <p class="text-[10px] text-gray-600 mt-2">Env: <a href="?id=<?= (int)$gatewayId ?>&amp;tab=webhooks&amp;env=test" class="<?= $webhookEnv === 'test' ? 'text-sky-400' : 'text-gray-500' ?>">Test</a> · <a href="?id=<?= (int)$gatewayId ?>&amp;tab=webhooks&amp;env=live" class="<?= $webhookEnv === 'live' ? 'text-sky-400' : 'text-gray-500' ?>">Live</a></p>
+        </div>
+        <?php endif; ?>
         <?php
         try {
             $st = getDB()->prepare("SELECT * FROM platform_event_log WHERE event_type LIKE ? ORDER BY created_at DESC LIMIT 10");

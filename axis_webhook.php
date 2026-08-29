@@ -1,31 +1,23 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('pgWebhookVerifyPartner') && is_file(__DIR__ . '/includes/pg_webhooks.php')) {
+    require_once __DIR__ . '/includes/pg_webhooks.php';
+}
 if (!function_exists('axisPartnerSetting') && is_file(__DIR__ . '/includes/partner_control.php')) {
     require_once __DIR__ . '/includes/partner_control.php';
 }
-
-$secret = axisPartnerSetting('axis_webhook_secret', '');
-$raw = file_get_contents('php://input');
-$headers = function_exists('getallheaders') ? getallheaders() : [];
-$headerMap = [];
-foreach ($headers as $name => $value) {
-    $headerMap[strtolower((string)$name)] = trim((string)$value);
-}
-$signature = $headerMap['x-axis-signature'] ?? $headerMap['x-webhook-signature'] ?? '';
 
 header('Content-Type: application/json');
 header('Cache-Control: no-store');
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     jsonResponse(['error' => 'Method not allowed'], 405);
 }
-if ($secret === '' || $signature === '') {
-    axisLogApi('/axis_webhook.php', 'POST', '', 'missing webhook authentication', 401, null, 'webhook_rejected');
-    jsonResponse(['error' => 'Webhook authentication required'], 401);
-}
-$expected = hash_hmac('sha256', $raw, $secret);
-if (!hash_equals($expected, strtolower($signature))) {
-    axisLogApi('/axis_webhook.php', 'POST', '', 'invalid webhook signature', 401, null, 'webhook_rejected');
-    jsonResponse(['error' => 'Invalid webhook signature'], 401);
+
+$raw = pgWebhookReadRawBody();
+$verify = pgWebhookVerifyPartner('axis', $raw);
+if (!$verify['ok']) {
+    axisLogApi('/axis_webhook.php', 'POST', '', 'webhook signature failed', (int)$verify['http_code'], null, 'webhook_rejected');
+    pgWebhookRejectJson('axis', (string)$verify['reason'], (int)$verify['http_code']);
 }
 
 $data = json_decode($raw, true);
@@ -49,6 +41,14 @@ $merch = findMerchantByVirtualAccountNumber($vaNumber);
 if (!$merch) {
     axisLogApi('webhook', 'POST', '', 'merchant not found for VA', 404, null, 'webhook_skip');
     jsonResponse(['error' => 'Virtual account not found'], 404);
+}
+
+$eventId = 'axis:' . $utr;
+if (function_exists('registerGatewayEvent') && financialTablesReady()) {
+    $gatewayEvent = registerGatewayEvent('axis', $eventId, 'va_credit', $raw, true);
+    if (!empty($gatewayEvent['duplicate'])) {
+        jsonResponse(['status' => 'duplicate', 'app' => APP_NAME]);
+    }
 }
 
 $dup = $db->prepare('SELECT id FROM transactions WHERE utr = ? LIMIT 1');

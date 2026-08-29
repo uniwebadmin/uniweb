@@ -3,6 +3,13 @@ declare(strict_types=1);
 
 /** Payment gateway webhook helpers — idempotent fulfillment + audit log */
 
+if (!function_exists('cryptoTimingSafeEqual') && is_file(__DIR__ . '/crypto_compare.php')) {
+    require_once __DIR__ . '/crypto_compare.php';
+}
+if (!function_exists('partnerWebhookSecretCandidates') && is_file(__DIR__ . '/webhook_secret_rotation.php')) {
+    require_once __DIR__ . '/webhook_secret_rotation.php';
+}
+
 function ensurePgWebhookTables(): void
 {
     static $done = false;
@@ -66,10 +73,30 @@ function logPgWebhookVerifyFailure(
     }
 }
 
-/** Max webhook event age (seconds) — replay protection; 0 = disabled. */
+/** Max webhook event age (seconds) from partner payload created_at — replay guard; 0 = disabled. */
 function pgWebhookMaxEventAgeSeconds(): int
 {
     return 86400;
+}
+
+/** Timestamp header skew window (seconds) — Cashfree-style; configurable 300–900. */
+function pgWebhookTimestampSkewSeconds(): int
+{
+    return 300;
+}
+
+/** Basic abuse guard on inbound webhook routes — not sole security control. */
+function pgWebhookAbuseBlocked(?string $partner = null): bool
+{
+    if (!function_exists('checkRateLimit') && is_file(__DIR__ . '/rate_limiter.php')) {
+        require_once __DIR__ . '/rate_limiter.php';
+    }
+    if (!function_exists('checkRateLimit')) {
+        return false;
+    }
+    $ip = substr((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 0, 64);
+    $scope = 'pg_webhook_' . ($partner !== null && $partner !== '' ? strtolower(trim($partner)) : 'all');
+    return !checkRateLimit($ip, $scope, 180);
 }
 
 /**
@@ -147,10 +174,33 @@ function pgWebhookHeadersFromServer(): array
  * @param array<string,mixed>|null $parsedForm Required for PayU (reverse hash on form fields, not raw body).
  * @return array{ok:bool,scheme:string,http_code:int,reason:string}
  */
-function pgWebhookVerifyPartner(string $partner, string $rawBody, ?array $parsedForm = null): array
+/**
+ * Adapter entry — bool wrapper for verifyWebhookSignature(partner, rawBody, headers).
+ *
+ * @param array<string,mixed>|null $parsedForm PayU form fields when not JSON body.
+ */
+function verifyWebhookSignature(string $partnerKey, string $rawBody, array $headers, ?array $parsedForm = null): bool
+{
+    $normalized = [];
+    foreach ($headers as $name => $value) {
+        $normalized[strtolower(str_replace('_', '-', (string)$name))] = is_string($value) ? $value : (string)$value;
+    }
+    $result = pgWebhookVerifyPartner($partnerKey, $rawBody, $parsedForm, $normalized);
+    return !empty($result['ok']);
+}
+
+function pgWebhookVerifyPartner(string $partner, string $rawBody, ?array $parsedForm = null, ?array $headers = null): array
 {
     $partner = strtolower(trim($partner));
-    $headers = pgWebhookHeadersFromServer();
+    if (pgWebhookAbuseBlocked($partner)) {
+        return [
+            'ok' => false,
+            'scheme' => 'rate_limit',
+            'http_code' => 429,
+            'reason' => 'rate_limited',
+        ];
+    }
+    $headers = $headers ?? pgWebhookHeadersFromServer();
 
     if ($partner === 'razorpay') {
         $sig = (string)($headers['x-razorpay-signature'] ?? '');
@@ -206,6 +256,17 @@ function pgWebhookVerifyPartner(string $partner, string $rawBody, ?array $parsed
         ];
     }
 
+    if ($partner === 'axis') {
+        $sig = (string)($headers['x-axis-signature'] ?? $headers['x-webhook-signature'] ?? '');
+        $ok = verifyAxisWebhookSignature($rawBody, $sig);
+        return [
+            'ok' => $ok,
+            'scheme' => 'hmac_sha256_hex_body',
+            'http_code' => 401,
+            'reason' => $ok ? 'ok' : ($sig === '' ? 'missing_signature' : 'invalid_signature'),
+        ];
+    }
+
     return [
         'ok' => false,
         'scheme' => 'unsupported',
@@ -216,18 +277,32 @@ function pgWebhookVerifyPartner(string $partner, string $rawBody, ?array $parsed
 
 function verifyDecentroWebhookSignature(string $rawBody, string $signature): bool
 {
-    if (!function_exists('decentroClientSecret') && is_file(__DIR__ . '/partner_control.php')) {
-        require_once __DIR__ . '/partner_control.php';
-    }
-    $clientSecret = function_exists('decentroClientSecret') ? decentroClientSecret() : '';
-    if ($clientSecret === '') {
-        return function_exists('isDecentroSandboxEnvironment') && isDecentroSandboxEnvironment();
-    }
     if ($signature === '') {
         return function_exists('isDecentroSandboxEnvironment') && isDecentroSandboxEnvironment();
     }
-    $expected = hash_hmac('sha256', $rawBody, $clientSecret);
-    return hash_equals($expected, $signature);
+    if (!function_exists('verifyWithPartnerWebhookSecrets')) {
+        if (!function_exists('decentroClientSecret') && is_file(__DIR__ . '/partner_control.php')) {
+            require_once __DIR__ . '/partner_control.php';
+        }
+        $clientSecret = function_exists('decentroClientSecret') ? decentroClientSecret() : '';
+        if ($clientSecret === '') {
+            return function_exists('isDecentroSandboxEnvironment') && isDecentroSandboxEnvironment();
+        }
+        return cryptoVerifyHmacSha256Hex($rawBody, $clientSecret, $signature);
+    }
+    return verifyWithPartnerWebhookSecrets('decentro', static function (string $secret) use ($rawBody, $signature): bool {
+        return cryptoVerifyHmacSha256Hex($rawBody, $secret, $signature);
+    });
+}
+
+function verifyAxisWebhookSignature(string $rawBody, string $signature): bool
+{
+    if ($signature === '') {
+        return false;
+    }
+    return verifyWithPartnerWebhookSecrets('axis', static function (string $secret) use ($rawBody, $signature): bool {
+        return cryptoVerifyHmacSha256Hex($rawBody, $secret, cryptoStripSha256Prefix($signature));
+    });
 }
 
 function loadPaymentLinkRow(string $linkId): ?array
@@ -263,27 +338,18 @@ function fulfillGatewayPayment(string $gateway, string $linkId, string $referenc
 
 function verifyRazorpayWebhookSignature(string $rawBody, string $signature): bool
 {
-    $secret = '';
-    if (function_exists('getPartnerSetting')) {
-        $secret = trim((string)getPartnerSetting('razorpay', 'razorpay_webhook_secret', ''));
-        if ($secret === '') {
-            $secret = trim((string)getPartnerSetting('razorpay', 'razorpay_key_secret', ''));
-        }
-    }
-    if (!$secret || $signature === '') {
+    $signature = cryptoStripSha256Prefix($signature);
+    if ($signature === '') {
         return false;
     }
-    $expected = hash_hmac('sha256', $rawBody, $secret);
-    return hash_equals($expected, $signature);
+    return verifyWithPartnerWebhookSecrets('razorpay', static function (string $secret) use ($rawBody, $signature): bool {
+        return cryptoVerifyHmacSha256Hex($rawBody, $secret, $signature);
+    });
 }
 
 function verifyCashfreeWebhookSignature(string $rawBody, string $signature, string $timestamp): bool
 {
-    if (!function_exists('cashfreeSecretKey') && is_file(__DIR__ . '/partner_control.php')) {
-        require_once __DIR__ . '/partner_control.php';
-    }
-    $secret = cashfreeSecretKey();
-    if (!$secret || $signature === '' || $timestamp === '') {
+    if ($signature === '' || $timestamp === '') {
         return false;
     }
     if (!ctype_digit($timestamp)) {
@@ -293,11 +359,13 @@ function verifyCashfreeWebhookSignature(string $rawBody, string $signature, stri
     if ($timestampSeconds > 20000000000) {
         $timestampSeconds = (int)floor($timestampSeconds / 1000);
     }
-    if (abs(time() - $timestampSeconds) > 300) {
+    if (abs(time() - $timestampSeconds) > pgWebhookTimestampSkewSeconds()) {
         return false;
     }
-    $expected = base64_encode(hash_hmac('sha256', $timestamp . $rawBody, $secret, true));
-    return hash_equals($expected, $signature);
+    $secrets = function_exists('partnerWebhookSecretCandidates')
+        ? partnerWebhookSecretCandidates('cashfree')
+        : (function_exists('cashfreeSecretKey') ? [cashfreeSecretKey()] : []);
+    return cryptoVerifyHmacSha256B64TimestampBodyAny($rawBody, $secrets, $timestamp, $signature);
 }
 
 function parseCashfreeLinkIdFromOrder(string $orderId): string

@@ -1845,8 +1845,22 @@ $assert(str_contains((string)file_get_contents($root . '/transaction_detail.php'
 // Webhook security + idempotency + retry policy
 $pgSec = (string)file_get_contents($root . '/includes/pg_webhooks.php');
 $retryPol = (string)file_get_contents($root . '/includes/partner_api_retry.php');
-$assert(str_contains($pgSec, 'function pgWebhookVerifyPartner') && str_contains($pgSec, 'function pgWebhookReadRawBody'), 'wh_central_verify_interface');
-$assert(str_contains($pgSec, 'hash_equals') && str_contains($pgSec, 'reverse_sha512_form_hash'), 'wh_timing_safe_adapters');
+$assert(str_contains($pgSec, 'function pgWebhookVerifyPartner') && str_contains($pgSec, 'function pgWebhookReadRawBody') && str_contains($pgSec, 'function verifyWebhookSignature'), 'wh_central_verify_interface');
+$cryptoCmp = (string)file_get_contents($root . '/includes/crypto_compare.php');
+$whRot = (string)file_get_contents($root . '/includes/webhook_secret_rotation.php');
+$assert(str_contains($cryptoCmp, 'cryptoTimingSafeEqual') && str_contains($cryptoCmp, 'cryptoVerifyHmacSha256Hex'), 'wh_crypto_timing_safe_helpers');
+$assert(str_contains($pgSec, 'reverse_sha512_form_hash') && str_contains($pgSec, 'pgWebhookTimestampSkewSeconds'), 'wh_timing_safe_adapters');
+$assert(str_contains($whRot, 'rotatePartnerWebhookSigningSecret') && str_contains($whRot, '172800'), 'wh_secret_rotation_grace');
+require_once $root . '/includes/crypto_compare.php';
+$whTestBody = '{"event":"payment.captured"}';
+$whTestSecret = 'smoke_test_webhook_secret';
+$whTestSig = hash_hmac('sha256', $whTestBody, $whTestSecret);
+$assert(cryptoVerifyHmacSha256Hex($whTestBody, $whTestSecret, $whTestSig), 'wh_crypto_valid_sig');
+$assert(!cryptoVerifyHmacSha256Hex($whTestBody, $whTestSecret, 'tampered'), 'wh_crypto_tampered_sig');
+$assert(!cryptoVerifyHmacSha256Hex($whTestBody, $whTestSecret, ''), 'wh_crypto_empty_sig');
+$nodeWh = (string)file_get_contents($root . '/sdk/node/src/webhook.ts');
+$assert(str_contains($nodeWh, 'timingSafeEqualHex') && str_contains($nodeWh, 'verifyHmacSha256Hex'), 'wh_node_timing_safe_webhook');
+$assert(str_contains((string)file_get_contents($root . '/axis_webhook.php'), 'pgWebhookVerifyPartner'), 'wh_axis_central_verify');
 $assert(str_contains((string)file_get_contents($root . '/razorpay_webhook.php'), 'pgWebhookVerifyPartner') && str_contains((string)file_get_contents($root . '/payu_webhook.php'), 'pgWebhookVerifyPartner'), 'wh_entry_uses_central_verify');
 $assert(str_contains($retryPol, 'partnerApiRetryMaxAttempts') && str_contains($retryPol, 'partnerApiExecuteWithRetry'), 'wh_outbound_retry_policy');
 $assert(str_contains((string)file_get_contents($root . '/includes/financial_integrity.php'), 'INTERVAL 72 HOUR'), 'wh_api_idempotency_72h_ttl');
