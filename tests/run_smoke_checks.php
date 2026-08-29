@@ -1668,6 +1668,7 @@ $assert(str_contains($qrCodePage, 'qr_upi_print.php'), 'qr_code_links_instant_up
 // navigable page — never a bare white die() screen — on the customer money path.
 $checkout = (string)file_get_contents($root . '/checkout.php');
 $assert(str_contains($checkout, 'function renderCheckoutUnavailable'), 'checkout_branded_error_helper_present');
+$assert(str_contains($checkout, 'checkoutFindPaidTransaction') && str_contains($checkout, 'Payment already completed'), 'checkout_paid_link_honest_message');
 $assert(!str_contains($checkout, "die('Payment link expired or not found.')")
     && !str_contains($checkout, "die('This payment link is no longer active.')")
     && !str_contains($checkout, "die('This payment link has expired.')"), 'checkout_no_bare_die_deadends');

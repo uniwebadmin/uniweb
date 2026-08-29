@@ -252,16 +252,15 @@ if ($createdId !== '') {
         <?php endif; ?>
     </div>
     <div id="payment-link-results" class="lg:col-span-2 glass rounded-xl overflow-hidden min-w-0 max-w-full">
-        <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex flex-wrap justify-between items-center gap-2">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex flex-wrap justify-between items-center gap-3">
             <h2 class="font-semibold">Your Payment Links</h2>
-            <div class="flex flex-wrap gap-2 items-center max-w-full">
+            <div class="flex flex-wrap gap-3 items-center max-w-full">
                 <?= renderExportCsvLink('export_payment_links.php?' . http_build_query(['q' => $q, 'status' => $linkStatus])) ?>
-                <a href="merchant_payment_pack.php" class="text-xs text-sky-400 break-words">Generate ₹1 pack (all methods) →</a>
+                <a href="merchant_payment_pack.php" class="text-xs text-sky-400 px-3 py-1.5 rounded-lg border border-sky-500/30 hover:bg-sky-500/10 whitespace-normal leading-snug">Generate ₹1 pack (all methods) →</a>
             </div>
         </div>
-        <p class="px-4 sm:px-6 py-2 text-[11px] text-gray-500 border-b border-gray-800/60 md:hidden">Each link shows actions below — no sideways scroll needed on phone.</p>
-        <div class="overflow-x-auto payment-links-table-wrap md:block">
-            <table class="w-full text-sm payment-links-table min-w-0 md:min-w-[720px]">
+        <div class="overflow-x-auto payment-links-table-wrap -webkit-overflow-scrolling-touch">
+            <table class="w-full text-sm payment-links-table min-w-[720px]">
                 <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
                     <th class="px-5 py-3 text-left">Link ID</th><th class="px-5 py-3 text-left">Method</th><th class="px-5 py-3 text-left">Amount</th>
                     <th class="px-5 py-3 text-left">Views</th><th class="px-5 py-3 text-left">Paid</th><th class="px-5 py-3 text-left">Conv.</th><th class="px-5 py-3 text-left">Status</th><th class="px-5 py-3 text-left">Expires</th><th class="px-5 py-3 text-left">Action</th>

@@ -73,21 +73,21 @@ require_once __DIR__ . '/header.php';
 </div>
 
 <div class="glass rounded-xl overflow-hidden">
-    <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap justify-between items-center gap-3">
-        <h2 class="font-semibold"><?= __('payment_links_per_method') ?></h2>
-        <form method="GET" class="flex gap-2 items-center">
+    <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex flex-wrap justify-between items-center gap-3 payment-pack-toolbar">
+        <h2 class="font-semibold w-full sm:w-auto"><?= __('payment_links_per_method') ?></h2>
+        <form method="GET" class="flex flex-wrap gap-2 sm:gap-3 items-center">
             <label class="sr-only" for="pack-q">Search pack links</label>
-            <input id="pack-q" type="search" name="q" value="<?= e($packQ) ?>" placeholder="Method / Fixed / Open" class="input-field text-sm">
-            <button type="submit" class="btn-primary text-sm px-3 py-1.5">Filter</button>
+            <input id="pack-q" type="search" name="q" value="<?= e($packQ) ?>" placeholder="Method / Fixed / Open" class="input-field text-sm min-w-[9rem]">
+            <button type="submit" class="btn-primary text-sm px-4 py-2 whitespace-nowrap">Filter</button>
         </form>
         <?php if (empty($packLinks) && $packQ === ''): ?>
-        <a href="?action=regenerate_pack&token=<?= csrfToken() ?>" class="text-sm bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-semibold" onclick="return confirm('Create Fixed ₹1 + Open amount test links for each enabled method?')">Generate Payment Pack</a>
+        <a href="?action=regenerate_pack&token=<?= csrfToken() ?>" class="text-sm bg-sky-600 hover:bg-sky-500 text-white px-4 py-2.5 rounded-lg font-semibold whitespace-nowrap" onclick="return confirm('Create Fixed ₹1 + Open amount test links for each enabled method?')">Generate Payment Pack</a>
         <?php else: ?>
-        <a href="?action=regenerate_pack&token=<?= csrfToken() ?>" class="text-xs bg-sky-600/30 text-sky-400 px-3 py-1.5 rounded-lg" onclick="return confirm('Regenerate pack? Old pack links will stop working. Creates Fixed ₹1 + Open links.')">Regenerate Pack</a>
+        <a href="?action=regenerate_pack&token=<?= csrfToken() ?>" class="text-xs bg-sky-600/30 text-sky-400 px-4 py-2 rounded-lg whitespace-nowrap" onclick="return confirm('Regenerate pack? Old pack links will stop working. Creates Fixed ₹1 + Open links.')">Regenerate Pack</a>
         <?php endif; ?>
     </div>
-    <div class="overflow-x-auto">
-        <table class="w-full text-sm">
+    <div class="overflow-x-auto payment-pack-table-wrap">
+        <table class="w-full text-sm payment-pack-table min-w-[720px]">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50">
                 <tr>
                     <th class="px-5 py-3 text-left">Method</th>
@@ -113,9 +113,9 @@ require_once __DIR__ . '/header.php';
                         : '<span class="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">Fixed</span>' ?></td>
                     <td class="px-5 py-3 text-xs text-gray-500"><?= e($link['gateway_code'] ?? '—') ?></td>
                     <td class="px-5 py-3 font-semibold"><?= $isOpen ? '<span class="text-sky-400">Customer enters</span>' : formatMoney(capStatAmount((float)$link['amount'])) ?></td>
-                    <td class="px-5 py-3 font-mono text-[10px] text-gray-500 max-w-xs break-all"><a href="<?= e($payUrl) ?>" target="_blank" class="text-sky-400 hover:underline break-all"><?= e($payUrl) ?></a></td>
-                    <td class="px-5 py-3">
-                        <a href="<?= e($payUrl) ?>" target="_blank" class="text-xs text-sky-400 mr-2">Open</a>
+                    <td class="px-5 py-3 font-mono text-[10px] text-gray-500 max-w-[12rem] sm:max-w-xs break-all"><a href="<?= e($payUrl) ?>" target="_blank" class="text-sky-400 hover:underline break-all"><?= e($payUrl) ?></a></td>
+                    <td class="px-5 py-3 whitespace-nowrap">
+                        <a href="<?= e($payUrl) ?>" target="_blank" class="text-xs text-sky-400 mr-3">Open</a>
                         <button type="button" data-copy-url="<?= e($payUrl) ?>" onclick="var u=this.getAttribute('data-copy-url')||''; if(u){navigator.clipboard.writeText(u); this.textContent='Copied!';}" class="text-xs text-brand-400"><?= __('copy') ?></button>
                     </td>
                 </tr>

@@ -58,7 +58,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/public-pages.css?v=20260815a">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/portal-polish.css?v=20260815a">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/ui-components.css?v=20260829a">
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/mobile-safe.css?v=20260829c">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/mobile-safe.css?v=20260829d">
     <?php if (!empty($customerPortalUi)): ?>
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/customer-portal.css?v=20260724b">
     <?php endif; ?>

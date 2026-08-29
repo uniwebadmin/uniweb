@@ -25,18 +25,36 @@ if (!function_exists('buildPaymentTrackUrl') && is_file(__DIR__ . '/includes/cus
  * Used for every dead-end (missing / invalid / expired / inactive) payment link so a
  * customer always lands on a page with clear next steps.
  */
-function renderCheckoutUnavailable(string $heading, string $detail, int $status = 404): void
+function renderCheckoutUnavailable(string $heading, string $detail, int $status = 404, ?string $ctaUrl = null, string $ctaLabel = 'Home'): void
 {
     http_response_code($status);
     $pageTitle = $heading;
     require_once __DIR__ . '/header.php';
+    $ctaHref = $ctaUrl ?: 'index.php';
     echo '<section class="pt-28 pb-20 px-4"><div class="max-w-lg mx-auto glass rounded-2xl p-8 text-center">'
         . '<h1 class="text-xl font-semibold mb-2">' . e($heading) . '</h1>'
         . '<p class="text-sm text-gray-400 mb-6">' . e($detail) . '</p>'
-        . '<a href="index.php" class="inline-block btn-primary px-5 py-2.5 text-sm">Home</a>'
+        . '<a href="' . e($ctaHref) . '" class="inline-block btn-primary px-5 py-2.5 text-sm">' . e($ctaLabel) . '</a>'
         . '</div></section>';
     require_once __DIR__ . '/footer.php';
     exit;
+}
+
+/** Last successful payment on this link (if any). */
+function checkoutFindPaidTransaction(PDO $db, int $linkDbId): ?array
+{
+    try {
+        $st = $db->prepare(
+            "SELECT txn_id, amount, status, created_at FROM transactions
+             WHERE payment_link_id = ? AND status IN ('success','paid','captured')
+             ORDER BY id DESC LIMIT 1"
+        );
+        $st->execute([$linkDbId]);
+        $row = $st->fetch();
+        return $row ?: null;
+    } catch (Throwable $e) {
+        return null;
+    }
 }
 
 $linkId = $_GET['link'] ?? $_POST['udf1'] ?? '';
@@ -103,7 +121,7 @@ try {
 if (!$link) {
     renderCheckoutUnavailable(
         'Payment link not found',
-        'This payment link has expired or does not exist. Please ask the merchant for a fresh link.'
+        'This checkout URL is not valid. Please open a fresh link from the merchant.'
     );
 }
 $amtOnly = $db->prepare('SELECT amount, status, amount_type FROM payment_links WHERE link_id = ?');
@@ -178,23 +196,65 @@ if ($isOpenAmount) {
     $payAmount = sanitizePaymentAmount(round((float)($plRow['amount'] ?? 0), 2), $isTestCheckout);
 }
 $link['amount'] = $payAmount;
-$link['status'] = $plRow['status'] ?? 'active';
+$linkStatus = strtolower(trim((string)($plRow['status'] ?? $link['link_status'] ?? 'active')));
+$link['status'] = $linkStatus;
+$paidTxn = checkoutFindPaidTransaction($db, (int)$link['id']);
+
+if ($linkStatus === 'paid' || $paidTxn) {
+    $paidDetail = 'This payment link was already used. No further payment is needed.';
+    if ($paidTxn) {
+        $paidDetail = 'Payment completed'
+            . (function_exists('formatMoney') ? (' · ' . formatMoney((float)$paidTxn['amount'])) : '')
+            . ' · Ref ' . ($paidTxn['txn_id'] ?? '')
+            . (function_exists('formatDate') && !empty($paidTxn['created_at']) ? (' · ' . formatDate($paidTxn['created_at'])) : '')
+            . '. No further payment is needed on this link.';
+    }
+    $receiptUrl = !empty($paidTxn['txn_id']) ? ('receipt.php?txn=' . rawurlencode((string)$paidTxn['txn_id'])) : null;
+    renderCheckoutUnavailable(
+        'Payment already completed',
+        $paidDetail,
+        200,
+        $receiptUrl,
+        $receiptUrl ? 'View receipt' : 'Home'
+    );
+}
+
+if (in_array($linkStatus, ['inactive', 'cancelled'], true)) {
+    renderCheckoutUnavailable(
+        'Payment link inactive',
+        'This payment link is turned off. Please ask the merchant for a new link.',
+        410
+    );
+}
+
+if ($linkStatus === 'expired') {
+    renderCheckoutUnavailable(
+        'Payment link expired',
+        'This payment link has expired. Please ask the merchant for a fresh link.',
+        410
+    );
+}
+
 // Checkout customization
 $wlBrand = resolveCheckoutCustomize($link);
 // UniWeb Test Pay: Test Mode links only
 $allowInstantPay = $isTestCheckout;
-if ($link['status'] !== 'active') {
-    renderCheckoutUnavailable(
-        'Payment link no longer active',
-        'This payment link is no longer active. Please ask the merchant for a new link.',
-        410
-    );
-}
-if ($link['expires_at'] && strtotime($link['expires_at']) < time()) {
-    $db->prepare("UPDATE payment_links SET status = 'expired' WHERE id = ?")->execute([$link['id']]);
+
+if ($link['expires_at'] && strtotime((string)$link['expires_at']) < time()) {
+    try {
+        $db->prepare("UPDATE payment_links SET status = 'expired' WHERE id = ? AND status = 'active'")->execute([(int)$link['id']]);
+    } catch (Throwable $e) { /* ok */ }
     renderCheckoutUnavailable(
         'Payment link expired',
         'This payment link has expired. Please ask the merchant for a fresh link.',
+        410
+    );
+}
+
+if ($linkStatus !== 'active') {
+    renderCheckoutUnavailable(
+        'Payment link unavailable',
+        'This link is not open for payment (status: ' . ucfirst($linkStatus) . '). Please contact the merchant.',
         410
     );
 }
