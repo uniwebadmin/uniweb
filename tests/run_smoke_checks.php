@@ -879,6 +879,8 @@ $assert(str_contains($healthP8, 'UNIWEB_HEALTH_PROBE') && str_contains($healthP8
 $assert(str_contains($schemaP7, 'UNIWEB_HEALTH_PROBE') && str_contains($schemaP7, "health.php"), 'p8_health_skips_heavy_schema');
 $assert(str_contains($errCatchP8, 'There is no active transaction') && str_contains($errCatchP8, 'UNIWEB_HEALTH_ANSWERED'), 'p8_auto_resolve_stale_txn_and_health_ok');
 $assert(str_contains($finP8, 'function uniwebPdoCommit') && str_contains($finP8, 'function uniwebPreparePaymentCaptureSchema'), 'p8_capture_ddl_before_transaction');
+$walletSettleSrc = (string)file_get_contents($root . '/includes/wallet.php');
+$assert(str_contains($walletSettleSrc, 'ensureAuditLogTable') && str_contains($walletSettleSrc, 'uniwebPdoCommit($db)') && str_contains($walletSettleSrc, 'uniwebPdoRollback($db)'), 'platform_settle_ddl_before_txn');
 $wdSrc = (string)file_get_contents($root . '/includes/link_watchdog.php');
 $assert(str_contains($wdSrc, '$st === 503') && str_contains($wdSrc, "basename(\$relFile) === 'health.php'"), 'p8_watchdog_retries_503');
 $assert(str_contains((string)file_get_contents($root . '/includes/platform_api.php'), "'ok' => true") && str_contains((string)file_get_contents($root . '/includes/platform_api.php'), 'error(s) in Error Log — open admin_error_log.php'), 'p8_error_log_self_check_not_fail');

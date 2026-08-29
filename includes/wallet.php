@@ -918,6 +918,28 @@ function settlePlatformCommission(float $amount, string $mode, ?string $bankAcco
 
     $settlementId = generateId('PSTL');
 
+    // MySQL DDL (CREATE/ALTER) implicitly commits — must run before BEGIN.
+    if (!function_exists('ensureAuditLogTable') && is_file(__DIR__ . '/audit_log.php')) {
+        require_once __DIR__ . '/audit_log.php';
+    }
+    if (function_exists('ensureAuditLogTable')) {
+        ensureAuditLogTable();
+    }
+    if (function_exists('schemaExecQuiet')) {
+        schemaExecQuiet("ALTER TABLE platform_settlements ADD COLUMN mode VARCHAR(20) DEFAULT 'manual'");
+        schemaExecQuiet('ALTER TABLE platform_settlements ADD COLUMN bank_account VARCHAR(30) DEFAULT NULL');
+        schemaExecQuiet('ALTER TABLE platform_settlements ADD COLUMN processed_by VARCHAR(120) DEFAULT NULL');
+    }
+
+    $auditPayload = [
+        'actor_type' => 'admin',
+        'actor_id' => $adminBy,
+        'resource_type' => 'platform_settlement',
+        'resource_id' => $settlementId,
+        'reason' => "Platform commission settled ({$mode})",
+        'after_state' => ['amount' => $amount, 'mode' => $mode, 'bank_account' => $bankAccount],
+    ];
+
     try {
         $db->beginTransaction();
 
@@ -949,19 +971,21 @@ function settlePlatformCommission(float $amount, string $mode, ?string $bankAcco
             setPlatformWalletBalance($balance - $amount);
         }
 
-        uwRecordAuditEvent('platform_commission_settle', [
-            'actor_type' => 'admin',
-            'actor_id' => $adminBy,
-            'resource_type' => 'platform_settlement',
-            'resource_id' => $settlementId,
-            'reason' => "Platform commission settled ({$mode})",
-            'after_state' => ['amount' => $amount, 'mode' => $mode, 'bank_account' => $bankAccount],
-        ]);
+        if (function_exists('uniwebPdoCommit')) {
+            uniwebPdoCommit($db);
+        } elseif ($db->inTransaction()) {
+            $db->commit();
+        }
 
-        $db->commit();
+        uwRecordAuditEvent('platform_commission_settle', $auditPayload);
+
         return ['ok' => true, 'settlement_id' => $settlementId, 'message' => formatMoney($amount) . ' settled via ' . $mode . '.'];
     } catch (Throwable $e) {
-        $db->rollBack();
+        if (function_exists('uniwebPdoRollback')) {
+            uniwebPdoRollback($db);
+        } elseif ($db->inTransaction()) {
+            $db->rollBack();
+        }
         error_log('settlePlatformCommission failed: ' . $e->getMessage());
         return ['ok' => false, 'error' => 'Settlement failed: ' . $e->getMessage()];
     }
