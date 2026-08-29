@@ -129,6 +129,25 @@ function listIncidents(int $limit = 50, bool $publicOnly = false): array
     ], $rows);
 }
 
+function deleteIncident(string $ref): bool
+{
+    $ref = trim($ref);
+    if ($ref === '') {
+        return false;
+    }
+    try {
+        $stmt = getDB()->prepare('DELETE FROM incident_log WHERE incident_ref = ? LIMIT 1');
+        $stmt->execute([$ref]);
+        if ($stmt->rowCount() > 0) {
+            recordImmutableAudit('incident_deleted', null, 'incident', $ref);
+            return true;
+        }
+    } catch (Throwable $e) {
+        return false;
+    }
+    return false;
+}
+
 /**
  * Real, honest uptime % over a trailing window: 100% minus the share of time
  * spent inside logged incident windows (open->resolved, or open->now if still open).

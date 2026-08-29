@@ -67,7 +67,7 @@ require_once __DIR__ . '/header.php';
         <form method="post" class="space-y-3">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="ingest">
-            <div><label class="text-xs text-gray-500">Merchant ID</label><input type="number" name="merchant_id" required inputmode="numeric" class="input-field mt-1 w-full"></div>
+            <div><label class="text-xs text-gray-500">Merchant</label><?= renderAdminMerchantSelect('merchant_id', 0, true, true, 'Select merchant…') ?></div>
             <div><label class="text-xs text-gray-500">Transaction ID</label><input type="number" name="transaction_id" inputmode="numeric" class="input-field mt-1 w-full"></div>
             <div><label class="text-xs text-gray-500">Amount</label><input type="number" step="0.01" name="amount" required inputmode="decimal" class="input-field mt-1 w-full"></div>
             <div><label class="text-xs text-gray-500">Provider dispute ID</label><input name="provider_dispute_id" class="input-field mt-1 w-full"></div>

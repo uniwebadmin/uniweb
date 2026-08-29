@@ -17,6 +17,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     } elseif ($action === 'status' && !empty($_POST['ref'])) {
         $ok = updateIncidentStatus((string)$_POST['ref'], (string)($_POST['status'] ?? ''));
         flash($ok ? 'success' : 'error', $ok ? 'Incident updated.' : 'Could not update incident.');
+    } elseif ($action === 'delete' && !empty($_POST['ref'])) {
+        $ok = deleteIncident((string)$_POST['ref']);
+        flash($ok ? 'success' : 'error', $ok ? 'Incident deleted.' : 'Could not delete incident.');
     }
     redirect('admin_incidents.php');
 }
@@ -119,6 +122,12 @@ require_once __DIR__ . '/header.php';
                         <?php else: ?>
                         <span class="text-xs text-gray-600">—</span>
                         <?php endif; ?>
+                        <form method="POST" class="inline ml-3" onsubmit="return confirm('Delete this incident permanently? It will be removed from the public status page too.')">
+                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="ref" value="<?= e($inc['incident_ref']) ?>">
+                            <button type="submit" class="text-xs text-red-400 hover:underline">Delete</button>
+                        </form>
                     </td>
                 </tr>
                 <?php endforeach; ?>

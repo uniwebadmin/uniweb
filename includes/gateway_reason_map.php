@@ -344,3 +344,20 @@ function toggleDbReasonMap(int $id, bool $active): bool
         return false;
     }
 }
+
+/**
+ * Permanently remove a custom reason map row.
+ */
+function deleteDbReasonMap(int $id): bool
+{
+    ensureGatewayReasonMapTable();
+    if ($id <= 0) {
+        return false;
+    }
+    try {
+        getDB()->prepare('DELETE FROM gateway_reason_maps WHERE id=? LIMIT 1')->execute([$id]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}

@@ -1,6 +1,12 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireStaffAccess(['super', 'ceo']);
+if (is_file(__DIR__ . '/includes/totp.php')) {
+    require_once __DIR__ . '/includes/totp.php';
+}
+if (is_file(__DIR__ . '/includes/crypto.php')) {
+    require_once __DIR__ . '/includes/crypto.php';
+}
 
 $securityChecks = [
     'session_httponly' => [
@@ -30,8 +36,8 @@ $securityChecks = [
     ],
     'totp_2fa' => [
         'label' => 'TOTP 2FA for Staff',
-        'status' => function_exists('verifyTotp'),
-        'detail' => 'Staff accounts support TOTP 2FA',
+        'status' => function_exists('totpVerify'),
+        'detail' => 'Staff/admin login supports TOTP — enable MFA on next sign-in if not already on',
     ],
     'security_headers' => [
         'label' => 'Security Headers',
@@ -45,8 +51,8 @@ $securityChecks = [
     ],
     'credential_encryption' => [
         'label' => 'Credential Encryption (AES-256)',
-        'status' => function_exists('encryptSecret'),
-        'detail' => 'Gateway API keys encrypted at rest',
+        'status' => function_exists('sensitiveEncrypt') && function_exists('sensitiveDecrypt'),
+        'detail' => 'Partner keys + sensitive fields encrypted at rest (AES-256-GCM)',
     ],
     'error_reporting' => [
         'label' => 'Error Display (dev only)',

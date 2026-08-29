@@ -137,11 +137,11 @@ require_once __DIR__ . '/header.php';
                 <tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No platform wallet transactions yet.</td></tr>
                 <?php else: foreach ($transactions as $t): ?>
                 <tr>
-                    <td class="px-4 py-3 font-mono text-xs text-gray-400"><?= e($t['reference'] ?? '—') ?></td>
+                    <td class="px-4 py-3"><?= platformWalletReferenceLink($t['reference'] ?? '') ?></td>
                     <td class="px-4 py-3 text-xs"><span class="px-2 py-0.5 rounded <?= $t['type'] === 'credit' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400' ?>"><?= e($t['type'] ?? '—') ?></span></td>
                     <td class="px-4 py-3 text-right text-xs <?= ($t['amount'] ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400' ?>"><?= formatMoney((float)($t['amount'] ?? 0)) ?></td>
                     <td class="px-4 py-3 text-right text-xs text-gray-400"><?= formatMoney((float)($t['balance_after'] ?? 0)) ?></td>
-                    <td class="px-4 py-3 text-xs text-gray-400 max-w-xs truncate" title="<?= e($t['description'] ?? '') ?>"><?= e(mb_substr($t['description'] ?? '—', 0, 60)) ?></td>
+                    <td class="px-4 py-3 text-xs text-gray-400 max-w-xs truncate" title="<?= e($t['description'] ?? '') ?>"><?= platformWalletLedgerDescriptionHtml((string)($t['description'] ?? '')) ?></td>
                     <td class="px-4 py-3 text-xs text-gray-500"><?= formatDate($t['created_at'] ?? '') ?></td>
                 </tr>
                 <?php endforeach; endif; ?>

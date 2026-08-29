@@ -27,6 +27,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $active = ($_POST['active'] ?? '0') === '1';
         $ok = toggleDbReasonMap($id, $active);
         $result = $ok ? ['ok' => true, 'message' => 'Status updated.'] : ['ok' => false, 'error' => 'Failed.'];
+    } elseif ($action === 'delete') {
+        $id = (int)($_POST['id'] ?? 0);
+        $ok = deleteDbReasonMap($id);
+        $result = $ok ? ['ok' => true, 'message' => 'Reason map deleted.'] : ['ok' => false, 'error' => 'Could not delete.'];
     }
 
     if ($result) {
@@ -45,7 +49,8 @@ require_once __DIR__ . '/header.php';
 ?>
 <div class="max-w-5xl mx-auto px-4 py-8">
     <h1 class="text-2xl font-bold text-white mb-2">Reason Map Manager</h1>
-    <p class="text-sm text-gray-500 mb-6">Map gateway error codes to merchant-facing messages. English + Hindi. DB-backed, admin-editable.</p>
+    <p class="text-sm text-gray-500 mb-2">Map gateway error codes to merchant-facing messages. English + Hindi. DB-backed, admin-editable.</p>
+    <p class="text-xs text-gray-600 mb-6">Common codes (e.g. insufficient funds, timeout) are <strong class="text-gray-400">auto-loaded</strong> from the system seed list. Add rows here only for <strong class="text-gray-400">new partner codes</strong> not covered yet — you do not need to type every error by hand.</p>
 
     <!-- Add / Edit form -->
     <div class="glass rounded-xl p-6 border border-sky-500/20 mb-8">
@@ -89,7 +94,7 @@ require_once __DIR__ . '/header.php';
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
                 <th class="px-4 py-3 text-left">Code</th><th class="px-4 py-3 text-left">Category</th>
                 <th class="px-4 py-3 text-left">English</th><th class="px-4 py-3 text-left">Hindi</th>
-                <th class="px-4 py-3 text-left">Active</th><th class="px-4 py-3 text-left">Toggle</th>
+                <th class="px-4 py-3 text-left">Active</th><th class="px-4 py-3 text-left">Actions</th>
             </tr></thead>
             <tbody class="divide-y divide-gray-800">
                 <?php foreach ($reasonMaps as $rm): ?>
@@ -99,7 +104,7 @@ require_once __DIR__ . '/header.php';
                     <td class="px-4 py-3 text-xs text-gray-300 max-w-xs truncate" title="<?= e($rm['message_en']) ?>"><?= e(mb_substr($rm['message_en'], 0, 60)) ?></td>
                     <td class="px-4 py-3 text-xs text-gray-400 max-w-xs truncate" title="<?= e($rm['message_hi'] ?? '') ?>"><?= e(mb_substr($rm['message_hi'] ?? '—', 0, 60)) ?></td>
                     <td class="px-4 py-3 text-xs <?= (int)$rm['is_active'] ? 'text-emerald-400' : 'text-red-400' ?>"><?= (int)$rm['is_active'] ? 'Yes' : 'No' ?></td>
-                    <td class="px-4 py-3">
+                    <td class="px-4 py-3 whitespace-nowrap">
                         <form method="POST" class="inline">
                             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                             <input type="hidden" name="action" value="toggle">
@@ -108,6 +113,12 @@ require_once __DIR__ . '/header.php';
                             <button type="submit" class="text-xs <?= (int)$rm['is_active'] ? 'text-red-400' : 'text-emerald-400' ?> hover:underline">
                                 <?= (int)$rm['is_active'] ? 'Disable' : 'Enable' ?>
                             </button>
+                        </form>
+                        <form method="POST" class="inline ml-3" onsubmit="return confirm('Delete this reason map permanently?')">
+                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="id" value="<?= (int)$rm['id'] ?>">
+                            <button type="submit" class="text-xs text-red-400 hover:underline">Delete</button>
                         </form>
                     </td>
                 </tr>

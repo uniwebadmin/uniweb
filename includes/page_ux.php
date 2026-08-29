@@ -285,4 +285,78 @@ CSS;
         unset($_SESSION['merchant_id'], $_SESSION['merchant_team_member_id'], $_SESSION['active_merchant_id']);
         redirect('login.php');
     }
+
+    /** Admin dropdown: business name + merchant_code + internal #id (not raw number typing). */
+    function adminMerchantSelectRows(int $limit = 500): array
+    {
+        static $cache = null;
+        if ($cache !== null) {
+            return $cache;
+        }
+        try {
+            $cache = getDB()->query(
+                'SELECT id, business_name, merchant_code, email, status FROM merchants WHERE status != \'deleted\' ORDER BY business_name ASC, id ASC LIMIT '
+                . max(1, min(2000, $limit))
+            )->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            $cache = [];
+        }
+        return $cache;
+    }
+
+    function renderAdminMerchantSelect(
+        string $name = 'merchant_id',
+        int $selectedId = 0,
+        bool $required = false,
+        bool $includeEmpty = true,
+        string $emptyLabel = 'Select merchant…'
+    ): string {
+        $html = '<select name="' . e($name) . '" class="input-field mt-1 w-full min-w-[12rem]"' . ($required ? ' required' : '') . '>';
+        if ($includeEmpty) {
+            $html .= '<option value="">' . e($emptyLabel) . '</option>';
+        }
+        foreach (adminMerchantSelectRows() as $m) {
+            $id = (int)$m['id'];
+            $label = trim((string)($m['business_name'] ?: $m['email'] ?: ('Merchant #' . $id)));
+            $code = trim((string)($m['merchant_code'] ?? ''));
+            if ($code !== '') {
+                $label .= ' · ' . $code;
+            }
+            $label .= ' (#' . $id . ')';
+            $html .= '<option value="' . $id . '"' . ($selectedId === $id ? ' selected' : '') . '>' . e($label) . '</option>';
+        }
+        return $html . '</select>';
+    }
+
+    /** Link TXN/ORD refs inside platform wallet ledger descriptions. */
+    function platformWalletLedgerDescriptionHtml(string $description): string
+    {
+        $desc = trim($description);
+        if ($desc === '') {
+            return '—';
+        }
+        if (preg_match('/\b(TXN[A-Z0-9]+|ORD[A-Z0-9]+)\b/i', $desc, $m)) {
+            $ref = $m[1];
+            $url = 'admin_transactions.php?q=' . rawurlencode($ref);
+            $parts = preg_split('/(' . preg_quote($ref, '/') . ')/i', $desc, 2, PREG_SPLIT_DELIM_CAPTURE);
+            if ($parts && count($parts) >= 3) {
+                return e($parts[0])
+                    . '<a href="' . e($url) . '" class="text-sky-400 hover:underline">' . e($parts[1]) . '</a>'
+                    . e($parts[2] ?? '');
+            }
+        }
+        return e($desc);
+    }
+
+    function platformWalletReferenceLink(?string $reference): string
+    {
+        $ref = trim((string)$reference);
+        if ($ref === '') {
+            return '—';
+        }
+        if (preg_match('/^(TXN|ORD|PFEE|PSTL)/i', $ref)) {
+            return '<a href="admin_transactions.php?q=' . e(rawurlencode($ref)) . '" class="text-sky-400 hover:underline font-mono text-xs">' . e($ref) . '</a>';
+        }
+        return '<span class="font-mono text-xs text-gray-400">' . e($ref) . '</span>';
+    }
 }

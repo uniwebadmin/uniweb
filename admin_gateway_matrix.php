@@ -130,8 +130,8 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl p-4 sm:p-6">
         <h3 class="font-semibold mb-4">Select Merchant</h3>
         <form method="GET" class="flex gap-3 items-end">
-            <div><label class="text-sm text-gray-400">Merchant ID</label>
-                <input type="number" name="merchant_id" value="<?= $selectedMerchantId ?: '' ?>" class="input-field mt-1 w-full" placeholder="Enter merchant ID">
+            <div class="min-w-[14rem]"><label class="text-sm text-gray-400">Merchant</label>
+                <?= renderAdminMerchantSelect('merchant_id', $selectedMerchantId, true, true, 'Select merchant…') ?>
             </div>
             <button type="submit" class="btn-primary px-4 py-2">Load</button>
         </form>

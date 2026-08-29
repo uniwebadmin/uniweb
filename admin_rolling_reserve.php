@@ -124,8 +124,8 @@ require_once __DIR__ . '/header.php';
     <?php if ($activeTab === 'holds'): ?>
     <div class="glass rounded-xl p-4 sm:p-6 mb-4">
         <form method="GET" class="flex flex-col sm:flex-row gap-3 items-end">
-            <div><label class="text-sm text-gray-400">Merchant ID</label>
-                <input type="number" name="merchant_id" value="<?= $holdsMerchantId ?: '' ?>" class="input-field mt-1 w-full" placeholder="Enter merchant ID">
+            <div><label class="text-sm text-gray-400">Merchant</label>
+                <?= renderAdminMerchantSelect('merchant_id', $holdsMerchantId, false, true, 'Select merchant…') ?>
             </div>
             <div><label class="text-sm text-gray-400">Status</label>
                 <select name="status" class="input-field mt-1 w-full">
@@ -146,7 +146,7 @@ require_once __DIR__ . '/header.php';
         <div class="overflow-x-auto"><table class="min-w-[800px] w-full text-sm">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr><th class="px-4 py-3 text-left">Txn ID</th><th class="px-4 py-3 text-left">Held Amount</th><th class="px-4 py-3 text-left">Hold %</th><th class="px-4 py-3 text-left">Held At</th><th class="px-4 py-3 text-left">Release Date</th><th class="px-4 py-3 text-left">Status</th><th class="px-4 py-3 text-left">Action</th></tr></thead>
             <tbody class="divide-y divide-gray-800">
-                <?php if (empty($allHolds)): ?><tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">No holds found. Enter a merchant ID above.</td></tr>
+                <?php if (empty($allHolds)): ?><tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">No holds found. Select a merchant above.</td></tr>
                 <?php else: foreach ($allHolds as $h): ?>
                 <tr>
                     <td class="px-4 py-3 text-xs font-mono"><?= (int)$h['transaction_id'] ?></td>
@@ -173,8 +173,8 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl p-4 sm:p-6">
         <h3 class="font-semibold mb-4">Rolling Reserve Configuration</h3>
         <form method="GET" class="flex gap-3 items-end mb-6">
-            <div><label class="text-sm text-gray-400">Merchant ID</label>
-                <input type="number" name="merchant_id" value="<?= $configMerchantId ?: '' ?>" class="input-field mt-1 w-full" placeholder="Enter merchant ID">
+            <div><label class="text-sm text-gray-400">Merchant</label>
+                <?= renderAdminMerchantSelect('merchant_id', $configMerchantId, false, true, 'Select merchant…') ?>
             </div>
             <input type="hidden" name="tab" value="config">
             <button type="submit" class="btn-primary px-4 py-2">Load</button>
@@ -206,7 +206,7 @@ require_once __DIR__ . '/header.php';
             <button type="submit" class="btn-primary px-6 py-2.5">Save Configuration</button>
         </form>
         <?php else: ?>
-        <p class="text-gray-500 text-sm">Enter a merchant ID to configure rolling reserve.</p>
+        <p class="text-gray-500 text-sm">Select a merchant to configure rolling reserve.</p>
         <?php endif; ?>
     </div>
     <?php endif; ?>

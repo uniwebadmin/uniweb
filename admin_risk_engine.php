@@ -197,8 +197,8 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl p-4 sm:p-6">
         <h3 class="font-semibold mb-4">Fraud Pattern Detection</h3>
         <form method="GET" class="flex gap-3 items-end mb-6">
-            <div><label class="text-sm text-gray-400">Merchant ID</label>
-                <input type="number" name="merchant_id" value="<?= $selectedMerchantId ?: '' ?>" class="input-field mt-1 w-full" placeholder="Enter merchant ID">
+            <div><label class="text-sm text-gray-400">Merchant</label>
+                <?= renderAdminMerchantSelect('merchant_id', $selectedMerchantId, false, true, 'Select merchant…') ?>
             </div>
             <input type="hidden" name="tab" value="fraud">
             <button type="submit" class="btn-primary px-4 py-2">Scan</button>
@@ -220,7 +220,7 @@ require_once __DIR__ . '/header.php';
             </div>
             <?php endif; ?>
         <?php else: ?>
-            <p class="text-gray-500 text-sm">Enter a merchant ID to run fraud pattern detection.</p>
+            <p class="text-gray-500 text-sm">Select a merchant to run fraud pattern detection.</p>
         <?php endif; ?>
     </div>
 
@@ -241,8 +241,8 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl p-4 sm:p-6">
         <h3 class="font-semibold mb-4">Merchant Risk Limits</h3>
         <form method="GET" class="flex gap-3 items-end mb-6">
-            <div><label class="text-sm text-gray-400">Merchant ID</label>
-                <input type="number" name="merchant_id" value="<?= $selectedMerchantId ?: '' ?>" class="input-field mt-1 w-full" placeholder="Enter merchant ID">
+            <div><label class="text-sm text-gray-400">Merchant</label>
+                <?= renderAdminMerchantSelect('merchant_id', $selectedMerchantId, false, true, 'Select merchant…') ?>
             </div>
             <input type="hidden" name="tab" value="limits">
             <button type="submit" class="btn-primary px-4 py-2">Load</button>

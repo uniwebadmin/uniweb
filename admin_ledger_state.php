@@ -60,6 +60,7 @@ require_once __DIR__ . '/header.php';
         <div class="glass rounded-xl p-6 border border-sky-500/20">
             <h2 class="text-lg font-semibold text-white mb-4">Rebuild Single Merchant</h2>
             <form method="POST" class="space-y-3">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="rebuild_one">
                 <select name="merchant_id" class="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm border border-gray-700" required>
                     <option value="">Select merchant…</option>
@@ -75,6 +76,7 @@ require_once __DIR__ . '/header.php';
         <div class="glass rounded-xl p-6 border border-violet-500/20">
             <h2 class="text-lg font-semibold text-white mb-4">View Balance Breakdown</h2>
             <form method="POST" class="space-y-3">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="view_breakdown">
                 <select name="merchant_id" class="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm border border-gray-700" required>
                     <option value="">Select merchant…</option>
@@ -92,6 +94,7 @@ require_once __DIR__ . '/header.php';
         <h2 class="text-lg font-semibold text-white mb-2">Rebuild ALL Merchant Balances</h2>
         <p class="text-xs text-gray-500 mb-4">Recalculates every merchant's wallet_balance from ledger entries. Use with caution — logs all diffs to platform_errors.</p>
         <form method="POST" onsubmit="return confirm('Rebuild ALL merchant balances? This will update wallet_balance for every merchant.')">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="rebuild_all">
             <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-6 py-2 text-sm font-medium">Rebuild All Balances</button>
         </form>
