@@ -232,17 +232,19 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <?php if ($adminView && ($openComplaint || $openDispute)): ?>
-        <div class="rounded-xl border border-red-500/40 bg-red-500/10 p-4 flex flex-wrap gap-3 items-center">
-            <div class="flex-1 min-w-[200px]">
+        <div class="txn-alert-banner rounded-xl border border-red-500/40 bg-red-500/10 p-4 flex flex-col sm:flex-row gap-3 sm:items-center">
+            <div class="flex-1 min-w-0 w-full">
                 <p class="text-sm font-semibold text-red-200">Active complaint / dispute on this payment</p>
                 <p class="text-xs text-red-100/80 mt-1">Refund is available below. Prefer resolving with a clear reason code.</p>
             </div>
+            <div class="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto shrink-0">
             <?php if ($openComplaint): ?>
-            <a href="admin_customer_tickets.php?id=<?= (int)$openComplaint['id'] ?>" class="text-sm glass px-3 py-2 rounded-lg text-sky-300">Complaint <?= e($openComplaint['ticket_id']) ?> →</a>
+            <a href="admin_customer_tickets.php?id=<?= (int)$openComplaint['id'] ?>" class="text-sm glass px-3 py-2 rounded-lg text-sky-300 text-center sm:text-left break-all sm:break-normal">Complaint <?= e($openComplaint['ticket_id']) ?> →</a>
             <?php endif; ?>
             <?php if ($openDispute): ?>
-            <a href="admin_disputes.php" class="text-sm glass px-3 py-2 rounded-lg text-amber-300">Dispute <?= e($openDispute['dispute_id']) ?></a>
+            <a href="admin_disputes.php" class="text-sm glass px-3 py-2 rounded-lg text-amber-300 text-center sm:text-left break-all sm:break-normal">Dispute <?= e($openDispute['dispute_id']) ?></a>
             <?php endif; ?>
+            </div>
         </div>
         <?php endif; ?>
 

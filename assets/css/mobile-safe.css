@@ -352,3 +352,31 @@ code {
   white-space: pre;
   word-break: normal;
 }
+
+/* Alert banners with side actions — stack on phone (no vertical letter wrap). */
+.txn-alert-banner,
+.portal-main .alert-banner-row {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.txn-alert-banner > div:first-child,
+.portal-main .alert-banner-row > .alert-banner-copy {
+  min-width: 0;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+@media (max-width: 639px) {
+  .txn-alert-banner,
+  .portal-main .alert-banner-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .txn-alert-banner a.glass,
+  .portal-main .alert-banner-row a.glass {
+    width: 100%;
+    text-align: center;
+  }
+}
