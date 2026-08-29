@@ -38,7 +38,7 @@ $faqGroups = [
         ['Can staff see every merchant?', 'Staff access is role- and scope-based. Sensitive actions and merchant-management events may be recorded for audit and review.'],
     ],
     'Pricing and fees' => [
-        ['Is Test Mode free?', 'Yes. Instant Test Pay, sandbox API keys, payment links and QR in Test Mode do not move real money and do not attract Live MDR.'],
+        ['Is Test Mode free?', 'Yes. UniWeb Test Pay, sandbox API keys, payment links and QR in Test Mode do not move real money and do not attract Live MDR.'],
         ['What do I pay in Live Mode?', 'Partner MDR + UniWeb platform fee + GST on applicable fees. Settlement follows the written T+N schedule in your Portal. We do not publish a fake 0% live UPI or instant-settlement public rate card.'],
         ['Where is the official rate?', 'Your Merchant Portal commercial schedule is the source of truth. Website numbers appear only when a public MDR table is approved for publication.'],
     ],

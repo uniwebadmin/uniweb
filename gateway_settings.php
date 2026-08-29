@@ -505,7 +505,7 @@ $gatewayCards = [
                 <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4">
                     <label class="text-sm text-gray-300 font-medium">Payouts to bank accounts</label>
                     <select name="settings[payout_live_enabled]" class="input-field mt-2">
-                        <option value="0" <?= !$payoutLiveOn ? 'selected' : '' ?>>OFF — test/scaffold only (default)</option>
+                        <option value="0" <?= !$payoutLiveOn ? 'selected' : '' ?>>OFF — gated (default)</option>
                         <option value="1" <?= $payoutLiveOn ? 'selected' : '' ?>>ON — real bank transfers</option>
                     </select>
                     <p class="text-[11px] text-gray-600 mt-2">Needs payout partner keys in Registry + merchant checker approval. Does not affect checkout collect.</p>
@@ -529,7 +529,7 @@ $gatewayCards = [
                 <div class="rounded-lg border border-gray-800 bg-dark-900/40 p-4">
                     <label class="text-sm text-gray-300 font-medium">Intelligent routing (score-based)</label>
                     <select name="settings[intelligent_routing_enabled]" class="input-field mt-2">
-                        <option value="0" <?= !$intelligentOn ? 'selected' : '' ?>>OFF — fixed partner checkout (default)</option>
+                        <option value="0" <?= !$intelligentOn ? 'selected' : '' ?>>OFF — fixed checkout routing (default)</option>
                         <option value="1" <?= $intelligentOn ? 'selected' : '' ?>>ON — score/rules partner pick at checkout</option>
                     </select>
                     <select name="settings[intelligent_routing_strategy]" class="input-field mt-2 text-sm">

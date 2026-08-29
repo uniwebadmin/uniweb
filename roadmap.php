@@ -16,7 +16,7 @@ require_once __DIR__ . '/header.php';
     <section class="company-section"><div class="company-shell">
         <div class="company-kicker">Today — live on platform</div>
         <div class="company-grid">
-            <div class="company-card"><h3>2026 Q3</h3><ul class="text-sm text-gray-400 space-y-2 list-disc pl-4"><li>Test &amp; Live merchant modes</li><li>Payment links, QR, hosted checkout</li><li>KYC upload + admin verify + e-agreement PDF</li><li>PayU / Razorpay / Cashfree partner checkout</li><li>Staff RBAC + settlement ops</li></ul></div>
+            <div class="company-card"><h3>2026 Q3</h3><ul class="text-sm text-gray-400 space-y-2 list-disc pl-4"><li>Test &amp; Live merchant modes</li><li>Payment links, QR, hosted checkout</li><li>KYC upload + admin verify + e-agreement PDF</li><li>Licensed PG collect (UPI · Card · Net Banking)</li><li>Staff RBAC + settlement ops</li></ul></div>
             <div class="company-card"><h3>Bootstrapped focus</h3><p>With a ₹1.5–2 lakh launch budget, priority is one reliable live PG partner, automated KYC API, payout rail and honest marketing — not rebuilding the entire banking stack.</p></div>
         </div>
     </div></section>

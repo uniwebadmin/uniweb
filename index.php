@@ -61,7 +61,7 @@ require_once __DIR__ . '/header.php';
         <div class="grid md:grid-cols-3 gap-8">
             <div class="glass rounded-2xl p-8">
                 <h3 class="text-xl font-semibold mb-3">Collect</h3>
-                <p class="text-gray-400 text-sm leading-relaxed mb-4">Payment links, counter QR, hosted checkout and UPI journeys. Share on WhatsApp. Test with Instant Test Pay before Live rails are on.</p>
+                <p class="text-gray-400 text-sm leading-relaxed mb-4">Payment links, counter QR, hosted checkout and UPI journeys. Share on WhatsApp. Test with UniWeb Test Pay before Live rails are on.</p>
                 <a href="solutions.php#links" class="text-sm text-brand-400">See collection tools →</a>
             </div>
             <div class="glass rounded-2xl p-8">
@@ -178,7 +178,7 @@ require_once __DIR__ . '/header.php';
                 <h3 class="text-lg font-semibold text-gray-200">Test Mode</h3>
                 <p class="text-gray-500 text-sm mt-1">Shops, websites, developers evaluating the console</p>
                 <p class="text-3xl font-bold text-brand-400 my-4">₹0</p>
-                <p class="text-sm text-gray-400 mb-6">Instant Test Pay, links, QR and API sandbox. No real money movement.</p>
+                <p class="text-sm text-gray-400 mb-6">UniWeb Test Pay, links, QR and API sandbox. No real money movement.</p>
                 <a href="merchant_register.php" class="block text-center border border-brand-500/30 text-brand-400 hover:bg-brand-500/10 py-3 rounded-xl transition">Create Test account</a>
             </div>
             <div class="bg-gradient-to-b from-brand-600/20 to-dark-900 border-2 border-brand-500/40 rounded-2xl p-8">

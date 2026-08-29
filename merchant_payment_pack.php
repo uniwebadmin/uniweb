@@ -42,7 +42,7 @@ require_once __DIR__ . '/header.php';
 
 <div class="glass rounded-xl p-4 mb-6 border border-sky-500/20 text-xs text-gray-400">
     <p><strong class="text-sky-300">Two link types:</strong>
-        <strong class="text-white">Fixed ₹1</strong> = Instant Test Pay demo ·
+        <strong class="text-white">Fixed ₹1</strong> = UniWeb Test Pay demo ·
         <strong class="text-white">Open</strong> = customer types the amount on checkout.
         If Open fails, click <strong class="text-sky-300">Regenerate Pack</strong> (old broken links are turned off).
     </p>

@@ -179,7 +179,7 @@ if ($createdId !== '') {
 <div class="glass rounded-xl p-4 mb-6 border border-sky-500/20 text-xs text-gray-400 flex flex-wrap items-center justify-between gap-3">
     <p>
         <strong class="text-sky-300">Tip:</strong> Choose <strong class="text-white">UPI</strong> for QR.
-        <strong class="text-amber-300">Test Mode</strong> = Instant Test Pay (sandbox).
+        <strong class="text-amber-300">Test Mode</strong> = UniWeb Test Pay (sandbox).
         <strong class="text-emerald-300">Live Mode</strong> = real UPI ID + UTR (or Axis/webhooks).
         Card / Net Banking need UniWeb to activate your methods<?= $payuReady ? ' <span class="text-emerald-400">(activated)</span>' : ' <span class="text-amber-400">(pending — Test Mode uses Instant Test)</span>' ?>.
     </p>

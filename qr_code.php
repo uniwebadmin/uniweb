@@ -253,7 +253,7 @@ require_once __DIR__ . '/header.php';
 <div class="grid lg:grid-cols-3 gap-6 mb-8">
     <div class="glass rounded-xl p-6 lg:col-span-1">
         <h2 class="font-semibold mb-1">Create New QR</h2>
-        <p class="text-xs text-gray-500 mb-5"><?= $isTest ? 'Sandbox QR — Instant Test Pay, no real money.' : 'Live QR — print, WhatsApp, or put the scan URL on your website / invoice.' ?></p>
+        <p class="text-xs text-gray-500 mb-5"><?= $isTest ? 'Sandbox QR — UniWeb Test Pay, no real money.' : 'Live QR — print, WhatsApp, or put the scan URL on your website / invoice.' ?></p>
         <form id="create-qr" method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="create">
@@ -488,7 +488,7 @@ require_once __DIR__ . '/header.php';
 
 <div class="glass rounded-xl p-5 text-xs text-gray-500">
     <strong class="text-gray-300">How it works:</strong>
-    Scan → tracked UniWeb checkout → UPI payment. Test QR shows Instant Test Pay; Live QR uses the merchant's verified UPI collection route.
+    Scan → tracked UniWeb checkout → UPI payment. Test QR shows UniWeb Test Pay; Live QR uses the merchant's verified UPI collection route.
 </div>
 
 <script>

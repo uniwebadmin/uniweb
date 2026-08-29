@@ -189,10 +189,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $pageTitle = 'Enter Payment Amount';
 $hideNav = true;
+$hideFooter = true;
 $footerVariant = 'checkout';
 require_once __DIR__ . '/header.php';
 ?>
-<div class="min-h-screen flex items-center justify-center px-4 py-12">
+<div class="min-h-screen flex flex-col bg-dark-950">
+<div class="flex-1 flex items-center justify-center px-4 py-12">
     <div class="w-full max-w-md">
         <div class="text-center mb-7">
             <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
@@ -219,5 +221,7 @@ require_once __DIR__ . '/header.php';
             </p>
         </div>
     </div>
+</div>
+<?php require __DIR__ . '/includes/checkout_footer.php'; ?>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

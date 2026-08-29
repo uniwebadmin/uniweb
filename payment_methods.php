@@ -52,7 +52,7 @@ require_once __DIR__ . '/header.php';
 <div class="max-w-2xl space-y-6">
     <div class="glass rounded-xl p-6 border border-emerald-500/20 text-sm text-gray-300">
         <p class="font-semibold text-emerald-300 mb-1">Collect order: UPI first, then Card, then Net Banking</p>
-        <p class="text-xs text-gray-500">Turn ON what customers should see on checkout. Card / Net Banking / Wallet / EMI go live after Admin enables the network. Until then, Test Mode can still use Instant Test Pay.</p>
+        <p class="text-xs text-gray-500">Turn ON what customers should see on checkout. Card / Net Banking / Wallet / EMI go live after Admin enables the network. Until then, Test Mode can still use UniWeb Test Pay.</p>
         <p class="text-[11px] text-gray-600 mt-2">Toggle OFF at checkout but ON here? That was alias mismatch (<code class="text-gray-500">upi</code> vs <code class="text-gray-500">upi_p2m</code>) — now auto-normalized on every save.</p>
     </div>
 

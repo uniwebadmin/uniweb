@@ -87,10 +87,12 @@ $intent = buildUpiPayIntent($vpa, $businessName, $qrAmount > 0 ? $qrAmount : nul
 
 $pageTitle = 'Opening UPI App…';
 $hideNav = true;
+$hideFooter = true;
 $footerVariant = 'checkout';
 require_once __DIR__ . '/header.php';
 ?>
-<div class="min-h-screen flex items-center justify-center px-4 py-12">
+<div class="min-h-screen flex flex-col bg-dark-950">
+<div class="flex-1 flex items-center justify-center px-4 py-12">
     <div class="w-full max-w-md text-center">
         <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
         <div class="glass rounded-2xl p-8 mt-5">
@@ -98,8 +100,11 @@ require_once __DIR__ . '/header.php';
             <p class="text-sm text-gray-400 mt-2">Pay <span class="text-gray-200 font-medium"><?= e($businessName) ?></span> directly via UPI.<?= $qrAmount > 0 ? ' <span class="text-gray-300 font-semibold">Amount: ₹' . e(number_format($qrAmount, 2)) . '</span>' : '' ?></p>
             <a href="<?= e($intent) ?>" id="upi-open-link" class="inline-block mt-6 w-full bg-brand-600 hover:bg-brand-500 text-white py-3.5 rounded-xl font-semibold">Open UPI App →</a>
             <p class="text-[11px] text-gray-600 mt-4">If nothing happens, tap the button above. Any UPI app (GPay, BHIM, etc.) can open this link.</p>
+            <p class="text-[10px] text-gray-500 mt-3">Secured by <?= e(APP_NAME) ?></p>
         </div>
     </div>
+</div>
+<?php require __DIR__ . '/includes/checkout_footer.php'; ?>
 </div>
 <script>
 setTimeout(function () {

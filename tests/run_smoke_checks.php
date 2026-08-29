@@ -849,7 +849,7 @@ $assert(str_contains($gsPark, 'Phase 11 switch is ON') && str_contains($gsPark, 
 $assert(str_contains($gsPark, 'Show partner grid') && str_contains($gsPark, '<details class="group">'), 'gateway_settings_gateway_status_collapsed');
 $assert(str_contains((string)file_get_contents($root . '/merchant_setup.php'), 'defaultCollectionModeForNewMerchants'), 'merchant_setup_uses_platform_default_collection_mode');
 $assert(str_contains($gsPark, 'Collect checkout only') && str_contains($gsPark, 'Easy Split / Route payout rails are parked'), 'gateway_settings_default_pg_collect_only_help');
-$assert(str_contains((string)file_get_contents($root . '/merchant_launch.php'), 'Instant Test Pay'), 'b10_merchant_launch_instant_test_pay');
+$assert(str_contains((string)file_get_contents($root . '/merchant_launch.php'), 'UniWeb Test Pay'), 'b10_merchant_launch_uniweb_test_pay');
 $assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'CR-01') && str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'stale_createNotification'), 'b10_cr01_stale_notification_guard');
 $assert(str_contains($contactP7, 'recordPublicContactInquiry') && str_contains($contactP7, 'sendPlatformEmail') && str_contains($contactP7, '1 business day'), 'p7_contact_saves_ticket_and_sla');
 $assert(str_contains($schemaP7, 'contact_inquiries') && str_contains($schemaP7, "generateId('CTI')"), 'p7_contact_inquiry_schema');
@@ -1250,7 +1250,7 @@ $assert(str_contains($wlMd, '## WL-13') && str_contains($wlMd, 'admin_gateway_ma
 $assert(str_contains($wlMd, '## WL-14') && str_contains($wlMd, 'named contract'), 'wl14_dual_control_parked');
 $assert(str_contains($wlMd, '## WL-15') && str_contains($wlMd, 'Not a UniWeb product'), 'wl15_portal_shell_not_sold');
 $assert(str_contains($wlMd, '## WL-EXIST') && str_contains($wlMd, 'hide_powered_by') && str_contains($wlMd, 'HMAC'), 'wl_exist_buyer_have_table');
-$assert(str_contains($wlMd, '## LIVE-01') && str_contains($wlMd, 'Instant Test Pay'), 'live01_owner_smoke_in_checklist');
+$assert(str_contains($wlMd, '## LIVE-01') && str_contains($wlMd, 'UniWeb Test Pay'), 'live01_owner_smoke_in_checklist');
 $assert(str_contains($wlMd, '## LIVE-02') && str_contains($wlMd, '062') && str_contains($wlMd, 'Encrypt PII'), 'live02_migrations_pii_checklist');
 $assert(str_contains($wlMd, '## LIVE-03') && str_contains($wlMd, 'BLOCK_A_CLEANUP.md'), 'live03_backup_before_cleanup_checklist');
 $assert(is_file($root . '/migrations/062_widen_merchant_pii_cipher.sql') && is_file($root . '/migrations/063_payment_link_amount_type.sql'), 'live02_migrations_062_063_present');
@@ -1831,6 +1831,15 @@ $assert(customerPaymentMethodLabel('upi_p2m') === 'UPI / QR' && customerPaymentM
 $assert(str_contains((string)file_get_contents($root . '/payment_status.php'), 'customerPaymentMethodLabel'), 'brand_payment_status_customer_method');
 $assert(str_contains((string)file_get_contents($root . '/customer_portal.php'), 'customerPaymentMethodLabel'), 'brand_customer_portal_method');
 $assert(str_contains((string)file_get_contents($root . '/payment_payu_return.php'), 'checkout_footer.php') && str_contains((string)file_get_contents($root . '/payment_cashfree_return.php'), 'checkout_footer.php'), 'brand_return_pages_checkout_footer');
+$brandPages = ['merchant_launch.php', 'payment_links.php', 'index.php', 'faq.php', 'qr_code.php', 'status.php'];
+foreach ($brandPages as $bp) {
+    $src = (string)file_get_contents($root . '/' . $bp);
+    $assert(!str_contains($src, 'Instant Test Pay'), 'brand_no_instant_test_pay_' . str_replace('.', '_', $bp));
+    $assert(str_contains($src, 'UniWeb Test Pay') || $bp === 'status.php', 'brand_uniweb_test_pay_' . str_replace('.', '_', $bp));
+}
+$assert(str_contains((string)file_get_contents($root . '/status.php'), 'Collect rails') && !str_contains((string)file_get_contents($root . '/status.php'), '>Razorpay<'), 'brand_status_no_partner_names');
+$assert(str_contains((string)file_get_contents($root . '/qr_upi_redirect.php'), 'checkout_footer.php'), 'brand_qr_upi_redirect_footer');
+$assert(str_contains((string)file_get_contents($root . '/qr_pay.php'), 'checkout_footer.php'), 'brand_qr_pay_checkout_footer');
 
 // Merchant API docs — UniWeb voice, Razorpay/Cashfree-class structure, zero partner product names
 $assert(str_contains($apiDocsSrc, 'id="create-payment"') && str_contains($apiDocsSrc, 'id="webhooks"') && str_contains($apiDocsSrc, 'id="errors"'), 'api_docs_core_sections');

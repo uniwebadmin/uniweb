@@ -37,7 +37,7 @@ $overall = $health['operational'] && !$health['maintenance'] && empty($openIncid
     $componentLabel = $health['maintenance'] ? 'Maintenance' : ($componentOk ? 'Operational' : 'Degraded');
     $componentClass = $health['maintenance'] ? 'text-amber-400' : ($componentOk ? 'text-emerald-400' : 'text-amber-400');
     $statusComponents = [
-        ['Checkout', 'Hosted pay page, Instant Test Pay, UPI/QR and partner checkout'],
+        ['Checkout', 'Hosted pay page · UniWeb Test Pay · UPI / QR · Card · Net Banking'],
         ['Dashboard', 'Merchant and admin consoles, login, reports'],
         ['Webhooks', 'Inbound partner events and outbound merchant HMAC webhooks'],
         ['KYC', 'Document queue, video capture, Live Mode gates'],
@@ -95,14 +95,20 @@ $overall = $health['operational'] && !$health['maintenance'] && empty($openIncid
     </div>
 
     <div class="glass rounded-xl overflow-hidden mb-8">
-        <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Payment Gateways</h2></div>
+        <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Collect rails</h2></div>
         <div class="overflow-x-auto"><table class="min-w-[560px] w-full text-sm">
             <tbody class="divide-y divide-gray-800">
-                <?php foreach (['razorpay' => 'Razorpay', 'cashfree' => 'Cashfree', 'payu' => 'PayU', 'axis' => 'Axis Bank VA'] as $key => $label): ?>
+                <?php
+                $collectRows = [
+                    ['label' => 'Card · UPI · Net Banking (hosted checkout)', 'ok' => !empty($health['gateways']['razorpay']) || !empty($health['gateways']['cashfree']) || !empty($health['gateways']['payu'])],
+                    ['label' => 'Virtual account collection', 'ok' => !empty($health['gateways']['axis'])],
+                ];
+                foreach ($collectRows as $row):
+                ?>
                 <tr>
-                    <td class="px-6 py-4"><?= e($label) ?></td>
+                    <td class="px-6 py-4"><?= e($row['label']) ?></td>
                     <td class="px-6 py-4 text-right">
-                        <?php if ($health['gateways'][$key]): ?>
+                        <?php if ($row['ok']): ?>
                         <span class="text-sky-400 font-medium">Credentials configured</span>
                         <?php else: ?>
                         <span class="text-gray-500">Not configured</span>

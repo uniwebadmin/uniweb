@@ -15,7 +15,7 @@
 | Platform name / logo | `APP_NAME`, `includes/brand_logo.php`, `assets/img/uniweb-logo.svg` |
 | Platform domain | `APP_URL` in gitignored `config.php` (Hostinger). One site, one domain. |
 | Hide ΓÇ£Secured by UniWebΓÇ¥ on checkout | `hide_powered_by` on checkout customize (**default OFF**) |
-| Test vs Live badges | Checkout banners; Instant Test Pay only in Test; Live UTR cannot confirm |
+| Test vs Live badges | Checkout banners; UniWeb Test Pay only in Test; Live UTR cannot confirm |
 | Test must not live-settle | `account_mode` + `isMerchantTest()` / `isSettlementSandbox()` in settlement engine |
 | Signed merchant webhooks + retry | Merchant **API Settings**; HMAC `X-UniWeb-Signature`; Send Test; Retry row |
 | Webhook reliability (platform) | `admin_webhook_reliability.php` + 10-min auto-audit retries |
@@ -57,7 +57,7 @@
 
 **Problem:** Mixed modes.  
 **Expectation:** Badges + block live settle in Test.  
-**Today:** `merchantAccountMode()` / `isMerchantTest()`; Test stripe on merchant portal; Instant Test Pay only in Test; Live checkout refuses typed UTR; settlement sandbox uses simulated UTR (`SIMΓÇª` / `PG-TEST-ΓÇª`), not a live partner payout.
+**Today:** `merchantAccountMode()` / `isMerchantTest()`; Test stripe on merchant portal; UniWeb Test Pay only in Test; Live checkout refuses typed UTR; settlement sandbox uses simulated UTR (`SIMΓÇª` / `PG-TEST-ΓÇª`), not a live partner payout.
 
 **When a deal asks:** click-check Test vs Live on one merchant. Do not invent a second isolation product.
 
@@ -159,7 +159,7 @@ Buyers often miss what already ships. Point them here (not a sales white-label p
 | HAVE | Where |
 |------|--------|
 | Hide powered-by on checkout | Checkout Customize (`hide_powered_by`) |
-| Test / Live isolation | Account mode badges; Instant Test Pay; settlement sandbox |
+| Test / Live isolation | Account mode badges; UniWeb Test Pay; settlement sandbox |
 | HMAC webhooks + retry | API Settings + Webhook Reliability |
 | RBAC without partner keys | Merchant team + staff nav matrix |
 | CSV reports | Reports date-range + Tally CSV |
@@ -173,7 +173,7 @@ Buyers often miss what already ships. Point them here (not a sales white-label p
 
 **Problem:** GitHub code is not live until Hostinger pulls.  
 **Expectation:** Pull ΓåÆ hard refresh ΓåÆ smoke.  
-**Owner smoke:** home ΓåÆ merchant login ΓåÆ Payment Links (methods + Fixed/Open) ΓåÆ Payment Pack Regenerate ΓåÆ checkout Instant Test Pay ΓåÆ admin dashboard ΓåÆ KYC decrypt view.
+**Owner smoke:** home ΓåÆ merchant login ΓåÆ Payment Links (methods + Fixed/Open) ΓåÆ Payment Pack Regenerate ΓåÆ checkout UniWeb Test Pay ΓåÆ admin dashboard ΓåÆ KYC decrypt view.
 
 Also see `_inbox/chat/LIVE_01_after_git_pull.txt`.
 
