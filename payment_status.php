@@ -231,7 +231,7 @@ require_once __DIR__ . '/header.php';
             <div class="flex justify-between"><span class="text-gray-500">Transaction ID</span><span class="font-mono"><?= e($txn['txn_id']) ?></span></div>
             <div class="flex justify-between"><span class="text-gray-500">Merchant</span><span><?= e($txn['business_name']) ?></span></div>
             <div class="flex justify-between"><span class="text-gray-500">Amount</span><span class="font-bold text-brand-400"><?= formatMoney((float)$txn['amount']) ?></span></div>
-            <div class="flex justify-between"><span class="text-gray-500">Method</span><span class="uppercase"><?= e($txn['payment_method']) ?></span></div>
+            <div class="flex justify-between"><span class="text-gray-500">Method</span><span><?= e(function_exists('customerPaymentMethodLabel') ? customerPaymentMethodLabel($txn['payment_method'] ?? '') : strtoupper((string)($txn['payment_method'] ?? ''))) ?></span></div>
             <div class="flex justify-between"><span class="text-gray-500">Status</span><?= statusBadge($txn['status']) ?></div>
             <div class="flex justify-between"><span class="text-gray-500">Date</span><span><?= formatDate($txn['created_at']) ?></span></div>
             <?php if ($txn['utr']): ?><div class="flex justify-between"><span class="text-gray-500">UTR</span><span class="font-mono"><?= e($txn['utr']) ?></span></div><?php endif; ?>

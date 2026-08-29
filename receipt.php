@@ -55,7 +55,9 @@ if (!$txn) {
 
 $status = strtolower((string)$txn['status']);
 $paid = in_array($status, ['success', 'paid', 'captured'], true);
-$method = paymentMethodLabel($txn['payment_method'] ?? '');
+$method = ($isCustomer && function_exists('customerPaymentMethodLabel'))
+    ? customerPaymentMethodLabel($txn['payment_method'] ?? '')
+    : paymentMethodLabel($txn['payment_method'] ?? '');
 $backUrl = $isCustomer ? 'customer_portal.php' : ($adminView ? 'admin_transactions.php' : 'transactions.php');
 
 $pageTitle = 'Receipt ' . $txnId;

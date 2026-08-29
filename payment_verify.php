@@ -51,6 +51,8 @@ $link = $stmt->fetch();
 
 $pageTitle = 'Payment Successful — ' . APP_NAME;
 $hideNav = true;
+$hideFooter = true;
+$footerVariant = 'checkout';
 require_once __DIR__ . '/header.php';
 require_once __DIR__ . '/includes/checkout_mode_banner.php';
 $rzLink = is_array($link) ? $link : [];
@@ -61,7 +63,8 @@ if ($link && !isset($rzLink['is_test']) && !empty($link['link_id'])) {
 }
 renderCheckoutModeBanner($rzLink ?: null);
 ?>
-<div class="min-h-screen flex items-center justify-center px-4 py-12 bg-dark-950">
+<div class="min-h-screen flex flex-col bg-dark-950">
+<div class="flex-1 flex items-center justify-center px-4 py-12">
     <div class="glass rounded-2xl p-8 text-center max-w-md w-full border border-brand-500/20">
         <div class="flex items-center justify-center mb-6">
             <?php $logoHref = 'index.php'; $logoSize = 'md'; $showWordmark = true; require __DIR__ . '/includes/brand_logo.php'; ?>
@@ -74,5 +77,7 @@ renderCheckoutModeBanner($rzLink ?: null);
         <p class="text-gray-400 text-sm">Payment ID: <?= e($paymentId) ?></p>
         <p class="text-gray-500 text-xs mt-4">Thank you for paying via <?= APP_NAME ?></p>
     </div>
+</div>
+<?php require __DIR__ . '/includes/checkout_footer.php'; ?>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

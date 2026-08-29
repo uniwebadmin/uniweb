@@ -1825,6 +1825,12 @@ $assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'UniWeb
 $assert(str_contains((string)file_get_contents($root . '/qr_pay.php'), 'UniWeb Test Mode'), 'brand_qr_pay_uniweb_test_banner');
 $assert(!str_contains((string)file_get_contents($root . '/checkout.php'), 'Continue to test gateway') && !str_contains((string)file_get_contents($root . '/checkout.php'), 'test gateway redirect'), 'brand_no_test_gateway_cta');
 $assert(!str_contains((string)file_get_contents($root . '/checkout.php'), 'Pay with Razorpay') && !str_contains((string)file_get_contents($root . '/checkout.php'), 'Powered by PayU'), 'brand_zero_partner_cta_checkout');
+$assert(str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'function customerPaymentMethodLabel'), 'brand_customer_payment_method_label_fn');
+$assert(customerPaymentMethodLabel('razorpay') === 'Secure checkout' && customerPaymentMethodLabel('payu') === 'Secure checkout', 'brand_customer_method_hides_partner_rails');
+$assert(customerPaymentMethodLabel('upi_p2m') === 'UPI / QR' && customerPaymentMethodLabel('sandbox') === 'UniWeb Test Pay', 'brand_customer_method_uniweb_labels');
+$assert(str_contains((string)file_get_contents($root . '/payment_status.php'), 'customerPaymentMethodLabel'), 'brand_payment_status_customer_method');
+$assert(str_contains((string)file_get_contents($root . '/customer_portal.php'), 'customerPaymentMethodLabel'), 'brand_customer_portal_method');
+$assert(str_contains((string)file_get_contents($root . '/payment_payu_return.php'), 'checkout_footer.php') && str_contains((string)file_get_contents($root . '/payment_cashfree_return.php'), 'checkout_footer.php'), 'brand_return_pages_checkout_footer');
 
 // Merchant API docs — UniWeb voice, Razorpay/Cashfree-class structure, zero partner product names
 $assert(str_contains($apiDocsSrc, 'id="create-payment"') && str_contains($apiDocsSrc, 'id="webhooks"') && str_contains($apiDocsSrc, 'id="errors"'), 'api_docs_core_sections');

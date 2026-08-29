@@ -30,6 +30,31 @@ function merchantPaymentMethodLabel(string $methodKey, string $fallback = ''): s
     };
 }
 
+/** Customer-facing payment method — UniWeb method names only (no PG partner brands). */
+function customerPaymentMethodLabel(?string $method): string
+{
+    $method = strtolower(trim((string)$method));
+    if ($method === '') {
+        return 'Payment';
+    }
+    if (in_array($method, ['razorpay', 'cashfree', 'payu', 'phonepe', 'worldline', 'decentro', 'juspay', 'stripe'], true)) {
+        return 'Secure checkout';
+    }
+    if (in_array($method, ['axis', 'axis_va'], true)) {
+        return 'Virtual Account';
+    }
+    if (in_array($method, ['sandbox', 'test', 'instant'], true)) {
+        return 'UniWeb Test Pay';
+    }
+    $label = merchantPaymentMethodLabel($method);
+    foreach (['razorpay', 'cashfree', 'payu', 'phonepe'] as $partnerLeak) {
+        if (stripos($label, $partnerLeak) !== false) {
+            return 'Secure checkout';
+        }
+    }
+    return $label;
+}
+
 function ensurePaymentMethodsTable(): void
 {
     static $done = false;

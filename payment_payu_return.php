@@ -48,11 +48,14 @@ if ($success) {
 }
 
 $hideNav = true;
+$hideFooter = true;
+$footerVariant = 'checkout';
 require_once __DIR__ . '/header.php';
 require_once __DIR__ . '/includes/checkout_mode_banner.php';
 renderCheckoutModeBanner($link);
 ?>
-<div class="min-h-screen flex items-center justify-center px-4 py-12 bg-dark-950">
+<div class="min-h-screen flex flex-col bg-dark-950">
+<div class="flex-1 flex items-center justify-center px-4 py-12">
     <div class="glass rounded-2xl p-8 text-center max-w-md w-full border <?= $success ? 'border-emerald-500/30' : 'border-red-500/30' ?>">
         <?php $logoHref = 'index.php'; $logoSize = 'md'; require __DIR__ . '/includes/brand_logo.php'; ?>
         <h2 class="text-xl font-bold mt-6 mb-2"><?= $success ? 'Payment Successful!' : 'Payment Failed' ?></h2>
@@ -65,5 +68,7 @@ renderCheckoutModeBanner($link);
         <a href="checkout.php?link=<?= e($linkId) ?>" class="inline-block mt-6 btn-primary px-6 py-2">Retry Payment</a>
         <?php endif; ?>
     </div>
+</div>
+<?php require __DIR__ . '/includes/checkout_footer.php'; ?>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>
