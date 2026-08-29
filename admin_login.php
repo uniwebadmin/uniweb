@@ -174,9 +174,7 @@ require_once __DIR__ . '/header.php';
             </form>
             <?php endif; ?>
             <p class="ap-foot">
-                <a href="staff_login.php" class="ap-link">Employee login →</a> ·
-                <a href="login.php" class="ap-link">Shop / Merchant login</a> ·
-                <a href="index.php" class="ap-text-link">Website</a>
+                <a href="index.php" class="ap-text-link">← Website</a>
             </p>
             <p class="ap-foot" style="margin-top:.35rem;font-size:.75rem;opacity:.85">Owner-Admin only. Partners (banks/PGs) have no UniWeb login — keys live in Partner Registry.</p>
         </div>

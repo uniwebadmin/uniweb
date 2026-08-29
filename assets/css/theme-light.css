@@ -216,20 +216,20 @@ html[data-theme="light"] .site-footer-card .text-gray-400 {
   background: rgba(17, 24, 39, .60);
 }
 html[data-theme="light"] .site-footer-card {
-  background: #fffdf8 !important;
-  border-color: #d9c9ac !important;
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
   border-width: 1.5px;
-  box-shadow: 0 1px 3px rgba(120, 90, 40, .08);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 html[data-theme="light"] .site-footer-card:hover {
-  border-color: #cbb896 !important;
-  box-shadow: 0 2px 4px rgba(120, 90, 40, .12);
+  border-color: #94a3b8 !important;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.08);
 }
 html[data-theme="light"] .site-footer-bottom {
-  background: #f2e9d8 !important;
-  border-color: #d9c9ac !important;
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
   border-width: 1.5px;
-  box-shadow: 0 1px 2px rgba(120, 90, 40, .06);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 @media (max-width: 640px) {
   .site-footer-wrap {
@@ -312,7 +312,7 @@ html[data-theme="light"] .file-drop:hover {
 html[data-theme="light"] .bg-gray-800,
 html[data-theme="light"] .bg-gray-800\/50,
 html[data-theme="light"] .bg-gray-900 {
-  background-color: #ede4d3 !important;
+  background-color: #e2e8f0 !important;
 }
 html[data-theme="light"] .text-brand-300,
 html[data-theme="light"] .text-brand-400,
@@ -618,6 +618,193 @@ html[data-theme="light"] .site-footer-card {
   }
 }
 
+/* --- Light mode readability pass (admin / merchant / staff / customer / public) --- */
+
+/* Pale -200 shades (meant for dark bg) */
+html[data-theme="light"] .text-emerald-200 { color: #047857 !important; }
+html[data-theme="light"] .text-amber-200 { color: #b45309 !important; }
+html[data-theme="light"] .text-red-200 { color: #b91c1c !important; }
+html[data-theme="light"] .text-sky-200 { color: #0369a1 !important; }
+html[data-theme="light"] .text-violet-200 { color: #6d28d9 !important; }
+html[data-theme="light"] .text-teal-200 { color: #0f766e !important; }
+html[data-theme="light"] .text-cyan-200 { color: #0e7490 !important; }
+html[data-theme="light"] .text-rose-200 { color: #be123c !important; }
+html[data-theme="light"] .text-green-200 { color: #15803d !important; }
+html[data-theme="light"] .text-lime-200 { color: #65a30d !important; }
+html[data-theme="light"] .text-orange-200 { color: #c2410c !important; }
+html[data-theme="light"] .text-pink-200 { color: #be185d !important; }
+html[data-theme="light"] .text-purple-200 { color: #7c3aed !important; }
+html[data-theme="light"] .text-blue-200 { color: #1d4ed8 !important; }
+html[data-theme="light"] .text-indigo-200 { color: #4338ca !important; }
+html[data-theme="light"] .text-fuchsia-200 { color: #a21caf !important; }
+
+html[data-theme="light"] .text-yellow-200,
+html[data-theme="light"] .text-yellow-300,
+html[data-theme="light"] .text-yellow-400,
+html[data-theme="light"] .text-yellow-500,
+html[data-theme="light"] .text-yellow-600 { color: #a16207 !important; }
+
+/* Tinted alert / badge panels — solid light fills instead of transparent dark tints */
+html[data-theme="light"] [class*="bg-emerald-500/"] { background-color: #ecfdf5 !important; }
+html[data-theme="light"] [class*="bg-amber-500/"] { background-color: #fffbeb !important; }
+html[data-theme="light"] [class*="bg-sky-500/"] { background-color: #f0f9ff !important; }
+html[data-theme="light"] [class*="bg-red-500/"] { background-color: #fef2f2 !important; }
+html[data-theme="light"] [class*="bg-violet-500/"] { background-color: #f5f3ff !important; }
+html[data-theme="light"] [class*="bg-teal-500/"] { background-color: #f0fdfa !important; }
+html[data-theme="light"] [class*="bg-orange-500/"] { background-color: #fff7ed !important; }
+
+html[data-theme="light"] [class*="border-emerald-500/"] { border-color: #6ee7b7 !important; }
+html[data-theme="light"] [class*="border-amber-500/"] { border-color: #fcd34d !important; }
+html[data-theme="light"] [class*="border-sky-500/"] { border-color: #7dd3fc !important; }
+html[data-theme="light"] [class*="border-red-500/"] { border-color: #fca5a5 !important; }
+html[data-theme="light"] [class*="border-violet-500/"] { border-color: #c4b5fd !important; }
+
+/* Text inside tinted panels — never pale-on-pale */
+html[data-theme="light"] [class*="bg-emerald-500/"] .text-white,
+html[data-theme="light"] [class*="bg-emerald-500/"] .text-gray-100,
+html[data-theme="light"] [class*="bg-emerald-500/"] .text-emerald-200,
+html[data-theme="light"] [class*="bg-emerald-500/"] .text-emerald-300,
+html[data-theme="light"] [class*="bg-emerald-500/"].text-emerald-200,
+html[data-theme="light"] [class*="bg-emerald-500/"].text-emerald-300,
+html[data-theme="light"] [class*="bg-emerald-500/"].text-emerald-400 { color: #047857 !important; }
+
+html[data-theme="light"] [class*="bg-amber-500/"] .text-white,
+html[data-theme="light"] [class*="bg-amber-500/"] .text-gray-100,
+html[data-theme="light"] [class*="bg-amber-500/"] .text-amber-200,
+html[data-theme="light"] [class*="bg-amber-500/"] .text-amber-300,
+html[data-theme="light"] [class*="bg-amber-500/"].text-amber-200,
+html[data-theme="light"] [class*="bg-amber-500/"].text-amber-300,
+html[data-theme="light"] [class*="bg-amber-500/"].text-amber-400 { color: #b45309 !important; }
+
+html[data-theme="light"] [class*="bg-sky-500/"] .text-white,
+html[data-theme="light"] [class*="bg-sky-500/"] .text-sky-200,
+html[data-theme="light"] [class*="bg-sky-500/"] .text-sky-300,
+html[data-theme="light"] [class*="bg-sky-500/"].text-sky-300,
+html[data-theme="light"] [class*="bg-sky-500/"].text-sky-400 { color: #0369a1 !important; }
+
+html[data-theme="light"] [class*="bg-red-500/"] .text-white,
+html[data-theme="light"] [class*="bg-red-500/"] .text-red-200,
+html[data-theme="light"] [class*="bg-red-500/"] .text-red-300,
+html[data-theme="light"] [class*="bg-red-500/"].text-red-300,
+html[data-theme="light"] [class*="bg-red-500/"].text-red-400 { color: #b91c1c !important; }
+
+html[data-theme="light"] [class*="bg-violet-500/"] .text-violet-200,
+html[data-theme="light"] [class*="bg-violet-500/"] .text-violet-300,
+html[data-theme="light"] [class*="bg-violet-500/"].text-violet-300,
+html[data-theme="light"] [class*="bg-violet-500/"].text-violet-400 { color: #6d28d9 !important; }
+
+/* Sidebar / header accents stay readable */
+html[data-theme="light"] .text-red-400.hover\:text-red-300,
+html[data-theme="light"] a.text-red-400 { color: #b91c1c !important; }
+html[data-theme="light"] .bg-red-500\/10.text-red-400,
+html[data-theme="light"] a.bg-red-500\/10.text-red-400 { color: #b91c1c !important; }
+
+html[data-theme="light"] .dash-quick-label { color: #475569 !important; }
+html[data-theme="light"] .mode-pill-inactive { color: #64748b !important; }
+html[data-theme="light"] .mode-pill-inactive:hover { color: #0f172a !important; background: #e2e8f0 !important; }
+html[data-theme="light"] .mode-pill-group { border-color: #cbd5e1 !important; background: #f1f5f9 !important; }
+html[data-theme="light"] .mode-test-stripe { color: #78350f !important; }
+
+html[data-theme="light"] .font-bold.text-white,
+html[data-theme="light"] strong.text-white,
+html[data-theme="light"] .text-white.font-semibold {
+  color: #0f172a !important;
+}
+
+/* Keep white label text on solid saturated buttons/badges */
+html[data-theme="light"] .bg-brand-600,
+html[data-theme="light"] .bg-brand-700,
+html[data-theme="light"] .bg-emerald-600,
+html[data-theme="light"] .bg-emerald-700,
+html[data-theme="light"] .bg-red-600,
+html[data-theme="light"] .bg-red-700,
+html[data-theme="light"] .bg-sky-600,
+html[data-theme="light"] .bg-sky-700,
+html[data-theme="light"] .bg-violet-600,
+html[data-theme="light"] .bg-amber-500,
+html[data-theme="light"] .bg-amber-600 {
+  color: #ffffff !important;
+}
+html[data-theme="light"] .bg-brand-600 .text-white,
+html[data-theme="light"] .bg-emerald-600 .text-white,
+html[data-theme="light"] .bg-red-600 .text-white,
+html[data-theme="light"] .bg-sky-600 .text-white,
+html[data-theme="light"] .bg-violet-600 .text-white,
+html[data-theme="light"] .bg-amber-500 .text-white,
+html[data-theme="light"] .bg-amber-600 .text-white,
+html[data-theme="light"] .bg-brand-600.text-white,
+html[data-theme="light"] .bg-emerald-600.text-white,
+html[data-theme="light"] .bg-red-600.text-white {
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .theme-toggle-btn {
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+html[data-theme="light"] .file-drop {
+  border-color: #94a3b8 !important;
+  background: #f8fafc !important;
+}
+html[data-theme="light"] .file-drop:hover {
+  border-color: #0d9488 !important;
+  background: #f0fdfa !important;
+}
+html[data-theme="light"] .checkout-footer-row {
+  color: #334155;
+  background: #ffffff;
+}
+html[data-theme="light"] .checkout-footer-row > strong {
+  color: #0f172a;
+}
+html[data-theme="light"] .checkout-footer-chip {
+  color: #334155;
+  background: #f1f5f9;
+}
+
+/* Customer portal sidebar + content in light mode */
+html[data-theme="light"] body.customer-portal-shell {
+  background: linear-gradient(180deg, #f0fdfa 0%, #f8fafc 42%, #f1f5f9 100%) !important;
+  color: #0f172a !important;
+}
+html[data-theme="light"] body.customer-portal-shell .cp-sidebar {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+html[data-theme="light"] body.customer-portal-shell .cp-portal-top {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-color: #cbd5e1 !important;
+}
+html[data-theme="light"] body.customer-portal-shell .cp-display,
+html[data-theme="light"] body.customer-portal-shell h1,
+html[data-theme="light"] body.customer-portal-shell h2,
+html[data-theme="light"] body.customer-portal-shell .font-bold {
+  color: #0f172a !important;
+}
+html[data-theme="light"] body.customer-portal-shell .cp-muted {
+  color: #475569 !important;
+}
+html[data-theme="light"] body.customer-portal-shell .cp-sidebar-link {
+  color: #475569 !important;
+}
+html[data-theme="light"] body.customer-portal-shell .cp-sidebar-link.is-active,
+html[data-theme="light"] body.customer-portal-shell .cp-sidebar-link.active {
+  color: #0f766e !important;
+  background: #ecfdf5 !important;
+}
+
+/* Auth login pages when global light toggle is on */
+html[data-theme="light"] body.auth-portal-shell {
+  --ap-bg: #f1f5f9;
+  --ap-surface: #ffffff;
+  --ap-ink: #0f172a;
+  --ap-muted: #475569;
+  --ap-line: #cbd5e1;
+}
+html[data-theme="light"] body.auth-portal-shell .ap-logo .text-white {
+  color: #0f172a !important;
+}
+
 /* Overnight responsive polish — panels / tables (login pages untouched) */
 main .overflow-x-auto,
 .glass > .overflow-x-auto,
@@ -662,8 +849,8 @@ main .overflow-x-auto,
   margin: 0.75rem;
 }
 html[data-theme="light"] .portal-content-frame {
-  border-color: #d9c9ac;
-  background: #fffdf8;
+  border-color: #cbd5e1;
+  background: #ffffff;
 }
 @media (max-width: 640px) {
   .portal-content-frame {

@@ -142,6 +142,7 @@ require_once __DIR__ . '/header.php';
     <a href="admin_gateway_registry.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-violet-400 hover:text-violet-300">Partner Registry</a>
     <a href="admin_kyc.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-amber-400 hover:text-amber-300">KYC Review</a>
     <a href="admin_transactions.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-sky-400 hover:text-sky-300">Transactions</a>
+    <a href="owner_portals.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-violet-300 hover:text-violet-200 border border-violet-500/30" title="Owner-only — all portal login pages">Portal logins</a>
     <a href="admin_settlements.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-emerald-400 hover:text-emerald-300">Settlements</a>
     <a href="admin_error_log.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm <?= $unresolvedErrors > 0 ? 'text-red-400 border border-red-500/30' : 'text-gray-400' ?>">Error Log<?= $unresolvedErrors > 0 ? " ($unresolvedErrors)" : '' ?></a>
     <a href="admin_watchdog.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-amber-400">Watchdog</a>

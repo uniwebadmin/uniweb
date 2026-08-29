@@ -711,6 +711,16 @@ $assert($c5AdminMissing === [], 'c5_admin_nav_all_in_search' . ($c5AdminMissing 
 $assert($c5MerchantMissing === [], 'c5_merchant_nav_all_in_search' . ($c5MerchantMissing ? (':' . implode(',', $c5MerchantMissing)) : ''));
 $assert(str_contains((string)file_get_contents($root . '/global_search.php'), 'uniwebAdminSearchPages') && str_contains((string)file_get_contents($root . '/global_search.php'), "'today'"), 'c5_search_uses_nav_helpers_and_today_alias');
 $assert(str_contains((string)file_get_contents($root . '/login.php'), 'No partner login portal'), 'b2_merchant_login_no_partner_portal');
+$loginPhpSec = (string)file_get_contents($root . '/login.php');
+$adminLoginSec = (string)file_get_contents($root . '/admin_login.php');
+$staffLoginSec = (string)file_get_contents($root . '/staff_login.php');
+$custLoginSec = (string)file_get_contents($root . '/customer_login.php');
+$assert(!str_contains($loginPhpSec, 'href="admin_login.php"') && !str_contains($loginPhpSec, 'href="staff_login.php"') && !str_contains($loginPhpSec, 'href="customer_login.php"'), 'sec_merchant_login_no_cross_portal_hrefs');
+$assert(!str_contains($adminLoginSec, 'href="staff_login.php"') && !str_contains($adminLoginSec, 'href="login.php"'), 'sec_admin_login_no_cross_portal_hrefs');
+$assert(!str_contains($staffLoginSec, 'href="admin_login.php"') && !str_contains($staffLoginSec, 'href="login.php"'), 'sec_staff_login_no_cross_portal_hrefs');
+$assert(!str_contains($custLoginSec, 'href="login.php"'), 'sec_customer_login_no_merchant_href');
+$assert(is_file($root . '/owner_portals.php') && str_contains((string)file_get_contents($root . '/owner_portals.php'), 'ownerPortalHubAllowed'), 'sec_owner_portal_hub_page');
+$assert(str_contains((string)file_get_contents($root . '/assets/css/theme-light.css'), 'text-yellow-400'), 'light_mode_yellow_text_fix');
 $assert(str_contains((string)file_get_contents($root . '/admin_login.php'), 'Partners (banks/PGs) have no UniWeb login'), 'b2_admin_login_no_partner_login');
 $assert(str_contains((string)file_get_contents($root . '/faq.php'), 'Which login do I use?'), 'b2_faq_login_matrix');
 $assert(!str_contains((string)file_get_contents($root . '/roadmap.php'), 'partner-led rails for larger merchants'), 'b2_roadmap_no_partner_owned_book');

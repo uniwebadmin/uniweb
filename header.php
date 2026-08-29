@@ -52,9 +52,12 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
     ?>
     <meta name="google-site-verification" content="<?= e($gscToken) ?>">
     <?php endif; ?>
+    <?php if (!empty($robotsNoIndex)): ?>
+    <meta name="robots" content="noindex, nofollow">
+    <?php endif; ?>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/uniweb.min.css?v=20260815a">
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/theme-light.css?v=20260829b">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/theme-light.css?v=20260829c">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/public-pages.css?v=20260815a">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/portal-polish.css?v=20260815a">
     <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/ui-components.css?v=20260829a">
