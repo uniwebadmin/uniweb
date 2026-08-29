@@ -35,9 +35,11 @@ function getWatchdogPageRegistry(): array
         ['customer_login.php', 'Customer Login', 'public'],
         ['cust.php', 'Customer Login short /cust', 'public'],
         ['cust/index.php', 'Customer Login short /cust/ (dir)', 'public'],
-        ['customer_portal.php', 'Customer Portal', 'public'],
-        ['customer_ticket.php', 'Customer Complaint', 'public'],
-        ['customer_logout.php', 'Customer Logout', 'public'],
+        ['customer_portal.php', 'Customer Portal', 'public', 'customer'],
+        ['customer_profile.php', 'Customer Profile', 'public', 'customer'],
+        ['customer_ticket.php', 'Customer Complaint', 'public', 'customer'],
+        ['receipt.php', 'Payment Receipt', 'public', 'customer'],
+        ['customer_logout.php', 'Customer Logout', 'public', 'customer'],
         ['admin_login.php', 'Admin Login', 'public'],
         ['admin_forgot_password.php', 'Admin Forgot Password', 'public'],
         ['admin_reset_password.php', 'Admin Reset Password', 'public'],
@@ -61,8 +63,8 @@ function getWatchdogPageRegistry(): array
         ['payment_status.php', 'Payment Status', 'public'],
         ['error_404.php', 'Branded 404 (alias)', 'public'],
         ['error.php', 'Branded ErrorDocument', 'public'],
-    ] as [$f, $l, $p]) {
-        $add($f, $l, $p);
+    ] as $row) {
+        $add($row[0], $row[1], $row[2], $row[3] ?? 'none');
     }
 
     foreach ([

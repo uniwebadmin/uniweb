@@ -596,6 +596,23 @@ function findCustomerOwnedTransaction(string $phone, string $txnId): ?array
     return null;
 }
 
+/** Honest refund label for customer portal — processed only when actually completed. */
+function customerRefundPortalLabel(array $refund): string
+{
+    if (!function_exists('refundDisplayStatus') && is_file(__DIR__ . '/refund_webhooks.php')) {
+        require_once __DIR__ . '/refund_webhooks.php';
+    }
+    if (function_exists('refundDisplayStatus')) {
+        return refundDisplayStatus($refund);
+    }
+    $status = strtolower((string)($refund['status'] ?? 'pending'));
+    return match ($status) {
+        'completed', 'processed' => 'Refund processed',
+        'failed' => 'Refund failed',
+        default => 'Refund processing',
+    };
+}
+
 /** Refunds for customer portal — keyed by txn_id. */
 function getCustomerRefundsByTxn(string $phone): array
 {

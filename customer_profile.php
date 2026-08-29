@@ -149,7 +149,7 @@ require_once __DIR__ . '/header.php';
                 <div class="rounded-xl bg-slate-50 border border-slate-100 p-4">
                     <p class="text-slate-500 text-xs">Complaints</p>
                     <p class="text-2xl font-bold text-slate-900 mt-1"><?= count($tickets) ?></p>
-                    <a href="customer_ticket.php" class="text-teal-700 text-xs font-semibold mt-2 inline-block">Open complaints →</a>
+                    <a href="customer_portal.php#complaints" class="text-teal-700 text-xs font-semibold mt-2 inline-block">Open complaints →</a>
                 </div>
             </div>
             <p class="text-xs text-slate-500">Need help? <a href="contact.php" class="text-teal-700 font-semibold underline">Contact UniWeb support</a></p>

@@ -6,7 +6,7 @@ ensureCustomerPortalSchema();
 $txnId = trim($_GET['txn'] ?? '');
 if ($txnId === '') {
     flash('error', 'Transaction ID required.');
-    redirect('login.php');
+    redirect('customer_login.php');
 }
 
 $trackSig = trim($_GET['sig'] ?? '');
@@ -41,7 +41,7 @@ if (!$adminView && isLoggedIn()) {
 
 if (!$adminView && !$merchant && !$isCustomer && !$signedPublicReceipt) {
     flash('error', 'Please log in to view the receipt.');
-    redirect('login.php');
+    redirect('customer_login.php');
 }
 
 $txn = null;
@@ -50,7 +50,10 @@ if ($signedPublicReceipt) {
 } elseif ($adminView || $merchant) {
     $txn = fetchTransactionDetail($txnId, $merchantId, $adminView);
 } elseif ($isCustomer) {
-    $owned = findCustomerOwnedTransaction($customerPhone, $txnId);
+    if (!function_exists('customerMustOwnTransaction') && is_file(__DIR__ . '/includes/resource_ownership.php')) {
+        require_once __DIR__ . '/includes/resource_ownership.php';
+    }
+    $owned = customerMustOwnTransaction($customerPhone, $txnId);
     if ($owned) {
         $txn = fetchTransactionDetail($txnId, (int)$owned['merchant_id'], false);
     }

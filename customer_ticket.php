@@ -9,6 +9,10 @@ $ticketId = trim((string)($_GET['id'] ?? ''));
 $prefillTxn = trim((string)($_GET['txn'] ?? ''));
 $error = '';
 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && !$isNew && $ticketId === '') {
+    redirect('customer_portal.php#complaints');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
         $error = 'Session expired. Please try again.';

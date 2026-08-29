@@ -1871,7 +1871,14 @@ $assert(str_contains((string)file_get_contents($root . '/includes/refunds.php'),
 $assert(str_contains((string)file_get_contents($root . '/includes/wiring_deep_link_workflow.php'), 'function wiringDeepLinkRefundActionUrl'), 'ws1_refund_deeplink');
 $assert(str_contains((string)file_get_contents($root . '/includes/refunds.php'), 'function refundRemainingAmount'), 'ws1_partial_refund_eligibility');
 $assert(str_contains((string)file_get_contents($root . '/includes/customer_portal.php'), 'function getCustomerRefundsByTxn'), 'ws2_customer_refund_visibility');
-$assert(str_contains((string)file_get_contents($root . '/payment_status.php'), 'findCustomerOwnedTransaction'), 'ws2_payment_status_idor_gate');
+$assert(str_contains((string)file_get_contents($root . '/payment_status.php'), 'findCustomerOwnedTransaction') || str_contains((string)file_get_contents($root . '/payment_status.php'), 'customerMustOwnTransaction'), 'ws2_payment_status_idor_gate');
+$ownSrc = (string)file_get_contents($root . '/includes/resource_ownership.php');
+$assert(str_contains($ownSrc, 'function customerMustOwnTransaction') && str_contains($ownSrc, 'function merchantMustOwnTransaction'), 'p11_resource_ownership_helpers');
+$assert(str_contains((string)file_get_contents($root . '/includes/customer_portal_nav.php'), 'customer_portal.php#complaints'), 'p11_nav_complaints_list');
+$assert(str_contains((string)file_get_contents($root . '/receipt.php'), 'customer_login.php') && !str_contains((string)file_get_contents($root . '/receipt.php'), "redirect('login.php')"), 'p11_receipt_customer_login_redirect');
+$assert(str_contains((string)file_get_contents($root . '/customer_ticket.php'), 'customer_portal.php#complaints') && str_contains($custLib, 'function customerRefundPortalLabel'), 'p11_ticket_redirect_and_refund_labels');
+$assert(str_contains((string)file_get_contents($root . '/includes/link_watchdog.php'), 'customer_profile.php') && str_contains((string)file_get_contents($root . '/includes/link_watchdog.php'), "'customer'"), 'p11_watchdog_customer_pages');
+$assert(in_array('customer_profile.php', $registryFiles, true), 'watchdog_registry_covers_customer_profile');
 $custPortalTrack = (string)file_get_contents($root . '/includes/customer_portal.php');
 $payStatusTrack = (string)file_get_contents($root . '/payment_status.php');
 $assert(str_contains($custPortalTrack, 'function buildPaymentTrackUrl') && str_contains($custPortalTrack, 'function verifyPaymentTrackSignature'), 'payment_track_signed_url_helpers');

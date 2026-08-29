@@ -121,8 +121,9 @@ require_once __DIR__ . '/header.php';
                         <?php
                         $txnRefunds = $refundsByTxn[(string)$t['txn_id']] ?? [];
                         foreach ($txnRefunds as $rf):
+                            $rfLabel = customerRefundPortalLabel($rf);
                         ?>
-                        <p class="text-[10px] text-violet-700 mt-1">Refund <?= e($rf['refund_id']) ?> — <?= e($rf['status']) ?> <?= $rf['failure_reason'] ? '— ' . e(mb_substr((string)$rf['failure_reason'], 0, 80)) : '' ?></p>
+                        <p class="text-[10px] text-violet-700 mt-1">Refund <?= e($rf['refund_id']) ?> — <?= e($rfLabel) ?><?= !empty($rf['failure_reason']) ? ' — ' . e(mb_substr((string)$rf['failure_reason'], 0, 80)) : '' ?></p>
                         <?php endforeach; ?>
                         <?php if ($reason): ?><p class="cp-reason"><?= e($reason) ?></p><?php endif; ?>
                     </div>
@@ -179,6 +180,7 @@ require_once __DIR__ . '/header.php';
                     <p class="cp-mono"><?= e($cb['chargeback_ref'] ?? '') ?></p>
                     <p class="text-sm font-semibold text-slate-800 mt-0.5"><?= formatMoney((float)($cb['amount'] ?? 0)) ?></p>
                     <p class="cp-muted mt-0.5"><?= e($cb['reason'] ?? '') ?></p>
+                    <p class="text-[10px] text-amber-700 mt-1">Bank dispute — not the same as a refund.</p>
                 </div>
                 <div class="text-right shrink-0">
                     <?= statusBadge((string)($cb['status'] ?? '')) ?>

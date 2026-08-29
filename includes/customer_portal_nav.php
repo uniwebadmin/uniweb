@@ -6,7 +6,7 @@ $cpNavActive = $cpNavActive ?? 'dashboard';
 $cpNavItems = [
     'dashboard' => ['href' => 'customer_portal.php', 'label' => 'Dashboard'],
     'transactions' => ['href' => 'customer_portal.php#txns', 'label' => 'Transactions'],
-    'complaints' => ['href' => 'customer_ticket.php', 'label' => 'Complaints'],
+    'complaints' => ['href' => 'customer_portal.php#complaints', 'label' => 'Complaints'],
     'profile' => ['href' => 'customer_profile.php', 'label' => 'Profile'],
 ];
 ?>

@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/customer_portal.php';
+if (!function_exists('customerMustOwnTransaction') && is_file(__DIR__ . '/includes/resource_ownership.php')) {
+    require_once __DIR__ . '/includes/resource_ownership.php';
+}
 ensureCustomerPortalSchema();
 $pageTitle = 'Track Payment';
 $txn = null;
@@ -59,12 +62,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             unset($_SESSION['customer_lookup_demo_otp']);
             $pendingTxn = (string)($_SESSION['pending_customer_txn'] ?? '');
             unset($_SESSION['pending_customer_phone'], $_SESSION['pending_customer_txn']);
-            if ($pendingTxn !== '' && findCustomerOwnedTransaction($phone, $pendingTxn)) {
+            if ($pendingTxn !== '' && customerMustOwnTransaction($phone, $pendingTxn)) {
                 $txn = fetchPaymentStatusTransaction($pendingTxn);
             } else {
-                $stmt = getDB()->prepare('SELECT t.*, m.business_name FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE t.customer_phone = ? ORDER BY t.created_at DESC LIMIT 10');
-                $stmt->execute([$phone]);
-                $txnList = $stmt->fetchAll();
+                $txnList = getCustomerTransactions($phone, 10);
                 if (empty($txnList)) {
                     $error = 'No payments found for this number.';
                 }
@@ -85,14 +86,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($txnId) {
             $phoneDigits = customerNormalizePhone($phone);
             if (isCustomerLoggedIn()) {
-                $owned = findCustomerOwnedTransaction(currentCustomerPhone(), $txnId);
+                $owned = customerMustOwnTransaction(currentCustomerPhone(), $txnId);
                 if ($owned) {
                     $txn = fetchPaymentStatusTransaction($txnId);
                 } else {
                     $error = 'This payment is not linked to your account.';
                 }
             } elseif ($phoneDigits !== '') {
-                $owned = findCustomerOwnedTransaction($phoneDigits, $txnId);
+                $owned = customerMustOwnTransaction($phoneDigits, $txnId);
                 if ($owned) {
                     $res = requestCustomerOtp($phoneDigits);
                     if (!$res['ok']) {
@@ -164,7 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $trackVerified = true;
         }
     } elseif (isCustomerLoggedIn()) {
-        $owned = findCustomerOwnedTransaction(currentCustomerPhone(), $prefillTxn);
+        $owned = customerMustOwnTransaction(currentCustomerPhone(), $prefillTxn);
         if ($owned) {
             $txn = fetchPaymentStatusTransaction($prefillTxn);
         } else {
@@ -237,6 +238,19 @@ require_once __DIR__ . '/header.php';
             <div class="flex justify-between"><span class="text-gray-500">Status</span><?= statusBadge($txn['status']) ?></div>
             <div class="flex justify-between"><span class="text-gray-500">Date</span><span><?= formatDate($txn['created_at']) ?></span></div>
             <?php if ($txn['utr']): ?><div class="flex justify-between"><span class="text-gray-500">UTR</span><span class="font-mono"><?= e($txn['utr']) ?></span></div><?php endif; ?>
+        <?php
+        $txnRefunds = [];
+        if (isCustomerLoggedIn()) {
+            $allRf = getCustomerRefundsByTxn(currentCustomerPhone());
+            $txnRefunds = $allRf[(string)$txn['txn_id']] ?? [];
+        } elseif ($trackVerified || $trackSig !== '') {
+            // Signed track only — no refund list without OTP/login (avoid leaking extra data).
+        }
+        foreach ($txnRefunds as $rf):
+            $rfLabel = customerRefundPortalLabel($rf);
+        ?>
+        <div class="flex justify-between border-t border-gray-800/50 pt-3 mt-3"><span class="text-gray-500">Refund</span><span class="text-violet-300 text-xs"><?= e($rf['refund_id']) ?> — <?= e($rfLabel) ?></span></div>
+        <?php endforeach; ?>
         </div>
         <?php $txnStatus = strtolower((string)($txn['status'] ?? '')); ?>
         <?php if (in_array($txnStatus, ['pending', 'processing', 'initiated'], true)): ?>
