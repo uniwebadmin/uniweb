@@ -1954,6 +1954,11 @@ $assert(str_contains($sdkShapeOut, 'SDK shape tests OK'), 'sdk_php_shape_test_ru
 $assert(is_file($root . '/includes/brand_logo.php') && is_file($root . '/includes/brand_logo_safe.php'), 'brand_logo_files_present');
 $hdr = (string)file_get_contents($root . '/header.php');
 $assert(str_contains($hdr, 'brand_logo_safe.php') && !preg_match('/require\s+__DIR__\s*\.\s*[\'"]\/includes\/brand_logo\.php/', $hdr), 'header_uses_safe_brand_logo');
+$phSrc = (string)file_get_contents($root . '/includes/platform_health.php');
+$assert(str_contains($phSrc, 'function ensurePlatformWorkflowHealthModules') && str_contains($phSrc, 'ensurePlatformWorkflowHealthModules();'), 'platform_health_workflow_bootstrap');
+require_once $root . '/includes/platform_health.php';
+ensurePlatformWorkflowHealthModules();
+$assert(function_exists('autoKycEngineHealthCheck') && function_exists('forwardQueueWorkflowHealthCheck'), 'platform_health_workflow_fns_load');
 $p13ApiDocs = (string)file_get_contents($root . '/api_docs.php');
 $p13PhpReadme = (string)file_get_contents($root . '/sdk/php/README.md');
 $p13NodeReadme = (string)file_get_contents($root . '/sdk/node/README.md');

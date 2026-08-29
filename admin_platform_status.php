@@ -106,7 +106,11 @@ require_once __DIR__ . '/header.php';
 
             <p class="text-xs text-gray-500"><?= $health['ok'] ?>/<?= $health['total'] ?> services healthy</p>
             <?php
-            $optionalIds = ['axis', 'decentro', 'whatsapp', 'otp', 'settlement_cron'];
+            $optionalIds = [
+                'razorpay', 'cashfree', 'payu', 'axis', 'decentro',
+                'whatsapp', 'otp', 'settlement_cron', 'route_split',
+                'pg_webhooks', 'merchant_webhooks',
+            ];
             $criticalDown = count(array_filter($health['services'], static fn($s) => empty($s['ok']) && !in_array($s['id'] ?? '', $optionalIds, true)));
             ?>
             <p class="text-[10px] text-gray-600 mt-1"><?= $criticalDown ?> critical · rest are optional until keys added</p>

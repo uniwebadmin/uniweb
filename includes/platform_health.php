@@ -1,6 +1,56 @@
 <?php
 declare(strict_types=1);
 
+/** Load workflow modules for health checks — works even when live config.php omits newer includes. */
+function ensurePlatformWorkflowHealthModules(): void
+{
+    static $loaded = false;
+    if ($loaded) {
+        return;
+    }
+    $loaded = true;
+    foreach ([
+        'cloud_modules_workflow',
+        'registry_kind_workflow',
+        'gateway_submissions_workflow',
+        'hold_window_workflow',
+        'auto_kyc_risk_workflow',
+        'wiring_deep_link_workflow',
+        'forward_queue_workflow',
+        'checkout_collection_workflow',
+        'global_search_workflow',
+        'route_split_workflow',
+    ] as $module) {
+        $path = __DIR__ . '/' . $module . '.php';
+        if (is_file($path)) {
+            require_once $path;
+        }
+    }
+    if (!function_exists('getRouteSplitReadinessChecklist') && is_file(__DIR__ . '/split_settlement.php')) {
+        require_once __DIR__ . '/split_settlement.php';
+    }
+    if (!function_exists('recurringAutopayApproved') && is_file(__DIR__ . '/mandates.php')) {
+        require_once __DIR__ . '/mandates.php';
+    }
+}
+
+/** @return array{id:string,label:string,ok:bool,status:string,detail:string,test_url?:string} */
+function platformWorkflowHealthFallback(string $id, string $label, string $moduleFile, string $testUrl, string $extra = ''): array
+{
+    $path = __DIR__ . '/' . $moduleFile;
+    $onDisk = is_file($path);
+    return [
+        'id' => $id,
+        'label' => $label,
+        'ok' => false,
+        'status' => $onDisk ? 'Workflow missing' : 'File missing on server',
+        'detail' => $onDisk
+            ? 'includes/' . $moduleFile . ' not loaded' . ($extra !== '' ? ' · ' . $extra : '')
+            : 'includes/' . $moduleFile . ' absent — Hostinger Git Pull required',
+        'test_url' => $testUrl,
+    ];
+}
+
 /** @return array{id:string,label:string,ok:bool,status:string,detail:string,test_url?:string} */
 function routeSplitHealthCheck(): array
 {
@@ -409,6 +459,8 @@ function merchantWebhookStats24h(): array
 /** @return list<array{id:string,label:string,ok:bool,status:string,detail:string,test_url?:string}> */
 function getPlatformServiceHealth(): array
 {
+    ensurePlatformWorkflowHealthModules();
+
     $activePg = getSetting('active_payment_gateway', 'razorpay');
     $pgStats = pgWebhookStats24h();
     $mwStats = merchantWebhookStats24h();
@@ -471,86 +523,67 @@ function getPlatformServiceHealth(): array
             'test_url' => function_exists('adminPartnerTestUrl') ? adminPartnerTestUrl('decentro') : 'admin_gateway_detail.php?partner=decentro&tab=test',
         ],
         recurringAutopayHealthCheck(),
-        function_exists('autoKycEngineHealthCheck') ? autoKycEngineHealthCheck() : [
-            'id' => 'auto_kyc_engine',
-            'label' => 'Auto KYC Engine',
-            'ok' => false,
-            'status' => 'Workflow missing',
-            'detail' => 'includes/cloud_modules_workflow.php not loaded',
-            'test_url' => 'admin_auto_kyc.php',
-        ],
-        function_exists('registryKindHealthCheck') ? registryKindHealthCheck() : [
-            'id' => 'registry_kind',
-            'label' => 'Registry kind (method vs partner)',
-            'ok' => false,
-            'status' => 'Workflow missing',
-            'detail' => 'includes/registry_kind_workflow.php not loaded',
-            'test_url' => 'admin_gateway_registry.php',
-        ],
-        function_exists('gatewaySubmissionsHealthCheck') ? gatewaySubmissionsHealthCheck() : [
-            'id' => 'gateway_submissions_varchar',
-            'label' => 'Gateway submissions (VARCHAR)',
-            'ok' => false,
-            'status' => 'Workflow missing',
-            'detail' => 'includes/gateway_submissions_workflow.php not loaded',
-            'test_url' => 'admin_gateway_submit.php',
-        ],
-        function_exists('holdWindowHealthCheck') ? holdWindowHealthCheck() : [
-            'id' => 'hold_window',
-            'label' => 'KYC hold window',
-            'ok' => false,
-            'status' => 'Workflow missing',
-            'detail' => 'includes/hold_window_workflow.php not loaded',
-            'test_url' => 'admin_forward_queue.php',
-        ],
-        function_exists('autoKycRiskHealthCheck') ? autoKycRiskHealthCheck() : [
-            'id' => 'auto_kyc_risk',
-            'label' => 'Auto-KYC risk (fail-closed)',
-            'ok' => false,
-            'status' => 'Workflow missing',
-            'detail' => 'includes/auto_kyc_risk_workflow.php not loaded',
-            'test_url' => 'admin_auto_kyc.php',
-        ],
-        function_exists('wiringDeepLinkHealthCheck') ? wiringDeepLinkHealthCheck() : [
-            'id' => 'wiring_deep_link',
-            'label' => 'Wiring / deep-link (B1–B6)',
-            'ok' => false,
-            'status' => 'Workflow missing',
-            'detail' => 'includes/wiring_deep_link_workflow.php not loaded',
-            'test_url' => 'admin_disputes.php?q=DSP',
-        ],
-        function_exists('forwardQueueWorkflowHealthCheck') ? forwardQueueWorkflowHealthCheck() : [
-            'id' => 'forward_queue_sync',
-            'label' => 'Forward queue / Gateway submit (B7–B8)',
-            'ok' => false,
-            'status' => 'Workflow missing',
-            'detail' => 'includes/forward_queue_workflow.php not loaded',
-            'test_url' => 'admin_forward_queue.php?status=staged',
-        ],
-        function_exists('checkoutCollectionWorkflowHealthCheck') ? checkoutCollectionWorkflowHealthCheck() : [
-            'id' => 'checkout_collection_b9',
-            'label' => 'Checkout collection label (B9)',
-            'ok' => false,
-            'status' => 'Workflow missing',
-            'detail' => 'includes/checkout_collection_workflow.php not loaded',
-            'test_url' => 'payment_links.php',
-        ],
-        function_exists('wiringDeepLinkHealthCheckB10B25') ? wiringDeepLinkHealthCheckB10B25() : [
-            'id' => 'wiring_deep_link_b10_b25',
-            'label' => 'Wiring / deep-link (B10–B25)',
-            'ok' => false,
-            'status' => 'Workflow missing',
-            'detail' => 'includes/wiring_deep_link_workflow.php B10–B25 batch',
-            'test_url' => 'checkout_customize.php',
-        ],
-        function_exists('globalSearchWorkflowHealthCheck') ? globalSearchWorkflowHealthCheck() : [
-            'id' => 'global_search_srch',
-            'label' => 'Global search (SRCH-02/06)',
-            'ok' => false,
-            'status' => 'Workflow missing',
-            'detail' => 'includes/global_search_workflow.php not loaded',
-            'test_url' => 'global_search.php',
-        ],
+        function_exists('autoKycEngineHealthCheck') ? autoKycEngineHealthCheck() : platformWorkflowHealthFallback(
+            'auto_kyc_engine',
+            'Auto KYC Engine',
+            'cloud_modules_workflow.php',
+            'admin_auto_kyc.php'
+        ),
+        function_exists('registryKindHealthCheck') ? registryKindHealthCheck() : platformWorkflowHealthFallback(
+            'registry_kind',
+            'Registry kind (method vs partner)',
+            'registry_kind_workflow.php',
+            'admin_gateway_registry.php'
+        ),
+        function_exists('gatewaySubmissionsHealthCheck') ? gatewaySubmissionsHealthCheck() : platformWorkflowHealthFallback(
+            'gateway_submissions_varchar',
+            'Gateway submissions (VARCHAR)',
+            'gateway_submissions_workflow.php',
+            'admin_gateway_submit.php'
+        ),
+        function_exists('holdWindowHealthCheck') ? holdWindowHealthCheck() : platformWorkflowHealthFallback(
+            'hold_window',
+            'KYC hold window',
+            'hold_window_workflow.php',
+            'admin_forward_queue.php'
+        ),
+        function_exists('autoKycRiskHealthCheck') ? autoKycRiskHealthCheck() : platformWorkflowHealthFallback(
+            'auto_kyc_risk',
+            'Auto-KYC risk (fail-closed)',
+            'auto_kyc_risk_workflow.php',
+            'admin_auto_kyc.php'
+        ),
+        function_exists('wiringDeepLinkHealthCheck') ? wiringDeepLinkHealthCheck() : platformWorkflowHealthFallback(
+            'wiring_deep_link',
+            'Wiring / deep-link (B1–B6)',
+            'wiring_deep_link_workflow.php',
+            'admin_disputes.php?q=DSP'
+        ),
+        function_exists('forwardQueueWorkflowHealthCheck') ? forwardQueueWorkflowHealthCheck() : platformWorkflowHealthFallback(
+            'forward_queue_sync',
+            'Forward queue / Gateway submit (B7–B8)',
+            'forward_queue_workflow.php',
+            'admin_forward_queue.php?status=staged'
+        ),
+        function_exists('checkoutCollectionWorkflowHealthCheck') ? checkoutCollectionWorkflowHealthCheck() : platformWorkflowHealthFallback(
+            'checkout_collection_b9',
+            'Checkout collection label (B9)',
+            'checkout_collection_workflow.php',
+            'payment_links.php'
+        ),
+        function_exists('wiringDeepLinkHealthCheckB10B25') ? wiringDeepLinkHealthCheckB10B25() : platformWorkflowHealthFallback(
+            'wiring_deep_link_b10_b25',
+            'Wiring / deep-link (B10–B25)',
+            'wiring_deep_link_workflow.php',
+            'checkout_customize.php',
+            'B10–B25 batch'
+        ),
+        function_exists('globalSearchWorkflowHealthCheck') ? globalSearchWorkflowHealthCheck() : platformWorkflowHealthFallback(
+            'global_search_srch',
+            'Global search (SRCH-02/06)',
+            'global_search_workflow.php',
+            'global_search.php'
+        ),
         routeSplitHealthCheck(),
         smtpHealthCheck(),
         whatsappHealthCheck(),
