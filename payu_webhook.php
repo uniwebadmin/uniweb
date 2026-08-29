@@ -17,8 +17,12 @@ $amount = (float)($post['amount'] ?? 0);
 logPgWebhook('payu', 'received', $status, $reference, $linkId, $raw);
 
 if (!verifyPayUResponseHash($post)) {
-    logPgWebhook('payu', 'invalid_hash', $status, $reference, $linkId, $raw);
-    http_response_code(400);
+    logPgWebhookVerifyFailure('payu', 'invalid_hash', $status, $reference, $linkId, [
+        'status' => $status,
+        'reference' => $reference !== '' ? $reference : null,
+        'link_id' => $linkId !== '' ? $linkId : null,
+    ]);
+    http_response_code(401);
     header('Content-Type: application/json');
     echo json_encode(['error' => 'Invalid hash']);
     exit;
@@ -43,6 +47,37 @@ if (!function_exists('webhookFastAck')) {
     require_once __DIR__ . '/includes/webhook_queue.php';
 }
 webhookFastAck(['ok' => true, 'received' => true]);
+
+$refundToken = trim((string)($post['token'] ?? $post['request_id'] ?? $post['udf3'] ?? ''));
+$refundAction = strtolower((string)($post['action'] ?? $post['command'] ?? ''));
+if ($status === 'refund' || $refundAction === 'refund' || ($refundToken !== '' && str_starts_with($refundToken, 'RFD'))) {
+    try {
+        if (!function_exists('applyPartnerRefundWebhookEvent') && is_file(__DIR__ . '/includes/refund_webhooks.php')) {
+            require_once __DIR__ . '/includes/refund_webhooks.php';
+        }
+        $localRefundId = str_starts_with($refundToken, 'RFD') ? $refundToken : '';
+        $payuStatus = strtolower((string)($post['error'] ?? $post['status'] ?? ''));
+        $terminal = in_array($payuStatus, ['success', 'captured'], true) ? 'processed' : (in_array($payuStatus, ['failure', 'failed'], true) ? 'failed' : '');
+        $result = applyPartnerRefundWebhookEvent('payu', [
+            'refund_id' => $localRefundId,
+            'provider_refund_id' => $localRefundId !== '' ? $localRefundId : $refundToken,
+            'event_type' => 'payu.refund',
+            'terminal' => $terminal,
+            'failure_reason' => (string)($post['error_Message'] ?? $post['field9'] ?? ''),
+        ]);
+        logPgWebhook('payu', !empty($result['ok']) ? 'processed_refund' : 'refund_failed', $status, $reference, $linkId, json_encode($result));
+        markWebhookCompleted((int)$webhookEv['id']);
+        header('Content-Type: application/json');
+        echo json_encode(['ok' => true, 'result' => $result]);
+        exit;
+    } catch (Throwable $e) {
+        markWebhookFailed((int)$webhookEv['id'], $e->getMessage());
+        http_response_code(422);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Refund processing failed']);
+        exit;
+    }
+}
 
 $failureStatuses = ['failure', 'failed', 'f'];
 if (in_array($status, $failureStatuses, true) && $reference !== '') {

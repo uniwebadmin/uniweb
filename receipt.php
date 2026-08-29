@@ -9,6 +9,22 @@ if ($txnId === '') {
     redirect('login.php');
 }
 
+$trackSig = trim($_GET['sig'] ?? '');
+$trackExp = (int)($_GET['exp'] ?? 0);
+$signedPublicReceipt = false;
+if ($trackSig !== '' && $trackExp > 0) {
+    if ($trackExp < time()) {
+        flash('error', 'This receipt link has expired. Use Track Payment from your confirmation email or contact the merchant.');
+        redirect('payment_status.php');
+    }
+    if (verifyPaymentTrackSignature($txnId, $trackSig, $trackExp)) {
+        $signedPublicReceipt = true;
+    } else {
+        flash('error', 'This receipt link could not be verified.');
+        redirect('payment_status.php');
+    }
+}
+
 $adminView = isAdminLoggedIn() && !isLoggedIn();
 $merchant = null;
 $merchantId = null;
@@ -23,28 +39,20 @@ if (!$adminView && isLoggedIn()) {
     $customerPhone = currentCustomerPhone();
 }
 
-if (!$adminView && !$merchant && !$isCustomer) {
+if (!$adminView && !$merchant && !$isCustomer && !$signedPublicReceipt) {
     flash('error', 'Please log in to view the receipt.');
     redirect('login.php');
 }
 
 $txn = null;
-if ($adminView || $merchant) {
+if ($signedPublicReceipt) {
+    $txn = fetchTransactionDetail($txnId, null, false);
+} elseif ($adminView || $merchant) {
     $txn = fetchTransactionDetail($txnId, $merchantId, $adminView);
 } elseif ($isCustomer) {
     $owned = findCustomerOwnedTransaction($customerPhone, $txnId);
     if ($owned) {
-        $stmt = getDB()->prepare("SELECT t.*, m.business_name, m.merchant_code, m.email AS merchant_email, m.phone AS merchant_phone,
-            m.collection_mode AS merchant_collection_mode, m.account_mode,
-            pl.link_id, pl.description AS link_description, pl.customer_name AS link_customer_name,
-            pl.customer_phone AS link_customer_phone, pl.payment_method AS link_payment_method,
-            pl.gateway_code AS link_gateway, pl.link_label
-            FROM transactions t
-            JOIN merchants m ON t.merchant_id = m.id
-            LEFT JOIN payment_links pl ON t.payment_link_id = pl.id
-            WHERE t.txn_id = ? LIMIT 1");
-        $stmt->execute([$txnId]);
-        $txn = $stmt->fetch() ?: null;
+        $txn = fetchTransactionDetail($txnId, (int)$owned['merchant_id'], false);
     }
 }
 

@@ -22,7 +22,11 @@ if (!verifyDecentroWebhookSignature($raw, $signature)) {
     if (function_exists('financialTablesReady') && financialTablesReady()) {
         registerGatewayEvent('decentro', $_SERVER['HTTP_X_DECENTRO_EVENT_ID'] ?? '', 'unknown', $raw, false);
     }
-    logPgWebhook('decentro', 'invalid_signature', null, null, null, $raw);
+    logPgWebhookVerifyFailure('decentro', 'invalid_signature', null, null, null, [
+        'has_signature' => $signature !== '',
+        'event_id' => substr((string)($_SERVER['HTTP_X_DECENTRO_EVENT_ID'] ?? ''), 0, 64),
+        'body_bytes' => strlen($raw),
+    ]);
     jsonResponse(['error' => 'Invalid signature'], 401);
 }
 

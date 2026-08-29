@@ -443,6 +443,36 @@ function runBackgroundAutoAudit(bool $httpProbe = false, string $runType = 'auto
             $report['steps']['transfer_failure_alert'] = ['ok' => false, 'error' => $e->getMessage()];
         }
 
+        // Payment ledger reconcile — idempotent retry for success txns missing payment_capture journal
+        try {
+            if (!function_exists('reconcilePendingPaymentLedgers')) {
+                require_once __DIR__ . '/financial_integrity.php';
+            }
+            if (function_exists('reconcilePendingPaymentLedgers')) {
+                $ledgerReconcile = reconcilePendingPaymentLedgers(50);
+                $report['steps']['payment_ledger_reconcile'] = $ledgerReconcile;
+            }
+        } catch (Throwable $e) {
+            $report['steps']['payment_ledger_reconcile'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        try {
+            if (!function_exists('reconcilePendingRefunds') && is_file(__DIR__ . '/refund_webhooks.php')) {
+                require_once __DIR__ . '/refund_webhooks.php';
+            }
+            if (function_exists('reconcilePendingRefunds')) {
+                $report['steps']['refund_status_reconcile'] = reconcilePendingRefunds(30);
+            }
+            if (!function_exists('expireOverdueChargebacks') && is_file(__DIR__ . '/chargebacks.php')) {
+                require_once __DIR__ . '/chargebacks.php';
+            }
+            if (function_exists('expireOverdueChargebacks')) {
+                $report['steps']['chargeback_expiry'] = expireOverdueChargebacks();
+            }
+        } catch (Throwable $e) {
+            $report['steps']['refund_status_reconcile'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
         $brokenLinks = 0;
         $linkOk = true;
         if (function_exists('runFullLinkWatchdog')) {

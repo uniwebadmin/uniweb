@@ -195,9 +195,10 @@ switch ($action) {
         }
         $result = processRefund((int)$txn['id'], $amount, $reason);
         if (!$result['ok']) {
-            $response = ['error' => $result['error'] ?? 'Refund failed', 'error_code' => 'refund_failed'];
+            $code = (string)($result['error_code'] ?? 'refund_failed');
+            $response = ['error' => $result['error'] ?? 'Refund failed', 'error_code' => $code];
             completeApiIdempotency((int)$idempotency['id'], 400, $response);
-            merchantApiRespondError('refund_failed', $response['error']);
+            merchantApiRespondError($code, $response['error']);
         }
         $response = ['success' => true, 'api_version' => API_VERSION, 'refund_id' => $result['refund_id'], 'amount' => $result['amount'], 'status' => $result['status'] ?? 'pending'];
         completeApiIdempotency((int)$idempotency['id'], 200, $response);

@@ -807,7 +807,7 @@ function createPartnerTransfer(int $transactionId, int $merchantId, string $part
         $st = getDB()->prepare(
             'INSERT INTO partner_transfers (transaction_id, merchant_id, partner_key, amount, transfer_type, linked_account_id, idempotency_key, status)
              VALUES (?,?,?,?,?,?,?,?)
-             ON DUPLICATE KEY UPDATE amount=VALUES(amount)'
+             ON DUPLICATE KEY UPDATE amount=VALUES(amount), status=IF(status IN (\'processed\',\'success\'), status, VALUES(status))'
         );
         $st->execute([$transactionId, $merchantId, $partnerKey, $amount, $transferType, $linkedAccountId, $idemKey, 'pending']);
         $id = (int)getDB()->lastInsertId();

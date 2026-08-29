@@ -145,16 +145,27 @@ function wiringDeepLinkTxnListUrl(string $txnId, bool $forAdmin = false): string
     return 'transactions.php?q=' . $enc;
 }
 
+/** Merchant or admin transaction detail — not list search. */
+function wiringDeepLinkTxnDetailUrl(string $txnId, bool $forAdmin = false): string
+{
+    $txnId = wiringDeepLinkNormalizeId(trim($txnId), 'TXN');
+    if ($txnId === '' || !preg_match(wiringDeepLinkIdPattern('TXN'), $txnId)) {
+        return $forAdmin ? 'admin_transactions.php' : 'transactions.php';
+    }
+    return 'transaction_detail.php?txn=' . rawurlencode($txnId);
+}
+
 function wiringDeepLinkTxnActionUrl(string $title, string $message, bool $forAdmin = false): ?string
 {
     $hay = $title . ' ' . $message;
     if (preg_match('/\b(TXN[A-F0-9]{8,})\b/i', $hay, $m)) {
-        return wiringDeepLinkTxnListUrl(strtoupper($m[1]), $forAdmin);
+        return wiringDeepLinkTxnDetailUrl(strtoupper($m[1]), $forAdmin);
     }
     $titleLower = strtolower($title);
     if (
         str_contains($titleLower, 'payment received')
         || str_contains($titleLower, 'payment successful')
+        || str_contains($titleLower, 'payment failed')
         || str_contains($titleLower, 'new payment')
     ) {
         return $forAdmin ? 'admin_transactions.php' : 'transactions.php';

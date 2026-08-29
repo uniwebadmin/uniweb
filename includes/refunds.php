@@ -10,6 +10,176 @@ function ensureRefundsEngine(): void
     // Schema changes are versioned under migrations/. Request-time DDL is forbidden.
 }
 
+/** Map txn payment_method / order binding → refund provider key. */
+function resolveRefundProvider(array $txn): string
+{
+    $method = strtolower(trim((string)($txn['payment_method'] ?? '')));
+    if (str_starts_with($method, 'razorpay')) {
+        return 'razorpay';
+    }
+    if (str_starts_with($method, 'cashfree')) {
+        return 'cashfree';
+    }
+    if (str_starts_with($method, 'payu')) {
+        return 'payu';
+    }
+    if (!empty($txn['is_test'])) {
+        return 'sandbox';
+    }
+    $ctx = resolveTransactionRefundContext($txn);
+    $provider = strtolower(trim((string)($ctx['provider'] ?? '')));
+    if (in_array($provider, ['razorpay', 'cashfree', 'payu'], true)) {
+        return $provider;
+    }
+    return '';
+}
+
+/**
+ * Provider order id + payment id for partner refund APIs.
+ *
+ * @return array{provider:string,provider_order_id:string,payment_id:string}
+ */
+function resolveTransactionRefundContext(array $txn): array
+{
+    $method = strtolower(trim((string)($txn['payment_method'] ?? '')));
+    $provider = '';
+    if (str_starts_with($method, 'razorpay')) {
+        $provider = 'razorpay';
+    } elseif (str_starts_with($method, 'cashfree')) {
+        $provider = 'cashfree';
+    } elseif (str_starts_with($method, 'payu')) {
+        $provider = 'payu';
+    }
+    $paymentId = trim((string)($txn['utr'] ?? ''));
+    $providerOrderId = '';
+    $txnId = (int)($txn['id'] ?? 0);
+    if ($txnId > 0) {
+        try {
+            $st = getDB()->prepare(
+                'SELECT po.provider, po.provider_order_id, po.provider_payment_id
+                 FROM payment_order_transactions pot
+                 JOIN payment_orders po ON po.id = pot.payment_order_id
+                 WHERE pot.transaction_id = ?
+                 LIMIT 1'
+            );
+            $st->execute([$txnId]);
+            $row = $st->fetch();
+            if ($row) {
+                $provider = strtolower(trim((string)($row['provider'] ?? $provider)));
+                $providerOrderId = trim((string)($row['provider_order_id'] ?? ''));
+                if ($paymentId === '') {
+                    $paymentId = trim((string)($row['provider_payment_id'] ?? ''));
+                }
+            }
+        } catch (Throwable $e) { /* ok */ }
+    }
+    return [
+        'provider' => $provider,
+        'provider_order_id' => $providerOrderId,
+        'payment_id' => $paymentId,
+    ];
+}
+
+/** Whether live refund API is wired for this provider (honest — no fake success). */
+function refundProviderCapabilityLabel(string $provider): string
+{
+    return match (strtolower($provider)) {
+        'razorpay', 'cashfree', 'payu' => 'supported',
+        'sandbox' => 'test',
+        default => 'parked',
+    };
+}
+
+/**
+ * Send refund to partner once; persist provider_refund_id. Idempotent if provider_refund_id already set.
+ *
+ * @return array{ok:bool,provider_refund_id?:string,provider_status?:string,error?:string,error_code?:string}
+ */
+function submitProviderRefund(string $provider, array $txn, string $refundId, float $amount, string $reason, int $refundRowId): array
+{
+    if (!function_exists('createRazorpayRefund') && is_file(__DIR__ . '/gateways.php')) {
+        require_once __DIR__ . '/gateways.php';
+    }
+    if (!function_exists('logPartnerErrorAndMap') && is_file(__DIR__ . '/partner_error_mapping.php')) {
+        require_once __DIR__ . '/partner_error_mapping.php';
+    }
+
+    $db = getDB();
+    $existing = $db->prepare('SELECT provider_refund_id, status FROM refunds WHERE id=? LIMIT 1');
+    $existing->execute([$refundRowId]);
+    $row = $existing->fetch();
+    if ($row && !empty($row['provider_refund_id']) && ($row['status'] ?? '') === 'pending') {
+        return [
+            'ok' => true,
+            'provider_refund_id' => (string)$row['provider_refund_id'],
+            'provider_status' => 'pending',
+            'duplicate' => true,
+        ];
+    }
+
+    $ctx = resolveTransactionRefundContext($txn);
+    $provider = strtolower(trim($provider));
+
+    if ($provider === 'razorpay') {
+        $paymentId = (string)($ctx['payment_id'] ?? '');
+        if ($paymentId === '') {
+            return ['ok' => false, 'error' => 'Payment reference missing for Razorpay refund.', 'error_code' => 'validation_error'];
+        }
+        $providerRefund = createRazorpayRefund($paymentId, $amount, $refundId);
+        if (!$providerRefund || empty($providerRefund['id'])) {
+            $mapped = logPartnerErrorAndMap('razorpay', 'create_refund', $providerRefund ?? 'empty');
+            return ['ok' => false, 'error' => $mapped['error'], 'error_code' => $mapped['error_code']];
+        }
+        if ((string)($providerRefund['payment_id'] ?? '') !== $paymentId
+            || abs(((float)($providerRefund['amount'] ?? 0) / 100) - $amount) > 0.001
+        ) {
+            return ['ok' => false, 'error' => 'Provider refund response did not match the request.', 'error_code' => 'validation_error'];
+        }
+        return [
+            'ok' => true,
+            'provider_refund_id' => (string)$providerRefund['id'],
+            'provider_status' => strtolower((string)($providerRefund['status'] ?? 'pending')),
+        ];
+    }
+
+    if ($provider === 'cashfree') {
+        $orderId = (string)($ctx['provider_order_id'] ?? '');
+        if ($orderId === '') {
+            return ['ok' => false, 'error' => 'Cashfree order id missing for refund.', 'error_code' => 'validation_error'];
+        }
+        $providerRefund = createCashfreeRefund($orderId, $amount, $refundId, $reason);
+        if (!$providerRefund) {
+            $mapped = logPartnerErrorAndMap('cashfree', 'create_refund', 'create failed');
+            return ['ok' => false, 'error' => $mapped['error'], 'error_code' => $mapped['error_code']];
+        }
+        $cfRefundId = (string)($providerRefund['cf_refund_id'] ?? $providerRefund['refund_id'] ?? $refundId);
+        return [
+            'ok' => true,
+            'provider_refund_id' => $cfRefundId,
+            'provider_status' => strtolower((string)($providerRefund['refund_status'] ?? $providerRefund['status'] ?? 'pending')),
+        ];
+    }
+
+    if ($provider === 'payu') {
+        $paymentId = (string)($ctx['payment_id'] ?? '');
+        if ($paymentId === '') {
+            return ['ok' => false, 'error' => 'PayU payment id missing for refund.', 'error_code' => 'validation_error'];
+        }
+        $providerRefund = createPayuRefund($paymentId, $amount, $refundId);
+        if (!$providerRefund) {
+            $mapped = logPartnerErrorAndMap('payu', 'create_refund', 'create failed');
+            return ['ok' => false, 'error' => $mapped['error'], 'error_code' => $mapped['error_code']];
+        }
+        return [
+            'ok' => true,
+            'provider_refund_id' => (string)($providerRefund['provider_refund_id'] ?? $refundId),
+            'provider_status' => 'pending',
+        ];
+    }
+
+    return ['ok' => false, 'error' => 'This payment provider does not have an activated refund API.', 'error_code' => 'refund_not_allowed'];
+}
+
 function notifyMerchantRefundProcessed(int $merchantId, string $refundId, string $txnRef, float $amount): void
 {
     $message = $refundId . ' — ' . formatMoney($amount) . ' refunded for ' . $txnRef . '.';
@@ -17,6 +187,46 @@ function notifyMerchantRefundProcessed(int $merchantId, string $refundId, string
         notifyMerchant($merchantId, 'Refund Processed', $message, 'refund_ok_' . $refundId);
     } elseif (function_exists('createNotification')) {
         createNotification($merchantId, 'Refund Processed', $message, 'refund_ok_' . $refundId);
+    }
+    if (!function_exists('wiringDeepLinkRefundActionUrl') && is_file(__DIR__ . '/wiring_deep_link_workflow.php')) {
+        require_once __DIR__ . '/wiring_deep_link_workflow.php';
+    }
+    $refundPath = function_exists('wiringDeepLinkRefundActionUrl')
+        ? (wiringDeepLinkRefundActionUrl('Refund Processed', $refundId, false) ?? 'refunds.php')
+        : 'refunds.php';
+    $refundUrl = rtrim(APP_URL, '/') . '/' . ltrim($refundPath, '/');
+    if (function_exists('notifyMerchantEmail')) {
+        notifyMerchantEmail(
+            $merchantId,
+            'Refund processed — ' . formatMoney($amount),
+            $message . "\n\nOpen refund: {$refundUrl}",
+            'refund',
+            'email_refund_ok_' . $refundId
+        );
+    }
+}
+
+function notifyMerchantRefundCreated(int $merchantId, string $refundId, string $txnRef, float $amount): void
+{
+    $message = $refundId . ' — ' . formatMoney($amount) . ' refund initiated for ' . $txnRef . '. Status: pending (not completed yet).';
+    if (function_exists('notifyMerchant')) {
+        notifyMerchant($merchantId, 'Refund Initiated', $message, 'refund_pending_' . $refundId);
+    }
+    if (!function_exists('wiringDeepLinkRefundActionUrl') && is_file(__DIR__ . '/wiring_deep_link_workflow.php')) {
+        require_once __DIR__ . '/wiring_deep_link_workflow.php';
+    }
+    $refundPath = function_exists('wiringDeepLinkRefundActionUrl')
+        ? (wiringDeepLinkRefundActionUrl('Refund Initiated', $refundId, false) ?? 'refunds.php')
+        : 'refunds.php';
+    $refundUrl = rtrim(APP_URL, '/') . '/' . ltrim($refundPath, '/');
+    if (function_exists('notifyMerchantEmail')) {
+        notifyMerchantEmail(
+            $merchantId,
+            'Refund initiated — ' . formatMoney($amount),
+            $message . "\n\nTrack refund: {$refundUrl}",
+            'refund',
+            'email_refund_pending_' . $refundId
+        );
     }
 }
 
@@ -31,6 +241,31 @@ function notifyMerchantRefundFailed(int $merchantId, string $refundId, string $t
         notifyMerchant($merchantId, 'Refund Failed', $message, 'refund_fail_' . $refundId);
     } elseif (function_exists('createNotification')) {
         createNotification($merchantId, 'Refund Failed', $message, 'refund_fail_' . $refundId);
+    }
+    if (!function_exists('wiringDeepLinkRefundActionUrl') && is_file(__DIR__ . '/wiring_deep_link_workflow.php')) {
+        require_once __DIR__ . '/wiring_deep_link_workflow.php';
+    }
+    $refundPath = function_exists('wiringDeepLinkRefundActionUrl')
+        ? (wiringDeepLinkRefundActionUrl('Refund Failed', $refundId, false) ?? 'refunds.php')
+        : 'refunds.php';
+    $refundUrl = rtrim(APP_URL, '/') . '/' . ltrim($refundPath, '/');
+    if (function_exists('notifyMerchantEmail')) {
+        notifyMerchantEmail(
+            $merchantId,
+            'Refund failed — ' . formatMoney($amount),
+            $message . "\n\nOpen refund: {$refundUrl}",
+            'refund',
+            'email_refund_fail_' . $refundId
+        );
+    }
+    if (function_exists('dispatchMerchantWebhook')) {
+        dispatchMerchantWebhook($merchantId, 'refund.failed', [
+            'refund_id' => $refundId,
+            'txn_id' => $txnRef,
+            'amount' => $amount,
+            'status' => 'failed',
+            'failure_reason' => mb_substr($reason, 0, 240),
+        ], 'refund_fail_wh_' . $refundId);
     }
 }
 
@@ -89,25 +324,37 @@ function notifyCustomerRefundTerminal(array $refund, array $txn, string $termina
     $email = trim((string)($txn['customer_email'] ?? ''));
     $txnRef = (string)($txn['txn_id'] ?? '');
     $refundId = (string)($refund['refund_id'] ?? '');
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $txnRef === '') {
+        return;
+    }
+    $dedupeKey = 'cust_refund_' . $terminalStatus . '_' . ($refundId !== '' ? $refundId : $txnRef);
+    $scope = 'customer:' . hash('sha256', strtolower($email));
+    if (function_exists('notifyChannelWasSent') && notifyChannelWasSent($scope, $dedupeKey)) {
+        return;
+    }
     $amount = formatMoney((float)($refund['amount'] ?? 0));
     $trackUrl = buildPaymentTrackUrl($txnRef);
-    $portalUrl = APP_URL . '/customer_login.php';
+    $receiptUrl = function_exists('buildSignedReceiptUrl') ? buildSignedReceiptUrl($txnRef) : $trackUrl;
+    $merchantName = trim((string)($txn['business_name'] ?? APP_NAME));
 
-    if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        if (!function_exists('sendPlatformEmail') && is_file(__DIR__ . '/mailer.php')) {
-            require_once __DIR__ . '/mailer.php';
-        }
-        if (function_exists('sendPlatformEmail')) {
-            $subject = $terminalStatus === 'completed'
-                ? 'Refund processed — ' . APP_NAME
-                : 'Refund update — ' . APP_NAME;
-            $body = '<p>Your payment ' . e($txnRef) . ' — refund ' . e($refundId) . ' — ' . e($amount) . '.</p>'
-                . '<p>Status: <strong>' . e($terminalStatus) . '</strong>'
-                . ($detailReason !== '' ? (' — ' . e(mb_substr($detailReason, 0, 300))) : '')
-                . '</p>'
-                . '<p><a href="' . e($trackUrl) . '">Track payment status</a> · '
-                . '<a href="' . e($portalUrl) . '">Customer portal</a></p>';
-            sendPlatformEmail($email, $subject, $body, true);
+    if (!function_exists('sendPlatformEmail') && is_file(__DIR__ . '/mailer.php')) {
+        require_once __DIR__ . '/mailer.php';
+    }
+    if (function_exists('sendPlatformEmail')) {
+        $subject = $terminalStatus === 'completed'
+            ? 'Refund processed — ' . $merchantName
+            : 'Refund update — ' . $merchantName;
+        $statusLine = $terminalStatus === 'completed'
+            ? 'Your refund is processed.'
+            : 'Your refund could not be completed.';
+        $body = '<p>Payment <strong>' . e($txnRef) . '</strong> — refund <strong>' . e($refundId) . '</strong> — <strong>' . e($amount) . '</strong>.</p>'
+            . '<p>' . e($statusLine) . '</p>'
+            . ($detailReason !== '' ? ('<p>' . e(mb_substr($detailReason, 0, 300)) . '</p>') : '')
+            . '<p><a href="' . e($trackUrl) . '">Track payment status</a>'
+            . ($terminalStatus === 'completed' ? (' · <a href="' . e($receiptUrl) . '">View receipt</a>') : '')
+            . '</p>';
+        if (sendPlatformEmail($email, $subject, $body, true) && function_exists('markNotifyChannelSent')) {
+            markNotifyChannelSent($scope, $dedupeKey);
         }
     }
 }
@@ -162,12 +409,16 @@ function processRefund(int $transactionId, float $amount, string $reason, ?int $
     }
 
     $refundId = generateId('RFD');
-    $provider = str_starts_with(strtolower((string)$txn['payment_method']), 'razorpay') ? 'razorpay' : ($isTest ? 'sandbox' : '');
+    $provider = resolveRefundProvider($txn);
     if ($provider === '') {
         return ['ok' => false, 'error' => 'This payment provider does not have an activated refund API.'];
     }
-    $db->prepare('INSERT INTO refunds (refund_id, merchant_id, transaction_id, amount, status, reason, admin_note) VALUES (?,?,?,?,?,?,?)')
-        ->execute([$refundId, (int)$txn['merchant_id'], $transactionId, $amount, 'pending', $reason, $adminId ? 'admin:' . $adminId : null]);
+    $db->prepare('INSERT INTO refunds (refund_id, merchant_id, transaction_id, amount, status, reason, admin_note, provider) VALUES (?,?,?,?,?,?,?,?)')
+        ->execute([$refundId, (int)$txn['merchant_id'], $transactionId, $amount, 'pending', $reason, $adminId ? 'admin:' . $adminId : null, $provider !== 'sandbox' ? $provider : null]);
+
+    $refundRowSt = $db->prepare('SELECT id FROM refunds WHERE refund_id=? LIMIT 1');
+    $refundRowSt->execute([$refundId]);
+    $refundRowId = (int)$refundRowSt->fetchColumn();
 
     if (function_exists('uwRecordAuditEvent')) {
         uwRecordAuditEvent('refund_requested', [
@@ -188,11 +439,11 @@ function processRefund(int $transactionId, float $amount, string $reason, ?int $
         return ['ok' => true, 'refund_id' => $refundId, 'amount' => $amount, 'status' => 'completed'];
     }
 
-    $providerRefund = createRazorpayRefund((string)$txn['utr'], $amount, $refundId);
-    if (!$providerRefund || empty($providerRefund['id'])) {
-        $failReason = 'Razorpay refund request failed.';
-        $db->prepare("UPDATE refunds SET status='failed',provider='razorpay',provider_status='request_failed',failure_reason=?,processed_at=NOW() WHERE refund_id=?")
-            ->execute([$failReason, $refundId]);
+    $submit = submitProviderRefund($provider, $txn, $refundId, $amount, $reason, $refundRowId);
+    if (empty($submit['ok'])) {
+        $failReason = (string)($submit['error'] ?? 'Partner refund request failed.');
+        $db->prepare("UPDATE refunds SET status='failed',provider=?,provider_status='request_failed',failure_reason=?,processed_at=NOW() WHERE refund_id=?")
+            ->execute([$provider, mb_substr($failReason, 0, 500), $refundId]);
         notifyMerchantRefundFailed((int)$txn['merchant_id'], $refundId, (string)$txn['txn_id'], $amount, $failReason);
         notifyCustomerRefundTerminal(['refund_id' => $refundId, 'amount' => $amount], $txn, 'failed', $failReason);
         if (function_exists('uwRecordAuditEvent')) {
@@ -204,22 +455,17 @@ function processRefund(int $transactionId, float $amount, string $reason, ?int $
                 'reason' => $failReason,
             ]);
         }
-        return ['ok' => false, 'error' => 'Razorpay refund request failed. No wallet balance was changed.'];
+        return ['ok' => false, 'error' => $failReason, 'error_code' => $submit['error_code'] ?? 'refund_failed'];
     }
-    if ((string)($providerRefund['payment_id'] ?? '') !== (string)$txn['utr']
-        || abs(((float)($providerRefund['amount'] ?? 0) / 100) - $amount) > 0.001
-    ) {
-        $db->prepare("UPDATE refunds SET status='failed',provider='razorpay',provider_refund_id=?,provider_status='mismatch',failure_reason=?,processed_at=NOW() WHERE refund_id=?")
-            ->execute([(string)$providerRefund['id'], 'Provider refund response did not match the request.', $refundId]);
-        notifyMerchantRefundFailed((int)$txn['merchant_id'], $refundId, (string)$txn['txn_id'], $amount, 'Provider refund response did not match the request.');
-        notifyCustomerRefundTerminal(['refund_id' => $refundId, 'amount' => $amount], $txn, 'failed', 'Provider refund response did not match the request.');
-        return ['ok' => false, 'error' => 'Provider refund response mismatch. Support has been notified.'];
-    }
-    $providerStatus = strtolower((string)($providerRefund['status'] ?? 'pending'));
-    $db->prepare("UPDATE refunds SET provider='razorpay',provider_refund_id=?,provider_status=? WHERE refund_id=?")
-        ->execute([(string)$providerRefund['id'], $providerStatus, $refundId]);
-    if ($providerStatus === 'processed') {
-        completeProviderRefund($refundId, (string)$providerRefund['id']);
+
+    $providerRefundId = (string)($submit['provider_refund_id'] ?? '');
+    $providerStatus = strtolower((string)($submit['provider_status'] ?? 'pending'));
+    $db->prepare("UPDATE refunds SET provider=?,provider_refund_id=?,provider_status=? WHERE refund_id=?")
+        ->execute([$provider, $providerRefundId, $providerStatus, $refundId]);
+    notifyMerchantRefundCreated((int)$txn['merchant_id'], $refundId, (string)$txn['txn_id'], $amount);
+
+    if (in_array($providerStatus, ['processed', 'success', 'successful', 'completed'], true)) {
+        completeProviderRefund($refundId, $providerRefundId);
         return ['ok' => true, 'refund_id' => $refundId, 'amount' => $amount, 'status' => 'completed'];
     }
     return ['ok' => true, 'refund_id' => $refundId, 'amount' => $amount, 'status' => 'pending'];
@@ -361,7 +607,7 @@ function completeProviderRefund(string $refundId, string $providerReference): ar
         'txn_id' => $refund['txn_id'],
         'amount' => (float)$refund['amount'],
         'provider_reference' => $providerReference,
-    ]);
+    ], 'refund_ok_wh_' . $refundId);
     $txnSt = getDB()->prepare('SELECT * FROM transactions WHERE id=?');
     $txnSt->execute([(int)$refund['transaction_id']]);
     $txnRow = $txnSt->fetch() ?: [];

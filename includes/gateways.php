@@ -317,6 +317,146 @@ function fetchCashfreeOrderPayments(string $orderId): array
     return is_array($data) ? array_values($data) : [];
 }
 
+function createCashfreeRefund(string $orderId, float $amount, string $refundId, string $note = ''): ?array
+{
+    $appId = cashfreeAppId();
+    $secret = cashfreeSecretKey();
+    if (!$appId || !$secret || $orderId === '' || $amount <= 0 || $refundId === '') {
+        return null;
+    }
+    $body = [
+        'refund_amount' => round($amount, 2),
+        'refund_id' => $refundId,
+        'refund_note' => $note !== '' ? mb_substr($note, 0, 255) : ('UniWeb refund ' . $refundId),
+    ];
+    $ch = curl_init(cashfreeApiBase() . '/orders/' . rawurlencode($orderId) . '/refunds');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'x-api-version: 2023-08-01',
+            'x-client-id: ' . $appId,
+            'x-client-secret: ' . $secret,
+        ],
+        CURLOPT_POSTFIELDS => json_encode($body),
+        CURLOPT_TIMEOUT => 30,
+    ]);
+    $response = (string)curl_exec($ch);
+    $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($http < 200 || $http >= 300 || $response === '') {
+        if (function_exists('logPartnerErrorAndMap') && is_file(__DIR__ . '/partner_error_mapping.php')) {
+            require_once __DIR__ . '/partner_error_mapping.php';
+            logPartnerErrorAndMap('cashfree', 'create_refund', $response ?: ['http' => $http], $http);
+        }
+        return null;
+    }
+    $data = json_decode($response, true);
+    return is_array($data) ? $data : null;
+}
+
+function fetchCashfreeRefund(string $orderId, string $refundId): ?array
+{
+    $appId = cashfreeAppId();
+    $secret = cashfreeSecretKey();
+    if (!$appId || !$secret || $orderId === '' || $refundId === '') {
+        return null;
+    }
+    $ch = curl_init(cashfreeApiBase() . '/orders/' . rawurlencode($orderId) . '/refunds/' . rawurlencode($refundId));
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => [
+            'x-api-version: 2023-08-01',
+            'x-client-id: ' . $appId,
+            'x-client-secret: ' . $secret,
+        ],
+        CURLOPT_TIMEOUT => 20,
+    ]);
+    $response = (string)curl_exec($ch);
+    $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($http !== 200 || $response === '') {
+        return null;
+    }
+    $data = json_decode($response, true);
+    return is_array($data) ? $data : null;
+}
+
+/** PayU postservice — shared for refund + status (no secrets in return value). */
+function payuPostserviceRequest(string $command, string $var1, string $var2 = '', string $var3 = ''): ?array
+{
+    $c = payuCredentials();
+    if ($c['key'] === '' || $c['salt'] === '' || $command === '' || $var1 === '') {
+        return null;
+    }
+    $hashStr = $c['key'] . '|' . $command . '|' . $var1 . '|' . $c['salt'];
+    $hash = strtolower(hash('sha512', $hashStr));
+    $post = ['key' => $c['key'], 'command' => $command, 'var1' => $var1, 'hash' => $hash];
+    if ($var2 !== '') {
+        $post['var2'] = $var2;
+    }
+    if ($var3 !== '') {
+        $post['var3'] = $var3;
+    }
+    $ch = curl_init(payuBaseUrl() . '/merchant/postservice?form=2');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POSTFIELDS => http_build_query($post),
+        CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+        CURLOPT_TIMEOUT => 30,
+    ]);
+    $response = (string)curl_exec($ch);
+    $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($response === '') {
+        return null;
+    }
+    $decoded = json_decode($response, true);
+    if (!is_array($decoded)) {
+        if (function_exists('logPartnerErrorAndMap') && is_file(__DIR__ . '/partner_error_mapping.php')) {
+            require_once __DIR__ . '/partner_error_mapping.php';
+            logPartnerErrorAndMap('payu', $command, mb_substr($response, 0, 500), $http);
+        }
+        return null;
+    }
+    if (strtolower((string)($decoded['status'] ?? '')) !== 'success' && strtolower((string)($decoded['status'] ?? '')) !== '1') {
+        if (function_exists('logPartnerErrorAndMap') && is_file(__DIR__ . '/partner_error_mapping.php')) {
+            require_once __DIR__ . '/partner_error_mapping.php';
+            logPartnerErrorAndMap('payu', $command, $decoded, $http);
+        }
+    }
+    return $decoded;
+}
+
+function createPayuRefund(string $paymentId, float $amount, string $tokenId): ?array
+{
+    if ($paymentId === '' || $amount <= 0 || $tokenId === '') {
+        return null;
+    }
+    $amountStr = number_format($amount, 2, '.', '');
+    $response = payuPostserviceRequest('cancel_refund_transaction', $paymentId, $tokenId, $amountStr);
+    if (!$response) {
+        return null;
+    }
+    $status = strtolower((string)($response['status'] ?? ''));
+    if ($status !== 'success' && $status !== '1') {
+        return null;
+    }
+    $response['provider_refund_id'] = $tokenId;
+    $response['amount'] = $amount;
+    return $response;
+}
+
+function fetchPayuRefundStatus(string $paymentId, string $tokenId): ?array
+{
+    if ($paymentId === '' || $tokenId === '') {
+        return null;
+    }
+    return payuPostserviceRequest('check_action_status', $paymentId, $tokenId);
+}
+
 function ensureGatewaySubmissionsTable(): void
 {
     static $ready = false;

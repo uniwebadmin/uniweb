@@ -60,6 +60,82 @@ function buildPaymentTrackUrl(string $txnId): string
         . '&sig=' . rawurlencode($parts['sig']);
 }
 
+/** Signed customer receipt — same HMAC as track links; 30-day expiry. */
+function buildSignedReceiptUrl(string $txnId): string
+{
+    $parts = paymentTrackSignatureParts($txnId);
+    return APP_URL . '/receipt.php?txn=' . rawurlencode(trim($txnId))
+        . '&exp=' . $parts['exp']
+        . '&sig=' . rawurlencode($parts['sig']);
+}
+
+/**
+ * Customer email for payment terminal states — UniWeb / merchant name only; honest status copy.
+ * @param 'success'|'failed'|'pending' $status
+ */
+function notifyCustomerPaymentStatus(array $txn, string $status, string $detailReason = ''): void
+{
+    $status = strtolower(trim($status));
+    if (!in_array($status, ['success', 'failed', 'pending'], true)) {
+        return;
+    }
+    $email = trim((string)($txn['customer_email'] ?? ''));
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return;
+    }
+    $txnRef = trim((string)($txn['txn_id'] ?? ''));
+    if ($txnRef === '') {
+        return;
+    }
+    $dedupeKey = 'cust_pay_' . $status . '_' . $txnRef;
+    $scope = 'customer:' . hash('sha256', strtolower($email));
+    if (function_exists('notifyChannelWasSent') && notifyChannelWasSent($scope, $dedupeKey)) {
+        return;
+    }
+    if (!function_exists('sendPlatformEmail') && is_file(__DIR__ . '/mailer.php')) {
+        require_once __DIR__ . '/mailer.php';
+    }
+    if (!function_exists('sendPlatformEmail')) {
+        return;
+    }
+
+    $merchantName = trim((string)($txn['business_name'] ?? ''));
+    if ($merchantName === '') {
+        $merchantName = APP_NAME;
+    }
+    $amount = formatMoney((float)($txn['amount'] ?? 0));
+    $trackUrl = buildPaymentTrackUrl($txnRef);
+    $receiptUrl = buildSignedReceiptUrl($txnRef);
+
+    $subject = match ($status) {
+        'success' => 'Payment confirmed — ' . $merchantName,
+        'failed' => 'Payment not completed — ' . $merchantName,
+        default => 'Payment pending — ' . $merchantName,
+    };
+    $statusLine = match ($status) {
+        'success' => 'Your payment is confirmed. This is not pending.',
+        'failed' => 'This payment did not complete. Do not treat it as paid.',
+        default => 'This payment is still pending — not confirmed yet. Do not deliver goods until status shows confirmed.',
+    };
+    $body = '<p>Payment to <strong>' . e($merchantName) . '</strong> via ' . e(APP_NAME) . '.</p>'
+        . '<p>Reference: <strong>' . e($txnRef) . '</strong> · Amount: <strong>' . e($amount) . '</strong></p>'
+        . '<p>' . e($statusLine) . '</p>';
+    if ($detailReason !== '' && $status !== 'success') {
+        $body .= '<p>' . e(mb_substr($detailReason, 0, 300)) . '</p>';
+    }
+    $body .= '<p><a href="' . e($trackUrl) . '">Track payment status</a>';
+    if ($status === 'success') {
+        $body .= ' · <a href="' . e($receiptUrl) . '">View receipt</a>';
+    }
+    $body .= '</p>';
+
+    if (sendPlatformEmail($email, $subject, $body, true)) {
+        if (function_exists('markNotifyChannelSent')) {
+            markNotifyChannelSent($scope, $dedupeKey);
+        }
+    }
+}
+
 /** Same-browser checkout success — no OTP until grant expires (2 h). */
 function grantCheckoutTrackAccess(string $txnId): void
 {

@@ -13,6 +13,7 @@ function merchantApiErrorCatalog(): array
         'unknown_action' => ['http' => 400, 'message' => 'Unknown action. See API documentation for supported actions.'],
         'missing_credentials' => ['http' => 401, 'message' => 'X-API-Key and X-API-Secret headers are required.'],
         'auth_failed' => ['http' => 401, 'message' => 'Invalid API credentials or insufficient scope.'],
+        'auth_invalid' => ['http' => 401, 'message' => 'Authentication failed. Check API credentials.'],
         'origin_not_allowed' => ['http' => 403, 'message' => 'Origin not allowed for this API key.'],
         'mode_mismatch' => ['http' => 403, 'message' => 'Account is in Test Mode. Use a test API key or complete KYC for live operations.'],
         'not_found' => ['http' => 404, 'message' => 'Resource not found.'],
@@ -26,7 +27,10 @@ function merchantApiErrorCatalog(): array
         'rate_limited' => ['http' => 429, 'message' => 'API rate limit exceeded. Retry after the Retry-After interval.'],
         'method_not_allowed' => ['http' => 405, 'message' => 'Only POST is supported.'],
         'refund_failed' => ['http' => 400, 'message' => 'Refund could not be processed.'],
+        'refund_not_allowed' => ['http' => 400, 'message' => 'Refund is not allowed for this payment.'],
         'txn_not_refundable' => ['http' => 404, 'message' => 'Successful transaction not found for refund.'],
+        'partner_unavailable' => ['http' => 503, 'message' => 'Payment partner is temporarily unavailable. Try again shortly.'],
+        'internal_error' => ['http' => 500, 'message' => 'An internal error occurred. Support has been notified.'],
     ];
 }
 

@@ -51,6 +51,7 @@ function velocityPolicy(string $type): array
         'merchant_signup' => ['window_minutes' => 60, 'max_attempts' => 8, 'cooldown_minutes' => 60],
         'qr_link' => ['window_minutes' => 1, 'max_attempts' => 1000000, 'cooldown_minutes' => 0],
         // QR path no longer uses this policy for blocks (see qr_pay.php / checkout.php).
+        'webhook_sig_fail' => ['window_minutes' => 15, 'max_attempts' => 20, 'cooldown_minutes' => 0],
     ];
     return $policies[$type] ?? ['window_minutes' => 5, 'max_attempts' => 10, 'cooldown_minutes' => 15];
 }

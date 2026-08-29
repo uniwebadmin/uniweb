@@ -141,7 +141,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 } elseif ($prefillTxn !== '') {
-    if ($trackSig !== '' && $trackExp > 0) {
+    if ($trackSig !== '' && $trackExp > 0 && $trackExp < time()) {
+        $error = 'This secure link has expired. Enter the mobile number used at checkout to look up the payment.';
+    } elseif ($trackSig !== '' && $trackExp > 0) {
         $txn = paymentStatusViaSignedTrack($prefillTxn, $trackSig, $trackExp);
         if ($txn) {
             $trackVerified = true;

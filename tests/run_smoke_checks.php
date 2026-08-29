@@ -981,6 +981,19 @@ $gsCharge = (string)file_get_contents($root . '/global_search.php');
 $assert(str_contains($gsCharge, "chargeback_ref") && str_contains($gsCharge, "CB #'") && str_contains($gsCharge, '?string $title'), 'watchdog_fix_chargeback_ref_and_nullable_search_title');
 $assert(is_file($root . '/includes/layout_footer.php') && str_contains((string)file_get_contents($root . '/footer.php'), 'layout_footer.php'), 'watchdog_fix_footer_layout_fallback');
 $assert(str_contains((string)file_get_contents($root . '/includes/onboarding.php'), 'function platformReadinessHasPartnerKeys'), 'watchdog_fix_readiness_no_isGatewayConfigured_loop');
+$pfqP6 = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
+$fwdPageP6 = (string)file_get_contents($root . '/admin_forward_queue.php');
+$assert(str_contains($pfqP6, 'function forwardQueueStatusVocabulary') && str_contains($pfqP6, 'function forwardQueueRetryPolicyHint'), 'p6_forward_status_vocab_and_retry_hint');
+$assert(str_contains($pfqP6, 'function maskForwardQueueErrorMessage') && str_contains($pfqP6, 'Partner mismatch'), 'p6_forward_mask_errors_and_crosswire_guard');
+$assert(str_contains($pfqP6, 'Duplicate success blocked') && str_contains($pfqP6, 'Fail-closed: local_record'), 'p6_forward_idempotent_fail_closed');
+$assert(str_contains($fwdPageP6, 'name="partner"') && str_contains($fwdPageP6, 'forwardQueueRetryPolicyHint'), 'p6_admin_forward_partner_filter_and_retry_ui');
+$schemaP5 = (string)file_get_contents($root . '/includes/schema_ensure.php');
+$txnDetP5 = (string)file_get_contents($root . '/includes/transaction_detail.php');
+$assert(str_contains($schemaP5, 'payment_links ADD COLUMN link_label') && str_contains($schemaP5, 'qr_code_id'), 'p5_schema_ensure_payment_links_pack_columns');
+$assert(str_contains($txnDetP5, 'ensurePaymentPackSchema') && str_contains($txnDetP5, '$sqlBasic'), 'p5_txn_detail_link_label_fallback');
+$assert(str_contains((string)file_get_contents($root . '/includes/pg_webhooks.php'), 'function logPgWebhookVerifyFailure'), 'p5_webhook_verify_failure_safe_log');
+$assert(str_contains((string)file_get_contents($root . '/includes/email_templates.php'), 'Templated email skipped') === false, 'p5_smtp_skip_not_platform_error');
+$assert(str_contains((string)file_get_contents($root . '/includes/error_catcher.php'), 'Unknown column%link_label'), 'p5_auto_resolve_stale_link_label');
 $assert(str_contains((string)file_get_contents($root . '/admin_gateway_submit.php'), 'gateway_submissions') && str_contains((string)file_get_contents($root . '/admin_gateway_submit.php'), 'admin_forward_queue.php'), 'p7b_gateway_submit_vs_forward_queue_copy');
 $assert(str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'getPartnerRegistry') || str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'partnerDisplayName'), 'p7b_kyc_notify_partner_name');
 
@@ -1177,7 +1190,7 @@ $assert(str_contains($wiringFlow, 'function wiringDeepLinkHealthCheckB10B25'), '
 $assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'wiringDeepLinkHealthCheckB10B25'), 'split_b25_platform_health');
 require_once $root . '/includes/wiring_deep_link_workflow.php';
 $assert(wiringDeepLinkDisputeActionUrl('Dispute update', 'DSP1234567890ABCD') === 'disputes.php?q=DSP1234567890ABCD', 'split_b13_runtime_dsp_q_url');
-$assert(wiringDeepLinkTxnActionUrl('Payment received', 'TXN1234567890ABCD') === 'transactions.php?q=TXN1234567890ABCD', 'split_b23_runtime_txn_list_url');
+$assert(wiringDeepLinkTxnActionUrl('Payment received', 'TXN1234567890ABCD') === 'transaction_detail.php?txn=TXN1234567890ABCD', 'split_b23_runtime_txn_detail_url');
 $b1025Health = wiringDeepLinkHealthCheckB10B25();
 $assert($b1025Health['ok'] === true, 'split_b25_runtime_health_green');
 
@@ -1543,7 +1556,7 @@ $assert(str_contains($mailer, "require_once __DIR__ . '/email_templates.php'"), 
 $assert(str_contains($mailer, 'SMTP send failed'), 'smtp_send_soft_fails');
 $emailTpl = (string)file_get_contents($root . '/includes/email_templates.php');
 $assert(str_contains($emailTpl, 'sendPlatformEmail') && str_contains($emailTpl, 'mailer.php'), 'email_templates_requires_mailer_if_missing');
-$assert(str_contains($emailTpl, 'Templated email skipped: SMTP not configured'), 'templated_email_skips_without_smtp');
+$assert(!str_contains($emailTpl, "logPlatformError('warning', 'Templated email skipped: SMTP not configured'"), 'templated_email_skips_without_smtp');
 $kycSrc = (string)file_get_contents($root . '/admin_kyc.php');
 $assert(substr_count($kycSrc, "function_exists('sendTemplatedEmail')") >= 3, 'admin_kyc_guards_sendTemplatedEmail');
 $assert(str_contains((string)file_get_contents($root . '/includes/refunds.php'), "function_exists('sendTemplatedEmail')"), 'refunds_guard_templated_email');
@@ -1791,7 +1804,43 @@ $assert(str_contains($pfqAc, 'getKycForwardPartnerKeys') && str_contains($pfqAc,
 $assert(str_contains($pfqAc, 'function getForwardQueueRowTimeline'), 'chain_a_queue_timeline');
 $assert(str_contains((string)file_get_contents($root . '/admin_kyc.php'), 'forward_partners_now'), 'chain_a_admin_kyc_forward_button');
 $assert(str_contains($finAc, 'function postPrimaryPaymentCaptureLedger') && str_contains($finAc, 'applyPaymentCaptureSplitAndRoute'), 'chain_b_primary_ledger_helper');
-$assert(str_contains($finAc, 'Ledger write failed — payment not marked settled'), 'chain_b_fail_closed_capture');
+$assert(str_contains($finAc, 'function reconcilePendingPaymentLedgers') && str_contains($finAc, 'function logPaymentLedgerFailure'), 'p7_ledger_reconcile_and_failure_log');
+$assert(str_contains($finAc, 'finalizeSuccessfulPaymentTransaction($transactionId') && str_contains($finAc, 'duplicateCapture'), 'p7_capture_converges_finalize');
+$assert(str_contains($finAc, 'uniq_business_journal') || str_contains((string)file_get_contents($root . '/migrations/001_financial_integrity.sql'), 'uniq_business_journal'), 'p7_ledger_unique_business_ref');
+$assert(str_contains((string)file_get_contents($root . '/includes/transaction_detail.php'), 'ledger_status'), 'p7_txn_detail_ledger_status');
+$assert(str_contains((string)file_get_contents($root . '/includes/wallet.php'), 'reconcilePendingPaymentLedgers'), 'p7_backfill_uses_reconcile');
+$assert(str_contains((string)file_get_contents($root . '/migrations/001_financial_integrity.sql'), 'uniq_api_idempotency'), 'p7_api_idempotency_unique');
+$assert(str_contains((string)file_get_contents($root . '/includes/split_settlement.php'), 'idempotency_key') && str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), "status IN ('queued','retry','processing','staged','success')"), 'p7_forward_and_transfer_idempotency');
+
+// P8 — notify + deep-link + channel dedup
+$p8Notify = (string)file_get_contents($root . '/includes/notifications.php');
+$p8Wh = (string)file_get_contents($root . '/includes/merchant_webhooks.php');
+$p8Cust = (string)file_get_contents($root . '/includes/customer_portal.php');
+$p8Ref = (string)file_get_contents($root . '/includes/refunds.php');
+$assert(str_contains($p8Notify, 'notify_channel_dedup') && str_contains($p8Notify, 'function notifyChannelWasSent'), 'p8_notify_channel_dedup');
+$assert(str_contains($p8Wh, 'function notifyMerchantPaymentFailed') && str_contains($p8Wh, 'email_pay_ok_'), 'p8_merchant_pay_fail_success_email_dedup');
+$assert(str_contains($p8Wh, 'pay_wh_') && str_contains($p8Wh, 'stableEventId'), 'p8_webhook_stable_event_id');
+$assert(str_contains($p8Cust, 'function notifyCustomerPaymentStatus') && str_contains($p8Cust, 'function buildSignedReceiptUrl'), 'p8_customer_pay_notify_signed_receipt');
+$assert(str_contains($p8Ref, 'function notifyMerchantRefundCreated') && str_contains($p8Ref, 'cust_refund_'), 'p8_refund_created_and_customer_dedup');
+$assert(str_contains((string)file_get_contents($root . '/includes/wiring_deep_link_workflow.php'), 'function wiringDeepLinkTxnDetailUrl'), 'p8_txn_detail_deeplink_helper');
+$assert(str_contains((string)file_get_contents($root . '/receipt.php'), 'verifyPaymentTrackSignature'), 'p8_receipt_signed_token_gate');
+
+// P6 + P9 — security rails + multi-partner refunds
+$p6RefundWh = (string)file_get_contents($root . '/includes/refund_webhooks.php');
+$p6Pg = (string)file_get_contents($root . '/includes/pg_webhooks.php');
+$p6Err = (string)file_get_contents($root . '/includes/merchant_api_errors.php');
+$p6Ref = (string)file_get_contents($root . '/includes/refunds.php');
+$p6Gw = (string)file_get_contents($root . '/includes/gateways.php');
+$assert(str_contains($p6RefundWh, 'function applyPartnerRefundWebhookEvent') && str_contains($p6RefundWh, 'refundAllowedStatusTransition'), 'p6_refund_webhook_central');
+$assert(str_contains($p6Pg, 'pgWebhookMaxEventAgeSeconds') && str_contains($p6Pg, 'recordWebhookSignatureFailure'), 'p6_pg_webhook_helpers');
+$assert(str_contains($p6Err, "'auth_invalid'") && str_contains($p6Err, "'partner_unavailable'") && str_contains($p6Err, "'refund_not_allowed'"), 'p6_public_error_codes');
+$assert(str_contains($p6Ref, 'function resolveRefundProvider') && str_contains($p6Ref, 'function submitProviderRefund'), 'p9_multi_partner_refund_router');
+$assert(str_contains($p6Gw, 'function createCashfreeRefund') && str_contains($p6Gw, 'function createPayuRefund'), 'p9_cashfree_payu_refund_api');
+$assert(str_contains((string)file_get_contents($root . '/cashfree_webhook.php'), 'applyPartnerRefundWebhookEvent'), 'p6_cashfree_refund_webhook');
+$assert(str_contains((string)file_get_contents($root . '/payu_webhook.php'), 'applyPartnerRefundWebhookEvent') && str_contains((string)file_get_contents($root . '/payu_webhook.php'), 'http_response_code(401)'), 'p6_payu_refund_webhook_and_401');
+$assert(str_contains((string)file_get_contents($root . '/includes/chargebacks.php'), 'applyChargebackLostDebit') && str_contains((string)file_get_contents($root . '/includes/chargebacks.php'), "'expired'"), 'p6_chargeback_state_machine');
+$assert(str_contains((string)file_get_contents($root . '/includes/fraud_signals.php'), 'recordWebhookSignatureFailure'), 'p6_fraud_webhook_sig_fail');
+$assert(str_contains((string)file_get_contents($root . '/transaction_detail.php'), 'refundDisplayStatus'), 'p9_txn_detail_refund_honest_labels');
 
 // Owner three-workstreams — Refund notify, Customer portal, Intelligent routing
 $irSrc = (string)@file_get_contents($root . '/includes/intelligent_routing.php');

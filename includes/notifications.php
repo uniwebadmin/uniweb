@@ -19,6 +19,56 @@ function ensureNotificationSchema(): void
     schemaExecQuiet('ALTER TABLE notifications ADD COLUMN archived_at DATETIME DEFAULT NULL');
     schemaExecQuiet('ALTER TABLE notifications ADD INDEX idx_notif_event (merchant_id, event_key)');
     schemaExecQuiet('ALTER TABLE notifications ADD INDEX idx_notif_archived (merchant_id, archived_at)');
+    schemaExecQuiet("CREATE TABLE IF NOT EXISTS notify_channel_dedup (
+        scope VARCHAR(64) NOT NULL,
+        dedupe_key VARCHAR(120) NOT NULL,
+        channel VARCHAR(16) NOT NULL DEFAULT 'email',
+        sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (scope, dedupe_key, channel),
+        INDEX idx_notify_dedup_sent (sent_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+}
+
+/** Best-effort outbound dedup — same scope+key+channel within TTL skips repeat sends. */
+function notifyChannelWasSent(string $scope, string $dedupeKey, string $channel = 'email', int $ttlHours = 72): bool
+{
+    $scope = mb_substr(trim($scope), 0, 64);
+    $dedupeKey = mb_substr(trim($dedupeKey), 0, 120);
+    $channel = mb_substr(trim($channel), 0, 16);
+    if ($scope === '' || $dedupeKey === '') {
+        return false;
+    }
+    ensureNotificationSchema();
+    try {
+        $st = getDB()->prepare(
+            'SELECT 1 FROM notify_channel_dedup
+             WHERE scope=? AND dedupe_key=? AND channel=? AND sent_at > DATE_SUB(NOW(), INTERVAL ? HOUR)
+             LIMIT 1'
+        );
+        $st->execute([$scope, $dedupeKey, $channel, max(1, min(168, $ttlHours))]);
+        return (bool)$st->fetchColumn();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function markNotifyChannelSent(string $scope, string $dedupeKey, string $channel = 'email'): void
+{
+    $scope = mb_substr(trim($scope), 0, 64);
+    $dedupeKey = mb_substr(trim($dedupeKey), 0, 120);
+    $channel = mb_substr(trim($channel), 0, 16);
+    if ($scope === '' || $dedupeKey === '') {
+        return;
+    }
+    ensureNotificationSchema();
+    try {
+        getDB()->prepare(
+            'INSERT INTO notify_channel_dedup (scope, dedupe_key, channel, sent_at) VALUES (?,?,?,NOW())
+             ON DUPLICATE KEY UPDATE sent_at=NOW()'
+        )->execute([$scope, $dedupeKey, $channel]);
+    } catch (Throwable $e) {
+        /* non-fatal */
+    }
 }
 
 function notifyMerchant(int $merchantId, string $title, string $body, ?string $eventKey = null): void
@@ -179,6 +229,9 @@ if (!function_exists('notificationActionUrl')) {
             }
         } elseif (preg_match('/\b(TXN[A-F0-9]{8,})\b/i', $hay, $m)) {
             $txnId = strtoupper($m[1]);
+            if (function_exists('wiringDeepLinkTxnDetailUrl')) {
+                return wiringDeepLinkTxnDetailUrl($txnId, false);
+            }
             return 'transactions.php?q=' . rawurlencode($txnId);
         }
 

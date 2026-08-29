@@ -123,7 +123,7 @@ function logMerchantWebhookDelivery(int $merchantId, string $event, string $payl
 }
 
 /** @return array{ok:bool,code:int,message:string} */
-function dispatchMerchantWebhook(int $merchantId, string $event, array $data): array
+function dispatchMerchantWebhook(int $merchantId, string $event, array $data, ?string $stableEventId = null): array
 {
     ensureMerchantWebhookEngine();
     $db = getDB();
@@ -139,7 +139,9 @@ function dispatchMerchantWebhook(int $merchantId, string $event, array $data): a
         return ['ok' => false, 'code' => 0, 'message' => 'Webhook URL not configured'];
     }
 
-    $eventId = generateId('EVT');
+    $eventId = $stableEventId !== null && trim($stableEventId) !== ''
+        ? mb_substr(trim($stableEventId), 0, 80)
+        : generateId('EVT');
     $payload = json_encode([
         'id' => $eventId,
         'event' => $event,
@@ -161,6 +163,9 @@ function dispatchMerchantWebhook(int $merchantId, string $event, array $data): a
              VALUES (?,?,?,?,?,?,"queued",NOW())'
         )->execute([$eventId, $merchantId, $event, $url, $payload, hash('sha256', $payload)]);
     } catch (Throwable $e) {
+        if ((string)$e->getCode() === '23000') {
+            return ['ok' => true, 'code' => 202, 'message' => 'Duplicate event skipped', 'duplicate' => true];
+        }
         return ['ok' => false, 'code' => 0, 'message' => 'Could not queue webhook'];
     }
     return ['ok' => true, 'code' => 202, 'message' => 'Queued', 'event_id' => $eventId];
@@ -247,28 +252,70 @@ function processMerchantWebhookQueue(int $limit = 25): array
 
 function notifyMerchantPaymentSuccess(int $merchantId, array $txn, ?string $linkId = null): void
 {
+    $txnId = (string)($txn['txn_id'] ?? '');
+    $amt = formatMoney((float)($txn['amount'] ?? 0));
+    if (!function_exists('wiringDeepLinkTxnDetailUrl') && is_file(__DIR__ . '/wiring_deep_link_workflow.php')) {
+        require_once __DIR__ . '/wiring_deep_link_workflow.php';
+    }
+    $detailPath = $txnId !== '' && function_exists('wiringDeepLinkTxnDetailUrl')
+        ? wiringDeepLinkTxnDetailUrl($txnId, false)
+        : 'transactions.php';
+    $detailUrl = rtrim(APP_URL, '/') . '/' . ltrim($detailPath, '/');
+
     $wantWebhook = !function_exists('merchantWantsNotify') || merchantWantsNotify($merchantId, 'payment_success', 'webhook');
     if ($wantWebhook) {
         dispatchMerchantWebhook($merchantId, 'payment.success', [
-            'txn_id' => $txn['txn_id'] ?? '',
+            'txn_id' => $txnId,
             'amount' => (float)($txn['amount'] ?? 0),
-            'status' => $txn['status'] ?? 'success',
+            'status' => 'success',
             'payment_method' => $txn['payment_method'] ?? '',
             'utr' => $txn['utr'] ?? '',
             'link_id' => $linkId,
-        ]);
+        ], $txnId !== '' ? 'pay_wh_' . $txnId : null);
     }
-    $amt = formatMoney((float)($txn['amount'] ?? 0));
-    $txnId = (string)($txn['txn_id'] ?? '');
     notifyMerchantEmail(
         $merchantId,
         'Payment received — ' . $amt,
-        "A payment of {$amt} was successful.\nTransaction ID: {$txnId}\nUTR: " . ($txn['utr'] ?? '—') . ($linkId ? "\nLink: {$linkId}" : ''),
-        'payment_success'
+        "A payment of {$amt} is confirmed (not pending).\nTransaction ID: {$txnId}\nUTR: " . ($txn['utr'] ?? '—')
+            . ($linkId ? "\nLink: {$linkId}" : '')
+            . "\n\nOpen transaction: {$detailUrl}",
+        'payment_success',
+        $txnId !== '' ? 'email_pay_ok_' . $txnId : null
     );
 
-    // QR-level notification + analytics event
     notifyQrPaymentSuccess($merchantId, $txn, $linkId);
+}
+
+/** Merchant notify on verified payment failure — honest copy, deduped. */
+function notifyMerchantPaymentFailed(int $merchantId, array $txn, string $reason): void
+{
+    $txnId = (string)($txn['txn_id'] ?? '');
+    $amt = formatMoney((float)($txn['amount'] ?? 0));
+    $reason = mb_substr(trim($reason), 0, 240);
+    if (!function_exists('wiringDeepLinkTxnDetailUrl') && is_file(__DIR__ . '/wiring_deep_link_workflow.php')) {
+        require_once __DIR__ . '/wiring_deep_link_workflow.php';
+    }
+    $detailPath = $txnId !== '' && function_exists('wiringDeepLinkTxnDetailUrl')
+        ? wiringDeepLinkTxnDetailUrl($txnId, false)
+        : 'transactions.php';
+    $detailUrl = rtrim(APP_URL, '/') . '/' . ltrim($detailPath, '/');
+
+    $wantWebhook = !function_exists('merchantWantsNotify') || merchantWantsNotify($merchantId, 'payment_failed', 'webhook');
+    if ($wantWebhook) {
+        dispatchMerchantWebhook($merchantId, 'payment.failed', [
+            'txn_id' => $txnId,
+            'amount' => (float)($txn['amount'] ?? 0),
+            'status' => 'failed',
+            'failure_reason' => $reason,
+        ], $txnId !== '' ? 'pay_fail_wh_' . $txnId : null);
+    }
+    notifyMerchantEmail(
+        $merchantId,
+        'Payment failed — ' . $amt,
+        "A payment of {$amt} did not complete.\nTransaction ID: {$txnId}\nReason: {$reason}\n\nOpen transaction: {$detailUrl}",
+        'payment_failed',
+        $txnId !== '' ? 'email_pay_fail_' . $txnId : null
+    );
 }
 
 /** Notify merchant on a payment that came through a specific QR code, and log the event. */

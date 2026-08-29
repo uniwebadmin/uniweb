@@ -553,6 +553,114 @@ function transactionHasPaymentLedger(int $transactionId, string $txnRef, int $me
     return (int)$legacy->fetchColumn() > 0;
 }
 
+/** @return array<string,mixed>|null */
+function fetchPaymentCaptureLedgerJournal(string $txnRef, string $mode = 'live'): ?array
+{
+    if ($txnRef === '' || !financialTablesReady()) {
+        return null;
+    }
+    $st = getDB()->prepare(
+        "SELECT id, journal_ref, business_reference, mode, posted_at, description
+         FROM ledger_journals
+         WHERE business_type='payment_capture' AND business_reference=? AND mode=?
+         LIMIT 1"
+    );
+    $st->execute([$txnRef, $mode]);
+    $row = $st->fetch();
+    return $row ?: null;
+}
+
+/**
+ * Admin / txn detail ledger state — posted | pending | failed | not_applicable.
+ */
+function getTransactionLedgerStatus(int $transactionId, string $txnRef, int $merchantId, string $txnStatus = 'success'): string
+{
+    $status = strtolower(trim($txnStatus));
+    if (!in_array($status, ['success', 'paid', 'captured', 'refunded'], true)) {
+        return 'not_applicable';
+    }
+    if ($status === 'refunded' && !transactionHasPaymentLedger($transactionId, $txnRef, $merchantId)) {
+        return 'not_applicable';
+    }
+    if (!financialTablesReady()) {
+        return function_exists('isTransactionWalletCredited') && isTransactionWalletCredited($transactionId)
+            ? 'posted'
+            : 'pending';
+    }
+    if (transactionHasPaymentLedger($transactionId, $txnRef, $merchantId)) {
+        return 'posted';
+    }
+    return 'pending';
+}
+
+function logPaymentLedgerFailure(int $transactionId, string $txnRef, string $error): void
+{
+    if (!function_exists('logPlatformError')) {
+        return;
+    }
+    logPlatformError('error', 'Payment success recorded but ledger credit pending', [
+        'transaction_id' => $transactionId,
+        'txn_ref' => $txnRef,
+        'error' => mb_substr($error, 0, 240),
+    ]);
+}
+
+/**
+ * Cron / reconcile — retry ledger for success txns missing payment_capture journal (idempotent).
+ *
+ * @return array{ok:bool,processed:int,posted:int,failed:int,pending:int}
+ */
+function reconcilePendingPaymentLedgers(int $limit = 50): array
+{
+    if (!financialTablesReady()) {
+        return ['ok' => true, 'processed' => 0, 'posted' => 0, 'failed' => 0, 'pending' => 0];
+    }
+    if (!function_exists('ensureWalletEngine') && is_file(__DIR__ . '/wallet.php')) {
+        require_once __DIR__ . '/wallet.php';
+    }
+    ensureWalletEngine();
+
+    $limit = max(1, min(200, $limit));
+    $db = getDB();
+    $rows = $db->query(
+        "SELECT t.id, t.txn_id, t.merchant_id, t.payment_method
+         FROM transactions t
+         LEFT JOIN ledger_journals lj
+           ON lj.business_type='payment_capture' AND lj.business_reference=t.txn_id
+         WHERE t.status='success' AND lj.id IS NULL
+         ORDER BY t.id ASC
+         LIMIT {$limit}"
+    )->fetchAll();
+
+    $posted = 0;
+    $failed = 0;
+    $pending = 0;
+    foreach ($rows as $row) {
+        $txnId = (int)$row['id'];
+        $result = finalizeSuccessfulPaymentTransaction($txnId, [
+            'provider' => (string)($row['payment_method'] ?? 'sandbox'),
+            'skip_notify' => true,
+            'skip_audit' => true,
+        ]);
+        $ledgerStatus = (string)($result['ledger_status'] ?? '');
+        if (!empty($result['ok']) && ($ledgerStatus === 'posted' || !empty($result['ledger_posted']))) {
+            $posted++;
+        } elseif ($ledgerStatus === 'failed' || empty($result['ok'])) {
+            $failed++;
+        } else {
+            $pending++;
+        }
+    }
+
+    return [
+        'ok' => $failed === 0,
+        'processed' => count($rows),
+        'posted' => $posted,
+        'failed' => $failed,
+        'pending' => $pending,
+    ];
+}
+
 /**
  * Chain B primary ledger write — ONE path for payment_capture journal + merchant wallet sync.
  * Idempotent via business_reference = txn_id. Fail-closed: returns ok=false on write error.
@@ -578,7 +686,13 @@ function postPrimaryPaymentCaptureLedger(
         return ['ok' => false, 'error' => 'Invalid payment capture ledger inputs.'];
     }
     if (transactionHasPaymentLedger($transactionId, $txnRef, $merchantId)) {
-        return ['ok' => true, 'duplicate' => true, 'ledger_posted' => false];
+        try {
+            $db = getDB();
+            $db->prepare('UPDATE transactions SET wallet_credited=1 WHERE id=?')->execute([$transactionId]);
+        } catch (Throwable $e) {
+            /* column may not exist */
+        }
+        return ['ok' => true, 'duplicate' => true, 'ledger_posted' => true];
     }
 
     try {
@@ -731,27 +845,50 @@ function finalizeSuccessfulPaymentTransaction(int $transactionId, array $opts = 
     }
 
     $ledgerPosted = false;
+    $ledgerStatus = 'pending';
     if (empty($opts['skip_ledger'])) {
-        $ledger = postPrimaryPaymentCaptureLedger(
-            $transactionId,
-            $txnRef,
-            $merchantId,
-            $amount,
-            $split,
-            $provider,
-            $mode,
-            $currency,
-            'Payment capture for ' . $txnRef
-        );
-        if (!$ledger['ok'] && empty($ledger['duplicate'])) {
-            return ['ok' => false, 'error' => 'Ledger write failed: ' . ($ledger['error'] ?? 'unknown')];
+        if (!financialTablesReady()) {
+            if (!isTransactionWalletCredited($transactionId)) {
+                creditWalletsFromTransaction($transactionId);
+            }
+            $ledgerStatus = isTransactionWalletCredited($transactionId) ? 'posted' : 'pending';
+        } else {
+            $ledger = postPrimaryPaymentCaptureLedger(
+                $transactionId,
+                $txnRef,
+                $merchantId,
+                $amount,
+                $split,
+                $provider,
+                $mode,
+                $currency,
+                'Payment capture for ' . $txnRef,
+                ['transaction_id' => $transactionId, 'merchant_id' => $merchantId]
+            );
+            if (!$ledger['ok'] && empty($ledger['duplicate'])) {
+                logPaymentLedgerFailure($transactionId, $txnRef, (string)($ledger['error'] ?? 'unknown'));
+                return [
+                    'ok' => false,
+                    'error' => 'Ledger write failed: ' . ($ledger['error'] ?? 'unknown'),
+                    'ledger_status' => 'failed',
+                    'transaction_id' => $transactionId,
+                ];
+            }
+            $ledgerPosted = !empty($ledger['ledger_posted']) || !empty($ledger['duplicate']);
+            $ledgerStatus = $ledgerPosted ? 'posted' : 'pending';
         }
-        $ledgerPosted = !empty($ledger['ledger_posted']);
-        if (!$ledgerPosted && !isTransactionWalletCredited($transactionId)) {
-            creditWalletsFromTransaction($transactionId);
-        }
-    } elseif (!isTransactionWalletCredited($transactionId)) {
-        creditWalletsFromTransaction($transactionId);
+    } else {
+        $ledgerStatus = getTransactionLedgerStatus($transactionId, $txnRef, $merchantId, (string)$txn['status']);
+        $ledgerPosted = $ledgerStatus === 'posted';
+    }
+
+    if (!$ledgerPosted && empty($opts['skip_ledger']) && financialTablesReady()) {
+        return [
+            'ok' => false,
+            'error' => 'Ledger not posted.',
+            'ledger_status' => $ledgerStatus,
+            'transaction_id' => $transactionId,
+        ];
     }
 
     applyPaymentCaptureSplitAndRoute($transactionId, $merchantId, $split, $provider, $txnRef);
@@ -828,7 +965,12 @@ function finalizeSuccessfulPaymentTransaction(int $transactionId, array $opts = 
         }
     }
 
-    return ['ok' => true, 'transaction_id' => $transactionId, 'ledger_posted' => $ledgerPosted];
+    return [
+        'ok' => true,
+        'transaction_id' => $transactionId,
+        'ledger_posted' => $ledgerPosted,
+        'ledger_status' => $ledgerStatus === 'pending' && $ledgerPosted ? 'posted' : $ledgerStatus,
+    ];
 }
 
 /** In-app notify + outbound webhook/email for a verified payment (dedup via pay_txn_* event_key). */
@@ -851,6 +993,12 @@ function notifyMerchantPaymentCaptured(int $merchantId, array $txn, ?string $lin
     if (function_exists('notifyMerchantPaymentSuccess')) {
         notifyMerchantPaymentSuccess($merchantId, $txn, $linkId);
     }
+    if (!function_exists('notifyCustomerPaymentStatus') && is_file(__DIR__ . '/customer_portal.php')) {
+        require_once __DIR__ . '/customer_portal.php';
+    }
+    if (function_exists('notifyCustomerPaymentStatus') && strtolower((string)($txn['status'] ?? '')) === 'success') {
+        notifyCustomerPaymentStatus($txn, 'success');
+    }
     if (function_exists('sendTemplatedEmail')) {
         sendTemplatedEmail($merchantId, 'payment_received', [
             'amount' => formatMoney($amount),
@@ -872,11 +1020,14 @@ function captureVerifiedPaymentOrder(array $verification): array
         throw new RuntimeException('Provider signature, server verification and capture status are required.');
     }
 
+    $provider = strtolower((string)$verification['provider']);
     $db = getDB();
     uniwebPreparePaymentCaptureSchema();
     $db->beginTransaction();
     $transactionId = 0;
     $link = null;
+    $txnRef = '';
+    $duplicateCapture = false;
     try {
         $orderSt = $db->prepare(
             'SELECT o.*, pl.link_id, pl.description AS link_description, pl.link_collection_mode, pl.qr_code_id,
@@ -886,192 +1037,196 @@ function captureVerifiedPaymentOrder(array $verification): array
              JOIN merchants m ON m.id=o.merchant_id
              WHERE o.provider=? AND o.provider_order_id=? FOR UPDATE'
         );
-        $orderSt->execute([strtolower((string)$verification['provider']), (string)$verification['provider_order_id']]);
+        $orderSt->execute([$provider, (string)$verification['provider_order_id']]);
         $order = $orderSt->fetch();
         if (!$order) {
             throw new RuntimeException('No bound payment order matches the provider order.');
         }
-        if ($order['status'] === 'paid') {
-            $mapped = $db->prepare('SELECT transaction_id FROM payment_order_transactions WHERE payment_order_id=?');
-            $mapped->execute([(int)$order['id']]);
-            $transactionId = (int)$mapped->fetchColumn();
-            uniwebPdoCommit($db);
-            return ['ok' => true, 'duplicate' => true, 'transaction_id' => $transactionId, 'order' => $order];
-        }
-        if (!in_array($order['status'], ['created', 'pending', 'authorized'], true)) {
-            throw new RuntimeException('Payment order is not payable.');
-        }
-        if ($order['expires_at'] && strtotime((string)$order['expires_at']) < time()) {
-            throw new RuntimeException('Payment order has expired.');
-        }
-        $amount = round((float)$verification['amount'], 2);
-        if (abs($amount - (float)$order['expected_amount']) > 0.001) {
-            throw new RuntimeException('Provider amount does not match the bound order.');
-        }
-        if (strtoupper((string)$verification['currency']) !== strtoupper((string)$order['currency'])) {
-            throw new RuntimeException('Provider currency does not match the bound order.');
-        }
-
-        $attempt = $db->prepare(
-            'INSERT INTO payment_attempts
-             (payment_order_id,provider,provider_payment_id,provider_order_id,amount,currency,status,signature_verified,provider_verified,captured,raw_reference,verified_at)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW())
-             ON DUPLICATE KEY UPDATE status=VALUES(status),signature_verified=VALUES(signature_verified),provider_verified=VALUES(provider_verified),captured=VALUES(captured),verified_at=NOW()'
-        );
-        $attempt->execute([
-            (int)$order['id'],
-            strtolower((string)$verification['provider']),
-            (string)$verification['provider_payment_id'],
-            (string)$verification['provider_order_id'],
-            $amount,
-            strtoupper((string)$verification['currency']),
-            'captured',
-            1,
-            1,
-            1,
-            mb_substr((string)($verification['reference'] ?? ''), 0, 190) ?: null,
-        ]);
-
         $link = [
             'id' => (int)$order['payment_link_id'],
             'link_id' => $order['link_id'],
             'merchant_id' => (int)$order['merchant_id'],
-            'amount' => $amount,
             'description' => $order['link_description'] ?: $order['description'],
             'commission_rate' => $order['commission_rate'],
             'collection_mode' => $order['link_collection_mode'] ?: $order['collection_mode'],
         ];
-        $split = calculateSplitBreakdown($amount, $link);
+        if ($order['status'] === 'paid') {
+            $mapped = $db->prepare('SELECT transaction_id FROM payment_order_transactions WHERE payment_order_id=?');
+            $mapped->execute([(int)$order['id']]);
+            $transactionId = (int)$mapped->fetchColumn();
+            $duplicateCapture = true;
+            uniwebPdoCommit($db);
+        } else {
+            if (!in_array($order['status'], ['created', 'pending', 'authorized'], true)) {
+                throw new RuntimeException('Payment order is not payable.');
+            }
+            if ($order['expires_at'] && strtotime((string)$order['expires_at']) < time()) {
+                throw new RuntimeException('Payment order has expired.');
+            }
+            $amount = round((float)$verification['amount'], 2);
+            if (abs($amount - (float)$order['expected_amount']) > 0.001) {
+                throw new RuntimeException('Provider amount does not match the bound order.');
+            }
+            if (strtoupper((string)$verification['currency']) !== strtoupper((string)$order['currency'])) {
+                throw new RuntimeException('Provider currency does not match the bound order.');
+            }
 
-        $txnRef = generateId('TXN');
-        $txnValues = [
-            $txnRef,
-            (int)$order['merchant_id'],
-            $amount,
-            'success',
-            strtolower((string)$verification['provider']),
-            $link['description'],
-            (string)($verification['reference'] ?? $verification['provider_payment_id']),
-            (int)$order['payment_link_id'],
-            $split['platform_fee'],
-            $split['merchant_net'],
-            $order['mode'] === 'test' ? 1 : 0,
-            $link['collection_mode'] ?: 'platform_pg',
-            mb_substr(trim((string)($order['customer_name'] ?? '')), 0, 160) ?: null,
-            mb_substr(trim((string)($order['customer_email'] ?? '')), 0, 190) ?: null,
-            mb_substr(trim((string)($order['customer_phone'] ?? '')), 0, 32) ?: null,
-            (int)($order['qr_code_id'] ?? 0) > 0 ? (int)$order['qr_code_id'] : null,
-        ];
-        try {
-            $db->prepare(
-                'INSERT INTO transactions
-                 (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id,mdr_m,mdr_p,partner_fee,pricing_snapshot)
-                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?,?,?,?,?)'
-            )->execute(array_merge($txnValues, [
-                (float)($split['mdr_m'] ?? 0),
-                (float)($split['mdr_p'] ?? 0),
-                (float)($split['partner_fee'] ?? 0),
-                $split['pricing_snapshot'] ?? null,
-            ]));
-        } catch (Throwable $e) {
+            $attempt = $db->prepare(
+                'INSERT INTO payment_attempts
+                 (payment_order_id,provider,provider_payment_id,provider_order_id,amount,currency,status,signature_verified,provider_verified,captured,raw_reference,verified_at)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW())
+                 ON DUPLICATE KEY UPDATE status=VALUES(status),signature_verified=VALUES(signature_verified),provider_verified=VALUES(provider_verified),captured=VALUES(captured),verified_at=NOW()'
+            );
+            $attempt->execute([
+                (int)$order['id'],
+                $provider,
+                (string)$verification['provider_payment_id'],
+                (string)$verification['provider_order_id'],
+                $amount,
+                strtoupper((string)$verification['currency']),
+                'captured',
+                1,
+                1,
+                1,
+                mb_substr((string)($verification['reference'] ?? ''), 0, 190) ?: null,
+            ]);
+
+            $link['amount'] = $amount;
+            $split = calculateSplitBreakdown($amount, $link);
+
+            $txnRef = generateId('TXN');
+            $txnValues = [
+                $txnRef,
+                (int)$order['merchant_id'],
+                $amount,
+                'success',
+                $provider,
+                $link['description'],
+                (string)($verification['reference'] ?? $verification['provider_payment_id']),
+                (int)$order['payment_link_id'],
+                $split['platform_fee'],
+                $split['merchant_net'],
+                $order['mode'] === 'test' ? 1 : 0,
+                $link['collection_mode'] ?: 'platform_pg',
+                0,
+                mb_substr(trim((string)($order['customer_name'] ?? '')), 0, 160) ?: null,
+                mb_substr(trim((string)($order['customer_email'] ?? '')), 0, 190) ?: null,
+                mb_substr(trim((string)($order['customer_phone'] ?? '')), 0, 32) ?: null,
+                (int)($order['qr_code_id'] ?? 0) > 0 ? (int)$order['qr_code_id'] : null,
+            ];
             try {
                 $db->prepare(
                     'INSERT INTO transactions
-                     (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?)'
-                )->execute($txnValues);
-            } catch (Throwable $e2) {
-                $db->prepare(
-                    'INSERT INTO transactions
-                     (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id)
-                     VALUES (?,?,?,?,?,?,?,?)'
-                )->execute([
-                    $txnRef,
-                    (int)$order['merchant_id'],
-                    $amount,
-                    'success',
-                    strtolower((string)$verification['provider']),
-                    $link['description'],
-                    (string)($verification['reference'] ?? $verification['provider_payment_id']),
-                    (int)$order['payment_link_id'],
-                ]);
+                     (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id,mdr_m,mdr_p,partner_fee,pricing_snapshot)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                )->execute(array_merge($txnValues, [
+                    (float)($split['mdr_m'] ?? 0),
+                    (float)($split['mdr_p'] ?? 0),
+                    (float)($split['partner_fee'] ?? 0),
+                    $split['pricing_snapshot'] ?? null,
+                ]));
+            } catch (Throwable $e) {
+                try {
+                    $db->prepare(
+                        'INSERT INTO transactions
+                         (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                    )->execute($txnValues);
+                } catch (Throwable $e2) {
+                    $db->prepare(
+                        'INSERT INTO transactions
+                         (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id)
+                         VALUES (?,?,?,?,?,?,?,?)'
+                    )->execute([
+                        $txnRef,
+                        (int)$order['merchant_id'],
+                        $amount,
+                        'success',
+                        $provider,
+                        $link['description'],
+                        (string)($verification['reference'] ?? $verification['provider_payment_id']),
+                        (int)$order['payment_link_id'],
+                    ]);
+                }
             }
+            $transactionId = (int)$db->lastInsertId();
+            $db->prepare('INSERT INTO payment_order_transactions (payment_order_id,transaction_id) VALUES (?,?)')
+                ->execute([(int)$order['id'], $transactionId]);
+
+            $db->prepare("UPDATE payment_orders SET status='paid', paid_at=NOW() WHERE id=?")->execute([(int)$order['id']]);
+            $db->prepare("UPDATE payment_links SET status='paid', paid_at=NOW() WHERE id=?")->execute([(int)$order['payment_link_id']]);
+
+            uniwebPdoCommit($db);
         }
-        $transactionId = (int)$db->lastInsertId();
-        $db->prepare('INSERT INTO payment_order_transactions (payment_order_id,transaction_id) VALUES (?,?)')
-            ->execute([(int)$order['id'], $transactionId]);
-
-        $ledger = postPrimaryPaymentCaptureLedger(
-            $transactionId,
-            $txnRef,
-            (int)$order['merchant_id'],
-            $amount,
-            $split,
-            strtolower((string)$verification['provider']),
-            (string)$order['mode'],
-            (string)$order['currency'],
-            'Verified payment capture for ' . $order['order_ref'],
-            ['payment_order_id' => (int)$order['id']]
-        );
-        if (!$ledger['ok'] && empty($ledger['duplicate'])) {
-            throw new RuntimeException('Ledger write failed — payment not marked settled: ' . ($ledger['error'] ?? 'unknown'));
-        }
-
-        applyPaymentCaptureSplitAndRoute(
-            $transactionId,
-            (int)$order['merchant_id'],
-            $split,
-            (string)$verification['provider'],
-            (string)$order['order_ref']
-        );
-
-        $db->prepare("UPDATE payment_orders SET status='paid', paid_at=NOW() WHERE id=?")->execute([(int)$order['id']]);
-        $db->prepare("UPDATE payment_links SET status='paid', paid_at=NOW() WHERE id=?")->execute([(int)$order['payment_link_id']]);
-
-        uwRecordAuditEvent('payment_capture', [
-            'merchant_id' => (int)$order['merchant_id'],
-            'actor_type' => 'system',
-            'resource_type' => 'transaction',
-            'resource_id' => (string)$txnRef,
-            'reason' => 'Verified payment capture for ' . $order['order_ref'],
-            'after_state' => ['amount' => $amount, 'merchant_net' => $split['merchant_net'], 'platform_fee' => $split['platform_fee'], 'transaction_id' => $transactionId],
-        ]);
-
-        uniwebPdoCommit($db);
     } catch (Throwable $e) {
         uniwebPdoRollback($db);
         throw $e;
     }
 
-    try {
-        addTransactionToSettlementBatch($transactionId, (int)$link['merchant_id']);
-        $txnSt = getDB()->prepare('SELECT * FROM transactions WHERE id=?');
-        $txnSt->execute([$transactionId]);
-        $txnRow = $txnSt->fetch() ?: [];
-        notifyMerchantPaymentCaptured(
-            (int)$link['merchant_id'],
-            $txnRow,
-            isset($link['link_id']) ? (string)$link['link_id'] : null
-        );
-        if (!function_exists('attachIntelligentRouteDecisionTxnId') && is_file(__DIR__ . '/intelligent_routing.php')) {
-            require_once __DIR__ . '/intelligent_routing.php';
-        }
-        if (function_exists('attachIntelligentRouteDecisionTxnId') && !empty($link['link_id']) && $txnRef !== '') {
-            attachIntelligentRouteDecisionTxnId((string)$link['link_id'], strtolower((string)$verification['provider']), $txnRef);
-        }
-        if (!function_exists('attachPhase11RouteDecisionTxnId') && is_file(__DIR__ . '/smart_routing.php')) {
-            require_once __DIR__ . '/smart_routing.php';
-        }
-        if (function_exists('attachPhase11RouteDecisionTxnId') && !empty($link['link_id']) && $txnRef !== '') {
-            attachPhase11RouteDecisionTxnId((string)$link['link_id'], strtolower((string)$verification['provider']), $txnRef);
-        }
-    } catch (Throwable $e) {
-        logPlatformError('warning', 'Verified payment post-processing failed.', [
-            'transaction_id' => $transactionId,
-            'error' => $e->getMessage(),
-        ]);
+    if ($transactionId < 1) {
+        throw new RuntimeException('Verified payment capture did not produce a transaction.');
     }
-    return ['ok' => true, 'duplicate' => false, 'transaction_id' => $transactionId];
+
+    if ($txnRef === '') {
+        $txnRow = getDB()->prepare('SELECT txn_id FROM transactions WHERE id=?');
+        $txnRow->execute([$transactionId]);
+        $txnRef = (string)($txnRow->fetchColumn() ?: '');
+    }
+
+    $merchantIdForLedger = (int)($link['merchant_id'] ?? 0);
+    $ledgerAlreadyPosted = $duplicateCapture
+        && $txnRef !== ''
+        && $merchantIdForLedger > 0
+        && transactionHasPaymentLedger($transactionId, $txnRef, $merchantIdForLedger);
+
+    $finalize = finalizeSuccessfulPaymentTransaction($transactionId, [
+        'provider' => $provider,
+        'link_id' => !empty($link['link_id']) ? (string)$link['link_id'] : null,
+        'run_risk_hooks' => !$duplicateCapture,
+        'skip_notify' => $ledgerAlreadyPosted,
+        'skip_audit' => $ledgerAlreadyPosted,
+    ]);
+
+    if (!$finalize['ok'] && ($finalize['ledger_status'] ?? '') === 'failed') {
+        return [
+            'ok' => true,
+            'duplicate' => $duplicateCapture,
+            'transaction_id' => $transactionId,
+            'ledger_status' => 'failed',
+            'ledger_error' => $finalize['error'] ?? 'Ledger pending',
+            'order' => $order ?? null,
+        ];
+    }
+
+    if (!$duplicateCapture && !empty($link['link_id']) && $txnRef !== '') {
+        try {
+            if (!function_exists('attachIntelligentRouteDecisionTxnId') && is_file(__DIR__ . '/intelligent_routing.php')) {
+                require_once __DIR__ . '/intelligent_routing.php';
+            }
+            if (function_exists('attachIntelligentRouteDecisionTxnId')) {
+                attachIntelligentRouteDecisionTxnId((string)$link['link_id'], $provider, $txnRef);
+            }
+            if (!function_exists('attachPhase11RouteDecisionTxnId') && is_file(__DIR__ . '/smart_routing.php')) {
+                require_once __DIR__ . '/smart_routing.php';
+            }
+            if (function_exists('attachPhase11RouteDecisionTxnId')) {
+                attachPhase11RouteDecisionTxnId((string)$link['link_id'], $provider, $txnRef);
+            }
+        } catch (Throwable $e) {
+            logPlatformError('warning', 'Verified payment routing attach failed.', [
+                'transaction_id' => $transactionId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    return [
+        'ok' => true,
+        'duplicate' => $duplicateCapture,
+        'transaction_id' => $transactionId,
+        'ledger_status' => (string)($finalize['ledger_status'] ?? 'posted'),
+        'order' => $order ?? null,
+    ];
 }
 
 /**
@@ -1249,13 +1404,37 @@ function recordPaymentOrderFailure(array $payload): array
     }
 
     try {
-        createNotification(
-            (int)$order['merchant_id'],
-            'Payment Failed',
-            formatMoney($amount) . ' payment failed — ' . $reason
-        );
+        if (!function_exists('notifyMerchantPaymentFailed') && is_file(__DIR__ . '/merchant_webhooks.php')) {
+            require_once __DIR__ . '/merchant_webhooks.php';
+        }
+        $txnRow = null;
+        if ($transactionId > 0) {
+            $txnSt = getDB()->prepare(
+                'SELECT t.*, m.business_name FROM transactions t JOIN merchants m ON m.id=t.merchant_id WHERE t.id=?'
+            );
+            $txnSt->execute([$transactionId]);
+            $txnRow = $txnSt->fetch() ?: null;
+        }
+        if ($txnRow && function_exists('notifyMerchant')) {
+            $txnRef = (string)($txnRow['txn_id'] ?? '');
+            notifyMerchant(
+                (int)$order['merchant_id'],
+                'Payment Failed',
+                formatMoney($amount) . ' payment failed — ' . $txnRef . '. ' . mb_substr($reason, 0, 180),
+                $txnRef !== '' ? 'pay_fail_' . $txnRef : null
+            );
+        }
+        if ($txnRow && function_exists('notifyMerchantPaymentFailed')) {
+            notifyMerchantPaymentFailed((int)$order['merchant_id'], $txnRow, $reason);
+        }
+        if ($txnRow && function_exists('notifyCustomerPaymentStatus')) {
+            notifyCustomerPaymentStatus($txnRow, 'failed', $reason);
+        }
     } catch (Throwable $e) {
-        // non-fatal
+        logPlatformError('warning', 'Payment failure notify failed.', [
+            'transaction_id' => $transactionId,
+            'error' => $e->getMessage(),
+        ]);
     }
 
     return ['ok' => true, 'duplicate' => false, 'transaction_id' => $transactionId, 'failure_reason' => $reason];

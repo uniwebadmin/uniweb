@@ -24,12 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         } elseif ($action === 'resolve') {
             $id = (int)($_POST['id'] ?? 0);
             $status = (string)($_POST['status'] ?? '');
-            if (!in_array($status, ['won', 'lost', 'withdrawn'], true)) {
-                throw new InvalidArgumentException('Invalid resolution status.');
-            }
-            $db->prepare("UPDATE chargebacks SET status=?, updated_at=NOW() WHERE id=?")->execute([$status, $id]);
-            recordImmutableAudit('chargeback_resolved', null, 'chargeback', (string)$id, $status);
-            flash('success', 'Chargeback marked ' . $status . '.');
+            $result = resolveChargebackStatus($id, $status);
+            flash($result['ok'] ? 'success' : 'error', $result['message'] ?? 'Could not update chargeback.');
         }
     } catch (Throwable $e) {
         flash('error', $e->getMessage());

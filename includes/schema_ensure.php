@@ -472,6 +472,15 @@ function ensureMissingColumns(): void
     schemaExecQuiet('ALTER TABLE partner_commercial ADD COLUMN route_linked_account_hint VARCHAR(120) DEFAULT NULL');
     schemaExecQuiet("ALTER TABLE partner_commercial ADD COLUMN route_split_on VARCHAR(20) NOT NULL DEFAULT 'capture'");
     schemaExecQuiet("ALTER TABLE partner_commercial ADD COLUMN route_status VARCHAR(20) NOT NULL DEFAULT 'scaffold'");
+
+    // payment_links pack / QR columns — txn detail, receipt, qr_pay (not only checkout.php)
+    schemaExecQuiet('ALTER TABLE payment_links ADD COLUMN payment_method VARCHAR(32) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE payment_links ADD COLUMN gateway_code VARCHAR(32) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE payment_links ADD COLUMN pack_id VARCHAR(32) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE payment_links ADD COLUMN link_label VARCHAR(128) DEFAULT NULL');
+    schemaExecQuiet('ALTER TABLE payment_links ADD COLUMN link_collection_mode VARCHAR(32) DEFAULT NULL');
+    schemaExecQuiet("ALTER TABLE payment_links ADD COLUMN amount_type VARCHAR(16) NOT NULL DEFAULT 'fixed'");
+    schemaExecQuiet('ALTER TABLE payment_links ADD COLUMN qr_code_id INT UNSIGNED DEFAULT NULL');
 }
 
 /** F2: Ensure pricing snapshot columns on transactions table. */

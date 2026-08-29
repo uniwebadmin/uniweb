@@ -3,8 +3,11 @@ declare(strict_types=1);
 
 function fetchTransactionDetail(string $txnId, ?int $merchantId = null, bool $adminView = false): ?array
 {
+    if (function_exists('ensurePaymentPackSchema')) {
+        ensurePaymentPackSchema();
+    }
     $db = getDB();
-    $sql = "SELECT t.*, m.business_name, m.merchant_code, m.email AS merchant_email, m.phone AS merchant_phone,
+    $sqlFull = "SELECT t.*, m.business_name, m.merchant_code, m.email AS merchant_email, m.phone AS merchant_phone,
             m.collection_mode AS merchant_collection_mode, m.account_mode,
             pl.link_id, pl.description AS link_description, pl.customer_name AS link_customer_name,
             pl.customer_phone AS link_customer_phone, pl.payment_method AS link_payment_method,
@@ -13,15 +16,40 @@ function fetchTransactionDetail(string $txnId, ?int $merchantId = null, bool $ad
             JOIN merchants m ON t.merchant_id = m.id
             LEFT JOIN payment_links pl ON t.payment_link_id = pl.id
             WHERE t.txn_id = ?";
+    $sqlBasic = "SELECT t.*, m.business_name, m.merchant_code, m.email AS merchant_email, m.phone AS merchant_phone,
+            m.collection_mode AS merchant_collection_mode, m.account_mode,
+            pl.link_id, pl.description AS link_description, pl.customer_name AS link_customer_name,
+            pl.customer_phone AS link_customer_phone, pl.payment_method AS link_payment_method,
+            pl.gateway_code AS link_gateway
+            FROM transactions t
+            JOIN merchants m ON t.merchant_id = m.id
+            LEFT JOIN payment_links pl ON t.payment_link_id = pl.id
+            WHERE t.txn_id = ?";
     $params = [$txnId];
     if ($merchantId !== null && !$adminView) {
-        $sql .= ' AND t.merchant_id = ?';
+        $sqlFull .= ' AND t.merchant_id = ?';
+        $sqlBasic .= ' AND t.merchant_id = ?';
         $params[] = $merchantId;
     }
-    $stmt = $db->prepare($sql);
-    $stmt->execute($params);
-    $row = $stmt->fetch();
-    if (!$row) return null;
+    $row = null;
+    foreach ([$sqlFull, $sqlBasic] as $sql) {
+        try {
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $row = $stmt->fetch();
+            break;
+        } catch (Throwable $e) {
+            if (!str_contains($e->getMessage(), 'link_label') && !str_contains($e->getMessage(), '42S22')) {
+                throw $e;
+            }
+        }
+    }
+    if (!$row) {
+        return null;
+    }
+    if (!array_key_exists('link_label', $row)) {
+        $row['link_label'] = null;
+    }
 
     $walletTxn = $db->prepare('SELECT * FROM wallet_transactions WHERE merchant_id = ? AND (transaction_id = ? OR reference = ?) ORDER BY id DESC LIMIT 1');
     $walletTxn->execute([(int)$row['merchant_id'], (int)$row['id'], $txnId]);
@@ -36,11 +64,29 @@ function fetchTransactionDetail(string $txnId, ?int $merchantId = null, bool $ad
     }
 
     try {
-        $refunds = $db->prepare('SELECT refund_id, amount, status, created_at, processed_at FROM refunds WHERE transaction_id=? ORDER BY created_at ASC');
+        $refunds = $db->prepare('SELECT refund_id, amount, status, provider, provider_status, provider_refund_id, failure_reason, created_at, processed_at FROM refunds WHERE transaction_id=? ORDER BY created_at ASC');
         $refunds->execute([(int)$row['id']]);
         $row['refunds'] = $refunds->fetchAll();
     } catch (Throwable $e) {
         $row['refunds'] = [];
+    }
+
+    $row['ledger_status'] = 'not_applicable';
+    $row['ledger_journal'] = null;
+    if (!function_exists('getTransactionLedgerStatus') && is_file(__DIR__ . '/financial_integrity.php')) {
+        require_once __DIR__ . '/financial_integrity.php';
+    }
+    if (function_exists('getTransactionLedgerStatus')) {
+        $mode = !empty($row['is_test']) ? 'test' : 'live';
+        $row['ledger_status'] = getTransactionLedgerStatus(
+            (int)$row['id'],
+            (string)($row['txn_id'] ?? ''),
+            (int)$row['merchant_id'],
+            (string)($row['status'] ?? '')
+        );
+        if (function_exists('fetchPaymentCaptureLedgerJournal')) {
+            $row['ledger_journal'] = fetchPaymentCaptureLedgerJournal((string)($row['txn_id'] ?? ''), $mode);
+        }
     }
 
     return $row;

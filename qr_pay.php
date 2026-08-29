@@ -2,6 +2,9 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/qr_events.php';
 ensureMerchantQrCodes();
+if (function_exists('ensurePaymentPackSchema')) {
+    ensurePaymentPackSchema();
+}
 
 // E3: Load method availability helper
 if (!function_exists('get_available_pay_methods')) {
@@ -107,22 +110,41 @@ $createCheckout = static function (float $amount, bool $upiOnly) use ($db, $qr, 
     }
     $linkId = generateId('LNK');
     $description = trim((string)($qr['description'] ?? ''));
-    $db->prepare('INSERT INTO payment_links
-        (link_id, merchant_id, amount, description, expires_at, is_test, status, payment_method, gateway_code, link_label, link_collection_mode, qr_code_id)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')->execute([
-            $linkId,
-            (int)$qr['merchant_id'],
-            $amount,
-            $description !== '' ? $description : ('QR payment — ' . $qr['label']),
-            date('Y-m-d H:i:s', time() + 86400),
-            $isTest ? 1 : 0,
-            'active',
-            $upiOnly ? 'upi_p2m' : null,
-            $upiOnly ? 'direct' : null,
-            'QR: ' . $qr['label'],
-            $upiOnly ? 'direct_upi' : null,
-            (int)$qr['id'],
-        ]);
+    $desc = $description !== '' ? $description : ('QR payment — ' . $qr['label']);
+    $expires = date('Y-m-d H:i:s', time() + 86400);
+    $paramsFull = [
+        $linkId,
+        (int)$qr['merchant_id'],
+        $amount,
+        $desc,
+        $expires,
+        $isTest ? 1 : 0,
+        'active',
+        $upiOnly ? 'upi_p2m' : null,
+        $upiOnly ? 'direct' : null,
+        'QR: ' . $qr['label'],
+        $upiOnly ? 'direct_upi' : null,
+        (int)$qr['id'],
+    ];
+    try {
+        $db->prepare('INSERT INTO payment_links
+            (link_id, merchant_id, amount, description, expires_at, is_test, status, payment_method, gateway_code, link_label, link_collection_mode, qr_code_id)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')->execute($paramsFull);
+    } catch (Throwable $e) {
+        $db->prepare('INSERT INTO payment_links
+            (link_id, merchant_id, amount, description, expires_at, is_test, status, payment_method, gateway_code)
+            VALUES (?,?,?,?,?,?,?,?,?)')->execute([
+                $linkId,
+                (int)$qr['merchant_id'],
+                $amount,
+                $desc,
+                $expires,
+                $isTest ? 1 : 0,
+                'active',
+                $upiOnly ? 'upi_p2m' : null,
+                $upiOnly ? 'direct' : null,
+            ]);
+    }
     return $linkId;
 };
 

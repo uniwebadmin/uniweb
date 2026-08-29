@@ -158,8 +158,10 @@ function countUnresolvedPlatformErrors(): int
         return (int)getDB()->query("SELECT COUNT(*) FROM platform_errors
             WHERE is_resolved = 0
               AND level != 'watchdog'
+              AND level != 'stale_createNotification'
               AND message NOT LIKE 'Cron auth failed%'
-              AND message NOT LIKE 'Watchdog probe:%'")->fetchColumn();
+              AND message NOT LIKE 'Watchdog probe:%'
+              AND message NOT LIKE 'Templated email skipped: SMTP not configured%'")->fetchColumn();
     } catch (Throwable $e) {
         return 0;
     }
@@ -205,7 +207,9 @@ function autoResolveAuditNoise(): int
         $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'Cannot redeclare ensureGatewayHealthTable%'");
         $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE '%footer.php%' AND message LIKE '%No such file%'");
         $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'Undefined variable \$ref%'");
-        $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE '%Argument #2 (\$title) must be of type string, null given%' AND message LIKE '%global_search.php%'");
+        $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE 'Templated email skipped: SMTP not configured%'");
+        $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE '%Unknown column%link_label%'");
+        $cleared += (int)$db->exec("UPDATE platform_errors SET is_resolved = 1 WHERE is_resolved = 0 AND message LIKE '%Unknown column%qr_code_id%' AND message LIKE '%payment_links%'");
         return $cleared;
     } catch (Throwable $e) {
         return 0;

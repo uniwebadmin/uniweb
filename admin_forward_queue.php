@@ -15,6 +15,7 @@ $forwardStagedEdu = function_exists('forwardStagedAdminEducation') ? forwardStag
 $gwSyncEdu = function_exists('gatewaySubmitVsForwardQueueEducation') ? gatewaySubmitVsForwardQueueEducation() : null;
 
 $statusFilter = trim((string)($_GET['status'] ?? ''));
+$partnerFilter = strtolower(trim((string)($_GET['partner'] ?? '')));
 $q = mb_substr(trim((string)($_GET['q'] ?? '')), 0, 100);
 $detailId = (int)($_GET['item_id'] ?? 0);
 $detailTimeline = ($detailId > 0 && function_exists('getForwardQueueRowTimeline')) ? getForwardQueueRowTimeline($detailId) : [];
@@ -43,10 +44,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 . ($result['retry'] ?? 0) . ' retry.');
         }
     }
-    redirect('admin_forward_queue.php' . ($statusFilter !== '' || $q !== '' ? ('?' . http_build_query(array_filter(['status' => $statusFilter ?: null, 'q' => $q ?: null]))) : ''));
+    redirect('admin_forward_queue.php' . ($statusFilter !== '' || $partnerFilter !== '' || $q !== '' ? ('?' . http_build_query(array_filter(['status' => $statusFilter ?: null, 'partner' => $partnerFilter ?: null, 'q' => $q ?: null]))) : ''));
 }
 
-$matrix = getAdminForwardMatrix($statusFilter, $q);
+$matrix = getAdminForwardMatrix($statusFilter, $q, $partnerFilter);
 $fwdStats = getForwardQueueStats();
 $adapterRegistry = getKycForwardAdapterRegistry();
 
@@ -65,7 +66,9 @@ require_once __DIR__ . '/header.php';
             </form>
             <?php endif; ?>
         </div>
-        <p class="text-xs text-gray-500 mb-3">After Admin Verify: one queue row per partner that already has keys. <strong class="text-amber-300">Staged</strong> = package saved on UniWeb — <strong class="text-gray-300">not sent to the bank/partner yet</strong> (live KYC API + success-rate routing stay parked). Manual bulk forward / status updates: <a href="admin_gateway_submit.php" class="text-sky-400 hover:underline">Multi-Gateway Forward</a> (<code class="text-gray-400">gateway_submissions</code> — kept in sync with this queue).</p>
+        <p class="text-xs text-gray-500 mb-2">After Admin Verify: one queue row per partner that already has keys. Each row is tied to exactly one <strong class="text-gray-300">partner_key</strong> — no cross-wire.</p>
+        <p class="text-xs text-amber-200/90 mb-2"><?= e(function_exists('forwardQueueRetryPolicyHint') ? forwardQueueRetryPolicyHint() : '') ?></p>
+        <p class="text-xs text-gray-500 mb-3"><strong class="text-amber-300">Staged</strong> / <code class="text-gray-400">local_record</code> = package saved on UniWeb only — <strong class="text-gray-300">not sent to the bank/partner yet</strong>. <strong class="text-emerald-300">Accepted</strong> (<code class="text-gray-400">success</code>) only when a live partner API returns ACK. Manual bulk: <a href="admin_gateway_submit.php" class="text-sky-400 hover:underline">Multi-Gateway Forward</a>.</p>
         <?php if (is_array($forwardStagedEdu)): ?>
         <p class="text-[11px] text-amber-200/90 mb-3"><?= e((string)$forwardStagedEdu['mostly_staged']) ?></p>
         <?php endif; ?>
@@ -80,9 +83,10 @@ require_once __DIR__ . '/header.php';
             $statOrder = ['queued', 'processing', 'staged', 'success', 'retry', 'failed', 'paused'];
             foreach ($statOrder as $sk):
                 $n = (int)($fwdStats['by_status'][$sk] ?? 0);
+                $statLabel = function_exists('forwardQueueAdminStatusLabel') ? forwardQueueAdminStatusLabel($sk) : $sk;
             ?>
-            <a href="?status=<?= e($sk) ?>" class="rounded-lg border border-gray-800 bg-dark-900/40 px-3 py-2 hover:border-gray-600">
-                <p class="text-[10px] uppercase text-gray-500"><?= e($sk) ?></p>
+            <a href="?status=<?= e($sk) ?>" class="rounded-lg border border-gray-800 bg-dark-900/40 px-3 py-2 hover:border-gray-600" title="<?= e($statLabel) ?>">
+                <p class="text-[10px] uppercase text-gray-500 truncate"><?= e($sk) ?></p>
                 <p class="text-lg font-bold text-gray-100"><?= $n ?></p>
             </a>
             <?php endforeach; ?>
@@ -101,8 +105,19 @@ require_once __DIR__ . '/header.php';
             <a href="?status=retry" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'retry' ? 'bg-amber-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Retry</a>
             <a href="?status=failed" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'failed' ? 'bg-red-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Failed</a>
         </div>
-        <form method="GET" data-live-search-form data-results-target="forward-results" class="flex gap-2 items-end">
+        <form method="GET" data-live-search-form data-results-target="forward-results" class="flex flex-wrap gap-2 items-end">
             <div class="flex-1 min-w-[180px]"><label class="text-[10px] text-gray-600 uppercase">Search</label><input type="text" name="q" value="<?= e($q) ?>" placeholder="Merchant / Partner / Status / ID" class="input-field mt-1 text-sm" autocomplete="off"></div>
+            <div class="min-w-[140px]"><label class="text-[10px] text-gray-600 uppercase">Partner</label>
+                <select name="partner" class="input-field mt-1 text-sm">
+                    <option value="">All partners</option>
+                    <?php
+                    $partnerKeys = function_exists('getKycForwardPartnerKeys') ? getKycForwardPartnerKeys() : array_keys($adapterRegistry);
+                    foreach ($partnerKeys as $pk):
+                    ?>
+                    <option value="<?= e($pk) ?>" <?= $partnerFilter === $pk ? 'selected' : '' ?>><?= e(ucfirst($pk)) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
             <input type="hidden" name="status" value="<?= e($statusFilter) ?>">
             <button class="btn-primary px-4 py-2.5 text-sm whitespace-nowrap">Search</button>
         </form>
@@ -157,16 +172,16 @@ require_once __DIR__ . '/header.php';
                         ];
                         $statusKey = (string)$row['status'];
                         $cls = $colors[$statusKey] ?? 'bg-gray-500/20 text-gray-400';
-                        $statusLabel = function_exists('forwardQueueAdminStatusLabel') ? forwardQueueAdminStatusLabel($statusKey) : $statusKey;
+                        $statusLabel = function_exists('forwardQueueAdminStatusBadge') ? forwardQueueAdminStatusBadge($row) : (function_exists('forwardQueueAdminStatusLabel') ? forwardQueueAdminStatusLabel($statusKey) : $statusKey);
                         ?>
                         <span class="px-2 py-0.5 rounded-full text-xs font-medium <?= $cls ?>" title="<?= e($statusLabel) ?>"><?= e($statusKey) ?></span>
-                        <p class="text-[10px] text-gray-500 mt-0.5 max-w-[140px]"><?= e($statusLabel) ?></p>
+                        <p class="text-[10px] text-gray-500 mt-0.5 max-w-[180px]"><?= e($statusLabel) ?></p>
                     </td>
                     <td class="px-4 py-3 text-gray-400"><?= (int)$row['attempts'] ?>/<?= (int)$row['max_attempts'] ?></td>
                     <td class="px-4 py-3 text-gray-400 text-xs"><?= e($row['schedule_at'] ?? '—') ?></td>
                     <td class="px-4 py-3 text-gray-400 text-xs"><?= e($row['last_attempt_at'] ?? '—') ?></td>
                     <td class="px-4 py-3 text-gray-400 text-xs"><?= e($row['partner_reference'] ?? '—') ?></td>
-                    <td class="px-4 py-3 text-gray-500 text-xs max-w-xs truncate" title="<?= e($row['error_message'] ?? '') ?>"><?= e($row['error_message'] ?? '—') ?></td>
+                    <td class="px-4 py-3 text-gray-500 text-xs max-w-xs truncate" title="<?= e(function_exists('maskForwardQueueErrorMessage') ? maskForwardQueueErrorMessage($row['error_message'] ?? '') : ($row['error_message'] ?? '')) ?>"><?= e(function_exists('maskForwardQueueErrorMessage') ? maskForwardQueueErrorMessage($row['error_message'] ?? '') : ($row['error_message'] ?? '—')) ?></td>
                     <td class="px-4 py-3">
                         <?php if (in_array((string)$row['status'], ['failed', 'staged'], true)): ?>
                         <form method="POST" action="admin_forward_queue.php" onsubmit="return confirm('Re-queue this item?')" class="inline">

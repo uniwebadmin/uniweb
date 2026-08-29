@@ -44,7 +44,12 @@ if ($adminView && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? 
     requireStepUpAuth();
     $admin = getAdmin();
     $result = processRefund((int)$txn['id'], $amount, $reason, (int)($admin['id'] ?? 0));
-    flash($result['ok'] ? 'success' : 'error', $result['ok'] ? ('Refund ' . ($result['refund_id'] ?? '') . ' processed.') : ($result['error'] ?? 'Refund failed.'));
+    if ($result['ok']) {
+        $statusWord = ($result['status'] ?? '') === 'completed' ? 'processed' : 'initiated (pending partner confirmation)';
+        flash('success', 'Refund ' . ($result['refund_id'] ?? '') . ' ' . $statusWord . '.');
+    } else {
+        flash('error', $result['error'] ?? 'Refund failed.');
+    }
     if ($result['ok'] && function_exists('logStaffActivity')) {
         logStaffActivity('refund_processed', ($result['refund_id'] ?? '') . ' — txn ' . $txn['txn_id'], (int)$txn['merchant_id'], 'transaction', $txn['txn_id']);
     }
@@ -168,7 +173,14 @@ require_once __DIR__ . '/header.php';
                 <li class="flex gap-3"><span class="mt-1.5 w-2.5 h-2.5 rounded-full bg-gray-600"></span><div><p class="font-medium text-gray-300">Wallet credit processing</p><p class="text-xs text-gray-500 mt-0.5">The confirmed payment has not appeared in a wallet entry yet.</p></div></li>
                 <?php endif; ?>
                 <?php foreach (($txn['refunds'] ?? []) as $refund): ?>
-                <li class="flex gap-3"><span class="mt-1.5 w-2.5 h-2.5 rounded-full <?= ($refund['status'] ?? '') === 'completed' ? 'bg-violet-400' : 'bg-amber-400' ?>"></span><div><p class="font-medium">Refund <?= e((string)($refund['status'] ?? 'requested')) ?></p><p class="text-xs text-gray-500 mt-0.5"><?= formatMoney((float)$refund['amount']) ?> · <?= formatDate($refund['processed_at'] ?: $refund['created_at']) ?> · <?= e((string)$refund['refund_id']) ?></p></div></li>
+                <?php
+                    if (!function_exists('refundDisplayStatus') && is_file(__DIR__ . '/includes/refund_webhooks.php')) {
+                        require_once __DIR__ . '/includes/refund_webhooks.php';
+                    }
+                    $refundLabel = function_exists('refundDisplayStatus') ? refundDisplayStatus($refund) : (string)($refund['status'] ?? 'requested');
+                    $dotClass = $refundLabel === 'processed' ? 'bg-violet-400' : ($refundLabel === 'failed' ? 'bg-red-400' : 'bg-amber-400');
+                ?>
+                <li class="flex gap-3"><span class="mt-1.5 w-2.5 h-2.5 rounded-full <?= $dotClass ?>"></span><div><p class="font-medium">Refund <?= e(ucfirst($refundLabel)) ?></p><p class="text-xs text-gray-500 mt-0.5"><?= formatMoney((float)$refund['amount']) ?> · <?= formatDate($refund['processed_at'] ?: $refund['created_at']) ?> · <?= e((string)$refund['refund_id']) ?><?php if (!empty($refund['provider'])): ?> · <?= e(strtoupper((string)$refund['provider'])) ?><?php endif; ?></p><?php if ($refundLabel === 'failed' && !empty($refund['failure_reason'])): ?><p class="text-xs text-red-400/90 mt-0.5"><?= e(mb_substr((string)$refund['failure_reason'], 0, 120)) ?></p><?php endif; ?></div></li>
                 <?php endforeach; ?>
             </ol>
         </div>
@@ -327,19 +339,39 @@ require_once __DIR__ . '/header.php';
         </div>
 
         <div class="glass rounded-xl p-5 text-sm">
-            <h3 class="font-semibold mb-3">Wallet Status</h3>
+            <h3 class="font-semibold mb-3">Wallet &amp; Ledger</h3>
             <?php if ($txn['status'] !== 'success'): ?>
             <p class="text-amber-400 text-xs">Wallet credits when status is <strong>Success</strong><?= $txn['status'] === 'pending' ? ' (Admin approve required)' : '' ?>.</p>
-            <?php elseif (!empty($txn['wallet_credited']) || $txn['wallet_entry']): ?>
+            <?php else: ?>
+            <?php
+            $ledgerStatus = (string)($txn['ledger_status'] ?? 'pending');
+            $ledgerJournal = $txn['ledger_journal'] ?? null;
+            ?>
+            <div class="mb-3 pb-3 border-b border-gray-800">
+                <p class="text-[11px] text-gray-500 mb-1">Ledger (payment capture)</p>
+                <?php if ($ledgerStatus === 'posted' && is_array($ledgerJournal)): ?>
+                <p class="text-emerald-400 text-xs">✓ Posted · journal <?= e((string)($ledgerJournal['journal_ref'] ?? '')) ?></p>
+                <p class="text-gray-500 text-[11px] mt-0.5"><?= formatDate((string)($ledgerJournal['posted_at'] ?? '')) ?></p>
+                <?php elseif ($ledgerStatus === 'failed' || $ledgerStatus === 'pending'): ?>
+                <p class="text-amber-400 text-xs"><?= $ledgerStatus === 'failed' ? 'Ledger failed — retry scheduled; check Error Log' : 'Ledger pending — reconcile will retry automatically' ?></p>
+                <?php if ($adminView): ?>
+                <a href="admin_error_log.php" class="text-xs text-sky-400 mt-1 inline-block">Open Error Log →</a>
+                <?php endif; ?>
+                <?php else: ?>
+                <p class="text-gray-500 text-xs">Not applicable for this status.</p>
+                <?php endif; ?>
+            </div>
+            <?php if (!empty($txn['wallet_credited']) || $txn['wallet_entry']): ?>
             <p class="text-emerald-400 text-xs mb-2">✓ Credited to wallet</p>
             <?php if ($txn['wallet_entry']): ?>
             <p class="text-gray-500 text-xs"><?= formatMoney((float)$txn['wallet_entry']['amount']) ?> · <?= formatDate($txn['wallet_entry']['created_at']) ?></p>
             <a href="<?= $adminView ? 'admin_edit_merchant.php?id=' . (int)$txn['merchant_id'] : 'wallet.php' ?>" class="text-xs text-sky-400 mt-2 inline-block">View Wallet →</a>
             <?php endif; ?>
             <?php else: ?>
-            <p class="text-gray-500 text-xs">Not yet credited to wallet.</p>
+            <p class="text-gray-500 text-xs">Wallet line not synced yet<?= $ledgerStatus === 'posted' ? ' (check reconcile)' : '' ?>.</p>
             <?php if ($adminView): ?>
             <a href="admin_transactions.php?action=approve&id=<?= (int)$txn['id'] ?>&token=<?= csrfToken() ?>" class="text-xs text-brand-400 mt-2 inline-block">Force Approve</a>
+            <?php endif; ?>
             <?php endif; ?>
             <?php endif; ?>
         </div>

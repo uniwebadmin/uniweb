@@ -258,23 +258,15 @@ function retryRazorpayWebhook(array $payload, string $eventType): bool
 
     // Refund events
     if (in_array($eventType, ['refund.processed', 'refund.failed'], true) && $refundProviderId !== '') {
-        $refundSt = getDB()->prepare("SELECT r.*,t.utr AS payment_id FROM refunds r JOIN transactions t ON t.id=r.transaction_id WHERE r.provider='razorpay' AND r.provider_refund_id=? LIMIT 1");
-        $refundSt->execute([$refundProviderId]);
-        $refund = $refundSt->fetch();
-        if (!$refund) return false;
-        $providerRefund = fetchRazorpayRefund((string)$refund['payment_id'], $refundProviderId);
-        if (!$providerRefund) return false;
-        $providerStatus = strtolower((string)($providerRefund['status'] ?? ''));
-        if ($eventType === 'refund.processed' && $providerStatus === 'processed') {
-            completeProviderRefund((string)$refund['refund_id'], $refundProviderId);
-        } elseif ($eventType === 'refund.failed' || $providerStatus === 'failed') {
-            $failureReason = mb_substr((string)($providerRefund['error_description'] ?? 'Razorpay marked the refund failed.'), 0, 500);
-            if (!function_exists('markProviderRefundFailed') && is_file(__DIR__ . '/refunds.php')) {
-                require_once __DIR__ . '/refunds.php';
-            }
-            if (function_exists('markProviderRefundFailed')) {
-                markProviderRefundFailed((int)$refund['id'], $failureReason);
-            }
+        if (!function_exists('applyPartnerRefundWebhookEvent') && is_file(__DIR__ . '/refund_webhooks.php')) {
+            require_once __DIR__ . '/refund_webhooks.php';
+        }
+        if (function_exists('applyPartnerRefundWebhookEvent')) {
+            applyPartnerRefundWebhookEvent('razorpay', [
+                'provider_refund_id' => $refundProviderId,
+                'event_type' => $eventType,
+                'terminal' => $eventType === 'refund.processed' ? 'processed' : 'failed',
+            ]);
         }
         return true;
     }

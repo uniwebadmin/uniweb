@@ -15,7 +15,11 @@ if (!verifyRazorpayWebhookSignature($raw, $signature)) {
     if (financialTablesReady()) {
         registerGatewayEvent('razorpay', $_SERVER['HTTP_X_RAZORPAY_EVENT_ID'] ?? '', 'unknown', $raw, false);
     }
-    logPgWebhook('razorpay', 'invalid_signature', null, null, null, '');
+    logPgWebhookVerifyFailure('razorpay', 'invalid_signature', null, null, null, [
+        'has_signature' => $signature !== '',
+        'event_id' => substr((string)($_SERVER['HTTP_X_RAZORPAY_EVENT_ID'] ?? ''), 0, 64),
+        'body_bytes' => strlen($raw),
+    ]);
     jsonResponse(['error' => 'Invalid signature'], 401);
 }
 
@@ -51,24 +55,23 @@ webhookFastAck(['ok' => true, 'received' => true]);
 
 if (in_array($event, ['refund.processed', 'refund.failed'], true) && $refundProviderId !== '') {
     try {
-        $refundSt = getDB()->prepare("SELECT r.*,t.utr AS payment_id FROM refunds r JOIN transactions t ON t.id=r.transaction_id WHERE r.provider='razorpay' AND r.provider_refund_id=? LIMIT 1");
-        $refundSt->execute([$refundProviderId]);
-        $refund = $refundSt->fetch();
-        if (!$refund) {
-            throw new RuntimeException('Razorpay refund is not linked to a local refund request.');
+        if (!function_exists('applyPartnerRefundWebhookEvent') && is_file(__DIR__ . '/includes/refund_webhooks.php')) {
+            require_once __DIR__ . '/includes/refund_webhooks.php';
         }
-        $providerRefund = fetchRazorpayRefund((string)$refund['payment_id'], $refundProviderId);
-        if (!$providerRefund || (string)($providerRefund['id'] ?? '') !== $refundProviderId) {
-            throw new RuntimeException('Razorpay refund server verification failed.');
+        $createdAt = (string)($refundEntity['created_at'] ?? $payload['created_at'] ?? '');
+        if (function_exists('pgWebhookEventTooOld') && pgWebhookEventTooOld($createdAt)) {
+            setGatewayEventStatus((int)$gatewayEvent['id'], 'ignored', null, 'event_too_old');
+            markWebhookCompleted((int)$webhookEv['id']);
+            jsonResponse(['ok' => true, 'ignored' => true, 'reason' => 'event_too_old']);
         }
-        $providerStatus = strtolower((string)($providerRefund['status'] ?? ''));
-        if ($event === 'refund.processed' && $providerStatus === 'processed') {
-            $result = completeProviderRefund((string)$refund['refund_id'], $refundProviderId);
-        } elseif ($event === 'refund.failed' || $providerStatus === 'failed') {
-            $failureReason = mb_substr((string)($providerRefund['error_description'] ?? 'Razorpay marked the refund failed.'), 0, 500);
-            $result = markProviderRefundFailed((int)$refund['id'], $failureReason);
-        } else {
-            $result = ['ok' => true, 'status' => $providerStatus ?: 'pending'];
+        $terminal = $event === 'refund.processed' ? 'processed' : ($event === 'refund.failed' ? 'failed' : '');
+        $result = applyPartnerRefundWebhookEvent('razorpay', [
+            'provider_refund_id' => $refundProviderId,
+            'event_type' => $event,
+            'terminal' => $terminal,
+        ]);
+        if (empty($result['ok'])) {
+            throw new RuntimeException((string)($result['error'] ?? 'Refund apply failed.'));
         }
         setGatewayEventStatus((int)$gatewayEvent['id'], 'processed');
         markWebhookCompleted((int)$webhookEv['id']);

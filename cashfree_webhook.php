@@ -16,7 +16,12 @@ if (!verifyCashfreeWebhookSignature($raw, $signature, $timestamp)) {
     if (financialTablesReady()) {
         registerGatewayEvent('cashfree', $_SERVER['HTTP_X_WEBHOOK_ID'] ?? '', 'unknown', $raw, false);
     }
-    logPgWebhook('cashfree', 'invalid_signature', null, null, null, '');
+    logPgWebhookVerifyFailure('cashfree', 'invalid_signature', null, null, null, [
+        'has_signature' => $signature !== '',
+        'has_timestamp' => $timestamp !== '',
+        'event_id' => substr((string)($_SERVER['HTTP_X_WEBHOOK_ID'] ?? ''), 0, 64),
+        'body_bytes' => strlen($raw),
+    ]);
     jsonResponse(['error' => 'Invalid signature or stale timestamp'], 401);
 }
 
@@ -48,6 +53,46 @@ if (!function_exists('webhookFastAck')) {
     require_once __DIR__ . '/includes/webhook_queue.php';
 }
 webhookFastAck(['ok' => true, 'received' => true]);
+
+$refundEvents = ['REFUND_SUCCESS_WEBHOOK', 'REFUND_FAILED_WEBHOOK', 'REFUND_STATUS_WEBHOOK'];
+$refundBlock = $data['refund'] ?? $data;
+$refundId = (string)($refundBlock['refund_id'] ?? $refundBlock['cf_refund_id'] ?? $data['refund_id'] ?? '');
+$refundStatus = strtoupper((string)($refundBlock['refund_status'] ?? $data['refund_status'] ?? ''));
+if (in_array(strtoupper($event), $refundEvents, true) || $refundId !== '') {
+    try {
+        if (!function_exists('applyPartnerRefundWebhookEvent') && is_file(__DIR__ . '/includes/refund_webhooks.php')) {
+            require_once __DIR__ . '/includes/refund_webhooks.php';
+        }
+        $eventTime = (string)($payload['event_time'] ?? $refundBlock['processed_at'] ?? '');
+        if (function_exists('pgWebhookEventTooOld') && pgWebhookEventTooOld($eventTime)) {
+            setGatewayEventStatus((int)$gatewayEvent['id'], 'ignored', null, 'event_too_old');
+            markWebhookCompleted((int)$webhookEv['id']);
+            jsonResponse(['ok' => true, 'ignored' => true, 'reason' => 'event_too_old']);
+        }
+        if ($refundId === '') {
+            throw new RuntimeException('Cashfree refund webhook missing refund_id.');
+        }
+        $terminal = in_array($refundStatus, ['SUCCESS', 'PROCESSED'], true) ? 'processed'
+            : (in_array($refundStatus, ['FAILED', 'CANCELLED'], true) ? 'failed' : '');
+        $result = applyPartnerRefundWebhookEvent('cashfree', [
+            'provider_refund_id' => $refundId,
+            'event_type' => $event,
+            'terminal' => $terminal,
+            'failure_reason' => (string)($refundBlock['status_description'] ?? $refundBlock['refund_message'] ?? ''),
+        ]);
+        if (empty($result['ok'])) {
+            throw new RuntimeException((string)($result['error'] ?? 'Refund apply failed.'));
+        }
+        setGatewayEventStatus((int)$gatewayEvent['id'], 'processed');
+        markWebhookCompleted((int)$webhookEv['id']);
+        jsonResponse(['ok' => true, 'result' => $result]);
+    } catch (Throwable $e) {
+        setGatewayEventStatus((int)$gatewayEvent['id'], 'failed', null, $e->getMessage());
+        markWebhookFailed((int)$webhookEv['id'], $e->getMessage());
+        logPlatformError('error', 'Cashfree refund webhook processing failed.', ['event_id' => $eventId, 'error' => $e->getMessage()]);
+        jsonResponse(['error' => 'Refund processing failed'], 422);
+    }
+}
 
 $splitEvents = ['VENDOR_SPLIT_SETTLEMENT', 'EASY_SPLIT_SETTLEMENT', 'SPLIT_SETTLEMENT', 'VENDOR_SETTLEMENT'];
 if (in_array(strtoupper($event), $splitEvents, true) || str_contains(strtoupper($event), 'SPLIT')) {

@@ -36,6 +36,78 @@ function logPgWebhook(string $gateway, string $status, ?string $eventType, ?stri
     } catch (Throwable $e) { /* ok */ }
 }
 
+/** Safe audit row when signature/hash verification fails — no raw body or secrets. */
+function logPgWebhookVerifyFailure(
+    string $gateway,
+    string $status,
+    ?string $eventType = null,
+    ?string $reference = null,
+    ?string $linkId = null,
+    array $context = []
+): void {
+    $context += [
+        'verify' => $status,
+        'ip' => substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45),
+        'method' => substr((string)($_SERVER['REQUEST_METHOD'] ?? ''), 0, 10),
+    ];
+    logPgWebhook(
+        $gateway,
+        $status,
+        $eventType,
+        $reference,
+        $linkId,
+        json_encode($context, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}'
+    );
+    if (!function_exists('recordWebhookSignatureFailure') && is_file(__DIR__ . '/fraud_signals.php')) {
+        require_once __DIR__ . '/fraud_signals.php';
+    }
+    if (function_exists('recordWebhookSignatureFailure')) {
+        recordWebhookSignatureFailure($gateway, (string)($context['event_id'] ?? ''));
+    }
+}
+
+/** Max webhook event age (seconds) — replay protection; 0 = disabled. */
+function pgWebhookMaxEventAgeSeconds(): int
+{
+    return 86400;
+}
+
+/**
+ * Reject webhook with JSON body — no secrets logged.
+ *
+ * @return never
+ */
+function pgWebhookRejectJson(string $gateway, string $reason, int $httpCode, ?string $eventType = null, ?string $reference = null): void
+{
+    logPgWebhookVerifyFailure($gateway, $reason, $eventType, $reference, null, [
+        'http' => $httpCode,
+    ]);
+    if (!function_exists('jsonResponse')) {
+        http_response_code($httpCode);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Unauthorized'], JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+    jsonResponse(['error' => $httpCode === 401 || $httpCode === 403 ? 'Invalid signature' : 'Rejected'], $httpCode);
+}
+
+/** Optional replay guard from partner-supplied created_at (unix seconds or ISO string). */
+function pgWebhookEventTooOld(?string $createdAt): bool
+{
+    $maxAge = pgWebhookMaxEventAgeSeconds();
+    if ($maxAge <= 0 || $createdAt === null || trim($createdAt) === '') {
+        return false;
+    }
+    $ts = is_numeric($createdAt) ? (int)$createdAt : strtotime($createdAt);
+    if ($ts === false || $ts <= 0) {
+        return false;
+    }
+    if ((int)$ts > 20000000000) {
+        $ts = (int)floor($ts / 1000);
+    }
+    return (time() - $ts) > $maxAge;
+}
+
 function loadPaymentLinkRow(string $linkId): ?array
 {
     if ($linkId === '') {

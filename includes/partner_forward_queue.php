@@ -11,7 +11,87 @@ if (is_file(__DIR__ . '/release_helpers.php')) {
  * D3: After KYC verify, enqueue package to partner_forward_queue with schedule_at.
  * D4: Cron worker pushes package to enabled partners; status matrix on admin + merchant.
  * D5: Manual fallback only after repeated failures.
+ *
+ * Status vocabulary (Admin DB `status` column — fail-closed):
+ *   queued / processing / retry / paused — worker pipeline (not at partner yet)
+ *   staged — UniWeb saved package only (`local_record` adapter); partner API NOT success
+ *   success — partner API acknowledged (live adapter only; never from local_record alone)
+ *   failed — partner reject, timeout, or max retries exhausted
+ *   cancelled / paused — manual ops stop
+ *
+ * Adapter sub-modes (stored in partner_response JSON, not a separate DB status):
+ *   local_record — gateway_submissions + API log on UniWeb; row stays `staged`
+ *   live_api     — real partner KYC/onboarding HTTP; may set `success` when ACK received
+ *
+ * Retry policy (no infinite silent retry):
+ *   max_attempts default 3 per row · backoff = attempt# × 30 minutes (cap 2h) · then `failed`
  */
+function forwardQueueDefaultMaxAttempts(): int
+{
+    return 3;
+}
+
+/** Seconds before next worker pass after a retryable failure (attempt 1 → 30m, 2 → 60m, 3 → 90m). */
+function forwardQueueRetryDelaySeconds(int $attemptNumber): int
+{
+    $attemptNumber = max(1, $attemptNumber);
+    return min(7200, max(900, $attemptNumber * 1800));
+}
+
+function forwardQueueRetryScheduleAt(int $attemptNumber): string
+{
+    return date('Y-m-d H:i:s', time() + forwardQueueRetryDelaySeconds($attemptNumber));
+}
+
+/** @return array<string, string> status key => Admin English label */
+function forwardQueueStatusVocabulary(): array
+{
+    return [
+        'queued' => 'Queued — waiting for schedule',
+        'processing' => 'Processing — worker running',
+        'staged' => 'Staged — UniWeb saved only (not sent to partner)',
+        'success' => 'Accepted — partner API acknowledged',
+        'retry' => 'Retry scheduled — transient error',
+        'failed' => 'Failed — reject/timeout/max retries',
+        'paused' => 'Paused — admin hold',
+        'cancelled' => 'Cancelled',
+    ];
+}
+
+function forwardQueueRetryPolicyHint(): string
+{
+    $max = forwardQueueDefaultMaxAttempts();
+    $mins = (int)(forwardQueueRetryDelaySeconds(1) / 60);
+    return "Retry policy: up to {$max} attempts per row · backoff {$mins}m × attempt number (max 2h) · then Failed. Staged/local_record never counts as money sent.";
+}
+
+/** Mask secrets in queue error text for Admin list/detail. */
+function maskForwardQueueErrorMessage(?string $message): string
+{
+    $message = trim((string)$message);
+    if ($message === '') {
+        return '—';
+    }
+    if (function_exists('maskAuditSecrets')) {
+        $message = maskAuditSecrets($message);
+    }
+    $message = preg_replace('/\b(sk_[a-zA-Z0-9]{8,}|key_[a-zA-Z0-9]{8,}|rzp_[a-zA-Z0-9]{8,}|api_[a-zA-Z0-9]{8,})\b/', '[redacted]', $message) ?? $message;
+    return mb_substr($message, 0, 240);
+}
+
+/** Adapter mode from partner_response JSON — local_record vs live_api. */
+function forwardQueueRowAdapterMode(array $row): string
+{
+    $raw = (string)($row['partner_response'] ?? '');
+    if ($raw === '') {
+        return '';
+    }
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) {
+        return '';
+    }
+    return (string)($decoded['adapter'] ?? $decoded['mode'] ?? '');
+}
 
 if (!function_exists('ensurePartnerForwardQueueTable')) {
 function ensurePartnerForwardQueueTable(): void
@@ -152,8 +232,8 @@ function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payl
     $schedule = forwardQueueNextScheduleAt();
     try {
         $st = $db->prepare(
-            'INSERT INTO partner_forward_queue (merchant_id, partner_key, package_payload, status, schedule_at)
-             VALUES (?, ?, ?, ?, ?)'
+            'INSERT INTO partner_forward_queue (merchant_id, partner_key, package_payload, status, schedule_at, max_attempts)
+             VALUES (?, ?, ?, ?, ?, ?)'
         );
         $st->execute([
             $merchantId,
@@ -161,6 +241,7 @@ function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payl
             $payload ? json_encode($payload) : null,
             'queued',
             $schedule->format('Y-m-d H:i:s'),
+            forwardQueueDefaultMaxAttempts(),
         ]);
         return (int)$db->lastInsertId();
     } catch (Throwable $e) {
@@ -384,81 +465,102 @@ function processPerPartnerForwardQueue(int $limit = 20, ?int $merchantId = null,
         $results['processed']++;
         $itemId = (int)$item['id'];
         $merchantId = (int)$item['merchant_id'];
-        $partnerKey = $item['partner_key'];
+        $partnerKey = (string)$item['partner_key'];
         $attempts = (int)$item['attempts'] + 1;
 
         try {
-            $db->prepare("UPDATE partner_forward_queue SET status='processing', attempts=?, last_attempt_at=NOW() WHERE id=?")
-                ->execute([$attempts, $itemId]);
+            $db->prepare("UPDATE partner_forward_queue SET status='processing', attempts=?, last_attempt_at=NOW() WHERE id=? AND partner_key=?")
+                ->execute([$attempts, $itemId, $partnerKey]);
 
             $payload = $item['package_payload'] ? json_decode($item['package_payload'], true) : [];
+            if (!is_array($payload)) {
+                $payload = [];
+            }
+            $payloadPartner = strtolower(trim((string)($payload['partner'] ?? $payload['gateway'] ?? '')));
+            if ($payloadPartner !== '' && $payloadPartner !== strtolower($partnerKey)) {
+                throw new RuntimeException('Partner mismatch — row targets ' . $partnerKey . ', payload targets ' . $payloadPartner);
+            }
+
             $result = pushPackageToPartner($partnerKey, $merchantId, $payload);
 
+            // Fail-closed: local_record / staged adapters must never mark success.
+            if (!empty($result['success']) && (!empty($result['staged']) || ($result['adapter'] ?? '') === 'local_record')) {
+                $result['success'] = false;
+                $result['staged'] = true;
+                if (empty($result['message'])) {
+                    $result['message'] = 'Local record only — not partner API acceptance.';
+                }
+            }
+
             if ($result['success'] ?? false) {
-                $db->prepare("UPDATE partner_forward_queue SET status='success', partner_reference=?, partner_response=? WHERE id=?")
+                $dupSuccess = $db->prepare(
+                    "SELECT id FROM partner_forward_queue
+                     WHERE merchant_id=? AND partner_key=? AND status='success' AND id<>?
+                     LIMIT 1"
+                );
+                $dupSuccess->execute([$merchantId, $partnerKey, $itemId]);
+                if ($dupSuccess->fetch()) {
+                    $db->prepare("UPDATE partner_forward_queue SET status='failed', error_message=? WHERE id=?")
+                        ->execute(['Duplicate success blocked — partner already accepted for this merchant.', $itemId]);
+                    $results['failed']++;
+                    continue;
+                }
+                $db->prepare("UPDATE partner_forward_queue SET status='success', partner_reference=?, partner_response=? WHERE id=? AND partner_key=?")
                     ->execute([
                         $result['reference'] ?? null,
                         json_encode($result),
                         $itemId,
+                        $partnerKey,
                     ]);
                 $results['success']++;
                 if (!function_exists('wiringKycForwardNotifyBody') && is_file(__DIR__ . '/wiring_deep_link_workflow.php')) {
                     require_once __DIR__ . '/wiring_deep_link_workflow.php';
                 }
-                $fwdBody = function_exists('wiringKycForwardNotifyBody')
-                    ? wiringKycForwardNotifyBody($partnerKey, 'forward')
-                    : ('Your KYC package has been submitted to ' . ucfirst($partnerKey) . '.');
+                $fwdBody = 'Your KYC package was accepted by the payment network through UniWeb.';
                 if (function_exists('notifyMerchant')) {
-                    notifyMerchant($merchantId, 'KYC Forwarded', $fwdBody, 'kyc_fwd_' . $merchantId . '_' . $partnerKey);
+                    notifyMerchant($merchantId, 'KYC network accepted', $fwdBody, 'kyc_fwd_' . $merchantId . '_' . $partnerKey);
                 } elseif (function_exists('createNotification')) {
-                    createNotification($merchantId, 'KYC Forwarded', $fwdBody);
+                    createNotification($merchantId, 'KYC network accepted', $fwdBody);
                 }
             } elseif (!empty($result['staged'])) {
                 // 5b: keys OK + package built, but live partner API adapter not live yet — do not fake success or fail-retry spam
-                $db->prepare("UPDATE partner_forward_queue SET status='staged', partner_reference=?, partner_response=?, error_message=? WHERE id=?")
+                $db->prepare("UPDATE partner_forward_queue SET status='staged', partner_reference=?, partner_response=?, error_message=? WHERE id=? AND partner_key=?")
                     ->execute([
                         $result['reference'] ?? null,
                         json_encode($result),
                         $result['message'] ?? 'Package ready — partner API adapter pending',
                         $itemId,
+                        $partnerKey,
                     ]);
                 $results['staged'] = ($results['staged'] ?? 0) + 1;
-                if (!function_exists('wiringKycForwardNotifyBody') && is_file(__DIR__ . '/wiring_deep_link_workflow.php')) {
-                    require_once __DIR__ . '/wiring_deep_link_workflow.php';
-                }
-                $stagedLabel = function_exists('wiringKycForwardPartnerLabel') ? wiringKycForwardPartnerLabel($partnerKey) : ucfirst($partnerKey);
-                $stagedBody = 'Your KYC package is prepared for ' . $stagedLabel . ' — queued, not sent to the partner yet. Staff will forward when ready.';
+                $stagedBody = 'Your KYC package is saved on UniWeb — not sent to the payment network yet. You will be notified when it is submitted.';
                 if (function_exists('notifyMerchant')) {
                     notifyMerchant($merchantId, 'KYC package prepared (queued)', $stagedBody, 'kyc_staged_' . $merchantId . '_' . $partnerKey);
                 }
             } else {
-                $err = (string)($result['error'] ?? 'Unknown error');
+                $err = maskForwardQueueErrorMessage((string)($result['error'] ?? 'Unknown error'));
                 $terminal = !empty($result['terminal']);
-                if ($terminal || $attempts >= (int)$item['max_attempts']) {
-                    $db->prepare("UPDATE partner_forward_queue SET status='failed', error_message=? WHERE id=?")
-                        ->execute([$err, $itemId]);
+                $maxAttempts = (int)($item['max_attempts'] ?? forwardQueueDefaultMaxAttempts());
+                if ($terminal || $attempts >= $maxAttempts) {
+                    $db->prepare("UPDATE partner_forward_queue SET status='failed', error_message=? WHERE id=? AND partner_key=?")
+                        ->execute([$err, $itemId, $partnerKey]);
                     $results['failed']++;
-                    if (!function_exists('wiringKycForwardNotifyBody') && is_file(__DIR__ . '/wiring_deep_link_workflow.php')) {
-                        require_once __DIR__ . '/wiring_deep_link_workflow.php';
-                    }
-                    $failBody = function_exists('wiringKycForwardNotifyBody')
-                        ? wiringKycForwardNotifyBody($partnerKey, 'fail', $attempts)
-                        : ('KYC submission to ' . ucfirst($partnerKey) . ' failed after ' . $attempts . ' attempts. Staff will assist manually.');
+                    $failBody = 'KYC submission to the payment network could not be completed. UniWeb staff will assist.';
                     if (!$terminal && function_exists('notifyMerchant')) {
-                        notifyMerchant($merchantId, 'KYC Forward Failed', $failBody, 'kyc_fwd_fail_' . $merchantId . '_' . $partnerKey);
+                        notifyMerchant($merchantId, 'KYC forward needs review', $failBody, 'kyc_fwd_fail_' . $merchantId . '_' . $partnerKey);
                     } elseif (!$terminal && function_exists('createNotification')) {
-                        createNotification($merchantId, 'KYC Forward Failed', $failBody);
+                        createNotification($merchantId, 'KYC forward needs review', $failBody);
                     }
                 } else {
-                    $nextRetry = date('Y-m-d H:i:s', time() + ($attempts * 1800));
-                    $db->prepare("UPDATE partner_forward_queue SET status='retry', error_message=?, schedule_at=? WHERE id=?")
-                        ->execute([$err, $nextRetry, $itemId]);
+                    $nextRetry = forwardQueueRetryScheduleAt($attempts);
+                    $db->prepare("UPDATE partner_forward_queue SET status='retry', error_message=?, schedule_at=? WHERE id=? AND partner_key=?")
+                        ->execute([$err, $nextRetry, $itemId, $partnerKey]);
                     $results['retry']++;
                 }
             }
         } catch (Throwable $e) {
-            $db->prepare("UPDATE partner_forward_queue SET status='failed', error_message=? WHERE id=?")
-                ->execute([$e->getMessage(), $itemId]);
+            $db->prepare("UPDATE partner_forward_queue SET status='failed', error_message=? WHERE id=? AND partner_key=?")
+                ->execute([maskForwardQueueErrorMessage($e->getMessage()), $itemId, $partnerKey]);
             $results['failed']++;
         }
     }
@@ -619,6 +721,14 @@ function runKycForwardAdapter(string $partnerKey, int $merchantId, array $fullPa
         ];
     }
 
+    if ($meta['mode'] === 'live_api' && function_exists('forwardQueuePushLiveApi')) {
+        $live = forwardQueuePushLiveApi($partnerKey, $merchantId, $fullPayload);
+        if (is_array($live)) {
+            $live['adapter'] = 'live_api';
+            return $live;
+        }
+    }
+
     if ($meta['mode'] === 'local_record') {
         $subRef = null;
         if (function_exists('submitMerchantToGateway') || is_file(__DIR__ . '/gateways.php')) {
@@ -768,10 +878,10 @@ function merchantForwardQueueStatusLabel(string $status): string
     return match ($status) {
         'queued' => 'Queued',
         'processing' => 'Processing',
-        'staged' => 'Prepared — not sent to bank yet',
-        'success' => 'Submitted',
+        'staged' => 'Prepared — not sent to network yet',
+        'success' => 'Accepted by payment network',
         'retry' => 'Retry scheduled',
-        'failed' => 'Needs Admin review',
+        'failed' => 'Needs UniWeb review',
         'paused' => 'Paused',
         default => ucfirst(str_replace('_', ' ', $status)),
     };
@@ -780,17 +890,23 @@ function merchantForwardQueueStatusLabel(string $status): string
 /** Admin matrix — honest labels; success only when partner API confirmed. */
 function forwardQueueAdminStatusLabel(string $status): string
 {
-    return match ($status) {
-        'queued' => 'Queued',
-        'processing' => 'Processing',
-        'staged' => 'Staged — not sent to bank/partner yet',
-        'success' => 'Sent — partner API confirmed',
-        'retry' => 'Retry scheduled',
-        'failed' => 'Failed — see reason',
-        'paused' => 'Paused',
-        'cancelled' => 'Cancelled',
-        default => ucfirst(str_replace('_', ' ', $status)),
-    };
+    $vocab = forwardQueueStatusVocabulary();
+    return $vocab[$status] ?? ucfirst(str_replace('_', ' ', $status));
+}
+
+/** Admin badge text — includes adapter hint when staged + local_record. */
+function forwardQueueAdminStatusBadge(array $row): string
+{
+    $status = (string)($row['status'] ?? '');
+    $label = forwardQueueAdminStatusLabel($status);
+    $adapter = forwardQueueRowAdapterMode($row);
+    if ($status === 'staged' && $adapter === 'local_record') {
+        return $label . ' · local_record';
+    }
+    if ($status === 'success' && $adapter === 'live_api') {
+        return $label . ' · live_api';
+    }
+    return $label;
 }
 
 /**
@@ -831,17 +947,29 @@ function getForwardQueueRowTimeline(int $queueId): array
         $timeline[] = [
             'at' => (string)$row['updated_at'],
             'event' => 'Status: ' . forwardQueueAdminStatusLabel((string)($row['status'] ?? '')),
-            'detail' => trim((string)($row['error_message'] ?? '')) ?: (string)($row['partner_reference'] ?? '—'),
+            'detail' => maskForwardQueueErrorMessage(trim((string)($row['error_message'] ?? ''))) ?: (string)($row['partner_reference'] ?? '—'),
         ];
     }
     if (!empty($row['partner_response'])) {
         $resp = json_decode((string)$row['partner_response'], true);
-        if (is_array($resp) && !empty($resp['message'])) {
-            $timeline[] = [
-                'at' => (string)($row['updated_at'] ?? $row['last_attempt_at'] ?? ''),
-                'event' => 'Adapter response',
-                'detail' => (string)$resp['message'],
-            ];
+        if (is_array($resp)) {
+            if (!empty($resp['message'])) {
+                $timeline[] = [
+                    'at' => (string)($row['updated_at'] ?? $row['last_attempt_at'] ?? ''),
+                    'event' => 'Adapter response',
+                    'detail' => maskForwardQueueErrorMessage((string)$resp['message']),
+                ];
+            }
+            $adapter = (string)($resp['adapter'] ?? '');
+            if ($adapter !== '') {
+                $timeline[] = [
+                    'at' => (string)($row['updated_at'] ?? $row['created_at'] ?? ''),
+                    'event' => 'Adapter mode',
+                    'detail' => $adapter === 'local_record'
+                        ? 'local_record — UniWeb saved only, not partner API success'
+                        : ($adapter === 'live_api' ? 'live_api — partner HTTP path' : $adapter),
+                ];
+            }
         }
     }
     return $timeline;
@@ -870,7 +998,7 @@ function getMerchantForwardStatus(int $merchantId): array
 /**
  * Get all forward queue items for admin status matrix (D4).
  */
-function getAdminForwardMatrix(string $statusFilter = '', string $q = ''): array
+function getAdminForwardMatrix(string $statusFilter = '', string $q = '', string $partnerFilter = ''): array
 {
     ensurePartnerForwardQueueTable();
     try {
@@ -882,6 +1010,11 @@ function getAdminForwardMatrix(string $statusFilter = '', string $q = ''): array
         if ($statusFilter !== '') {
             $conditions[] = "q.status = ?";
             $params[] = $statusFilter;
+        }
+        $partnerFilter = strtolower(trim($partnerFilter));
+        if ($partnerFilter !== '') {
+            $conditions[] = 'q.partner_key = ?';
+            $params[] = $partnerFilter;
         }
         if ($q !== '') {
             $like = '%' . strtolower($q) . '%';
@@ -907,9 +1040,9 @@ function manualRequeueForward(int $itemId): bool
 {
     ensurePartnerForwardQueueTable();
     try {
-        getDB()->prepare("UPDATE partner_forward_queue SET status='queued', attempts=0, schedule_at=NOW(), error_message=NULL, partner_reference=NULL WHERE id=? AND status IN ('failed','staged')")
-            ->execute([$itemId]);
-        return true;
+        $st = getDB()->prepare("UPDATE partner_forward_queue SET status='queued', attempts=0, schedule_at=NOW(), error_message=NULL, partner_reference=NULL WHERE id=? AND status IN ('failed','staged')");
+        $st->execute([$itemId]);
+        return $st->rowCount() > 0;
     } catch (Throwable $e) {
         return false;
     }

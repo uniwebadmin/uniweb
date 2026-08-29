@@ -78,18 +78,31 @@ function smtpSendMail(string $host, int $port, string $user, string $pass, strin
     }
 }
 
-function notifyMerchantEmail(int $merchantId, string $subject, string $message, ?string $event = null): void
+function notifyMerchantEmail(int $merchantId, string $subject, string $message, ?string $event = null, ?string $dedupeKey = null): void
 {
     try {
         if ($event !== null && function_exists('merchantWantsNotify') && !merchantWantsNotify($merchantId, $event, 'email')) {
             return;
+        }
+        $scope = 'merchant:' . $merchantId;
+        if ($dedupeKey !== null && $dedupeKey !== '') {
+            if (!function_exists('notifyChannelWasSent') && is_file(__DIR__ . '/notifications.php')) {
+                require_once __DIR__ . '/notifications.php';
+            }
+            if (function_exists('notifyChannelWasSent') && notifyChannelWasSent($scope, $dedupeKey)) {
+                return;
+            }
         }
         $stmt = getDB()->prepare('SELECT email, name FROM merchants WHERE id = ?');
         $stmt->execute([$merchantId]);
         $m = $stmt->fetch();
         if ($m && filter_var($m['email'], FILTER_VALIDATE_EMAIL)) {
             $body = "Hi {$m['name']},\n\n{$message}\n\n— " . APP_NAME . " Team";
-            sendPlatformEmail($m['email'], $subject, $body);
+            if (sendPlatformEmail($m['email'], $subject, $body)) {
+                if ($dedupeKey !== null && $dedupeKey !== '' && function_exists('markNotifyChannelSent')) {
+                    markNotifyChannelSent($scope, $dedupeKey);
+                }
+            }
         }
     } catch (Throwable $e) {
         if (function_exists('logPlatformError')) {

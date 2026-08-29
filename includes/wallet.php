@@ -1287,15 +1287,34 @@ function approvePendingTransaction(int $transactionId): bool
     $txn = $db->prepare('SELECT * FROM transactions WHERE id = ?');
     $txn->execute([$transactionId]);
     $row = $txn->fetch();
-    if (!$row || $row['status'] !== 'pending') return false;
+    if (!$row || $row['status'] !== 'pending') {
+        return false;
+    }
 
     $db->prepare("UPDATE transactions SET status = 'success' WHERE id = ?")->execute([$transactionId]);
+    if (!function_exists('finalizeSuccessfulPaymentTransaction') && is_file(__DIR__ . '/financial_integrity.php')) {
+        require_once __DIR__ . '/financial_integrity.php';
+    }
+    if (function_exists('finalizeSuccessfulPaymentTransaction')) {
+        $result = finalizeSuccessfulPaymentTransaction($transactionId, [
+            'provider' => (string)($row['payment_method'] ?? 'sandbox'),
+            'run_risk_hooks' => true,
+        ]);
+        return !empty($result['ok']) || (($result['ledger_status'] ?? '') === 'failed');
+    }
     creditWalletsFromTransaction($transactionId);
     return true;
 }
 
 function backfillWalletCredits(): int
 {
+    if (!function_exists('reconcilePendingPaymentLedgers') && is_file(__DIR__ . '/financial_integrity.php')) {
+        require_once __DIR__ . '/financial_integrity.php';
+    }
+    if (function_exists('reconcilePendingPaymentLedgers')) {
+        $result = reconcilePendingPaymentLedgers(200);
+        return (int)($result['posted'] ?? 0);
+    }
     ensureWalletEngine();
     fixCorruptTransactionAmounts();
     fixCorruptPaymentLinks();

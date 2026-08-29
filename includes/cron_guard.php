@@ -40,10 +40,18 @@ function logCronAuthFailure(string $reason): void
     if (str_contains($ua, 'UniWeb-Watchdog')) {
         return;
     }
-    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $ip = substr((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 0, 45);
+    $throttleKey = 'cron_auth_fail_' . md5($reason . '|' . $ip);
+    if (function_exists('getSetting') && function_exists('saveAutoAuditMeta')) {
+        $last = (int)getSetting($throttleKey, '0');
+        if (time() - $last < 3600) {
+            return;
+        }
+        saveAutoAuditMeta($throttleKey, (string)time());
+    }
     logPlatformError('warning', 'Cron auth failed (' . $reason . ') from ' . $ip, [
-        'uri' => $_SERVER['REQUEST_URI'] ?? '',
-        'user_agent' => substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 120),
+        'uri' => substr((string)($_SERVER['REQUEST_URI'] ?? ''), 0, 256),
+        'user_agent' => substr($ua, 0, 120),
     ]);
 }
 
