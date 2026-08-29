@@ -57,7 +57,7 @@ renderCheckoutModeBanner($link);
 <div class="min-h-screen flex flex-col bg-dark-950">
 <div class="flex-1 flex items-center justify-center px-4 py-12">
     <div class="glass rounded-2xl p-8 text-center max-w-md w-full border <?= $success ? 'border-emerald-500/30' : 'border-red-500/30' ?>">
-        <?php $logoHref = 'index.php'; $logoSize = 'md'; require __DIR__ . '/includes/brand_logo.php'; ?>
+        <?php $logoHref = 'index.php'; $logoSize = 'md'; require __DIR__ . '/includes/brand_logo_safe.php'; ?>
         <h2 class="text-xl font-bold mt-6 mb-2"><?= $success ? 'Payment Successful!' : 'Payment Failed' ?></h2>
         <?php if ($success): ?>
         <p class="text-3xl font-bold text-sky-400 my-3"><?= formatMoney((float)$link['amount']) ?></p>

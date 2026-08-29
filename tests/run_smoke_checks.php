@@ -1951,6 +1951,9 @@ $assert(str_contains($apiDocsSrc, 'id="sdk-libraries"') && str_contains($apiDocs
 $assert(str_contains($apiDocsSrc, '$anchor = $ep[4] ??') && !preg_match('/foreach\s*\(\s*\$endpoints\s+as\s+\[\$/', $apiDocsSrc), 'api_docs_endpoints_safe_destructure');
 $sdkShapeOut = shell_exec('php "' . $root . '/sdk/php/tests/RequestShapeTest.php" 2>&1') ?? '';
 $assert(str_contains($sdkShapeOut, 'SDK shape tests OK'), 'sdk_php_shape_test_runs');
+$assert(is_file($root . '/includes/brand_logo.php') && is_file($root . '/includes/brand_logo_safe.php'), 'brand_logo_files_present');
+$hdr = (string)file_get_contents($root . '/header.php');
+$assert(str_contains($hdr, 'brand_logo_safe.php') && !preg_match('/require\s+__DIR__\s*\.\s*[\'"]\/includes\/brand_logo\.php/', $hdr), 'header_uses_safe_brand_logo');
 $p13ApiDocs = (string)file_get_contents($root . '/api_docs.php');
 $p13PhpReadme = (string)file_get_contents($root . '/sdk/php/README.md');
 $p13NodeReadme = (string)file_get_contents($root . '/sdk/node/README.md');

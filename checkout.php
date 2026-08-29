@@ -515,7 +515,7 @@ endif;
             </a>
             <?php
             else:
-                $logoHref = 'index.php'; $logoSize = 'md'; require __DIR__ . '/includes/brand_logo.php';
+                $logoHref = 'index.php'; $logoSize = 'md'; require __DIR__ . '/includes/brand_logo_safe.php';
             endif;
             ?>
             <span class="text-xs text-sky-400 hidden sm:inline"><?= $wlBrand['active'] && !empty($wlBrand['checkout_subtitle']) ? e($wlBrand['checkout_subtitle']) : 'Secure Checkout' ?></span>

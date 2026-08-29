@@ -94,7 +94,7 @@ require_once __DIR__ . '/header.php';
 <div class="min-h-screen flex flex-col bg-dark-950">
 <div class="flex-1 flex items-center justify-center px-4 py-12">
     <div class="w-full max-w-md text-center">
-        <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
+        <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo_safe.php'; ?>
         <div class="glass rounded-2xl p-8 mt-5">
             <h1 class="text-lg font-semibold">Opening your UPI app…</h1>
             <p class="text-sm text-gray-400 mt-2">Pay <span class="text-gray-200 font-medium"><?= e($businessName) ?></span> directly via UPI.<?= $qrAmount > 0 ? ' <span class="text-gray-300 font-semibold">Amount: ₹' . e(number_format($qrAmount, 2)) . '</span>' : '' ?></p>

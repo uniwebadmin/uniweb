@@ -262,7 +262,7 @@ require_once __DIR__ . '/header.php';
     <div class="ap-panel">
         <div class="ap-card">
             <div class="ap-logo">
-                <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
+                <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo_safe.php'; ?>
             </div>
             <p class="ap-title"><?= $showOtpStep ? __('signup_otp_title') : __('signup_title') ?></p>
             <p class="ap-sub"><?= $showOtpStep ? __('signup_otp_sub') : __('signup_sub') ?></p>

@@ -219,7 +219,7 @@ require_once __DIR__ . '/header.php';
 <div class="flex-1 flex items-center justify-center px-4 py-12">
     <div class="w-full max-w-md">
         <div class="text-center mb-7">
-            <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
+            <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo_safe.php'; ?>
             <p class="text-xs mt-3 <?= $isTest ? 'text-amber-400' : 'text-emerald-400' ?>"><?= $isTest ? 'UniWeb Test Mode · No real money' : 'Live payment' ?></p>
         </div>
         <div class="glass rounded-2xl p-8">

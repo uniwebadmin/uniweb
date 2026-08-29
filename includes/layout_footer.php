@@ -41,7 +41,7 @@ if (!empty($isMerchant) || !empty($isAdmin)): ?>
     <div class="site-footer-wrap w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div class="site-footer-grid">
             <div class="site-footer-card">
-                <?php $logoHref = 'index.php'; $logoSize = 'sm'; require __DIR__ . '/brand_logo.php'; ?>
+                <?php $logoHref = 'index.php'; $logoSize = 'sm'; require __DIR__ . '/brand_logo_safe.php'; ?>
                 <p class="text-sm text-gray-400 mt-3 leading-relaxed max-w-xs">B2B payments for Indian businesses — UPI, cards, links &amp; settlements.</p>
             </div>
             <div class="site-footer-card">

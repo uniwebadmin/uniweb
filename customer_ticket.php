@@ -66,7 +66,7 @@ require_once __DIR__ . '/header.php';
 <div class="cp-shell">
     <header class="cp-topbar">
         <div class="cp-topbar-inner">
-            <?php $logoHref = 'customer_portal.php'; $logoSize = 'sm'; require __DIR__ . '/includes/brand_logo.php'; ?>
+            <?php $logoHref = 'customer_portal.php'; $logoSize = 'sm'; require __DIR__ . '/includes/brand_logo_safe.php'; ?>
             <?php require __DIR__ . '/includes/customer_portal_nav.php'; ?>
             <div class="flex items-center gap-2">
                 <a href="customer_logout.php" class="cp-btn cp-btn-ghost text-xs !py-1.5 !px-3">Logout</a>

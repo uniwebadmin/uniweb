@@ -163,7 +163,7 @@ require_once __DIR__ . '/header.php';
     <div class="ap-panel">
         <div class="ap-card">
             <div class="ap-logo">
-                <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
+                <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo_safe.php'; ?>
             </div>
             <p class="ap-title"><?= $totpStep || $otpStep ? 'Verify to continue' : e(__('login_title')) ?></p>
             <p class="ap-sub"><?= $totpStep ? 'Two-factor authentication is on for this account.' : ($otpStep ? 'Enter the one-time code we sent you.' : e(__('login_sub'))) ?></p>

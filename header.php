@@ -127,7 +127,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
 <nav class="fixed top-0 w-full z-40 glass border-b border-white/5">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
-            <?php $logoHref = 'index.php'; $logoSize = 'md'; require __DIR__ . '/includes/brand_logo.php'; ?>
+            <?php $logoHref = 'index.php'; $logoSize = 'md'; require __DIR__ . '/includes/brand_logo_safe.php'; ?>
             <div class="hidden md:flex items-center gap-8 text-sm text-gray-300">
                 <a href="tour_videos.php" class="hover:text-brand-400 transition">Tour</a>
                 <a href="merchant_register.php" class="hover:text-brand-400 transition">Demo</a>
@@ -171,7 +171,7 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
 <div class="portal-shell flex flex-1 min-h-screen">
     <aside id="sidebar-panel" class="sidebar-shell w-64 bg-dark-900 border-r border-gray-800 fixed inset-y-0 left-0 z-50 lg:z-30 mobile-drawer lg:translate-x-0 lg:!transform-none flex flex-col">
         <div class="p-5 border-b border-gray-800 shrink-0">
-            <?php $logoHref = 'dashboard.php'; $logoSize = 'sm'; $merchantPanel = true; $merchantInitial = strtoupper(substr($merchant['business_name'] ?? $merchant['name'] ?? 'M', 0, 1)); require __DIR__ . '/includes/brand_logo.php'; ?>
+            <?php $logoHref = 'dashboard.php'; $logoSize = 'sm'; $merchantPanel = true; $merchantInitial = strtoupper(substr($merchant['business_name'] ?? $merchant['name'] ?? 'M', 0, 1)); require __DIR__ . '/includes/brand_logo_safe.php'; ?>
             <p class="text-sm font-semibold text-white mt-3 truncate"><?= e($merchant['business_name'] ?? $merchant['name'] ?? 'Merchant') ?></p>
             <p class="text-[10px] text-gray-500 font-mono mt-0.5"><?= e($merchant['merchant_code'] ?? '') ?></p>
         </div>

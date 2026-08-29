@@ -32,7 +32,7 @@ require_once __DIR__ . '/header.php';
 <div class="min-h-screen flex items-center justify-center px-4 py-12" role="main">
     <div class="w-full max-w-md">
         <div class="text-center mb-8">
-            <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo.php'; ?>
+            <?php $logoHref = 'index.php'; $logoSize = 'lg'; require __DIR__ . '/includes/brand_logo_safe.php'; ?>
             <h1 class="text-2xl font-bold">Forgot Password</h1>
         </div>
         <div class="glass rounded-2xl p-8">
