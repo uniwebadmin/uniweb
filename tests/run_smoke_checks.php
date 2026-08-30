@@ -1958,6 +1958,34 @@ $assert(!str_contains($apiDocsSrc, 'Gateway Webhooks (Admin)') && !str_contains(
 $assert(!str_contains($apiDocsSrc, 'NBFC') && !str_contains($apiDocsSrc, 'PPI'), 'api_docs_no_nbfc_ppi');
 $openapiSrc = (string)file_get_contents($root . '/openapi.json');
 $assert(str_contains($openapiSrc, 'UniWeb Merchant API') && str_contains($openapiSrc, 'error_code'), 'openapi_merchant_api_v1');
+require_once $root . '/includes/merchant_api_errors.php';
+$merchantApiCatalog = merchantApiErrorCatalog();
+$assert(count($merchantApiCatalog) >= 20, 'p14_merchant_api_catalog_nonempty');
+foreach (['amount_out_of_range', 'missing_idempotency_key', 'idempotency_conflict', 'auth_failed', 'partner_unavailable', 'internal_error'] as $knownApiCode) {
+    $assert(isset($merchantApiCatalog[$knownApiCode]) && trim((string)($merchantApiCatalog[$knownApiCode]['message'] ?? '')) !== '', 'p14_merchant_api_code_' . $knownApiCode);
+}
+$publicApiActions = merchantApiPublicActions();
+$assert(count($publicApiActions) === 8, 'p14_merchant_api_eight_actions');
+$openapiDecoded = json_decode($openapiSrc, true);
+$assert(is_array($openapiDecoded), 'p14_openapi_valid_json');
+$openapiErrorEnum = $openapiDecoded['components']['schemas']['ErrorResponse']['properties']['error_code']['enum'] ?? [];
+$catalogErrorCodes = merchantApiOpenApiErrorCodes();
+sort($openapiErrorEnum);
+$sortedCatalogCodes = $catalogErrorCodes;
+sort($sortedCatalogCodes);
+$assert($openapiErrorEnum === $sortedCatalogCodes, 'p14_openapi_error_enum_matches_catalog');
+$apiPhpSrc = (string)file_get_contents($root . '/api.php');
+foreach ($publicApiActions as $apiAction) {
+    $assert(str_contains($apiPhpSrc, "case '$apiAction':"), 'p14_api_php_action_' . $apiAction);
+}
+$assert(str_contains($openapiSrc, '"/api.php"') && str_contains($openapiSrc, 'x-uniweb-design'), 'p14_openapi_legacy_alias_and_design_note');
+$assert(str_contains($openapiSrc, 'missing_idempotency_key') && str_contains($openapiSrc, 'create_refund'), 'p14_openapi_idempotency_and_refund');
+$assert(str_contains($apiPhpSrc, "merchantApiRespondError('missing_idempotency_key')"), 'p14_api_emits_missing_idempotency_key');
+$assert(str_contains((string)file_get_contents($root . '/method_partner_webhook.php'), 'registerGatewayEvent'), 'p14_method_partner_webhook_dedup');
+$assert(str_contains((string)file_get_contents($root . '/axis_webhook.php'), "setGatewayEventStatus") && str_contains((string)file_get_contents($root . '/axis_webhook.php'), "'duplicate'"), 'p14_axis_webhook_dedup_status');
+$finIntegrity = (string)file_get_contents($root . '/includes/financial_integrity.php');
+$assert(str_contains($finIntegrity, 'api_idempotency_keys') && str_contains($finIntegrity, 'gateway_events'), 'p14_idempotency_and_gateway_event_tables');
+$assert(str_contains($finIntegrity, 'business_type') && str_contains($finIntegrity, 'business_reference'), 'p14_ledger_journal_idempotent_key');
 
 // Phase 1 — UniWeb SDK libraries (PHP + Node)
 $sdkPhpClient = (string)file_get_contents($root . '/sdk/php/src/Client.php');

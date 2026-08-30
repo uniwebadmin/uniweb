@@ -93,7 +93,9 @@ switch ($action) {
                 echo $idempotency['response_body'];
                 exit;
             }
-        } catch (Throwable $e) {
+        } catch (InvalidArgumentException $e) {
+            merchantApiRespondError('missing_idempotency_key');
+        } catch (RuntimeException $e) {
             merchantApiRespondError('idempotency_conflict', $e->getMessage());
         }
 
@@ -190,7 +192,9 @@ switch ($action) {
                 echo $idempotency['response_body'];
                 exit;
             }
-        } catch (Throwable $e) {
+        } catch (InvalidArgumentException $e) {
+            merchantApiRespondError('missing_idempotency_key');
+        } catch (RuntimeException $e) {
             merchantApiRespondError('idempotency_conflict', $e->getMessage());
         }
         $result = processRefund((int)$txn['id'], $amount, $reason);

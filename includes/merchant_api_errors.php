@@ -13,7 +13,7 @@ function merchantApiErrorCatalog(): array
         'unknown_action' => ['http' => 400, 'message' => 'Unknown action. See API documentation for supported actions.'],
         'missing_credentials' => ['http' => 401, 'message' => 'X-API-Key and X-API-Secret headers are required.'],
         'auth_failed' => ['http' => 401, 'message' => 'Invalid API credentials or insufficient scope.'],
-        'auth_invalid' => ['http' => 401, 'message' => 'Authentication failed. Check API credentials.'],
+        'auth_invalid' => ['http' => 401, 'message' => 'Partner rejected credentials during refund processing. Contact UniWeb support.'],
         'origin_not_allowed' => ['http' => 403, 'message' => 'Origin not allowed for this API key.'],
         'mode_mismatch' => ['http' => 403, 'message' => 'Account is in Test Mode. Use a test API key or complete KYC for live operations.'],
         'not_found' => ['http' => 404, 'message' => 'Resource not found.'],
@@ -23,7 +23,7 @@ function merchantApiErrorCatalog(): array
         'missing_txn_id' => ['http' => 400, 'message' => 'txn_id is required.'],
         'missing_link_id' => ['http' => 400, 'message' => 'link_id is required.'],
         'missing_idempotency_key' => ['http' => 400, 'message' => 'Idempotency-Key header is required for this action.'],
-        'idempotency_conflict' => ['http' => 409, 'message' => 'Idempotency-Key already used with a different request body.'],
+        'idempotency_conflict' => ['http' => 409, 'message' => 'Idempotency-Key conflict — different request body or an identical request is already in progress.'],
         'rate_limited' => ['http' => 429, 'message' => 'API rate limit exceeded. Retry after the Retry-After interval.'],
         'method_not_allowed' => ['http' => 405, 'message' => 'Only POST is supported.'],
         'refund_failed' => ['http' => 400, 'message' => 'Refund could not be processed.'],
@@ -32,6 +32,27 @@ function merchantApiErrorCatalog(): array
         'partner_unavailable' => ['http' => 503, 'message' => 'Payment partner is temporarily unavailable. Try again shortly.'],
         'internal_error' => ['http' => 500, 'message' => 'An internal error occurred. Support has been notified.'],
     ];
+}
+
+/** Public Merchant API actions — must match api.php switch and openapi.json action enum. */
+function merchantApiPublicActions(): array
+{
+    return [
+        'create_payment_link',
+        'check_status',
+        'list_transactions',
+        'get_balance',
+        'create_refund',
+        'list_refunds',
+        'list_payment_links',
+        'get_payment_link',
+    ];
+}
+
+/** Stable error_code values for OpenAPI enum + smoke sync. */
+function merchantApiOpenApiErrorCodes(): array
+{
+    return array_keys(merchantApiErrorCatalog());
 }
 
 /**

@@ -44,6 +44,7 @@ if (!$merch) {
 }
 
 $eventId = 'axis:' . $utr;
+$gatewayEvent = null;
 if (function_exists('registerGatewayEvent') && financialTablesReady()) {
     $gatewayEvent = registerGatewayEvent('axis', $eventId, 'va_credit', $raw, true);
     if (!empty($gatewayEvent['duplicate'])) {
@@ -54,6 +55,9 @@ if (function_exists('registerGatewayEvent') && financialTablesReady()) {
 $dup = $db->prepare('SELECT id FROM transactions WHERE utr = ? LIMIT 1');
 $dup->execute([$utr]);
 if ($dup->fetch()) {
+    if ($gatewayEvent !== null && !empty($gatewayEvent['id']) && function_exists('setGatewayEventStatus')) {
+        setGatewayEventStatus((int)$gatewayEvent['id'], 'duplicate');
+    }
     jsonResponse(['status' => 'duplicate', 'app' => APP_NAME]);
 }
 
@@ -79,4 +83,7 @@ if (!empty($merch['va_row_id'])) {
 }
 
 axisLogApi('webhook', 'POST', '', 'credited txn ' . $txnId, 200, (int)$merch['id'], 'webhook_ok');
+if ($gatewayEvent !== null && !empty($gatewayEvent['id']) && function_exists('setGatewayEventStatus')) {
+    setGatewayEventStatus((int)$gatewayEvent['id'], 'processed');
+}
 jsonResponse(['status' => 'processed', 'transaction_id' => $txnId, 'app' => APP_NAME]);

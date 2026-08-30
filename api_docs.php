@@ -313,7 +313,7 @@ const ok = verifySignature(rawBody, req.headers['x-uniweb-signature'], signingSe
                     </tbody>
                 </table>
             </div>
-            <p class="text-xs text-gray-500 mt-4">HTTP summary: <code class="text-gray-400">200</code> success · <code class="text-gray-400">400</code> bad request · <code class="text-gray-400">401</code> auth · <code class="text-gray-400">403</code> mode/origin · <code class="text-gray-400">404</code> not found · <code class="text-gray-400">405</code> method · <code class="text-gray-400">409</code> idempotency conflict · <code class="text-gray-400">429</code> rate limit (see <code class="text-gray-400">Retry-After</code> header, seconds).</p>
+            <p class="text-xs text-gray-500 mt-4">HTTP summary: <code class="text-gray-400">200</code> success · <code class="text-gray-400">400</code> bad request (incl. <code class="text-gray-400">missing_idempotency_key</code>) · <code class="text-gray-400">401</code> auth (<code class="text-gray-400">auth_failed</code> = your API key; <code class="text-gray-400">auth_invalid</code> = partner rejected refund) · <code class="text-gray-400">403</code> mode/origin · <code class="text-gray-400">404</code> not found · <code class="text-gray-400">405</code> method · <code class="text-gray-400">409</code> idempotency conflict · <code class="text-gray-400">429</code> rate limit (see <code class="text-gray-400">Retry-After</code> header, seconds) · <code class="text-gray-400">500</code> internal · <code class="text-gray-400">503</code> partner unavailable.</p>
         </div>
 
         <div class="glass rounded-xl p-6" id="endpoints">
@@ -352,7 +352,7 @@ const ok = verifySignature(rawBody, req.headers['x-uniweb-signature'], signingSe
                 <div class="rounded-lg border border-gray-800 p-3"><span class="text-brand-400 font-mono">120 req/min</span><p class="text-xs text-gray-500 mt-1">Per API credential. Short burst allowed.</p></div>
                 <div class="rounded-lg border border-gray-800 p-3"><span class="text-amber-400 font-mono">429 + Retry-After</span><p class="text-xs text-gray-500 mt-1">Use exponential backoff on rate-limit responses.</p></div>
             </div>
-            <p class="text-xs text-gray-500 mt-3">Reusing the same Idempotency-Key with an identical body returns the original response. Reusing with a different body returns <code class="text-gray-400">409 idempotency_conflict</code>.</p>
+            <p class="text-xs text-gray-500 mt-3">Reusing the same Idempotency-Key with an identical body returns the original response. Reusing with a different body returns <code class="text-gray-400">409 idempotency_conflict</code>. Omitting the header on write actions returns <code class="text-gray-400">400 missing_idempotency_key</code>. Keys are scoped per merchant + mode and stored for 72 hours in <code class="text-gray-400">api_idempotency_keys</code>.</p>
         </div>
 
         <div class="glass rounded-xl p-6 border border-amber-500/20">

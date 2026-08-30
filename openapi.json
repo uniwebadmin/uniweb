@@ -3,35 +3,20 @@
   "info": {
     "title": "UniWeb Merchant API",
     "version": "1.0.0",
-    "description": "UniWeb Merchant API v1. Authenticate with X-API-Key and X-API-Secret. Write requests require Idempotency-Key. All responses include api_version. Documentation: /api_docs.php"
+    "description": "UniWeb Merchant API v1 — single POST endpoint with JSON `action` field. Authenticate with X-API-Key and X-API-Secret. Write actions require Idempotency-Key (max 100 chars). Mode is determined by key prefix: uw_test_… (sandbox) or uw_live_… (live). Every response includes api_version. Human docs: /api_docs.php · Legacy alias: POST /api.php"
   },
   "servers": [{ "url": "https://uniweb.co.in" }],
   "paths": {
     "/api/v1/": {
       "post": {
+        "operationId": "merchantApiV1",
         "summary": "UniWeb Merchant API v1",
-        "description": "Single endpoint — pass action in JSON body. See api_docs.php for copy-paste examples.",
+        "description": "Pass `action` in JSON body. Browser calls require allowlisted Origin. Rate limit: 120 requests/minute per credential.",
         "parameters": [
-          {
-            "name": "X-API-Key",
-            "in": "header",
-            "required": true,
-            "description": "uw_test_… (sandbox) or uw_live_… (live)",
-            "schema": { "type": "string" }
-          },
-          {
-            "name": "X-API-Secret",
-            "in": "header",
-            "required": true,
-            "schema": { "type": "string", "format": "password" }
-          },
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "required": false,
-            "description": "Required for create_payment_link and create_refund.",
-            "schema": { "type": "string", "maxLength": 100 }
-          }
+          { "name": "X-API-Key", "in": "header", "required": true, "description": "uw_test_… (sandbox) or uw_live_… (live)", "schema": { "type": "string" } },
+          { "name": "X-API-Secret", "in": "header", "required": true, "schema": { "type": "string", "format": "password" } },
+          { "name": "Idempotency-Key", "in": "header", "required": false, "description": "Required for create_payment_link and create_refund.", "schema": { "type": "string", "maxLength": 100 } },
+          { "name": "Content-Type", "in": "header", "required": true, "schema": { "type": "string", "enum": ["application/json"] } }
         ],
         "requestBody": {
           "required": true,
@@ -41,118 +26,185 @@
               "examples": {
                 "create_payment_link": {
                   "summary": "Create payment link",
-                  "value": {
-                    "action": "create_payment_link",
-                    "amount": 500,
-                    "description": "Order #123",
-                    "customer_phone": "9876543210"
-                  }
+                  "value": { "action": "create_payment_link", "amount": 500, "description": "Order #123", "customer_phone": "9876543210", "customer_name": "Rahul Sharma" }
                 },
                 "check_status": {
                   "summary": "Check payment status",
-                  "value": {
-                    "action": "check_status",
-                    "txn_id": "TXN20260826123456"
-                  }
+                  "value": { "action": "check_status", "txn_id": "TXN20260826123456" }
+                },
+                "create_refund": {
+                  "summary": "Create refund",
+                  "value": { "action": "create_refund", "txn_id": "TXN20260826123456", "amount": 100, "reason": "Customer request" }
+                },
+                "get_balance": {
+                  "summary": "Get balance",
+                  "value": { "action": "get_balance" }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/SuccessResponse" }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "Invalid credentials",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
-              }
-            }
-          },
-          "403": {
-            "description": "Mode mismatch or origin not allowed",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
-              }
-            }
-          },
-          "409": {
-            "description": "Idempotency conflict",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded — Retry-After header in seconds"
-          }
+          "200": { "description": "Success", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuccessResponse" } } } },
+          "400": { "description": "Bad request (validation, refund failed, missing fields)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" }, "example": { "success": false, "error_code": "amount_out_of_range", "error": "Amount must be between 1 and 200000000.", "api_version": "v1" } } } },
+          "401": { "description": "Missing or invalid credentials", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "403": { "description": "Mode mismatch or origin not allowed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "404": { "description": "Resource not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "405": { "description": "Method not allowed — only POST", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "409": { "description": "Idempotency conflict", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" }, "example": { "success": false, "error_code": "idempotency_conflict", "error": "Idempotency-Key conflict — different request body or an identical request is already in progress.", "api_version": "v1" } } } },
+          "429": { "description": "Rate limit exceeded — Retry-After header (seconds)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "500": { "description": "Internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "503": { "description": "Partner temporarily unavailable", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api.php": {
+      "post": {
+        "operationId": "merchantApiLegacy",
+        "summary": "Legacy alias (same as /api/v1/)",
+        "description": "Identical to POST /api/v1/ — kept for backward compatibility.",
+        "parameters": [
+          { "name": "X-API-Key", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "X-API-Secret", "in": "header", "required": true, "schema": { "type": "string", "format": "password" } },
+          { "name": "Idempotency-Key", "in": "header", "required": false, "schema": { "type": "string", "maxLength": 100 } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MerchantApiRequest" } } }
+        },
+        "responses": {
+          "200": { "description": "Success", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuccessResponse" } } } },
+          "400": { "description": "Bad request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "401": { "description": "Auth error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "405": { "description": "Method not allowed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "409": { "description": "Idempotency conflict", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "429": { "description": "Rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "500": { "description": "Internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "503": { "description": "Partner unavailable", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
         }
       }
     }
   },
   "components": {
     "securitySchemes": {
-      "ApiKeyAuth": {
-        "type": "apiKey",
-        "in": "header",
-        "name": "X-API-Key"
-      },
-      "ApiSecretAuth": {
-        "type": "apiKey",
-        "in": "header",
-        "name": "X-API-Secret"
-      }
+      "ApiKeyAuth": { "type": "apiKey", "in": "header", "name": "X-API-Key" },
+      "ApiSecretAuth": { "type": "apiKey", "in": "header", "name": "X-API-Secret" }
     },
     "schemas": {
       "MerchantApiRequest": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/CreatePaymentLinkRequest" },
+          { "$ref": "#/components/schemas/CheckStatusRequest" },
+          { "$ref": "#/components/schemas/ListTransactionsRequest" },
+          { "$ref": "#/components/schemas/GetBalanceRequest" },
+          { "$ref": "#/components/schemas/CreateRefundRequest" },
+          { "$ref": "#/components/schemas/ListRefundsRequest" },
+          { "$ref": "#/components/schemas/ListPaymentLinksRequest" },
+          { "$ref": "#/components/schemas/GetPaymentLinkRequest" }
+        ]
+      },
+      "CreatePaymentLinkRequest": {
+        "type": "object",
+        "required": ["action", "amount"],
+        "properties": {
+          "action": { "type": "string", "enum": ["create_payment_link"] },
+          "amount": { "type": "number", "minimum": 1, "maximum": 200000000, "description": "INR amount" },
+          "description": { "type": "string", "maxLength": 255 },
+          "customer_phone": { "type": "string", "description": "10-digit Indian mobile" },
+          "customer_name": { "type": "string" }
+        }
+      },
+      "CheckStatusRequest": {
+        "type": "object",
+        "required": ["action", "txn_id"],
+        "properties": {
+          "action": { "type": "string", "enum": ["check_status"] },
+          "txn_id": { "type": "string" }
+        }
+      },
+      "ListTransactionsRequest": {
         "type": "object",
         "required": ["action"],
         "properties": {
-          "action": {
-            "type": "string",
-            "enum": [
-              "create_payment_link",
-              "check_status",
-              "list_transactions",
-              "get_balance",
-              "create_refund",
-              "list_refunds",
-              "list_payment_links",
-              "get_payment_link"
-            ]
-          }
+          "action": { "type": "string", "enum": ["list_transactions"] },
+          "from": { "type": "string", "format": "date", "description": "YYYY-MM-DD" },
+          "to": { "type": "string", "format": "date", "description": "YYYY-MM-DD" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 },
+          "offset": { "type": "integer", "minimum": 0, "default": 0 }
+        }
+      },
+      "GetBalanceRequest": {
+        "type": "object",
+        "required": ["action"],
+        "properties": { "action": { "type": "string", "enum": ["get_balance"] } }
+      },
+      "CreateRefundRequest": {
+        "type": "object",
+        "required": ["action", "txn_id"],
+        "properties": {
+          "action": { "type": "string", "enum": ["create_refund"] },
+          "txn_id": { "type": "string" },
+          "amount": { "type": "number", "description": "Partial refund amount; omit for full refund" },
+          "reason": { "type": "string" }
+        }
+      },
+      "ListRefundsRequest": {
+        "type": "object",
+        "required": ["action"],
+        "properties": {
+          "action": { "type": "string", "enum": ["list_refunds"] },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 },
+          "offset": { "type": "integer", "minimum": 0, "default": 0 }
+        }
+      },
+      "ListPaymentLinksRequest": {
+        "type": "object",
+        "required": ["action"],
+        "properties": {
+          "action": { "type": "string", "enum": ["list_payment_links"] },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 },
+          "offset": { "type": "integer", "minimum": 0, "default": 0 }
+        }
+      },
+      "GetPaymentLinkRequest": {
+        "type": "object",
+        "required": ["action", "link_id"],
+        "properties": {
+          "action": { "type": "string", "enum": ["get_payment_link"] },
+          "link_id": { "type": "string" }
         }
       },
       "SuccessResponse": {
         "type": "object",
+        "required": ["success", "api_version"],
         "properties": {
           "success": { "type": "boolean", "example": true },
-          "api_version": { "type": "string", "example": "v1" }
+          "api_version": { "type": "string", "example": "v1" },
+          "mode": { "type": "string", "enum": ["test", "live"], "description": "Present on create_payment_link and get_balance" },
+          "link_id": { "type": "string" },
+          "payment_url": { "type": "string", "format": "uri" },
+          "amount": { "type": "number" },
+          "expires_at": { "type": "string", "format": "date-time" },
+          "transaction": { "type": "object" },
+          "transactions": { "type": "array", "items": { "type": "object" } },
+          "balance": {
+            "type": "object",
+            "properties": {
+              "collected": { "type": "number" },
+              "available": { "type": "number" }
+            }
+          },
+          "refund_id": { "type": "string" },
+          "status": { "type": "string" },
+          "refunds": { "type": "array", "items": { "type": "object" } },
+          "payment_links": { "type": "array", "items": { "type": "object" } },
+          "payment_link": { "type": "object" },
+          "has_more": { "type": "boolean" },
+          "total_count": { "type": "integer" },
+          "offset": { "type": "integer" },
+          "limit": { "type": "integer" }
         }
       },
       "ErrorResponse": {
@@ -162,8 +214,31 @@
           "success": { "type": "boolean", "example": false },
           "error_code": {
             "type": "string",
-            "example": "amount_out_of_range",
-            "description": "Stable machine-readable code — see api_docs.php#error-codes"
+            "enum": [
+              "invalid_json",
+              "unknown_action",
+              "missing_credentials",
+              "auth_failed",
+              "auth_invalid",
+              "origin_not_allowed",
+              "mode_mismatch",
+              "not_found",
+              "validation_error",
+              "amount_out_of_range",
+              "description_too_long",
+              "missing_txn_id",
+              "missing_link_id",
+              "missing_idempotency_key",
+              "idempotency_conflict",
+              "rate_limited",
+              "method_not_allowed",
+              "refund_failed",
+              "refund_not_allowed",
+              "txn_not_refundable",
+              "partner_unavailable",
+              "internal_error"
+            ],
+            "description": "Stable machine-readable code — canonical list in merchantApiErrorCatalog()"
           },
           "error": { "type": "string", "example": "Amount must be between 1 and 200000000." },
           "api_version": { "type": "string", "example": "v1" }
@@ -181,41 +256,65 @@
     }
   },
   "security": [{ "ApiKeyAuth": [], "ApiSecretAuth": [] }],
+  "x-uniweb-design": {
+    "routing": "Single POST endpoint — action field in JSON body (not REST paths per resource).",
+    "idempotency": {
+      "required_actions": ["create_payment_link", "create_refund"],
+      "storage": "api_idempotency_keys (merchant_id + mode + idempotency_key, 72h TTL)",
+      "same_key_same_body": "Replay original HTTP status + JSON body",
+      "same_key_different_body": "409 idempotency_conflict",
+      "missing_key": "400 missing_idempotency_key"
+    },
+    "mode": "Determined by API key prefix — not a request header"
+  },
   "x-webhooks": {
     "payment.success": {
       "post": {
-        "summary": "Outbound webhook to merchant URL",
-        "description": "UniWeb POSTs to your configured HTTPS URL. Verify X-UniWeb-Signature = HMAC-SHA256(raw JSON body, signing secret). Headers: X-UniWeb-Event, X-UniWeb-Event-Id. Retries with backoff.",
+        "summary": "Outbound — payment captured",
+        "description": "UniWeb POSTs to merchant HTTPS URL. Verify X-UniWeb-Signature = HMAC-SHA256(raw body, signing secret).",
         "parameters": [
-          {
-            "name": "X-UniWeb-Signature",
-            "in": "header",
-            "required": true,
-            "schema": { "type": "string" }
-          },
-          {
-            "name": "X-UniWeb-Event",
-            "in": "header",
-            "required": true,
-            "schema": { "type": "string" }
-          },
-          {
-            "name": "X-UniWeb-Event-Id",
-            "in": "header",
-            "required": true,
-            "schema": { "type": "string" }
-          }
+          { "name": "X-UniWeb-Signature", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "X-UniWeb-Event", "in": "header", "required": true, "schema": { "type": "string", "enum": ["payment.success"] } },
+          { "name": "X-UniWeb-Event-Id", "in": "header", "required": true, "schema": { "type": "string" } }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/WebhookPayload" }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "Acknowledged — any 2xx stops retries for this attempt" }
-        }
+        "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WebhookPayload" } } } },
+        "responses": { "200": { "description": "Acknowledged" } }
+      }
+    },
+    "payment.failed": {
+      "post": {
+        "summary": "Outbound — payment failed",
+        "parameters": [
+          { "name": "X-UniWeb-Signature", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "X-UniWeb-Event", "in": "header", "required": true, "schema": { "type": "string", "enum": ["payment.failed"] } },
+          { "name": "X-UniWeb-Event-Id", "in": "header", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WebhookPayload" } } } },
+        "responses": { "200": { "description": "Acknowledged" } }
+      }
+    },
+    "refund.completed": {
+      "post": {
+        "summary": "Outbound — refund completed",
+        "parameters": [
+          { "name": "X-UniWeb-Signature", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "X-UniWeb-Event", "in": "header", "required": true, "schema": { "type": "string", "enum": ["refund.completed"] } },
+          { "name": "X-UniWeb-Event-Id", "in": "header", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WebhookPayload" } } } },
+        "responses": { "200": { "description": "Acknowledged" } }
+      }
+    },
+    "webhook.test": {
+      "post": {
+        "summary": "Outbound — test ping from API Settings",
+        "parameters": [
+          { "name": "X-UniWeb-Signature", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "X-UniWeb-Event", "in": "header", "required": true, "schema": { "type": "string", "enum": ["webhook.test"] } },
+          { "name": "X-UniWeb-Event-Id", "in": "header", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WebhookPayload" } } } },
+        "responses": { "200": { "description": "Acknowledged" } }
       }
     }
   }

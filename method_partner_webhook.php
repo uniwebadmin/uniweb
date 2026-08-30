@@ -50,6 +50,18 @@ if (!is_array($data)) {
     $data = array_merge($_GET, $_POST);
 }
 
+$methodPayload = $raw !== '' ? $raw : json_encode($data, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+$methodEventId = 'method_partner:' . hash('sha256', $methodPayload);
+$methodGatewayEvent = null;
+if (function_exists('registerGatewayEvent') && function_exists('financialTablesReady') && financialTablesReady()) {
+    $methodGatewayEvent = registerGatewayEvent('method_partner', $methodEventId, 'method_decision', $methodPayload, true);
+    if (!empty($methodGatewayEvent['duplicate'])) {
+        http_response_code(200);
+        echo json_encode(['ok' => true, 'duplicate' => true]);
+        exit;
+    }
+}
+
 $result = applyNormalizedPartnerMethodWebhook($data, $raw, 'partner_webhook');
 $gw = $result['normalized']['gateway'] ?? 'method_partner';
 if (function_exists('logPgWebhook')) {
@@ -64,4 +76,7 @@ if (function_exists('logPgWebhook')) {
 }
 
 http_response_code(!empty($result['ok']) ? 200 : 422);
+if ($methodGatewayEvent !== null && !empty($methodGatewayEvent['id']) && function_exists('setGatewayEventStatus')) {
+    setGatewayEventStatus((int)$methodGatewayEvent['id'], !empty($result['ok']) ? 'processed' : 'failed', null, !empty($result['ok']) ? null : (string)($result['error'] ?? 'apply_failed'));
+}
 echo json_encode($result);
