@@ -56,21 +56,39 @@ function merchantApiOpenApiErrorCodes(): array
 }
 
 /**
+ * Build JSON error payload without exiting — used by tests and merchantApiRespondError.
+ *
  * @param array<string,mixed> $extra
- * @return never
+ * @return array{success:false,error_code:string,error:string,api_version:string}
  */
-function merchantApiRespondError(string $code, ?string $overrideMessage = null, array $extra = []): void
+function merchantApiBuildErrorPayload(string $code, ?string $overrideMessage = null, array $extra = []): array
 {
     $catalog = merchantApiErrorCatalog();
     $meta = $catalog[$code] ?? ['http' => 400, 'message' => 'Request could not be completed.'];
-    $http = (int)$meta['http'];
     $message = $overrideMessage ?? (string)$meta['message'];
-    $payload = array_merge([
+    return array_merge([
         'success' => false,
         'error_code' => $code,
         'error' => $message,
         'api_version' => defined('API_VERSION') ? API_VERSION : 'v1',
     ], $extra);
+}
+
+/** HTTP status for a catalog error code. */
+function merchantApiErrorHttpStatus(string $code): int
+{
+    $catalog = merchantApiErrorCatalog();
+    return (int)(($catalog[$code] ?? ['http' => 400])['http']);
+}
+
+/**
+ * @param array<string,mixed> $extra
+ * @return never
+ */
+function merchantApiRespondError(string $code, ?string $overrideMessage = null, array $extra = []): void
+{
+    $http = merchantApiErrorHttpStatus($code);
+    $payload = merchantApiBuildErrorPayload($code, $overrideMessage, $extra);
     if (!function_exists('jsonResponse')) {
         http_response_code($http);
         header('Content-Type: application/json');

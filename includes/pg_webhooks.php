@@ -203,6 +203,14 @@ function pgWebhookVerifyPartner(string $partner, string $rawBody, ?array $parsed
     $headers = $headers ?? pgWebhookHeadersFromServer();
 
     if ($partner === 'razorpay') {
+        if ($rawBody === '') {
+            return [
+                'ok' => false,
+                'scheme' => 'hmac_sha256_hex_body',
+                'http_code' => 400,
+                'reason' => 'empty_body',
+            ];
+        }
         $sig = (string)($headers['x-razorpay-signature'] ?? '');
         $ok = $sig !== '' && verifyRazorpayWebhookSignature($rawBody, $sig);
         return [
@@ -214,6 +222,14 @@ function pgWebhookVerifyPartner(string $partner, string $rawBody, ?array $parsed
     }
 
     if ($partner === 'cashfree') {
+        if ($rawBody === '') {
+            return [
+                'ok' => false,
+                'scheme' => 'hmac_sha256_b64_timestamp_body',
+                'http_code' => 400,
+                'reason' => 'empty_body',
+            ];
+        }
         $sig = (string)($headers['x-webhook-signature'] ?? '');
         $ts = (string)($headers['x-webhook-timestamp'] ?? '');
         $ok = verifyCashfreeWebhookSignature($rawBody, $sig, $ts);

@@ -157,6 +157,14 @@ require_once __DIR__ . '/header.php';
                 <div><p class="text-gray-500 text-xs">UTR / Gateway Ref</p><p class="font-mono text-xs mt-1"><?= e($txn['utr'] ?: '—') ?></p></div>
                 <div><p class="text-gray-500 text-xs">Collection Mode</p><p class="mt-1"><?= e(collectionModeLabel($txn['collection_mode'] ?? $txn['merchant_collection_mode'] ?? '', !$adminView)) ?></p></div>
                 <div><p class="text-gray-500 text-xs">Date & Time</p><p class="mt-1"><?= formatDate($txn['created_at']) ?></p></div>
+                <?php
+                $confirmSrc = function_exists('transactionConfirmationSourceSummary')
+                    ? transactionConfirmationSourceSummary((int)$txn['id'], (string)$txn['txn_id'], (string)($txn['utr'] ?? ''), (string)($txn['payment_method'] ?? ''))
+                    : ['source' => 'unknown', 'label' => '', 'at' => null];
+                if (($confirmSrc['source'] ?? 'unknown') !== 'unknown'):
+                ?>
+                <div><p class="text-gray-500 text-xs">Status confirmed via</p><p class="mt-1 text-xs"><?= e((string)$confirmSrc['label']) ?><?= !empty($confirmSrc['at']) ? ' · ' . e(formatDate((string)$confirmSrc['at'])) : '' ?></p></div>
+                <?php endif; ?>
                 <?php if ($txn['description']): ?>
                 <div class="sm:col-span-2"><p class="text-gray-500 text-xs">Description</p><p class="mt-1"><?= e($txn['description']) ?></p></div>
                 <?php endif; ?>

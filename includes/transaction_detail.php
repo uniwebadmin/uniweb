@@ -166,3 +166,80 @@ function paymentMethodLabel(?string $method): string
     ];
     return $map[$method ?? ''] ?? ucfirst(str_replace('_', ' ', $method ?? '—'));
 }
+
+/**
+ * Last confirmation path for Admin / merchant txn detail — webhook, checkout verify, or reconcile retry.
+ *
+ * @return array{source:string,label:string,at:?string}
+ */
+function transactionConfirmationSourceSummary(int $transactionId, string $txnRef, string $utr, string $paymentMethod): array
+{
+    $source = 'unknown';
+    $label = 'Confirmation source not recorded yet';
+    $at = null;
+    $provider = strtolower(trim($paymentMethod));
+    $needles = array_values(array_filter([trim($utr), trim($txnRef)]));
+
+    try {
+        if (function_exists('requireFinancialTables')) {
+            requireFinancialTables();
+        }
+        $db = getDB();
+
+        if ($provider !== '' && $needles !== []) {
+            foreach ($needles as $needle) {
+                $st = $db->prepare(
+                    "SELECT processed_at FROM gateway_events
+                     WHERE provider=? AND signature_valid=1
+                       AND processing_status IN ('processed','duplicate')
+                       AND (event_id LIKE ? OR payload_hash LIKE ?)
+                     ORDER BY id DESC LIMIT 1"
+                );
+                $like = '%' . $needle . '%';
+                $st->execute([$provider, $like, $like]);
+                $row = $st->fetch();
+                if ($row) {
+                    $source = 'webhook';
+                    $label = 'Partner webhook (signature verified)';
+                    $at = (string)($row['processed_at'] ?? '') ?: null;
+                    break;
+                }
+            }
+        }
+
+        if ($source === 'unknown') {
+            $st = $db->prepare(
+                "SELECT po.paid_at FROM payment_order_transactions pot
+                 JOIN payment_orders po ON po.id = pot.payment_order_id
+                 WHERE pot.transaction_id=? AND po.status='paid'
+                 ORDER BY po.paid_at DESC LIMIT 1"
+            );
+            $st->execute([$transactionId]);
+            $paidAt = (string)($st->fetchColumn() ?: '');
+            if ($paidAt !== '') {
+                $source = 'checkout';
+                $label = 'Checkout / server verify path';
+                $at = $paidAt;
+            }
+        }
+
+        if ($source === 'unknown' && function_exists('financialTablesReady') && financialTablesReady()) {
+            $st = $db->prepare(
+                "SELECT posted_at FROM ledger_journals
+                 WHERE business_type='payment_capture' AND business_reference=?
+                 ORDER BY id DESC LIMIT 1"
+            );
+            $st->execute([$txnRef !== '' ? $txnRef : 'txn:' . $transactionId]);
+            $posted = (string)($st->fetchColumn() ?: '');
+            if ($posted !== '') {
+                $source = 'reconcile';
+                $label = 'Ledger reconcile / backfill';
+                $at = $posted;
+            }
+        }
+    } catch (Throwable $e) {
+        /* read-only helper — never break txn detail */
+    }
+
+    return ['source' => $source, 'label' => $label, 'at' => $at];
+}

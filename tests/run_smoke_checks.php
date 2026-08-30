@@ -2066,6 +2066,31 @@ $pfqDup = (string)file_get_contents($root . '/includes/partner_forward_queue.php
 $assert(str_contains($pfqDup, 'partnerForwardQueueFixUniqueIndexes') && str_contains($pfqDup, 'forwardQueueIsDuplicateKeyError'), 'forward_queue_duplicate_key_idempotent');
 $assert(is_file($root . '/migrations/080_partner_forward_queue_merchant_partner_unique.sql'), 'm080_forward_queue_merchant_partner_unique');
 
+// OWNER PRIORITY #17 — Production money-safe smoke (deterministic, no live keys)
+$colLibP17 = (string)file_get_contents($root . '/includes/collection.php');
+$assert(str_contains($colLibP17, 'function sanitizeDefaultCollectionMode') && str_contains($colLibP17, 'never Route/Split parked'), 'p17_collection_sanitize_documented');
+$assert(str_contains($colLibP17, "'razorpay_route'") && str_contains($colLibP17, "return 'platform_pg'"), 'p17_sanitize_rejects_parked_rails');
+$gsLiveMoney = (string)file_get_contents($root . '/gateway_settings.php');
+$assert(str_contains($gsLiveMoney, 'Default OFF') && str_contains($gsLiveMoney, 'getCriticalCollectGatewayGaps'), 'p17_platform_settings_live_money_defaults_and_gaps');
+$assert(str_contains($gsLiveMoney, "value=\"0\" <?= !\$payoutLiveOn ? 'selected'") || str_contains($gsLiveMoney, 'OFF — gated (default)'), 'p17_payout_switch_default_off');
+require_once $root . '/includes/merchant_api_errors.php';
+$apiAuthPayload = merchantApiBuildErrorPayload('missing_credentials');
+$assert(($apiAuthPayload['error_code'] ?? '') === 'missing_credentials' && ($apiAuthPayload['success'] ?? true) === false, 'p17_api_missing_credentials_json_shape');
+$assert(merchantApiErrorHttpStatus('auth_failed') === 401 && merchantApiErrorHttpStatus('idempotency_conflict') === 409, 'p17_api_stable_http_codes');
+$assert(str_contains((string)file_get_contents($root . '/api.php'), "header('Content-Type: application/json')") && str_contains((string)file_get_contents($root . '/api.php'), 'merchantApiRespondError'), 'p17_api_json_not_html_errors');
+require_once $root . '/includes/refund_webhooks.php';
+$assert(refundDisplayStatus(['status' => 'pending']) === 'requested', 'p17_refund_pending_not_paid_label');
+$assert(refundDisplayStatus(['status' => 'completed']) === 'processed', 'p17_refund_completed_processed_label');
+$assert(str_contains((string)file_get_contents($root . '/includes/transaction_detail.php'), 'function transactionConfirmationSourceSummary'), 'p17_txn_confirmation_source_helper');
+$assert(str_contains((string)file_get_contents($root . '/transaction_detail.php'), 'Status confirmed via'), 'p17_txn_detail_shows_confirm_source');
+$pgWhP17 = (string)file_get_contents($root . '/includes/pg_webhooks.php');
+$assert(str_contains($pgWhP17, "'reason' => 'empty_body'") && str_contains($pgWhP17, 'missing_signature'), 'p17_webhook_empty_body_and_missing_sig');
+$assert(str_contains($pgWhP17, 'captureVerifiedPaymentOrder') || str_contains($finAc, 'captureVerifiedPaymentOrder'), 'p17_canonical_capture_function');
+$assert(str_contains($finAc, 'reconcilePendingPaymentLedgers') && str_contains($finAc, 'business_type=\'payment_capture\''), 'p17_ledger_reconcile_idempotent');
+$moneyProbeOut = [];
+exec('php ' . escapeshellarg($root . '/tests/probe_money_rails.php'), $moneyProbeOut, $moneyProbeExit);
+$assert($moneyProbeExit === 0 && str_contains(implode("\n", $moneyProbeOut), 'failures=0'), 'p17_money_rails_probe_green');
+
 $payload = [
     'ok' => $failed === 0,
     'passed' => $passed,
