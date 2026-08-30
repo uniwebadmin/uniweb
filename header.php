@@ -213,7 +213,8 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                         <?php foreach ($group['items'] as [$url, $label, $icon]): ?>
                         <a href="<?= $url ?>" class="sidebar-link flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition <?= $cur===$url?'active':'' ?>">
                             <svg class="w-5 h-5 flex-shrink-0 overflow-visible" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="<?= $icon ?>"/></svg>
-                            <?= e($label) ?>
+                            <span class="flex-1 min-w-0 truncate"><?= e($label) ?></span>
+                            <?= uniwebNavCapabilityPill('merchant', $url) ?>
                         </a>
                         <?php endforeach; ?>
                     </div>
@@ -302,7 +303,10 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
                 <div class="admin-group-panel" style="overflow:hidden;transition:max-height .3s;max-height:<?= $isOpen ? (!empty($group['collapsed']) ? '5000' : '1200') : '0' ?>px;">
                     <div class="py-1 pl-4 space-y-0.5">
                         <?php foreach ($group['items'] as [$url, $label]): ?>
-                        <a href="<?= $url ?>" class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition <?= $cur===$url?'bg-red-500/10 text-red-400':'' ?>"><?= e($label) ?></a>
+                        <a href="<?= $url ?>" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition <?= $cur===$url?'bg-red-500/10 text-red-400':'' ?>">
+                            <span class="flex-1 min-w-0 truncate"><?= e($label) ?></span>
+                            <?= uniwebNavCapabilityPill('admin', $url) ?>
+                        </a>
                         <?php endforeach; ?>
                     </div>
                 </div>

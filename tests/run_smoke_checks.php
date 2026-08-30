@@ -1713,7 +1713,21 @@ $assert(str_contains($htaccess, '\\.(env|log|sql|md)$') || str_contains($htacces
 $assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'stale_createNotification'), 'cr01_stale_createNotification_detector');
 $assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "includes/notifications.php"), 'cr01_config_dev_loads_notifications');
 $errorPage = (string)file_get_contents($root . '/error.php');
-$assert(str_contains($errorPage, 'Page not found') && str_contains($errorPage, 'merchant_register.php'), 'branded_error_has_nav_links');
+$errorShell = (string)file_get_contents($root . '/includes/error_page.php');
+$assert(str_contains($errorPage, 'Page not found') && str_contains($errorPage, 'renderUniwebErrorShell'), 'branded_error_delegates_to_shell');
+$assert(str_contains($errorShell, 'renderUniwebErrorShell') && !str_contains($errorShell, 'getMessage'), 'error_shell_no_stack_trace');
+$assert(str_contains($errorPage, "reason === 'token'"), 'error_token_expired_reason');
+$secHdr = (string)file_get_contents($root . '/includes/security_headers.php');
+$assert(str_contains($secHdr, 'sendUniwebSecurityHeaders') && str_contains((string)file_get_contents($root . '/config.dev.php'), 'includes/security_headers.php'), 'security_headers_central_bootstrap');
+$assert(str_contains($secHdr, 'method_partner_webhook.php'), 'security_headers_skip_webhooks');
+$navAuditDoc = $root . '/docs/NAV_AUDIT.md';
+$assert(is_file($navAuditDoc) && str_contains((string)file_get_contents($navAuditDoc), 'Step A'), 'nav_audit_methodology_doc');
+$assert(str_contains($sidebarNav, 'uniwebNavCapabilityStates') && str_contains($sidebarNav, 'admin_bulk_payout.php'), 'nav_capability_map_present');
+$assert(str_contains($sidebarNav, "'money_more'") && str_contains($sidebarNav, "merchant_payment_pack.php"), 'payment_pack_demoted_to_money_more');
+$assert(!preg_match("/'collect'[^\\]]*merchant_payment_pack/", $sidebarNav), 'payment_pack_not_in_collect_group');
+$probeOut = [];
+exec('php ' . escapeshellarg($root . '/tests/probe_nav_audit.php'), $probeOut, $probeExit);
+$assert($probeExit === 0 && str_contains(implode("\n", $probeOut), 'DEAD=0'), 'nav_probe_zero_dead');
 $error404 = (string)file_get_contents($root . '/error_404.php');
 $assert(str_contains($error404, 'error.php'), 'error_404_aliases_to_error_php');
 
