@@ -4,6 +4,9 @@ declare(strict_types=1);
 /**
  * Launch smoke checks — no DB/config required for the static suite.
  *
+ * Classification when fixing failures: tests/SMOKE_CLASSIFICATION.md
+ *   A = product bug | B = outdated assert | C = env/Owner (do not fake pass)
+ *
  * CLI:
  *   php tests/run_smoke_checks.php
  *   php tests/run_smoke_checks.php --live=https://uniweb.co.in
@@ -1956,6 +1959,9 @@ $assert(str_contains($apiDocsSrc, 'X-UniWeb-Signature') && str_contains($apiDocs
 $assert(str_contains($apiDocsSrc, 'merchantApiErrorCatalog') || str_contains($apiDocsSrc, 'error_code'), 'api_docs_error_codes');
 $assert(!str_contains($apiDocsSrc, 'Gateway Webhooks (Admin)') && !str_contains($apiDocsSrc, 'Razorpay:') && !str_contains($apiDocsSrc, 'Cashfree:'), 'api_docs_no_partner_brand');
 $assert(!str_contains($apiDocsSrc, 'NBFC') && !str_contains($apiDocsSrc, 'PPI'), 'api_docs_no_nbfc_ppi');
+$assert(is_file($root . '/tests/SMOKE_CLASSIFICATION.md'), 'smoke_classification_doc');
+$assert(is_file($root . '/docs/PHPUNIT_MIGRATION.md'), 'phpunit_migration_doc');
+$assert(is_file($root . '/docs/PHP_VERSION.md'), 'php_version_doc');
 $openapiSrc = (string)file_get_contents($root . '/openapi.json');
 $assert(str_contains($openapiSrc, 'UniWeb Merchant API') && str_contains($openapiSrc, 'error_code'), 'openapi_merchant_api_v1');
 require_once $root . '/includes/merchant_api_errors.php';

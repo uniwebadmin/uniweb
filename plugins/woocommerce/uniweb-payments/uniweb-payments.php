@@ -19,6 +19,23 @@ add_action('plugins_loaded', static function (): void {
 
     class WC_Gateway_UniWeb extends WC_Payment_Gateway
     {
+        /** @var string WooCommerce gateway id */
+        public $id;
+        /** @var string Admin settings title */
+        public $method_title;
+        /** @var string Admin settings description */
+        public $method_description;
+        /** @var bool Show fields on checkout */
+        public $has_fields;
+        /** @var array<int,string> Supported features */
+        public $supports;
+        /** @var string Customer-facing title */
+        public $title;
+        /** @var string yes|no */
+        public $enabled;
+        /** @var array<string,mixed> Admin form fields */
+        public $form_fields;
+
         public function __construct()
         {
             $this->id = 'uniweb';
