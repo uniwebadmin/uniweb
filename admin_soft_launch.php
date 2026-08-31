@@ -44,8 +44,8 @@ $runbook = is_file($runbookPath) ? (string)file_get_contents($runbookPath) : '';
                 <p class="text-gray-400 text-xs mt-1">SMTP configured or Owner accepts no receipt email yet</p>
             </li>
             <li class="border-l-2 border-amber-500/50 pl-4">
-                <p class="font-medium text-white">f) Cron on Hostinger (Owner installs)</p>
-                <p class="text-gray-400 text-xs mt-1">Copy command from Platform Settings — not pre-installed. See <code class="text-gray-500">docs/CRON_INVENTORY.md</code></p>
+                <p class="font-medium text-white">f) Cron — verify only (already on Hostinger)</p>
+                <p class="text-gray-400 text-xs mt-1">Platform Status → Auto Audit last run within 15 min. If stale, Owner checks hPanel — agent does not install cron. Command ref: Platform Settings · <code class="text-gray-500">docs/CRON_INVENTORY.md</code></p>
                 <a href="admin_platform_status.php" class="text-xs text-sky-400 mt-1 inline-block">Platform Status →</a>
             </li>
             <li class="border-l-2 border-emerald-500/50 pl-4">

@@ -56,6 +56,28 @@ if ($adminView && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? 
     redirect(transactionDetailUrl($txn['txn_id']) . '#refund');
 }
 
+if ($adminView && $_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
+    requireStaffAccess(['super', 'ceo', 'finance', 'ops']);
+    if (!function_exists('manualReconcileTransaction') && is_file(__DIR__ . '/includes/payment_reconcile.php')) {
+        require_once __DIR__ . '/includes/payment_reconcile.php';
+    }
+    $postAction = (string)($_POST['action'] ?? '');
+    if ($postAction === 'admin_reconcile_txn') {
+        $result = manualReconcileTransaction((string)$txn['txn_id'], (int)($_SESSION['admin_id'] ?? 0));
+        flash(!empty($result['ok']) ? 'success' : 'error', !empty($result['ok'])
+            ? ((string)($result['message'] ?? 'Reconcile completed.') . ' Source: Manual.')
+            : ((string)($result['error'] ?? 'Reconcile failed.')));
+        redirect(transactionDetailUrl($txn['txn_id']));
+    }
+    if ($postAction === 'admin_backfill_ledger') {
+        $result = manualBackfillTransactionLedger((int)$txn['id'], (int)($_SESSION['admin_id'] ?? 0));
+        flash(!empty($result['ok']) ? 'success' : 'error', !empty($result['ok'])
+            ? ((string)($result['message'] ?? 'Ledger backfill posted.') . ' Source: Manual.')
+            : ((string)($result['error'] ?? 'Ledger backfill failed.')));
+        redirect(transactionDetailUrl($txn['txn_id']));
+    }
+}
+
 $openComplaint = null;
 $openDispute = null;
 try {
@@ -290,7 +312,11 @@ require_once __DIR__ . '/header.php';
 
         <?php if ($adminView && $txn['status'] === 'pending'): ?>
         <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex flex-wrap gap-3 items-center">
-            <p class="text-sm text-amber-200 flex-1">Pending UPI — approve to credit merchant wallet.</p>
+            <p class="text-sm text-amber-200 flex-1">Pending — approve for legacy UPI path, or Reconcile when partner keys + bound order exist.</p>
+            <form method="POST" class="inline">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <button type="submit" name="action" value="admin_reconcile_txn" class="text-sm px-4 py-2 rounded-lg bg-sky-600/30 text-sky-200 hover:bg-sky-600/40">Reconcile</button>
+            </form>
             <a href="admin_transactions.php?action=approve&id=<?= (int)$txn['id'] ?>&token=<?= csrfToken() ?>" class="btn-primary text-sm px-4 py-2">Approve → Wallet</a>
             <a href="admin_transactions.php?action=reject&id=<?= (int)$txn['id'] ?>&token=<?= csrfToken() ?>" class="text-sm text-red-400 px-3">Reject</a>
         </div>
@@ -366,6 +392,10 @@ require_once __DIR__ . '/header.php';
                 <p class="text-amber-400 text-xs"><?= $ledgerStatus === 'failed' ? 'Ledger failed — retry scheduled; check Error Log' : 'Ledger pending — reconcile will retry automatically' ?></p>
                 <?php if ($adminView): ?>
                 <a href="admin_error_log.php" class="text-xs text-sky-400 mt-1 inline-block">Open Error Log →</a>
+                <form method="POST" class="flex flex-wrap gap-2 mt-3">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <button type="submit" name="action" value="admin_backfill_ledger" class="text-xs px-3 py-1.5 rounded-lg bg-sky-600/20 text-sky-300 hover:bg-sky-600/30">Backfill ledger</button>
+                </form>
                 <?php endif; ?>
                 <?php else: ?>
                 <p class="text-gray-500 text-xs">Not applicable for this status.</p>

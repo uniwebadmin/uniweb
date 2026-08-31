@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+/** Outbound merchant webhook delivery retry policy (merchant_webhook_deliveries). */
+const MERCHANT_WEBHOOK_MAX_ATTEMPTS = 8;
+/** @var list<int> seconds between attempts */
+const MERCHANT_WEBHOOK_RETRY_DELAYS_SEC = [60, 300, 1800, 7200, 21600, 43200, 86400];
+
 if (!function_exists('cryptoTimingSafeEqual') && is_file(__DIR__ . '/crypto_compare.php')) {
     require_once __DIR__ . '/crypto_compare.php';
 }
@@ -57,6 +62,24 @@ function merchantWebhookPreviousSecretValid(?string $rotatedAt): bool
 function merchantWebhookDeliveryOk(?int $code): bool
 {
     return $code !== null && $code >= 200 && $code < 300;
+}
+
+/** Retry timeout, 429, and 5xx — not clear 4xx (except 429). */
+function merchantWebhookShouldRetry(?int $code, bool $transportError): bool
+{
+    if ($transportError || $code === null || $code === 0) {
+        return true;
+    }
+    if ($code === 429) {
+        return true;
+    }
+    if ($code >= 500) {
+        return true;
+    }
+    if ($code >= 400 && $code < 500) {
+        return false;
+    }
+    return !merchantWebhookDeliveryOk($code);
 }
 
 function publicWebhookDestination(string $url): array
@@ -239,6 +262,8 @@ function processMerchantWebhookQueue(int $limit = 25): array
             : ['ok' => false, 'code' => 0, 'body' => '', 'error' => 'Signing secret unavailable'];
         $processed++;
         $attempt = (int)$delivery['attempt_count'] + 1;
+        $transportError = !empty($result['error']) && ((int)($result['code'] ?? 0) === 0);
+        $httpCode = (int)($result['code'] ?? 0) ?: null;
         if (!empty($result['ok'])) {
             $respBody = (string)$result['body'];
             if (function_exists('maskPiiInString')) {
@@ -251,8 +276,9 @@ function processMerchantWebhookQueue(int $limit = 25): array
             )->execute([(int)$result['code'], mb_substr($respBody, 0, 2000), (int)$delivery['id']]);
             $delivered++;
         } else {
-            $delays = [60, 300, 1800, 7200, 21600, 43200, 86400];
-            $dead = $attempt >= 8;
+            $delays = MERCHANT_WEBHOOK_RETRY_DELAYS_SEC;
+            $shouldRetry = merchantWebhookShouldRetry($httpCode, $transportError);
+            $dead = !$shouldRetry || $attempt >= MERCHANT_WEBHOOK_MAX_ATTEMPTS;
             $delay = $delays[min($attempt - 1, count($delays) - 1)];
             $respBody = (string)($result['body'] ?? '');
             if (function_exists('maskPiiInString')) {
@@ -264,7 +290,7 @@ function processMerchantWebhookQueue(int $limit = 25): array
                  WHERE id=?"
             )->execute([
                 $dead ? 'dead' : 'retry',
-                (int)($result['code'] ?? 0) ?: null,
+                $httpCode,
                 mb_substr($respBody, 0, 2000) ?: null,
                 mb_substr((string)($result['error'] ?? 'HTTP delivery failed'), 0, 500),
                 (int)$delivery['id'],

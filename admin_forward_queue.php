@@ -162,20 +162,14 @@ require_once __DIR__ . '/header.php';
                     <td class="px-4 py-3"><a href="<?= e(function_exists('adminPartnerDetailUrl') ? adminPartnerDetailUrl((string)$row['partner_key']) : ('admin_gateway_detail.php?partner=' . urlencode((string)$row['partner_key']) . '&tab=keys&env=test')) ?>" class="hover:text-sky-300"><?= e(ucfirst($row['partner_key'])) ?></a></td>
                     <td class="px-4 py-3">
                         <?php
-                        $colors = [
-                            'queued' => 'bg-blue-500/20 text-blue-400',
-                            'processing' => 'bg-purple-500/20 text-purple-400',
-                            'staged' => 'bg-sky-500/20 text-sky-300',
-                            'success' => 'bg-emerald-500/20 text-emerald-400',
-                            'retry' => 'bg-amber-500/20 text-amber-400',
-                            'failed' => 'bg-red-500/20 text-red-400',
-                        ];
                         $statusKey = (string)$row['status'];
-                        $cls = $colors[$statusKey] ?? 'bg-gray-500/20 text-gray-400';
                         $statusLabel = function_exists('forwardQueueAdminStatusBadge') ? forwardQueueAdminStatusBadge($row) : (function_exists('forwardQueueAdminStatusLabel') ? forwardQueueAdminStatusLabel($statusKey) : $statusKey);
+                        $statusPill = function_exists('forwardQueueStatusPill') ? forwardQueueStatusPill($row) : e($statusKey);
                         ?>
-                        <span class="px-2 py-0.5 rounded-full text-xs font-medium <?= $cls ?>" title="<?= e($statusLabel) ?>"><?= e($statusKey) ?></span>
-                        <p class="text-[10px] text-gray-500 mt-0.5 max-w-[180px]"><?= e($statusLabel) ?></p>
+                        <div class="flex flex-col gap-1 items-start">
+                            <?= $statusPill ?>
+                            <p class="text-[10px] text-gray-500 max-w-[180px]"><?= e($statusLabel) ?></p>
+                        </div>
                     </td>
                     <td class="px-4 py-3 text-gray-400"><?= (int)$row['attempts'] ?>/<?= (int)$row['max_attempts'] ?></td>
                     <td class="px-4 py-3 text-gray-400 text-xs"><?= e($row['schedule_at'] ?? '—') ?></td>

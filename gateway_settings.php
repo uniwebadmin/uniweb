@@ -609,7 +609,7 @@ $gatewayCards = [
                         <tr class="border-b border-gray-900/80">
                             <td class="py-1 pr-2 text-gray-500 whitespace-nowrap"><?= e(substr((string)($logRow['created_at'] ?? ''), 0, 16)) ?></td>
                             <td class="py-1 pr-2 text-sky-300"><?= e((string)($logRow['chosen_partner'] ?? '—')) ?></td>
-                            <td class="py-1 pr-2 font-mono text-sky-300"><?= e((string)($logRow['txn_id'] ?? '—')) ?></td>
+                            <td class="py-1 pr-2 font-mono text-sky-300"><?php $p11Txn = trim((string)($logRow['txn_id'] ?? '')); if ($p11Txn !== '' && function_exists('transactionDetailUrl')): ?><a href="<?= e(transactionDetailUrl($p11Txn)) ?>" class="hover:underline"><?= e($p11Txn) ?></a><?php else: ?><?= e($p11Txn !== '' ? $p11Txn : '—') ?><?php endif; ?></td>
                             <td class="py-1 pr-2"><?= e((string)($logRow['outcome'] ?? '')) ?></td>
                             <td class="py-1 text-gray-400"><?= e((string)($logRow['reason'] ?? '')) ?></td>
                         </tr>

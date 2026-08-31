@@ -55,6 +55,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         flash('success', "Auto-marked {$count} transactions as reconciled.");
         redirect('admin_reconciliation.php?days=' . $days);
     }
+
+    if ($action === 'manual_reconcile' && trim($_POST['txn_ref'] ?? '') !== '') {
+        if (!function_exists('manualReconcileTransaction') && is_file(__DIR__ . '/includes/payment_reconcile.php')) {
+            require_once __DIR__ . '/includes/payment_reconcile.php';
+        }
+        $ref = trim((string)$_POST['txn_ref']);
+        $result = manualReconcileTransaction($ref, $adminId);
+        if (!empty($result['ok'])) {
+            $msg = (string)($result['message'] ?? 'Reconcile completed.');
+            if (!empty($result['duplicate'])) {
+                $msg = 'Idempotent — ' . $msg;
+            }
+            $msg .= ' Source: Manual.';
+            flash('success', $msg);
+        } else {
+            flash('error', (string)($result['error'] ?? 'Reconcile failed.'));
+        }
+        redirect('admin_reconciliation.php?days=' . $days . '&tab=manual');
+    }
+
+    if ($action === 'backfill_ledger' && trim($_POST['txn_ref'] ?? '') !== '') {
+        if (!function_exists('manualBackfillTransactionLedger') && is_file(__DIR__ . '/includes/payment_reconcile.php')) {
+            require_once __DIR__ . '/includes/payment_reconcile.php';
+        }
+        $ref = trim((string)$_POST['txn_ref']);
+        $txn = function_exists('resolveManualReconcileTransactionRef')
+            ? resolveManualReconcileTransactionRef($ref)
+            : null;
+        if (!$txn) {
+            flash('error', 'Transaction not found.');
+            redirect('admin_reconciliation.php?days=' . $days . '&tab=manual');
+        }
+        $result = manualBackfillTransactionLedger((int)$txn['id'], $adminId);
+        if (!empty($result['ok'])) {
+            flash('success', (string)($result['message'] ?? 'Ledger backfill posted.') . ' Source: Manual.');
+        } else {
+            flash('error', (string)($result['error'] ?? 'Ledger backfill failed.'));
+        }
+        redirect('admin_reconciliation.php?days=' . $days . '&tab=manual');
+    }
+
+    if ($action === 'manual_reconcile_batch' && trim($_POST['txn_refs'] ?? '') !== '') {
+        if (!function_exists('manualReconcileTransactionsBatch') && is_file(__DIR__ . '/includes/payment_reconcile.php')) {
+            require_once __DIR__ . '/includes/payment_reconcile.php';
+        }
+        $lines = preg_split('/[\r\n,]+/', (string)$_POST['txn_refs']) ?: [];
+        $batch = manualReconcileTransactionsBatch($lines, $adminId, 10);
+        flash(
+            $batch['failed'] === 0 ? 'success' : 'error',
+            "Batch reconcile: {$batch['succeeded']}/{$batch['processed']} ok (max 10)."
+        );
+        redirect('admin_reconciliation.php?days=' . $days . '&tab=manual');
+    }
 }
 
 // GET actions
@@ -185,9 +238,52 @@ require_once __DIR__ . '/header.php';
     <!-- Tab Navigation -->
     <div class="flex gap-2 border-b border-gray-800">
         <a href="?days=<?= $days ?>&tab=webhooks" class="px-4 py-2 text-sm <?= $activeTab === 'webhooks' ? 'text-brand-400 border-b-2 border-brand-500' : 'text-gray-400 hover:text-white' ?>">Webhooks</a>
+        <a href="?days=<?= $days ?>&tab=manual" class="px-4 py-2 text-sm <?= $activeTab === 'manual' ? 'text-brand-400 border-b-2 border-brand-500' : 'text-gray-400 hover:text-white' ?>">Manual reconcile</a>
         <a href="?days=<?= $days ?>&tab=settlement" class="px-4 py-2 text-sm <?= $activeTab === 'settlement' ? 'text-brand-400 border-b-2 border-brand-500' : 'text-gray-400 hover:text-white' ?>">Gateway Settlement Files</a>
         <a href="?days=<?= $days ?>&tab=summary" class="px-4 py-2 text-sm <?= $activeTab === 'summary' ? 'text-brand-400 border-b-2 border-brand-500' : 'text-gray-400 hover:text-white' ?>">Daily Summary</a>
     </div>
+
+    <!-- Manual reconcile Tab -->
+    <?php if ($activeTab === 'manual'): ?>
+    <div class="space-y-6">
+        <div class="glass rounded-xl p-4 sm:p-6 border border-amber-500/20">
+            <h3 class="font-semibold mb-2">Reconcile one transaction</h3>
+            <p class="text-sm text-gray-400 mb-4">Uses the same path as webhook + poll — partner fetch when keys exist, then canonical capture/ledger. Does <strong class="text-white">not</strong> mark paid without partner or ledger path. After run, Transaction detail shows <em>Manual admin action</em>.</p>
+            <form method="POST" class="flex flex-col sm:flex-row gap-3 items-end">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="manual_reconcile">
+                <div class="flex-1 min-w-[200px]">
+                    <label class="text-sm text-gray-400">TXN id / numeric id / order ref</label>
+                    <input type="text" name="txn_ref" class="input-field mt-1 w-full font-mono text-sm" placeholder="TXN… or payment order ref" required autocomplete="off">
+                </div>
+                <button type="submit" class="btn-primary px-6 py-2.5 whitespace-nowrap">Reconcile</button>
+            </form>
+        </div>
+        <div class="glass rounded-xl p-4 sm:p-6 border border-sky-500/20">
+            <h3 class="font-semibold mb-2">Backfill ledger</h3>
+            <p class="text-sm text-gray-400 mb-4">For <strong class="text-emerald-400">Success</strong> txns missing ledger only — runs finalizeSuccessfulPaymentTransaction (idempotent). Not a shortcut to fake paid.</p>
+            <form method="POST" class="flex flex-col sm:flex-row gap-3 items-end">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="backfill_ledger">
+                <div class="flex-1 min-w-[200px]">
+                    <label class="text-sm text-gray-400">TXN id</label>
+                    <input type="text" name="txn_ref" class="input-field mt-1 w-full font-mono text-sm" placeholder="TXN…" required autocomplete="off">
+                </div>
+                <button type="submit" class="btn-primary px-6 py-2.5 whitespace-nowrap bg-sky-600 hover:bg-sky-500">Backfill ledger</button>
+            </form>
+        </div>
+        <div class="glass rounded-xl p-4 sm:p-6">
+            <h3 class="font-semibold mb-2">Batch reconcile (max 10)</h3>
+            <p class="text-xs text-gray-500 mb-3">One failure does not corrupt others. Keys required per provider.</p>
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="manual_reconcile_batch">
+                <textarea name="txn_refs" rows="4" class="input-field w-full font-mono text-sm" placeholder="One TXN id per line"></textarea>
+                <button type="submit" class="btn-primary px-6 py-2.5 mt-3">Run batch</button>
+            </form>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Gateway Settlement Files Tab -->
     <?php if ($activeTab === 'settlement'): ?>

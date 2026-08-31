@@ -30,14 +30,25 @@ if (isset($_GET['action'], $_GET['id']) && verifyCsrf($_GET['token'] ?? '')) {
 }
 
 $filter = trim($_GET['status'] ?? 'all');
-if (!in_array($filter, ['all', 'pending', 'success', 'failed', 'refunded'], true)) $filter = 'all';
+if (!in_array($filter, ['all', 'pending', 'success', 'failed', 'refunded', 'ledger_pending'], true)) $filter = 'all';
 $merchantFilter = (int)($_GET['merchant_id'] ?? 0);
 $q = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
 $method = trim($_GET['method'] ?? 'all');
 $from = trim($_GET['from'] ?? '');
 $to = trim($_GET['to'] ?? '');
+$ledgerPendingCount = 0;
+if (!function_exists('countSuccessTransactionsLedgerPending') && is_file(__DIR__ . '/includes/financial_integrity.php')) {
+    require_once __DIR__ . '/includes/financial_integrity.php';
+}
+if (function_exists('countSuccessTransactionsLedgerPending')) {
+    $ledgerPendingCount = countSuccessTransactionsLedgerPending();
+}
 $where = '1=1'; $params = [];
-if ($filter !== 'all') { $where .= ' AND t.status = ?'; $params[] = $filter; }
+$ledgerJoin = '';
+if ($filter === 'ledger_pending') {
+    $ledgerJoin = " LEFT JOIN ledger_journals lj ON lj.business_type='payment_capture' AND lj.business_reference=t.txn_id";
+    $where .= " AND t.status='success' AND lj.id IS NULL";
+} elseif ($filter !== 'all') { $where .= ' AND t.status = ?'; $params[] = $filter; }
 if ($merchantFilter > 0) { $where .= ' AND t.merchant_id = ?'; $params[] = $merchantFilter; }
 if ($q !== '') {
     $like = '%' . strtolower($q) . '%';
@@ -59,7 +70,7 @@ if ($method !== 'all' && in_array($method, ['upi','card','netbanking','wallet','
 if ($from !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) { $where .= ' AND DATE(t.created_at) >= ?'; $params[] = $from; }
 if ($to !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) { $where .= ' AND DATE(t.created_at) <= ?'; $params[] = $to; }
 try {
-    $stmt = $db->prepare("SELECT t.*, m.business_name, m.merchant_code FROM transactions t JOIN merchants m ON t.merchant_id=m.id WHERE $where ORDER BY t.created_at DESC LIMIT 50");
+    $stmt = $db->prepare("SELECT t.*, m.business_name, m.merchant_code FROM transactions t JOIN merchants m ON t.merchant_id=m.id{$ledgerJoin} WHERE $where ORDER BY t.created_at DESC LIMIT 50");
     $stmt->execute($params);
     $transactions = $stmt->fetchAll();
 } catch (Throwable $e) {
@@ -96,10 +107,11 @@ require_once __DIR__ . '/header.php';
 <?php endif; ?>
 <?= uxListToolbar(uxExportCsvLink(array_filter(['status' => $filter !== 'all' ? $filter : null, 'merchant_id' => $merchantFilter ?: null, 'q' => $q ?: null, 'method' => $method !== 'all' ? $method : null, 'from' => $from ?: null, 'to' => $to ?: null]))) ?>
 <div class="flex gap-2 mb-6 flex-wrap no-print">
-    <?php foreach (['all'=>'All','pending'=>'Pending','success'=>'Success','failed'=>'Failed'] as $k=>$l):
+    <?php foreach (['all'=>'All','pending'=>'Pending','success'=>'Success','failed'=>'Failed','ledger_pending'=>'Ledger pending'] as $k=>$l):
         $qs = 'status=' . $k . ($merchantFilter > 0 ? '&merchant_id=' . $merchantFilter : '');
+        $badge = ($k === 'ledger_pending' && $ledgerPendingCount > 0) ? ' (' . $ledgerPendingCount . ')' : '';
     ?>
-    <a href="?<?= $qs ?>" class="px-3 py-1.5 rounded-lg text-sm <?= $filter===$k?'bg-red-600 text-white':'bg-dark-900 text-gray-400' ?>"><?= $l ?></a>
+    <a href="?<?= $qs ?>" class="px-3 py-1.5 rounded-lg text-sm <?= $filter===$k?'bg-red-600 text-white':($k==='ledger_pending' && $ledgerPendingCount > 0 ? 'bg-amber-900/40 text-amber-300 border border-amber-500/30' : 'bg-dark-900 text-gray-400') ?>"><?= e($l) ?><?= e($badge) ?></a>
     <?php endforeach; ?>
 </div>
 <form method="GET" data-live-search-form data-results-target="admin-transaction-results" class="glass rounded-xl p-4 mb-6 border border-gray-800 flex flex-wrap gap-3 items-end">

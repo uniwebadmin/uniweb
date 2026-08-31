@@ -990,6 +990,26 @@ function forwardQueueAdminStatusBadge(array $row): string
     return $label;
 }
 
+/** Forward queue status pill — shared CapabilityState / ui components where practical. */
+function forwardQueueStatusPill(array $row): string
+{
+    if (!function_exists('uiCapabilityPill')) {
+        require_once __DIR__ . '/ui/ui_components.php';
+    }
+    if (!class_exists('CapabilityState', false)) {
+        require_once __DIR__ . '/enums/capability_state.php';
+    }
+    $status = (string)($row['status'] ?? '');
+    $adapter = forwardQueueRowAdapterMode($row);
+    if ($status === 'staged' || ($status === 'success' && $adapter === 'local_record')) {
+        return uiCapabilityPill(CapabilityState::PARKED, forwardQueueAdminStatusBadge($row));
+    }
+    if ($status === 'success' && $adapter === 'live_api') {
+        return uiCapabilityPill(CapabilityState::LIVE, 'Partner API confirmed');
+    }
+    return uiPaymentStatusPill($status);
+}
+
 /**
  * Timeline events for one forward queue row (Admin detail / proof).
  *

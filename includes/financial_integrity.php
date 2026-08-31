@@ -47,7 +47,7 @@ function uniwebPdoRollback(PDO $db): void
     }
 }
 
-/** Run CREATE/ALTER before money transactions so Instant Test Pay cannot lose the txn. */
+/** Run CREATE/ALTER before money transactions so UniWeb Test Pay cannot lose the txn. */
 function uniwebPreparePaymentCaptureSchema(): void
 {
     if (function_exists('ensurePricingSnapshotColumns')) {
@@ -597,6 +597,23 @@ function getTransactionLedgerStatus(int $transactionId, string $txnRef, int $mer
     return 'pending';
 }
 
+/** Count success transactions missing payment_capture ledger (honest admin badge). */
+function countSuccessTransactionsLedgerPending(): int
+{
+    if (!financialTablesReady()) {
+        return 0;
+    }
+    try {
+        return (int)getDB()->query(
+            "SELECT COUNT(*) FROM transactions t
+             LEFT JOIN ledger_journals lj ON lj.business_type='payment_capture' AND lj.business_reference=t.txn_id
+             WHERE t.status='success' AND lj.id IS NULL"
+        )->fetchColumn();
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
 function logPaymentLedgerFailure(int $transactionId, string $txnRef, string $error): void
 {
     if (!function_exists('logPlatformError')) {
@@ -621,6 +638,9 @@ function reconcilePendingPaymentLedgers(int $limit = 50): array
     }
     if (!function_exists('ensureWalletEngine') && is_file(__DIR__ . '/wallet.php')) {
         require_once __DIR__ . '/wallet.php';
+    }
+    if (!function_exists('persistPaymentReconcileMeta') && is_file(__DIR__ . '/payment_reconcile.php')) {
+        require_once __DIR__ . '/payment_reconcile.php';
     }
     ensureWalletEngine();
 
@@ -649,6 +669,9 @@ function reconcilePendingPaymentLedgers(int $limit = 50): array
         $ledgerStatus = (string)($result['ledger_status'] ?? '');
         if (!empty($result['ok']) && ($ledgerStatus === 'posted' || !empty($result['ledger_posted']))) {
             $posted++;
+            if (function_exists('persistPaymentReconcileMeta')) {
+                persistPaymentReconcileMeta($txnId, 'reconcile', (string)($row['txn_id'] ?? ''));
+            }
         } elseif ($ledgerStatus === 'failed' || empty($result['ok'])) {
             $failed++;
         } else {

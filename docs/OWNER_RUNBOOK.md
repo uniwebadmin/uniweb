@@ -25,7 +25,7 @@ Short operational guide. Product UI stays English.
 |------|------------|
 | Errors / crashes | **Error Log** (`admin_error_log.php`) |
 | Broken links / cron health | **Watchdog** (`admin_watchdog.php`) |
-| Cron last run | **Platform Status** (`admin_platform_status.php`) |
+| Cron last run | **Platform Status** (`admin_platform_status.php`) — verify Auto Audit fresh (cron already on Hostinger; if stale check hPanel) |
 | Partner truth vs UniWeb | **Transaction detail** → status + reconcile source |
 | PG settlement files | **PG Reconciliation** (`admin_reconciliation.php`) |
 | KYC not at bank yet | **KYC Forward Queue** → filter **Staged** |

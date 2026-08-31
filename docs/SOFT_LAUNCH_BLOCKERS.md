@@ -17,7 +17,7 @@ Admin shortcut: **Admin → Soft Launch** (`admin_soft_launch.php`)
 | **c** | **Webhook URLs + secrets** | Partner dashboards point to `https://uniweb.co.in/razorpay_webhook.php` (and cashfree/payu/axis as used). Webhook signing secret pasted in Registry. GET on webhook URL returns health JSON (not 404). |
 | **d** | **Live Money Switches** | Platform Settings → **Live Money Switches** → Payout / Recurring / Route routing stay **OFF (default)** until Owner deliberately turns ON. Collect checkout can work with keys while switches stay OFF. |
 | **e** | **SMTP / pay emails** | Platform Settings → SMTP filled OR pay emails deferred (Owner accepts no receipt email until SMTP). Test email from Support if SMTP required. |
-| **f** | **Cron / queue (Hostinger)** | **Not pre-installed** — Owner adds in hPanel. Copy exact command from Platform Settings → **Show full Hostinger command**. Schedule: `*/10 * * * *` → `cron_auto_audit.php?key=…`. Platform Status shows Auto Audit last run within 15 min. |
+| **f** | **Cron / queue (Hostinger)** | **Already installed** — verify only: Admin → **Platform Status** → Auto Audit last run within 15 min. If stale, Owner checks hPanel cron (agent does not install cron). Command reference: Platform Settings → Show full Hostinger command · `docs/CRON_INVENTORY.md`. |
 | **g** | **Smoke command** | On laptop: `php tests/run_smoke_checks.php` → **SMOKE OK passed=1320+ failed=0**. Optional: `php tests/probe_money_rails.php` → **failures=0**. |
 
 ---

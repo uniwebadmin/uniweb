@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-/** Demo merchant + payment link for instant testing (Instant Test Pay on public demo) */
+/** Demo merchant + payment link for UniWeb Test Pay on public demo */
 
 function ensureDemoMerchant(): array
 {
@@ -60,7 +60,7 @@ function ensureDemoMerchant(): array
     $stmt->execute([$email]);
     $merchant = $stmt->fetch() ?: $merchant;
 
-    // Public demo + packs accept Instant Test Pay in sandbox only.
+    // Public demo + packs accept UniWeb Test Pay in sandbox only.
     try {
         $db->prepare("UPDATE payment_links SET is_test=1 WHERE merchant_id=? AND status='active'")->execute([$merchantId]);
     } catch (Throwable $e) { /* ok */ }

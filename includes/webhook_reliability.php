@@ -5,6 +5,31 @@ if (!function_exists('applyPartnerPaymentReconcile') && is_file(__DIR__ . '/paym
     require_once __DIR__ . '/payment_reconcile.php';
 }
 
+/** Active reconcile_source for webhook retry helpers (poll default; manual for admin reprocess). */
+function webhookRetryReconcileSource(): string
+{
+    $source = (string)($GLOBALS['_uniweb_webhook_retry_source'] ?? 'poll');
+    return function_exists('normalizePaymentReconcileSource')
+        ? normalizePaymentReconcileSource($source)
+        : (in_array($source, ['webhook', 'poll', 'checkout', 'manual', 'reconcile'], true) ? $source : 'poll');
+}
+
+/** @param callable():bool $fn */
+function webhookRetryWithReconcileSource(string $source, callable $fn): bool
+{
+    $prev = $GLOBALS['_uniweb_webhook_retry_source'] ?? 'poll';
+    $GLOBALS['_uniweb_webhook_retry_source'] = $source;
+    try {
+        return (bool)$fn();
+    } finally {
+        $GLOBALS['_uniweb_webhook_retry_source'] = $prev;
+    }
+}
+
+/** Inbound partner webhook retry policy (internal queue — webhook_events). */
+const WEBHOOK_INBOUND_MAX_RETRIES = 5;
+const WEBHOOK_INBOUND_RETRY_DELAY_CAP_MINUTES = 60;
+
 /**
  * Webhook Reliability Engine — idempotency, retry queue, dead letter.
  *
@@ -74,8 +99,8 @@ function recordWebhookEvent(string $eventId, string $gateway, string $eventType,
     try {
         $db->prepare(
             "INSERT INTO webhook_events (event_id, gateway, event_type, payload, signature, status, max_retries)
-             VALUES (?,?,?,?,?, 'received', 5)"
-        )->execute([$eventId, $gateway, $eventType, $payload, $signature]);
+             VALUES (?,?,?,?,?, 'received', ?)"
+        )->execute([$eventId, $gateway, $eventType, $payload, $signature, WEBHOOK_INBOUND_MAX_RETRIES]);
         return [
             'is_duplicate' => false,
             'id' => (int)$db->lastInsertId(),
@@ -145,8 +170,8 @@ function markWebhookFailed(int $eventId, string $error): void
             } catch (Throwable $e) {}
             alertWebhookDeadLetter($alertEvent);
         } else {
-            // Schedule retry with exponential backoff + jitter: 2^retry minutes (cap 60)
-            $delayMinutes = min(60, (1 << $retryCount));
+            // Schedule retry with exponential backoff + jitter: 2^retry minutes (cap WEBHOOK_INBOUND_RETRY_DELAY_CAP_MINUTES)
+            $delayMinutes = min(WEBHOOK_INBOUND_RETRY_DELAY_CAP_MINUTES, (1 << $retryCount));
             try {
                 $delayMinutes = min(60, $delayMinutes + random_int(0, 3));
             } catch (Throwable $e) { /* ok */ }
@@ -327,7 +352,7 @@ function retryRazorpayWebhook(array $payload, string $eventType): bool
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $paymentId,
-            'reconcile_source' => 'poll',
+            'reconcile_source' => webhookRetryReconcileSource(),
             'terminal' => 'failed',
         ]);
         return true;
@@ -348,7 +373,7 @@ function retryRazorpayWebhook(array $payload, string $eventType): bool
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $paymentId,
-            'reconcile_source' => 'poll',
+            'reconcile_source' => webhookRetryReconcileSource(),
         ]);
         return true;
     }
@@ -389,7 +414,7 @@ function retryCashfreeWebhook(array $payload, string $eventType): bool
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $paymentId ?: $orderId,
-            'reconcile_source' => 'poll',
+            'reconcile_source' => webhookRetryReconcileSource(),
             'terminal' => 'failed',
         ]);
         return true;
@@ -419,7 +444,7 @@ function retryCashfreeWebhook(array $payload, string $eventType): bool
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $verifiedPaymentId,
-            'reconcile_source' => 'poll',
+            'reconcile_source' => webhookRetryReconcileSource(),
         ]);
         return true;
     }
@@ -453,7 +478,7 @@ function retryPayUWebhook(array $post): bool
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $reference,
-            'reconcile_source' => 'poll',
+            'reconcile_source' => webhookRetryReconcileSource(),
             'terminal' => 'failed',
         ]);
         return true;
@@ -474,7 +499,7 @@ function retryPayUWebhook(array $post): bool
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $reference,
-            'reconcile_source' => 'poll',
+            'reconcile_source' => webhookRetryReconcileSource(),
         ]);
         return true;
     }
@@ -511,7 +536,7 @@ function retryDecentroWebhook(array $payload, string $eventType): bool
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $decentroTxnId,
-            'reconcile_source' => 'poll',
+            'reconcile_source' => webhookRetryReconcileSource(),
         ]);
         return true;
     }
@@ -532,7 +557,7 @@ function retryDecentroWebhook(array $payload, string $eventType): bool
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $decentroTxnId,
-            'reconcile_source' => 'poll',
+            'reconcile_source' => webhookRetryReconcileSource(),
             'terminal' => 'failed',
         ]);
         return true;

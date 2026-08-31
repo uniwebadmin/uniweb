@@ -361,7 +361,7 @@ function generateMerchantPaymentPack(int $merchantId, float $amount = 1.0, ?bool
         if (!$cat) {
             continue;
         }
-        // Fixed ₹1 (Instant Test Pay) + Open amount (customer enters)
+        // Fixed ₹1 (UniWeb Test Pay) + Open amount (customer enters)
         foreach (['fixed' => $amount, 'open' => 0.0] as $amountType => $linkAmount) {
             $linkId = createMethodPaymentLink($merchantId, $methodKey, (float)$linkAmount, $packId, 'Payment Pack', $isTest, $amountType);
             if ($linkId) {

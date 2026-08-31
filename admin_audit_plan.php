@@ -4,71 +4,120 @@ requireSuperAdmin();
 
 $pageTitle = 'Deep Audit Plan';
 
-$phases = [
-    ['id' => '0', 'title' => 'PHASE 0 — DB, migrations, schema, fatal capture', 'when' => 'FIRST', 'kind' => 'work'],
-    ['id' => '1', 'title' => 'PHASE 1 — Single money / keys plane', 'when' => 'After Phase 0 is green on live', 'kind' => 'work'],
-    ['id' => '2', 'title' => 'PHASE 2 — Checkout, QR, methods, links', 'when' => 'After Phase 1 is green on live', 'kind' => 'work'],
-    ['id' => '3', 'title' => 'PHASE 3 — KYC & onboarding', 'when' => 'After Phase 2 is green on live', 'kind' => 'work'],
-    ['id' => '4', 'title' => 'PHASE 4 — Menus & panels A–Z', 'when' => 'After Phase 3 is green on live', 'kind' => 'work'],
-    ['id' => '5', 'title' => 'PHASE 5 — Ops (Watchdog, cron, queue, notifications)', 'when' => 'After Phase 4 is green on live', 'kind' => 'work'],
-    ['id' => '6', 'title' => 'PHASE 6 — Global search', 'when' => 'After Phase 5 is green on live', 'kind' => 'work'],
-    ['id' => '7', 'title' => 'PHASE 7 — Public website', 'when' => 'After Phase 6 is green on live', 'kind' => 'work'],
-    ['id' => '8', 'title' => 'PHASE 8 — Design polish', 'when' => 'After Phase 7 is green on live', 'kind' => 'work'],
-    ['id' => '9', 'title' => 'PHASE 9 — Market comparison', 'when' => 'Reference only — does not jump ahead of Phase 0–2', 'kind' => 'reference'],
-    ['id' => '10', 'title' => 'PHASE 10 — White-label checklist', 'when' => 'Reference only — only if a real deal needs an item, after 0–2', 'kind' => 'reference'],
-    ['id' => '11', 'title' => 'PHASE 11 — Later optional + never NBFC/PPI', 'when' => 'Route/Split only after keys + Owner says start. NBFC and customer PPI wallet stay hidden.', 'kind' => 'later'],
+$beforeLive = [
+    ['Apply pending migrations (066–081)', 'gateway_settings.php', 'Platform Settings → Apply pending migrations → ok: true'],
+    ['Soft Launch checklist', 'admin_soft_launch.php', 'Follow blockers a–g in order'],
+    ['Partner Registry keys', 'admin_gateway_registry.php', 'Keys tab → Test Connection green for rails you will use'],
+    ['Webhook URLs + secrets', 'admin_webhook_reliability.php', 'Partner dashboard → uniweb.co.in webhooks; secret in Registry'],
+    ['Live Money Switches OFF', 'gateway_settings.php#live-money-switches', 'Payout / Recurring / Route routing default OFF'],
+    ['Cron verify (already on Hostinger)', 'admin_platform_status.php', 'Auto Audit last run within 15 min — if stale, Owner checks hPanel'],
+    ['Smoke green on laptop', null, 'php tests/run_smoke_checks.php → failed=0'],
+];
+
+$afterKeys = [
+    ['Error Log clean', 'admin_error_log.php', 'Resolve noise; CR-01 live config if old createNotification() blocks notify helper'],
+    ['Watchdog green', 'admin_watchdog.php', 'Broken links = 0 before traffic'],
+    ['KYC queue ready', 'admin_kyc.php', 'Verify merchant when live collect required'],
+    ['PG Reconciliation dry path', 'admin_reconciliation.php?tab=manual', 'Manual reconcile tab — one TXN test (no fake paid)'],
+    ['First test pay', 'admin_transactions.php', 'Small amount → Success + ledger on Transaction detail'],
+];
+
+$parkedLater = [
+    ['Phase 11 Route / Easy Split SDK', 'gateway_settings.php', 'PARKED — switch OFF until Owner + live keys + approval'],
+    ['Marketplace payout / Easy Split to bank', 'gateway_settings.php', 'PARKED — Payout live switch OFF'],
+    ['Recurring live debits', 'gateway_settings.php', 'PARKED — Recurring switch OFF'],
+    ['KYC forward staged / local_record', 'admin_forward_queue.php', 'By design — not partner paid; queue until live API'],
+    ['MDR layout simplify', 'admin_gateway_detail.php', 'PARKED — Owner approval required; pages stay as-is'],
+    ['NBFC / customer PPI wallet / white-label product', null, 'NEVER — excluded by policy'],
+];
+
+$referencePhases = [
+    ['0', 'DB, migrations, schema, fatal capture', 'Do first on live'],
+    ['1', 'Single money / keys plane', 'After Phase 0 green'],
+    ['2', 'Checkout, QR, methods, links', 'After Phase 1 green'],
+    ['3–8', 'KYC, menus, ops, search, website, polish', 'Sequential — verify each on live'],
+    ['9–10', 'Market comparison · white-label checklist', 'Reference only — does not override 0–2'],
+    ['11', 'Route/Split optional', 'Later / excluded — Owner gate'],
 ];
 
 require_once __DIR__ . '/header.php';
 ?>
 
 <div class="mb-6 min-w-0">
-    <p class="text-sm text-gray-400">How to use — work top-down by phase. You verify each phase on live before the next. Market and white-label are full reference — they do not override Phase 0–2.</p>
-    <p class="text-xs text-amber-400 mt-2">Phases 0–10 are in the repo as code or reference. Phase 11 Route/Split stays parked. Never build NBFC product or a customer PPI wallet.</p>
+    <p class="text-sm text-gray-400">Launch checklist — calm steps before first live pay. Aligned with <a href="admin_soft_launch.php" class="text-sky-400 hover:underline">Soft Launch</a> and <code class="text-gray-500">docs/SOFT_LAUNCH_BLOCKERS.md</code>.</p>
+    <p class="text-xs text-amber-400/90 mt-2">PARKED rows are honest — not hidden failures. Do not skip migrations or keys.</p>
 </div>
 
 <div class="flex flex-wrap gap-2 mb-6">
-    <a href="gateway_settings.php" class="glass px-4 py-2 rounded-xl text-sm text-sky-400">Gateway Settings</a>
+    <a href="admin_soft_launch.php" class="glass px-4 py-2 rounded-xl text-sm text-emerald-400">Soft Launch →</a>
+    <a href="gateway_settings.php" class="glass px-4 py-2 rounded-xl text-sm text-sky-400">Platform Settings</a>
     <a href="admin_error_log.php" class="glass px-4 py-2 rounded-xl text-sm text-gray-300">Error Log</a>
-    <a href="admin_watchdog.php" class="glass px-4 py-2 rounded-xl text-sm text-amber-400">Link Watchdog</a>
-    <a href="admin_platform_status.php" class="glass px-4 py-2 rounded-xl text-sm text-gray-300">Platform Status</a>
+    <a href="admin_watchdog.php" class="glass px-4 py-2 rounded-xl text-sm text-amber-400">Watchdog</a>
+    <a href="admin_reconciliation.php?tab=manual" class="glass px-4 py-2 rounded-xl text-sm text-violet-300">Manual Reconcile</a>
 </div>
 
-<div class="glass rounded-xl overflow-hidden min-w-0 mb-6">
-    <div class="px-4 sm:px-6 py-4 border-b border-gray-800">
-        <h2 class="font-semibold">Phase order</h2>
-    </div>
-    <ol class="divide-y divide-gray-800">
-        <?php foreach ($phases as $phase):
-            $isFirst = $phase['id'] === '0';
-            $badge = match ($phase['kind']) {
-                'reference' => 'Reference',
-                'later' => 'Later / excluded',
-                default => $isFirst ? 'Do first' : 'Work',
-            };
-            $badgeClass = match ($phase['kind']) {
-                'reference' => 'text-gray-500 border-gray-700',
-                'later' => 'text-red-400 border-red-500/30',
-                default => $isFirst ? 'text-emerald-400 border-emerald-500/40' : 'text-sky-400 border-sky-700/40',
-            };
-        ?>
-        <li class="px-4 sm:px-6 py-4 <?= $isFirst ? 'bg-emerald-500/5' : '' ?>">
-            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                <div class="min-w-0">
-                    <p class="text-sm font-medium text-gray-100"><?= e($phase['title']) ?></p>
-                    <p class="text-xs text-gray-500 mt-1"><?= e($phase['when']) ?></p>
-                </div>
-                <span class="text-[11px] px-2 py-1 rounded-lg border <?= $badgeClass ?> w-fit whitespace-nowrap"><?= e($badge) ?></span>
-            </div>
-        </li>
-        <?php endforeach; ?>
-    </ol>
-</div>
+<div class="space-y-6">
+    <section class="glass rounded-xl overflow-hidden min-w-0">
+        <div class="px-4 sm:px-6 py-4 border-b border-emerald-500/30 bg-emerald-500/5">
+            <h2 class="font-semibold text-emerald-300">A) Before first live pay</h2>
+        </div>
+        <ol class="divide-y divide-gray-800">
+            <?php foreach ($beforeLive as $i => $row): ?>
+            <li class="px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
+                <span class="text-gray-500 w-6 shrink-0"><?= $i + 1 ?>.</span>
+                <span class="text-gray-200 flex-1 min-w-0"><?= e($row[0]) ?></span>
+                <span class="text-xs text-gray-500 sm:max-w-[45%]"><?= e($row[2]) ?></span>
+                <?php if ($row[1]): ?><a href="<?= e($row[1]) ?>" class="text-xs text-sky-400 shrink-0">Open →</a><?php endif; ?>
+            </li>
+            <?php endforeach; ?>
+        </ol>
+    </section>
 
-<div class="glass rounded-xl p-4 sm:p-6 border border-gray-800 min-w-0">
-    <h2 class="font-semibold mb-3">APPENDIX — Evidence</h2>
-    <p class="text-sm text-gray-400 leading-relaxed">Source: Hostinger site copy 14 Aug 2026 · SQL dumps · about 434 PHP files · tickets 2.1–2.16 plus stability. Migrations through 060. Checkout, global search, and merchant menus exist in the repo. Live HTTP and SMTP were not fully executed in the offline PDF. Format stays Problem → Expectation → Solution. Product exclusions only: NBFC and customer PPI wallet.</p>
-    <p class="text-xs text-gray-600 mt-3">After you verify a phase on live, send the next point. Do not skip ahead to public-site redesign or white-label before Phase 0–2.</p>
+    <section class="glass rounded-xl overflow-hidden min-w-0">
+        <div class="px-4 sm:px-6 py-4 border-b border-sky-500/30 bg-sky-500/5">
+            <h2 class="font-semibold text-sky-300">B) After keys (live prep)</h2>
+        </div>
+        <ol class="divide-y divide-gray-800">
+            <?php foreach ($afterKeys as $i => $row): ?>
+            <li class="px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
+                <span class="text-gray-500 w-6 shrink-0"><?= $i + 1 ?>.</span>
+                <span class="text-gray-200 flex-1 min-w-0"><?= e($row[0]) ?></span>
+                <span class="text-xs text-gray-500 sm:max-w-[45%]"><?= e($row[2]) ?></span>
+                <?php if ($row[1]): ?><a href="<?= e($row[1]) ?>" class="text-xs text-sky-400 shrink-0">Open →</a><?php endif; ?>
+            </li>
+            <?php endforeach; ?>
+        </ol>
+    </section>
+
+    <section class="glass rounded-xl overflow-hidden min-w-0 border border-amber-500/20">
+        <div class="px-4 sm:px-6 py-4 border-b border-amber-500/30 bg-amber-500/5">
+            <h2 class="font-semibold text-amber-300">C) PARKED later (not “do now”)</h2>
+        </div>
+        <ul class="divide-y divide-gray-800">
+            <?php foreach ($parkedLater as $row): ?>
+            <li class="px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
+                <span class="text-[10px] uppercase tracking-wide text-amber-400/80 border border-amber-500/30 px-2 py-0.5 rounded w-fit shrink-0">PARKED</span>
+                <span class="text-gray-300 flex-1"><?= e($row[0]) ?></span>
+                <span class="text-xs text-gray-500 sm:max-w-[45%]"><?= e($row[2]) ?></span>
+                <?php if ($row[1]): ?><a href="<?= e($row[1]) ?>" class="text-xs text-gray-400 shrink-0">Ref →</a><?php endif; ?>
+            </li>
+            <?php endforeach; ?>
+        </ul>
+    </section>
+
+    <details class="glass rounded-xl min-w-0">
+        <summary class="px-4 sm:px-6 py-4 cursor-pointer font-semibold text-gray-400">Reference — phase history (collapse)</summary>
+        <ol class="divide-y divide-gray-800 border-t border-gray-800">
+            <?php foreach ($referencePhases as $phase): ?>
+            <li class="px-4 sm:px-6 py-3 text-sm">
+                <span class="text-sky-400/80 font-mono text-xs">Phase <?= e($phase[0]) ?></span>
+                <span class="text-gray-300 ml-2"><?= e($phase[1]) ?></span>
+                <p class="text-xs text-gray-600 mt-1"><?= e($phase[2]) ?></p>
+            </li>
+            <?php endforeach; ?>
+        </ol>
+        <p class="px-4 sm:px-6 py-3 text-xs text-gray-600 border-t border-gray-800">Migrations through <strong class="text-gray-500">081</strong>. Product exclusions: NBFC, customer PPI wallet, white-label sell.</p>
+    </details>
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

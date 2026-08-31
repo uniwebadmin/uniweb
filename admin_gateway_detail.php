@@ -573,7 +573,7 @@ require_once __DIR__ . '/header.php';
             ?>
             <p class="text-sky-300/90 pt-1">Example on ₹100 (current P <?= e(number_format($exP, 2)) ?>%, sample M <?= e(number_format($exM, 2)) ?>%): Admin cut <?= formatMoney($exAdmin) ?> · Partner cut <?= formatMoney($exPartner) ?> · Merchant baaki <?= formatMoney($exMerch) ?>. Same math posts to ledger on success.</p>
         </div>
-        <p class="text-xs text-gray-500 mb-4">Save Partner MDR below. Route / Easy Split SDK stays <strong class="text-amber-400">parked</strong> until Owner + keys — commission still applies via standard settle on this engine.</p>
+        <p class="text-xs text-gray-500 mb-4">Save Partner MDR below. Per-method rates in Partner Detail Commercial override template defaults when saved. Route / Easy Split SDK stays <strong class="text-amber-400">parked</strong> until Owner + keys — commission still applies via standard settle on this engine. <span class="text-gray-600">MDR layout simplify — Owner approval required (parked).</span></p>
 
         <?php if ($pricingError): ?>
         <div class="rounded-lg border border-amber-700/50 bg-amber-900/20 p-3 mb-4 text-sm text-amber-300">

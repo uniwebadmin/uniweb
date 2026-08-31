@@ -432,10 +432,17 @@ function getPgWebhookLogs(int $limit = 50, ?string $gateway = null): array
     return $st->fetchAll();
 }
 
-/** Re-attempt fulfillment from a stored webhook log row (admin retry). */
+/** Re-attempt fulfillment from a stored webhook log row (admin retry) — canonical payment_reconcile path. */
 function reprocessPgWebhookLog(int $logId): array
 {
     ensurePgWebhookTables();
+    if (!function_exists('dispatchWebhookRetry') && is_file(__DIR__ . '/webhook_reliability.php')) {
+        require_once __DIR__ . '/webhook_reliability.php';
+    }
+    if (!function_exists('applyPartnerPaymentReconcile') && is_file(__DIR__ . '/payment_reconcile.php')) {
+        require_once __DIR__ . '/payment_reconcile.php';
+    }
+
     $st = getDB()->prepare('SELECT * FROM pg_webhook_logs WHERE id = ?');
     $st->execute([$logId]);
     $log = $st->fetch();
@@ -443,39 +450,55 @@ function reprocessPgWebhookLog(int $logId): array
         return ['ok' => false, 'error' => 'Webhook log not found'];
     }
 
-    $gateway = (string)$log['gateway'];
+    $gateway = strtolower((string)$log['gateway']);
     $linkId = (string)($log['link_id'] ?? '');
     $reference = (string)($log['reference'] ?? '');
-    $amount = 0.0;
     $parsed = json_decode((string)($log['payload'] ?? ''), true);
-
-    if (is_array($parsed)) {
-        if ($gateway === 'razorpay' && isset($parsed['payload'])) {
-            $entity = $parsed['payload']['payment']['entity'] ?? $parsed['payload']['order']['entity'] ?? [];
-            $linkId = $linkId ?: (string)($entity['notes']['link_id'] ?? '');
-            $reference = $reference ?: (string)($entity['id'] ?? '');
-            $amount = isset($entity['amount']) ? ((float)$entity['amount'] / 100) : 0.0;
-        } elseif ($gateway === 'cashfree') {
-            $order = $parsed['data']['order'] ?? $parsed['order'] ?? $parsed['data'] ?? $parsed;
-            $orderId = (string)($order['order_id'] ?? $parsed['data']['order_id'] ?? '');
-            $linkId = $linkId ?: (string)($order['order_tags']['link_id'] ?? $parsed['data']['order_tags']['link_id'] ?? parseCashfreeLinkIdFromOrder($orderId));
-            $reference = $reference ?: $orderId;
-            $amount = (float)($order['order_amount'] ?? $parsed['data']['order_amount'] ?? 0);
-        } elseif ($gateway === 'payu') {
-            $linkId = $linkId ?: (string)($parsed['udf1'] ?? '');
-            $reference = $reference ?: (string)($parsed['mihpayid'] ?? $parsed['txnid'] ?? '');
-            $amount = (float)($parsed['amount'] ?? 0);
-        }
+    if (!is_array($parsed)) {
+        return ['ok' => false, 'error' => 'Invalid payload in webhook log'];
     }
 
-    if ($linkId === '' || $reference === '') {
-        return ['ok' => false, 'error' => 'Cannot retry — missing link_id or payment reference in log.'];
+    if ($gateway === 'razorpay' && isset($parsed['payload'])) {
+        $entity = $parsed['payload']['payment']['entity'] ?? $parsed['payload']['order']['entity'] ?? [];
+        $linkId = $linkId ?: (string)($entity['notes']['link_id'] ?? '');
+        $reference = $reference ?: (string)($entity['id'] ?? '');
+    } elseif ($gateway === 'cashfree') {
+        $order = $parsed['data']['order'] ?? $parsed['order'] ?? $parsed['data'] ?? $parsed;
+        $orderId = (string)($order['order_id'] ?? $parsed['data']['order_id'] ?? '');
+        $linkId = $linkId ?: (string)($order['order_tags']['link_id'] ?? $parsed['data']['order_tags']['link_id'] ?? parseCashfreeLinkIdFromOrder($orderId));
+        $reference = $reference ?: $orderId;
+    } elseif ($gateway === 'payu') {
+        $linkId = $linkId ?: (string)($parsed['udf1'] ?? '');
+        $reference = $reference ?: (string)($parsed['mihpayid'] ?? $parsed['txnid'] ?? '');
     }
 
-    $result = fulfillGatewayPayment($gateway, $linkId, $reference, $gateway, $amount);
-    logPgWebhook($gateway, $result['ok'] ? 'reprocessed' : 'retry_failed', (string)($log['event_type'] ?? 'retry'), $reference, $linkId, json_encode($result));
-    if (isAdminLoggedIn()) {
-        logStaffActivity('webhook_reprocessed', $gateway . ' ref ' . $reference, null, 'payment_link', $linkId);
+    $eventType = (string)($log['event_type'] ?? '');
+    $eventId = $reference !== '' ? $reference : ((string)($log['id'] ?? $logId));
+
+    if (!function_exists('dispatchWebhookRetry')) {
+        return ['ok' => false, 'error' => 'Webhook retry handler unavailable'];
+    }
+
+    $success = function_exists('webhookRetryWithReconcileSource')
+        ? webhookRetryWithReconcileSource('manual', static function () use ($gateway, $parsed, $eventId, $eventType): bool {
+            return dispatchWebhookRetry($gateway, $parsed, $eventId, $eventType);
+        })
+        : dispatchWebhookRetry($gateway, $parsed, $eventId, $eventType);
+
+    $result = $success
+        ? ['ok' => true, 'reconcile_source' => 'manual']
+        : ['ok' => false, 'error' => 'Manual retry could not apply payment — check keys, order binding, or partner status.'];
+
+    logPgWebhook(
+        $gateway,
+        $success ? 'reprocessed' : 'retry_failed',
+        $eventType !== '' ? $eventType : 'retry',
+        $reference,
+        $linkId,
+        json_encode($result, JSON_UNESCAPED_UNICODE)
+    );
+    if ($success && isAdminLoggedIn()) {
+        logStaffActivity('webhook_reprocessed', $gateway . ' ref ' . $reference, null, 'payment_link', $linkId !== '' ? $linkId : null);
     }
     return $result;
 }
