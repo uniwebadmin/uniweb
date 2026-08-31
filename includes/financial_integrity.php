@@ -71,6 +71,10 @@ function uniwebPreparePaymentCaptureSchema(): void
     if (function_exists('ensureWalletEngine')) {
         ensureWalletEngine();
     }
+    if (!function_exists('ensurePaymentReconcileColumns') && is_file(__DIR__ . '/payment_reconcile.php')) {
+        require_once __DIR__ . '/payment_reconcile.php';
+        ensurePaymentReconcileColumns();
+    }
 }
 
 function paymentModeForLink(array $link): string

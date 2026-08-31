@@ -170,6 +170,7 @@ function uniwebAdminNavGroups(): array
             ['admin_payout.php', 'Payout Requests'],
         ]],
         ['id' => 'ops', 'title' => 'Ops', 'items' => [
+            ['admin_soft_launch.php', 'Soft Launch Checklist'],
             ['admin_platform_status.php', 'Platform Status + Cron Jobs'],
             ['admin_watchdog.php', 'Link Watchdog'],
         ]],

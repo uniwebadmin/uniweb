@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('applyPartnerPaymentReconcile') && is_file(__DIR__ . '/includes/payment_reconcile.php')) {
+    require_once __DIR__ . '/includes/payment_reconcile.php';
+}
 if (!function_exists('recordWebhookEvent')) {
     require_once __DIR__ . '/includes/webhook_reliability.php';
 }
@@ -123,7 +126,7 @@ $isFailure = in_array(strtoupper($event), $failureEvents, true)
 
 if ($isFailure && $orderId !== '') {
     try {
-        $result = recordPaymentOrderFailure([
+        $result = applyPartnerPaymentReconcile([
             'provider' => 'cashfree',
             'provider_order_id' => $orderId,
             'provider_payment_id' => $paymentId !== '' ? $paymentId : ('fail:' . $orderId),
@@ -137,6 +140,8 @@ if ($isFailure && $orderId !== '') {
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $paymentId ?: $orderId,
+            'reconcile_source' => 'webhook',
+            'terminal' => 'failed',
         ]);
         setGatewayEventStatus((int)$gatewayEvent['id'], !empty($result['duplicate']) || !empty($result['ignored']) ? 'duplicate' : 'processed');
         markWebhookCompleted((int)$webhookEv['id']);
@@ -181,7 +186,7 @@ try {
     if ($verifiedPaymentId === '') {
         throw new RuntimeException('Cashfree payment ID is missing.');
     }
-    $result = captureVerifiedPaymentOrder([
+    $result = applyPartnerPaymentReconcile([
         'provider' => 'cashfree',
         'provider_order_id' => $orderId,
         'provider_payment_id' => $verifiedPaymentId,
@@ -191,6 +196,7 @@ try {
         'signature_verified' => true,
         'provider_verified' => true,
         'reference' => $verifiedPaymentId,
+        'reconcile_source' => 'webhook',
     ]);
     setGatewayEventStatus((int)$gatewayEvent['id'], !empty($result['duplicate']) ? 'duplicate' : 'processed');
     markWebhookCompleted((int)$webhookEv['id']);

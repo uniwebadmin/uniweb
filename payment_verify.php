@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('applyPartnerPaymentReconcile') && is_file(__DIR__ . '/includes/payment_reconcile.php')) {
+    require_once __DIR__ . '/includes/payment_reconcile.php';
+}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect('index.php');
@@ -26,7 +29,7 @@ if (!$providerPayment
 
 $event = registerGatewayEvent('razorpay', 'return:' . $paymentId, 'checkout.return', json_encode($providerPayment), true);
 try {
-    $result = captureVerifiedPaymentOrder([
+    $result = applyPartnerPaymentReconcile([
         'provider' => 'razorpay',
         'provider_order_id' => $orderId,
         'provider_payment_id' => $paymentId,
@@ -36,6 +39,7 @@ try {
         'signature_verified' => true,
         'provider_verified' => true,
         'reference' => $paymentId,
+        'reconcile_source' => 'checkout',
     ]);
     setGatewayEventStatus((int)$event['id'], !empty($result['duplicate']) ? 'duplicate' : 'processed');
 } catch (Throwable $e) {

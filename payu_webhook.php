@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('applyPartnerPaymentReconcile') && is_file(__DIR__ . '/includes/payment_reconcile.php')) {
+    require_once __DIR__ . '/includes/payment_reconcile.php';
+}
 if (!function_exists('recordWebhookEvent')) {
     require_once __DIR__ . '/includes/webhook_reliability.php';
 }
@@ -98,7 +101,7 @@ if (in_array($status, $failureStatuses, true) && $reference !== '') {
             exit;
         }
         $providerOrderId = (string)$bound;
-        $result = recordPaymentOrderFailure([
+        $result = applyPartnerPaymentReconcile([
             'provider' => 'payu',
             'provider_order_id' => $providerOrderId,
             'provider_payment_id' => $reference,
@@ -109,6 +112,8 @@ if (in_array($status, $failureStatuses, true) && $reference !== '') {
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $reference,
+            'reconcile_source' => 'webhook',
+            'terminal' => 'failed',
         ]);
         logPgWebhook('payu', 'processed_failure', $status, $reference, $linkId, json_encode($result));
         markWebhookCompleted((int)$webhookEv['id']);

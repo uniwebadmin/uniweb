@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+if (!function_exists('applyPartnerPaymentReconcile') && is_file(__DIR__ . '/payment_reconcile.php')) {
+    require_once __DIR__ . '/payment_reconcile.php';
+}
+
 /**
  * Webhook Reliability Engine — idempotency, retry queue, dead letter.
  *
@@ -312,7 +316,7 @@ function retryRazorpayWebhook(array $payload, string $eventType): bool
         $orderId = (string)($providerPayment['order_id'] ?? $entity['order_id'] ?? '');
         if ($orderId === '') return false;
         $err = is_array($providerPayment['error'] ?? null) ? $providerPayment['error'] : [];
-        recordPaymentOrderFailure([
+        applyPartnerPaymentReconcile([
             'provider' => 'razorpay',
             'provider_order_id' => $orderId,
             'provider_payment_id' => $paymentId,
@@ -323,6 +327,8 @@ function retryRazorpayWebhook(array $payload, string $eventType): bool
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $paymentId,
+            'reconcile_source' => 'poll',
+            'terminal' => 'failed',
         ]);
         return true;
     }
@@ -332,7 +338,7 @@ function retryRazorpayWebhook(array $payload, string $eventType): bool
         if (!$providerPayment || strtolower((string)($providerPayment['status'] ?? '')) !== 'captured') {
             return false;
         }
-        captureVerifiedPaymentOrder([
+        applyPartnerPaymentReconcile([
             'provider' => 'razorpay',
             'provider_order_id' => (string)$providerPayment['order_id'],
             'provider_payment_id' => $paymentId,
@@ -342,6 +348,7 @@ function retryRazorpayWebhook(array $payload, string $eventType): bool
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $paymentId,
+            'reconcile_source' => 'poll',
         ]);
         return true;
     }
@@ -371,7 +378,7 @@ function retryCashfreeWebhook(array $payload, string $eventType): bool
         || in_array($paymentStatus, ['FAILED', 'USER_DROPPED', 'CANCELLED', 'EXPIRED'], true);
 
     if ($isFailure) {
-        recordPaymentOrderFailure([
+        applyPartnerPaymentReconcile([
             'provider' => 'cashfree',
             'provider_order_id' => $orderId,
             'provider_payment_id' => $paymentId !== '' ? $paymentId : ('fail:' . $orderId),
@@ -382,6 +389,8 @@ function retryCashfreeWebhook(array $payload, string $eventType): bool
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $paymentId ?: $orderId,
+            'reconcile_source' => 'poll',
+            'terminal' => 'failed',
         ]);
         return true;
     }
@@ -400,7 +409,7 @@ function retryCashfreeWebhook(array $payload, string $eventType): bool
         if (!$providerOrder || !$capturedPayment) return false;
         $verifiedPaymentId = (string)($capturedPayment['cf_payment_id'] ?? '');
         if ($verifiedPaymentId === '') return false;
-        captureVerifiedPaymentOrder([
+        applyPartnerPaymentReconcile([
             'provider' => 'cashfree',
             'provider_order_id' => $orderId,
             'provider_payment_id' => $verifiedPaymentId,
@@ -410,6 +419,7 @@ function retryCashfreeWebhook(array $payload, string $eventType): bool
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $verifiedPaymentId,
+            'reconcile_source' => 'poll',
         ]);
         return true;
     }
@@ -432,7 +442,7 @@ function retryPayUWebhook(array $post): bool
         $orderLookup->execute([$providerOrderId, $providerOrderId]);
         $bound = $orderLookup->fetchColumn();
         if (!$bound) return false;
-        recordPaymentOrderFailure([
+        applyPartnerPaymentReconcile([
             'provider' => 'payu',
             'provider_order_id' => (string)$bound,
             'provider_payment_id' => $reference,
@@ -443,6 +453,8 @@ function retryPayUWebhook(array $post): bool
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $reference,
+            'reconcile_source' => 'poll',
+            'terminal' => 'failed',
         ]);
         return true;
     }
@@ -452,7 +464,7 @@ function retryPayUWebhook(array $post): bool
         $orderLookup->execute([$providerOrderId, $providerOrderId]);
         $bound = $orderLookup->fetchColumn();
         if (!$bound) return false;
-        captureVerifiedPaymentOrder([
+        applyPartnerPaymentReconcile([
             'provider' => 'payu',
             'provider_order_id' => (string)$bound,
             'provider_payment_id' => $reference,
@@ -462,6 +474,7 @@ function retryPayUWebhook(array $post): bool
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $reference,
+            'reconcile_source' => 'poll',
         ]);
         return true;
     }
@@ -488,7 +501,7 @@ function retryDecentroWebhook(array $payload, string $eventType): bool
         $orderLookup->execute([$referenceId, $referenceId]);
         $bound = $orderLookup->fetchColumn();
         if (!$bound) return false;
-        captureVerifiedPaymentOrder([
+        applyPartnerPaymentReconcile([
             'provider' => 'decentro',
             'provider_order_id' => (string)$bound,
             'provider_payment_id' => $decentroTxnId,
@@ -498,6 +511,7 @@ function retryDecentroWebhook(array $payload, string $eventType): bool
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $decentroTxnId,
+            'reconcile_source' => 'poll',
         ]);
         return true;
     }
@@ -507,7 +521,7 @@ function retryDecentroWebhook(array $payload, string $eventType): bool
         $orderLookup->execute([$referenceId, $referenceId]);
         $bound = $orderLookup->fetchColumn();
         if (!$bound) return false;
-        recordPaymentOrderFailure([
+        applyPartnerPaymentReconcile([
             'provider' => 'decentro',
             'provider_order_id' => (string)$bound,
             'provider_payment_id' => $decentroTxnId,
@@ -518,6 +532,8 @@ function retryDecentroWebhook(array $payload, string $eventType): bool
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $decentroTxnId,
+            'reconcile_source' => 'poll',
+            'terminal' => 'failed',
         ]);
         return true;
     }

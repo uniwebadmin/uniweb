@@ -181,6 +181,26 @@ function transactionConfirmationSourceSummary(int $transactionId, string $txnRef
     $needles = array_values(array_filter([trim($utr), trim($txnRef)]));
 
     try {
+        if ($transactionId > 0) {
+            if (function_exists('ensurePaymentReconcileColumns') && is_file(__DIR__ . '/payment_reconcile.php')) {
+                require_once __DIR__ . '/payment_reconcile.php';
+                ensurePaymentReconcileColumns();
+            }
+            $metaSt = getDB()->prepare(
+                'SELECT last_reconcile_source, last_reconcile_at FROM transactions WHERE id=? LIMIT 1'
+            );
+            $metaSt->execute([$transactionId]);
+            $meta = $metaSt->fetch();
+            if ($meta && !empty($meta['last_reconcile_source'])) {
+                $source = (string)$meta['last_reconcile_source'];
+                $label = function_exists('paymentReconcileSourceLabel')
+                    ? paymentReconcileSourceLabel($source)
+                    : $source;
+                $at = (string)($meta['last_reconcile_at'] ?? '') ?: null;
+                return ['source' => $source, 'label' => $label, 'at' => $at];
+            }
+        }
+
         if (function_exists('requireFinancialTables')) {
             requireFinancialTables();
         }

@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('applyPartnerPaymentReconcile') && is_file(__DIR__ . '/includes/payment_reconcile.php')) {
+    require_once __DIR__ . '/includes/payment_reconcile.php';
+}
 if (!function_exists('recordWebhookEvent')) {
     require_once __DIR__ . '/includes/webhook_reliability.php';
 }
@@ -222,7 +225,7 @@ if (in_array($event, $failureEvents, true) && $paymentId !== '') {
             throw new RuntimeException('Razorpay failed payment is missing order_id.');
         }
         $err = is_array($providerPayment['error'] ?? null) ? $providerPayment['error'] : [];
-        $result = recordPaymentOrderFailure([
+        $result = applyPartnerPaymentReconcile([
             'provider' => 'razorpay',
             'provider_order_id' => $orderId,
             'provider_payment_id' => $paymentId,
@@ -233,6 +236,8 @@ if (in_array($event, $failureEvents, true) && $paymentId !== '') {
             'signature_verified' => true,
             'provider_verified' => !empty($providerPayment['id']),
             'reference' => $paymentId,
+            'reconcile_source' => 'webhook',
+            'terminal' => 'failed',
         ]);
         setGatewayEventStatus((int)$gatewayEvent['id'], !empty($result['duplicate']) || !empty($result['ignored']) ? 'duplicate' : 'processed');
         markWebhookCompleted((int)$webhookEv['id']);
@@ -273,7 +278,7 @@ try {
     ) {
         throw new RuntimeException('Razorpay server verification did not return a captured payment.');
     }
-    $result = captureVerifiedPaymentOrder([
+    $result = applyPartnerPaymentReconcile([
         'provider' => 'razorpay',
         'provider_order_id' => (string)$providerPayment['order_id'],
         'provider_payment_id' => $paymentId,
@@ -283,6 +288,7 @@ try {
         'signature_verified' => true,
         'provider_verified' => true,
         'reference' => $paymentId,
+        'reconcile_source' => 'webhook',
     ]);
     setGatewayEventStatus((int)$gatewayEvent['id'], !empty($result['duplicate']) ? 'duplicate' : 'processed');
     markWebhookCompleted((int)$webhookEv['id']);
