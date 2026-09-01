@@ -131,12 +131,27 @@ function razorpayxDispatchPayoutJob(array $job, array $beneficiary): array
     }
 
     $reference = payoutReferenceFromJob($job);
+    if (!function_exists('pgOutboundCircuitBlocked') && is_file(__DIR__ . '/circuit_breaker.php')) {
+        require_once __DIR__ . '/circuit_breaker.php';
+    }
+    $circuitBlock = function_exists('pgOutboundCircuitBlocked') ? pgOutboundCircuitBlocked('razorpay', 'payout') : null;
+    if ($circuitBlock !== null) {
+        return ['ok' => false, 'error' => $circuitBlock['error'], 'error_code' => 'partner_unavailable'];
+    }
     $resp = createRazorpayXPayout($merchant, $bank, $amount, $reference);
     if (!is_array($resp) || trim((string)($resp['id'] ?? '')) === '') {
+        if (function_exists('pgOutboundCircuitRecord')) {
+            pgOutboundCircuitRecord('razorpay', false);
+        }
         return [
             'ok' => false,
-            'error' => 'RazorpayX payout API rejected the request. Verify RazorpayX keys, platform account number, and beneficiary IFSC/account.',
+            'error' => 'RazorpayX payout is temporarily unavailable. Verify keys and beneficiary details, then retry.',
+            'error_code' => 'partner_unavailable',
         ];
+    }
+
+    if (function_exists('pgOutboundCircuitRecord')) {
+        pgOutboundCircuitRecord('razorpay', true);
     }
 
     $status = strtolower((string)($resp['status'] ?? 'processing'));
@@ -339,6 +354,14 @@ function cashfreeDispatchPayoutJob(array $job, array $beneficiary): array
         return ['ok' => false, 'error' => (string)($bene['error'] ?? 'Could not register beneficiary at Cashfree.')];
     }
 
+    if (!function_exists('pgOutboundCircuitBlocked') && is_file(__DIR__ . '/circuit_breaker.php')) {
+        require_once __DIR__ . '/circuit_breaker.php';
+    }
+    $circuitBlock = function_exists('pgOutboundCircuitBlocked') ? pgOutboundCircuitBlocked('cashfree', 'payout') : null;
+    if ($circuitBlock !== null) {
+        return ['ok' => false, 'error' => $circuitBlock['error'], 'error_code' => 'partner_unavailable'];
+    }
+
     $transferId = payoutReferenceFromJob($job);
     $transferMode = $amount <= 500000 ? 'imps' : 'neft';
     $transfer = cashfreePayoutRequest('POST', '/payout/v1/requestTransfer', [
@@ -349,7 +372,14 @@ function cashfreeDispatchPayoutJob(array $job, array $beneficiary): array
     ], $token);
 
     if (!$transfer['ok']) {
-        return ['ok' => false, 'error' => 'Cashfree requestTransfer failed: ' . $transfer['error']];
+        if (function_exists('pgOutboundCircuitRecord')) {
+            pgOutboundCircuitRecord('cashfree', false);
+        }
+        return ['ok' => false, 'error' => 'Cashfree payout is temporarily unavailable. Try again shortly.', 'error_code' => 'partner_unavailable'];
+    }
+
+    if (function_exists('pgOutboundCircuitRecord')) {
+        pgOutboundCircuitRecord('cashfree', true);
     }
 
     $data = $transfer['data']['data'] ?? $transfer['data'] ?? [];

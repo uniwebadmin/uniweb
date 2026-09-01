@@ -568,6 +568,13 @@ function dispatchPlatformPgPayout(array $merchant, array $batch, float $amount):
     if (!$razorpayxAcct || !$razorpayxKey) {
         return ['ok' => false, 'error' => 'RazorpayX payout rail is not activated.'];
     }
+    if (!function_exists('pgOutboundCircuitBlocked') && is_file(__DIR__ . '/circuit_breaker.php')) {
+        require_once __DIR__ . '/circuit_breaker.php';
+    }
+    $circuitBlock = function_exists('pgOutboundCircuitBlocked') ? pgOutboundCircuitBlocked('razorpay', 'settlement_payout') : null;
+    if ($circuitBlock !== null) {
+        return ['ok' => false, 'error' => $circuitBlock['error'], 'error_code' => 'partner_unavailable'];
+    }
     $result = processMerchantSettlement((int)$merchant['id'], $merchant, $amount);
     if (!$result['ok']) {
         return $result;
@@ -577,9 +584,15 @@ function dispatchPlatformPgPayout(array $merchant, array $batch, float $amount):
     $bank = $bankSt->fetch();
     $payout = $bank ? createRazorpayXPayout($merchant, $bank, $amount, (string)$batch['batch_code']) : null;
     if (!$payout || empty($payout['id'])) {
+        if (function_exists('pgOutboundCircuitRecord')) {
+            pgOutboundCircuitRecord('razorpay', false);
+        }
         creditMerchantWallet((int)$merchant['id'], $amount, 'refund', null, 'REV-' . $result['settlement_id'], 'Payout submission failed — funds released');
         getDB()->prepare("UPDATE settlements SET status='failed',processed_at=NOW() WHERE settlement_id=?")->execute([$result['settlement_id']]);
-        return ['ok' => false, 'error' => 'RazorpayX did not accept the payout request. Funds were released.'];
+        return ['ok' => false, 'error' => 'RazorpayX did not accept the payout request. Funds were released.', 'error_code' => 'partner_unavailable'];
+    }
+    if (function_exists('pgOutboundCircuitRecord')) {
+        pgOutboundCircuitRecord('razorpay', true);
     }
     $providerStatus = strtolower((string)($payout['status'] ?? 'queued'));
     $utr = trim((string)($payout['utr'] ?? ''));

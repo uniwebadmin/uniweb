@@ -1883,6 +1883,9 @@ $assert(str_contains($finInt, "provider === 'payu'") && str_contains($finInt, "g
 $assert(str_contains($payuWh, 'registerGatewayEvent') && str_contains($payuWh, 'verify_fail'), 'pg_a5_payu_sig_fail_gateway_event');
 $assert(str_contains($apiPhp, "merchantApiRespondError('idempotency_conflict')") && !preg_match("/idempotency_conflict',\s*\\\$e->getMessage/", $apiPhp), 'pg_a4_api_idempotency_no_internal_leak');
 $assert(!str_contains((string)file_get_contents($root . '/includes/fast_qr_api.php'), 'DB insert failed:'), 'pg_a4_fast_qr_no_db_leak');
+$cbPhp = (string)file_get_contents($root . '/includes/circuit_breaker.php');
+$assert(str_contains($cbPhp, 'pgOutboundCircuitBlocked') && str_contains((string)file_get_contents($root . '/includes/refunds.php'), 'pgOutboundCircuitBlocked'), 'pg_a8_outbound_circuit_refund');
+$assert(str_contains((string)file_get_contents($root . '/includes/settlement_engine.php'), 'pgOutboundCircuitBlocked'), 'pg_a8_outbound_circuit_settlement');
 $assert(str_contains((string)file_get_contents($root . '/includes/chargebacks.php'), 'applyChargebackLostDebit') && str_contains((string)file_get_contents($root . '/includes/chargebacks.php'), "'expired'"), 'p6_chargeback_state_machine');
 $assert(str_contains((string)file_get_contents($root . '/includes/fraud_signals.php'), 'recordWebhookSignatureFailure'), 'p6_fraud_webhook_sig_fail');
 $assert(str_contains((string)file_get_contents($root . '/transaction_detail.php'), 'refundDisplayStatus'), 'p9_txn_detail_refund_honest_labels');

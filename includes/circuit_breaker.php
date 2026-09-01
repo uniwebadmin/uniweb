@@ -192,3 +192,57 @@ function resetCircuitBreaker(string $gateway): bool
         return false;
     }
 }
+
+/** Map razorpayx / alias keys to circuit-breaker gateway bucket. */
+function pgOutboundCircuitGatewayKey(string $gateway): string
+{
+    $gateway = strtolower(trim($gateway));
+    return match ($gateway) {
+        'razorpayx', 'razorpay_route' => 'razorpay',
+        default => $gateway,
+    };
+}
+
+/** True when HTTP outcome should increment circuit failure count (429/5xx/timeout). */
+function pgOutboundCircuitCountsAsFailure(?int $httpCode): bool
+{
+    return $httpCode === null || $httpCode === 0 || $httpCode === 429 || $httpCode >= 500;
+}
+
+/** Record partner outbound outcome for circuit breaker (refund, payout, status poll). */
+function pgOutboundCircuitRecord(string $gateway, bool $success, ?int $httpCode = null): void
+{
+    $gateway = pgOutboundCircuitGatewayKey($gateway);
+    if (!in_array($gateway, ['razorpay', 'cashfree', 'payu', 'axis', 'decentro'], true)) {
+        return;
+    }
+    if ($success) {
+        recordCircuitBreakerSuccess($gateway);
+        return;
+    }
+    if (pgOutboundCircuitCountsAsFailure($httpCode)) {
+        recordCircuitBreakerFailure($gateway, $httpCode);
+    }
+}
+
+/**
+ * Fail fast when circuit is OPEN — refunds, payouts, settlement outbound.
+ *
+ * @return array{ok:false,error:string,error_code:string,circuit_open:true,gateway:string,operation:string}|null
+ */
+function pgOutboundCircuitBlocked(string $gateway, string $operation = 'outbound'): ?array
+{
+    $gateway = pgOutboundCircuitGatewayKey($gateway);
+    if (!isCircuitBreakerAllowed($gateway)) {
+        $catalog = function_exists('merchantApiErrorCatalog') ? merchantApiErrorCatalog() : [];
+        return [
+            'ok' => false,
+            'error_code' => 'partner_unavailable',
+            'error' => (string)($catalog['partner_unavailable']['message'] ?? 'Payment partner is temporarily unavailable. Try again shortly.'),
+            'circuit_open' => true,
+            'gateway' => $gateway,
+            'operation' => $operation,
+        ];
+    }
+    return null;
+}

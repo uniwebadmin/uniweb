@@ -138,6 +138,16 @@ if (!str_contains($finPhpPayu, "getPartnerEnvironment('payu'")) {
     $fail('payu_mode_match_enforced');
 }
 
+$cbPhp = (string)file_get_contents($root . '/includes/circuit_breaker.php');
+$refundsPhp = (string)file_get_contents($root . '/includes/refunds.php');
+if (!str_contains($cbPhp, 'pgOutboundCircuitBlocked') || !str_contains($refundsPhp, 'pgOutboundCircuitBlocked')) {
+    $fail('pg_outbound_circuit_refund_wired');
+}
+$settlePhp = (string)file_get_contents($root . '/includes/settlement_engine.php');
+if (!str_contains($settlePhp, 'pgOutboundCircuitBlocked')) {
+    $fail('pg_outbound_circuit_settlement_wired');
+}
+
 echo 'MONEY_RAILS_PROBE failures=' . count($failures) . PHP_EOL;
 foreach ($failures as $f) {
     echo '  FAIL ' . $f . PHP_EOL;

@@ -75,6 +75,12 @@ function fetchRazorpayPayment(string $paymentId): ?array
 
 function createRazorpayRefund(string $paymentId, float $amount, string $receipt): ?array
 {
+    if (function_exists('pgOutboundCircuitBlocked')) {
+        $blocked = pgOutboundCircuitBlocked('razorpay', 'refund_create');
+        if ($blocked !== null) {
+            return null;
+        }
+    }
     $keyId = getPartnerSetting('razorpay', 'razorpay_key_id', '');
     $keySecret = getPartnerSetting('razorpay', 'razorpay_key_secret', '');
     if (!$keyId || !$keySecret || $paymentId === '' || $amount <= 0) {
@@ -98,7 +104,13 @@ function createRazorpayRefund(string $paymentId, float $amount, string $receipt)
     $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     if ($http < 200 || $http >= 300 || $response === '') {
+        if (function_exists('pgOutboundCircuitRecord')) {
+            pgOutboundCircuitRecord('razorpay', false, $http ?: null);
+        }
         return null;
+    }
+    if (function_exists('pgOutboundCircuitRecord')) {
+        pgOutboundCircuitRecord('razorpay', true, $http);
     }
     $data = json_decode($response, true);
     return is_array($data) ? $data : null;
@@ -106,6 +118,12 @@ function createRazorpayRefund(string $paymentId, float $amount, string $receipt)
 
 function fetchRazorpayRefund(string $paymentId, string $refundId): ?array
 {
+    if (function_exists('pgOutboundCircuitBlocked')) {
+        $blocked = pgOutboundCircuitBlocked('razorpay', 'refund_status');
+        if ($blocked !== null) {
+            return null;
+        }
+    }
     $keyId = getPartnerSetting('razorpay', 'razorpay_key_id', '');
     $keySecret = getPartnerSetting('razorpay', 'razorpay_key_secret', '');
     if (!$keyId || !$keySecret || $paymentId === '' || $refundId === '') {
@@ -122,7 +140,13 @@ function fetchRazorpayRefund(string $paymentId, string $refundId): ?array
     $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     if ($http !== 200 || $response === '') {
+        if (function_exists('pgOutboundCircuitRecord')) {
+            pgOutboundCircuitRecord('razorpay', false, $http ?: null);
+        }
         return null;
+    }
+    if (function_exists('pgOutboundCircuitRecord')) {
+        pgOutboundCircuitRecord('razorpay', true, $http);
     }
     $data = json_decode($response, true);
     return is_array($data) ? $data : null;
@@ -151,7 +175,13 @@ function razorpayXRequest(string $method, string $path, ?array $body = null, arr
     $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     if ($http < 200 || $http >= 300 || $response === '') {
+        if (function_exists('pgOutboundCircuitRecord')) {
+            pgOutboundCircuitRecord('razorpay', false, $http ?: null);
+        }
         return null;
+    }
+    if (function_exists('pgOutboundCircuitRecord')) {
+        pgOutboundCircuitRecord('razorpay', true, $http);
     }
     $data = json_decode($response, true);
     return is_array($data) ? $data : null;
@@ -322,6 +352,12 @@ function fetchCashfreeOrderPayments(string $orderId): array
 
 function createCashfreeRefund(string $orderId, float $amount, string $refundId, string $note = ''): ?array
 {
+    if (function_exists('pgOutboundCircuitBlocked')) {
+        $blocked = pgOutboundCircuitBlocked('cashfree', 'refund_create');
+        if ($blocked !== null) {
+            return null;
+        }
+    }
     $appId = cashfreeAppId();
     $secret = cashfreeSecretKey();
     if (!$appId || !$secret || $orderId === '' || $amount <= 0 || $refundId === '') {
@@ -349,11 +385,17 @@ function createCashfreeRefund(string $orderId, float $amount, string $refundId, 
     $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     if ($http < 200 || $http >= 300 || $response === '') {
+        if (function_exists('pgOutboundCircuitRecord')) {
+            pgOutboundCircuitRecord('cashfree', false, $http ?: null);
+        }
         if (function_exists('logPartnerErrorAndMap') && is_file(__DIR__ . '/partner_error_mapping.php')) {
             require_once __DIR__ . '/partner_error_mapping.php';
             logPartnerErrorAndMap('cashfree', 'create_refund', $response ?: ['http' => $http], $http);
         }
         return null;
+    }
+    if (function_exists('pgOutboundCircuitRecord')) {
+        pgOutboundCircuitRecord('cashfree', true, $http);
     }
     $data = json_decode($response, true);
     return is_array($data) ? $data : null;
@@ -361,6 +403,12 @@ function createCashfreeRefund(string $orderId, float $amount, string $refundId, 
 
 function fetchCashfreeRefund(string $orderId, string $refundId): ?array
 {
+    if (function_exists('pgOutboundCircuitBlocked')) {
+        $blocked = pgOutboundCircuitBlocked('cashfree', 'refund_status');
+        if ($blocked !== null) {
+            return null;
+        }
+    }
     $appId = cashfreeAppId();
     $secret = cashfreeSecretKey();
     if (!$appId || !$secret || $orderId === '' || $refundId === '') {
@@ -380,7 +428,13 @@ function fetchCashfreeRefund(string $orderId, string $refundId): ?array
     $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     if ($http !== 200 || $response === '') {
+        if (function_exists('pgOutboundCircuitRecord')) {
+            pgOutboundCircuitRecord('cashfree', false, $http ?: null);
+        }
         return null;
+    }
+    if (function_exists('pgOutboundCircuitRecord')) {
+        pgOutboundCircuitRecord('cashfree', true, $http);
     }
     $data = json_decode($response, true);
     return is_array($data) ? $data : null;
@@ -389,6 +443,13 @@ function fetchCashfreeRefund(string $orderId, string $refundId): ?array
 /** PayU postservice — shared for refund + status (no secrets in return value). */
 function payuPostserviceRequest(string $command, string $var1, string $var2 = '', string $var3 = ''): ?array
 {
+    if (function_exists('pgOutboundCircuitBlocked')) {
+        $op = str_contains($command, 'refund') ? 'refund_create' : 'refund_status';
+        $blocked = pgOutboundCircuitBlocked('payu', $op);
+        if ($blocked !== null) {
+            return null;
+        }
+    }
     $c = payuCredentials();
     if ($c['key'] === '' || $c['salt'] === '' || $command === '' || $var1 === '') {
         return null;
@@ -440,17 +501,31 @@ function payuPostserviceRequest(string $command, string $var1, string $var2 = ''
         curl_close($ch);
     }
     if ($response === '') {
+        if (function_exists('pgOutboundCircuitRecord')) {
+            pgOutboundCircuitRecord('payu', false, $http ?: null);
+        }
         return null;
     }
     $decoded = json_decode($response, true);
     if (!is_array($decoded)) {
+        if (function_exists('pgOutboundCircuitRecord')) {
+            pgOutboundCircuitRecord('payu', false, $http ?: null);
+        }
         if (function_exists('logPartnerErrorAndMap') && is_file(__DIR__ . '/partner_error_mapping.php')) {
             require_once __DIR__ . '/partner_error_mapping.php';
             logPartnerErrorAndMap('payu', $command, mb_substr($response, 0, 500), $http);
         }
         return null;
     }
-    if (strtolower((string)($decoded['status'] ?? '')) !== 'success' && strtolower((string)($decoded['status'] ?? '')) !== '1') {
+    $payuOk = in_array(strtolower((string)($decoded['status'] ?? '')), ['success', '1'], true);
+    if (function_exists('pgOutboundCircuitRecord')) {
+        if ($payuOk && ($http >= 200 && $http < 300)) {
+            pgOutboundCircuitRecord('payu', true, $http);
+        } elseif (function_exists('pgOutboundCircuitCountsAsFailure') && pgOutboundCircuitCountsAsFailure($http ?: null)) {
+            pgOutboundCircuitRecord('payu', false, $http ?: null);
+        }
+    }
+    if (!$payuOk) {
         if (function_exists('logPartnerErrorAndMap') && is_file(__DIR__ . '/partner_error_mapping.php')) {
             require_once __DIR__ . '/partner_error_mapping.php';
             logPartnerErrorAndMap('payu', $command, $decoded, $http);

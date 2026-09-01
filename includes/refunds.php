@@ -120,6 +120,14 @@ function submitProviderRefund(string $provider, array $txn, string $refundId, fl
     $ctx = resolveTransactionRefundContext($txn);
     $provider = strtolower(trim($provider));
 
+    if (!function_exists('pgOutboundCircuitBlocked') && is_file(__DIR__ . '/circuit_breaker.php')) {
+        require_once __DIR__ . '/circuit_breaker.php';
+    }
+    $circuitBlock = function_exists('pgOutboundCircuitBlocked') ? pgOutboundCircuitBlocked($provider, 'refund_create') : null;
+    if ($circuitBlock !== null) {
+        return $circuitBlock;
+    }
+
     if ($provider === 'razorpay') {
         $paymentId = (string)($ctx['payment_id'] ?? '');
         if ($paymentId === '') {
@@ -129,6 +137,9 @@ function submitProviderRefund(string $provider, array $txn, string $refundId, fl
         if (!$providerRefund || empty($providerRefund['id'])) {
             $mapped = logPartnerErrorAndMap('razorpay', 'create_refund', $providerRefund ?? 'empty');
             return ['ok' => false, 'error' => $mapped['error'], 'error_code' => $mapped['error_code']];
+        }
+        if (function_exists('pgOutboundCircuitRecord')) {
+            pgOutboundCircuitRecord('razorpay', true);
         }
         if ((string)($providerRefund['payment_id'] ?? '') !== $paymentId
             || abs(((float)($providerRefund['amount'] ?? 0) / 100) - $amount) > 0.001
@@ -152,6 +163,9 @@ function submitProviderRefund(string $provider, array $txn, string $refundId, fl
             $mapped = logPartnerErrorAndMap('cashfree', 'create_refund', 'create failed');
             return ['ok' => false, 'error' => $mapped['error'], 'error_code' => $mapped['error_code']];
         }
+        if (function_exists('pgOutboundCircuitRecord')) {
+            pgOutboundCircuitRecord('cashfree', true);
+        }
         $cfRefundId = (string)($providerRefund['cf_refund_id'] ?? $providerRefund['refund_id'] ?? $refundId);
         return [
             'ok' => true,
@@ -169,6 +183,9 @@ function submitProviderRefund(string $provider, array $txn, string $refundId, fl
         if (!$providerRefund) {
             $mapped = logPartnerErrorAndMap('payu', 'create_refund', 'create failed');
             return ['ok' => false, 'error' => $mapped['error'], 'error_code' => $mapped['error_code']];
+        }
+        if (function_exists('pgOutboundCircuitRecord')) {
+            pgOutboundCircuitRecord('payu', true);
         }
         return [
             'ok' => true,
