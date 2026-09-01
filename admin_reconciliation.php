@@ -161,13 +161,19 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 
 $pageTitle = 'PG Reconciliation';
 require_once __DIR__ . '/header.php';
+if (!function_exists('renderReconcileToolsMapPanel')) {
+    require_once __DIR__ . '/includes/kyc_reconcile_workflow.php';
+}
 ?>
 <div class="space-y-6">
+<?= renderReconcileToolsMapPanel() ?>
+<?= renderReconcileRulesPanel() ?>
+<?= renderReconcileOwnerChecklistPanel() ?>
     <div class="flex flex-wrap gap-3 items-center justify-between">
         <p class="text-sm text-gray-400">Match gateway webhooks against settled transactions. After real volume: upload the partner settlement CSV, match unmatched rows, then generate the daily summary. Do not invent extra crons — auto-audit already marks obvious matches.</p>
         <div class="flex flex-wrap gap-2 items-center">
             <a href="admin_pg_webhooks.php" class="text-xs text-sky-400 hover:underline">Webhook log →</a>
-            <a href="admin_bank_reconciliation.php" class="text-xs text-emerald-400 hover:underline">⭐ Bank Auto-Reconciliation →</a>
+            <a href="admin_bank_reconciliation.php" class="text-xs text-emerald-400 hover:underline">⭝ Bank Auto-Reconciliation →</a>
             <a href="gateway_settings.php" class="text-xs text-gray-400 hover:text-white">Gateway keys →</a>
             <a href="?days=<?= $days ?>&export=csv" class="text-xs text-sky-400 hover:text-white">Export CSV</a>
             <?php if (!empty($report['unmatched_webhooks'])): ?>

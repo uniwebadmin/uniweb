@@ -2216,6 +2216,11 @@ $assert(str_contains($complianceFlow, 'compliance-dispute-vs-refund') && str_con
 $assert(str_contains($complianceFlow, 'compliancePrivacyDeleteRequestSection') && str_contains((string)file_get_contents($root . '/privacy.php'), 'compliancePrivacyDeleteRequestSection'), 'risk62_data_retention_delete_ops');
 $assert(str_contains($complianceFlow, 'compliance-partner-claim') && str_contains((string)file_get_contents($root . '/pricing.php'), 'renderCompliancePartnerClaimBanner'), 'risk63_partner_claim_route_split_off');
 $assert(str_contains($complianceFlow, 'compliance-three-level-mdr') && str_contains((string)file_get_contents($root . '/collection_settings.php'), 'renderComplianceThreeLevelMdrPanel'), 'risk64_mdr_m_p_three_level_clarity');
+$kycReconFlow = (string)file_get_contents($root . '/includes/kyc_reconcile_workflow.php');
+$assert(str_contains($kycReconFlow, 'kycFailureMerchantScenarios') && str_contains((string)file_get_contents($root . '/kyc.php'), 'renderKycFailureMerchantNote'), 'kyc_recon_merchant_failure_scenarios');
+$assert(str_contains($kycReconFlow, 'kycForwardFailureScenarios') && str_contains((string)file_get_contents($root . '/admin_kyc.php'), 'renderKycFailureAdminPanel'), 'kyc_recon_admin_forward_staged_honest');
+$assert(str_contains($kycReconFlow, 'reconcileToolsMap') && str_contains((string)file_get_contents($root . '/admin_reconciliation.php'), 'renderReconcileOwnerChecklistPanel'), 'kyc_recon_tools_map_and_owner_checklist');
+$assert(str_contains((string)file_get_contents($root . '/includes/payment_reconcile.php'), 'paymentAllowedStatusTransition') && str_contains((string)file_get_contents($root . '/includes/transaction_detail.php'), 'transactionConfirmationSourceSummary'), 'kyc_recon_single_reconcile_ruleset');
 
 $moneyProbeOut = [];
 exec('php ' . escapeshellarg($root . '/tests/probe_money_rails.php'), $moneyProbeOut, $moneyProbeExit);

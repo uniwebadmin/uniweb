@@ -157,6 +157,9 @@ $approvedCount = count(array_intersect($requiredDocs, $approvedTypes));
 
 $pageTitle = 'KYC Verification LIVE-v20260725-H';
 require_once __DIR__ . '/header.php';
+if (!function_exists('renderKycFailureMerchantNote')) {
+    require_once __DIR__ . '/includes/kyc_reconcile_workflow.php';
+}
 
 $step1Done = !empty($verifyFields)
     ? count(array_filter(array_keys($verifyFields), static fn($k) => !empty($prefills[$k] ?? ''))) >= min(1, count($verifyFields))
@@ -200,6 +203,7 @@ $docStatusMeta = static function (string $status): array {
 </style>
 <div class="kyc-root">
     <div class="kyc-main space-y-6">
+    <?= renderKycFailureMerchantNote() ?>
     <div class="glass rounded-2xl p-5 border border-sky-500/20">
         <p class="text-xs text-sky-400 uppercase tracking-wider mb-1">KYC → Go-live</p>
         <h1 class="text-xl font-bold mb-3">Signup → Docs → Verify → Live</h1>

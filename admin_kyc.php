@@ -361,8 +361,12 @@ if ($filterMerchantId > 0) {
 
 $pageTitle = 'KYC Review';
 require_once __DIR__ . '/header.php';
+if (!function_exists('renderKycFailureAdminPanel')) {
+    require_once __DIR__ . '/includes/kyc_reconcile_workflow.php';
+}
 ?>
 
+<?= renderKycFailureAdminPanel() ?>
 <div class="glass rounded-xl p-5 mb-6 border border-emerald-500/20 text-sm text-gray-300">
     <p class="font-semibold text-emerald-300 mb-1">Go-live path: Signup → Docs → Verify → Live</p>
     <p class="font-semibold text-emerald-300/80 mb-2">KYC workflow (canonical order)</p>
