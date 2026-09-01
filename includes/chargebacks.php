@@ -26,21 +26,55 @@ function chargebackStatusLabel(string $status): string
     };
 }
 
+/** @return list<string> */
+function terminalChargebackStatuses(): array
+{
+    return ['won', 'lost', 'withdrawn', 'expired'];
+}
+
+function chargebackStatusBadge(string $status): string
+{
+    $key = strtolower(trim($status));
+    $map = [
+        'opened' => 'bg-sky-500/10 text-sky-300',
+        'evidence_required' => 'bg-amber-500/10 text-amber-300',
+        'submitted' => 'bg-violet-500/10 text-violet-300',
+        'won' => 'bg-emerald-500/10 text-emerald-300',
+        'lost' => 'bg-red-500/10 text-red-300',
+        'withdrawn' => 'bg-gray-500/10 text-gray-300',
+        'expired' => 'bg-gray-500/10 text-gray-400',
+    ];
+    $cls = $map[$key] ?? 'bg-gray-500/10 text-gray-400';
+    return '<span class="px-2 py-1 rounded-full text-xs font-medium ' . $cls . '">' . e(chargebackStatusLabel($status)) . '</span>';
+}
+
 function chargebackAllowedStatusTransition(string $from, string $to): bool
 {
     $from = strtolower(trim($from));
     $to = strtolower(trim($to));
+    if (in_array($from, terminalChargebackStatuses(), true)) {
+        return false;
+    }
     if ($from === $to) {
         return true;
-    }
-    if (in_array($from, ['won', 'lost', 'withdrawn', 'expired'], true)) {
-        return false;
     }
     return match ($from) {
         'opened', 'evidence_required' => in_array($to, ['evidence_required', 'submitted', 'won', 'lost', 'withdrawn', 'expired'], true),
         'submitted' => in_array($to, ['won', 'lost', 'withdrawn', 'expired'], true),
         default => false,
     };
+}
+
+function findChargebackByProviderDispute(string $provider, ?string $providerDisputeId): ?array
+{
+    $providerDisputeId = trim((string)$providerDisputeId);
+    if ($providerDisputeId === '') {
+        return null;
+    }
+    $st = getDB()->prepare('SELECT * FROM chargebacks WHERE provider=? AND provider_dispute_id=? LIMIT 1');
+    $st->execute([strtolower(trim($provider)), $providerDisputeId]);
+    $row = $st->fetch();
+    return $row ?: null;
 }
 
 function ingestChargeback(array $payload): array
@@ -51,28 +85,62 @@ function ingestChargeback(array $payload): array
     if ($merchantId < 1 || $amount <= 0) {
         throw new InvalidArgumentException('Chargeback requires merchant and amount.');
     }
+    $provider = strtolower(trim((string)($payload['provider'] ?? 'razorpay')));
+    $providerDisputeId = trim((string)($payload['provider_dispute_id'] ?? ''));
+    if ($providerDisputeId !== '') {
+        $existing = findChargebackByProviderDispute($provider, $providerDisputeId);
+        if ($existing) {
+            return [
+                'chargeback_ref' => (string)$existing['chargeback_ref'],
+                'evidence_due_at' => (string)($existing['evidence_due_at'] ?? ''),
+                'duplicate' => true,
+            ];
+        }
+    }
+    $transactionId = !empty($payload['transaction_id']) ? (int)$payload['transaction_id'] : null;
+    if ($transactionId !== null && $transactionId > 0) {
+        $txnSt = getDB()->prepare('SELECT id FROM transactions WHERE id=? AND merchant_id=? LIMIT 1');
+        $txnSt->execute([$transactionId, $merchantId]);
+        if (!$txnSt->fetchColumn()) {
+            throw new InvalidArgumentException('Transaction does not belong to this merchant.');
+        }
+    }
     $ref = 'CB-' . strtoupper(bin2hex(random_bytes(6)));
     $due = !empty($payload['evidence_due_at'])
         ? (string)$payload['evidence_due_at']
         : date('Y-m-d H:i:s', strtotime('+7 days'));
-    getDB()->prepare(
-        'INSERT INTO chargebacks
-         (chargeback_ref,merchant_id,transaction_id,provider,provider_dispute_id,amount,currency,reason_code,reason_text,status,evidence_due_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?)'
-    )->execute([
-        $ref,
-        $merchantId,
-        !empty($payload['transaction_id']) ? (int)$payload['transaction_id'] : null,
-        (string)($payload['provider'] ?? 'razorpay'),
-        $payload['provider_dispute_id'] ?? null,
-        $amount,
-        (string)($payload['currency'] ?? 'INR'),
-        $payload['reason_code'] ?? null,
-        $payload['reason_text'] ?? null,
-        'evidence_required',
-        $due,
-    ]);
-    createNotification($merchantId, 'Chargeback opened', "Dispute {$ref} needs evidence by " . date('d M Y', strtotime($due)) . '. This is not a refund.');
+    try {
+        getDB()->prepare(
+            'INSERT INTO chargebacks
+             (chargeback_ref,merchant_id,transaction_id,provider,provider_dispute_id,amount,currency,reason_code,reason_text,status,evidence_due_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+        )->execute([
+            $ref,
+            $merchantId,
+            $transactionId,
+            $provider,
+            $providerDisputeId !== '' ? $providerDisputeId : null,
+            $amount,
+            (string)($payload['currency'] ?? 'INR'),
+            $payload['reason_code'] ?? null,
+            $payload['reason_text'] ?? null,
+            'evidence_required',
+            $due,
+        ]);
+    } catch (Throwable $e) {
+        if ($providerDisputeId !== '' && str_contains($e->getMessage(), 'uniq_provider_dispute')) {
+            $existing = findChargebackByProviderDispute($provider, $providerDisputeId);
+            if ($existing) {
+                return [
+                    'chargeback_ref' => (string)$existing['chargeback_ref'],
+                    'evidence_due_at' => (string)($existing['evidence_due_at'] ?? ''),
+                    'duplicate' => true,
+                ];
+            }
+        }
+        throw $e;
+    }
+    createNotification($merchantId, 'Chargeback opened', "Dispute {$ref} needs evidence by " . date('d M Y', strtotime($due)) . '. This is not a refund.', 'cb_open_' . $ref);
     recordImmutableAudit('chargeback_opened', $merchantId, 'chargeback', $ref, (string)($payload['reason_text'] ?? 'opened'));
     return ['chargeback_ref' => $ref, 'evidence_due_at' => $due];
 }
@@ -153,10 +221,15 @@ function resolveChargebackStatus(int $chargebackId, string $newStatus): array
     if (!$row) {
         return ['ok' => false, 'message' => 'Chargeback not found.'];
     }
-    if (!chargebackAllowedStatusTransition((string)$row['status'], $newStatus)) {
-        return ['ok' => false, 'message' => 'Status transition not allowed from ' . chargebackStatusLabel((string)$row['status']) . '.'];
+    $priorStatus = (string)$row['status'];
+    if (!chargebackAllowedStatusTransition($priorStatus, $newStatus)) {
+        return ['ok' => false, 'message' => 'Status transition not allowed from ' . chargebackStatusLabel($priorStatus) . '.'];
     }
-    getDB()->prepare('UPDATE chargebacks SET status=?, updated_at=NOW() WHERE id=?')->execute([$newStatus, $chargebackId]);
+    $upd = getDB()->prepare('UPDATE chargebacks SET status=?, updated_at=NOW() WHERE id=? AND status=?');
+    $upd->execute([$newStatus, $chargebackId, $priorStatus]);
+    if ($upd->rowCount() < 1) {
+        return ['ok' => false, 'message' => 'Chargeback was already updated. Refresh the list.'];
+    }
     recordImmutableAudit('chargeback_resolved', (int)$row['merchant_id'], 'chargeback', (string)$row['chargeback_ref'], $newStatus);
     if ($newStatus === 'lost') {
         applyChargebackLostDebit($chargebackId);
@@ -204,6 +277,18 @@ function listMerchantChargebacks(int $merchantId): array
 {
     $st = getDB()->prepare('SELECT * FROM chargebacks WHERE merchant_id=? ORDER BY id DESC');
     $st->execute([$merchantId]);
+    return $st->fetchAll();
+}
+
+/** @return list<array<string,mixed>> */
+function listChargebacksForTransaction(int $transactionId): array
+{
+    if ($transactionId < 1) {
+        return [];
+    }
+    ensureChargebacksEngine();
+    $st = getDB()->prepare('SELECT * FROM chargebacks WHERE transaction_id=? ORDER BY id DESC');
+    $st->execute([$transactionId]);
     return $st->fetchAll();
 }
 

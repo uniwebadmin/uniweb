@@ -1887,6 +1887,13 @@ $cbPhp = (string)file_get_contents($root . '/includes/circuit_breaker.php');
 $assert(str_contains($cbPhp, 'pgOutboundCircuitBlocked') && str_contains((string)file_get_contents($root . '/includes/refunds.php'), 'pgOutboundCircuitBlocked'), 'pg_a8_outbound_circuit_refund');
 $assert(str_contains((string)file_get_contents($root . '/includes/settlement_engine.php'), 'pgOutboundCircuitBlocked'), 'pg_a8_outbound_circuit_settlement');
 $assert(str_contains((string)file_get_contents($root . '/includes/chargebacks.php'), 'applyChargebackLostDebit') && str_contains((string)file_get_contents($root . '/includes/chargebacks.php'), "'expired'"), 'p6_chargeback_state_machine');
+$cbEngine = (string)file_get_contents($root . '/includes/chargebacks.php');
+$assert(str_contains($cbEngine, 'terminalChargebackStatuses') && str_contains($cbEngine, 'findChargebackByProviderDispute') && str_contains($cbEngine, 'listChargebacksForTransaction'), 'cb_a1_engine_helpers');
+$assert(str_contains($cbEngine, 'WHERE id=? AND status=?') && str_contains($cbEngine, 'Transaction does not belong to this merchant'), 'cb_a2_resolve_lock_and_txn_guard');
+$assert(str_contains((string)file_get_contents($root . '/admin_chargebacks.php'), 'chargebackStatusBadge') && str_contains((string)file_get_contents($root . '/admin_chargebacks.php'), 'userFacingError'), 'cb_a3_admin_labels_safe_errors');
+$assert(str_contains((string)file_get_contents($root . '/includes/transaction_detail.php'), 'listChargebacksForTransaction') && str_contains((string)file_get_contents($root . '/transaction_detail.php'), 'Bank dispute — not a refund'), 'cb_a4_txn_detail_chargeback_lane');
+$assert(str_contains((string)file_get_contents($root . '/customer_portal.php'), 'JOIN transactions t ON t.id = c.transaction_id') && !str_contains((string)file_get_contents($root . '/customer_portal.php'), 'chargebacks WHERE customer_phone'), 'cb_a5_customer_portal_join');
+$assert(str_contains((string)file_get_contents($root . '/includes/merchant_health.php'), "'evidence_required','submitted'"), 'cb_a6_health_open_statuses');
 $assert(str_contains((string)file_get_contents($root . '/includes/fraud_signals.php'), 'recordWebhookSignatureFailure'), 'p6_fraud_webhook_sig_fail');
 $assert(str_contains((string)file_get_contents($root . '/transaction_detail.php'), 'refundDisplayStatus'), 'p9_txn_detail_refund_honest_labels');
 

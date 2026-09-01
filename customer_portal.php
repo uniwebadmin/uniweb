@@ -156,7 +156,13 @@ if (!function_exists('renderComplianceSupportPathPanel')) {
         <?php
         $customerChargebacks = [];
         try {
-            $csSt = getDB()->prepare("SELECT * FROM chargebacks WHERE customer_phone=? ORDER BY created_at DESC LIMIT 10");
+            $csSt = getDB()->prepare(
+                "SELECT c.*, t.txn_id
+                 FROM chargebacks c
+                 JOIN transactions t ON t.id = c.transaction_id
+                 WHERE t.customer_phone = ?
+                 ORDER BY c.created_at DESC LIMIT 10"
+            );
             $csSt->execute([$phone]);
             $customerChargebacks = $csSt->fetchAll();
         } catch (Throwable $e) {}
@@ -171,11 +177,11 @@ if (!function_exists('renderComplianceSupportPathPanel')) {
                 <div class="min-w-0">
                     <p class="cp-mono"><?= e($cb['chargeback_ref'] ?? '') ?></p>
                     <p class="text-sm font-semibold text-slate-800 mt-0.5"><?= formatMoney((float)($cb['amount'] ?? 0)) ?></p>
-                    <p class="cp-muted mt-0.5"><?= e($cb['reason'] ?? '') ?></p>
+                    <p class="cp-muted mt-0.5"><?= e($cb['reason_text'] ?? $cb['reason_code'] ?? '') ?></p>
                     <p class="text-[10px] text-amber-700 mt-1">Bank dispute — not the same as a refund.</p>
                 </div>
                 <div class="text-right shrink-0">
-                    <?= statusBadge((string)($cb['status'] ?? '')) ?>
+                    <?= function_exists('chargebackStatusBadge') ? chargebackStatusBadge((string)($cb['status'] ?? '')) : statusBadge((string)($cb['status'] ?? '')) ?>
                     <p class="cp-muted mt-1"><?= formatDate($cb['created_at'] ?? '') ?></p>
                 </div>
             </div>

@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 'reason_code' => trim((string)($_POST['reason_code'] ?? '')),
                 'reason_text' => trim((string)($_POST['reason_text'] ?? '')),
             ]);
-            flash('success', 'Chargeback ' . $result['chargeback_ref'] . ' opened. Evidence due ' . $result['evidence_due_at']);
+            flash('success', (!empty($result['duplicate']) ? 'Existing chargeback ' : 'Chargeback ') . $result['chargeback_ref'] . ' opened. Evidence due ' . $result['evidence_due_at']);
         } elseif ($action === 'resolve') {
             $id = (int)($_POST['id'] ?? 0);
             $status = (string)($_POST['status'] ?? '');
@@ -30,7 +30,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             flash($result['ok'] ? 'success' : 'error', $result['message'] ?? 'Could not update chargeback.');
         }
     } catch (Throwable $e) {
-        flash('error', $e->getMessage());
+        flash('error', function_exists('userFacingError')
+            ? userFacingError($e, 'Chargeback action failed', 'Check merchant, amount, and transaction, then try again.')
+            : 'Chargeback action failed.');
     }
     redirect('admin_chargebacks.php');
 }
@@ -97,9 +99,9 @@ require_once __DIR__ . '/header.php';
                 <td class="px-4 py-3"><?= adminMerchantLink((int)$row['merchant_id'], $row['business_name']) ?></td>
                 <td class="px-4 py-3"><?= formatMoney((float)$row['amount']) ?></td>
                 <td class="px-4 py-3 text-xs"><?= e($row['evidence_due_at'] ?? '-') ?></td>
-                <td class="px-4 py-3"><?= statusBadge($row['status']) ?></td>
+                <td class="px-4 py-3"><?= chargebackStatusBadge((string)$row['status']) ?></td>
                 <td class="px-4 py-3">
-                    <form method="post" class="flex gap-1"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="resolve"><input type="hidden" name="id" value="<?= (int)$row['id'] ?>"><select name="status" class="text-xs bg-gray-900 border border-gray-700 rounded px-1"><option value="won">won</option><option value="lost">lost</option><option value="withdrawn">withdrawn</option></select><button class="text-xs text-brand-400">Save</button></form>
+                    <form method="post" class="flex gap-1"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="resolve"><input type="hidden" name="id" value="<?= (int)$row['id'] ?>"><select name="status" class="text-xs bg-gray-900 border border-gray-700 rounded px-1"><option value="won">Won</option><option value="lost">Lost</option><option value="withdrawn">Withdrawn</option><option value="expired">Expired</option></select><button class="text-xs text-brand-400">Save</button></form>
                 </td>
             </tr>
             <?php endforeach; ?>

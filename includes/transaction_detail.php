@@ -71,6 +71,16 @@ function fetchTransactionDetail(string $txnId, ?int $merchantId = null, bool $ad
         $row['refunds'] = [];
     }
 
+    $row['chargebacks'] = [];
+    if (function_exists('listChargebacksForTransaction')) {
+        $row['chargebacks'] = listChargebacksForTransaction((int)$row['id']);
+    } elseif (is_file(__DIR__ . '/chargebacks.php')) {
+        require_once __DIR__ . '/chargebacks.php';
+        if (function_exists('listChargebacksForTransaction')) {
+            $row['chargebacks'] = listChargebacksForTransaction((int)$row['id']);
+        }
+    }
+
     $row['ledger_status'] = 'not_applicable';
     $row['ledger_journal'] = null;
     if (!function_exists('getTransactionLedgerStatus') && is_file(__DIR__ . '/financial_integrity.php')) {

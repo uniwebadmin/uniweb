@@ -118,7 +118,7 @@ function calculateDisputeRateScore(int $merchantId): array
 
     // Open disputes count
     try {
-        $st = getDB()->prepare("SELECT COUNT(*) FROM chargebacks WHERE merchant_id=? AND status='open'");
+        $st = getDB()->prepare("SELECT COUNT(*) FROM chargebacks WHERE merchant_id=? AND status IN ('opened','evidence_required','submitted')");
         $st->execute([$merchantId]);
         $openDisputes = (int)$st->fetchColumn();
         if ($openDisputes > 5) {

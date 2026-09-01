@@ -70,8 +70,8 @@ function adminReportsOpsData(PDO $db, int $days): array
 
     $disputeSummary = ['open' => 0, 'resolved' => 0, 'total' => 0];
     try {
-        $disputeSummary['open'] = (int)$db->query("SELECT COUNT(*) FROM chargebacks WHERE status='open'")->fetchColumn();
-        $disputeSummary['resolved'] = (int)$db->query("SELECT COUNT(*) FROM chargebacks WHERE status IN ('won','lost','closed')")->fetchColumn();
+        $disputeSummary['open'] = (int)$db->query("SELECT COUNT(*) FROM chargebacks WHERE status IN ('opened','evidence_required','submitted')")->fetchColumn();
+        $disputeSummary['resolved'] = (int)$db->query("SELECT COUNT(*) FROM chargebacks WHERE status IN ('won','lost','withdrawn','expired')")->fetchColumn();
         $disputeSummary['total'] = $disputeSummary['open'] + $disputeSummary['resolved'];
     } catch (Throwable $e) {
     }

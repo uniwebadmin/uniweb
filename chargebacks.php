@@ -57,7 +57,7 @@ require_once __DIR__ . '/header.php';
                 <p class="text-sm"><?= formatMoney((float)$row['amount']) ?> · <?= e($row['reason_text'] ?: ($row['reason_code'] ?: 'Dispute')) ?></p>
                 <p class="text-xs text-gray-500">Evidence due: <?= e($row['evidence_due_at'] ?? 'n/a') ?></p>
             </div>
-            <?= statusBadge($row['status']) ?>
+            <?= chargebackStatusBadge((string)$row['status']) ?>
         </div>
         <?php if (in_array($row['status'], ['opened', 'evidence_required'], true)): ?>
         <form method="post" class="mt-3 space-y-2">

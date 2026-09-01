@@ -80,6 +80,14 @@ if ($adminView && $_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['cs
 
 $openComplaint = null;
 $openDispute = null;
+$linkedChargebacks = $txn['chargebacks'] ?? [];
+$openChargeback = null;
+foreach ($linkedChargebacks as $cbRow) {
+    if (in_array((string)($cbRow['status'] ?? ''), ['opened', 'evidence_required', 'submitted'], true)) {
+        $openChargeback = $cbRow;
+        break;
+    }
+}
 try {
     require_once __DIR__ . '/includes/customer_portal.php';
     ensureCustomerPortalSchema();
@@ -212,6 +220,14 @@ require_once __DIR__ . '/header.php';
                 ?>
                 <li class="flex gap-3"><span class="mt-1.5 w-2.5 h-2.5 rounded-full <?= $dotClass ?>"></span><div><p class="font-medium">Refund <?= e(ucfirst($refundLabel)) ?></p><p class="text-xs text-gray-500 mt-0.5"><?= formatMoney((float)$refund['amount']) ?> · <?= formatDate($refund['processed_at'] ?: $refund['created_at']) ?> · <?= e((string)$refund['refund_id']) ?><?php if (!empty($refund['provider'])): ?> · <?= e(strtoupper((string)$refund['provider'])) ?><?php endif; ?></p><?php if ($refundLabel === 'failed' && !empty($refund['failure_reason'])): ?><p class="text-xs text-red-400/90 mt-0.5"><?= e(mb_substr((string)$refund['failure_reason'], 0, 120)) ?></p><?php endif; ?></div></li>
                 <?php endforeach; ?>
+                <?php foreach ($linkedChargebacks as $cbRow): ?>
+                <?php
+                    $cbStatus = (string)($cbRow['status'] ?? '');
+                    $cbDot = in_array($cbStatus, ['won', 'withdrawn', 'expired'], true) ? 'bg-gray-500' : ($cbStatus === 'lost' ? 'bg-red-500' : 'bg-amber-400');
+                    $cbLabel = function_exists('chargebackStatusLabel') ? chargebackStatusLabel($cbStatus) : ucfirst(str_replace('_', ' ', $cbStatus));
+                ?>
+                <li class="flex gap-3"><span class="mt-1.5 w-2.5 h-2.5 rounded-full <?= $cbDot ?>"></span><div><p class="font-medium">Chargeback · <?= e($cbLabel) ?></p><p class="text-xs text-gray-500 mt-0.5"><?= formatMoney((float)($cbRow['amount'] ?? 0)) ?> · <?= e((string)($cbRow['chargeback_ref'] ?? '')) ?><?php if ($cbStatus === 'lost'): ?> · debited from settlement balance<?php endif; ?></p><p class="text-[10px] text-amber-400/90 mt-0.5">Bank dispute — not a refund to the customer.</p></div></li>
+                <?php endforeach; ?>
             </ol>
         </div>
 
@@ -261,11 +277,11 @@ require_once __DIR__ . '/header.php';
             </div>
         </div>
 
-        <?php if ($adminView && ($openComplaint || $openDispute)): ?>
+        <?php if ($adminView && ($openComplaint || $openDispute || $openChargeback)): ?>
         <div class="txn-alert-banner rounded-xl border border-red-500/40 bg-red-500/10 p-4 flex flex-col sm:flex-row gap-3 sm:items-center">
             <div class="flex-1 min-w-0 w-full">
-                <p class="text-sm font-semibold text-red-200">Active complaint / dispute on this payment</p>
-                <p class="text-xs text-red-100/80 mt-1">Refund is available below. Prefer resolving with a clear reason code.</p>
+                <p class="text-sm font-semibold text-red-200">Active complaint / dispute / chargeback on this payment</p>
+                <p class="text-xs text-red-100/80 mt-1">Refund is separate from chargeback. Chargeback lost debits settlement balance only.</p>
             </div>
             <div class="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto shrink-0">
             <?php if ($openComplaint): ?>
@@ -273,6 +289,9 @@ require_once __DIR__ . '/header.php';
             <?php endif; ?>
             <?php if ($openDispute): ?>
             <a href="admin_disputes.php" class="text-sm glass px-3 py-2 rounded-lg text-amber-300 text-center sm:text-left break-all sm:break-normal">Dispute <?= e($openDispute['dispute_id']) ?></a>
+            <?php endif; ?>
+            <?php if ($openChargeback): ?>
+            <a href="admin_chargebacks.php" class="text-sm glass px-3 py-2 rounded-lg text-orange-300 text-center sm:text-left break-all sm:break-normal">Chargeback <?= e((string)$openChargeback['chargeback_ref']) ?></a>
             <?php endif; ?>
             </div>
         </div>
