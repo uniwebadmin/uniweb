@@ -2117,6 +2117,36 @@ $mwh = (string)file_get_contents($root . '/includes/merchant_webhooks.php');
 $assert(str_contains($mwh, 'MERCHANT_WEBHOOK_MAX_ATTEMPTS') && str_contains($mwh, 'function merchantWebhookShouldRetry'), 'p19_outbound_webhook_retry_policy');
 $assert(str_contains($finAc, 'claimApiIdempotency') && str_contains((string)@file_get_contents($root . '/migrations/001_financial_integrity.sql'), 'uniq_api_idempotency'), 'p19_api_idempotency_claim');
 $assert(str_contains($finAc, 'registerGatewayEvent') && str_contains($whRel, 'idx_event_id'), 'p19_webhook_event_dedup');
+// Owner 15-point risk audit — Excellent bar (static wiring)
+$assert(is_file($root . '/.cursor/rules/owner-excellent-standard.mdc'), 'owner_excellent_hard_rule_present');
+$assert(is_file($root . '/includes/payment_idempotency.php'), 'risk01_payment_idempotency_module');
+$idempotencySrc = (string)file_get_contents($root . '/includes/payment_idempotency.php');
+$assert(str_contains($idempotencySrc, 'paymentCaptureIsFinalized'), 'risk01_double_credit_guard_helper');
+$assert(str_contains((string)file_get_contents($root . '/transactions.php'), 'Funds posting') && str_contains((string)file_get_contents($root . '/transactions.php'), 'getTransactionLedgerStatus'), 'risk02_merchant_ledger_pending_copy');
+$assert(str_contains($apiPhpSrc, 'claimApiIdempotency') || str_contains($finIntegrity, 'claimApiIdempotency'), 'risk03_api_idempotency_wired');
+$pgWh = (string)file_get_contents($root . '/includes/pg_webhooks.php');
+$assert(str_contains($pgWh, 'registerGatewayEvent') && str_contains($pgWh, 'signature'), 'risk04_webhook_signature_idempotent');
+$assert(str_contains((string)file_get_contents($root . '/admin_transactions.php'), 'ledger_pending'), 'risk05_admin_ledger_pending_filter');
+$refundSrc = (string)file_get_contents($root . '/includes/refunds.php');
+$assert(str_contains($refundSrc, 'provider_refund_id') || str_contains($refundSrc, 'idempotency'), 'risk06_refund_idempotency');
+$assert(str_contains((string)file_get_contents($root . '/includes/baas.php'), 'function isMerchantLive'), 'risk07_test_live_gate_helper');
+$mig077 = is_file($root . '/migrations/077_live_money_switches_intelligent_routing_defaults.sql')
+    ? (string)file_get_contents($root . '/migrations/077_live_money_switches_intelligent_routing_defaults.sql') : '';
+$assert($mig077 !== '' && (str_contains($mig077, "'0'") || str_contains($mig077, 'OFF')), 'risk08_money_switches_default_off');
+$assert(str_contains((string)file_get_contents($root . '/includes/baas.php'), 'isMerchantLive') && str_contains((string)file_get_contents($root . '/checkout.php'), 'kyc'), 'risk09_kyc_live_gate');
+$assert(is_file($root . '/migrations/076_retire_merchant_plaintext_api_keys.sql'), 'risk10_api_keys_hashed_migration');
+$receiptSrc = (string)file_get_contents($root . '/receipt.php');
+$assert(str_contains($receiptSrc, 'requireStaffAccess') && str_contains($receiptSrc, '$adminView'), 'risk11_12_receipt_admin_staff_gate');
+$errorCatcher = (string)file_get_contents($root . '/includes/error_catcher.php');
+$assert(str_contains($errorCatcher, 'maskPiiRecursive') || str_contains($errorCatcher, 'maskPiiInString'), 'risk13_error_log_pii_mask');
+$collectionSrc = (string)file_get_contents($root . '/includes/collection.php');
+$assert(str_contains($collectionSrc, 'gst_on_fee') && str_contains($collectionSrc, 'platformFeeGstRate'), 'risk14_gst_canonical_split');
+$assert(str_contains((string)file_get_contents($root . '/compliance.php'), 'do not independently hold') && str_contains((string)file_get_contents($root . '/responsibility_matrix.php'), 'do not offer a consumer PPI'), 'risk15_compliance_copy_honest');
+$assert(is_file($root . '/migrations/082_payment_idempotency_gst.sql'), 'migration_082_idempotency_gst');
+$idempotencyTestOut = [];
+exec('php ' . escapeshellarg($root . '/tests/test_financial_idempotency.php'), $idempotencyTestOut, $idempotencyTestExit);
+$assert($idempotencyTestExit === 0, 'risk01_idempotency_test_green', implode(' ', array_slice($idempotencyTestOut, -3)));
+
 $moneyProbeOut = [];
 exec('php ' . escapeshellarg($root . '/tests/probe_money_rails.php'), $moneyProbeOut, $moneyProbeExit);
 $assert($moneyProbeExit === 0 && str_contains(implode("\n", $moneyProbeOut), 'failures=0'), 'p17_money_rails_probe_green');

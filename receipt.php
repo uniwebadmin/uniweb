@@ -26,6 +26,9 @@ if ($trackSig !== '' && $trackExp > 0) {
 }
 
 $adminView = isAdminLoggedIn() && !isLoggedIn();
+if ($adminView) {
+    requireStaffAccess(['super', 'ceo', 'finance', 'ops', 'support', 'regional_manager']);
+}
 $merchant = null;
 $merchantId = null;
 $isCustomer = false;

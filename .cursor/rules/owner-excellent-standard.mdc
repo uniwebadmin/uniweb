@@ -1,0 +1,41 @@
+---
+description: Owner quality bar — Excellent or Open only; sequential multi-point work; no guesswork
+alwaysApply: true
+---
+
+# Owner Excellent Standard (hard rules)
+
+## Rule 1 — Excellent definition
+
+**Excellent** = is point par 10 saal tak dubara developer kaam nahi — sirf chalana, keys paste, hosting.
+
+**Open** = abhi excellent nahi.
+
+**Never say:** mostly OK, good enough, chalega, theek hai, chhota gap, improved.
+
+**Every audit point status:** Excellent OR Open only.
+
+## Rule 2 — Owner override
+
+If Owner says **Excellent** on a point → mark **Excellent** (Owner confirmed). Do not leave Open.
+
+## Rule 3 — Multi-point batch (one chat)
+
+When Owner sends multiple numbered points in one message:
+
+1. Work **Point #1 first** until Excellent.
+2. Do **not** start Point #2 until Point #1 is Excellent.
+3. When Point #1 is Excellent → **automatically** move to Point #2 (no permission ask).
+4. Repeat in order until all points done.
+
+**Gate:** No work starts until Owner says **"continue work now"**.
+
+## Rule 4 — Unclear = ask
+
+If any point, chat, or instruction is unclear → tell Owner **"Ye mujhe samajh nahi aa raha"** and ask. Do not guess.
+
+## Close report (when Excellent)
+
+1. What was completed (code + where to click)
+2. **Excellent — is point par dubara developer kaam nahi**
+3. Owner manual only (keys, migration button) — not "future code work"

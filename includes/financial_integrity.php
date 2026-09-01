@@ -4,6 +4,9 @@ declare(strict_types=1);
 if (is_file(__DIR__ . '/release_helpers.php')) {
     require_once __DIR__ . '/release_helpers.php';
 }
+if (is_file(__DIR__ . '/payment_idempotency.php')) {
+    require_once __DIR__ . '/payment_idempotency.php';
+}
 
 function financialTablesReady(): bool
 {
@@ -743,9 +746,13 @@ function postPrimaryPaymentCaptureLedger(
             ['account_id' => $providerAccount, 'side' => 'debit', 'amount' => round($amount, 2)],
             ['account_id' => $merchantAccount, 'side' => 'credit', 'amount' => (float)$split['merchant_net']],
         ];
-        if ((float)$split['platform_fee'] > 0) {
+        if ((float)($split['platform_fee'] ?? 0) > 0) {
             $feeAccount = getOrCreateLedgerAccount('platform_fee_revenue', 'platform', null, 'revenue', $mode, $currency);
             $entries[] = ['account_id' => $feeAccount, 'side' => 'credit', 'amount' => (float)$split['platform_fee']];
+        }
+        if ((float)($split['gst_on_fee'] ?? 0) > 0) {
+            $gstAccount = getOrCreateLedgerAccount('platform_gst_payable', 'platform', null, 'liability', $mode, $currency);
+            $entries[] = ['account_id' => $gstAccount, 'side' => 'credit', 'amount' => (float)$split['gst_on_fee']];
         }
         $journalId = postBalancedJournal(
             'payment_capture',
@@ -762,17 +769,23 @@ function postPrimaryPaymentCaptureLedger(
         $wtExists = $db->prepare("SELECT id FROM wallet_transactions WHERE transaction_id=? AND type='credit' LIMIT 1");
         $wtExists->execute([$transactionId]);
         if (!$wtExists->fetchColumn()) {
-            $db->prepare(
-                'INSERT INTO wallet_transactions (merchant_id,type,amount,balance_after,reference,description,transaction_id) VALUES (?,?,?,?,?,?,?)'
-            )->execute([
-                $merchantId,
-                'credit',
-                (float)$split['merchant_net'],
-                $merchantBalance,
-                $txnRef,
-                'Payment capture',
-                $transactionId,
-            ]);
+            try {
+                $db->prepare(
+                    'INSERT INTO wallet_transactions (merchant_id,type,amount,balance_after,reference,description,transaction_id) VALUES (?,?,?,?,?,?,?)'
+                )->execute([
+                    $merchantId,
+                    'credit',
+                    (float)$split['merchant_net'],
+                    $merchantBalance,
+                    $txnRef,
+                    'Payment capture',
+                    $transactionId,
+                ]);
+            } catch (PDOException $e) {
+                if ((string)$e->getCode() !== '23000') {
+                    throw $e;
+                }
+            }
         }
         $db->prepare('UPDATE merchants SET wallet_balance=? WHERE id=?')->execute([$merchantBalance, $merchantId]);
         try {
@@ -855,6 +868,7 @@ function finalizeSuccessfulPaymentTransaction(int $transactionId, array $opts = 
     $split = [
         'platform_fee' => (float)($txn['platform_fee'] ?? 0),
         'merchant_net' => (float)($txn['split_amount'] ?? 0),
+        'gst_on_fee' => (float)($txn['gst_on_fee'] ?? 0),
         'mdr_m' => (float)($txn['mdr_m'] ?? 0),
         'mdr_p' => (float)($txn['mdr_p'] ?? 0),
         'partner_fee' => (float)($txn['partner_fee'] ?? 0),
@@ -1119,6 +1133,7 @@ function captureVerifiedPaymentOrder(array $verification): array
             ]);
 
             $link['amount'] = $amount;
+            $link['payment_method'] = (string)($verification['payment_method'] ?? $provider);
             $split = calculateSplitBreakdown($amount, $link);
 
             $txnRef = generateId('TXN');
@@ -1144,9 +1159,10 @@ function captureVerifiedPaymentOrder(array $verification): array
             try {
                 $db->prepare(
                     'INSERT INTO transactions
-                     (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id,mdr_m,mdr_p,partner_fee,pricing_snapshot)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                     (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id,gst_on_fee,mdr_m,mdr_p,partner_fee,pricing_snapshot)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
                 )->execute(array_merge($txnValues, [
+                    (float)($split['gst_on_fee'] ?? 0),
                     (float)($split['mdr_m'] ?? 0),
                     (float)($split['mdr_p'] ?? 0),
                     (float)($split['partner_fee'] ?? 0),

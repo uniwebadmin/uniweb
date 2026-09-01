@@ -161,9 +161,36 @@ function commissionSplitRealtimePreview(float $amount, array $merchant): array
  * If split_settlement functions are available, uses getMerchantMdr() + getPartnerBaseMdr().
  * Falls back to legacy commission_rate for backward compat.
  */
+function platformFeeGstRate(): float
+{
+    $raw = function_exists('getSetting') ? (string)getSetting('platform_fee_gst_rate', '0.18') : '0.18';
+    $rate = (float)$raw;
+    if ($rate <= 0 || $rate > 1) {
+        return 0.18;
+    }
+    return round($rate, 4);
+}
+
+/** GST on UniWeb platform fee applies to card / netbanking rails (not UPI collect). */
+function paymentMethodAttractsPlatformFeeGst(?string $method): bool
+{
+    $method = strtolower(trim((string)$method));
+    if ($method === '') {
+        return false;
+    }
+    static $gstMethods = [
+        'card', 'card_credit', 'card_debit', 'credit_card', 'debit_card',
+        'netbanking', 'nb', 'emi',
+    ];
+    return in_array($method, $gstMethods, true);
+}
+
 function calculateSplitBreakdown(float $amount, array $merchant): array
 {
     $merchantId = (int)($merchant['merchant_id'] ?? $merchant['id'] ?? 0);
+    $method = (string)($merchant['method'] ?? $merchant['payment_method'] ?? $merchant['mode'] ?? '');
+    $applyGst = paymentMethodAttractsPlatformFeeGst($method);
+    $gstRate = platformFeeGstRate();
 
     // F2: Try new M/P pricing model
     if ($merchantId > 0 && function_exists('getMerchantMdr')) {
@@ -179,16 +206,16 @@ function calculateSplitBreakdown(float $amount, array $merchant): array
                 }
             }
         }
-        $method = (string)($merchant['method'] ?? $merchant['payment_method'] ?? $merchant['mode'] ?? '');
         $p = $partnerKey !== '' ? getPartnerBaseMdr($partnerKey, $method !== '' ? $method : null) : 0.0;
 
         $merchantFee = round($amount * $m / 100, 2);
         $platformFee = round($amount * ($m - $p) / 100, 2);
         $partnerFee = round($amount * $p / 100, 2);
-        $merchantNet = round($amount - $merchantFee, 2);
+        $gstOnFee = $applyGst ? round($platformFee * $gstRate, 2) : 0.0;
+        $merchantNet = round($amount - $platformFee - $partnerFee - $gstOnFee, 2);
 
-        // F7: Safety — merchant_net + platform_fee must not exceed gross (1-paise rule, remainder to platform)
-        $remainder = round($amount - $merchantNet - $platformFee, 2);
+        // F7: Safety — merchant_net + platform_fee + gst must not exceed gross (1-paise rule, remainder to platform)
+        $remainder = round($amount - $merchantNet - $platformFee - $gstOnFee - $partnerFee, 2);
         if (abs($remainder) > 0.001) {
             $platformFee = round($platformFee + $remainder, 2);
         }
@@ -198,6 +225,7 @@ function calculateSplitBreakdown(float $amount, array $merchant): array
             'mdr_m' => $m,
             'mdr_p' => $p,
             'platform_fee' => max(0, $platformFee),
+            'gst_on_fee' => max(0, $gstOnFee),
             'merchant_net' => max(0, $merchantNet),
             'partner_fee' => $partnerFee,
             'pricing_snapshot' => json_encode([
@@ -206,6 +234,8 @@ function calculateSplitBreakdown(float $amount, array $merchant): array
                 'mdr_p' => $p,
                 'merchant_fee' => $merchantFee,
                 'platform_fee' => max(0, $platformFee),
+                'gst_on_fee' => max(0, $gstOnFee),
+                'gst_rate' => $applyGst ? $gstRate : 0,
                 'merchant_net' => max(0, $merchantNet),
                 'partner_fee' => $partnerFee,
                 'partner_key' => $partnerKey,
@@ -216,12 +246,14 @@ function calculateSplitBreakdown(float $amount, array $merchant): array
 
     // Legacy fallback
     $platformFee = calculatePlatformCommission($amount, $merchant);
-    $merchantNet = round($amount - $platformFee, 2);
+    $gstOnFee = $applyGst ? round($platformFee * $gstRate, 2) : 0.0;
+    $merchantNet = round($amount - $platformFee - $gstOnFee, 2);
     return [
         'gross' => $amount,
         'mdr_m' => 0.0,
         'mdr_p' => 0.0,
         'platform_fee' => $platformFee,
+        'gst_on_fee' => max(0, $gstOnFee),
         'merchant_net' => max(0, $merchantNet),
         'partner_fee' => 0.0,
         'pricing_snapshot' => json_encode([
@@ -229,6 +261,8 @@ function calculateSplitBreakdown(float $amount, array $merchant): array
             'mdr_m' => 0,
             'mdr_p' => 0,
             'platform_fee' => $platformFee,
+            'gst_on_fee' => max(0, $gstOnFee),
+            'gst_rate' => $applyGst ? $gstRate : 0,
             'merchant_net' => max(0, $merchantNet),
             'partner_fee' => 0,
             'legacy' => true,
@@ -250,13 +284,14 @@ function recordSplitPayment(int $transactionId, int $merchantId, array $split, s
             ->execute([$transactionId, $merchantId, $split['gross'] ?? $split['platform_fee'] + $split['merchant_net'], $split['platform_fee'], $split['merchant_net'], 'pending']);
     } catch (Throwable $e) { /* non-fatal */ }
     try {
-        $db->prepare('UPDATE transactions SET platform_fee = ?, split_amount = ?, mdr_m = ?, mdr_p = ?, partner_fee = ?, pricing_snapshot = ? WHERE id = ?')
+        $db->prepare('UPDATE transactions SET platform_fee = ?, split_amount = ?, mdr_m = ?, mdr_p = ?, partner_fee = ?, gst_on_fee = ?, pricing_snapshot = ? WHERE id = ?')
             ->execute([
                 $split['platform_fee'],
                 $split['merchant_net'],
                 (float)($split['mdr_m'] ?? 0),
                 (float)($split['mdr_p'] ?? 0),
                 (float)($split['partner_fee'] ?? 0),
+                (float)($split['gst_on_fee'] ?? 0),
                 $split['pricing_snapshot'] ?? null,
                 $transactionId,
             ]);

@@ -654,15 +654,32 @@ function getMerchantSplitConfig(int $merchantId): array
 }
 
 /**
- * Calculate the split for a transaction.
+ * Calculate the split for a transaction — delegates to canonical calculateSplitBreakdown.
  */
-function calculateTransactionSplit(float $grossAmount, int $merchantId): array
+function calculateTransactionSplit(float $grossAmount, int $merchantId, ?string $paymentMethod = null): array
 {
+    if (!function_exists('calculateSplitBreakdown') && is_file(__DIR__ . '/collection.php')) {
+        require_once __DIR__ . '/collection.php';
+    }
+    $merchant = ['merchant_id' => $merchantId, 'id' => $merchantId];
+    if ($paymentMethod !== null && $paymentMethod !== '') {
+        $merchant['payment_method'] = $paymentMethod;
+    }
+    if (function_exists('calculateSplitBreakdown')) {
+        $split = calculateSplitBreakdown($grossAmount, $merchant);
+        return [
+            'gross_amount' => $split['gross'] ?? $grossAmount,
+            'platform_fee' => (float)($split['platform_fee'] ?? 0),
+            'gst_on_fee' => (float)($split['gst_on_fee'] ?? 0),
+            'merchant_net' => (float)($split['merchant_net'] ?? 0),
+            'mdr_rate' => (float)($split['mdr_m'] ?? 0) / 100,
+            'fixed_fee' => 0.0,
+        ];
+    }
     $config = getMerchantSplitConfig($merchantId);
     $platformFee = round($grossAmount * $config['mdr_rate'] + $config['fixed_fee'], 2);
     $gstOnFee = round($platformFee * $config['gst_rate'], 2);
     $merchantNet = round($grossAmount - $platformFee - $gstOnFee, 2);
-
     return [
         'gross_amount' => $grossAmount,
         'platform_fee' => $platformFee,

@@ -93,7 +93,7 @@ $summary = $db->prepare(
         COALESCE(SUM(amount),0) AS gross,
         COALESCE(SUM(CASE WHEN status='refunded' THEN amount ELSE 0 END),0) AS refunded_gross,
         COALESCE(SUM(platform_fee),0) AS fees,
-        COALESCE(SUM(ROUND(platform_fee * 0.18, 2)),0) AS gst
+        COALESCE(SUM(COALESCE(gst_on_fee, ROUND(platform_fee * 0.18, 2))),0) AS gst
      FROM transactions
      WHERE COALESCE(is_test,0)=0 AND status IN ('success','refunded')
        AND DATE(created_at) BETWEEN ? AND ?"
@@ -143,7 +143,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     fputcsv($out, ['Txn count', (int)($s['txn_count'] ?? 0)]);
     fputcsv($out, ['Live gross', (float)($s['gross'] ?? 0)]);
     fputcsv($out, ['Fees', (float)($s['fees'] ?? 0)]);
-    fputcsv($out, ['GST (est. 18% on fees)', (float)($s['gst'] ?? 0)]);
+    fputcsv($out, ['GST on fees (from capture)', (float)($s['gst'] ?? 0)]);
     fputcsv($out, ['Refunded gross', (float)($s['refunded_gross'] ?? 0)]);
     fputcsv($out, ['Settled net', $settledAmt]);
     fputcsv($out, []);
@@ -191,7 +191,7 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl p-4 sm:p-5 min-w-0"><p class="text-xs text-gray-500">Txn count</p><p class="text-xl font-bold mt-1"><?= (int)($s['txn_count'] ?? 0) ?></p></div>
     <div class="glass rounded-xl p-4 sm:p-5 min-w-0"><p class="text-xs text-gray-500">Live gross</p><p class="text-lg sm:text-xl font-bold mt-1 break-words"><?= formatMoney((float)($s['gross'] ?? 0)) ?></p></div>
     <div class="glass rounded-xl p-4 sm:p-5 min-w-0"><p class="text-xs text-gray-500">Fees</p><p class="text-lg sm:text-xl font-bold mt-1 break-words"><?= formatMoney((float)($s['fees'] ?? 0)) ?></p></div>
-    <div class="glass rounded-xl p-4 sm:p-5 min-w-0"><p class="text-xs text-gray-500">GST (est.)</p><p class="text-lg sm:text-xl font-bold mt-1 break-words"><?= formatMoney((float)($s['gst'] ?? 0)) ?></p></div>
+    <div class="glass rounded-xl p-4 sm:p-5 min-w-0"><p class="text-xs text-gray-500">GST on fees</p><p class="text-lg sm:text-xl font-bold mt-1 break-words"><?= formatMoney((float)($s['gst'] ?? 0)) ?></p></div>
     <div class="glass rounded-xl p-4 sm:p-5 min-w-0"><p class="text-xs text-gray-500">Refunded gross</p><p class="text-lg sm:text-xl font-bold mt-1 break-words"><?= formatMoney((float)($s['refunded_gross'] ?? 0)) ?></p></div>
     <div class="glass rounded-xl p-4 sm:p-5 min-w-0"><p class="text-xs text-gray-500">Settled net</p><p class="text-lg sm:text-xl font-bold mt-1 break-words"><?= formatMoney($settledAmt) ?></p></div>
 </div>

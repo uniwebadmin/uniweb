@@ -4,6 +4,9 @@ requireLogin();
 if (function_exists('ensureFailureReasonColumns')) {
     ensureFailureReasonColumns();
 }
+if (!function_exists('getTransactionLedgerStatus') && is_file(__DIR__ . '/includes/financial_integrity.php')) {
+    require_once __DIR__ . '/includes/financial_integrity.php';
+}
 $merchant = getMerchant();
 $db = getDB();
 $filter = trim($_GET['status'] ?? 'all');
@@ -178,6 +181,13 @@ require_once __DIR__ . '/header.php';
                         </div>
                         <?php else: ?>
                         <?= statusBadge($t['status']) ?>
+                        <?php if ($st === 'success' && function_exists('getTransactionLedgerStatus')):
+                            $ledgerRowStatus = getTransactionLedgerStatus((int)$t['id'], (string)($t['txn_id'] ?? ''), (int)$merchant['id'], 'success');
+                            if ($ledgerRowStatus === 'pending'): ?>
+                        <p class="text-[10px] text-amber-400/90 mt-0.5">Funds posting — confirm ledger before shipping goods</p>
+                        <?php elseif ($ledgerRowStatus === 'posted'): ?>
+                        <p class="text-[10px] text-emerald-400/80 mt-0.5">Funds recorded</p>
+                        <?php endif; endif; ?>
                         <?php endif; ?>
                     </td>
                     <td class="px-5 py-3 text-xs text-gray-400 max-w-[220px] can-wrap">

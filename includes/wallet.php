@@ -838,15 +838,22 @@ function creditPlatformFeeWallet(float $feeAmount, int $transactionId, string $d
             }
         }
         $ref = generateId('PFEE');
-        $db->prepare('INSERT INTO platform_wallet_transactions (amount, type, reference, description, transaction_id, balance_after) VALUES (?,?,?,?,?,?)')
-            ->execute([
-                round($feeAmount, 2),
-                'credit',
-                $ref,
-                mb_substr($description, 0, 190),
-                $transactionId,
-                getPlatformWalletBalance() + round($feeAmount, 2),
-            ]);
+        try {
+            $db->prepare('INSERT INTO platform_wallet_transactions (amount, type, reference, description, transaction_id, balance_after) VALUES (?,?,?,?,?,?)')
+                ->execute([
+                    round($feeAmount, 2),
+                    'credit',
+                    $ref,
+                    mb_substr($description, 0, 190),
+                    $transactionId,
+                    getPlatformWalletBalance() + round($feeAmount, 2),
+                ]);
+        } catch (PDOException $e) {
+            if ((string)$e->getCode() === '23000') {
+                return;
+            }
+            throw $e;
+        }
         $newBalance = getPlatformWalletBalance() + round($feeAmount, 2);
         setPlatformWalletBalance($newBalance);
 
@@ -1120,7 +1127,18 @@ function markTransactionWalletCredited(int $transactionId): void
 
 function creditWalletsFromTransaction(int $transactionId): void
 {
-    if (isTransactionWalletCredited($transactionId)) return;
+    if (!function_exists('paymentCaptureIsFinalized') && is_file(__DIR__ . '/payment_idempotency.php')) {
+        require_once __DIR__ . '/payment_idempotency.php';
+    }
+    if (function_exists('paymentCaptureIsFinalized') && paymentCaptureIsFinalized($transactionId)) {
+        if (function_exists('syncPaymentCaptureCreditedFlag')) {
+            syncPaymentCaptureCreditedFlag($transactionId);
+        }
+        return;
+    }
+    if (isTransactionWalletCredited($transactionId)) {
+        return;
+    }
 
     $db = getDB();
     $stmt = $db->prepare('SELECT t.*, m.commission_rate, m.collection_mode FROM transactions t JOIN merchants m ON t.merchant_id = m.id WHERE t.id = ?');

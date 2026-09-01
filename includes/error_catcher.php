@@ -58,6 +58,19 @@ function logPlatformError(string $level, string $message, array|string $context 
     $trace = (string)($context['trace'] ?? '');
     unset($context['file'], $context['line'], $context['trace']);
 
+    if (!function_exists('maskPiiInString') && is_file(__DIR__ . '/partner_payload.php')) {
+        require_once __DIR__ . '/partner_payload.php';
+    }
+    if ($context !== []) {
+        if (function_exists('maskPiiRecursive')) {
+            $context = maskPiiRecursive($context);
+        } elseif (function_exists('maskPiiInString')) {
+            $encoded = maskPiiInString(json_encode($context, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}');
+            $decoded = json_decode((string)$encoded, true);
+            $context = is_array($decoded) ? $decoded : $context;
+        }
+    }
+
     error_log(sprintf('UniWeb [%s] %s in %s:%s', $level, $message, $file ?: '?', $line ?? '?'));
 
     try {
