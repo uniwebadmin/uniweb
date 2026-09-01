@@ -12,6 +12,10 @@ $docPath = __DIR__ . '/docs/SOFT_LAUNCH_BLOCKERS.md';
 $runbookPath = __DIR__ . '/docs/OWNER_RUNBOOK.md';
 $blockers = is_file($docPath) ? (string)file_get_contents($docPath) : '';
 $runbook = is_file($runbookPath) ? (string)file_get_contents($runbookPath) : '';
+if (!function_exists('runReconcileLiveProveProbes') && is_file(__DIR__ . '/includes/kyc_reconcile_workflow.php')) {
+    require_once __DIR__ . '/includes/kyc_reconcile_workflow.php';
+}
+$liveProve = function_exists('runReconcileLiveProveProbes') ? runReconcileLiveProveProbes() : ['ok' => false, 'failed' => 1, 'checks' => []];
 ?>
 
 <div class="max-w-3xl space-y-6">
@@ -59,6 +63,22 @@ $runbook = is_file($runbookPath) ? (string)file_get_contents($runbookPath) : '';
                 <p class="text-gray-400 text-xs mt-1"><code class="text-gray-500">php tests/run_smoke_checks.php</code> → passed, failed=0</p>
             </li>
         </ol>
+    </div>
+
+    <div class="glass rounded-xl p-6 border <?= !empty($liveProve['ok']) ? 'border-emerald-500/30' : 'border-red-500/30' ?>">
+        <h2 class="font-semibold mb-2 <?= !empty($liveProve['ok']) ? 'text-emerald-300' : 'text-red-300' ?>">Code probes (KYC + Reconcile wiring)</h2>
+        <p class="text-sm text-gray-400 mb-3">Green = laptop wiring OK. Owner still pastes keys + runs ₹1 live test.</p>
+        <ul class="text-xs text-gray-500 space-y-1">
+            <?php foreach ($liveProve['checks'] as $probeRow): ?>
+            <li><?= !empty($probeRow['ok']) ? '<span class="text-emerald-400">✓</span>' : '<span class="text-red-400">✗</span>' ?>
+                <?= e((string)($probeRow['label'] ?? '')) ?>
+                <?php if (!empty($probeRow['detail']) && ($probeRow['detail'] ?? '') !== 'OK'): ?>
+                — <?= e((string)$probeRow['detail']) ?>
+                <?php endif; ?>
+            </li>
+            <?php endforeach; ?>
+        </ul>
+        <a href="admin_reconciliation.php" class="text-xs text-sky-400 mt-3 inline-block">Full probe panel on Reconciliation →</a>
     </div>
 
     <div class="glass rounded-xl p-6 border border-red-500/25">

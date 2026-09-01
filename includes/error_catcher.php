@@ -71,6 +71,27 @@ function logPlatformError(string $level, string $message, array|string $context 
         }
     }
 
+    if (function_exists('maskPiiRegex')) {
+        $message = maskPiiRegex($message);
+        if ($trace !== '') {
+            $trace = maskPiiRegex($trace);
+        }
+    } elseif (function_exists('maskPiiInString')) {
+        $message = (string)maskPiiInString($message);
+        if ($trace !== '') {
+            $trace = (string)maskPiiInString($trace);
+        }
+    }
+
+    $requestUri = (string)($_SERVER['REQUEST_URI'] ?? '');
+    if ($requestUri !== '') {
+        if (function_exists('maskPiiRegex')) {
+            $requestUri = maskPiiRegex($requestUri);
+        } elseif (function_exists('maskPiiInString')) {
+            $requestUri = (string)maskPiiInString($requestUri);
+        }
+    }
+
     error_log(sprintf('UniWeb [%s] %s in %s:%s', $level, $message, $file ?: '?', $line ?? '?'));
 
     try {
@@ -93,7 +114,7 @@ function logPlatformError(string $level, string $message, array|string $context 
             $msg,
             $file !== '' ? mb_substr($file, 0, 512) : null,
             $line ?: null,
-            mb_substr((string)($_SERVER['REQUEST_URI'] ?? ''), 0, 1024) ?: null,
+            mb_substr($requestUri, 0, 1024) ?: null,
             substr((string)($_SERVER['REQUEST_METHOD'] ?? ''), 0, 10) ?: null,
             $actorType,
             $actorId > 0 ? $actorId : null,

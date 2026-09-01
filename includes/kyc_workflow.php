@@ -19,6 +19,7 @@ function merchantKycVerifyCheckLabels(): array
         'no_rejected_docs' => 'No rejected required documents',
         'video_verified' => 'Video KYC verified (when required)',
         'no_risk_block' => 'No high-risk block',
+        'name_consistency' => 'Name consistency (profile vs registry)',
     ];
 }
 
@@ -92,6 +93,15 @@ function merchantKycReadinessReport(int $merchantId): array
             $riskBlock = merchantHasRiskFlags($merchantId);
         }
 
+        $nameOk = true;
+        if (!function_exists('checkNameConsistency') && is_file(__DIR__ . '/auto_kyc.php')) {
+            require_once __DIR__ . '/auto_kyc.php';
+        }
+        if (function_exists('checkNameConsistency')) {
+            $nameCheck = checkNameConsistency($merchantId);
+            $nameOk = !empty($nameCheck['ok']);
+        }
+
         $checks = [
             'merchant' => true,
             'not_deleted' => ($merchant['status'] ?? '') !== 'deleted',
@@ -101,6 +111,7 @@ function merchantKycReadinessReport(int $merchantId): array
             'no_rejected_docs' => !$hasRejectedRequired,
             'video_verified' => $videoOk,
             'no_risk_block' => !$riskBlock,
+            'name_consistency' => $nameOk,
         ];
 
         if ($kycStatus === 'verified') {

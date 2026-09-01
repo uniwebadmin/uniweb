@@ -11,6 +11,7 @@ if (function_exists('requireMerchantTeamCapability')) {
 ensureKycSchema();
 require_once __DIR__ . '/includes/kyc_upload.php';
 require_once __DIR__ . '/includes/kyc_workflow.php';
+require_once __DIR__ . '/includes/kyc_submit_guard.php';
 require_once __DIR__ . '/includes/client_context.php';
 require_once __DIR__ . '/includes/kyc_verify.php';
 require_once __DIR__ . '/includes/onboarding_state_machine.php';
@@ -42,6 +43,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!in_array($docType, $requiredDocs, true)) {
         flash('error', 'This document is not required for your business type.');
     } else {
+        $uploadFp = kycSubmitFileFingerprint((int)$merchant['id'], (string)$docType, $_FILES['document'] ?? []);
+        $lock = claimKycSubmitLock((int)$merchant['id'], 'doc_upload', $uploadFp, 180);
+        if (!empty($lock['replay'])) {
+            flash('success', 'Document already uploaded — refresh the page to see status.');
+            redirect('kyc.php');
+        }
+        if (empty($lock['ok'])) {
+            flash('error', $lock['message'] ?? 'Upload already in progress. Please wait.');
+            redirect('kyc.php');
+        }
         $saved = saveMerchantKycUpload(
             (int)$merchant['id'],
             $docType,

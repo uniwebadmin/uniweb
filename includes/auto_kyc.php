@@ -512,29 +512,68 @@ function normaliseNameForCompare(string $name): string
  */
 function checkNameConsistency(int $merchantId): array
 {
+    if (!function_exists('nameMatchScore')) {
+        require_once __DIR__ . '/kyc_verify.php';
+    }
     try {
         $st = getDB()->prepare('SELECT name, business_name, business_entity_type, pan_number FROM merchants WHERE id=?');
         $st->execute([$merchantId]);
         $m = $st->fetch();
-        if (!$m) return ['ok' => false, 'mismatch' => 'Merchant not found'];
+        if (!$m) {
+            return ['ok' => false, 'mismatch' => 'Merchant not found', 'score' => 0.0];
+        }
 
         $entityType = (string)($m['business_entity_type'] ?? 'sole_proprietorship');
         $merchantName = normaliseNameForCompare((string)($m['name'] ?? ''));
         $businessName = normaliseNameForCompare((string)($m['business_name'] ?? ''));
 
-        // For individual: name must match business_name
-        if ($entityType === 'individual' || $entityType === 'sole_proprietorship') {
-            if ($merchantName !== '' && $businessName !== '' && $merchantName !== $businessName) {
-                // Allow partial match (one contains the other)
-                if (!str_contains($merchantName, $businessName) && !str_contains($businessName, $merchantName)) {
-                    return ['ok' => false, 'mismatch' => 'Merchant name and business name do not match for individual entity.'];
+        if (in_array($entityType, ['individual', 'sole_proprietorship'], true)) {
+            if ($merchantName !== '' && $businessName !== '') {
+                $score = nameMatchScore($merchantName, $businessName);
+                $contains = str_contains($merchantName, $businessName) || str_contains($businessName, $merchantName);
+                if ($score < kycNameMatchThreshold() && !$contains) {
+                    return [
+                        'ok' => false,
+                        'mismatch' => 'Merchant name and business name do not match for individual entity.',
+                        'score' => $score,
+                    ];
                 }
             }
         }
 
-        return ['ok' => true, 'mismatch' => ''];
+        $registryName = '';
+        try {
+            $vSt = getDB()->prepare(
+                "SELECT response_json FROM kyc_verifications
+                 WHERE merchant_id=? AND doc_type IN ('pan','bank') AND status IN ('verified','submitted')
+                 ORDER BY id DESC LIMIT 1"
+            );
+            $vSt->execute([$merchantId]);
+            $raw = (string)$vSt->fetchColumn();
+            if ($raw !== '') {
+                $payload = json_decode($raw, true);
+                if (is_array($payload)) {
+                    $registryName = extractRegistryNameFromVerificationPayload($payload);
+                }
+            }
+        } catch (Throwable $e) {
+            /* optional column/table */
+        }
+
+        if ($registryName !== '') {
+            $eval = evaluateMerchantNameAgainstRegistry($merchantId, $registryName, 'pan');
+            if (empty($eval['ok'])) {
+                return [
+                    'ok' => false,
+                    'mismatch' => (string)($eval['mismatch'] ?: 'Registry name mismatch'),
+                    'score' => (float)($eval['score'] ?? 0.0),
+                ];
+            }
+        }
+
+        return ['ok' => true, 'mismatch' => '', 'score' => 1.0];
     } catch (Throwable $e) {
-        return ['ok' => false, 'mismatch' => 'Name check error: ' . $e->getMessage()];
+        return ['ok' => false, 'mismatch' => 'Name check error: ' . $e->getMessage(), 'score' => 0.0];
     }
 }
 

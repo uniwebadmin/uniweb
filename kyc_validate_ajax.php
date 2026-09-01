@@ -44,6 +44,24 @@ if ($field === 'gst' && $result['valid']) {
     }
 }
 
+if ($result['valid'] && in_array($field, ['pan', 'bank'], true)) {
+    if (!function_exists('checkNameConsistency') && is_file(__DIR__ . '/includes/auto_kyc.php')) {
+        require_once __DIR__ . '/includes/auto_kyc.php';
+    }
+    if (function_exists('checkNameConsistency')) {
+        $nameCheck = checkNameConsistency((int)getMerchant()['id']);
+        if (empty($nameCheck['ok'])) {
+            echo json_encode([
+                'ok' => true,
+                'valid' => false,
+                'reason' => (string)($nameCheck['mismatch'] ?? mapKycFailReason('name_mismatch', $field)),
+                'name_match_score' => (float)($nameCheck['score'] ?? 0.0),
+            ]);
+            exit;
+        }
+    }
+}
+
 echo json_encode([
     'ok' => true,
     'valid' => $result['valid'],

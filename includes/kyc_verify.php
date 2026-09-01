@@ -133,6 +133,91 @@ function nameMatchScore(string $name1, string $name2): float
     return count($union) > 0 ? (float)count($intersection) / count($union) : 0.0;
 }
 
+function kycNameMatchThreshold(): float
+{
+    return 0.55;
+}
+
+function normaliseKycCompareName(string $name): string
+{
+    $name = strtolower(trim($name));
+    $name = preg_replace('/[^\w\s]/', '', $name) ?? $name;
+    $name = preg_replace('/\s+/', ' ', $name) ?? $name;
+    return trim($name);
+}
+
+/**
+ * @param array<string,mixed> $verificationPayload
+ */
+function extractRegistryNameFromVerificationPayload(array $verificationPayload): string
+{
+    $candidates = [
+        $verificationPayload['data']['kycResult']['name'] ?? null,
+        $verificationPayload['data']['name'] ?? null,
+        $verificationPayload['data']['full_name'] ?? null,
+        $verificationPayload['data']['registered_name'] ?? null,
+        $verificationPayload['data']['legal_name'] ?? null,
+        $verificationPayload['data']['beneficiary_name'] ?? null,
+        $verificationPayload['name'] ?? null,
+    ];
+    foreach ($candidates as $candidate) {
+        $name = trim((string)$candidate);
+        if ($name !== '') {
+            return $name;
+        }
+    }
+    return '';
+}
+
+/**
+ * Compare merchant profile names against a registry / partner name.
+ *
+ * @return array{ok:bool,score:float,expected:string,registry:string,mismatch:string}
+ */
+function evaluateMerchantNameAgainstRegistry(int $merchantId, string $registryName, string $field = 'pan'): array
+{
+    $registryName = trim($registryName);
+    if ($registryName === '') {
+        return ['ok' => true, 'score' => 1.0, 'expected' => '', 'registry' => '', 'mismatch' => ''];
+    }
+    try {
+        $st = getDB()->prepare('SELECT name, business_name, business_entity_type FROM merchants WHERE id=? LIMIT 1');
+        $st->execute([$merchantId]);
+        $m = $st->fetch();
+        if (!$m) {
+            return ['ok' => false, 'score' => 0.0, 'expected' => '', 'registry' => $registryName, 'mismatch' => 'Merchant not found'];
+        }
+        $entityType = (string)($m['business_entity_type'] ?? 'sole_proprietorship');
+        $merchantName = trim((string)($m['name'] ?? ''));
+        $businessName = trim((string)($m['business_name'] ?? ''));
+        $expected = in_array($entityType, ['individual', 'sole_proprietorship'], true)
+            ? ($merchantName !== '' ? $merchantName : $businessName)
+            : ($businessName !== '' ? $businessName : $merchantName);
+        if ($expected === '') {
+            return ['ok' => true, 'score' => 1.0, 'expected' => '', 'registry' => $registryName, 'mismatch' => ''];
+        }
+        $score = nameMatchScore($expected, $registryName);
+        $normExpected = normaliseKycCompareName($expected);
+        $normRegistry = normaliseKycCompareName($registryName);
+        $contains = $normExpected !== '' && $normRegistry !== ''
+            && (str_contains($normExpected, $normRegistry) || str_contains($normRegistry, $normExpected));
+        $ok = $score >= kycNameMatchThreshold() || $contains;
+        $fieldLabel = match ($field) {
+            'bank' => 'Bank account',
+            default => strtoupper($field),
+        };
+        return [
+            'ok' => $ok,
+            'score' => $score,
+            'expected' => $expected,
+            'registry' => $registryName,
+            'mismatch' => $ok ? '' : mapKycFailReason('name_mismatch', $field),
+        ];
+    } catch (Throwable $e) {
+        return ['ok' => false, 'score' => 0.0, 'expected' => '', 'registry' => $registryName, 'mismatch' => 'Name check error'];
+    }
+}
+
 /**
  * Get partner API verification if configured.
  * Falls back to format-only validation when no partner API keys are set.

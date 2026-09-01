@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         if (!empty($result['ok'])) {
             $msg = (string)($result['message'] ?? 'Reconcile completed.');
             if (!empty($result['duplicate'])) {
-                $msg = 'Idempotent ‚Äî ' . $msg;
+                $msg = 'Idempotent ù ' . $msg;
             }
             $msg .= ' Source: Manual.';
             flash('success', $msg);
@@ -131,6 +131,10 @@ if (isset($_GET['action'], $_GET['token']) && verifyCsrf($_GET['token'])) {
 $report = getPgReconciliationReport($days);
 $settlementFiles = getGatewaySettlementFiles(20);
 $dailySummaries = getDailyReconciliationSummaries($days);
+$settlementUnmatchedTotal = 0;
+foreach ($settlementFiles as $sf) {
+    $settlementUnmatchedTotal += (int)($sf['rows_unmatched'] ?? 0);
+}
 $activeTab = $_GET['tab'] ?? 'webhooks';
 
 // Get unmatched rows for selected file
@@ -168,13 +172,15 @@ if (!function_exists('renderReconcileToolsMapPanel')) {
 <div class="space-y-6">
 <?= renderReconcileToolsMapPanel() ?>
 <?= renderReconcileRulesPanel() ?>
+<?= renderReconcilePayVsRefundPanel() ?>
 <?= renderReconcileOwnerChecklistPanel() ?>
+<?= renderReconcileLiveProvePanel() ?>
     <div class="flex flex-wrap gap-3 items-center justify-between">
-        <p class="text-sm text-gray-400">Match gateway webhooks against settled transactions. After real volume: upload the partner settlement CSV, match unmatched rows, then generate the daily summary. Do not invent extra crons ‚Äî auto-audit already marks obvious matches.</p>
+        <p class="text-sm text-gray-400">Match gateway webhooks against settled transactions. After real volume: upload the partner settlement CSV, match unmatched rows, then generate the daily summary. Do not invent extra crons ù auto-audit already marks obvious matches.</p>
         <div class="flex flex-wrap gap-2 items-center">
-            <a href="admin_pg_webhooks.php" class="text-xs text-sky-400 hover:underline">Webhook log ‚Üí</a>
-            <a href="admin_bank_reconciliation.php" class="text-xs text-emerald-400 hover:underline">‚≠ù Bank Auto-Reconciliation ‚Üí</a>
-            <a href="gateway_settings.php" class="text-xs text-gray-400 hover:text-white">Gateway keys ‚Üí</a>
+            <a href="admin_pg_webhooks.php" class="text-xs text-sky-400 hover:underline">Webhook log ?</a>
+            <a href="admin_bank_reconciliation.php" class="text-xs text-emerald-400 hover:underline">? Bank Auto-Reconciliation ?</a>
+            <a href="gateway_settings.php" class="text-xs text-gray-400 hover:text-white">Gateway keys ?</a>
             <a href="?days=<?= $days ?>&export=csv" class="text-xs text-sky-400 hover:text-white">Export CSV</a>
             <?php if (!empty($report['unmatched_webhooks'])): ?>
             <a href="?action=retry_all&days=<?= $days ?>&token=<?= csrfToken() ?>" class="text-xs bg-amber-600/20 text-amber-300 px-3 py-1.5 rounded-lg hover:bg-amber-600/30" onclick="return confirm('Retry all unmatched webhooks (max 20)?')">Retry unmatched</a>
@@ -188,12 +194,13 @@ if (!function_exists('renderReconcileToolsMapPanel')) {
     </div>
 
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Successful Txns</p><p class="text-2xl font-bold text-brand-400 mt-1"><?= number_format($report['transactions_success']) ?></p></div>
-        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Pending Txns</p><p class="text-2xl font-bold text-amber-400 mt-1"><?= number_format($report['transactions_pending']) ?></p></div>
-        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Refunds</p><p class="text-2xl font-bold text-gray-300 mt-1"><?= number_format($report['refunds']) ?></p></div>
+        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Successful Txns (paid captures)</p><p class="text-2xl font-bold text-brand-400 mt-1"><?= number_format($report['transactions_success']) ?></p></div>
+        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Pending Txns (not settled)</p><p class="text-2xl font-bold text-amber-400 mt-1"><?= number_format($report['transactions_pending']) ?></p></div>
+        <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Refunds (money returned)</p><p class="text-2xl font-bold text-gray-300 mt-1"><?= number_format($report['refunds']) ?></p></div>
         <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Unmatched Webhooks</p><p class="text-2xl font-bold text-red-400 mt-1"><?= count($report['unmatched_webhooks']) ?></p></div>
         <a href="admin_settlements.php?status=pending" class="glass rounded-xl p-5 stat-card border border-amber-500/20 hover:border-amber-500/50"><p class="text-xs text-gray-500">Settlement pending 24h+</p><p class="text-2xl font-bold text-amber-400 mt-1"><?= number_format((int)($report['delayed_settlements'] ?? 0)) ?></p></a>
         <a href="admin_refunds.php?status=pending" class="glass rounded-xl p-5 stat-card border border-violet-500/20 hover:border-violet-500/50"><p class="text-xs text-gray-500">Refund pending 3d+</p><p class="text-2xl font-bold text-violet-400 mt-1"><?= number_format((int)($report['delayed_refunds'] ?? 0)) ?></p></a>
+        <a href="?days=<?= $days ?>&tab=settlement" class="glass rounded-xl p-5 stat-card border border-rose-500/20 hover:border-rose-500/50"><p class="text-xs text-gray-500">Settlement CSV unmatched rows</p><p class="text-2xl font-bold text-rose-400 mt-1"><?= number_format($settlementUnmatchedTotal) ?></p></a>
     </div>
 
     <div class="glass rounded-xl overflow-hidden">
@@ -217,8 +224,8 @@ if (!function_exists('renderReconcileToolsMapPanel')) {
                 <?php else: foreach ($report['unmatched_webhooks'] as $w): ?>
                 <div class="px-5 py-3 border-b border-gray-800 text-xs flex justify-between items-center gap-2">
                     <div>
-                    <span class="text-gray-500"><?= formatDate($w['created_at']) ?></span> ¬∑ <span class="capitalize"><?= e($w['gateway']) ?></span>
-                    <p class="font-mono text-sky-400 mt-1"><?= e($w['reference'] ?: $w['link_id'] ?: '‚Äî') ?></p>
+                    <span class="text-gray-500"><?= formatDate($w['created_at']) ?></span> ù <span class="capitalize"><?= e($w['gateway']) ?></span>
+                    <p class="font-mono text-sky-400 mt-1"><?= e($w['reference'] ?: $w['link_id'] ?: 'ù') ?></p>
                     </div>
                     <a href="?action=retry&id=<?= (int)$w['id'] ?>&days=<?= $days ?>&token=<?= csrfToken() ?>" class="text-amber-400 shrink-0">Retry</a>
                 </div>
@@ -238,8 +245,8 @@ if (!function_exists('renderReconcileToolsMapPanel')) {
             </div>
         </div>
     </div>
-    <p class="text-xs text-gray-600">Webhook URLs: <?= e(pgWebhookUrl('razorpay')) ?> ¬∑ <?= e(pgWebhookUrl('cashfree')) ?> ¬∑ <?= e(pgWebhookUrl('payu')) ?></p>
-    <p class="text-xs text-amber-400/90 mt-2">Note: Opening webhook URLs in a browser shows a health check. "Invalid signature" entries in the log are from browser tests ‚Äî real payments from Razorpay/Cashfree/PayU will POST signed data automatically.</p>
+    <p class="text-xs text-gray-600">Webhook URLs: <?= e(pgWebhookUrl('razorpay')) ?> ù <?= e(pgWebhookUrl('cashfree')) ?> ù <?= e(pgWebhookUrl('payu')) ?></p>
+    <p class="text-xs text-amber-400/90 mt-2">Note: Opening webhook URLs in a browser shows a health check. "Invalid signature" entries in the log are from browser tests ù real payments from Razorpay/Cashfree/PayU will POST signed data automatically.</p>
 
     <!-- Tab Navigation -->
     <div class="flex gap-2 border-b border-gray-800">
@@ -254,26 +261,26 @@ if (!function_exists('renderReconcileToolsMapPanel')) {
     <div class="space-y-6">
         <div class="glass rounded-xl p-4 sm:p-6 border border-amber-500/20">
             <h3 class="font-semibold mb-2">Reconcile one transaction</h3>
-            <p class="text-sm text-gray-400 mb-4">Uses the same path as webhook + poll ‚Äî partner fetch when keys exist, then canonical capture/ledger. Does <strong class="text-white">not</strong> mark paid without partner or ledger path. After run, Transaction detail shows <em>Manual admin action</em>.</p>
+            <p class="text-sm text-gray-400 mb-4">Uses the same path as webhook + poll ù partner fetch when keys exist, then canonical capture/ledger. Does <strong class="text-white">not</strong> mark paid without partner or ledger path. After run, Transaction detail shows <em>Manual admin action</em>.</p>
             <form method="POST" class="flex flex-col sm:flex-row gap-3 items-end">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="manual_reconcile">
                 <div class="flex-1 min-w-[200px]">
                     <label class="text-sm text-gray-400">TXN id / numeric id / order ref</label>
-                    <input type="text" name="txn_ref" class="input-field mt-1 w-full font-mono text-sm" placeholder="TXN‚Ä¶ or payment order ref" required autocomplete="off">
+                    <input type="text" name="txn_ref" class="input-field mt-1 w-full font-mono text-sm" placeholder="TXNù or payment order ref" required autocomplete="off">
                 </div>
                 <button type="submit" class="btn-primary px-6 py-2.5 whitespace-nowrap">Reconcile</button>
             </form>
         </div>
         <div class="glass rounded-xl p-4 sm:p-6 border border-sky-500/20">
             <h3 class="font-semibold mb-2">Backfill ledger</h3>
-            <p class="text-sm text-gray-400 mb-4">For <strong class="text-emerald-400">Success</strong> txns missing ledger only ‚Äî runs finalizeSuccessfulPaymentTransaction (idempotent). Not a shortcut to fake paid.</p>
+            <p class="text-sm text-gray-400 mb-4">For <strong class="text-emerald-400">Success</strong> txns missing ledger only ù runs finalizeSuccessfulPaymentTransaction (idempotent). Not a shortcut to fake paid.</p>
             <form method="POST" class="flex flex-col sm:flex-row gap-3 items-end">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="backfill_ledger">
                 <div class="flex-1 min-w-[200px]">
                     <label class="text-sm text-gray-400">TXN id</label>
-                    <input type="text" name="txn_ref" class="input-field mt-1 w-full font-mono text-sm" placeholder="TXN‚Ä¶" required autocomplete="off">
+                    <input type="text" name="txn_ref" class="input-field mt-1 w-full font-mono text-sm" placeholder="TXNù" required autocomplete="off">
                 </div>
                 <button type="submit" class="btn-primary px-6 py-2.5 whitespace-nowrap bg-sky-600 hover:bg-sky-500">Backfill ledger</button>
             </form>
@@ -313,7 +320,7 @@ if (!function_exists('renderReconcileToolsMapPanel')) {
                 </div>
                 <button type="submit" class="btn-primary px-6 py-2.5">Upload &amp; Match</button>
             </form>
-            <p class="text-xs text-gray-500 mt-2">Runbook: 1) Download the partner settlement file. 2) Upload CSV here (UTR, Amount, Date, Merchant Code, Gateway Ref). 3) Open unmatched and link or ignore. 4) Generate daily summary. Use after there is live volume ‚Äî empty files are expected in Test.</p>
+            <p class="text-xs text-gray-500 mt-2">Runbook: 1) Download the partner settlement file. 2) Upload CSV here (UTR, Amount, Date, Merchant Code, Gateway Ref). 3) Open unmatched and link or ignore. 4) Generate daily summary. Use after there is live volume ù empty files are expected in Test.</p>
         </div>
 
         <div class="glass rounded-xl overflow-hidden">
@@ -347,11 +354,11 @@ if (!function_exists('renderReconcileToolsMapPanel')) {
                 <tbody class="divide-y divide-gray-800">
                     <?php foreach ($unmatchedRows as $r): ?>
                     <tr>
-                        <td class="px-4 py-3 text-xs font-mono"><?= e($r['utr'] ?: '‚Äî') ?></td>
-                        <td class="px-4 py-3 text-xs font-mono"><?= e($r['gateway_ref'] ?: '‚Äî') ?></td>
-                        <td class="px-4 py-3 text-xs"><?= e($r['merchant_code'] ?: '‚Äî') ?></td>
+                        <td class="px-4 py-3 text-xs font-mono"><?= e($r['utr'] ?: 'ù') ?></td>
+                        <td class="px-4 py-3 text-xs font-mono"><?= e($r['gateway_ref'] ?: 'ù') ?></td>
+                        <td class="px-4 py-3 text-xs"><?= e($r['merchant_code'] ?: 'ù') ?></td>
                         <td class="px-4 py-3 text-xs"><?= formatMoney((float)$r['amount']) ?></td>
-                        <td class="px-4 py-3 text-xs"><?= e($r['settlement_date'] ?? '‚Äî') ?></td>
+                        <td class="px-4 py-3 text-xs"><?= e($r['settlement_date'] ?? 'ù') ?></td>
                         <td class="px-4 py-3">
                             <form method="POST" class="flex gap-1 items-center">
                                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">

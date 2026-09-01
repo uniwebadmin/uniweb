@@ -137,3 +137,100 @@ function renderReconcileOwnerChecklistPanel(): string
     $html .= '</ol></div>';
     return $html;
 }
+
+/**
+ * Code-only live prove probes — no partner keys or ₹1 payment required.
+ *
+ * @return array{ok:bool,failed:int,checks:list<array{id:string,label:string,ok:bool,detail:string}>}
+ */
+function runReconcileLiveProveProbes(): array
+{
+    $checks = [];
+    $pass = static function (string $id, string $label, string $detail = 'OK') use (&$checks): void {
+        $checks[] = ['id' => $id, 'label' => $label, 'ok' => true, 'detail' => $detail];
+    };
+    $fail = static function (string $id, string $label, string $detail) use (&$checks): void {
+        $checks[] = ['id' => $id, 'label' => $label, 'ok' => false, 'detail' => $detail];
+    };
+
+    $reconcilePhp = (string)@file_get_contents(__DIR__ . '/payment_reconcile.php');
+    foreach (['paymentAllowedStatusTransition', 'manualReconcileTransaction', 'logPaymentPartnerStatusMismatch'] as $fn) {
+        if (str_contains($reconcilePhp, 'function ' . $fn)) {
+            $pass('reconcile_' . $fn, 'payment_reconcile.php · ' . $fn);
+        } else {
+            $fail('reconcile_' . $fn, 'payment_reconcile.php · ' . $fn, 'Missing function');
+        }
+    }
+
+    $txnDetail = (string)@file_get_contents(__DIR__ . '/transaction_detail.php');
+    if (str_contains($txnDetail, 'function transactionConfirmationSourceSummary')) {
+        $pass('txn_detail_source', 'Transaction detail shows confirmed-via source');
+    } else {
+        $fail('txn_detail_source', 'Transaction detail source summary', 'Missing transactionConfirmationSourceSummary');
+    }
+
+    $errorCatcher = (string)@file_get_contents(__DIR__ . '/error_catcher.php');
+    if (str_contains($errorCatcher, 'maskPiiRegex') && str_contains($errorCatcher, '$requestUri')) {
+        $pass('error_log_pii_new', 'New Error Log rows mask message/url/trace');
+    } else {
+        $fail('error_log_pii_new', 'Error Log PII mask (new rows)', 'maskPiiRegex on message/url/trace missing');
+    }
+
+    $guardPhp = (string)@file_get_contents(__DIR__ . '/kyc_submit_guard.php');
+    if (str_contains($guardPhp, 'function claimKycSubmitLock')) {
+        $pass('kyc_submit_guard', 'KYC double-submit idempotent lock');
+    } else {
+        $fail('kyc_submit_guard', 'KYC submit guard', 'includes/kyc_submit_guard.php missing');
+    }
+
+    $kycVerify = (string)@file_get_contents(__DIR__ . '/kyc_verify.php');
+    if (str_contains($kycVerify, 'function evaluateMerchantNameAgainstRegistry')) {
+        $pass('kyc_name_auto', 'Auto name mismatch evaluation wired');
+    } else {
+        $fail('kyc_name_auto', 'KYC name mismatch', 'evaluateMerchantNameAgainstRegistry missing');
+    }
+
+    foreach (['razorpay_webhook.php', 'cashfree_webhook.php', 'payu_webhook.php'] as $whFile) {
+        $path = dirname(__DIR__) . '/' . $whFile;
+        if (is_file($path)) {
+            $pass('webhook_file_' . $whFile, 'Webhook endpoint file · ' . $whFile);
+        } else {
+            $fail('webhook_file_' . $whFile, 'Webhook endpoint · ' . $whFile, 'File missing');
+        }
+    }
+
+    $failed = count(array_filter($checks, static fn(array $c): bool => empty($c['ok'])));
+    return ['ok' => $failed === 0, 'failed' => $failed, 'checks' => $checks];
+}
+
+function renderReconcileLiveProvePanel(): string
+{
+    $probe = runReconcileLiveProveProbes();
+    $html = '<div class="glass rounded-xl p-4 mb-6 border border-emerald-500/30 text-xs text-gray-400 reconcile-live-prove">';
+    $html .= '<p class="font-semibold text-emerald-300 mb-2">Live prove probes (code — Owner still runs ₹1 test with keys)</p>';
+    $html .= '<p class="text-[11px] text-gray-600 mb-3">Green here = wiring OK locally. Real money proof still needs Partner Registry keys + one ₹1 payment on live.</p>';
+    $html .= '<ul class="space-y-1">';
+    foreach ($probe['checks'] as $row) {
+        $icon = !empty($row['ok']) ? '<span class="text-emerald-400">✓</span>' : '<span class="text-red-400">✗</span>';
+        $html .= '<li>' . $icon . ' <strong class="text-gray-300">' . e((string)$row['label']) . '</strong>';
+        if (($row['detail'] ?? '') !== '' && ($row['detail'] ?? '') !== 'OK') {
+            $html .= ' — ' . e((string)$row['detail']);
+        }
+        $html .= '</li>';
+    }
+    $html .= '</ul></div>';
+    return $html;
+}
+
+function renderReconcilePayVsRefundPanel(): string
+{
+    $html = '<div class="glass rounded-xl p-4 mb-6 border border-violet-500/20 text-xs text-gray-400 reconcile-pay-refund">';
+    $html .= '<p class="font-semibold text-violet-300 mb-2">Pay vs Refund (MIS clarity)</p>';
+    $html .= '<ul class="space-y-1 list-disc list-inside">';
+    $html .= '<li><strong class="text-gray-300">Successful Txns</strong> = customer paid (capture) — wallet credit when ledger posted</li>';
+    $html .= '<li><strong class="text-gray-300">Refunds</strong> = money returned — separate from chargeback/dispute (see Disputes page)</li>';
+    $html .= '<li><strong class="text-gray-300">Pending Txns</strong> = not confirmed paid — do not treat as settled revenue</li>';
+    $html .= '<li><strong class="text-gray-300">Settlement CSV</strong> = partner bank file — match unmatched rows before closing the day</li>';
+    $html .= '</ul></div>';
+    return $html;
+}

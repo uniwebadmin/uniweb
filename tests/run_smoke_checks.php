@@ -2139,6 +2139,11 @@ $receiptSrc = (string)file_get_contents($root . '/receipt.php');
 $assert(str_contains($receiptSrc, 'requireStaffAccess') && str_contains($receiptSrc, '$adminView'), 'risk11_12_receipt_admin_staff_gate');
 $errorCatcher = (string)file_get_contents($root . '/includes/error_catcher.php');
 $assert(str_contains($errorCatcher, 'maskPiiRecursive') || str_contains($errorCatcher, 'maskPiiInString'), 'risk13_error_log_pii_mask');
+$assert(str_contains($errorCatcher, 'maskPiiRegex($message)') || str_contains($errorCatcher, '$message = maskPiiRegex($message)'), 'risk13_error_log_message_mask');
+$assert(str_contains($errorCatcher, '$requestUri') && (str_contains($errorCatcher, 'maskPiiRegex($requestUri)') || str_contains($errorCatcher, '$requestUri = maskPiiRegex')), 'risk13_error_log_url_mask');
+$kycSubmitGuard = (string)file_get_contents($root . '/includes/kyc_submit_guard.php');
+$assert(str_contains($kycSubmitGuard, 'claimKycSubmitLock') && str_contains((string)file_get_contents($root . '/kyc.php'), 'claimKycSubmitLock'), 'kyc11_double_submit_idempotent_lock');
+$assert(str_contains((string)file_get_contents($root . '/includes/kyc_verify.php'), 'evaluateMerchantNameAgainstRegistry') && str_contains((string)file_get_contents($root . '/verify_api.php'), 'evaluateMerchantNameAgainstRegistry'), 'kyc3_auto_name_mismatch');
 $collectionSrc = (string)file_get_contents($root . '/includes/collection.php');
 $assert(str_contains($collectionSrc, 'gst_on_fee') && str_contains($collectionSrc, 'platformFeeGstRate'), 'risk14_gst_canonical_split');
 $assert(str_contains((string)file_get_contents($root . '/compliance.php'), 'do not independently hold') && str_contains((string)file_get_contents($root . '/responsibility_matrix.php'), 'do not offer a consumer PPI'), 'risk15_compliance_copy_honest');
@@ -2221,10 +2226,16 @@ $assert(str_contains($kycReconFlow, 'kycFailureMerchantScenarios') && str_contai
 $assert(str_contains($kycReconFlow, 'kycForwardFailureScenarios') && str_contains((string)file_get_contents($root . '/admin_kyc.php'), 'renderKycFailureAdminPanel'), 'kyc_recon_admin_forward_staged_honest');
 $assert(str_contains($kycReconFlow, 'reconcileToolsMap') && str_contains((string)file_get_contents($root . '/admin_reconciliation.php'), 'renderReconcileOwnerChecklistPanel'), 'kyc_recon_tools_map_and_owner_checklist');
 $assert(str_contains((string)file_get_contents($root . '/includes/payment_reconcile.php'), 'paymentAllowedStatusTransition') && str_contains((string)file_get_contents($root . '/includes/transaction_detail.php'), 'transactionConfirmationSourceSummary'), 'kyc_recon_single_reconcile_ruleset');
+$assert(str_contains($kycReconFlow, 'renderReconcilePayVsRefundPanel') && str_contains((string)file_get_contents($root . '/admin_reconciliation.php'), 'Settlement CSV unmatched rows'), 'mis_reconcile_pay_refund_polish');
+$assert(str_contains($kycReconFlow, 'runReconcileLiveProveProbes') && str_contains((string)file_get_contents($root . '/admin_soft_launch.php'), 'runReconcileLiveProveProbes'), 'live_prove_probes_soft_launch');
 
 $moneyProbeOut = [];
 exec('php ' . escapeshellarg($root . '/tests/probe_money_rails.php'), $moneyProbeOut, $moneyProbeExit);
 $assert($moneyProbeExit === 0 && str_contains(implode("\n", $moneyProbeOut), 'failures=0'), 'p17_money_rails_probe_green');
+
+$kycReconProbeOut = [];
+exec('php ' . escapeshellarg($root . '/tests/probe_kyc_reconcile.php'), $kycReconProbeOut, $kycReconProbeExit);
+$assert($kycReconProbeExit === 0 && str_contains(implode("\n", $kycReconProbeOut), 'failures=0'), 'kyc_recon_live_prove_probe_green');
 
 $payload = [
     'ok' => $failed === 0,

@@ -7,6 +7,7 @@ requireStaffAccess(['super', 'ceo', 'regional_manager', 'area_sales_manager', 't
 ensureKycSchema();
 require_once __DIR__ . '/includes/auto_kyc.php';
 require_once __DIR__ . '/includes/kyc_workflow.php';
+require_once __DIR__ . '/includes/kyc_submit_guard.php';
 require_once __DIR__ . '/includes/onboarding_state_machine.php';
 if (!function_exists('kycRejectReasonPresets') && is_file(__DIR__ . '/includes/kyc_entity.php')) {
     require_once __DIR__ . '/includes/kyc_entity.php';
@@ -63,6 +64,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('One-step Verify is limited to super admin (solo ops).');
             }
             requireMerchantAccess($id);
+            $verifyFp = kycSubmitFingerprint('verify_now', [$id, (string)($_SESSION['admin_id'] ?? '0')]);
+            $verifyLock = claimKycSubmitLock($id, 'admin_verify_now', $verifyFp, 90);
+            if (!empty($verifyLock['replay'])) {
+                flash('success', 'KYC verify already completed — refresh the queue.');
+                redirect('admin_kyc.php');
+            }
+            if (empty($verifyLock['ok'])) {
+                throw new RuntimeException($verifyLock['message'] ?? 'Verify already in progress.');
+            }
             $ready = merchantKycReadinessReport($id);
             if (empty($ready['ok']) && empty($ready['already_verified'])) {
                 throw new RuntimeException('Cannot verify yet: ' . implode(', ', merchantKycReadinessMissingLabels($ready)));

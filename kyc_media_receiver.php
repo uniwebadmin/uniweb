@@ -2,6 +2,7 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/kyc_upload.php';
 require_once __DIR__ . '/includes/client_context.php';
+require_once __DIR__ . '/includes/kyc_submit_guard.php';
 requireLogin();
 ensureKycSchema();
 
@@ -78,6 +79,18 @@ if ($action === 'part') {
 if ($action !== 'finalize') {
     http_response_code(400);
     echo json_encode(['ok' => false, 'error' => 'Unknown upload action.']);
+    exit;
+}
+
+$videoFp = kycSubmitFingerprint('video_finalize', [$merchantId, $uploadId, $total]);
+$videoLock = claimKycSubmitLock($merchantId, 'video_finalize', $videoFp, 300);
+if (!empty($videoLock['replay'])) {
+    echo json_encode(['ok' => true, 'message' => 'Video already uploaded — refresh KYC page.']);
+    exit;
+}
+if (empty($videoLock['ok'])) {
+    http_response_code(429);
+    echo json_encode(['ok' => false, 'error' => $videoLock['message'] ?? 'Video upload already in progress.']);
     exit;
 }
 
