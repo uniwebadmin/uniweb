@@ -4,8 +4,10 @@ requireLogin();
 $merchant = getMerchant();
 $db = getDB();
 $mid = (int)$merchant['id'];
+$viewTest = isDashboardTestMode($merchant);
+$testFlag = $viewTest ? 1 : 0;
 
-// B5: Respect date/method filters from reports page
+// B5: Respect date/method filters from reports page + test/live scope
 $from = trim($_GET['from'] ?? '');
 $to = trim($_GET['to'] ?? '');
 $method = trim($_GET['method'] ?? 'all');
@@ -14,8 +16,8 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) $to = '';
 $validMethods = ['upi','card','netbanking','wallet','razorpay','cashfree','payu'];
 if ($method !== 'all' && !in_array($method, $validMethods, true)) $method = 'all';
 
-$dateWhere = 'merchant_id = ? AND status = ?';
-$dateParams = [$mid, 'success'];
+$dateWhere = 'merchant_id = ? AND is_test = ? AND status = ?';
+$dateParams = [$mid, $testFlag, 'success'];
 if ($from !== '') { $dateWhere .= ' AND DATE(created_at) >= ?'; $dateParams[] = $from; }
 if ($to !== '') { $dateWhere .= ' AND DATE(created_at) <= ?'; $dateParams[] = $to; }
 if ($method !== 'all') { $dateWhere .= ' AND payment_method = ?'; $dateParams[] = $method; }
@@ -47,8 +49,8 @@ foreach ($methods->fetchAll() as $r) {
 fputcsv($out, []);
 fputcsv($out, ['=== Transaction Status Breakdown ===']);
 fputcsv($out, ['Status', 'Count']);
-$statusWhere = 'merchant_id = ?';
-$statusParams = [$mid];
+$statusWhere = 'merchant_id = ? AND is_test = ?';
+$statusParams = [$mid, $testFlag];
 if ($from !== '') { $statusWhere .= ' AND DATE(created_at) >= ?'; $statusParams[] = $from; }
 if ($to !== '') { $statusWhere .= ' AND DATE(created_at) <= ?'; $statusParams[] = $to; }
 $statuses = $db->prepare("SELECT status, COUNT(*) as cnt FROM transactions WHERE {$statusWhere} GROUP BY status");

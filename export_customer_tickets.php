@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/customer_portal.php';
+if (is_file(__DIR__ . '/includes/export_privacy.php')) {
+    require_once __DIR__ . '/includes/export_privacy.php';
+}
 requireLogin();
 requireMerchantTeamCapability('support');
 ensureCustomerPortalSchema();
@@ -15,8 +18,8 @@ $out = fopen('php://output', 'w');
 fputcsv($out, ['Ticket ID', 'Customer Phone', 'Subject', 'Txn Reference', 'Status', 'Updated']);
 foreach ($tickets as $t) {
     fputcsv($out, [
-        $t['ticket_id'] ?? '',
-        $t['customer_phone'] ?? '',
+        exportCsvSafeCell($t['ticket_id'] ?? ''),
+        exportMaskPhone($t['customer_phone'] ?? ''),
         $t['subject'] ?? '',
         $t['txn_reference'] ?? '',
         $t['status'] ?? '',

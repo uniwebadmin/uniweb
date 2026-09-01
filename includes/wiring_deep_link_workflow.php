@@ -443,11 +443,15 @@ function wiringAdminSupportEducation(): array
     ];
 }
 
-/** Settlement / batch / payment money alerts → transaction ledger (not settlements page). */
-function wiringDeepLinkSettlementActionUrl(string $title, string $message = ''): ?string
+/** Settlement / batch / payment money alerts → transaction detail when TXN present, else ledger list. */
+function wiringDeepLinkSettlementActionUrl(string $title, string $message = '', bool $forAdmin = false): ?string
 {
+    $hay = $title . ' ' . $message;
+    if (preg_match('/\b(TXN[A-F0-9]{8,})\b/i', $hay, $m)) {
+        return wiringDeepLinkTxnDetailUrl(strtoupper($m[1]), $forAdmin);
+    }
     $titleLower = strtolower($title);
-    $hay = strtolower($title . ' ' . $message);
+    $hayLower = strtolower($hay);
     $needles = [
         'settlement',
         'batch complete',
@@ -459,12 +463,12 @@ function wiringDeepLinkSettlementActionUrl(string $title, string $message = ''):
         'payout processed',
     ];
     foreach ($needles as $needle) {
-        if (str_contains($titleLower, $needle) || str_contains($hay, $needle)) {
-            return 'transactions.php';
+        if (str_contains($titleLower, $needle) || str_contains($hayLower, $needle)) {
+            return $forAdmin ? 'admin_transactions.php' : 'transactions.php';
         }
     }
     if (str_contains($titleLower, 'payment')) {
-        return 'transactions.php';
+        return $forAdmin ? 'admin_transactions.php' : 'transactions.php';
     }
     return null;
 }

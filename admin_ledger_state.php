@@ -10,7 +10,7 @@ $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
-        flash('error', 'Session expired.');
+        flash('error', 'Session expired — refresh this page and try ledger rebuild again. No balance was changed.');
         redirect('admin_ledger_state.php');
     }
     $action = $_POST['action'] ?? '';

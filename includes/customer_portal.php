@@ -561,7 +561,8 @@ function createCustomerTicket(string $phone, string $subject, string $message, ?
             createNotification(
                 $merchantId,
                 'New customer complaint',
-                'Ticket ' . $ticketId . ': ' . $subject . ($txnRef ? ' (Txn ' . $txnRef . ')' : '')
+                'Ticket ' . $ticketId . ': ' . $subject . ($txnRef ? ' (Txn ' . $txnRef . ')' : ''),
+                'complaint_' . $ticketId
             );
         } catch (Throwable $e) { /* best effort */ }
     }

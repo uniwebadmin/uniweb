@@ -47,6 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         redirect($result['redirect']);
     }
     redirect('settlements.php');
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    flash('error', 'Session expired — refresh this page and try again. No settlement was submitted.');
+    redirect('settlements.php');
 }
 
 $wallet = ensureMerchantWalletReady($merchantId);

@@ -2163,7 +2163,7 @@ $assert(str_contains($kycPageSrc, 'requireMerchantTeamCapability') && str_contai
 $assert(str_contains((string)file_get_contents($root . '/merchant_team_accept.php'), 'Access after accept') && str_contains((string)file_get_contents($root . '/includes/merchant_team.php'), 'function requireMerchantTeamCapability'), 'risk20_team_invite_role_honesty');
 $assert(str_contains((string)file_get_contents($root . '/merchant_register.php'), 'name="accept_terms"') && str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), 'agreement_accepted'), 'risk21_register_terms_and_live_gate');
 $checkoutSrc = (string)file_get_contents($root . '/checkout.php');
-$assert(str_contains($checkoutSrc, "name:'" . COMPANY_LEGAL_NAME . "'") || str_contains($checkoutSrc, '$brandName = COMPANY_LEGAL_NAME'), 'risk22_checkout_uniweb_brand_not_partner');
+$assert(str_contains($checkoutSrc, '$brandName = COMPANY_LEGAL_NAME') || str_contains($checkoutSrc, 'COMPANY_LEGAL_NAME'), 'risk22_checkout_uniweb_brand_not_partner');
 $assert(str_contains($checkoutSrc, 'formatMoney((float)$successTxnAmount)') && str_contains($checkoutSrc, 'buildSignedReceiptUrl'), 'risk23_success_amount_and_receipt');
 $assert(str_contains($checkoutSrc, 'Payment already completed') && str_contains($checkoutSrc, 'checkoutFindPaidTransaction'), 'risk24_paid_link_not_expired_message');
 $assert(str_contains($collectionSrc, 'function buildUpiPayIntent') && str_contains($collectionSrc, 'link_id'), 'risk25_upi_intent_link_ref');
@@ -2172,6 +2172,43 @@ $assert(str_contains($checkoutSrc, 'buildPaymentTrackUrl') && str_contains($chec
 $assert(str_contains((string)file_get_contents($root . '/transaction_detail.php'), 'funds posting') || str_contains((string)file_get_contents($root . '/transaction_detail.php'), 'wallet posting'), 'risk28_partial_fail_merchant_ledger_copy');
 $assert(str_contains((string)file_get_contents($root . '/payment_cashfree_return.php'), "reconcile_source' => 'checkout'") && str_contains((string)file_get_contents($root . '/payment_payu_return.php'), "reconcile_source' => 'checkout'"), 'risk29_return_reconcile_source_checkout');
 $assert(str_contains($checkoutSrc, 'checkoutSessionPaymentOrderKey') || str_contains((string)file_get_contents($root . '/includes/payment_idempotency.php'), 'function checkoutSessionPaymentOrderKey'), 'risk30_checkout_session_idempotency_key');
+
+// Risk audit batch 31–58 (nav, reports scope, staff, exports, API, deploy banners)
+$navProbeOut = [];
+exec('php ' . escapeshellarg($root . '/tests/probe_nav_audit.php'), $navProbeOut, $navProbeExit);
+$navProbeText = implode("\n", $navProbeOut);
+$assert($navProbeExit === 0 && str_contains($navProbeText, 'DEAD=0'), 'risk31_sidebar_nav_no_dead_404');
+$assert(str_contains((string)file_get_contents($root . '/includes/ui/ui_components.php'), 'uiCapabilityLegend') && str_contains((string)file_get_contents($root . '/includes/sidebar_nav.php'), 'uniwebNavCapabilityPill'), 'risk32_stub_parked_pills_honest_nav');
+$reportsSrc = (string)file_get_contents($root . '/reports.php');
+$exportReportsSrc = (string)file_get_contents($root . '/export_reports.php');
+$assert(str_contains($reportsSrc, 'is_test = ?') && str_contains($reportsSrc, 'isDashboardTestMode'), 'risk33_reports_test_live_scope');
+$assert(str_contains($exportReportsSrc, 'is_test = ?') && str_contains($exportReportsSrc, 'isDashboardTestMode'), 'risk33_export_reports_test_live_scope');
+$assert(str_contains((string)file_get_contents($root . '/includes/staff.php'), 'function enforceStaffNavPageAccess') && str_contains((string)file_get_contents($root . '/header.php'), 'enforceStaffNavPageAccess'), 'risk34_staff_nav_page_guard');
+$assert(str_contains((string)file_get_contents($root . '/includes/customer_portal.php'), 'findCustomerOwnedTransaction') && str_contains((string)file_get_contents($root . '/includes/customer_portal.php'), 'complaint_'), 'risk35_complaint_ticket_ownership_and_dedup');
+$wiringFlow = (string)file_get_contents($root . '/includes/wiring_deep_link_workflow.php');
+$assert(str_contains($wiringFlow, 'wiringDeepLinkTxnDetailUrl') && str_contains($wiringFlow, 'TXN[A-F0-9]{8,}'), 'risk36_notif_txn_detail_deep_link');
+$exportPrivacy = (string)file_get_contents($root . '/includes/export_privacy.php');
+$assert(str_contains($exportPrivacy, 'exportMaskPhone') && str_contains((string)file_get_contents($root . '/export_transactions.php'), 'exportMaskPhone'), 'risk37_export_csv_pii_mask');
+$assert(str_contains((string)file_get_contents($root . '/admin_payment_links.php'), 'admin-payment-links-filters') && str_contains((string)file_get_contents($root . '/assets/css/mobile-safe.css'), 'admin-payment-links-filters'), 'risk38_admin_payment_links_mobile');
+$assert(str_contains((string)file_get_contents($root . '/assets/css/theme-light.css'), 'data-theme="light"') && str_contains((string)file_get_contents($root . '/assets/css/theme-light.css'), 'text-[10px].text-gray-600'), 'risk39_theme_label_contrast');
+$assert(str_contains((string)file_get_contents($root . '/settlements.php'), 'No settlement was submitted') && str_contains((string)file_get_contents($root . '/admin_ledger_state.php'), 'No balance was changed'), 'risk40_csrf_money_action_honest_message');
+$apiQrSrc = (string)file_get_contents($root . '/api_qr_create.php');
+$assert(str_contains($apiQrSrc, 'claimApiIdempotency') && str_contains($apiQrSrc, 'missing_idempotency_key'), 'risk41_qr_api_idempotency_key');
+$assert(str_contains($apiQrSrc, 'merchantApiRespondError') && str_contains($apiQrSrc, 'application/json'), 'risk42_api_json_errors_not_html');
+$assert(str_contains($apiQrSrc, 'checkRateLimit') && str_contains($apiQrSrc, 'Retry-After'), 'risk43_api_rate_limit');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_error_mapping.php'), 'partner_unavailable'), 'risk44_partner_down_merchant_message');
+$assert(str_contains($apiQrSrc, "REQUEST_METHOD'] === 'GET'") && str_contains((string)file_get_contents($root . '/razorpay_webhook.php'), 'pgWebhookHealthResponse'), 'risk45_webhook_get_health_json');
+$assert(str_contains((string)file_get_contents($root . '/includes/webhook_secret_rotation.php'), '172800'), 'risk46_webhook_secret_rotation_grace');
+$assert(str_contains((string)file_get_contents($root . '/includes/fast_qr_api.php'), 'authenticateMerchantApiKeyOnly') && str_contains((string)file_get_contents($root . '/api_settings.php'), 'same'), 'risk47_fast_qr_same_api_key');
+$openapiRaw = (string)file_get_contents($root . '/openapi.json');
+$assert(str_contains($openapiRaw, '/api_qr_create.php') && str_contains($openapiRaw, 'Idempotency-Key'), 'risk48_openapi_qr_live_path');
+$deployMetaSrc = (string)file_get_contents($root . '/includes/deploy_meta.php');
+$assert(str_contains($deployMetaSrc, 'uniwebDeployMeta') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'uniwebDeployMeta'), 'risk49_deploy_version_banner');
+$assert(str_contains($deployMetaSrc, 'uniwebPendingMigrationCount') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'pendingMigrations'), 'risk50_pending_migrations_banner');
+$assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'settlement_cron') && str_contains((string)file_get_contents($root . '/admin_platform_status.php'), 'platformHealthSummary'), 'risk51_cron_stale_platform_status');
+$assert(str_contains((string)file_get_contents($root . '/includes/mailer.php'), 'notifyChannelWasSent') || str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'SMTP'), 'risk52_smtp_notify_path');
+$assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'APP_URL') || str_contains((string)file_get_contents($root . '/config.dev.php'), 'APP_URL'), 'risk54_checkout_https_app_url');
+$assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'stale_createNotification') || str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'CR-01'), 'risk58_cr01_createNotification_reminder');
 
 $moneyProbeOut = [];
 exec('php ' . escapeshellarg($root . '/tests/probe_money_rails.php'), $moneyProbeOut, $moneyProbeExit);

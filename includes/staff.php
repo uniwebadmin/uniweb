@@ -416,6 +416,44 @@ function pgWebhookHealthResponse(string $gateway): void
     exit;
 }
 
+/** Staff portal: block direct URL access to pages outside role nav (+ safe detail companions). */
+function staffNavCompanionPages(): array
+{
+    return [
+        'logout.php',
+        'global_search.php',
+        'manage_merchant.php',
+        'admin_view_merchant.php',
+        'transaction_detail.php',
+        'settlement_detail.php',
+        'receipt.php',
+        'support_ticket.php',
+    ];
+}
+
+function enforceStaffNavPageAccess(): void
+{
+    if (!isAdminLoggedIn() || isSuperAdmin()) {
+        return;
+    }
+    $page = basename((string)($_SERVER['PHP_SELF'] ?? ''));
+    if ($page === 'admin_edit_merchant.php') {
+        if (staffCanEditMerchant()) {
+            return;
+        }
+        flash('error', 'Your role can view merchants but cannot edit them.');
+        redirect('staff_dashboard.php');
+    }
+    if ($page === '' || in_array($page, staffNavCompanionPages(), true)) {
+        return;
+    }
+    if (staffCanAccess($page)) {
+        return;
+    }
+    flash('error', 'This page is not available for your staff role.');
+    redirect('staff_dashboard.php');
+}
+
 // Entity KYC map + merchant team RBAC (git-tracked; live hosts need no config.php function edits).
 require_once __DIR__ . '/kyc_entity.php';
 require_once __DIR__ . '/merchant_team.php';

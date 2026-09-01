@@ -83,6 +83,19 @@ html[data-theme="light"] .text-gray-300 {
   color: #1e293b !important;
 }
 
+html[data-theme="light"] .text-[10px].text-gray-600,
+html[data-theme="light"] label.text-gray-600 {
+  color: #475569 !important;
+}
+
+html[data-theme="light"] .text-gray-300 {
+  color: #1e293b !important;
+}
+
+html:not([data-theme="light"]) .text-[10px].text-gray-600 {
+  color: #9ca3af;
+}
+
 html[data-theme="light"] .text-gray-400 {
   color: #334155 !important;
 }

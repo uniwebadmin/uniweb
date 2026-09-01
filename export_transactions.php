@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('exportMaskPhone') && is_file(__DIR__ . '/includes/export_privacy.php')) {
+    require_once __DIR__ . '/includes/export_privacy.php';
+}
 requireLogin();
 $merchant = getMerchant();
 $db = getDB();
@@ -40,11 +43,7 @@ $stmt->execute($params);
 $rows = $stmt->fetchAll();
 
 $csvSafe = static function ($value): string {
-    $value = (string)$value;
-    if ($value !== '' && preg_match('/^[=+\-@\t\r]/', $value)) {
-        return "'" . $value;
-    }
-    return $value;
+    return function_exists('exportCsvSafeCell') ? exportCsvSafeCell($value) : (string)$value;
 };
 
 header('Content-Type: text/csv; charset=utf-8');
@@ -53,7 +52,18 @@ $out = fopen('php://output', 'w');
 fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
 fputcsv($out, ['Txn ID','Amount','Status','Method','Customer Name','Customer Phone','Customer Email','UTR','Description','Date']);
 foreach ($rows as $r) {
-    fputcsv($out, array_map($csvSafe, [$r['txn_id'], $r['amount'], $r['status'], $r['payment_method'], $r['customer_name'], $r['customer_phone'], $r['customer_email'] ?? '', $r['utr'], $r['description'], $r['created_at']]));
+    fputcsv($out, array_map('exportCsvSafeCell', [
+        $r['txn_id'],
+        $r['amount'],
+        $r['status'],
+        $r['payment_method'],
+        exportMaskName($r['customer_name'] ?? ''),
+        exportMaskPhone($r['customer_phone'] ?? ''),
+        exportMaskEmail($r['customer_email'] ?? ''),
+        $r['utr'],
+        $r['description'],
+        $r['created_at'],
+    ]));
 }
 fclose($out);
 exit;

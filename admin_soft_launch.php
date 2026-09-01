@@ -3,6 +3,11 @@ require_once __DIR__ . '/config.php';
 requireSuperAdmin();
 $pageTitle = 'Soft Launch';
 require_once __DIR__ . '/header.php';
+if (!function_exists('uniwebDeployMeta') && is_file(__DIR__ . '/includes/deploy_meta.php')) {
+    require_once __DIR__ . '/includes/deploy_meta.php';
+}
+$deployMeta = function_exists('uniwebDeployMeta') ? uniwebDeployMeta() : ['label' => defined('APP_VERSION') ? APP_VERSION : ''];
+$pendingMigrations = function_exists('uniwebPendingMigrationCount') ? uniwebPendingMigrationCount() : 0;
 $docPath = __DIR__ . '/docs/SOFT_LAUNCH_BLOCKERS.md';
 $runbookPath = __DIR__ . '/docs/OWNER_RUNBOOK.md';
 $blockers = is_file($docPath) ? (string)file_get_contents($docPath) : '';
@@ -13,6 +18,7 @@ $runbook = is_file($runbookPath) ? (string)file_get_contents($runbookPath) : '';
     <div class="glass rounded-xl p-6 border border-emerald-500/30">
         <h1 class="text-xl font-semibold text-white mb-2">Soft Launch Readiness</h1>
         <p class="text-sm text-gray-400">Follow the ordered checklist before first real customer payment. PARKED items are honest — not hidden failures.</p>
+        <p class="text-xs text-gray-500 mt-2 font-mono">Running code: <strong class="text-gray-300"><?= e((string)($deployMeta['label'] ?? '')) ?></strong><?php if ($pendingMigrations > 0): ?> · <span class="text-amber-400"><?= (int)$pendingMigrations ?> migration(s) pending</span><?php endif; ?></p>
         <p class="text-xs text-gray-500 mt-3">Repo docs: <code class="text-gray-400">docs/SOFT_LAUNCH_BLOCKERS.md</code> · <code class="text-gray-400">docs/OWNER_RUNBOOK.md</code></p>
     </div>
 

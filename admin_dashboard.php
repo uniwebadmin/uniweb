@@ -47,8 +47,8 @@ if ($db) {
     $totalMerchants = (int)adminDashWidget('total_merchants', static fn() => $db->query("SELECT COUNT(*) as c FROM merchants WHERE status != 'deleted'")->fetch()['c'] ?? 0, 0);
     $activeMerchants = (int)adminDashWidget('active_merchants', static fn() => $db->query("SELECT COUNT(*) as c FROM merchants WHERE status = 'active'")->fetch()['c'] ?? 0, 0);
     $pendingKyc = (int)adminDashWidget('pending_kyc', static fn() => $db->query("SELECT COUNT(*) as c FROM merchants WHERE kyc_status IN ('pending','submitted')")->fetch()['c'] ?? 0, 0);
-    $todayTxn = adminDashWidget('today_txn', static fn() => $db->query("SELECT COALESCE(SUM(amount),0) as t, COUNT(*) as c FROM transactions WHERE status='success' AND DATE(created_at)=CURDATE()")->fetch() ?: ['t' => 0, 'c' => 0], ['t' => 0, 'c' => 0]);
-    $monthTxn = adminDashWidget('month_txn', static fn() => $db->query("SELECT COALESCE(SUM(amount),0) as t, COUNT(*) as c FROM transactions WHERE status='success' AND MONTH(created_at)=MONTH(CURDATE())")->fetch() ?: ['t' => 0, 'c' => 0], ['t' => 0, 'c' => 0]);
+    $todayTxn = adminDashWidget('today_txn', static fn() => $db->query("SELECT COALESCE(SUM(amount),0) as t, COUNT(*) as c FROM transactions WHERE status='success' AND is_test=0 AND DATE(created_at)=CURDATE()")->fetch() ?: ['t' => 0, 'c' => 0], ['t' => 0, 'c' => 0]);
+    $monthTxn = adminDashWidget('month_txn', static fn() => $db->query("SELECT COALESCE(SUM(amount),0) as t, COUNT(*) as c FROM transactions WHERE status='success' AND is_test=0 AND MONTH(created_at)=MONTH(CURDATE()) AND YEAR(created_at)=YEAR(CURDATE())")->fetch() ?: ['t' => 0, 'c' => 0], ['t' => 0, 'c' => 0]);
     $pendingSettlements = (int)adminDashWidget('pending_settlements', static fn() => $db->query("SELECT COUNT(*) as c FROM settlements WHERE status='pending'")->fetch()['c'] ?? 0, 0);
     $openDisputes = (int)adminDashWidget('open_disputes', static fn() => $db->query("SELECT COUNT(*) as c FROM disputes WHERE status='open'")->fetch()['c'] ?? 0, 0);
     $agedSettlements = (int)adminDashWidget('aged_settlements', static fn() => $db->query("SELECT COUNT(*) FROM settlements WHERE status IN ('pending','processing') AND created_at < DATE_SUB(NOW(), INTERVAL 1 DAY)")->fetchColumn(), 0);
@@ -90,9 +90,29 @@ if (!function_exists('forwardStagedAdminEducation') && is_file(__DIR__ . '/inclu
 }
 $forwardStagedEdu = function_exists('forwardStagedAdminEducation') ? forwardStagedAdminEducation() : null;
 
+if (!function_exists('uniwebDeployMeta') && is_file(__DIR__ . '/includes/deploy_meta.php')) {
+    require_once __DIR__ . '/includes/deploy_meta.php';
+}
+$deployMeta = function_exists('uniwebDeployMeta') ? uniwebDeployMeta() : ['label' => defined('APP_VERSION') ? APP_VERSION : ''];
+$pendingMigrations = function_exists('uniwebPendingMigrationCount') ? uniwebPendingMigrationCount() : 0;
+
 $pageTitle = 'Admin Dashboard';
 require_once __DIR__ . '/header.php';
 ?>
+
+<?php if ($pendingMigrations > 0): ?>
+<div class="glass rounded-xl p-4 mb-6 border border-amber-500/40 text-sm text-amber-200">
+    <p class="font-semibold text-amber-300"><?= (int)$pendingMigrations ?> database update(s) pending</p>
+    <p class="text-xs text-amber-200/80 mt-1">Platform Settings → <strong>Apply pending migrations</strong> → expect <code class="text-emerald-300">ok: true</code> before live money.</p>
+    <a href="gateway_settings.php" class="text-xs text-sky-400 hover:underline mt-2 inline-block">Open Platform Settings →</a>
+</div>
+<?php endif; ?>
+
+<div class="glass rounded-xl p-3 mb-6 border border-gray-800 text-[10px] text-gray-500 font-mono flex flex-wrap gap-x-4 gap-y-1">
+    <span>Deploy <strong class="text-gray-400"><?= e((string)($deployMeta['label'] ?? '')) ?></strong></span>
+    <span>Ops volume = <strong class="text-gray-400">live only</strong> (test excluded)</span>
+    <a href="admin_soft_launch.php" class="text-sky-400 hover:underline">Soft Launch checklist →</a>
+</div>
 
 <div class="glass rounded-xl p-5 mb-6 border border-violet-500/25 text-sm text-gray-300">
     <p class="font-semibold text-violet-300 mb-1">UniWeb vs market — our bar</p>

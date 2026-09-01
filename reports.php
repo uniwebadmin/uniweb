@@ -5,6 +5,8 @@ $merchant = getMerchant();
 $db = getDB();
 ensurePaymentLinkAnalytics();
 $mid = $merchant['id'];
+$viewTest = isDashboardTestMode($merchant);
+$testFlag = $viewTest ? 1 : 0;
 
 $from = trim($_GET['from'] ?? '');
 $to = trim($_GET['to'] ?? '');
@@ -14,14 +16,14 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) $to = '';
 $validMethods = ['upi','card','netbanking','wallet','razorpay','cashfree','payu'];
 if ($method !== 'all' && !in_array($method, $validMethods, true)) $method = 'all';
 
-$dateWhere = 'merchant_id = ?';
-$dateParams = [$mid];
+$dateWhere = 'merchant_id = ? AND is_test = ?';
+$dateParams = [$mid, $testFlag];
 if ($from !== '') { $dateWhere .= ' AND DATE(created_at) >= ?'; $dateParams[] = $from; }
 if ($to !== '') { $dateWhere .= ' AND DATE(created_at) <= ?'; $dateParams[] = $to; }
 
 $dailyFrom = $from !== '' ? $from : date('Y-m-d', strtotime('-29 days'));
-$dailyWhere = "merchant_id = ? AND status = 'success' AND DATE(created_at) >= ?";
-$dailyParams = [$mid, $dailyFrom];
+$dailyWhere = "merchant_id = ? AND is_test = ? AND status = 'success' AND DATE(created_at) >= ?";
+$dailyParams = [$mid, $testFlag, $dailyFrom];
 if ($to !== '') { $dailyWhere .= ' AND DATE(created_at) <= ?'; $dailyParams[] = $to; }
 $daily = $db->prepare("SELECT DATE(created_at) as d, COALESCE(SUM(amount),0) as total, COUNT(*) as cnt FROM transactions WHERE $dailyWhere GROUP BY DATE(created_at) ORDER BY d");
 $daily->execute($dailyParams); $dailyData = $daily->fetchAll();
@@ -36,14 +38,14 @@ $statuses = $db->prepare("SELECT status, COUNT(*) as cnt FROM transactions WHERE
 $statuses->execute($dateParams); $statusData = $statuses->fetchAll();
 
 $monthlyFrom = $from !== '' ? $from : date('Y-m-01', strtotime('-5 months'));
-$monthlyWhere = "merchant_id = ? AND status = 'success' AND DATE(created_at) >= ?";
-$monthlyParams = [$mid, $monthlyFrom];
+$monthlyWhere = "merchant_id = ? AND is_test = ? AND status = 'success' AND DATE(created_at) >= ?";
+$monthlyParams = [$mid, $testFlag, $monthlyFrom];
 if ($to !== '') { $monthlyWhere .= ' AND DATE(created_at) <= ?'; $monthlyParams[] = $to; }
 $monthly = $db->prepare("SELECT DATE_FORMAT(created_at,'%Y-%m') as m, COALESCE(SUM(amount),0) as total FROM transactions WHERE $monthlyWhere GROUP BY m ORDER BY m");
 $monthly->execute($monthlyParams); $monthlyData = $monthly->fetchAll();
 
-$linkWhere = 'pl.merchant_id = ?';
-$linkParams = [$mid];
+$linkWhere = 'pl.merchant_id = ? AND pl.is_test = ?';
+$linkParams = [$mid, $testFlag];
 if ($from !== '') { $linkWhere .= ' AND DATE(pl.created_at) >= ?'; $linkParams[] = $from; }
 if ($to !== '') { $linkWhere .= ' AND DATE(pl.created_at) <= ?'; $linkParams[] = $to; }
 if ($method !== 'all') {
@@ -102,6 +104,11 @@ $hasData = !empty($dailyData) || !empty($methodData) || !empty($statusData) || !
     <?= renderExportCsvLink('export_reports.php?' . http_build_query(['from' => $from, 'to' => $to, 'method' => $method]), 'Download CSV (date range)') ?>
     <a href="export_accounting.php?<?= http_build_query(['from' => $from, 'to' => $to]) ?>" class="text-xs text-violet-300 hover:text-violet-200 px-2 py-2.5">Tally Accounting CSV</a>
 </form>
+<p class="text-xs mb-4 <?= $viewTest ? 'text-amber-400' : 'text-emerald-400' ?>">
+    <?= $viewTest
+        ? 'Reports show TEST payments only — same as your Dashboard test mode. Live volume appears after you switch to Live mode.'
+        : 'Reports show LIVE payments only — demo / test checkouts are excluded from these totals.' ?>
+</p>
 <?php
 $checkoutViews = (int)($checkoutData['views'] ?? 0);
 $checkoutPaid = (int)($checkoutData['paid'] ?? 0);

@@ -267,7 +267,7 @@ if (!function_exists('notificationActionUrl')) {
             return 'kyc.php';
         }
         if (function_exists('wiringDeepLinkSettlementActionUrl')) {
-            $moneyUrl = wiringDeepLinkSettlementActionUrl($title, $message);
+            $moneyUrl = wiringDeepLinkSettlementActionUrl($title, $message, false);
             if ($moneyUrl !== null) {
                 return $moneyUrl;
             }

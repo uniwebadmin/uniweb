@@ -15,6 +15,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     flash($result['ok'] ? 'success' : 'error', $result['ok'] ? $result['message'] : $result['error']);
     if (!$result['ok'] && !empty($result['redirect'])) redirect($result['redirect']);
     redirect('wallet.php');
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    flash('error', 'Session expired — refresh this page and try again. No transfer was submitted.');
+    redirect('wallet.php');
 }
 
 $wallet = ensureMerchantWalletReady($merchantId);

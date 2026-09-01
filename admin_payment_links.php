@@ -133,7 +133,7 @@ $merchants = $db->query("SELECT id, business_name FROM merchants WHERE status !=
         <div class="glass rounded-xl p-4 border border-brand-500/20"><p class="text-xs text-gray-500">Payments</p><p class="text-2xl font-bold text-brand-400"><?= (int)($stats['payments'] ?? 0) ?></p></div>
     </div>
 
-    <form method="GET" class="glass rounded-xl p-4 mb-6 border border-gray-800 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
+    <form method="GET" class="glass rounded-xl p-4 mb-6 border border-gray-800 admin-payment-links-filters grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
         <div class="col-span-2 md:col-span-2 lg:col-span-2"><label class="text-[10px] text-gray-600 uppercase block mb-1">Search</label><input type="text" name="q" value="<?= e($q) ?>" placeholder="Link ID / Merchant / Amount" class="input-field text-sm w-full"></div>
         <div><label class="text-[10px] text-gray-600 uppercase block mb-1">Status</label><select name="status" class="input-field text-sm w-full"><?php foreach (['all'=>'All','active'=>'Active','inactive'=>'Inactive','paid'=>'Paid','unpaid'=>'Unpaid','expired'=>'Expired'] as $k=>$v): ?><option value="<?= e($k) ?>" <?= $statusFilter===$k?'selected':'' ?>><?= e($v) ?></option><?php endforeach; ?></select></div>
         <div><label class="text-[10px] text-gray-600 uppercase block mb-1">Mode</label><select name="mode" class="input-field text-sm w-full"><?php foreach (['all'=>'All','test'=>'Test','live'=>'Live'] as $k=>$v): ?><option value="<?= e($k) ?>" <?= $modeFilter===$k?'selected':'' ?>><?= e($v) ?></option><?php endforeach; ?></select></div>

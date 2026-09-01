@@ -85,6 +85,52 @@
           "503": { "description": "Partner unavailable", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
         }
       }
+    },
+    "/api_qr_create.php": {
+      "get": {
+        "operationId": "fastQrHealth",
+        "summary": "Fast QR API health probe",
+        "responses": {
+          "200": {
+            "description": "Endpoint live",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "ok",
+                  "endpoint": "api_qr_create",
+                  "message": "Fast QR API is live. POST with X-API-Key and Idempotency-Key.",
+                  "auth": "X-API-Key (same as API Settings · links:write)",
+                  "idempotency": "Idempotency-Key header required on POST"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "fastQrCreate",
+        "summary": "Create QR code(s) — high throughput",
+        "description": "Same Test/Live X-API-Key as API Settings (links:write). Idempotency-Key required.",
+        "parameters": [
+          { "name": "X-API-Key", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "Idempotency-Key", "in": "header", "required": true, "schema": { "type": "string", "maxLength": 100 } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": { "qr_type": "fixed", "label": "Counter QR", "amount": 100, "description": "Shop counter" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "QR created", "content": { "application/json": { "schema": { "type": "object" } } } },
+          "400": { "description": "Validation / missing Idempotency-Key", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "401": { "description": "Invalid API key", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "409": { "description": "Idempotency conflict", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "429": { "description": "Rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
     }
   },
   "components": {

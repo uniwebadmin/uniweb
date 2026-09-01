@@ -15,6 +15,9 @@ $isAdmin = !$hideNav && isAdminLoggedIn();
 $isMerchant = !$hideNav && isLoggedIn() && !$isAdmin;
 $isStaffPortal = $isAdmin && isStaffUser();
 $isSuperAdminPanel = $isAdmin && isSuperAdmin();
+if ($isStaffPortal && function_exists('enforceStaffNavPageAccess')) {
+    enforceStaffNavPageAccess();
+}
 $sessionInfo = portalSessionSecurityInfo();
 if (($isMerchant || $isAdmin) && !headers_sent()) {
     header('Cache-Control: no-store, no-cache, must-revalidate, private');

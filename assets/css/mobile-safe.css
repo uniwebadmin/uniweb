@@ -346,6 +346,20 @@ code {
 }
 
 @media (max-width: 639px) {
+  .admin-payment-links-filters {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-payment-links-filters .flex.gap-2 {
+    flex-wrap: wrap;
+  }
+
+  .portal-header-tools {
+    max-width: 55vw;
+  }
+}
+
+@media (max-width: 639px) {
   .txn-alert-banner,
   .portal-main .alert-banner-row {
     flex-direction: column;

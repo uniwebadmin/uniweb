@@ -142,7 +142,7 @@ require_once __DIR__ . '/header.php';
     </div>
     <div class="glass rounded-xl p-6 border border-violet-500/20">
         <h2 class="font-semibold mb-2">Fast QR API (bulk create)</h2>
-        <p class="text-xs text-gray-500 mb-3">High-volume QR creation uses the same <strong class="text-gray-300">Test / Live API key</strong> from this page — header <code class="text-gray-400">X-API-Key</code>. Requires <code class="text-gray-400">links:write</code> scope (included by default).</p>
+        <p class="text-xs text-gray-500 mb-3">High-volume QR creation uses the same <strong class="text-gray-300">Test / Live API key</strong> from this page — header <code class="text-gray-400">X-API-Key</code> plus <code class="text-gray-400">Idempotency-Key</code> on every POST. Requires <code class="text-gray-400">links:write</code> scope (included by default).</p>
         <p class="text-xs text-gray-500 mb-2">Endpoint: <code class="text-gray-400"><?= e(rtrim(APP_URL, '/')) ?>/api_qr_create.php</code></p>
         <p class="text-xs text-gray-600">See <a href="qr_code.php" class="text-sky-400 hover:underline">QR Generator</a> → High-Volume Wizard, or <a href="api_docs.php" class="text-sky-400 hover:underline">API Docs</a>.</p>
     </div>
