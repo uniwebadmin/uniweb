@@ -55,8 +55,12 @@ $openCount = getPendingMerchantCustomerTicketCount($merchantId);
 
 $pageTitle = 'Customer Complaints';
 require_once __DIR__ . '/header.php';
+if (!function_exists('renderComplianceSupportPathPanel')) {
+    require_once __DIR__ . '/includes/compliance_workflow.php';
+}
 ?>
 <div class="space-y-6">
+<?= renderComplianceSupportPathPanel('ct') ?>
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
             <p class="text-sm text-gray-400">Complaints from payers on <strong class="text-white">your</strong> transactions only. Replies notify the customer in-app and via WhatsApp/SMS when configured.</p>

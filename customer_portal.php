@@ -24,6 +24,9 @@ $customerPortalUi = true;
 $cpNavActive = 'dashboard';
 $bodyClass = trim(($bodyClass ?? '') . ' customer-portal-shell');
 require_once __DIR__ . '/header.php';
+if (!function_exists('renderComplianceSupportPathPanel')) {
+    require_once __DIR__ . '/includes/compliance_workflow.php';
+}
 ?>
 <div class="cp-main py-8 space-y-6 flex-1 w-full">
         <div class="cp-hero">
@@ -40,6 +43,7 @@ require_once __DIR__ . '/header.php';
                 <a href="customer_ticket.php?new=1" class="inline-flex mt-4 text-sm font-bold underline underline-offset-4 decoration-white/50 hover:decoration-white">Raise a complaint →</a>
             </div>
         </div>
+        <?= renderComplianceCustomerSupportNote() ?>
 
         <section id="txns" class="cp-panel scroll-mt-24">
             <div class="cp-panel-head">

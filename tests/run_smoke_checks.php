@@ -769,7 +769,7 @@ $assert(str_contains((string)file_get_contents($root . '/includes/wallet.php'), 
 $assert(str_contains((string)file_get_contents($root . '/transaction_detail.php'), 'Admin cut (UniWeb)') && str_contains((string)file_get_contents($root . '/transaction_detail.php'), 'Merchant baaki'), 'b7_txn_detail_ppt_split_labels');
 $assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'Example on ₹100'), 'b7_commercial_rupee100_example');
 $assert(str_contains((string)file_get_contents($root . '/includes/split_settlement.php'), 'route_mode_parked'), 'b7_route_sdk_parked_on_execute');
-$assert(str_contains((string)file_get_contents($root . '/collection_settings.php'), 'Commission Preview (realtime feel)'), 'b7_collection_settings_realtime_preview');
+$assert(str_contains((string)file_get_contents($root . '/collection_settings.php'), 'renderComplianceThreeLevelMdrPanel'), 'b7_collection_settings_realtime_preview');
 $assert(str_contains((string)file_get_contents($root . '/includes/settlement_engine.php'), 'function getSettlementCycleOptions'), 'b8_cycle_options_helper');
 $assert(str_contains((string)file_get_contents($root . '/includes/settlement_engine.php'), "default_batch_interval_minutes', '1440'") || str_contains((string)file_get_contents($root . '/includes/settlement_engine.php'), "default_batch_interval_minutes', (string)settlementMinutesFromCycle"), 'b8_default_cycle_t1_minutes');
 $assert(str_contains((string)file_get_contents($root . '/includes/settlement_engine.php'), 'function syncSettlementCycleSetting'), 'b8_cycle_binds_existing_settings');
@@ -2209,6 +2209,13 @@ $assert(str_contains((string)file_get_contents($root . '/includes/platform_healt
 $assert(str_contains((string)file_get_contents($root . '/includes/mailer.php'), 'notifyChannelWasSent') || str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'SMTP'), 'risk52_smtp_notify_path');
 $assert(str_contains((string)file_get_contents($root . '/checkout.php'), 'APP_URL') || str_contains((string)file_get_contents($root . '/config.dev.php'), 'APP_URL'), 'risk54_checkout_https_app_url');
 $assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'stale_createNotification') || str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'CR-01'), 'risk58_cr01_createNotification_reminder');
+$complianceFlow = (string)file_get_contents($root . '/includes/compliance_workflow.php');
+$assert(str_contains($complianceFlow, 'complianceSupportPathRows') && str_contains((string)file_get_contents($root . '/support.php'), 'renderComplianceSupportPathPanel'), 'risk59_grievance_support_path_legend');
+$assert(str_contains($complianceFlow, 'compliance-refund-sla') && str_contains((string)file_get_contents($root . '/refunds.php'), 'renderComplianceRefundSlaPanel'), 'risk60_refund_policy_sla_ui_match');
+$assert(str_contains($complianceFlow, 'compliance-dispute-vs-refund') && str_contains((string)file_get_contents($root . '/disputes.php'), 'renderComplianceDisputeVsRefundPanel'), 'risk61_chargeback_not_refund_labels');
+$assert(str_contains($complianceFlow, 'compliancePrivacyDeleteRequestSection') && str_contains((string)file_get_contents($root . '/privacy.php'), 'compliancePrivacyDeleteRequestSection'), 'risk62_data_retention_delete_ops');
+$assert(str_contains($complianceFlow, 'compliance-partner-claim') && str_contains((string)file_get_contents($root . '/pricing.php'), 'renderCompliancePartnerClaimBanner'), 'risk63_partner_claim_route_split_off');
+$assert(str_contains($complianceFlow, 'compliance-three-level-mdr') && str_contains((string)file_get_contents($root . '/collection_settings.php'), 'renderComplianceThreeLevelMdrPanel'), 'risk64_mdr_m_p_three_level_clarity');
 
 $moneyProbeOut = [];
 exec('php ' . escapeshellarg($root . '/tests/probe_money_rails.php'), $moneyProbeOut, $moneyProbeExit);

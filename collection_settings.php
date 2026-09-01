@@ -166,19 +166,15 @@ require_once __DIR__ . '/header.php';
     <?php endif; ?>
 
     <div class="glass rounded-xl p-6 text-sm">
-        <h3 class="font-semibold mb-2">Commission Preview (realtime feel)</h3>
         <?php
         $demo = function_exists('commissionSplitRealtimePreview')
             ? commissionSplitRealtimePreview(100, $merchant)
             : calculateSplitBreakdown(100, $merchant);
+        if (!function_exists('renderComplianceThreeLevelMdrPanel')) {
+            require_once __DIR__ . '/includes/compliance_workflow.php';
+        }
+        echo renderComplianceThreeLevelMdrPanel($demo);
         ?>
-        <p class="text-gray-400 mb-2">On ₹100 success payment (Admin-saved %):</p>
-        <ul class="text-xs text-gray-500 space-y-1">
-            <li>Admin cut: <span class="text-amber-400"><?= formatMoney((float)($demo['admin_cut'] ?? $demo['platform_fee'] ?? 0)) ?></span></li>
-            <li>Network cut: <span class="text-gray-300"><?= formatMoney((float)($demo['partner_cut'] ?? $demo['partner_fee'] ?? 0)) ?></span></li>
-            <li>You receive: <span class="text-emerald-400"><?= formatMoney((float)($demo['merchant_net'] ?? 0)) ?></span></li>
-        </ul>
-        <p class="text-[11px] text-gray-600 mt-3">Partners are connected by Admin. You only see your net after automatic commission.</p>
     </div>
 
     <div class="glass rounded-xl p-6 border border-violet-500/20">

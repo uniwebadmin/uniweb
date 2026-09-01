@@ -81,8 +81,12 @@ $monthlyReport = $activeTab === 'report' ? generateGrievanceMonthlyReport(trim($
 
 $pageTitle = 'Grievance Redressal';
 require_once __DIR__ . '/header.php';
+if (!function_exists('renderComplianceSupportPathPanel')) {
+    require_once __DIR__ . '/includes/compliance_workflow.php';
+}
 ?>
 <div class="space-y-6">
+<?= renderComplianceSupportPathPanel('gr') ?>
     <div class="glass rounded-xl p-4 border border-emerald-500/20 text-sm text-gray-300">
         <p class="font-semibold text-emerald-300 mb-1">Admin first — grievance officer queue</p>
         <p class="text-xs text-gray-500">Complaints are acknowledged and resolved here first. Payment disputes with partner forward: <a href="admin_disputes.php" class="text-sky-400 hover:underline">Disputes queue</a> (single forward V1). Bulk / smart route parked.</p>

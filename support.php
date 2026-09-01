@@ -74,6 +74,10 @@ $supportChannels = [
 
 $pageTitle = 'Support & Compliance';
 require_once __DIR__ . '/header.php';
+if (!function_exists('renderComplianceSupportPathPanel')) {
+    require_once __DIR__ . '/includes/compliance_workflow.php';
+}
+echo renderComplianceSupportPathPanel('tkt');
 ?>
 
 <div class="glass rounded-xl p-6 mb-6">

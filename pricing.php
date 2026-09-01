@@ -76,6 +76,15 @@ require_once __DIR__ . '/header.php';
     </div></section>
 
     <section class="company-section" style="padding-top:0"><div class="company-shell">
+        <?php
+        if (!function_exists('renderCompliancePartnerClaimBanner')) {
+            require_once __DIR__ . '/includes/compliance_workflow.php';
+        }
+        echo renderCompliancePartnerClaimBanner();
+        ?>
+    </div></section>
+
+    <section class="company-section" style="padding-top:0"><div class="company-shell">
         <div class="company-kicker">Compare honestly</div>
         <h2 class="company-title">Vs typical Indian gateways</h2>
         <p class="company-lead">Razorpay, Cashfree and PayU publish broad rate cards because they hold large partner books. UniWeb starts with Test Mode + partner-routed Live rails and a written schedule per merchant — the same model many early aggregators used before public rate cards. We do not advertise 0% live UPI or instant settlement as a public fact.</p>

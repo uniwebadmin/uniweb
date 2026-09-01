@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/public_legal_page.php';
+if (!function_exists('compliancePrivacyDeleteRequestSection')) {
+    require_once __DIR__ . '/includes/compliance_workflow.php';
+}
 $pageTitle = 'Privacy Policy';
 require_once __DIR__ . '/header.php';
 renderPublicLegalPage([
@@ -18,7 +21,7 @@ renderPublicLegalPage([
         ['How long we keep it', '<p>As long as needed for the service, disputes, tax or legal rules. After that it is deleted or anonymized. Payment and KYC records may be kept longer because banks and regulators require it.</p>'],
         ['How we protect it', '<p>TLS in transit, access controls, activity logs. No system is 100% secure — report anything suspicious immediately.</p>'],
         ['Cookies', '<p>Essential cookies keep you logged in and protect forms. Clearing cookies may sign you out.</p>'],
-        ['Your rights (DPDP Act, 2023)', '<p>You may ask to access, correct, or erase personal data, or withdraw consent where processing is consent-based. Email <a href="mailto:' . e(COMPANY_SUPPORT_EMAIL) . '">' . e(COMPANY_SUPPORT_EMAIL) . '</a> with “DPDP request” in the subject. We aim to respond within 30 days. Some records must be retained for legal or partner obligations (for example payment history).</p>'],
+        ['Your rights (DPDP Act, 2023)', compliancePrivacyDeleteRequestSection()],
         ['Children', '<p>Services are for adults and registered businesses only.</p>'],
         ['Questions or complaints', '<p>Email <a href="mailto:' . e(COMPANY_SUPPORT_EMAIL) . '">' . e(COMPANY_SUPPORT_EMAIL) . '</a>, or use <a href="grievance.php">Grievance Redressal</a> if unresolved.</p>'],
     ],

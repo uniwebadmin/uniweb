@@ -81,8 +81,12 @@ if ($view) {
 
 $pageTitle = 'Customer Complaints';
 require_once __DIR__ . '/header.php';
+if (!function_exists('renderComplianceSupportPathPanel')) {
+    require_once __DIR__ . '/includes/compliance_workflow.php';
+}
 ?>
 <div class="space-y-6">
+<?= renderComplianceSupportPathPanel('ct') ?>
     <div class="flex flex-wrap items-center justify-between gap-3">
         <p class="text-sm text-gray-400">Grievances raised by payers from the Customer Portal. Visible to admin &amp; ops/support staff. Merchant sees only their own tickets.</p>
         <div class="flex gap-2 text-xs flex-wrap">

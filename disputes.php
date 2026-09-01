@@ -98,6 +98,11 @@ $txns->execute([$merchant['id'], $merchant['id']]);
 $txnList = $txns->fetchAll();
 $pageTitle = 'Disputes';
 require_once __DIR__ . '/header.php';
+if (!function_exists('renderComplianceDisputeVsRefundPanel')) {
+    require_once __DIR__ . '/includes/compliance_workflow.php';
+}
+echo renderComplianceDisputeVsRefundPanel('disputes');
+echo renderComplianceSupportPathPanel('dsp');
 ?>
 <div class="grid lg:grid-cols-3 gap-6">
     <div class="lg:col-span-3 glass rounded-xl p-4 border border-sky-500/25 text-sm text-gray-400">

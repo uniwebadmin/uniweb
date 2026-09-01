@@ -55,7 +55,12 @@ $txns->execute([$merchant['id']]);
 $txnList = $txns->fetchAll();
 $pageTitle = 'Refunds';
 require_once __DIR__ . '/header.php';
+if (!function_exists('renderComplianceRefundSlaPanel')) {
+    require_once __DIR__ . '/includes/compliance_workflow.php';
+}
 echo renderPrintStylesheet();
+echo renderComplianceRefundSlaPanel();
+echo renderComplianceDisputeVsRefundPanel('refunds');
 ?>
 <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
     <p class="text-sm text-gray-400">Process refunds with standard reason codes (ops / dispute ready)</p>

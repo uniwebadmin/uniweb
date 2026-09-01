@@ -105,6 +105,10 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 }
 $pageTitle = 'Support Tickets';
 require_once __DIR__ . '/header.php';
+if (!function_exists('renderComplianceSupportPathPanel')) {
+    require_once __DIR__ . '/includes/compliance_workflow.php';
+}
+echo renderComplianceSupportPathPanel('tkt');
 ?>
 
 <div class="glass rounded-xl p-4 mb-6 border border-emerald-500/20 text-sm text-gray-300">
