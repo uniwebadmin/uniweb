@@ -519,6 +519,7 @@ require_once __DIR__ . '/header.php';
                     $kycReady = merchantKycReadinessReport($mid);
                     $readyOk = !empty($kycReady['ok']) || !empty($kycReady['already_verified']);
                     $readyLabel = $readyOk ? 'Ready to verify' : ('Missing: ' . implode(', ', merchantKycReadinessMissingLabels($kycReady)));
+                    $kycUnifiedAdmin = merchantKycUnifiedStatusDisplay($m);
                 ?>
                 <tr>
                     <td class="px-4 sm:px-5 py-3 font-mono text-xs"><?= adminMerchantLink($mid, $m['merchant_code']) ?></td>
@@ -528,7 +529,7 @@ require_once __DIR__ . '/header.php';
                         <?= merchantMailtoLink((string)$m['email'], $m['email'], 'text-gray-400 hover:text-sky-300') ?>
                         <?php if ($waUrl): ?><br><a href="<?= e($waUrl) ?>" target="_blank" rel="noopener" class="text-emerald-400">WhatsApp</a><?php endif; ?>
                     </td>
-                    <td class="px-4 sm:px-5 py-3"><?= statusBadge($m['kyc_status']) ?><p class="text-[10px] mt-1 <?= $readyOk ? 'text-emerald-400' : 'text-amber-400' ?>"><?= e($readyLabel) ?></p></td>
+                    <td class="px-4 sm:px-5 py-3"><?= statusBadge($m['kyc_status']) ?><p class="text-[10px] mt-1 text-gray-400"><?= e($kycUnifiedAdmin['label']) ?></p><p class="text-[10px] mt-0.5 <?= $readyOk ? 'text-emerald-400' : 'text-amber-400' ?>"><?= e($readyLabel) ?></p></td>
                     <td class="px-4 sm:px-5 py-3 text-xs text-gray-500"><?= formatDate($m['created_at']) ?></td>
                     <td class="px-4 sm:px-5 py-3 text-xs whitespace-nowrap">
                         <a href="<?= e(adminMerchantUrl($mid)) ?>" class="text-gray-400 hover:text-white mr-2">View</a>

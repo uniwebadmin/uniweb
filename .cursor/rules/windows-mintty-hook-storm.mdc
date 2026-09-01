@@ -1,0 +1,23 @@
+---
+description: Windows — no Git Bash hook storm when Agent runs (mintty flood fix)
+alwaysApply: true
+---
+
+# Windows mintty / Git Bash storm (permanent)
+
+## Cause
+Cursor plugins **Mem0**, **CrowdStrike Falcon Foundry**, and **Forge** register hooks that run `bash` scripts on almost every agent action (Read file, prompt, tool). On Windows each run opens a visible **mintty** window → 200–300 windows, "no available terminals (-1)".
+
+## Owner one-time fix (laptop)
+1. Close Cursor fully.
+2. Run: `dev_local\kill_mintty_storm.ps1`
+3. Run: `dev_local\disable_cursor_bash_hooks.ps1`
+4. Reopen Cursor.
+
+Restore hooks only if needed: `dev_local\restore_cursor_bash_hooks.ps1`
+
+## Agent rules (mandatory on this repo)
+- Use **PowerShell only** in Shell tool — never `bash`, `sh`, `git bash`, or `&&` chains.
+- Do **not** install or re-enable Mem0 / CrowdStrike Foundry / Forge hooks for UniWeb work.
+- Prefer `;` in PowerShell instead of `&&`.
+- If mintty storm returns after a Cursor update, remind Owner to re-run `disable_cursor_bash_hooks.ps1`.

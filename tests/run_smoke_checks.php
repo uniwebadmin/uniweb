@@ -2147,6 +2147,32 @@ $idempotencyTestOut = [];
 exec('php ' . escapeshellarg($root . '/tests/test_financial_idempotency.php'), $idempotencyTestOut, $idempotencyTestExit);
 $assert($idempotencyTestExit === 0, 'risk01_idempotency_test_green', implode(' ', array_slice($idempotencyTestOut, -3)));
 
+// Owner batch 2 — points 16–30 (KYC + Checkout/QR) Excellent bar
+$kycUploadSrc = (string)file_get_contents($root . '/includes/kyc_upload.php');
+$kycFlowSrc = (string)file_get_contents($root . '/includes/kyc_workflow.php');
+$kycPageSrc = (string)file_get_contents($root . '/kyc.php');
+$assert(str_contains($kycUploadSrc, 'function kycScanStatusLabel') && str_contains($kycUploadSrc, 'infected'), 'risk16_kyc_scan_labels_and_reject');
+$assert(str_contains($kycPageSrc, 'Security scan') && str_contains($kycPageSrc, 'allowedExt.includes(ext)'), 'risk16_kyc_ui_scan_column_and_client_validation');
+$assert(str_contains((string)file_get_contents($root . '/merchant_shop_photos.php'), 'saveMerchantKycUpload'), 'risk16_shop_photos_canonical_upload');
+$assert(str_contains((string)file_get_contents($root . '/kyc_media_receiver.php'), 'videoMimes') || str_contains((string)file_get_contents($root . '/kyc_media_receiver.php'), 'video/mp4'), 'risk16_video_mime_guard');
+$assert(str_contains($kycFlowSrc, 'function merchantKycUnifiedStatusDisplay'), 'risk17_unified_kyc_status_helper');
+$assert(str_contains($kycPageSrc, 'merchantKycUnifiedStatusDisplay') && str_contains((string)file_get_contents($root . '/admin_kyc.php'), 'merchantKycUnifiedStatusDisplay'), 'risk17_unified_status_merchant_admin');
+$assert(str_contains($kycPageSrc, 'merchantForwardQueueStatusLabel') && str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'Prepared — not sent to network yet'), 'risk18_forward_staged_honest_merchant_label');
+$assert(str_contains((string)file_get_contents($root . '/includes/video_kyc_widget.php'), 'PARKED') && str_contains((string)file_get_contents($root . '/add_bank.php'), 'PARKED'), 'risk19_video_bank_verify_parked_honesty');
+$assert(str_contains($kycPageSrc, 'requireMerchantTeamCapability') && str_contains((string)file_get_contents($root . '/transactions.php'), 'requireMerchantTeamCapability'), 'risk20_team_capability_gates');
+$assert(str_contains((string)file_get_contents($root . '/merchant_team_accept.php'), 'Access after accept') && str_contains((string)file_get_contents($root . '/includes/merchant_team.php'), 'function requireMerchantTeamCapability'), 'risk20_team_invite_role_honesty');
+$assert(str_contains((string)file_get_contents($root . '/merchant_register.php'), 'name="accept_terms"') && str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), 'agreement_accepted'), 'risk21_register_terms_and_live_gate');
+$checkoutSrc = (string)file_get_contents($root . '/checkout.php');
+$assert(str_contains($checkoutSrc, "name:'" . COMPANY_LEGAL_NAME . "'") || str_contains($checkoutSrc, '$brandName = COMPANY_LEGAL_NAME'), 'risk22_checkout_uniweb_brand_not_partner');
+$assert(str_contains($checkoutSrc, 'formatMoney((float)$successTxnAmount)') && str_contains($checkoutSrc, 'buildSignedReceiptUrl'), 'risk23_success_amount_and_receipt');
+$assert(str_contains($checkoutSrc, 'Payment already completed') && str_contains($checkoutSrc, 'checkoutFindPaidTransaction'), 'risk24_paid_link_not_expired_message');
+$assert(str_contains($collectionSrc, 'function buildUpiPayIntent') && str_contains($collectionSrc, 'link_id'), 'risk25_upi_intent_link_ref');
+$assert(str_contains($checkoutSrc, 'No further payment is needed') && str_contains((string)file_get_contents($root . '/qr_pay.php'), 'renderQrUnavailable'), 'risk26_qr_link_reuse_branded_deadend');
+$assert(str_contains($checkoutSrc, 'buildPaymentTrackUrl') && str_contains($checkoutSrc, 'buildSignedReceiptUrl'), 'risk27_track_receipt_signed_links');
+$assert(str_contains((string)file_get_contents($root . '/transaction_detail.php'), 'funds posting') || str_contains((string)file_get_contents($root . '/transaction_detail.php'), 'wallet posting'), 'risk28_partial_fail_merchant_ledger_copy');
+$assert(str_contains((string)file_get_contents($root . '/payment_cashfree_return.php'), "reconcile_source' => 'checkout'") && str_contains((string)file_get_contents($root . '/payment_payu_return.php'), "reconcile_source' => 'checkout'"), 'risk29_return_reconcile_source_checkout');
+$assert(str_contains($checkoutSrc, 'checkoutSessionPaymentOrderKey') || str_contains((string)file_get_contents($root . '/includes/payment_idempotency.php'), 'function checkoutSessionPaymentOrderKey'), 'risk30_checkout_session_idempotency_key');
+
 $moneyProbeOut = [];
 exec('php ' . escapeshellarg($root . '/tests/probe_money_rails.php'), $moneyProbeOut, $moneyProbeExit);
 $assert($moneyProbeExit === 0 && str_contains(implode("\n", $moneyProbeOut), 'failures=0'), 'p17_money_rails_probe_green');

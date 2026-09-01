@@ -213,6 +213,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         if ($password !== $confirm) {
             $errors[] = __('err_password_match');
         }
+        if (empty($_POST['accept_terms'])) {
+            $errors[] = 'Please accept the Terms, Privacy Policy, and Refund Policy to create an account.';
+        }
 
         if (empty($errors)) {
             $db = getDB();
@@ -336,12 +339,16 @@ require_once __DIR__ . '/header.php';
 
                 <p class="ap-hint"><?= __('signup_portal_note') ?></p>
 
+                <label class="flex items-start gap-2 text-sm text-gray-400 mb-4 cursor-pointer">
+                    <input type="checkbox" name="accept_terms" value="1" required class="mt-1 rounded border-gray-600" <?= !empty($_POST['accept_terms']) ? 'checked' : '' ?>>
+                    <span>I accept the <?= __('terms') ?>, Privacy Policy, and Refund Policy. Merchant Agreement is signed separately before Live activation.</span>
+                </label>
+
                 <button type="submit" class="ap-btn"><?= __('create_account_btn') ?></button>
 
                 <p class="ap-hint text-center leading-relaxed">
-                    <?= __('signup_terms') ?>
-                    <a href="terms.php" target="_blank"><?= __('terms') ?></a>
-                    and
+                    Read policies:
+                    <a href="terms.php" target="_blank"><?= __('terms') ?></a>,
                     <a href="privacy.php" target="_blank"><?= __('privacy_policy') ?></a>,
                     <a href="refund_policy.php" target="_blank">Refund Policy</a>.
                 </p>

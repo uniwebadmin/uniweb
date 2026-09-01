@@ -14,6 +14,9 @@ db.local.php
 my_secret_setup_xyz.php
 *.ps1
 !scripts/release_deploy.ps1
+!dev_local/kill_mintty_storm.ps1
+!dev_local/disable_cursor_bash_hooks.ps1
+!dev_local/restore_cursor_bash_hooks.ps1
 
 # Diagnostic / repair / cleanup scripts (never deploy to live)
 config_repair.php
@@ -67,6 +70,9 @@ _inbox/**
 # Dev-local — laptop only. Hostinger Git still copies if tracked; keep untracked after cleanup.
 dev_local/**
 !dev_local/README.md
+!dev_local/kill_mintty_storm.ps1
+!dev_local/disable_cursor_bash_hooks.ps1
+!dev_local/restore_cursor_bash_hooks.ps1
 
 # Cursor / Devin agent rules — keep rules in git for agents; Hostinger: delete .cursor/ after pull
 .cursor/*

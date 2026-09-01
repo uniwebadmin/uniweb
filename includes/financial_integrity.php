@@ -193,10 +193,10 @@ function providerCredentialsMatchOrderMode(string $provider, string $mode): bool
     return $credentialMode === $mode;
 }
 
-function createBoundGatewayCheckoutOrder(array $link, string $provider, string $cashfreeReturnUrl = ''): ?array
+function createBoundGatewayCheckoutOrder(array $link, string $provider, string $cashfreeReturnUrl = '', ?string $idempotencyKey = null): ?array
 {
     $provider = strtolower($provider);
-    $order = createBoundPaymentOrder($link, $provider);
+    $order = createBoundPaymentOrder($link, $provider, $idempotencyKey);
     if (!providerCredentialsMatchOrderMode($provider, (string)$order['mode'])) {
         return null;
     }

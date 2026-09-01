@@ -1,6 +1,12 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireLogin();
+if (!function_exists('requireMerchantTeamCapability') && is_file(__DIR__ . '/includes/merchant_team.php')) {
+    require_once __DIR__ . '/includes/merchant_team.php';
+}
+if (function_exists('requireMerchantTeamCapability')) {
+    requireMerchantTeamCapability('view');
+}
 if (function_exists('ensureFailureReasonColumns')) {
     ensureFailureReasonColumns();
 }

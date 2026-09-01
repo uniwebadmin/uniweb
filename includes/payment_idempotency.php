@@ -21,9 +21,24 @@ function paymentCaptureIdempotencyLayers(): array
     return ['gateway_event', 'payment_order', 'ledger_journal', 'wallet_credit'];
 }
 
-/**
- * True when this success txn already has ledger and/or wallet credit — safe to skip re-credit.
- */
+/** Stable idempotency key per checkout link + browser session (prevents duplicate PG orders on refresh). */
+function checkoutSessionPaymentOrderKey(int $paymentLinkDbId, string $mode): string
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        @session_start();
+    }
+    $mode = $mode === 'live' ? 'live' : 'test';
+    $sessionKey = 'uniweb_chk_ord_' . $paymentLinkDbId . '_' . $mode;
+    $existing = trim((string)($_SESSION[$sessionKey] ?? ''));
+    if ($existing !== '' && strlen($existing) <= 100) {
+        return $existing;
+    }
+    $generated = 'chk_' . $paymentLinkDbId . '_' . bin2hex(random_bytes(8));
+    $_SESSION[$sessionKey] = $generated;
+    return $generated;
+}
+
+/** True when wallet + ledger already recorded for this txn (no second credit). */
 function paymentCaptureIsFinalized(int $transactionId, string $txnRef = '', int $merchantId = 0): bool
 {
     if ($transactionId < 1) {

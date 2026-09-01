@@ -19,6 +19,9 @@ require_once __DIR__ . '/includes/checkout_customize.php';
 if (!function_exists('buildPaymentTrackUrl') && is_file(__DIR__ . '/includes/customer_portal.php')) {
     require_once __DIR__ . '/includes/customer_portal.php';
 }
+if (!function_exists('checkoutSessionPaymentOrderKey') && is_file(__DIR__ . '/includes/payment_idempotency.php')) {
+    require_once __DIR__ . '/includes/payment_idempotency.php';
+}
 
 /**
  * Render a branded, navigable checkout error page instead of a bare white die() screen.
@@ -32,6 +35,9 @@ function renderCheckoutUnavailable(string $heading, string $detail, int $status 
     require_once __DIR__ . '/header.php';
     $ctaHref = $ctaUrl ?: 'index.php';
     echo '<section class="pt-28 pb-20 px-4"><div class="max-w-lg mx-auto glass rounded-2xl p-8 text-center">'
+        . '<div class="flex justify-center mb-4">'
+        . '<img src="' . e(APP_URL . '/assets/img/uniweb-logo.svg') . '" alt="' . e(APP_NAME) . '" class="h-8 w-auto" onerror="this.style.display=\'none\'">'
+        . '</div>'
         . '<h1 class="text-xl font-semibold mb-2">' . e($heading) . '</h1>'
         . '<p class="text-sm text-gray-400 mb-6">' . e($detail) . '</p>'
         . '<a href="' . e($ctaHref) . '" class="inline-block btn-primary px-5 py-2.5 text-sm">' . e($ctaLabel) . '</a>'
@@ -209,7 +215,10 @@ if ($linkStatus === 'paid' || $paidTxn) {
             . (function_exists('formatDate') && !empty($paidTxn['created_at']) ? (' · ' . formatDate($paidTxn['created_at'])) : '')
             . '. No further payment is needed on this link.';
     }
-    $receiptUrl = !empty($paidTxn['txn_id']) ? ('receipt.php?txn=' . rawurlencode((string)$paidTxn['txn_id'])) : null;
+    $receiptUrl = null;
+    if (!empty($paidTxn['txn_id']) && function_exists('buildSignedReceiptUrl')) {
+        $receiptUrl = buildSignedReceiptUrl((string)$paidTxn['txn_id']);
+    }
     renderCheckoutUnavailable(
         'Payment already completed',
         $paidDetail,
@@ -398,6 +407,9 @@ if ($handler === 'axis_va') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
   try {
+    $checkoutOrderIdemKey = function_exists('checkoutSessionPaymentOrderKey')
+        ? checkoutSessionPaymentOrderKey((int)$link['id'], $isTestCheckout ? 'test' : 'live')
+        : null;
     if ($selectedPay === 'upi' && function_exists('decentroSandboxCheckoutAvailable') && decentroSandboxCheckoutAvailable($link)) {
         $decentroQr = createDecentroSandboxCheckoutQr($link);
     }
@@ -454,7 +466,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 continue;
             }
             try {
-                $res = createBoundGatewayCheckoutOrder($link, $gw, $returnUrl);
+                $res = createBoundGatewayCheckoutOrder($link, $gw, $returnUrl, $checkoutOrderIdemKey);
                 if ($gw === 'razorpay' && !empty($res['id'])) {
                     $razorpayOrder = $res;
                     $pgCheckoutPartner = 'razorpay';
@@ -475,7 +487,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     } elseif ($legacyPgTab || ($selectedPay === 'razorpay' || ($handler === 'razorpay_route' && !isGatewayConfigured('payu')))) {
         if (isGatewayConfigured('razorpay')) {
             try {
-                $razorpayOrder = createBoundGatewayCheckoutOrder($link, 'razorpay');
+                $razorpayOrder = createBoundGatewayCheckoutOrder($link, 'razorpay', '', $checkoutOrderIdemKey);
                 $pgCheckoutPartner = 'razorpay';
             } catch (Throwable $e) {
                 $error = 'Card checkout is temporarily unavailable.';
@@ -486,7 +498,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $returnUrl = APP_URL . '/payment_cashfree_return.php?order_id={order_id}';
         $cf = null;
         try {
-            $cf = createBoundGatewayCheckoutOrder($link, 'cashfree', $returnUrl);
+            $cf = createBoundGatewayCheckoutOrder($link, 'cashfree', $returnUrl, $checkoutOrderIdemKey);
         } catch (Throwable $e) {
             $cf = null;
             $error = 'Card checkout is temporarily unavailable.';
@@ -592,9 +604,26 @@ endif;
                     <svg class="w-8 h-8 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                 </div>
                 <h2 class="text-xl font-bold mb-2">Payment Successful</h2>
-                <p class="text-gray-400 text-sm"><?= e($wlBrand['active'] && !empty($wlBrand['success_message']) ? $wlBrand['success_message'] : 'Your payment has been confirmed. A receipt will be sent to the merchant.') ?></p>
+                <?php
+                $successTxnAmount = null;
+                if (!empty($successTxnId)) {
+                    try {
+                        $amtSt = $db->prepare('SELECT amount FROM transactions WHERE txn_id=? LIMIT 1');
+                        $amtSt->execute([(string)$successTxnId]);
+                        $successTxnAmount = $amtSt->fetchColumn();
+                    } catch (Throwable $e) {
+                        $successTxnAmount = null;
+                    }
+                }
+                if ($successTxnAmount !== null && $successTxnAmount !== false): ?>
+                <p class="text-3xl font-bold text-brand-400 my-3"><?= formatMoney((float)$successTxnAmount) ?></p>
+                <?php endif; ?>
+                <p class="text-gray-400 text-sm"><?= e($wlBrand['active'] && !empty($wlBrand['success_message']) ? $wlBrand['success_message'] : 'Your payment has been confirmed.') ?></p>
                 <?php if ($successTxnId): ?>
-                <?php $signedTrackUrl = buildPaymentTrackUrl((string)$successTxnId); ?>
+                <?php
+                $signedTrackUrl = buildPaymentTrackUrl((string)$successTxnId);
+                $signedReceiptUrl = function_exists('buildSignedReceiptUrl') ? buildSignedReceiptUrl((string)$successTxnId) : $signedTrackUrl;
+                ?>
                 <div class="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">
                     <span class="font-semibold">UniWeb Verified</span><span class="text-emerald-400/80">· signed secure link</span>
                 </div>
@@ -608,7 +637,10 @@ endif;
                 <script>setTimeout(function(){ window.location.href = <?= json_encode($wlBrand['redirect_url']) ?>; }, 3000);</script>
                 <a href="<?= e($wlBrand['redirect_url']) ?>" class="inline-block mt-4 text-sm text-sky-400 hover:underline">Continue →</a>
                 <?php else: ?>
-                <a href="<?= e(!empty($successTxnId) ? buildPaymentTrackUrl((string)$successTxnId) : 'payment_status.php') ?>" class="inline-block mt-6 text-sm text-sky-400 hover:underline">Track payment status →</a>
+                <a href="<?= e(!empty($successTxnId) ? buildPaymentTrackUrl((string)$successTxnId) : 'payment_status.php') ?>" class="inline-block mt-4 text-sm text-sky-400 hover:underline">Track payment status →</a>
+                <?php if (!empty($successTxnId) && !empty($signedReceiptUrl)): ?>
+                <a href="<?= e($signedReceiptUrl) ?>" class="inline-block mt-2 text-sm text-emerald-400 hover:underline">View receipt →</a>
+                <?php endif; ?>
                 <?php endif; ?>
             </div>
             <?php else: ?>

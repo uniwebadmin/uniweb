@@ -488,7 +488,7 @@ function finalizePaymentLink(int $linkDbId, int $merchantId, float $amount, stri
  * Paytm, BHIM) can open directly. Amount and note are optional; when the
  * amount is omitted the payer types it in their UPI app (open-amount QR).
  */
-function buildUpiPayIntent(string $payeeVpa, string $payeeName, ?float $amount = null, string $note = ''): string
+function buildUpiPayIntent(string $payeeVpa, string $payeeName, ?float $amount = null, string $note = '', ?string $transactionRef = null): string
 {
     $pa = trim($payeeVpa);
     if ($pa === '') {
@@ -504,6 +504,10 @@ function buildUpiPayIntent(string $payeeVpa, string $payeeName, ?float $amount =
     }
     if (trim($note) !== '') {
         $params['tn'] = $note;
+    }
+    $tr = trim((string)$transactionRef);
+    if ($tr !== '') {
+        $params['tr'] = mb_substr($tr, 0, 35);
     }
     // rawurlencode keeps spaces as %20 (UPI apps reject the "+" that urlencode emits).
     $pairs = [];
@@ -523,7 +527,8 @@ function buildMerchantUpiIntent(array $link): string
         (string)$pa,
         (string)($link['business_name'] ?? 'Merchant'),
         isset($link['amount']) ? (float)$link['amount'] : null,
-        (string)(($link['description'] ?? '') !== '' ? $link['description'] : 'Payment via ' . APP_NAME)
+        (string)(($link['description'] ?? '') !== '' ? $link['description'] : 'Payment via ' . APP_NAME),
+        (string)($link['link_id'] ?? '')
     );
 }
 

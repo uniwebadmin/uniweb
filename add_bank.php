@@ -165,6 +165,7 @@ require_once __DIR__ . '/header.php';
                 <button type="button" id="verify-bank-btn" onclick="verifyBankAccountNow()" class="bg-sky-600 hover:bg-sky-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition">Verify my account</button>
                 <p id="verify-bank-status" class="text-sm"></p>
             </div>
+            <p class="text-xs text-amber-300/90 mt-2"><span class="uppercase tracking-wide text-[10px] border border-amber-500/40 px-1.5 py-0.5 rounded mr-1">PARKED</span> Instant penny-drop verification needs live bank/KYC partner keys. Until then, UniWeb saves your account and ops verifies manually — this is not a failed verification.</p>
             <button type="submit" class="w-full bg-brand-600 hover:bg-brand-500 text-white py-3 rounded-xl font-semibold transition">Add Account</button>
         </form>
     </div>
@@ -295,6 +296,7 @@ async function verifyBankAccountNow() {
         const r = await fetch('verify_bank_account.php', { method: 'POST', body: fd });
         const d = await r.json();
         if (!d.ok) { status.textContent = d.error || 'Verification failed'; status.className = 'text-sm text-red-400'; return; }
+        if (d.parked) { status.textContent = d.message || 'Saved for manual review (instant verify PARKED)'; status.className = 'text-sm text-amber-300'; return; }
         if (d.bank && bank) { bank.value = d.bank; bank.dataset.ifscAuto = '1'; }
         if (d.verified && d.account_holder && holder) { holder.value = d.account_holder; }
         const parts = [d.branch, d.city || d.district, d.state].filter(Boolean);

@@ -389,7 +389,9 @@ require_once __DIR__ . '/header.php';
                 <p class="text-emerald-400 text-xs">✓ Posted · journal <?= e((string)($ledgerJournal['journal_ref'] ?? '')) ?></p>
                 <p class="text-gray-500 text-[11px] mt-0.5"><?= formatDate((string)($ledgerJournal['posted_at'] ?? '')) ?></p>
                 <?php elseif ($ledgerStatus === 'failed' || $ledgerStatus === 'pending'): ?>
-                <p class="text-amber-400 text-xs"><?= $ledgerStatus === 'failed' ? 'Ledger failed — retry scheduled; check Error Log' : 'Ledger pending — reconcile will retry automatically' ?></p>
+                <p class="text-amber-400 text-xs"><?= $ledgerStatus === 'failed'
+                    ? ($adminView ? 'Ledger failed — retry scheduled; check Error Log' : 'Payment received — wallet posting is retrying automatically. Your money is safe; settlement may take a few minutes.')
+                    : ($adminView ? 'Ledger pending — reconcile will retry automatically' : 'Payment received — funds posting to your settlement balance. This usually completes within a few minutes.') ?></p>
                 <?php if ($adminView): ?>
                 <a href="admin_error_log.php" class="text-xs text-sky-400 mt-1 inline-block">Open Error Log →</a>
                 <form method="POST" class="flex flex-wrap gap-2 mt-3">

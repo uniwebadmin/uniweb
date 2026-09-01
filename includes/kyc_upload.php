@@ -212,20 +212,58 @@ function processPendingKycScans(int $limit = 10): array
     $infected = 0;
     foreach ($rows as $row) {
         $path = (string)$row['file_path'];
+        $docId = (int)$row['id'];
         if (!is_file($path)) {
-            getDB()->prepare("UPDATE kyc_documents SET scan_status='missing',status='rejected' WHERE id=?")->execute([(int)$row['id']]);
+            getDB()->prepare("UPDATE kyc_documents SET scan_status='missing',status='rejected' WHERE id=?")->execute([$docId]);
             continue;
         }
         $sha = (string)($row['sha256'] ?: hash_file('sha256', $path));
         $status = scanKycFileForMalware($path, $sha);
         if ($status === 'clean') {
-            getDB()->prepare("UPDATE kyc_documents SET scan_status='clean',sha256=? WHERE id=?")->execute([$sha, (int)$row['id']]);
+            getDB()->prepare("UPDATE kyc_documents SET scan_status='clean',sha256=? WHERE id=?")->execute([$sha, $docId]);
             $clean++;
         } elseif ($status === 'infected') {
+            $merchantId = 0;
+            try {
+                $mSt = getDB()->prepare('SELECT merchant_id FROM kyc_documents WHERE id=?');
+                $mSt->execute([$docId]);
+                $merchantId = (int)$mSt->fetchColumn();
+            } catch (Throwable $e) {
+                /* ok */
+            }
             @unlink($path);
-            getDB()->prepare("UPDATE kyc_documents SET scan_status='infected',status='rejected',file_path='' WHERE id=?")->execute([(int)$row['id']]);
+            getDB()->prepare("UPDATE kyc_documents SET scan_status='infected',status='rejected',file_path='' WHERE id=?")->execute([$docId]);
             $infected++;
+            if ($merchantId > 0 && function_exists('notifyMerchant')) {
+                try {
+                    notifyMerchant($merchantId, 'KYC file rejected', 'A document failed security scanning and was removed. Please upload a clean JPG, PNG, or PDF.', 'kyc_scan_infected_' . $docId);
+                } catch (Throwable $e) {
+                    /* non-fatal */
+                }
+            }
         }
     }
     return ['checked' => count($rows), 'clean' => $clean, 'infected' => $infected];
+}
+
+/** Merchant-facing scan status label (upload history). */
+function kycScanStatusLabel(string $scanStatus): string
+{
+    return match (strtolower(trim($scanStatus))) {
+        'clean' => 'Security scan passed',
+        'pending' => 'Security scan pending',
+        'infected' => 'Rejected — security scan failed',
+        'missing' => 'File missing — re-upload required',
+        default => 'Awaiting scan',
+    };
+}
+
+function kycScanStatusBadgeClass(string $scanStatus): string
+{
+    return match (strtolower(trim($scanStatus))) {
+        'clean' => 'text-emerald-400',
+        'pending' => 'text-amber-400',
+        'infected', 'missing' => 'text-red-400',
+        default => 'text-gray-500',
+    };
 }

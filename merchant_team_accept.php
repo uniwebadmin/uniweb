@@ -39,7 +39,12 @@ require_once __DIR__ . '/header.php';
             <a href="login.php" class="inline-block mt-4 text-sky-400 text-sm">Go to login →</a>
             <?php else: ?>
             <p class="text-sm text-gray-400 mb-4">Join <strong class="text-white"><?= e($invite['business_name'] ?? 'merchant') ?></strong> as <strong class="text-sky-300"><?= e(merchantTeamRoleLabel((string)$invite['role'])) ?></strong>.</p>
-            <p class="text-xs text-gray-500 mb-4"><?= e($invite['email']) ?></p>
+            <p class="text-xs text-gray-500 mb-2"><?= e($invite['email']) ?></p>
+            <?php
+            $roleHint = merchantTeamRoles()[(string)$invite['role']]['hint'] ?? '';
+            if ($roleHint !== ''): ?>
+            <p class="text-xs text-amber-200/90 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 mb-4">Access after accept: <?= e($roleHint) ?>. Pages like KYC settings, refunds, or API keys stay blocked if your role does not include them.</p>
+            <?php endif; ?>
             <?php if ($error): ?><p class="text-sm text-red-400 mb-4"><?= e($error) ?></p><?php endif; ?>
             <form method="POST" class="space-y-4">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">

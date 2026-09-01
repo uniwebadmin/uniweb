@@ -130,6 +130,30 @@ function merchantKycReadinessMissingLabels(array $report): array
 }
 
 /**
+ * Single merchant + admin KYC status line (kyc_status + onboarding_state aligned).
+ *
+ * @return array{label:string,detail:string,tone:string}
+ */
+function merchantKycUnifiedStatusDisplay(array $merchant): array
+{
+    $kyc = strtolower(trim((string)($merchant['kyc_status'] ?? 'pending')));
+    $onboarding = strtolower(trim((string)($merchant['onboarding_state'] ?? '')));
+    if ($kyc === 'verified') {
+        return ['label' => 'Verified', 'detail' => 'KYC approved — live collections when account mode is Live.', 'tone' => 'success'];
+    }
+    if ($kyc === 'rejected') {
+        return ['label' => 'Rejected', 'detail' => 'Re-upload corrected documents or contact support.', 'tone' => 'danger'];
+    }
+    if ($kyc === 'clarification') {
+        return ['label' => 'Clarification needed', 'detail' => 'Admin requested more information — check upload history.', 'tone' => 'warning'];
+    }
+    if ($kyc === 'submitted' || $onboarding === 'kyc_submitted') {
+        return ['label' => 'Submitted — under review', 'detail' => 'Documents received. Compliance team will verify.', 'tone' => 'info'];
+    }
+    return ['label' => 'Draft — upload required', 'detail' => 'Upload all required documents, then submit for review.', 'tone' => 'muted'];
+}
+
+/**
  * Mark merchant as submitted (diagram 3 — after docs uploaded).
  */
 function markMerchantKycSubmitted(int $merchantId): void

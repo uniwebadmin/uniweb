@@ -2,8 +2,15 @@
 if (function_exists('opcache_invalidate')) { opcache_invalidate(__FILE__, true); }
 require_once __DIR__ . '/config.php';
 requireLogin();
+if (!function_exists('requireMerchantTeamCapability') && is_file(__DIR__ . '/includes/merchant_team.php')) {
+    require_once __DIR__ . '/includes/merchant_team.php';
+}
+if (function_exists('requireMerchantTeamCapability')) {
+    requireMerchantTeamCapability('settings');
+}
 ensureKycSchema();
 require_once __DIR__ . '/includes/kyc_upload.php';
+require_once __DIR__ . '/includes/kyc_workflow.php';
 require_once __DIR__ . '/includes/client_context.php';
 require_once __DIR__ . '/includes/kyc_verify.php';
 require_once __DIR__ . '/includes/onboarding_state_machine.php';
@@ -267,12 +274,14 @@ $docStatusMeta = static function (string $status): array {
                 <span class="absolute inset-0 flex items-center justify-center text-sm font-bold"><?= $pct ?>%</span>
             </div>
             <div class="flex-1 min-w-[200px]">
+                <?php $kycUnified = merchantKycUnifiedStatusDisplay($merchant); ?>
                 <div class="flex flex-wrap items-center gap-2 mb-1">
-                    <?= statusBadge($merchant['kyc_status']) ?>
+                    <span class="text-xs font-semibold px-2.5 py-1 rounded-full <?= $kycUnified['tone'] === 'success' ? 'bg-emerald-500/15 text-emerald-400' : ($kycUnified['tone'] === 'danger' ? 'bg-red-500/15 text-red-400' : ($kycUnified['tone'] === 'warning' ? 'bg-amber-500/15 text-amber-400' : ($kycUnified['tone'] === 'info' ? 'bg-sky-500/15 text-sky-400' : 'bg-gray-800 text-gray-400'))) ?>"><?= e($kycUnified['label']) ?></span>
                     <?= accountModeBadge($merchant) ?>
                     <span class="text-xs font-mono text-sky-400">MID: <?= e($merchant['merchant_code'] ?? '') ?></span>
                 </div>
-                <p class="text-sm text-gray-500">Entity: <strong class="text-gray-200"><?= e(entityTypeLabel($entityType)) ?></strong> · <?= $have ?>/<?= $need ?> documents<?= $approvedCount > 0 ? " · {$approvedCount} approved" : '' ?></p>
+                <p class="text-xs text-gray-500 mt-1"><?= e($kycUnified['detail']) ?></p>
+                <p class="text-sm text-gray-500 mt-2">Entity: <strong class="text-gray-200"><?= e(entityTypeLabel($entityType)) ?></strong> · <?= $have ?>/<?= $need ?> documents<?= $approvedCount > 0 ? " · {$approvedCount} approved" : '' ?></p>
                 <p class="text-xs text-gray-600 mt-1">Only documents needed for your business type are listed below.</p>
             </div>
         </div>
@@ -462,7 +471,7 @@ $docStatusMeta = static function (string $status): array {
                 </label>
                 <p id="file-name-label" class="text-xs text-brand-400 mt-2"></p>
             </div>
-            <button type="submit" class="btn-primary px-6 py-2.5">Upload Document</button>
+            <button type="submit" class="btn-primary px-6 py-2.5" id="kyc-upload-submit">Upload Document</button>
         </form>
     </div>
 
@@ -489,7 +498,7 @@ $docStatusMeta = static function (string $status): array {
         <div class="overflow-x-auto">
         <table class="w-full text-sm table-auto">
             <thead class="text-xs text-gray-500 uppercase bg-dark-900/50">
-                <tr><th class="px-5 py-3 text-left min-w-[140px]">Document</th><th class="px-5 py-3 text-left min-w-[180px]">File</th><th class="px-5 py-3 text-left min-w-[100px]">Status</th><th class="px-5 py-3 text-left min-w-[160px]">Notes</th><th class="px-5 py-3 text-left min-w-[120px]">Date</th></tr>
+                <tr><th class="px-5 py-3 text-left min-w-[140px]">Document</th><th class="px-5 py-3 text-left min-w-[180px]">File</th><th class="px-5 py-3 text-left min-w-[100px]">Status</th><th class="px-5 py-3 text-left min-w-[120px]">Security scan</th><th class="px-5 py-3 text-left min-w-[160px]">Notes</th><th class="px-5 py-3 text-left min-w-[120px]">Date</th></tr>
             </thead>
             <tbody class="divide-y divide-gray-800">
                 <?php foreach ($pagedDocuments as $doc):
@@ -499,6 +508,7 @@ $docStatusMeta = static function (string $status): array {
                     <td class="px-5 py-3 break-words"><?= e($docLabels[$doc['doc_type']] ?? $doc['doc_type']) ?><?php if (!empty($doc['is_masked'])): ?> <span class="inline-block px-1.5 py-0.5 bg-emerald-600/20 text-emerald-400 rounded text-[10px] font-medium">Masked</span><?php endif; ?><?php if ((int)($doc['version_number'] ?? 1) > 1): ?> <span class="inline-block px-1.5 py-0.5 bg-sky-600/20 text-sky-400 rounded text-[10px] font-medium">v<?= (int)$doc['version_number'] ?></span><?php endif; ?></td>
                     <td class="px-5 py-3 text-xs break-all"><?= e($doc['file_name']) ?></td>
                     <td class="px-5 py-3"><?= statusBadge($doc['status']) ?></td>
+                    <td class="px-5 py-3 text-xs <?= e(kycScanStatusBadgeClass((string)($doc['scan_status'] ?? ''))) ?>"><?= e(kycScanStatusLabel((string)($doc['scan_status'] ?? ''))) ?></td>
                     <td class="px-5 py-3 text-xs break-words <?= ($doc['status'] ?? '') === 'rejected' ? 'text-red-300' : 'text-gray-500' ?>">
                         <?= ($doc['status'] ?? '') === 'rejected'
                             ? e(kycRejectionDisplay((string)($doc['rejection_reason'] ?? '')))
@@ -623,7 +633,7 @@ $docStatusMeta = static function (string $status): array {
             <p class="text-3xl font-bold text-sky-400"><?= (int)$have ?>/<?= (int)$need ?></p>
             <p class="text-xs text-gray-500 mt-1">documents uploaded · <?= (int)$approvedCount ?> approved</p>
             <p class="text-xs mt-4 <?= ($merchant['kyc_status'] ?? '') === 'verified' ? 'text-emerald-400' : 'text-amber-300' ?>">
-                KYC: <?= e(ucfirst((string)($merchant['kyc_status'] ?? 'pending'))) ?>
+                <?= e($kycUnified['label'] ?? ucfirst((string)($merchant['kyc_status'] ?? 'pending'))) ?>
             </p>
             <div class="mt-3 pt-3 border-t border-gray-800/50 space-y-1">
                 <p class="text-xs text-gray-400">Onboarding: <span class="font-medium text-sky-400"><?= e($onboardingLabel) ?></span></p>
@@ -725,6 +735,22 @@ async function submitChosenKycFile(input){
     const form=document.getElementById('kyc-upload-form');
     if(!input.files||!input.files[0]||!form)return;
     const file=input.files[0];
+    const allowed=['image/jpeg','image/png','application/pdf'];
+    const ext=(file.name.split('.').pop()||'').toLowerCase();
+    const allowedExt=['jpg','jpeg','png','pdf'];
+    if(!allowed.includes(file.type)&&!allowedExt.includes(ext)){
+        label.textContent='Unsupported file type. Use JPG, PNG, or PDF only.';
+        label.className='text-xs text-red-400 mt-2';
+        input.value='';
+        return;
+    }
+    if(file.size>15*1024*1024){
+        label.textContent='File is too large. Maximum 15MB.';
+        label.className='text-xs text-red-400 mt-2';
+        input.value='';
+        return;
+    }
+    label.className='text-xs text-brand-400 mt-2';
     label.textContent='Checking: '+file.name+'...';
     if(file.type.startsWith('image/')){
         const check=await checkKycImageQuality(file);
@@ -737,6 +763,21 @@ async function submitChosenKycFile(input){
     form.querySelectorAll('button').forEach(btn=>btn.disabled=true);
     form.submit();
 }
+document.getElementById('kyc-upload-form')?.addEventListener('submit',function(ev){
+    const fileInput=document.getElementById('document-file');
+    if(!fileInput||!fileInput.files||!fileInput.files[0])return;
+    const file=fileInput.files[0];
+    const allowedExt=['jpg','jpeg','png','pdf'];
+    const ext=(file.name.split('.').pop()||'').toLowerCase();
+    if(!allowedExt.includes(ext)||file.size>15*1024*1024){
+        ev.preventDefault();
+        const label=document.getElementById('file-name-label');
+        if(label){
+            label.className='text-xs text-red-400 mt-2';
+            label.textContent=file.size>15*1024*1024?'File is too large. Maximum 15MB.':'Unsupported file type. Use JPG, PNG, or PDF only.';
+        }
+    }
+});
 function checkKycImageQuality(file){
     return new Promise((resolve)=>{
         const img=new Image(), url=URL.createObjectURL(file);

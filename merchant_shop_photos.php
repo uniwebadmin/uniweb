@@ -1,6 +1,12 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/page_ux.php';
+if (!function_exists('requireMerchantTeamCapability') && is_file(__DIR__ . '/includes/merchant_team.php')) {
+    require_once __DIR__ . '/includes/merchant_team.php';
+}
+if (function_exists('requireMerchantTeamCapability')) {
+    requireMerchantTeamCapability('settings');
+}
 ensureKycSchema();
 require_once __DIR__ . '/includes/kyc_upload.php';
 require_once __DIR__ . '/includes/client_context.php';
@@ -27,87 +33,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['ok' => false, 'error' => 'Photo did not reach the server. Please retry.']);
         exit;
     }
-    $size = (int)($file['size'] ?? 0);
-    if ($size < 1 || $size > 10 * 1024 * 1024) {
-        echo json_encode(['ok' => false, 'error' => 'Photo is too large. Maximum 10MB.']);
+    $saved = saveMerchantKycUpload(
+        (int)$merchant['id'],
+        $docType,
+        $file,
+        ['jpg', 'jpeg', 'png'],
+        10 * 1024 * 1024,
+        parseGeoFromRequest()
+    );
+    if (empty($saved['ok'])) {
+        echo json_encode(['ok' => false, 'error' => $saved['error'] ?? 'Upload failed.']);
         exit;
     }
-    $tmp = (string)($file['tmp_name'] ?? '');
-    if ($tmp === '' || !is_uploaded_file($tmp)) {
-        echo json_encode(['ok' => false, 'error' => 'Photo upload was not received securely.']);
-        exit;
-    }
-    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-    $mime = $finfo ? (string)finfo_file($finfo, $tmp) : '';
-    if ($finfo) {
-        finfo_close($finfo);
-    }
-    if (!in_array($mime, ['image/jpeg', 'image/png'], true)) {
-        echo json_encode(['ok' => false, 'error' => 'Unsupported photo format.']);
-        exit;
-    }
-    $prefix = (string)file_get_contents($tmp, false, null, 0, min($size, 1048576));
-    if (stripos($prefix, '<?php') !== false || stripos($prefix, '<script') !== false) {
-        echo json_encode(['ok' => false, 'error' => 'The file contains prohibited executable content.']);
-        exit;
-    }
-    $ext = $mime === 'image/png' ? 'png' : 'jpg';
-    $dir = rtrim(KYC_PRIVATE_DIR, '/\\') . DIRECTORY_SEPARATOR . $merchant['id'] . DIRECTORY_SEPARATOR;
-    if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
-        echo json_encode(['ok' => false, 'error' => 'Server could not create upload folder.']);
-        exit;
-    }
-    if (!is_writable($dir)) {
-        @chmod($dir, 0700);
-    }
-    if (!is_writable($dir)) {
-        echo json_encode(['ok' => false, 'error' => 'Upload folder is not writable.']);
-        exit;
-    }
-    $fileName = $docType . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-    $target = $dir . $fileName;
-    if (!move_uploaded_file($tmp, $target)) {
-        echo json_encode(['ok' => false, 'error' => 'Server could not store the photo.']);
-        exit;
-    }
-    @chmod($target, 0600);
-    $sha256 = hash_file('sha256', $target);
-    $scanStatus = scanKycFileForMalware($target, $sha256);
-    if ($scanStatus === 'infected') {
-        @unlink($target);
-        echo json_encode(['ok' => false, 'error' => 'The photo failed security scanning and was rejected.']);
-        exit;
-    }
-    $recordedAtRaw = (string)($_POST['recorded_at'] ?? '');
-    $recordedAt = null;
-    if ($recordedAtRaw !== '') {
-        $ts = strtotime($recordedAtRaw);
-        if ($ts !== false) {
-            $recordedAt = date('Y-m-d H:i:s', $ts);
-        }
-    }
-    if ($recordedAt === null) {
-        $recordedAt = date('Y-m-d H:i:s');
-    }
-    $storageKey = $merchant['id'] . '/' . $fileName;
-    try {
-        $geoData = parseGeoFromRequest();
-        $userAgent = getClientUserAgent();
-        $geoLat = $geoData['lat'] ?? null;
-        $geoLng = $geoData['lng'] ?? null;
-        $geoAcc = $geoData['accuracy_m'] ?? null;
-        $geoSrc = $geoData['geo_source'] ?? null;
-        getDB()->prepare(
-            'INSERT INTO kyc_documents
-             (merchant_id, doc_type, file_name, file_path, storage_key, sha256, mime_type, file_size, ip_address, client_ip, user_agent, lat, lng, geo_accuracy_m, geo_source, recorded_at, scan_status, retention_until)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, DATE_ADD(CURDATE(), INTERVAL 8 YEAR))'
-        )->execute([(int)$merchant['id'], $docType, $fileName, $target, $storageKey, $sha256, $mime, $size, $clientIp, $clientIp, $userAgent, $geoLat, $geoLng, $geoAcc, $geoSrc, $recordedAt, $scanStatus]);
-    } catch (Throwable $e) {
-        @unlink($target);
-        echo json_encode(['ok' => false, 'error' => 'Could not register the photo. Please retry.']);
-        exit;
-    }
-    echo json_encode(['ok' => true]);
+    echo json_encode(['ok' => true, 'scan_status' => $saved['scan_status'] ?? 'pending']);
     exit;
 }
 

@@ -27,11 +27,19 @@ $verify = verifyBankAccount($accountNumber, $ifsc, (int)$merchant['id']);
 $ifscInfo = lookupIfsc($ifsc) ?: [];
 
 $isVerified = ($verify['status'] ?? '') === 'verified';
+$pennyDropLive = function_exists('partnerIsConfigured') && (
+    partnerIsConfigured('decentro') || partnerIsConfigured('digio') || partnerIsConfigured('cashfree')
+);
 $response = [
     'ok' => true,
     'verified' => $isVerified,
+    'parked' => !$isVerified && !$pennyDropLive,
     'status' => $verify['status'] ?? 'submitted',
-    'message' => $verify['message'] ?? 'Verification submitted.',
+    'message' => $isVerified
+        ? ($verify['message'] ?? 'Bank account verified.')
+        : ($pennyDropLive
+            ? ($verify['message'] ?? 'Verification submitted — penny drop in progress.')
+            : 'Saved for manual review — instant penny-drop is PARKED until partner keys are live.'),
     'account_holder' => $isVerified ? ($verify['account_holder'] ?? '') : '',
     'bank' => $ifscInfo['bank'] ?? '',
     'branch' => $ifscInfo['branch'] ?? '',

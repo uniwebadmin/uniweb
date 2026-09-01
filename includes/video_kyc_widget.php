@@ -30,6 +30,7 @@ try {
 $vkwClientIp = function_exists('getRealClientIp') ? getRealClientIp() : (string)($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
 $vkwVerified = in_array($vkwStatus, ['verified', 'approved'], true);
 $vkwRejected = $vkwStatus === 'rejected';
+$vkwDigioLive = function_exists('partnerIsConfigured') && partnerIsConfigured('digio');
 ?>
 <div class="glass rounded-2xl p-6 mb-6 border <?= $vkwVerified ? 'border-emerald-500/30' : ($vkwRejected ? 'border-red-500/40' : 'border-violet-500/20') ?>">
     <div class="flex items-center gap-4">
@@ -40,6 +41,9 @@ $vkwRejected = $vkwStatus === 'rejected';
             <p class="text-xs text-violet-400 uppercase tracking-wider mb-1">Identity check</p>
             <h2 class="text-lg font-bold">Video KYC</h2>
             <p class="text-xs text-gray-500 mt-0.5">Live camera recording only (no gallery upload) · IP + date/time recorded with each session</p>
+            <?php if (!$vkwDigioLive): ?>
+            <p class="text-[11px] text-amber-300/90 mt-2 inline-flex items-center gap-1.5"><span class="uppercase tracking-wide text-[10px] border border-amber-500/40 px-1.5 py-0.5 rounded">PARKED</span> Automated face-match runs only when Digio partner keys are live — your recording is stored for manual compliance review until then.</p>
+            <?php endif; ?>
         </div>
         <?= statusBadge($vkwStatus) ?>
     </div>

@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (!function_exists('applyPartnerPaymentReconcile') && is_file(__DIR__ . '/includes/payment_reconcile.php')) {
+    require_once __DIR__ . '/includes/payment_reconcile.php';
+}
 
 $post = array_merge($_GET, $_POST);
 $linkId = $post['udf1'] ?? '';
@@ -34,7 +37,41 @@ if (!$link) {
 $verified = verifyPayUResponseHash($post);
 $success = $verified && in_array($status, ['success', 'successful'], true);
 
-if ($success) {
+if ($success && function_exists('applyPartnerPaymentReconcile')) {
+    $mihpayid = (string)($post['mihpayid'] ?? $post['txnid'] ?? '');
+    $providerOrderId = (string)($post['txnid'] ?? $mihpayid);
+    $orderSt = $db->prepare(
+        "SELECT o.provider_order_id FROM payment_orders o
+         JOIN payment_links pl ON pl.id=o.payment_link_id
+         WHERE pl.link_id=? AND o.provider='payu'
+         ORDER BY o.id DESC LIMIT 1"
+    );
+    $orderSt->execute([$linkId]);
+    $boundOrderId = (string)($orderSt->fetchColumn() ?: $providerOrderId);
+    if ($boundOrderId !== '' && $mihpayid !== '') {
+        try {
+            $event = registerGatewayEvent('payu', 'return:' . $mihpayid, 'checkout.return', json_encode($post), true);
+            applyPartnerPaymentReconcile([
+                'provider' => 'payu',
+                'provider_order_id' => $boundOrderId,
+                'provider_payment_id' => $mihpayid,
+                'amount' => (float)($post['amount'] ?? $link['amount'] ?? 0),
+                'currency' => 'INR',
+                'captured' => true,
+                'signature_verified' => true,
+                'provider_verified' => true,
+                'reference' => $mihpayid,
+                'reconcile_source' => 'checkout',
+            ]);
+            setGatewayEventStatus((int)$event['id'], 'processed');
+        } catch (Throwable $e) {
+            logPlatformError('error', 'PayU checkout return reconcile failed.', ['link_id' => $linkId, 'error' => $e->getMessage()]);
+        }
+    }
+    $stmt->execute([$linkId]);
+    $link = $stmt->fetch();
+    $pageTitle = 'Payment Successful';
+} elseif ($success) {
     $mihpayid = $post['mihpayid'] ?? $post['txnid'] ?? '';
     $dup = $db->prepare('SELECT id FROM transactions WHERE utr = ? LIMIT 1');
     $dup->execute([$mihpayid]);
