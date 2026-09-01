@@ -96,7 +96,7 @@ switch ($action) {
         } catch (InvalidArgumentException $e) {
             merchantApiRespondError('missing_idempotency_key');
         } catch (RuntimeException $e) {
-            merchantApiRespondError('idempotency_conflict', $e->getMessage());
+            merchantApiRespondError('idempotency_conflict');
         }
 
         $linkId = generateId('LNK');
@@ -195,7 +195,7 @@ switch ($action) {
         } catch (InvalidArgumentException $e) {
             merchantApiRespondError('missing_idempotency_key');
         } catch (RuntimeException $e) {
-            merchantApiRespondError('idempotency_conflict', $e->getMessage());
+            merchantApiRespondError('idempotency_conflict');
         }
         $result = processRefund((int)$txn['id'], $amount, $reason);
         if (!$result['ok']) {

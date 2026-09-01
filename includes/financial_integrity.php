@@ -187,6 +187,8 @@ function providerCredentialsMatchOrderMode(string $provider, string $mode): bool
         $credentialMode = str_starts_with((string)$keyId, 'rzp_live_') ? 'live' : 'test';
     } elseif ($provider === 'cashfree') {
         $credentialMode = cashfreeActiveCredentialMode();
+    } elseif ($provider === 'payu') {
+        $credentialMode = getPartnerEnvironment('payu', 'test') === 'test' ? 'test' : 'live';
     } else {
         return true;
     }

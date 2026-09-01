@@ -1873,6 +1873,16 @@ $assert(str_contains($p6Ref, 'function resolveRefundProvider') && str_contains($
 $assert(str_contains($p6Gw, 'function createCashfreeRefund') && str_contains($p6Gw, 'function createPayuRefund'), 'p9_cashfree_payu_refund_api');
 $assert(str_contains((string)file_get_contents($root . '/cashfree_webhook.php'), 'applyPartnerRefundWebhookEvent'), 'p6_cashfree_refund_webhook');
 $assert(str_contains((string)file_get_contents($root . '/payu_webhook.php'), 'applyPartnerRefundWebhookEvent') && str_contains((string)file_get_contents($root . '/payu_webhook.php'), 'pgWebhookRejectJson') && str_contains($p6Pg, "'http_code' => 401"), 'p6_payu_refund_webhook_and_401');
+$payuWh = (string)file_get_contents($root . '/payu_webhook.php');
+$payuRet = (string)file_get_contents($root . '/payment_payu_return.php');
+$finInt = (string)file_get_contents($root . '/includes/financial_integrity.php');
+$apiPhp = (string)file_get_contents($root . '/api.php');
+$assert(str_contains($payuWh, 'applyPartnerPaymentReconcile') && !str_contains($payuWh, 'fulfillGatewayPayment'), 'pg_a1_payu_webhook_canonical_reconcile');
+$assert(!str_contains($payuRet, 'createTransactionFromPayment') && str_contains($payuRet, "'payu:'"), 'pg_a2_payu_return_no_legacy_credit');
+$assert(str_contains($finInt, "provider === 'payu'") && str_contains($finInt, "getPartnerEnvironment('payu'"), 'pg_a3_payu_test_live_mode_match');
+$assert(str_contains($payuWh, 'registerGatewayEvent') && str_contains($payuWh, 'verify_fail'), 'pg_a5_payu_sig_fail_gateway_event');
+$assert(str_contains($apiPhp, "merchantApiRespondError('idempotency_conflict')") && !preg_match("/idempotency_conflict',\s*\\\$e->getMessage/", $apiPhp), 'pg_a4_api_idempotency_no_internal_leak');
+$assert(!str_contains((string)file_get_contents($root . '/includes/fast_qr_api.php'), 'DB insert failed:'), 'pg_a4_fast_qr_no_db_leak');
 $assert(str_contains((string)file_get_contents($root . '/includes/chargebacks.php'), 'applyChargebackLostDebit') && str_contains((string)file_get_contents($root . '/includes/chargebacks.php'), "'expired'"), 'p6_chargeback_state_machine');
 $assert(str_contains((string)file_get_contents($root . '/includes/fraud_signals.php'), 'recordWebhookSignatureFailure'), 'p6_fraud_webhook_sig_fail');
 $assert(str_contains((string)file_get_contents($root . '/transaction_detail.php'), 'refundDisplayStatus'), 'p9_txn_detail_refund_honest_labels');

@@ -20,6 +20,9 @@ $amount = (float)($post['amount'] ?? 0);
 
 $verify = pgWebhookVerifyPartner('payu', $raw, $post);
 if (!$verify['ok']) {
+    if (function_exists('financialTablesReady') && financialTablesReady()) {
+        registerGatewayEvent('payu', 'payu:verify_fail:' . hash('sha256', $raw), 'verify_failed', $raw, false);
+    }
     logPgWebhookVerifyFailure('payu', (string)$verify['reason'], $status, $reference, $linkId, [
         'status' => $status,
         'reference' => $reference !== '' ? $reference : null,
@@ -137,13 +140,46 @@ if (!in_array($status, ['success', 'successful'], true) || $linkId === '' || $re
     exit;
 }
 
-$result = fulfillGatewayPayment('payu', $linkId, $reference, 'payu', $amount);
-logPgWebhook('payu', $result['ok'] ? 'processed' : 'failed', $status, $reference, $linkId, json_encode($result));
-if ($result['ok']) {
-    markWebhookCompleted((int)$webhookEv['id']);
-} else {
-    markWebhookFailed((int)$webhookEv['id'], $result['error'] ?? $result['message'] ?? 'fulfillment failed');
+try {
+    $providerOrderId = (string)($post['txnid'] ?? $reference);
+    $orderSt = getDB()->prepare(
+        "SELECT o.provider_order_id FROM payment_orders o
+         JOIN payment_links pl ON pl.id = o.payment_link_id
+         WHERE pl.link_id = ? AND o.provider = 'payu'
+         ORDER BY o.id DESC LIMIT 1"
+    );
+    $orderSt->execute([$linkId]);
+    $boundOrderId = (string)($orderSt->fetchColumn() ?: $providerOrderId);
+    if ($boundOrderId === '') {
+        throw new RuntimeException('PayU success webhook missing bound order.');
+    }
+    $result = applyPartnerPaymentReconcile([
+        'provider' => 'payu',
+        'provider_order_id' => $boundOrderId,
+        'provider_payment_id' => $reference,
+        'amount' => $amount > 0 ? $amount : null,
+        'currency' => 'INR',
+        'captured' => true,
+        'signature_verified' => true,
+        'provider_verified' => true,
+        'reference' => $reference,
+        'reconcile_source' => 'webhook',
+    ]);
+    setGatewayEventStatus((int)$gatewayEvent['id'], !empty($result['duplicate']) || !empty($result['ignored']) ? 'duplicate' : 'processed');
+    logPgWebhook('payu', !empty($result['ok']) ? 'processed' : 'failed', $status, $reference, $linkId, json_encode($result));
+    if (!empty($result['ok']) || !empty($result['duplicate']) || !empty($result['ignored'])) {
+        markWebhookCompleted((int)$webhookEv['id']);
+    } else {
+        markWebhookFailed((int)$webhookEv['id'], (string)($result['error'] ?? 'reconcile failed'));
+    }
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => true, 'result' => $result]);
+} catch (Throwable $e) {
+    setGatewayEventStatus((int)$gatewayEvent['id'], 'failed', null, $e->getMessage());
+    logPgWebhook('payu', 'failed', $status, $reference, $linkId, json_encode(['error' => $e->getMessage()]));
+    markWebhookFailed((int)$webhookEv['id'], $e->getMessage());
+    logPlatformError('error', 'PayU success webhook reconcile failed.', ['link_id' => $linkId, 'reference' => $reference]);
+    http_response_code(422);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'Payment processing failed']);
 }
-
-header('Content-Type: application/json');
-echo json_encode(['ok' => true, 'result' => $result]);

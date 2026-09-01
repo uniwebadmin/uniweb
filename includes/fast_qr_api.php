@@ -57,7 +57,8 @@ function fastQrCreate(int $merchantId, string $qrType, string $label, float $amo
             $isTest ? 1 : 0,
         ]);
     } catch (Throwable $e) {
-        return ['ok' => false, 'error' => 'DB insert failed: ' . $e->getMessage()];
+        logPlatformError('warning', 'Fast QR create failed.', ['merchant_id' => $merchantId]);
+        return ['ok' => false, 'error' => 'Could not create QR code. Retry or contact support.'];
     }
 
     return [
@@ -129,7 +130,7 @@ function fastQrBatchCreate(int $merchantId, string $qrType, array $items, bool $
                      VALUES (?,?,?,?,?,?,?)"
                 )->execute([$c['qr_code'], $merchantId, null, $qrType, $c['label'], $c['amount'], $isTest ? 1 : 0]);
             } catch (Throwable $e2) {
-                $errors[] = ['qr_code' => $c['qr_code'], 'error' => $e2->getMessage()];
+                $errors[] = ['qr_code' => $c['qr_code'], 'error' => 'insert_failed'];
             }
         }
     }

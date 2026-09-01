@@ -121,6 +121,23 @@ if (str_contains($errorShell, 'getMessage') || str_contains($errorShell, 'getTra
     $fail('error_shell_no_trace_helpers');
 }
 
+// PayU Class-A — canonical webhook capture + no legacy return credit
+$payuWh = (string)file_get_contents($root . '/payu_webhook.php');
+$payuRet = (string)file_get_contents($root . '/payment_payu_return.php');
+$finPhpPayu = (string)file_get_contents($root . '/includes/financial_integrity.php');
+if (str_contains($payuWh, 'fulfillGatewayPayment')) {
+    $fail('payu_webhook_no_legacy_fulfill');
+}
+if (!str_contains($payuWh, 'applyPartnerPaymentReconcile')) {
+    $fail('payu_webhook_canonical_reconcile');
+}
+if (str_contains($payuRet, 'createTransactionFromPayment')) {
+    $fail('payu_return_no_legacy_credit');
+}
+if (!str_contains($finPhpPayu, "getPartnerEnvironment('payu'")) {
+    $fail('payu_mode_match_enforced');
+}
+
 echo 'MONEY_RAILS_PROBE failures=' . count($failures) . PHP_EOL;
 foreach ($failures as $f) {
     echo '  FAIL ' . $f . PHP_EOL;

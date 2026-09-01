@@ -50,7 +50,7 @@ if ($success && function_exists('applyPartnerPaymentReconcile')) {
     $boundOrderId = (string)($orderSt->fetchColumn() ?: $providerOrderId);
     if ($boundOrderId !== '' && $mihpayid !== '') {
         try {
-            $event = registerGatewayEvent('payu', 'return:' . $mihpayid, 'checkout.return', json_encode($post), true);
+            $event = registerGatewayEvent('payu', 'payu:' . $mihpayid, 'checkout.return', json_encode($post), true);
             applyPartnerPaymentReconcile([
                 'provider' => 'payu',
                 'provider_order_id' => $boundOrderId,
@@ -72,13 +72,7 @@ if ($success && function_exists('applyPartnerPaymentReconcile')) {
     $link = $stmt->fetch();
     $pageTitle = 'Payment Successful';
 } elseif ($success) {
-    $mihpayid = $post['mihpayid'] ?? $post['txnid'] ?? '';
-    $dup = $db->prepare('SELECT id FROM transactions WHERE utr = ? LIMIT 1');
-    $dup->execute([$mihpayid]);
-    if (!$dup->fetch()) {
-        createTransactionFromPayment($link, 'payu', 'success', $mihpayid, merchantAccountMode($link) === 'test');
-        getDB()->prepare("UPDATE payment_links SET status='paid', paid_at=NOW() WHERE id=?")->execute([(int)$link['id']]);
-    }
+    logPlatformError('error', 'PayU checkout return: reconcile module unavailable — no legacy credit.', ['link_id' => $linkId]);
     $pageTitle = 'Payment Successful';
 } else {
     $pageTitle = 'Payment Failed';
