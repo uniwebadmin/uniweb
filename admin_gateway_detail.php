@@ -318,6 +318,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 'kyc_forward_api' => isset($_POST['cap_kyc_forward_api']),
             ],
             'doc_pack' => $_POST['doc_pack'] ?? [],
+            'partner_compliance_docs' => $_POST['partner_compliance_docs'] ?? [],
             'policy_urls' => [
                 'terms' => (string)($_POST['policy_terms'] ?? ''),
                 'privacy' => (string)($_POST['policy_privacy'] ?? ''),
@@ -473,13 +474,30 @@ require_once __DIR__ . '/header.php';
                 </div>
             </div>
             <div>
-                <p class="text-xs text-gray-500 mb-2">Doc pack</p>
-                <div class="flex flex-wrap gap-2 max-h-28 overflow-y-auto">
-                    <?php foreach (partnerRegistryV2DocPackCatalog() as $code => $label): ?>
-                    <label class="text-xs text-gray-400 flex items-center gap-1"><input type="checkbox" name="doc_pack[]" value="<?= e($code) ?>" <?= in_array($code, $registryProfile['doc_pack'], true) ? 'checked' : '' ?> class="rounded border-gray-600"> <?= e($code) ?></label>
+                <p class="text-xs text-gray-500 mb-1 font-medium text-gray-400">Merchant KYC doc pack</p>
+                <p class="text-[11px] text-gray-600 mb-2">Onboarding documents for progressive merchant coverage (Phase 3).</p>
+                <div class="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                    <?php foreach (partnerRegistryV2MerchantDocPackCatalog() as $code => $label): ?>
+                    <label class="text-xs text-gray-400 flex items-center gap-1" title="<?= e($label) ?>">
+                        <input type="checkbox" name="doc_pack[]" value="<?= e($code) ?>" <?= in_array($code, $registryProfile['doc_pack'], true) ? 'checked' : '' ?> class="rounded border-gray-600">
+                        <span class="font-mono text-gray-300"><?= e($code) ?></span>
+                    </label>
                     <?php endforeach; ?>
                 </div>
             </div>
+            <?php if (function_exists('partnerRegistryV2ComplianceDocCatalog')): ?>
+            <div>
+                <p class="text-xs text-gray-500 mb-1 font-medium text-gray-400">Partner compliance docs (optional)</p>
+                <div class="flex flex-wrap gap-2">
+                    <?php foreach (partnerRegistryV2ComplianceDocCatalog() as $code => $label): ?>
+                    <label class="text-xs text-gray-400 flex items-center gap-1" title="<?= e($label) ?>">
+                        <input type="checkbox" name="partner_compliance_docs[]" value="<?= e($code) ?>" <?= in_array($code, $registryProfile['partner_compliance_docs'] ?? [], true) ? 'checked' : '' ?> class="rounded border-gray-600">
+                        <span class="font-mono text-gray-300"><?= e($code) ?></span>
+                    </label>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
             <div class="grid sm:grid-cols-2 gap-3">
                 <div><label class="text-xs text-gray-500">Policy — Terms URL</label><input name="policy_terms" value="<?= e($registryProfile['policy_urls']['terms']) ?>" class="input-field mt-1 text-xs"></div>
                 <div><label class="text-xs text-gray-500">Policy — Privacy URL</label><input name="policy_privacy" value="<?= e($registryProfile['policy_urls']['privacy']) ?>" class="input-field mt-1 text-xs"></div>

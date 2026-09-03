@@ -24,19 +24,136 @@ function partnerRegistryV2CredentialStatuses(): array
     return ['missing', 'invalid', 'valid'];
 }
 
-/** @return array<string,string> */
-function partnerRegistryV2DocPackCatalog(): array
+/** Legacy partner-compliance codes (pre–Phase 1b) — remapped to partner_compliance_docs_json. */
+function partnerRegistryV2LegacyComplianceCodes(): array
 {
     return [
-        'MERCHANT_AGREEMENT' => 'Merchant agreement template',
+        'MERCHANT_AGREEMENT', 'PG_MSA', 'KYC_POLICY', 'REFUND_POLICY',
+        'WEBHOOK_SPEC', 'API_DOCS', 'PCI_AOC', 'SOC2_REPORT',
+    ];
+}
+
+/**
+ * Merchant KYC / onboarding doc codes for progressive coverage (Phase 3 engine).
+ * Aligns with getKycDocLabels() + canonicalizeKycDocType().
+ *
+ * @return array<string,string>
+ */
+function partnerRegistryV2MerchantDocPackCatalog(): array
+{
+    if (!function_exists('getKycDocLabels')) {
+        require_once __DIR__ . '/kyc_entity.php';
+    }
+    $labels = getKycDocLabels();
+    $codes = [
+        'aadhaar', 'pan', 'gst', 'bank_proof', 'udyam', 'letterhead',
+        'photo', 'video_kyc', 'business_proof',
+        'partnership_deed', 'llp_certificate', 'incorporation_certificate',
+        'trust_deed', 'iec',
+    ];
+    $out = [];
+    foreach ($codes as $code) {
+        $out[$code] = $labels[$code] ?? ucwords(str_replace('_', ' ', $code));
+    }
+    return $out;
+}
+
+/** @return array<string,string> */
+function partnerRegistryV2ComplianceDocCatalog(): array
+{
+    return [
         'PG_MSA' => 'PG master service agreement',
-        'KYC_POLICY' => 'KYC / onboarding policy',
-        'REFUND_POLICY' => 'Refund & dispute policy',
-        'WEBHOOK_SPEC' => 'Webhook specification',
-        'API_DOCS' => 'API integration docs',
         'PCI_AOC' => 'PCI AOC (if applicable)',
         'SOC2_REPORT' => 'SOC2 / security report',
+        'API_DOCS' => 'API integration docs',
+        'WEBHOOK_SPEC' => 'Webhook specification',
     ];
+}
+
+/** @deprecated Use partnerRegistryV2MerchantDocPackCatalog() */
+function partnerRegistryV2DocPackCatalog(): array
+{
+    return partnerRegistryV2MerchantDocPackCatalog();
+}
+
+/** @param list<mixed> $raw @return list<string> */
+function partnerRegistryV2FilterMerchantDocCodes(array $raw): array
+{
+    if (!function_exists('canonicalizeKycDocType')) {
+        require_once __DIR__ . '/kyc_entity.php';
+    }
+    $allowed = array_keys(partnerRegistryV2MerchantDocPackCatalog());
+    $out = [];
+    foreach ($raw as $code) {
+        $code = canonicalizeKycDocType(strtolower(trim((string)$code)));
+        if ($code !== '' && in_array($code, $allowed, true)) {
+            $out[] = $code;
+        }
+    }
+    return array_values(array_unique($out));
+}
+
+/** @param list<mixed> $raw @return list<string> */
+function partnerRegistryV2FilterComplianceDocCodes(array $raw): array
+{
+    $allowed = array_keys(partnerRegistryV2ComplianceDocCatalog());
+    $out = [];
+    foreach ($raw as $code) {
+        $code = strtoupper(trim((string)$code));
+        if ($code !== '' && in_array($code, $allowed, true)) {
+            $out[] = $code;
+        }
+    }
+    return array_values(array_unique($out));
+}
+
+function migratePartnerRegistryDocPackSemantics(): void
+{
+    static $done = false;
+    if ($done || !partnerRegistryV2HasColumns()) {
+        return;
+    }
+    $done = true;
+    $legacy = array_flip(partnerRegistryV2LegacyComplianceCodes());
+    try {
+        $db = getDB();
+        $rows = $db->query("SELECT id, doc_pack_json, partner_compliance_docs_json FROM gateway_registry WHERE doc_pack_json IS NOT NULL AND doc_pack_json != ''")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $row) {
+            $decoded = json_decode((string)$row['doc_pack_json'], true);
+            if (!is_array($decoded)) {
+                continue;
+            }
+            $merchant = [];
+            $compliance = [];
+            $existingCompliance = [];
+            if (!empty($row['partner_compliance_docs_json'])) {
+                $ec = json_decode((string)$row['partner_compliance_docs_json'], true);
+                if (is_array($ec)) {
+                    $existingCompliance = partnerRegistryV2FilterComplianceDocCodes($ec);
+                }
+            }
+            foreach ($decoded as $code) {
+                $code = strtoupper(trim((string)$code));
+                if ($code === '') {
+                    continue;
+                }
+                if (isset($legacy[$code])) {
+                    $compliance[] = $code;
+                } else {
+                    $merchant[] = strtolower($code);
+                }
+            }
+            $merchant = partnerRegistryV2FilterMerchantDocCodes($merchant);
+            $compliance = array_values(array_unique(array_merge($existingCompliance, partnerRegistryV2FilterComplianceDocCodes($compliance))));
+            $db->prepare('UPDATE gateway_registry SET doc_pack_json=?, partner_compliance_docs_json=? WHERE id=?')->execute([
+                $merchant === [] ? null : json_encode($merchant, JSON_UNESCAPED_UNICODE),
+                $compliance === [] ? null : json_encode($compliance, JSON_UNESCAPED_UNICODE),
+                (int)$row['id'],
+            ]);
+        }
+    } catch (Throwable $e) {
+        error_log('migratePartnerRegistryDocPackSemantics: ' . $e->getMessage());
+    }
 }
 
 function ensurePartnerRegistryV2Columns(): void
@@ -63,6 +180,7 @@ function ensurePartnerRegistryV2Columns(): void
         'ALTER TABLE gateway_registry ADD COLUMN cap_pay_later TINYINT(1) NOT NULL DEFAULT 0',
         'ALTER TABLE gateway_registry ADD COLUMN cap_kyc_forward_api TINYINT(1) NOT NULL DEFAULT 0',
         'ALTER TABLE gateway_registry ADD COLUMN doc_pack_json TEXT DEFAULT NULL',
+        'ALTER TABLE gateway_registry ADD COLUMN partner_compliance_docs_json TEXT DEFAULT NULL',
         'ALTER TABLE gateway_registry ADD COLUMN policy_urls_json TEXT DEFAULT NULL',
         'ALTER TABLE gateway_registry ADD COLUMN routing_priority INT NOT NULL DEFAULT 50',
         'ALTER TABLE gateway_registry ADD COLUMN circuit_breaker_on TINYINT(1) NOT NULL DEFAULT 1',
@@ -77,6 +195,9 @@ function ensurePartnerRegistryV2Columns(): void
         } catch (Throwable $e) {
             /* column may exist */
         }
+    }
+    if (partnerRegistryV2HasColumns()) {
+        migratePartnerRegistryDocPackSemantics();
     }
 }
 
@@ -120,7 +241,14 @@ function partnerRegistryV2ProfileFromRow(array $row): array
     if (!empty($row['doc_pack_json'])) {
         $decoded = json_decode((string)$row['doc_pack_json'], true);
         if (is_array($decoded)) {
-            $docPack = array_values(array_filter(array_map('strval', $decoded)));
+            $docPack = partnerRegistryV2FilterMerchantDocCodes($decoded);
+        }
+    }
+    $complianceDocs = [];
+    if (!empty($row['partner_compliance_docs_json'])) {
+        $decoded = json_decode((string)$row['partner_compliance_docs_json'], true);
+        if (is_array($decoded)) {
+            $complianceDocs = partnerRegistryV2FilterComplianceDocCodes($decoded);
         }
     }
     $policyUrls = [];
@@ -148,6 +276,7 @@ function partnerRegistryV2ProfileFromRow(array $row): array
             'kyc_forward_api' => !empty($row['cap_kyc_forward_api']),
         ],
         'doc_pack' => $docPack,
+        'partner_compliance_docs' => $complianceDocs,
         'policy_urls' => [
             'terms' => (string)($policyUrls['terms'] ?? ''),
             'privacy' => (string)($policyUrls['privacy'] ?? ''),
@@ -295,17 +424,10 @@ function savePartnerRegistryProfile(int $gatewayId, array $input, ?int $adminId 
     $capKyc = !empty($caps['kyc_forward_api']) ? 1 : 0;
 
     $docPackRaw = $input['doc_pack'] ?? [];
-    $docPack = [];
-    if (is_array($docPackRaw)) {
-        $allowed = array_keys(partnerRegistryV2DocPackCatalog());
-        foreach ($docPackRaw as $code) {
-            $code = strtoupper(trim((string)$code));
-            if ($code !== '' && in_array($code, $allowed, true)) {
-                $docPack[] = $code;
-            }
-        }
-        $docPack = array_values(array_unique($docPack));
-    }
+    $docPack = is_array($docPackRaw) ? partnerRegistryV2FilterMerchantDocCodes($docPackRaw) : [];
+
+    $complianceRaw = $input['partner_compliance_docs'] ?? [];
+    $complianceDocs = is_array($complianceRaw) ? partnerRegistryV2FilterComplianceDocCodes($complianceRaw) : [];
 
     $policyIn = is_array($input['policy_urls'] ?? null) ? $input['policy_urls'] : [];
     $policyUrls = [
@@ -317,7 +439,7 @@ function savePartnerRegistryProfile(int $gatewayId, array $input, ?int $adminId 
 
     $sql = 'UPDATE gateway_registry SET gateway_key=?, gateway_name=?, partner_type=?, contract_mode=?, allows_existing_merchant_link=?,
             cap_collect=?, cap_upi=?, cap_card=?, cap_netbanking=?, cap_refund=?, cap_pay_later=?, cap_kyc_forward_api=?,
-            doc_pack_json=?, policy_urls_json=?, routing_priority=?, circuit_breaker_on=?, connector_notes=?, display_description=?,
+            doc_pack_json=?, partner_compliance_docs_json=?, policy_urls_json=?, routing_priority=?, circuit_breaker_on=?, connector_notes=?, display_description=?,
             webhook_url=?, adapter_class=?, supports_collection=?, supports_refund=?, updated_at=NOW() WHERE id=?';
     getDB()->prepare($sql)->execute([
         $partnerCode,
@@ -333,6 +455,7 @@ function savePartnerRegistryProfile(int $gatewayId, array $input, ?int $adminId 
         $capPayLater,
         $capKyc,
         $docPack === [] ? null : json_encode($docPack, JSON_UNESCAPED_UNICODE),
+        $complianceDocs === [] ? null : json_encode($complianceDocs, JSON_UNESCAPED_UNICODE),
         json_encode($policyUrls, JSON_UNESCAPED_UNICODE),
         $routingPriority,
         $circuitOn,

@@ -55,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 'kyc_forward_api' => isset($_POST['cap_kyc_forward_api']),
             ],
             'doc_pack' => $_POST['doc_pack'] ?? [],
+            'partner_compliance_docs' => $_POST['partner_compliance_docs'] ?? [],
             'supports_payout' => isset($_POST['supports_payout']),
             'supports_recurring' => isset($_POST['supports_recurring']),
         ];
@@ -307,15 +308,34 @@ require_once __DIR__ . '/header.php';
                     <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="supports_recurring" class="rounded border-gray-600"> Recurring</label>
                 </div>
             </div>
-            <?php if (function_exists('partnerRegistryV2DocPackCatalog')): ?>
+            <?php if (function_exists('partnerRegistryV2MerchantDocPackCatalog')): ?>
             <div>
-                <p class="text-xs text-gray-500 mb-2">Doc pack codes (for later coverage phase)</p>
-                <div class="flex flex-wrap gap-3 max-h-32 overflow-y-auto">
-                    <?php foreach (partnerRegistryV2DocPackCatalog() as $code => $label): ?>
-                    <label class="flex items-center gap-1.5 text-xs text-gray-400"><input type="checkbox" name="doc_pack[]" value="<?= e($code) ?>" class="rounded border-gray-600"> <?= e($code) ?></label>
+                <p class="text-xs text-gray-500 mb-1 font-medium text-gray-400">Merchant KYC doc pack</p>
+                <p class="text-[11px] text-gray-600 mb-2">Onboarding documents required for progressive coverage (Phase 3). Uses same codes as merchant KYC.</p>
+                <div class="flex flex-wrap gap-3 max-h-36 overflow-y-auto">
+                    <?php foreach (partnerRegistryV2MerchantDocPackCatalog() as $code => $label): ?>
+                    <label class="flex items-center gap-1.5 text-xs text-gray-400" title="<?= e($label) ?>">
+                        <input type="checkbox" name="doc_pack[]" value="<?= e($code) ?>" class="rounded border-gray-600">
+                        <span class="font-mono text-gray-300"><?= e($code) ?></span>
+                        <span class="text-gray-600 hidden sm:inline">— <?= e($label) ?></span>
+                    </label>
                     <?php endforeach; ?>
                 </div>
             </div>
+            <?php if (function_exists('partnerRegistryV2ComplianceDocCatalog')): ?>
+            <div>
+                <p class="text-xs text-gray-500 mb-1 font-medium text-gray-400">Partner compliance docs (optional)</p>
+                <p class="text-[11px] text-gray-600 mb-2">PG agreements / PCI / SOC2 — separate from merchant KYC coverage.</p>
+                <div class="flex flex-wrap gap-3">
+                    <?php foreach (partnerRegistryV2ComplianceDocCatalog() as $code => $label): ?>
+                    <label class="flex items-center gap-1.5 text-xs text-gray-400" title="<?= e($label) ?>">
+                        <input type="checkbox" name="partner_compliance_docs[]" value="<?= e($code) ?>" class="rounded border-gray-600">
+                        <span class="font-mono text-gray-300"><?= e($code) ?></span>
+                    </label>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
             <?php endif; ?>
             <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="allows_existing_merchant_link" class="rounded border-gray-600"> Allows existing merchant link (later phase)</label>
             <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="circuit_breaker_on" checked class="rounded border-gray-600"> Circuit breaker ON for outbound calls</label>

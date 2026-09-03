@@ -51,6 +51,7 @@ if (!function_exists('getKycDocLabels')) {
             'huf_deed' => 'HUF Deed / Declaration',
             'iec' => 'IEC (Import Export Code)',
             'udyam' => 'Udyam Registration Certificate',
+            'letterhead' => 'Business Letterhead',
             'video_kyc' => 'Video KYC Recording',
             'merchant_photo' => 'Merchant Photo / Selfie',
             'shop_signboard' => 'Shop Signboard Photo',

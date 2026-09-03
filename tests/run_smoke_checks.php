@@ -2267,6 +2267,10 @@ $assert(str_contains($regV2, 'Global Control Room') && str_contains($regV2, 'ver
 $assert(str_contains($regV2, 'partnerCredentialVaultStatusBadge') && str_contains($regV2, 'cap_pay_later'), 'prv2_list_cred_badges_caps');
 $assert(str_contains($detV2, "tab=profile") && str_contains($detV2, 'save_registry_profile') && str_contains($detV2, 'partnerCredentialVaultStatusBadge'), 'prv2_detail_profile_tab');
 $assert(str_contains($prV2, 'Partner code already exists') && str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'Partner key already exists'), 'prv2_unique_partner_code');
+$assert(str_contains($prV2, 'partnerRegistryV2MerchantDocPackCatalog') && str_contains($prV2, "'aadhaar'") && str_contains($prV2, "'pan'") && str_contains($prV2, "'gst'"), 'prv2_merchant_doc_pack_codes');
+$assert(str_contains($prV2, 'partnerRegistryV2ComplianceDocCatalog') && str_contains($prV2, 'partner_compliance_docs_json'), 'prv2_compliance_docs_separate');
+$assert(str_contains($regV2, 'Merchant KYC doc pack') && str_contains($regV2, 'partnerRegistryV2MerchantDocPackCatalog') && str_contains($regV2, 'Partner compliance docs'), 'prv2_admin_merchant_doc_ui');
+$assert(is_file($root . '/migrations/084_partner_registry_merchant_doc_pack.sql'), 'prv2_migration_084');
 
 $payload = [
     'ok' => $failed === 0,
