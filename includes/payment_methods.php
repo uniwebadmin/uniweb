@@ -572,7 +572,11 @@ function registerGateway(string $key, string $name, array $capabilities = []): a
 
         return ['ok' => true, 'gateway_id' => $gatewayId, 'gateway_name' => $name];
     } catch (Throwable $e) {
-        return ['ok' => false, 'error' => $e->getMessage()];
+        if (str_contains($e->getMessage(), 'Duplicate') || str_contains($e->getMessage(), 'uniq')) {
+            return ['ok' => false, 'error' => 'Partner key already exists. Use a different code or configure the existing one.'];
+        }
+        error_log('registerGateway failed: ' . $e->getMessage());
+        return ['ok' => false, 'error' => 'Could not register partner. Check logs or try a different code.'];
     }
 }
 

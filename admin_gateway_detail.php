@@ -18,6 +18,9 @@ if (!function_exists('rotatePartnerWebhookSigningSecret') && is_file(__DIR__ . '
 if (!function_exists('payoutPartnerKeysConfigured')) {
     require_once __DIR__ . '/includes/payout.php';
 }
+if (!function_exists('partnerRegistryV2ProfileFromRow') && is_file(__DIR__ . '/includes/partner_registry_v2.php')) {
+    require_once __DIR__ . '/includes/partner_registry_v2.php';
+}
 requireStaffAccess(['super', 'ceo', 'ops']);
 
 $gatewayId = (int)($_GET['id'] ?? 0);
@@ -52,6 +55,9 @@ $partnerRegistry = getPartnerRegistry();
 $partner = $partnerRegistry[$partnerKey] ?? null;
 $partnerIsBuiltin = function_exists('isPartnerRegistryKey') && isPartnerRegistryKey($partnerKey);
 ensurePartnerControlTables();
+if (function_exists('ensurePartnerRegistryV2Columns')) {
+    ensurePartnerRegistryV2Columns();
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     $action = (string)($_POST['action'] ?? '');
@@ -120,6 +126,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             }
         }
         flash($last4 === 'no_keys' ? 'warning' : 'success', $msg);
+        if ($last4 !== 'no_keys' && function_exists('syncPartnerCredentialVaultStatusFromKeys')) {
+            syncPartnerCredentialVaultStatusFromKeys($partnerKey);
+        }
         if (function_exists('logStaffActivity')) { logStaffActivity('partner_keys_saved', 'Saved ' . $env . ' keys for ' . $partnerKey . ' (last4: ' . ($last4 ?: 'n/a') . ')', null, 'partner', $partnerKey); }
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=keys&env=' . $env);
     }
@@ -285,11 +294,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         }
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=logs');
     }
+
+    if ($action === 'save_registry_profile' && function_exists('savePartnerRegistryProfile')) {
+        $result = savePartnerRegistryProfile($gatewayId, [
+            'partner_code' => (string)($_POST['partner_code'] ?? $partnerKey),
+            'display_name' => (string)($_POST['display_name'] ?? ''),
+            'partner_type' => (string)($_POST['partner_type'] ?? 'pg'),
+            'contract_mode' => (string)($_POST['contract_mode'] ?? 'platform'),
+            'allows_existing_merchant_link' => isset($_POST['allows_existing_merchant_link']),
+            'connector_notes' => (string)($_POST['connector_notes'] ?? ''),
+            'display_description' => (string)($_POST['display_description'] ?? ''),
+            'routing_priority' => (int)($_POST['routing_priority'] ?? 50),
+            'circuit_breaker_on' => isset($_POST['circuit_breaker_on']),
+            'webhook_url' => (string)($_POST['webhook_url'] ?? ''),
+            'adapter_class' => (string)($_POST['adapter_class'] ?? ''),
+            'capabilities' => [
+                'collect' => isset($_POST['cap_collect']),
+                'upi' => isset($_POST['cap_upi']),
+                'card' => isset($_POST['cap_card']),
+                'netbanking' => isset($_POST['cap_netbanking']),
+                'refund' => isset($_POST['cap_refund']),
+                'pay_later' => isset($_POST['cap_pay_later']),
+                'kyc_forward_api' => isset($_POST['cap_kyc_forward_api']),
+            ],
+            'doc_pack' => $_POST['doc_pack'] ?? [],
+            'policy_urls' => [
+                'terms' => (string)($_POST['policy_terms'] ?? ''),
+                'privacy' => (string)($_POST['policy_privacy'] ?? ''),
+                'refund' => (string)($_POST['policy_refund'] ?? ''),
+                'support' => (string)($_POST['policy_support'] ?? ''),
+            ],
+        ], (int)($_SESSION['admin_id'] ?? 0));
+        flash(!empty($result['ok']) ? 'success' : 'error', (string)($result['message'] ?? 'Could not save registry profile.'));
+        if (!empty($result['ok']) && !empty($result['partner_code']) && $result['partner_code'] !== $partnerKey) {
+            redirect(adminPartnerDetailUrl((string)$result['partner_code']) . '&tab=profile');
+        }
+        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=profile');
+    }
 }
 
 $configKeys = $partner['config_keys'] ?? [];
+$testEnv = in_array(trim((string)($_GET['test_env'] ?? 'test')), ['test', 'live'], true) ? trim((string)$_GET['test_env']) : 'test';
 $testResult = $partner ? partnerTestConnection($partnerKey) : ['ok' => false, 'message' => 'No partner config.'];
+if ($activeTab === 'test' && isset($_GET['action']) && $_GET['action'] === 'test' && verifyCsrf($_GET['token'] ?? '')) {
+    if (function_exists('recordPartnerCredentialTestResult')) {
+        recordPartnerCredentialTestResult($partnerKey, !empty($testResult['ok']), $testEnv);
+    }
+    if (function_exists('logStaffActivity')) {
+        logStaffActivity('partner_test_connection', ($testResult['ok'] ? 'PASS' : 'FAIL') . ' — ' . $partnerKey . ' (' . $testEnv . ')', null, 'partner', $partnerKey);
+    }
+} elseif ($activeTab === 'test' && function_exists('partnerCredentialVaultStatus')) {
+    /* display-only on tab load */
+}
 $configMeta = json_decode($gateway['config_json'] ?? '{}', true) ?: [];
+$registryProfile = function_exists('partnerRegistryV2ProfileFromRow') ? partnerRegistryV2ProfileFromRow($gateway) : null;
 $isActive = (int)$gateway['is_active'] === 1;
 $credStatus = getPartnerCredentialStatus($partnerKey);
 $partnerMethods = getPartnerMethods($partnerKey);
@@ -301,7 +359,7 @@ $methodLabels = [
     'netbanking' => 'Net Banking', 'emi' => 'EMI',
     'emandate_upi' => 'E-Mandate UPI', 'emandate_card' => 'E-Mandate Card', 'emandate_nb' => 'E-Mandate NB',
 ];
-$tabs = ['keys' => 'Keys', 'methods' => 'Methods', 'commercial' => 'Commercial', 'webhooks' => 'Webhooks', 'golive' => 'Go-live', 'test' => 'Test', 'logs' => 'Logs'];
+$tabs = ['profile' => 'Registry', 'keys' => 'Keys', 'methods' => 'Methods', 'commercial' => 'Commercial', 'webhooks' => 'Webhooks', 'golive' => 'Go-live', 'test' => 'Test', 'logs' => 'Logs'];
 $webhookUrl = trim((string)($gateway['webhook_url'] ?: ($partner['webhook'] ?? '')));
 $goLiveChecklist = function_exists('partnerGoLiveChecklist')
     ? partnerGoLiveChecklist($partnerKey, $gateway, $webhookUrl)
@@ -381,7 +439,60 @@ require_once __DIR__ . '/header.php';
         <?php endforeach; ?>
     </div>
 
-    <?php if ($activeTab === 'keys'): ?>
+    <?php if ($activeTab === 'profile' && is_array($registryProfile)): ?>
+    <div class="glass rounded-xl p-6 border border-gray-800">
+        <h3 class="font-semibold mb-1">Registry profile</h3>
+        <p class="text-xs text-gray-500 mb-4">Identity, connector, commercial mode, capabilities, doc pack, and policy URLs. Credentials show status only — never plaintext secrets.</p>
+        <div class="flex flex-wrap gap-2 mb-4">
+            <?php if (function_exists('partnerCredentialVaultStatusBadge')): ?>
+            <span>Test creds: <?= partnerCredentialVaultStatusBadge(partnerCredentialVaultStatus($partnerKey, 'test')) ?></span>
+            <span>Live creds: <?= partnerCredentialVaultStatusBadge(partnerCredentialVaultStatus($partnerKey, 'live')) ?></span>
+            <?php endif; ?>
+            <?= function_exists('partnerIntegrationStateBadgeHtml') ? partnerIntegrationStateBadgeHtml($partnerKey) : '' ?>
+        </div>
+        <form method="POST" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="action" value="save_registry_profile">
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div><label class="text-xs text-gray-500">Partner code</label><input name="partner_code" value="<?= e($registryProfile['partner_code']) ?>" class="input-field mt-1 font-mono text-sm" <?= $partnerIsBuiltin ? 'readonly' : '' ?>></div>
+                <div><label class="text-xs text-gray-500">Display name</label><input name="display_name" value="<?= e($registryProfile['display_name']) ?>" required class="input-field mt-1"></div>
+                <div><label class="text-xs text-gray-500">Partner type</label><select name="partner_type" class="input-field mt-1 text-sm"><?php foreach (partnerRegistryV2PartnerTypes() as $pt): ?><option value="<?= e($pt) ?>" <?= $registryProfile['partner_type'] === $pt ? 'selected' : '' ?>><?= e($pt === 'pg' ? 'Payment Gateway' : 'Other online collect') ?></option><?php endforeach; ?></select></div>
+                <div><label class="text-xs text-gray-500">Commercial mode</label><select name="contract_mode" class="input-field mt-1 text-sm"><?php foreach (partnerRegistryV2ContractModes() as $cm): ?><option value="<?= e($cm) ?>" <?= $registryProfile['contract_mode'] === $cm ? 'selected' : '' ?>><?= e(ucwords(str_replace('_', ' ', $cm))) ?></option><?php endforeach; ?></select></div>
+                <div><label class="text-xs text-gray-500">Routing priority</label><input type="number" name="routing_priority" value="<?= (int)$registryProfile['routing_priority'] ?>" min="1" max="999" class="input-field mt-1"></div>
+                <div><label class="text-xs text-gray-500">Connector notes</label><input name="connector_notes" value="<?= e($registryProfile['connector_notes']) ?>" class="input-field mt-1 text-sm"></div>
+                <div class="sm:col-span-2"><label class="text-xs text-gray-500">Description</label><input name="display_description" value="<?= e($registryProfile['display_description']) ?>" class="input-field mt-1 text-sm"></div>
+                <div><label class="text-xs text-gray-500">Webhook URL</label><input name="webhook_url" value="<?= e($registryProfile['webhook_url']) ?>" class="input-field mt-1 font-mono text-xs"></div>
+                <div><label class="text-xs text-gray-500">Adapter class</label><input name="adapter_class" value="<?= e($registryProfile['adapter_class']) ?>" class="input-field mt-1 font-mono text-xs"></div>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 mb-2">Capabilities</p>
+                <div class="flex flex-wrap gap-3">
+                    <?php foreach (['collect' => 'Collect', 'upi' => 'UPI', 'card' => 'Card', 'netbanking' => 'Net banking', 'refund' => 'Refund', 'pay_later' => 'Pay later (PG)', 'kyc_forward_api' => 'KYC forward API'] as $capKey => $capLabel): ?>
+                    <label class="flex items-center gap-2 text-xs text-gray-300"><input type="checkbox" name="cap_<?= e($capKey) ?>" <?= !empty($registryProfile['capabilities'][$capKey]) ? 'checked' : '' ?> class="rounded border-gray-600"> <?= e($capLabel) ?></label>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 mb-2">Doc pack</p>
+                <div class="flex flex-wrap gap-2 max-h-28 overflow-y-auto">
+                    <?php foreach (partnerRegistryV2DocPackCatalog() as $code => $label): ?>
+                    <label class="text-xs text-gray-400 flex items-center gap-1"><input type="checkbox" name="doc_pack[]" value="<?= e($code) ?>" <?= in_array($code, $registryProfile['doc_pack'], true) ? 'checked' : '' ?> class="rounded border-gray-600"> <?= e($code) ?></label>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <div class="grid sm:grid-cols-2 gap-3">
+                <div><label class="text-xs text-gray-500">Policy — Terms URL</label><input name="policy_terms" value="<?= e($registryProfile['policy_urls']['terms']) ?>" class="input-field mt-1 text-xs"></div>
+                <div><label class="text-xs text-gray-500">Policy — Privacy URL</label><input name="policy_privacy" value="<?= e($registryProfile['policy_urls']['privacy']) ?>" class="input-field mt-1 text-xs"></div>
+                <div><label class="text-xs text-gray-500">Policy — Refund URL</label><input name="policy_refund" value="<?= e($registryProfile['policy_urls']['refund']) ?>" class="input-field mt-1 text-xs"></div>
+                <div><label class="text-xs text-gray-500">Policy — Support URL</label><input name="policy_support" value="<?= e($registryProfile['policy_urls']['support']) ?>" class="input-field mt-1 text-xs"></div>
+            </div>
+            <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="allows_existing_merchant_link" <?= !empty($registryProfile['allows_existing_merchant_link']) ? 'checked' : '' ?> class="rounded border-gray-600"> Allows existing merchant link (later phase)</label>
+            <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="circuit_breaker_on" <?= !empty($registryProfile['circuit_breaker_on']) ? 'checked' : '' ?> class="rounded border-gray-600"> Circuit breaker ON</label>
+            <button type="submit" class="btn-primary px-6 py-2.5">Save registry profile</button>
+        </form>
+    </div>
+
+    <?php elseif ($activeTab === 'keys'): ?>
     <?php
         // A3: Keys tab defaults to Test / Sandbox (paste Test first, then Live)
         $keyEnv = preg_replace('/[^a-z]/', '', (string)($_GET['env'] ?? 'test'));
@@ -902,7 +1013,8 @@ require_once __DIR__ . '/header.php';
         <div class="bg-dark-900/50 rounded-lg p-4 mb-4">
             <p class="text-sm <?= $testResult['ok'] ? 'text-emerald-400' : 'text-amber-400' ?>"><?= e($testResult['message']) ?></p>
         </div>
-        <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=test&action=test&token=<?= csrfToken() ?>" class="btn-primary px-6 py-2.5">Run Test Now</a>
+        <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=test&test_env=test&action=test&token=<?= csrfToken() ?>" class="btn-primary px-6 py-2.5">Run Test Now (Test keys)</a>
+        <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=test&test_env=live&action=test&token=<?= csrfToken() ?>" class="text-sm px-4 py-2.5 rounded-lg glass text-emerald-300 ml-2">Run Test (Live keys)</a>
     </div>
 
     <?php elseif ($activeTab === 'logs'): ?>

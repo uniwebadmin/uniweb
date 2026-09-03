@@ -15,6 +15,9 @@ if (!function_exists('ensurePartnerControlTables')) {
 if (!function_exists('adminPartnerDetailUrl')) {
     require_once __DIR__ . '/includes/ui_links.php';
 }
+if (!function_exists('partnerRegistryV2ControlRoomNote') && is_file(__DIR__ . '/includes/partner_registry_v2.php')) {
+    require_once __DIR__ . '/includes/partner_registry_v2.php';
+}
 if (!function_exists('uiCapabilityLegend') && is_file(__DIR__ . '/includes/ui/ui_components.php')) {
     require_once __DIR__ . '/includes/ui/ui_components.php';
     require_once __DIR__ . '/includes/enums/capability_state.php';
@@ -23,36 +26,64 @@ requireStaffAccess(['super', 'ceo', 'ops']);
 
 syncPartnerGateways();
 ensurePartnerControlTables();
+if (function_exists('ensurePartnerRegistryV2Columns')) {
+    ensurePartnerRegistryV2Columns();
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     $action = (string)($_POST['action'] ?? '');
 
     if ($action === 'register_gateway') {
-        $key = trim((string)($_POST['gateway_key'] ?? ''));
-        $name = trim((string)($_POST['gateway_name'] ?? ''));
-        if ($key === '' || $name === '') {
-            flash('error', 'Gateway key and name are required.');
-            redirect('admin_gateway_registry.php');
-        }
-        $capabilities = [
-            'collection' => isset($_POST['supports_collection']) ? 1 : 0,
-            'payout' => isset($_POST['supports_payout']) ? 1 : 0,
-            'refund' => isset($_POST['supports_refund']) ? 1 : 0,
-            'recurring' => isset($_POST['supports_recurring']) ? 1 : 0,
-            'adapter' => trim((string)($_POST['adapter_class'] ?? '')) ?: null,
-            'webhook_url' => trim((string)($_POST['webhook_url'] ?? '')) ?: null,
+        $input = [
+            'partner_code' => trim((string)($_POST['gateway_key'] ?? '')),
+            'display_name' => trim((string)($_POST['gateway_name'] ?? '')),
+            'partner_type' => (string)($_POST['partner_type'] ?? 'pg'),
+            'contract_mode' => (string)($_POST['contract_mode'] ?? 'platform'),
+            'allows_existing_merchant_link' => isset($_POST['allows_existing_merchant_link']),
+            'adapter_class' => trim((string)($_POST['adapter_class'] ?? '')),
+            'webhook_url' => trim((string)($_POST['webhook_url'] ?? '')),
+            'routing_priority' => (int)($_POST['routing_priority'] ?? 50),
+            'circuit_breaker_on' => isset($_POST['circuit_breaker_on']),
+            'connector_notes' => trim((string)($_POST['connector_notes'] ?? '')),
+            'capabilities' => [
+                'collect' => isset($_POST['cap_collect']) || isset($_POST['supports_collection']),
+                'upi' => isset($_POST['cap_upi']),
+                'card' => isset($_POST['cap_card']),
+                'netbanking' => isset($_POST['cap_netbanking']),
+                'refund' => isset($_POST['cap_refund']) || isset($_POST['supports_refund']),
+                'pay_later' => isset($_POST['cap_pay_later']),
+                'kyc_forward_api' => isset($_POST['cap_kyc_forward_api']),
+            ],
+            'doc_pack' => $_POST['doc_pack'] ?? [],
+            'supports_payout' => isset($_POST['supports_payout']),
+            'supports_recurring' => isset($_POST['supports_recurring']),
         ];
-        $result = registerGateway($key, $name, $capabilities);
-        if ($result['ok']) {
-            if (function_exists('recordImmutableAudit')) {
-                recordImmutableAudit('partner_created', null, 'gateway', $key, 'Partner registered from admin UI: ' . $name . ' (inactive, key=' . $key . ')');
-            }
-            flash('success', "Partner '{$name}' registered as INACTIVE. Configure keys and methods on the detail page, then Activate.");
-            redirect(adminPartnerDetailUrl($key));
+        if (function_exists('registerPartnerRegistryV2')) {
+            $result = registerPartnerRegistryV2($input, (int)($_SESSION['admin_id'] ?? 0));
         } else {
-            flash('error', $result['error'] ?? 'Error');
-            redirect('admin_gateway_registry.php');
+            $key = (string)$input['partner_code'];
+            $name = (string)$input['display_name'];
+            if ($key === '' || $name === '') {
+                flash('error', 'Gateway key and name are required.');
+                redirect('admin_gateway_registry.php');
+            }
+            $result = registerGateway($key, $name, [
+                'collection' => $input['capabilities']['collect'] ? 1 : 0,
+                'payout' => $input['supports_payout'] ? 1 : 0,
+                'refund' => $input['capabilities']['refund'] ? 1 : 0,
+                'recurring' => $input['supports_recurring'] ? 1 : 0,
+                'adapter' => $input['adapter_class'] ?: null,
+                'webhook_url' => $input['webhook_url'] ?: null,
+            ]);
+            $result = ['ok' => !empty($result['ok']), 'message' => $result['error'] ?? '', 'gateway_id' => $result['gateway_id'] ?? 0, 'partner_code' => $key];
         }
+        if (!empty($result['ok'])) {
+            $code = (string)($result['partner_code'] ?? $input['partner_code']);
+            flash('success', "Partner '{$code}' registered as INACTIVE. Configure keys on the detail page, then Activate.");
+            redirect(adminPartnerDetailUrl($code) . '&tab=profile');
+        }
+        flash('error', $result['message'] ?? ($result['error'] ?? 'Could not register partner.'));
+        redirect('admin_gateway_registry.php');
     }
 
     if ($action === 'activate') {
@@ -101,8 +132,11 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl p-6 border border-gray-800">
         <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
             <div>
-                <h2 class="font-semibold text-lg">Partner Registry</h2>
+                <h2 class="font-semibold text-lg">Partner Registry — Global Control Room</h2>
                 <p class="text-xs text-gray-500 mt-1">Bank and PG <strong class="text-gray-400">tech partners</strong> — keys, methods, activate. Flow: <strong class="text-gray-400">Test keys → Test Connection → Live keys</strong>. Per-merchant checkout methods are toggled on each partner’s <strong class="text-gray-400">Detail → Methods</strong> page (not bulk-edited on this list). Partners do not own merchants; every merchant stays under UniWeb Admin.</p>
+                <?php if (function_exists('partnerRegistryV2ControlRoomNote')): ?>
+                <p class="text-[11px] text-violet-300/90 mt-2 border border-violet-500/20 rounded-lg px-3 py-2"><?= e(partnerRegistryV2ControlRoomNote()) ?></p>
+                <?php endif; ?>
                 <?php if (is_array($registryKindEdu)): ?>
                 <p class="text-[11px] text-violet-300/90 mt-2"><?= e($registryKindEdu['summary']) ?> UPI/Card/QR live under <strong class="text-gray-400">Payment Methods</strong>, not here.</p>
                 <?php endif; ?>
@@ -145,6 +179,9 @@ require_once __DIR__ . '/header.php';
                 $isActive = (int)$g['is_active'] === 1;
                 $hasKeys = $partnerInfo && partnerIsConfigured($g['gateway_key']);
                 $credStat = getPartnerCredentialStatus($g['gateway_key']);
+                $vaultTest = function_exists('partnerCredentialVaultStatus') ? partnerCredentialVaultStatus((string)$g['gateway_key'], 'test') : 'missing';
+                $vaultLive = function_exists('partnerCredentialVaultStatus') ? partnerCredentialVaultStatus((string)$g['gateway_key'], 'live') : 'missing';
+                $v2Profile = function_exists('partnerRegistryV2ProfileFromRow') ? partnerRegistryV2ProfileFromRow($g) : null;
                 $enabledMethods = getEnabledPartnerMethods($g['gateway_key']);
             ?>
             <div class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-white/5 transition-colors" data-gw-name="<?= e(mb_strtolower($g['gateway_name'] . ' ' . $g['gateway_key'])) ?>">
@@ -163,6 +200,14 @@ require_once __DIR__ . '/header.php';
                             <span class="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400">Keys Saved</span>
                             <?php elseif ($partnerInfo): ?>
                             <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">Awaiting Keys</span>
+                            <?php endif; ?>
+                            <?php if (function_exists('partnerCredentialVaultStatusBadge')): ?>
+                            <span title="Test vault"><?= partnerCredentialVaultStatusBadge($vaultTest) ?></span>
+                            <span title="Live vault"><?= partnerCredentialVaultStatusBadge($vaultLive) ?></span>
+                            <?php endif; ?>
+                            <?php if (is_array($v2Profile)): ?>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-gray-800 text-gray-400"><?= e(strtoupper((string)$v2Profile['partner_type'])) ?></span>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-gray-800 text-gray-400"><?= e(str_replace('_', ' ', (string)$v2Profile['contract_mode'])) ?></span>
                             <?php endif; ?>
                             <?php if ($credStat['test']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-sky-500/10 text-sky-400">Test</span><?php endif; ?>
                             <?php if ($credStat['live']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Live</span><?php endif; ?>
@@ -202,36 +247,79 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <div class="glass rounded-xl p-6 border border-gray-800">
-        <h3 class="font-semibold mb-2">Register Custom Gateway</h3>
-        <p class="text-xs text-gray-500 mb-4">Add a gateway not in the partner list. It will appear as Inactive — configure keys and activate from its detail page.</p>
+        <h3 class="font-semibold mb-2">Add partner (online collect only)</h3>
+        <p class="text-xs text-gray-500 mb-4">Payment Gateway or other online collect rail — no PPI / offline wallet product. Registered inactive until keys + Activate.</p>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="register_gateway">
             <div class="grid sm:grid-cols-2 gap-4">
                 <div>
-                    <label class="text-sm text-gray-400">Gateway Key *</label>
-                    <input type="text" name="gateway_key" required placeholder="e.g. decentro, razorpay_x" class="input-field mt-1 font-mono text-sm" pattern="[a-z0-9_]+">
+                    <label class="text-sm text-gray-400">Partner code *</label>
+                    <input type="text" name="gateway_key" required placeholder="e.g. razorpay, payu" class="input-field mt-1 font-mono text-sm" pattern="[a-z0-9_]+">
                 </div>
                 <div>
-                    <label class="text-sm text-gray-400">Display Name *</label>
-                    <input type="text" name="gateway_name" required placeholder="e.g. Decentro Payments" class="input-field mt-1">
+                    <label class="text-sm text-gray-400">Display name *</label>
+                    <input type="text" name="gateway_name" required placeholder="e.g. Razorpay" class="input-field mt-1">
                 </div>
                 <div>
-                    <label class="text-sm text-gray-400">Adapter Class (optional)</label>
-                    <input type="text" name="adapter_class" placeholder="includes/gateways/decentro_adapter.php" class="input-field mt-1 font-mono text-xs">
+                    <label class="text-sm text-gray-400">Partner type</label>
+                    <select name="partner_type" class="input-field mt-1 text-sm">
+                        <option value="pg">Payment Gateway (PG)</option>
+                        <option value="other_online">Other online collect</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Commercial mode</label>
+                    <select name="contract_mode" class="input-field mt-1 text-sm">
+                        <option value="platform">Platform</option>
+                        <option value="linked_existing">Linked existing</option>
+                        <option value="hybrid">Hybrid</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Routing priority</label>
+                    <input type="number" name="routing_priority" value="50" min="1" max="999" class="input-field mt-1 text-sm">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Connector notes</label>
+                    <input type="text" name="connector_notes" placeholder="Adapter / webhook path hint" class="input-field mt-1 text-sm">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Adapter class (optional)</label>
+                    <input type="text" name="adapter_class" placeholder="includes/gateways/..." class="input-field mt-1 font-mono text-xs">
                 </div>
                 <div>
                     <label class="text-sm text-gray-400">Webhook URL (optional)</label>
-                    <input type="text" name="webhook_url" placeholder="<?= e(APP_URL) ?>/decentro_webhook.php" class="input-field mt-1 font-mono text-xs">
+                    <input type="text" name="webhook_url" placeholder="<?= e(APP_URL) ?>/partner_webhook.php" class="input-field mt-1 font-mono text-xs">
                 </div>
             </div>
-            <div class="flex flex-wrap gap-4">
-                <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="supports_collection" checked class="rounded border-gray-600"> Collection</label>
-                <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="supports_payout" class="rounded border-gray-600"> Payout</label>
-                <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="supports_refund" class="rounded border-gray-600"> Refund</label>
-                <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="supports_recurring" class="rounded border-gray-600"> Recurring</label>
+            <div>
+                <p class="text-xs text-gray-500 mb-2">Capabilities (method flags — not a separate wallet product)</p>
+                <div class="flex flex-wrap gap-4">
+                    <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="cap_collect" checked class="rounded border-gray-600"> Collect</label>
+                    <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="cap_upi" class="rounded border-gray-600"> UPI</label>
+                    <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="cap_card" class="rounded border-gray-600"> Card</label>
+                    <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="cap_netbanking" class="rounded border-gray-600"> Net banking</label>
+                    <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="cap_refund" class="rounded border-gray-600"> Refund</label>
+                    <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="cap_pay_later" class="rounded border-gray-600"> Pay later (PG method)</label>
+                    <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="cap_kyc_forward_api" class="rounded border-gray-600"> KYC forward API</label>
+                    <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="supports_payout" class="rounded border-gray-600"> Payout rail</label>
+                    <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="supports_recurring" class="rounded border-gray-600"> Recurring</label>
+                </div>
             </div>
-            <button type="submit" class="btn-primary px-6 py-2.5">Register Gateway</button>
+            <?php if (function_exists('partnerRegistryV2DocPackCatalog')): ?>
+            <div>
+                <p class="text-xs text-gray-500 mb-2">Doc pack codes (for later coverage phase)</p>
+                <div class="flex flex-wrap gap-3 max-h-32 overflow-y-auto">
+                    <?php foreach (partnerRegistryV2DocPackCatalog() as $code => $label): ?>
+                    <label class="flex items-center gap-1.5 text-xs text-gray-400"><input type="checkbox" name="doc_pack[]" value="<?= e($code) ?>" class="rounded border-gray-600"> <?= e($code) ?></label>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+            <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="allows_existing_merchant_link" class="rounded border-gray-600"> Allows existing merchant link (later phase)</label>
+            <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="circuit_breaker_on" checked class="rounded border-gray-600"> Circuit breaker ON for outbound calls</label>
+            <button type="submit" class="btn-primary px-6 py-2.5">Register partner</button>
         </form>
     </div>
 </div>

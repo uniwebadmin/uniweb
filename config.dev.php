@@ -458,7 +458,7 @@ $__includes = [
     'crypto', 'boot_errors', 'env_loader', 'error_catcher', 'schema_ensure', 'migrations', 'financial_integrity', 'ops_security',
     'notifications', 'release_helpers', 'kyc_entity', 'onboarding', 'onboarding_security', 'verification', 'totp', 'notify',
     'velocity_check', 'cron_guard', 'baas', 'gateways', 'smart_routing',
-    'wallet', 'settlement_engine', 'reconciliation', 'refunds', 'chargebacks',
+    'wallet', 'settlement_engine', 'reconciliation', 'refunds', 'chargebacks', 'partner_registry_v2',
     'merchant_profile', 'contact_change', 'merchant_ui', 'page_ux', 'page_ux_compat', 'merchant_admin_view', 'merchant_website',
     'merchant_webhooks', 'pg_webhooks', 'collection', 'upi_confirm',
     'gateway_reason_map', 'transaction_detail', 'ui_links', 'id_click', 'staff', 'partners', 'partner_engine', 'partner_keys_workflow',

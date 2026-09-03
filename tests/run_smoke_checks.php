@@ -2257,6 +2257,17 @@ $kycReconProbeOut = [];
 exec('php ' . escapeshellarg($root . '/tests/probe_kyc_reconcile.php'), $kycReconProbeOut, $kycReconProbeExit);
 $assert($kycReconProbeExit === 0 && str_contains(implode("\n", $kycReconProbeOut), 'failures=0'), 'kyc_recon_live_prove_probe_green');
 
+$prV2 = (string)file_get_contents($root . '/includes/partner_registry_v2.php');
+$regV2 = (string)file_get_contents($root . '/admin_gateway_registry.php');
+$detV2 = (string)file_get_contents($root . '/admin_gateway_detail.php');
+$assert(is_file($root . '/migrations/083_partner_registry_v2.sql') && str_contains($prV2, 'partnerRegistryV2NormalizePartnerType') && str_contains($prV2, "ENUM('pg','other_online')"), 'prv2_module_and_migration');
+$assert(!preg_match("/ENUM\\([^)]*'ppi'/", $prV2) && str_contains($prV2, "'pg','other_online'"), 'prv2_no_ppi_partner_type');
+$assert(str_contains($prV2, 'savePartnerRegistryProfile') && str_contains($prV2, 'partnerCredentialVaultStatus') && str_contains($prV2, 'recordImmutableAudit'), 'prv2_save_audit_cred_status');
+$assert(str_contains($regV2, 'Global Control Room') && str_contains($regV2, 'verifyCsrf') && str_contains($regV2, 'registerPartnerRegistryV2'), 'prv2_admin_list_register');
+$assert(str_contains($regV2, 'partnerCredentialVaultStatusBadge') && str_contains($regV2, 'cap_pay_later'), 'prv2_list_cred_badges_caps');
+$assert(str_contains($detV2, "tab=profile") && str_contains($detV2, 'save_registry_profile') && str_contains($detV2, 'partnerCredentialVaultStatusBadge'), 'prv2_detail_profile_tab');
+$assert(str_contains($prV2, 'Partner code already exists') && str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'Partner key already exists'), 'prv2_unique_partner_code');
+
 $payload = [
     'ok' => $failed === 0,
     'passed' => $passed,
