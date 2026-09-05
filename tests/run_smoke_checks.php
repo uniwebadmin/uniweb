@@ -2279,6 +2279,10 @@ $assert(str_contains($regV2, 'Merchant KYC doc pack') && str_contains($regV2, 'p
 $assert(is_file($root . '/migrations/084_partner_registry_merchant_doc_pack.sql'), 'prv2_migration_084');
 $assert(str_contains($prV2, 'resolvePartnerAdminMeta') && str_contains($prV2, 'partnerRegistryV2DefaultConfigKeys'), 'prv2_custom_partner_default_keys');
 $assert(str_contains($regV2, 'Activate for routing') && str_contains($regV2, 'status=all') && str_contains($regV2, 'highlight='), 'prv2_list_shows_inactive_activate_honest');
+$assert(str_contains($regV2, 'Keys Missing') && str_contains($regV2, 'Not wired') && !str_contains($regV2, 'STUB ·'), 'prv2_list_owner_badges_no_stub_legend');
+$assert(str_contains($prV2, 'function partnerAdapterIsWired') && str_contains($prV2, 'function partnerRegistryActivateGate') && str_contains($prV2, 'Keys Valid'), 'prv2_adapter_gate_and_key_labels');
+$assert(str_contains($detV2, 'Saved (leave blank to keep)') && !str_contains($detV2, "Current: ' . e(substr"), 'prv2_keys_tab_no_plaintext_placeholder');
+$assert(str_contains($detV2, '$testRan') && str_contains($detV2, 'does not auto-run'), 'prv2_test_connection_on_demand');
 $assert(str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'ORDER BY id DESC'), 'prv2_list_newest_first');
 $assert(str_contains($detV2, 'resolvePartnerAdminMeta') && str_contains($detV2, 'Activate for routing') && str_contains($detV2, 'partnerCredentialVaultStatusBadge'), 'prv2_detail_keys_usable');
 $assert(str_contains($detV2, "\$_GET['test_env'] ?? \$_GET['env'] ?? 'test'") || str_contains($detV2, "\$_GET['test_env'] ??"), 'prv2_test_env_no_undefined_key');

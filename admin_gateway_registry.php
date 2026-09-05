@@ -18,10 +18,6 @@ if (!function_exists('adminPartnerDetailUrl')) {
 if (!function_exists('partnerRegistryV2ControlRoomNote') && is_file(__DIR__ . '/includes/partner_registry_v2.php')) {
     require_once __DIR__ . '/includes/partner_registry_v2.php';
 }
-if (!function_exists('uiCapabilityLegend') && is_file(__DIR__ . '/includes/ui/ui_components.php')) {
-    require_once __DIR__ . '/includes/ui/ui_components.php';
-    require_once __DIR__ . '/includes/enums/capability_state.php';
-}
 requireStaffAccess(['super', 'ceo', 'ops']);
 
 syncPartnerGateways();
@@ -90,11 +86,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     if ($action === 'activate') {
         $gatewayId = (int)($_POST['gateway_id'] ?? 0);
         if ($gatewayId > 0) {
-            $result = activateGatewayForAllMerchants($gatewayId);
-            if ($result['ok'] && function_exists('recordImmutableAudit')) {
-                recordImmutableAudit('gateway_activated', null, 'gateway', (string)$gatewayId, 'Gateway activated by admin: ' . ($result['gateway_name'] ?? ''));
+            $target = null;
+            foreach (getRegisteredGateways() as $g) {
+                if ((int)$g['id'] === $gatewayId) {
+                    $target = $g;
+                    break;
+                }
             }
-            flash($result['ok'] ? 'success' : 'error', $result['ok'] ? $result['gateway_name'] . ' activated! Added to ' . $result['merchants'] . ' merchants.' : ($result['error'] ?? 'Error'));
+            $gate = function_exists('partnerRegistryActivateGate') && is_array($target)
+                ? partnerRegistryActivateGate($target)
+                : ['allowed' => true, 'reason' => '', 'warn_keys' => false];
+            if (empty($gate['allowed'])) {
+                flash('error', (string)($gate['reason'] ?? 'Not wired (adapter missing)') . '. Routing ON is not available until a connector file exists.');
+            } else {
+                $result = activateGatewayForAllMerchants($gatewayId);
+                if ($result['ok'] && function_exists('recordImmutableAudit')) {
+                    recordImmutableAudit('gateway_activated', null, 'gateway', (string)$gatewayId, 'Gateway activated by admin: ' . ($result['gateway_name'] ?? ''));
+                }
+                if ($result['ok'] && !empty($gate['warn_keys'])) {
+                    flash('warning', ($result['gateway_name'] ?? 'Partner') . ' is Active (routing ON), but keys are missing. Paste keys on Keys tab before treating this as ready.');
+                } else {
+                    flash($result['ok'] ? 'success' : 'error', $result['ok'] ? $result['gateway_name'] . ' activated (routing ON) for ' . $result['merchants'] . ' merchants.' : ($result['error'] ?? 'Error'));
+                }
+            }
         }
         redirect('admin_gateway_registry.php');
     }
@@ -150,20 +164,12 @@ require_once __DIR__ . '/header.php';
         <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
             <div>
                 <h2 class="font-semibold text-lg">Partner Registry — Global Control Room</h2>
-                <p class="text-xs text-gray-500 mt-1">Bank and PG <strong class="text-gray-400">tech partners</strong> — keys, methods, routing. New partners appear here immediately as <strong class="text-gray-300">Inactive</strong>. <strong class="text-gray-300">Activate for routing</strong> is a separate step (not required to see the row). Flow: <strong class="text-gray-400">Test keys → Test Connection → Live keys → Activate for routing</strong>. Partners do not own merchants; every merchant stays under UniWeb Admin.</p>
+                <p class="text-xs text-gray-500 mt-1">Bank and PG <strong class="text-gray-400">tech partners</strong> — keys, methods, routing. New partners appear here immediately as <strong class="text-gray-300">Inactive</strong> (no Activate needed to see the row). Badges: <strong class="text-gray-300">Inactive / Active</strong> (routing), <strong class="text-gray-300">Keys Missing / Keys Valid / Keys Invalid</strong>, <strong class="text-gray-300">Not wired (adapter missing)</strong>. Flow: <strong class="text-gray-400">Test keys → Test Connection → Live keys</strong> → Activate for routing when allowed. Partners do not own merchants.</p>
                 <?php if (function_exists('partnerRegistryV2ControlRoomNote')): ?>
                 <p class="text-[11px] text-violet-300/90 mt-2 border border-violet-500/20 rounded-lg px-3 py-2"><?= e(partnerRegistryV2ControlRoomNote()) ?></p>
                 <?php endif; ?>
                 <?php if (is_array($registryKindEdu)): ?>
                 <p class="text-[11px] text-violet-300/90 mt-2"><?= e($registryKindEdu['summary']) ?> UPI/Card/QR live under <strong class="text-gray-400">Payment Methods</strong>, not here.</p>
-                <?php endif; ?>
-                <?php if (function_exists('uiCapabilityLegend')): ?>
-                <div class="mt-3"><?= uiCapabilityLegend() ?></div>
-                <?php
-                $capCounts = function_exists('platformPartnerCapabilityCounts') ? platformPartnerCapabilityCounts() : null;
-                if ($capCounts): ?>
-                <p class="text-[10px] text-gray-600 mt-2">Partners: <?= (int)$capCounts['live'] ?> LIVE · <?= (int)$capCounts['stub'] ?> STUB · <?= (int)$capCounts['parked'] ?> PARKED</p>
-                <?php endif; ?>
                 <?php endif; ?>
             </div>
             <div class="flex gap-3">
@@ -201,10 +207,10 @@ require_once __DIR__ . '/header.php';
                     ? resolvePartnerAdminMeta((string)$g['gateway_key'], $g)
                     : ($partnerRegistry[$g['gateway_key']] ?? null);
                 $isActive = (int)$g['is_active'] === 1;
-                $hasKeys = function_exists('partnerIsConfigured') && partnerIsConfigured($g['gateway_key']);
-                $credStat = getPartnerCredentialStatus($g['gateway_key']);
                 $vaultTest = function_exists('partnerCredentialVaultStatus') ? partnerCredentialVaultStatus((string)$g['gateway_key'], 'test') : 'missing';
                 $vaultLive = function_exists('partnerCredentialVaultStatus') ? partnerCredentialVaultStatus((string)$g['gateway_key'], 'live') : 'missing';
+                $adapterWired = function_exists('partnerAdapterIsWired') ? partnerAdapterIsWired((string)$g['gateway_key'], $g) : true;
+                $activateGate = function_exists('partnerRegistryActivateGate') ? partnerRegistryActivateGate($g) : ['allowed' => true, 'reason' => '', 'warn_keys' => false];
                 $v2Profile = function_exists('partnerRegistryV2ProfileFromRow') ? partnerRegistryV2ProfileFromRow($g) : null;
                 $enabledMethods = getEnabledPartnerMethods($g['gateway_key']);
                 $isHighlight = $highlightKey !== '' && strtolower((string)$g['gateway_key']) === $highlightKey;
@@ -218,15 +224,12 @@ require_once __DIR__ . '/header.php';
                         <div class="flex items-center gap-2 flex-wrap">
                             <a href="<?= e(adminPartnerDetailUrl((string)$g['gateway_key'])) ?>" class="text-sm font-medium text-gray-200 hover:text-sky-300"><?= e($g['gateway_name']) ?></a>
                             <?= function_exists('partnerRegistryListStatusBadge') ? partnerRegistryListStatusBadge($g) : '<span class="text-[10px] px-2 py-0.5 rounded-full ' . ($isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700/50 text-gray-400') . '">' . ($isActive ? 'Active' : 'Inactive') . '</span>' ?>
-                            <?= function_exists('partnerIntegrationStateBadgeHtml') ? partnerIntegrationStateBadgeHtml((string)$g['gateway_key']) : '' ?>
-                            <?php if ($hasKeys || !empty($credStat['test']) || !empty($credStat['live'])): ?>
-                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400">Keys Saved</span>
-                            <?php else: ?>
-                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">Pending keys</span>
+                            <?php if (!$adapterWired && function_exists('partnerRegistryNotWiredBadgeHtml')): ?>
+                            <?= partnerRegistryNotWiredBadgeHtml() ?>
                             <?php endif; ?>
                             <?php if (function_exists('partnerCredentialVaultStatusBadge')): ?>
-                            <span title="Test vault"><?= partnerCredentialVaultStatusBadge($vaultTest) ?></span>
-                            <span title="Live vault"><?= partnerCredentialVaultStatusBadge($vaultLive) ?></span>
+                            <span title="Test keys"><?= partnerCredentialVaultStatusBadge($vaultTest) ?></span>
+                            <span title="Production keys"><?= partnerCredentialVaultStatusBadge($vaultLive) ?></span>
                             <?php endif; ?>
                             <?php if (is_array($v2Profile)): ?>
                             <span class="text-[10px] px-2 py-0.5 rounded bg-gray-800 text-gray-400"><?= e(strtoupper((string)$v2Profile['partner_type'])) ?></span>
@@ -246,12 +249,16 @@ require_once __DIR__ . '/header.php';
                 <div class="flex items-center gap-2 flex-shrink-0">
                     <a href="<?= e(adminPartnerDetailUrl((string)$g['gateway_key'])) ?>" class="text-xs px-3 py-1.5 rounded-lg bg-dark-900/80 text-gray-300 border border-gray-700 hover:border-gray-500">Configure →</a>
                     <?php if (!$isActive): ?>
+                    <?php if (empty($activateGate['allowed'])): ?>
+                    <span class="text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-gray-500 border border-gray-700 cursor-not-allowed" title="<?= e((string)($activateGate['reason'] ?? 'Not wired (adapter missing)')) ?>">Activate — Not available</span>
+                    <?php else: ?>
                     <form method="POST" class="inline">
                         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <input type="hidden" name="action" value="activate">
                         <input type="hidden" name="gateway_id" value="<?= (int)$g['id'] ?>">
-                        <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30" title="Expose methods for merchant routing — partner already visible in this list" onclick="return confirm('Activate <?= e($g['gateway_name']) ?> for routing? Payment method will be added to merchants (OFF by default). Partner is already listed here as Inactive.')">Activate for routing</button>
+                        <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30" title="Turns routing ON. Partner is already visible as Inactive." onclick="return confirm('<?= !empty($activateGate['warn_keys']) ? 'Keys are missing. Activate for routing anyway? Partner stays listed. Paste keys next.' : 'Activate ' . e($g['gateway_name']) . ' for routing? Methods are added to merchants (OFF by default). Partner is already listed as Inactive.' ?>')">Activate for routing</button>
                     </form>
+                    <?php endif; ?>
                     <?php else: ?>
                     <form method="POST" class="inline">
                         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -296,10 +303,6 @@ require_once __DIR__ . '/header.php';
                         <option value="linked_existing">Linked existing</option>
                         <option value="hybrid">Hybrid</option>
                     </select>
-                </div>
-                <div>
-                    <label class="text-sm text-gray-400">Routing priority</label>
-                    <input type="number" name="routing_priority" value="50" min="1" max="999" class="input-field mt-1 text-sm">
                 </div>
                 <div>
                     <label class="text-sm text-gray-400">Connector notes</label>
@@ -357,8 +360,9 @@ require_once __DIR__ . '/header.php';
             </div>
             <?php endif; ?>
             <?php endif; ?>
-            <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="allows_existing_merchant_link" class="rounded border-gray-600"> Allows existing merchant link (later phase)</label>
-            <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="circuit_breaker_on" checked class="rounded border-gray-600"> Circuit breaker ON for outbound calls</label>
+            <p class="text-xs text-gray-500">Existing merchant link: <span class="text-gray-400">Not available</span> (later phase — checkbox hidden so it cannot look like a working switch).</p>
+            <p class="text-xs text-gray-500">Outbound pause: use <a href="admin_circuit_breaker.php" class="text-sky-400 hover:underline">Circuit Breaker</a> — the register form does not fake an ON/OFF that does nothing.</p>
+            <input type="hidden" name="circuit_breaker_on" value="1">
             <button type="submit" class="btn-primary px-6 py-2.5">Register partner</button>
         </form>
     </div>

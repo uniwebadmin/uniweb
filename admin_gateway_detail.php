@@ -179,8 +179,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     }
 
     if ($action === 'activate') {
+        $gate = function_exists('partnerRegistryActivateGate') ? partnerRegistryActivateGate($gateway) : ['allowed' => true, 'reason' => '', 'warn_keys' => false];
+        if (empty($gate['allowed'])) {
+            flash('error', (string)($gate['reason'] ?? 'Not wired (adapter missing)') . '. Routing ON is not available.');
+            redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=' . $activeTab);
+        }
         $result = activateGatewayForAllMerchants($gatewayId);
-        flash($result['ok'] ? 'success' : 'error', $result['ok'] ? $result['gateway_name'] . ' activated!' : ($result['error'] ?? 'Activation failed.'));
+        if ($result['ok'] && !empty($gate['warn_keys'])) {
+            flash('warning', ($result['gateway_name'] ?? 'Partner') . ' is Active (routing ON), but keys are missing. Paste keys on the Keys tab.');
+        } else {
+            flash($result['ok'] ? 'success' : 'error', $result['ok'] ? $result['gateway_name'] . ' activated (routing ON).' : ($result['error'] ?? 'Activation failed.'));
+        }
         if ($result['ok'] && function_exists('logStaffActivity')) { logStaffActivity('partner_activated', 'Activated partner ' . $partnerKey, null, 'partner', $partnerKey); }
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=' . $activeTab);
     }
@@ -220,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $goLive = ((string)($_POST['go_live'] ?? '')) === '1';
         $adminEmail = $_SESSION['staff_email'] ?? $_SESSION['admin_email'] ?? 'admin';
         $result = setPartnerGoLive($gatewayId, $goLive, $adminEmail);
-        flash($result['ok'] ? 'success' : 'error', $result['ok'] ? ($goLive ? 'Partner is now live on public website.' : 'Partner removed from public website.') : ($result['error'] ?? 'Failed'));
+        flash($result['ok'] ? 'success' : 'error', $result['ok'] ? ($goLive ? 'Partner name shown on public homepage (not money Live).' : 'Partner name hidden from public homepage.') : ($result['error'] ?? 'Failed'));
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=golive');
     }
 
@@ -345,16 +354,17 @@ if ($configKeys === [] && function_exists('partnerRegistryV2DefaultConfigKeys'))
 }
 $testEnvRaw = strtolower(trim((string)($_GET['test_env'] ?? $_GET['env'] ?? 'test')));
 $testEnv = in_array($testEnvRaw, ['test', 'live'], true) ? $testEnvRaw : 'test';
-$testResult = $partner ? partnerTestConnection($partnerKey) : ['ok' => false, 'message' => 'No partner config.'];
+$testResult = null;
+$testRan = false;
 if ($activeTab === 'test' && isset($_GET['action']) && $_GET['action'] === 'test' && verifyCsrf($_GET['token'] ?? '')) {
+    $testRan = true;
+    $testResult = $partner ? partnerTestConnection($partnerKey) : ['ok' => false, 'message' => 'No partner config.'];
     if (function_exists('recordPartnerCredentialTestResult')) {
         recordPartnerCredentialTestResult($partnerKey, !empty($testResult['ok']), $testEnv);
     }
     if (function_exists('logStaffActivity')) {
-        logStaffActivity('partner_test_connection', ($testResult['ok'] ? 'PASS' : 'FAIL') . ' — ' . $partnerKey . ' (' . $testEnv . ')', null, 'partner', $partnerKey);
+        logStaffActivity('partner_test_connection', (($testResult['ok'] ?? false) ? 'PASS' : 'FAIL') . ' — ' . $partnerKey . ' (' . $testEnv . ')', null, 'partner', $partnerKey);
     }
-} elseif ($activeTab === 'test' && function_exists('partnerCredentialVaultStatus')) {
-    /* display-only on tab load */
 }
 $configMeta = json_decode($gateway['config_json'] ?? '{}', true) ?: [];
 $registryProfile = function_exists('partnerRegistryV2ProfileFromRow') ? partnerRegistryV2ProfileFromRow($gateway) : null;
@@ -375,6 +385,8 @@ $goLiveChecklist = function_exists('partnerGoLiveChecklist')
     ? partnerGoLiveChecklist($partnerKey, $gateway, $webhookUrl)
     : ['items' => [], 'ready' => false];
 $isGoLive = (int)($gateway['public_go_live'] ?? 0) === 1;
+$adapterWired = function_exists('partnerAdapterIsWired') ? partnerAdapterIsWired($partnerKey, $gateway) : true;
+$activateGate = function_exists('partnerRegistryActivateGate') ? partnerRegistryActivateGate($gateway) : ['allowed' => true, 'reason' => '', 'warn_keys' => false];
 
 $pageTitle = $gateway['gateway_name'] . ' — Partner Detail';
 require_once __DIR__ . '/header.php';
@@ -392,30 +404,39 @@ require_once __DIR__ . '/header.php';
             <div>
                 <h2 class="font-semibold text-lg"><?= e($partner['name'] ?? $gateway['gateway_name']) ?> <?= e($partner['icon'] ?? '') ?></h2>
                 <p class="text-xs text-gray-500 font-mono mt-1"><?= e($partnerKey) ?></p>
-                <div class="flex gap-2 mt-2">
+                <div class="flex gap-2 mt-2 flex-wrap">
                     <?php if ((int)$gateway['supports_collection']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Collection</span><?php endif; ?>
                     <?php if ((int)$gateway['supports_payout']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-sky-500/10 text-sky-400">Payout</span><?php endif; ?>
                     <?php if ((int)$gateway['supports_refund']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400">Refund</span><?php endif; ?>
                     <?php if ((int)$gateway['supports_recurring']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-violet-500/10 text-violet-400">Recurring</span><?php endif; ?>
-                    <?= function_exists('partnerIntegrationStateBadgeHtml') ? partnerIntegrationStateBadgeHtml($partnerKey) : '' ?>
+                    <?php if (!$adapterWired && function_exists('partnerRegistryNotWiredBadgeHtml')): ?>
+                    <?= partnerRegistryNotWiredBadgeHtml() ?>
+                    <?php endif; ?>
                 </div>
             </div>
             <div class="flex flex-col items-end gap-2">
                 <?= function_exists('partnerRegistryListStatusBadge') ? partnerRegistryListStatusBadge($gateway) : '<span class="text-xs px-3 py-1.5 rounded-full ' . ($isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700/50 text-gray-400') . '">' . ($isActive ? 'Active' : 'Inactive') . '</span>' ?>
-                <div class="flex gap-1">
+                <div class="flex gap-1 flex-wrap justify-end">
+                    <?php if (function_exists('partnerCredentialVaultStatusBadge')): ?>
+                    <span title="Test keys"><?= partnerCredentialVaultStatusBadge(partnerCredentialVaultStatus($partnerKey, 'test')) ?></span>
+                    <span title="Production keys"><?= partnerCredentialVaultStatusBadge(partnerCredentialVaultStatus($partnerKey, 'live')) ?></span>
+                    <?php endif; ?>
                     <?php if ($credStatus['test']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-sky-500/10 text-sky-400">Test ***<?= e($credStatus['test_last4']) ?></span><?php endif; ?>
-                    <?php if ($credStatus['live']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Live ***<?= e($credStatus['live_last4']) ?></span><?php endif; ?>
-                    <?php if (!$credStatus['test'] && !$credStatus['live']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400">No Keys</span><?php endif; ?>
+                    <?php if ($credStatus['live']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Prod ***<?= e($credStatus['live_last4']) ?></span><?php endif; ?>
                 </div>
             </div>
         </div>
         <div class="flex flex-wrap gap-3">
             <?php if (!$isActive): ?>
+            <?php if (empty($activateGate['allowed'])): ?>
+            <span class="text-xs px-4 py-2.5 rounded-lg bg-gray-800 text-gray-500 border border-gray-700" title="<?= e((string)($activateGate['reason'] ?? '')) ?>">Activate — Not available</span>
+            <?php else: ?>
             <form method="POST" class="inline">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="activate">
-                <button type="submit" class="btn-primary px-6 py-2.5" onclick="return confirm('Activate <?= e($gateway['gateway_name']) ?> for routing? Partner already appears in the registry list.')">Activate for routing</button>
+                <button type="submit" class="btn-primary px-6 py-2.5" onclick="return confirm('<?= !empty($activateGate['warn_keys']) ? 'Keys are missing. Turn routing ON anyway? Paste keys next.' : 'Activate ' . e($gateway['gateway_name']) . ' for routing? Partner already appears in the registry list.' ?>')">Activate for routing</button>
             </form>
+            <?php endif; ?>
             <?php if (!$partnerIsBuiltin): ?>
             <form method="POST" class="inline" onsubmit="return confirm('Permanently delete this inactive custom partner from the registry?');">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -438,7 +459,7 @@ require_once __DIR__ . '/header.php';
             <a href="<?= e($partner['dashboard']) ?>" target="_blank" rel="noopener" class="glass px-5 py-2.5 rounded-xl text-sm">Dashboard ↗</a>
             <?php endif; ?>
         </div>
-        <p class="text-[11px] text-gray-600 mt-3">Change keys = Keys tab (Test then Live). Activate for routing exposes methods — partner is already visible in the registry list without Activate. Turn OFF hides methods. Delete only works after Turn OFF, and only for custom partners.</p>
+        <p class="text-[11px] text-gray-600 mt-3">Keys tab saves encrypted credentials (last4 only). Activate turns routing ON — the partner is already visible in the list when Inactive. Turn OFF hides methods. Delete only after Turn OFF, custom partners only. Active is not money Live.</p>
     </div>
 
     <div class="flex gap-1 border-b border-gray-800 overflow-x-auto">
@@ -454,9 +475,11 @@ require_once __DIR__ . '/header.php';
         <div class="flex flex-wrap gap-2 mb-4">
             <?php if (function_exists('partnerCredentialVaultStatusBadge')): ?>
             <span>Test creds: <?= partnerCredentialVaultStatusBadge(partnerCredentialVaultStatus($partnerKey, 'test')) ?></span>
-            <span>Live creds: <?= partnerCredentialVaultStatusBadge(partnerCredentialVaultStatus($partnerKey, 'live')) ?></span>
+            <span>Production creds: <?= partnerCredentialVaultStatusBadge(partnerCredentialVaultStatus($partnerKey, 'live')) ?></span>
             <?php endif; ?>
-            <?= function_exists('partnerIntegrationStateBadgeHtml') ? partnerIntegrationStateBadgeHtml($partnerKey) : '' ?>
+            <?php if (!$adapterWired && function_exists('partnerRegistryNotWiredBadgeHtml')): ?>
+            <?= partnerRegistryNotWiredBadgeHtml() ?>
+            <?php endif; ?>
         </div>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -466,7 +489,7 @@ require_once __DIR__ . '/header.php';
                 <div><label class="text-xs text-gray-500">Display name</label><input name="display_name" value="<?= e($registryProfile['display_name']) ?>" required class="input-field mt-1"></div>
                 <div><label class="text-xs text-gray-500">Partner type</label><select name="partner_type" class="input-field mt-1 text-sm"><?php foreach (partnerRegistryV2PartnerTypes() as $pt): ?><option value="<?= e($pt) ?>" <?= $registryProfile['partner_type'] === $pt ? 'selected' : '' ?>><?= e($pt === 'pg' ? 'Payment Gateway' : 'Other online collect') ?></option><?php endforeach; ?></select></div>
                 <div><label class="text-xs text-gray-500">Commercial mode</label><select name="contract_mode" class="input-field mt-1 text-sm"><?php foreach (partnerRegistryV2ContractModes() as $cm): ?><option value="<?= e($cm) ?>" <?= $registryProfile['contract_mode'] === $cm ? 'selected' : '' ?>><?= e(ucwords(str_replace('_', ' ', $cm))) ?></option><?php endforeach; ?></select></div>
-                <div><label class="text-xs text-gray-500">Routing priority</label><input type="number" name="routing_priority" value="<?= (int)$registryProfile['routing_priority'] ?>" min="1" max="999" class="input-field mt-1"></div>
+                <div><label class="text-xs text-gray-500">Routing priority</label><p class="text-xs text-gray-500 mt-2">Not available — checkout routing order is a later phase. Number is stored only and does not change live traffic.</p><input type="hidden" name="routing_priority" value="<?= (int)$registryProfile['routing_priority'] ?>"></div>
                 <div><label class="text-xs text-gray-500">Connector notes</label><input name="connector_notes" value="<?= e($registryProfile['connector_notes']) ?>" class="input-field mt-1 text-sm"></div>
                 <div class="sm:col-span-2"><label class="text-xs text-gray-500">Description</label><input name="display_description" value="<?= e($registryProfile['display_description']) ?>" class="input-field mt-1 text-sm"></div>
                 <div><label class="text-xs text-gray-500">Webhook URL</label><input name="webhook_url" value="<?= e($registryProfile['webhook_url']) ?>" class="input-field mt-1 font-mono text-xs"></div>
@@ -511,8 +534,9 @@ require_once __DIR__ . '/header.php';
                 <div><label class="text-xs text-gray-500">Policy — Refund URL</label><input name="policy_refund" value="<?= e($registryProfile['policy_urls']['refund']) ?>" class="input-field mt-1 text-xs"></div>
                 <div><label class="text-xs text-gray-500">Policy — Support URL</label><input name="policy_support" value="<?= e($registryProfile['policy_urls']['support']) ?>" class="input-field mt-1 text-xs"></div>
             </div>
-            <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="allows_existing_merchant_link" <?= !empty($registryProfile['allows_existing_merchant_link']) ? 'checked' : '' ?> class="rounded border-gray-600"> Allows existing merchant link (later phase)</label>
-            <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="circuit_breaker_on" <?= !empty($registryProfile['circuit_breaker_on']) ? 'checked' : '' ?> class="rounded border-gray-600"> Circuit breaker ON</label>
+            <p class="text-xs text-gray-500">Existing merchant link: <span class="text-gray-400">Not available</span> (later phase).</p>
+            <p class="text-xs text-gray-500">Outbound pause: use <a href="admin_circuit_breaker.php" class="text-sky-400 hover:underline">Circuit Breaker</a> (this checkbox did not control outbound calls).</p>
+            <input type="hidden" name="circuit_breaker_on" value="1">
             <button type="submit" class="btn-primary px-6 py-2.5">Save registry profile</button>
         </form>
     </div>
@@ -599,9 +623,9 @@ require_once __DIR__ . '/header.php';
                 </select>
                 <?php else: ?>
                 <?php $hasExisting = !empty($existingCreds[$key]); ?>
-                <input type="<?= e($meta['type'] ?? 'text') ?>" name="keys[<?= e($key) ?>]" value="" placeholder="<?= ($meta['type'] ?? '') === 'password' ? ($hasExisting ? '••••••' . e($existingCreds['_last4'] ?? '') . ' (leave blank to keep)' : '•••• (leave blank to keep current)') : ($hasExisting ? 'Current: ' . e(substr((string)$existingCreds[$key], 0, 8)) . '…' : '') ?>" class="input-field mt-1 font-mono text-xs" autocomplete="off">
-                <?php if ($hasExisting && ($meta['type'] ?? '') !== 'password'): ?>
-                <p class="text-[10px] text-gray-600 mt-1">Current value saved in encrypted credentials.</p>
+                <input type="<?= e($meta['type'] ?? 'text') ?>" name="keys[<?= e($key) ?>]" value="" placeholder="<?= $hasExisting ? 'Saved (leave blank to keep)' : '' ?>" class="input-field mt-1 font-mono text-xs" autocomplete="off">
+                <?php if ($hasExisting): ?>
+                <p class="text-[10px] text-gray-600 mt-1">Value stored encrypted — not shown. Leave blank to keep.</p>
                 <?php endif; ?>
                 <?php endif; ?>
             </div>
@@ -992,8 +1016,8 @@ require_once __DIR__ . '/header.php';
 
     <?php elseif ($activeTab === 'golive'): ?>
     <div class="glass rounded-xl p-6 border border-gray-800">
-        <h3 class="font-semibold mb-1">Go-live</h3>
-        <p class="text-xs text-gray-500 mb-4">Checklist before this partner appears on the public homepage. Complete required items, then turn Go Live ON. Live Route API stays locked until a later ticket.</p>
+        <h3 class="font-semibold mb-1">Go-live (homepage logo only)</h3>
+        <p class="text-xs text-gray-500 mb-4">This switch only shows the partner name on the public homepage. It is not money Live, not Connected, and not a collect rail. Merchant onboarding stays first — this is not a public acquire campaign.</p>
         <ul class="space-y-2 mb-5">
             <?php foreach (($goLiveChecklist['items'] ?? []) as $item): ?>
             <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-800 px-3 py-2.5 text-sm">
@@ -1021,17 +1045,17 @@ require_once __DIR__ . '/header.php';
                 <input type="hidden" name="action" value="toggle_go_live">
                 <?php if ($isGoLive): ?>
                 <input type="hidden" name="go_live" value="0">
-                <button type="submit" class="text-xs px-4 py-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" onclick="return confirm('Remove from public website?')">● Go Live ON — Click to turn OFF</button>
+                <button type="submit" class="text-xs px-4 py-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" onclick="return confirm('Hide this partner name from the public homepage? (Does not turn off routing.)')">Homepage listing ON — click to hide</button>
                 <?php elseif (!empty($goLiveChecklist['ready'])): ?>
                 <input type="hidden" name="go_live" value="1">
-                <button type="submit" class="text-xs px-4 py-2.5 rounded-lg bg-gray-700/50 text-gray-400 border border-gray-600" onclick="return confirm('Show this partner on public website?')">○ Go Live OFF — Click to turn ON</button>
+                <button type="submit" class="text-xs px-4 py-2.5 rounded-lg bg-gray-700/50 text-gray-400 border border-gray-600" onclick="return confirm('Show this partner name on the public homepage? This is not a money Live switch.')">Homepage listing OFF — click to show</button>
                 <?php else: ?>
-                <button type="button" disabled class="text-xs px-4 py-2.5 rounded-lg bg-gray-800 text-gray-500 border border-gray-700 cursor-not-allowed">○ Go Live OFF — complete required items first</button>
+                <button type="button" disabled class="text-xs px-4 py-2.5 rounded-lg bg-gray-800 text-gray-500 border border-gray-700 cursor-not-allowed">Homepage listing — complete required items first</button>
                 <?php endif; ?>
             </form>
             <div class="text-xs text-gray-500 space-y-0.5">
                 <?php if ($isGoLive && !empty($gateway['public_go_live_at'])): ?>
-                <div class="text-gray-600">Go Live since: <?= e((string)$gateway['public_go_live_at']) ?> by <?= e((string)($gateway['public_go_live_by'] ?? '')) ?></div>
+                <div class="text-gray-600">Homepage listing since: <?= e((string)$gateway['public_go_live_at']) ?> by <?= e((string)($gateway['public_go_live_by'] ?? '')) ?></div>
                 <?php endif; ?>
             </div>
         </div>
@@ -1049,7 +1073,11 @@ require_once __DIR__ . '/header.php';
             · <a href="admin_gateway_detail.php?id=<?= (int)$gatewayId ?>&amp;tab=keys&amp;env=test" class="text-sky-400 hover:underline">Edit keys</a>
         </p>
         <div class="bg-dark-900/50 rounded-lg p-4 mb-4">
-            <p class="text-sm <?= $testResult['ok'] ? 'text-emerald-400' : 'text-amber-400' ?>"><?= e($testResult['message']) ?></p>
+            <?php if ($testRan && is_array($testResult)): ?>
+            <p class="text-sm <?= !empty($testResult['ok']) ? 'text-emerald-400' : 'text-amber-400' ?>"><?= e((string)($testResult['message'] ?? '')) ?></p>
+            <?php else: ?>
+            <p class="text-sm text-gray-500">Click Run Test Now to probe saved keys. Status stays Keys Missing / Keys Invalid until a real check or an honest fail is recorded. This page does not auto-run a connection.</p>
+            <?php endif; ?>
         </div>
         <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=test&test_env=test&action=test&token=<?= csrfToken() ?>" class="btn-primary px-6 py-2.5">Run Test Now (Test keys)</a>
         <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=test&test_env=live&action=test&token=<?= csrfToken() ?>" class="text-sm px-4 py-2.5 rounded-lg glass text-emerald-300 ml-2">Run Test (Live keys)</a>

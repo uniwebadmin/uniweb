@@ -321,13 +321,85 @@ function partnerCredentialVaultStatusBadge(string $status): string
 {
     $status = strtolower(trim($status));
     $map = [
-        'missing' => 'bg-gray-700/50 text-gray-400',
-        'invalid' => 'bg-amber-500/15 text-amber-300',
-        'valid' => 'bg-emerald-500/15 text-emerald-300',
+        'missing' => ['cls' => 'bg-gray-700/50 text-gray-400', 'label' => 'Keys Missing'],
+        'invalid' => ['cls' => 'bg-amber-500/15 text-amber-300', 'label' => 'Keys Invalid'],
+        'valid' => ['cls' => 'bg-emerald-500/15 text-emerald-300', 'label' => 'Keys Valid'],
     ];
-    $cls = $map[$status] ?? $map['missing'];
-    $label = strtoupper($status);
-    return '<span class="text-[10px] px-2 py-0.5 rounded border border-gray-700 ' . $cls . '" title="Credential vault status — never shows secret values">' . e($label) . '</span>';
+    $row = $map[$status] ?? $map['missing'];
+    return '<span class="text-[10px] px-2 py-0.5 rounded border border-gray-700 ' . $row['cls'] . '" title="Credential status — never shows secret values">' . e($row['label']) . '</span>';
+}
+
+/**
+ * Built-in Partner Registry keys have PHP adapters. Custom partners are wired only when adapter_class is an existing file.
+ */
+function partnerAdapterIsWired(string $partnerKey, ?array $gatewayRow = null): bool
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    if ($partnerKey === '') {
+        return false;
+    }
+    if (!function_exists('getPartnerRegistry')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    if (isset(getPartnerRegistry()[$partnerKey])) {
+        return true;
+    }
+    $adapter = trim((string)($gatewayRow['adapter_class'] ?? ''));
+    if ($adapter === '') {
+        return false;
+    }
+    $root = dirname(__DIR__);
+    $candidates = [];
+    if (preg_match('/^[A-Za-z0-9_\\\\]+$/', $adapter) && !str_contains($adapter, '/') && !str_contains($adapter, '.php')) {
+        return false;
+    }
+    $rel = ltrim(str_replace('\\', '/', $adapter), '/');
+    $candidates[] = $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel);
+    if (!str_ends_with(strtolower($rel), '.php')) {
+        $candidates[] = $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel) . '.php';
+    }
+    foreach ($candidates as $path) {
+        if (is_file($path)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * @return array{allowed:bool,reason:string,warn_keys:bool}
+ */
+function partnerRegistryActivateGate(array $gatewayRow): array
+{
+    $key = strtolower(trim((string)($gatewayRow['gateway_key'] ?? '')));
+    $wired = partnerAdapterIsWired($key, $gatewayRow);
+    if (!function_exists('getPartnerCredentialStatus')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    $hasKeys = false;
+    if (function_exists('getPartnerCredentialStatus')) {
+        $cred = getPartnerCredentialStatus($key);
+        $hasKeys = !empty($cred['test']) || !empty($cred['live']);
+    } elseif (function_exists('partnerHasSavedCredentials')) {
+        $hasKeys = partnerHasSavedCredentials($key);
+    }
+    if (!$wired) {
+        return [
+            'allowed' => false,
+            'reason' => 'Not wired (adapter missing)',
+            'warn_keys' => !$hasKeys,
+        ];
+    }
+    return [
+        'allowed' => true,
+        'reason' => '',
+        'warn_keys' => !$hasKeys,
+    ];
+}
+
+function partnerRegistryNotWiredBadgeHtml(): string
+{
+    return '<span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-700/50 text-slate-300 border border-slate-600/40" title="No connector file — Test Connection cannot probe this partner">Not wired (adapter missing)</span>';
 }
 
 function updatePartnerCredentialVaultStatus(string $partnerKey, string $env, string $status): void
@@ -542,9 +614,10 @@ function registerPartnerRegistryV2(array $input, ?int $adminId = null): array
 
 function partnerRegistryV2ControlRoomNote(): string
 {
-    return 'Global Control Room — partner identity, connector, credentials status, commercial mode, and capability flags. '
-        . 'Inactive partners stay visible in this list. Activate for routing is separate from registration. '
-        . 'Checkout routing and KYC forward workers are later phases; this screen does not move customer money.';
+    return 'Global Control Room — partner identity, connector, keys status, and capability flags. '
+        . 'New partners show immediately as Inactive (Activate is not required to see the row). '
+        . 'Activate turns routing ON. Keys Missing / Keys Valid / Keys Invalid come from saved keys and Test Connection. '
+        . 'Not wired means no adapter file — routing ON is blocked. This screen does not move customer money.';
 }
 
 /**
@@ -602,16 +675,12 @@ function resolvePartnerAdminMeta(string $partnerKey, ?array $gatewayRow = null):
     return $meta;
 }
 
-/** List status badge: Active | Inactive | PAUSED (circuit off while active). */
+/** List status badge: Active | Inactive (routing flag only — not money Live). */
 function partnerRegistryListStatusBadge(array $gatewayRow): string
 {
     $active = (int)($gatewayRow['is_active'] ?? 0) === 1;
-    $circuitOn = !isset($gatewayRow['circuit_breaker_on']) || (int)$gatewayRow['circuit_breaker_on'] === 1;
-    if ($active && !$circuitOn) {
-        return '<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30" title="Active but outbound circuit is off">PAUSED</span>';
-    }
     if ($active) {
-        return '<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Active</span>';
+        return '<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" title="Routing ON — methods can be offered to merchants">Active</span>';
     }
-    return '<span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-700/60 text-gray-300 border border-gray-600/40">Inactive</span>';
+    return '<span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-700/60 text-gray-300 border border-gray-600/40" title="In the list, routing OFF">Inactive</span>';
 }
