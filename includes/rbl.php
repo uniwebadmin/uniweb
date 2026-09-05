@@ -171,36 +171,118 @@ function rblVaSerialForMerchant(int $merchantId): string
 function rblClientIdForRequest(): string
 {
     $fx = rblSandboxOfficialFixtures();
-    $app = rblPartnerCredential('rbl_app_name', '');
-    if ($app === '' && rblIsSandboxEnvironment()) {
-        return $fx['client_id'];
+    if (rblIsSandboxEnvironment() && rblCredentialWithSandboxFixture('rbl_corp_id', 'corp_id') === $fx['corp_id']) {
+        $pastedApp = preg_replace('/[^A-Za-z0-9]/', '', rblPartnerCredential('rbl_app_name', ''));
+        if ($pastedApp === '' || strlen($pastedApp) > 7) {
+            return $fx['client_id'];
+        }
+        return strtoupper(substr((string)$pastedApp, 0, 7));
     }
+    $app = rblPartnerCredential('rbl_app_name', '');
     $raw = preg_replace('/[^A-Za-z0-9]/', '', $app !== '' ? $app : $fx['client_id']) ?: $fx['client_id'];
     $raw = strtoupper((string)$raw);
     return substr($raw, 0, 7);
 }
 
+function rblResponseLooksSuccessful(?array $res): bool
+{
+    if (!$res || (int)($res['http'] ?? 0) !== 200) {
+        return false;
+    }
+    $body = $res['body'] ?? [];
+    if (!is_array($body)) {
+        return false;
+    }
+    $status = '';
+    foreach (rblFlattenAssocNodes($body) as $node) {
+        foreach (['Status', 'status'] as $k) {
+            if (!empty($node[$k])) {
+                $status = strtoupper(trim((string)$node[$k]));
+                break 2;
+            }
+        }
+    }
+    if ($status !== '' && (str_contains($status, 'FAIL') || str_contains($status, 'ERROR'))) {
+        return false;
+    }
+    return true;
+}
+
+/** @param array<string,mixed> $node @return list<array<string,mixed>> */
+function rblFlattenAssocNodes(array $node, int $depth = 0): array
+{
+    $out = [$node];
+    if ($depth >= 8) {
+        return $out;
+    }
+    foreach ($node as $v) {
+        if (is_array($v)) {
+            $isList = array_is_list($v);
+            if ($isList) {
+                foreach ($v as $item) {
+                    if (is_array($item)) {
+                        $out = array_merge($out, rblFlattenAssocNodes($item, $depth + 1));
+                    }
+                }
+            } else {
+                $out = array_merge($out, rblFlattenAssocNodes($v, $depth + 1));
+            }
+        }
+    }
+    return $out;
+}
+
+function rblSanitizePublicError(string $raw): string
+{
+    $raw = preg_replace('/[A-Za-z0-9]{20,}/', '[redacted]', $raw) ?? $raw;
+    return mb_substr(trim($raw), 0, 220);
+}
+
+function rblSummarizeVaFailure(?array $res): string
+{
+    if ($res === null) {
+        return 'RBL did not respond. Check sandbox connectivity.';
+    }
+    $http = (int)($res['http'] ?? 0);
+    $curlErr = trim((string)($res['error'] ?? ''));
+    if ($http === 0) {
+        return 'RBL sandbox not reachable' . ($curlErr !== '' ? ': ' . rblSanitizePublicError($curlErr) : '.');
+    }
+    $bits = [];
+    $body = is_array($res['body'] ?? null) ? $res['body'] : [];
+    foreach (rblFlattenAssocNodes($body) as $node) {
+        foreach (['Error_Desc', 'Error_Cde', 'errorMessage', 'moreInformation', 'message', 'httpMessage', 'Status'] as $k) {
+            if (!empty($node[$k]) && is_scalar($node[$k])) {
+                $bits[] = $k . '=' . rblSanitizePublicError((string)$node[$k]);
+            }
+        }
+        if (count($bits) >= 4) {
+            break;
+        }
+    }
+    $detail = $bits === [] ? 'no VA number in response' : implode('; ', array_unique($bits));
+    return 'HTTP ' . $http . ' — ' . $detail;
+}
+
+function rblSetLastVaCreateError(string $message): void
+{
+    $GLOBALS['rbl_last_va_create_error'] = rblSanitizePublicError($message);
+}
+
+function rblLastVaCreateError(): string
+{
+    return trim((string)($GLOBALS['rbl_last_va_create_error'] ?? ''));
+}
+
 /** Parse RBL VA create response into checkout-friendly shape. */
 function rblParseVaResponse(?array $res): ?array
 {
-    if (!$res || (int)($res['http'] ?? 0) !== 200) {
+    if (!rblResponseLooksSuccessful($res)) {
         return null;
     }
     $body = $res['body'] ?? [];
     if (!is_array($body)) {
         return null;
-    }
-    $candidates = [$body];
-    foreach (['create_VA', 'Create_VA', 'createVA', 'response', 'Body', 'Acc_Stmt_DtRng_Res'] as $wrap) {
-        if (!empty($body[$wrap]) && is_array($body[$wrap])) {
-            $candidates[] = $body[$wrap];
-            if (!empty($body[$wrap]['Body']) && is_array($body[$wrap]['Body'])) {
-                $candidates[] = $body[$wrap]['Body'];
-            }
-            if (!empty($body[$wrap]['Header']) && is_array($body[$wrap]['Header'])) {
-                $candidates[] = $body[$wrap]['Header'];
-            }
-        }
     }
     $fields = [
         'va_number' => ['Full_VA_Number', 'full_va_number', 'VA_Number', 'va_number', 'VirtualAccountNumber', 'AccountNumber', 'account_number'],
@@ -209,13 +291,13 @@ function rblParseVaResponse(?array $res): ?array
         'upi_id' => ['UPI_Id', 'upi_id', 'VPA', 'vpa'],
     ];
     $out = [];
-    foreach ($candidates as $node) {
+    foreach (rblFlattenAssocNodes($body) as $node) {
         foreach ($fields as $canonical => $keys) {
             if (!empty($out[$canonical])) {
                 continue;
             }
             foreach ($keys as $k) {
-                if (!empty($node[$k])) {
+                if (!empty($node[$k]) && is_scalar($node[$k])) {
                     $out[$canonical] = trim((string)$node[$k]);
                     break;
                 }
@@ -237,8 +319,10 @@ function rblParseVaResponse(?array $res): ?array
  */
 function createRblVirtualAccount(array $merchant): ?array
 {
+    rblSetLastVaCreateError('');
     $gate = rblOperationalGate();
     if ($gate !== null) {
+        rblSetLastVaCreateError((string)($gate['error'] ?? 'RBL operational gate blocked VA create.'));
         return null;
     }
     $merchantId = (int)($merchant['id'] ?? $merchant['merchant_id'] ?? 0);
@@ -247,15 +331,44 @@ function createRblVirtualAccount(array $merchant): ?array
         $name = 'Merchant ' . $merchantId;
     }
     $name = mb_substr(preg_replace('/[^A-Za-z0-9 &\.\,\-\/\(\)]/', '', $name) ?: 'Merchant', 0, 100);
-    $serial = rblVaSerialForMerchant($merchantId);
-    $res = rblCreateVirtualAccount($serial, $name);
-    $parsed = rblParseVaResponse($res);
-    if ($parsed) {
-        $parsed['_source'] = 'rbl_api';
-        $parsed['_serial'] = $serial;
-        return $parsed;
+    $serials = array_values(array_unique([
+        rblVaSerialForMerchant($merchantId),
+        rblVaSerialUnique($merchantId),
+    ]));
+    $paths = ['/virtual/account', '/virtual/v2/account', '/va/create'];
+    $lastFail = 'RBL did not return a VA number.';
+    foreach ($serials as $serial) {
+        foreach ($paths as $path) {
+            $res = rblApiRequest('POST', $path, rblVaBody($serial, $name));
+            $parsed = rblParseVaResponse($res);
+            if ($parsed) {
+                $parsed['_source'] = 'rbl_api';
+                $parsed['_serial'] = $serial;
+                $parsed['_path'] = $path;
+                return $parsed;
+            }
+            $lastFail = rblSummarizeVaFailure($res) . ' @ ' . $path;
+        }
     }
+    if (function_exists('error_log')) {
+        error_log('RBL VA create failed (no secrets): ' . $lastFail);
+    }
+    rblSetLastVaCreateError($lastFail);
     return null;
+}
+
+/** Unique 13-digit serial (sandbox TestCase length) so merchant 7 is not always 000000000007. */
+function rblVaSerialUnique(int $merchantId): string
+{
+    $n = max(1, $merchantId);
+    $serial = str_pad((string)$n, 4, '0', STR_PAD_LEFT) . substr((string)(time() % 1000000000), -9);
+    if (strlen($serial) > 16) {
+        $serial = substr($serial, 0, 16);
+    }
+    if (strlen($serial) < 9) {
+        $serial = str_pad($serial, 9, '0', STR_PAD_LEFT);
+    }
+    return $serial;
 }
 
 /** Generic RBL API call. Auth is client_id + client_secret as query params (OpenAPI). */

@@ -371,7 +371,11 @@ function createAdditionalVirtualAccount(int $merchantId, string $gateway = 'axis
     } elseif ($gateway === 'rbl') {
         $va = createRblVirtualAccount($merchant);
         if (!$va || empty($va['va_number'])) {
-            return ['ok' => false, 'error' => 'RBL did not return a VA. Check Partner Registry → RBL keys, Corp ID, Master Account, and Error Log.'];
+            $detail = function_exists('rblLastVaCreateError') ? rblLastVaCreateError() : '';
+            $hint = $detail !== ''
+                ? ('RBL VA create failed: ' . $detail)
+                : 'RBL did not return a VA. Check Partner Registry → RBL keys and Error Log.';
+            return ['ok' => false, 'error' => $hint];
         }
     } else {
         return ['ok' => false, 'error' => vaUnsupportedCreationReason($gateway)];

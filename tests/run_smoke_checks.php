@@ -955,7 +955,7 @@ $assert(str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'fu
 $assert(str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'rblIsSandboxEnvironment') && str_contains((string)file_get_contents($root . '/includes/rbl_workflow.php'), 'never sandbox zip fixtures'), 'p6a_rbl_fixtures_sandbox_only');
 $rblSrc = (string)file_get_contents($root . '/includes/rbl.php');
 $assert(str_contains($rblSrc, 'function rblVaSerialForMerchant') && str_contains($rblSrc, 'Full_VA_Number') && str_contains($rblSrc, 'apisandbox.rbl.bank.in'), 'rbl_sandbox_serial_and_hosts');
-$assert(str_contains($rblSrc, 'apisandbox.rblbank.com') && str_contains($rblSrc, 'function rblSandboxProductCatalog'), 'rbl_sandbox_alt_host_and_catalog');
+$assert(str_contains($rblSrc, 'function rblLastVaCreateError') && str_contains($rblSrc, '/virtual/v2/account') && str_contains($rblSrc, 'function rblVaSerialUnique'), 'rbl_va_create_fallback_paths');
 $assert(is_file($root . '/rbl_webhook.php') && str_contains((string)file_get_contents($root . '/rbl_webhook.php'), "pgWebhookVerifyPartner('rbl'"), 'rbl_webhook_endpoint');
 $assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'Sandbox first') && str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'rbl_webhook.php'), 'rbl_admin_sandbox_hint');
 $rblFlow = (string)file_get_contents($root . '/includes/rbl_workflow.php');
