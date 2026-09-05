@@ -2275,6 +2275,7 @@ $assert(str_contains($prV2, 'resolvePartnerAdminMeta') && str_contains($prV2, 'p
 $assert(str_contains($regV2, 'Activate for routing') && str_contains($regV2, 'status=all') && str_contains($regV2, 'highlight='), 'prv2_list_shows_inactive_activate_honest');
 $assert(str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'ORDER BY id DESC'), 'prv2_list_newest_first');
 $assert(str_contains($detV2, 'resolvePartnerAdminMeta') && str_contains($detV2, 'Activate for routing') && str_contains($detV2, 'partnerCredentialVaultStatusBadge'), 'prv2_detail_keys_usable');
+$assert(str_contains($detV2, "\$_GET['test_env'] ?? \$_GET['env'] ?? 'test'") || str_contains($detV2, "\$_GET['test_env'] ??"), 'prv2_test_env_no_undefined_key');
 
 $payload = [
     'ok' => $failed === 0,

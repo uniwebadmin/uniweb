@@ -343,7 +343,8 @@ $configKeys = $partner['config_keys'] ?? [];
 if ($configKeys === [] && function_exists('partnerRegistryV2DefaultConfigKeys')) {
     $configKeys = partnerRegistryV2DefaultConfigKeys($partnerKey);
 }
-$testEnv = in_array(trim((string)($_GET['test_env'] ?? 'test')), ['test', 'live'], true) ? trim((string)$_GET['test_env']) : 'test';
+$testEnvRaw = strtolower(trim((string)($_GET['test_env'] ?? $_GET['env'] ?? 'test')));
+$testEnv = in_array($testEnvRaw, ['test', 'live'], true) ? $testEnvRaw : 'test';
 $testResult = $partner ? partnerTestConnection($partnerKey) : ['ok' => false, 'message' => 'No partner config.'];
 if ($activeTab === 'test' && isset($_GET['action']) && $_GET['action'] === 'test' && verifyCsrf($_GET['token'] ?? '')) {
     if (function_exists('recordPartnerCredentialTestResult')) {
