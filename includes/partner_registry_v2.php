@@ -772,6 +772,23 @@ function partnerRegistryRetireBlockers(string $partnerKey): array
     return $blockers;
 }
 
+function partnerRegistryIsProtectedFromRetire(string $partnerKey): bool
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    if ($partnerKey === '') {
+        return true;
+    }
+    if (!function_exists('getPartnerRegistryKeys')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $protected = array_values(array_unique(array_merge(
+        function_exists('paymentMethodRegistryKeys') ? paymentMethodRegistryKeys() : [],
+        ['payu', 'razorpay', 'cashfree', 'axis', 'decentro', 'phonepe', 'paytm', 'worldline', 'digio', 'rbl'],
+        function_exists('getPartnerRegistryKeys') ? getPartnerRegistryKeys() : []
+    )));
+    return in_array($partnerKey, $protected, true);
+}
+
 /**
  * Soft-retire a custom partner. Idempotent if already retired. Confirm code must equal partner_code.
  *
@@ -799,15 +816,7 @@ function retirePartnerRegistryRow(int $gatewayId, array $opts = []): array
     if (partnerRegistryRowIsRetired($gw)) {
         return ['ok' => true, 'already' => true, 'gateway_key' => $key, 'gateway_name' => (string)$gw['gateway_name']];
     }
-    if (!function_exists('getPartnerRegistryKeys')) {
-        require_once __DIR__ . '/partner_engine.php';
-    }
-    $protected = array_values(array_unique(array_merge(
-        function_exists('paymentMethodRegistryKeys') ? paymentMethodRegistryKeys() : [],
-        ['payu', 'razorpay', 'cashfree', 'axis', 'decentro', 'phonepe', 'paytm', 'worldline', 'digio', 'rbl'],
-        getPartnerRegistryKeys()
-    )));
-    if (in_array($key, $protected, true)) {
+    if (partnerRegistryIsProtectedFromRetire($key)) {
         return ['ok' => false, 'error' => 'Built-in partners cannot be retired. Use Turn OFF routing.'];
     }
     if ((int)($gw['is_active'] ?? 0) === 1) {

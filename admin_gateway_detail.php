@@ -448,19 +448,6 @@ require_once __DIR__ . '/header.php';
                 <button type="submit" class="btn-primary px-6 py-2.5" onclick="return confirm('<?= !empty($activateGate['warn_keys']) ? 'Keys are missing. Turn routing ON anyway? Paste keys next.' : 'Activate ' . e($gateway['gateway_name']) . ' for routing? Partner already appears in the registry list.' ?>')">Activate for routing</button>
             </form>
             <?php endif; ?>
-            <?php if ($partnerIsBuiltin): ?>
-            <span class="text-xs px-4 py-2.5 rounded-lg bg-gray-800 text-gray-500 border border-gray-700" title="Built-in partners cannot be retired">Retire — Not available</span>
-            <?php elseif ($isRetired): ?>
-            <?php elseif ($retireBlockers !== []): ?>
-            <span class="text-xs px-4 py-2.5 rounded-lg bg-gray-800 text-amber-400/80 border border-amber-500/20" title="<?= e(implode('; ', $retireBlockers)) ?>">Retire blocked — <?= e($retireBlockers[0]) ?></span>
-            <?php else: ?>
-            <form method="POST" class="flex flex-wrap items-center gap-2">
-                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                <input type="hidden" name="action" value="retire">
-                <input type="text" name="confirm_code" required placeholder="Type <?= e($partnerKey) ?>" autocomplete="off" class="input-field text-xs font-mono w-40">
-                <button type="submit" class="text-xs px-4 py-2.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30" onclick="return confirm('Retire this partner? History is kept. It leaves the default list.')">Retire partner</button>
-            </form>
-            <?php endif; ?>
             <?php else: ?>
             <form method="POST" class="inline">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -476,7 +463,32 @@ require_once __DIR__ . '/header.php';
             <a href="<?= e($partner['dashboard']) ?>" target="_blank" rel="noopener" class="glass px-5 py-2.5 rounded-xl text-sm">Dashboard ↗</a>
             <?php endif; ?>
         </div>
-        <p class="text-[11px] text-gray-600 mt-3">Keys tab saves encrypted credentials (last4 only). Activate turns routing ON. Turn OFF hides methods. Retire (type partner code) hides custom partners from the default list — history stays. Active is not money Live.</p>
+        <?php
+        $retireProtected = function_exists('partnerRegistryIsProtectedFromRetire')
+            ? partnerRegistryIsProtectedFromRetire($partnerKey)
+            : $partnerIsBuiltin;
+        ?>
+        <div class="mt-4 rounded-xl border border-red-500/20 bg-red-500/5 p-4" id="retire">
+            <p class="text-sm font-medium text-gray-200 mb-1">Retire partner</p>
+            <?php if ($isRetired): ?>
+            <p class="text-xs text-gray-500">Already retired — hidden from the default list.</p>
+            <?php elseif ($retireProtected): ?>
+            <p class="text-xs text-gray-500">Not available for built-in partners (Razorpay, PayU, and the rest of the core list). Use Turn OFF routing if you only want to hide methods.</p>
+            <?php elseif ($isActive): ?>
+            <p class="text-xs text-amber-200/90">Not available until you tap <strong class="text-amber-100">Turn OFF</strong> above. Then this box becomes a live Retire form.</p>
+            <?php elseif ($retireBlockers !== []): ?>
+            <p class="text-xs text-amber-200/90">Blocked: <?= e(implode('; ', $retireBlockers)) ?>. Turn those merchants/links OFF first.</p>
+            <?php else: ?>
+            <form method="POST" class="space-y-3">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="action" value="retire">
+                <label class="block text-xs text-gray-400">Type the partner code exactly: <span class="font-mono text-gray-200"><?= e($partnerKey) ?></span></label>
+                <input type="text" name="confirm_code" required placeholder="<?= e($partnerKey) ?>" autocomplete="off" class="input-field font-mono text-sm w-full py-3">
+                <button type="submit" class="w-full sm:w-auto text-sm px-5 py-3 rounded-lg bg-red-500/20 text-red-300 border border-red-500/40">Retire partner</button>
+            </form>
+            <?php endif; ?>
+        </div>
+        <p class="text-[11px] text-gray-600 mt-3">Keys tab saves encrypted credentials (last4 only). Activate turns routing ON. Turn OFF hides methods. Retire is only for custom partners you added — type the partner code. Active is not money Live.</p>
     </div>
 
     <div class="flex gap-1 border-b border-gray-800 overflow-x-auto">

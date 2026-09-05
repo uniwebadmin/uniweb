@@ -832,7 +832,7 @@ $regRetire = (string)file_get_contents($root . '/admin_gateway_registry.php');
 $assert(str_contains($regRetire, "action === 'retire'") && str_contains($regRetire, 'confirm_code') && str_contains($regRetire, 'Retired'), 'partner_registry_retire_filter');
 $assert(str_contains($regRetire, 'allows_existing_merchant_link') && str_contains($regRetire, 'already-live merchant link'), 'partner_registry_already_live_flag');
 $v2Retire = (string)file_get_contents($root . '/includes/partner_registry_v2.php');
-$assert(str_contains($v2Retire, 'function retirePartnerRegistryRow') && str_contains($v2Retire, 'Built-in partners cannot be retired'), 'partner_retire_helper');
+$assert(str_contains($v2Retire, 'function retirePartnerRegistryRow') && str_contains($v2Retire, 'Built-in partners cannot be retired') && str_contains($v2Retire, 'function partnerRegistryIsProtectedFromRetire'), 'partner_retire_helper');
 $pcLive = (string)file_get_contents($root . '/includes/partner_control.php');
 $assert(str_contains($pcLive, 'function saveMerchantAlreadyLiveLink') && str_contains($pcLive, 'account_source'), 'already_live_link_helper');
 $alSlice = substr($pcLive, (int)strpos($pcLive, 'function saveMerchantAlreadyLiveLink'), 8000);

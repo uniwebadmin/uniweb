@@ -252,7 +252,7 @@ require_once __DIR__ . '/header.php';
                 $enabledMethods = getEnabledPartnerMethods($g['gateway_key']);
                 $isHighlight = $highlightKey !== '' && strtolower((string)$g['gateway_key']) === $highlightKey;
             ?>
-            <div class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-white/5 transition-colors <?= $isHighlight ? 'bg-sky-500/10 ring-1 ring-sky-500/40' : '' ?>" data-gw-name="<?= e(mb_strtolower($g['gateway_name'] . ' ' . $g['gateway_key'])) ?>" data-gw-status="<?= $isActive ? 'active' : 'inactive' ?>" <?= $isHighlight ? 'id="highlighted-partner"' : '' ?>>
+            <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-4 hover:bg-white/5 transition-colors <?= $isHighlight ? 'bg-sky-500/10 ring-1 ring-sky-500/40' : '' ?>" data-gw-name="<?= e(mb_strtolower($g['gateway_name'] . ' ' . $g['gateway_key'])) ?>" data-gw-status="<?= $isActive ? 'active' : 'inactive' ?>" <?= $isHighlight ? 'id="highlighted-partner"' : '' ?>>
                 <div class="flex items-center gap-4">
                     <div class="w-10 h-10 rounded-lg bg-dark-900/80 flex items-center justify-center text-xl flex-shrink-0">
                         <?= e($partnerInfo['icon'] ?? '⚙️') ?>
@@ -283,7 +283,8 @@ require_once __DIR__ . '/header.php';
                         </div>
                     </div>
                 </div>
-                <div class="flex items-center gap-2 flex-shrink-0">
+                <div class="flex flex-col items-stretch sm:items-end gap-2 w-full sm:w-auto min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
                     <a href="<?= e(adminPartnerDetailUrl((string)$g['gateway_key'])) ?>" class="text-xs px-3 py-1.5 rounded-lg bg-dark-900/80 text-gray-300 border border-gray-700 hover:border-gray-500">Configure →</a>
                     <?php if (!$isActive): ?>
                     <?php if (empty($activateGate['allowed'])): ?>
@@ -304,27 +305,31 @@ require_once __DIR__ . '/header.php';
                         <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20" onclick="return confirm('Turn OFF routing for <?= e($g['gateway_name']) ?>? Methods hide from checkout/QR/links. Partner stays in this list as Inactive.')">Turn OFF routing</button>
                     </form>
                     <?php endif; ?>
+                    </div>
                     <?php
                     $rowRetired = function_exists('partnerRegistryRowIsRetired') && partnerRegistryRowIsRetired($g);
-                    $rowBuiltin = function_exists('isPartnerRegistryKey') && isPartnerRegistryKey((string)$g['gateway_key']);
+                    $rowBuiltin = function_exists('partnerRegistryIsProtectedFromRetire')
+                        ? partnerRegistryIsProtectedFromRetire((string)$g['gateway_key'])
+                        : (function_exists('isPartnerRegistryKey') && isPartnerRegistryKey((string)$g['gateway_key']));
                     $retireBlockers = (!$rowBuiltin && !$isActive && !$rowRetired && function_exists('partnerRegistryRetireBlockers'))
                         ? partnerRegistryRetireBlockers((string)$g['gateway_key']) : [];
                     ?>
                     <?php if ($rowRetired): ?>
-                    <span class="text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-gray-500 border border-gray-700" title="Already retired">Retired</span>
+                    <p class="text-[11px] text-gray-500">Already retired.</p>
                     <?php elseif ($rowBuiltin): ?>
-                    <span class="text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-gray-500 border border-gray-700" title="Built-in partners cannot be retired">Retire — Not available</span>
+                    <p class="text-[11px] text-gray-500">Retire not available — built-in partner. Use Turn OFF routing only.</p>
                     <?php elseif ($isActive): ?>
-                    <span class="text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-gray-500 border border-gray-700" title="Turn OFF routing first">Retire — Turn OFF first</span>
+                    <p class="text-[11px] text-amber-300/90">Retire not available until Turn OFF routing.</p>
                     <?php elseif ($retireBlockers !== []): ?>
-                    <span class="text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-amber-400/80 border border-amber-500/20" title="<?= e(implode('; ', $retireBlockers)) ?>">Retire blocked</span>
+                    <p class="text-[11px] text-amber-300/90">Retire blocked: <?= e(implode('; ', $retireBlockers)) ?></p>
                     <?php else: ?>
-                    <form method="POST" class="flex items-center gap-1">
+                    <form method="POST" class="w-full space-y-2 border border-red-500/25 rounded-lg p-3 bg-red-500/5">
                         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <input type="hidden" name="action" value="retire">
                         <input type="hidden" name="gateway_id" value="<?= (int)$g['id'] ?>">
-                        <input type="text" name="confirm_code" required placeholder="type <?= e($g['gateway_key']) ?>" autocomplete="off" class="bg-dark-900 border border-red-500/30 rounded px-2 py-1 text-[10px] font-mono w-28 text-gray-300" title="Type the partner code to confirm">
-                        <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20" onclick="return confirm('Retire <?= e($g['gateway_name']) ?>? History is kept. Partner leaves the default list.')">Retire</button>
+                        <label class="block text-[11px] text-gray-400">Type partner code <span class="font-mono text-gray-200"><?= e($g['gateway_key']) ?></span> then Retire</label>
+                        <input type="text" name="confirm_code" required placeholder="<?= e($g['gateway_key']) ?>" autocomplete="off" inputmode="text" class="w-full bg-dark-900 border border-red-500/40 rounded-lg px-3 py-2.5 text-sm font-mono text-gray-200">
+                        <button type="submit" class="w-full text-sm px-3 py-2.5 rounded-lg bg-red-500/15 text-red-300 border border-red-500/40">Retire partner</button>
                     </form>
                     <?php endif; ?>
                 </div>
