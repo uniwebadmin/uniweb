@@ -120,7 +120,7 @@ function getPartnerRegistry(): array
                 'Sandbox portal: https://sandbox.rbl.bank.in — create app (e.g. Uniweb Technologist)',
                 'Subscribe: VA + VA V2 + VA Creation + UPI Collection + Blob VA + Corporate Account + Single/Bulk Payment',
                 'Paste Sandbox Client ID (API Key) + Client Secret — Environment = Sandbox',
-                'Paste Corp ID + Master Account from RBL RM (no demo defaults like VAOPENBANK)',
+                'Corp ID + Master Account: sandbox zip TestCase 1 used if blank (VAOPENBANK / 409000832853)',
                 'Run Test Connection — Live/production keys later',
             ],
         ],

@@ -558,8 +558,9 @@ require_once __DIR__ . '/header.php';
         <div class="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 mb-4 text-xs text-rose-200">
             <strong>No demo defaults.</strong> <strong>Sandbox first.</strong> Paste <strong>Client ID</strong> (API Key) + <strong>Secret</strong> from
             <a href="https://sandbox.rbl.bank.in/" target="_blank" rel="noopener" class="underline">sandbox.rbl.bank.in</a>
-            — Environment = Sandbox. Then paste <strong>Corp ID</strong> + <strong>Master Account</strong> from RBL RM.
-            API base: <code class="text-gray-400">apisandbox.rbl.bank.in</code>. Live keys later.
+            — Environment = Sandbox. If Corp ID / Master Account are blank, UniWeb uses RBL zip <strong>TestCase 1</strong>
+            (VAOPENBANK / 409000832853) for sandbox only. Live needs Owner-pasted production Corp/Master.
+            API base: <code class="text-gray-400">apisandbox.rbl.bank.in</code>.
             Webhook: <code class="text-gray-400"><?= e(APP_URL) ?>/rbl_webhook.php</code>
         </div>
         <?php endif; ?>

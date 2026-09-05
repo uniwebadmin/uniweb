@@ -105,7 +105,7 @@ function getBankingPartners(): array
             'docs' => 'https://developer.rbl.bank.in/apicatalog',
             'sandbox' => 'https://apisandbox.rbl.bank.in/sandbox/api/v1',
             'email' => 'api_upi@rblbank.com',
-            'payout_note' => 'Sandbox-first: Key/Secret from sandbox.rbl.bank.in. API base apisandbox.rbl.bank.in. Live keys later. Corp ID + Master Account from RM (no demo defaults).',
+            'payout_note' => 'Sandbox-first: Key/Secret from sandbox.rbl.bank.in. Corp/Master from zip TestCase 1 when blank. Live keys later.',
         ],
         'yesbank' => [
             'name' => 'Yes Bank',

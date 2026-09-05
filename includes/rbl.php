@@ -23,6 +23,47 @@ function rblPartnerCredential(string $field, string $default = ''): string
     return $default;
 }
 
+/**
+ * Official RBL sandbox TestCase 1 values from inbox OpenAPI zips
+ * (VA / UPI Collection / VA Creation). Used only when Environment = Sandbox
+ * and Owner has not pasted Corp/Master. Never used for production/live money.
+ *
+ * @return array{corp_id:string,master_account:string,maker_id:string,checker_id:string,approver_id:string,client_id:string,va_serial:string,beneficiary:string,balance_acct:string,balance_corp:string}
+ */
+function rblSandboxOfficialFixtures(): array
+{
+    return [
+        'corp_id' => 'VAOPENBANK',
+        'master_account' => '409000832853',
+        'maker_id' => 'M001',
+        'checker_id' => 'C001',
+        'approver_id' => 'A001',
+        'client_id' => 'WEBUI',
+        'va_serial' => '1234567890987',
+        'beneficiary' => 'RBL Bank LTD',
+        'balance_acct' => '409000147931',
+        'balance_corp' => 'CORP001',
+    ];
+}
+
+function rblIsSandboxEnvironment(): bool
+{
+    return rblPartnerCredential('rbl_environment', 'sandbox') !== 'production';
+}
+
+function rblCredentialWithSandboxFixture(string $registryField, string $fixtureKey): string
+{
+    $pasted = rblPartnerCredential($registryField, '');
+    if ($pasted !== '') {
+        return $pasted;
+    }
+    if (!rblIsSandboxEnvironment()) {
+        return '';
+    }
+    $fx = rblSandboxOfficialFixtures();
+    return (string)($fx[$fixtureKey] ?? '');
+}
+
 /** Primary sandbox host from Virtual Account / UPI / VA Creation specs. */
 function rblSandboxPrimaryBaseUrl(): string
 {
@@ -73,17 +114,21 @@ function rblBaseUrlForPath(string $path): string
 function rblCredentials(): array
 {
     $base = rblPartnerCredential('rbl_base_url', '');
+    $fx = rblSandboxOfficialFixtures();
     return [
         'client_id' => rblPartnerCredential('rbl_client_id', ''),
         'client_secret' => rblPartnerCredential('rbl_client_secret', ''),
-        'corp_id' => rblPartnerCredential('rbl_corp_id', ''),
-        'app_name' => rblPartnerCredential('rbl_app_name', 'UniWeb'),
+        'corp_id' => rblCredentialWithSandboxFixture('rbl_corp_id', 'corp_id'),
+        'app_name' => rblPartnerCredential('rbl_app_name', $fx['beneficiary']),
         'environment' => rblPartnerCredential('rbl_environment', 'sandbox'),
         'base_url' => $base !== '' ? rtrim($base, '/') : rblBaseUrl(),
-        'master_account' => rblPartnerCredential('rbl_master_account', ''),
-        'maker_id' => rblPartnerCredential('rbl_maker_id', ''),
-        'checker_id' => rblPartnerCredential('rbl_checker_id', ''),
-        'approver_id' => rblPartnerCredential('rbl_approver_id', ''),
+        'master_account' => rblCredentialWithSandboxFixture('rbl_master_account', 'master_account'),
+        'maker_id' => rblCredentialWithSandboxFixture('rbl_maker_id', 'maker_id'),
+        'checker_id' => rblCredentialWithSandboxFixture('rbl_checker_id', 'checker_id'),
+        'approver_id' => rblCredentialWithSandboxFixture('rbl_approver_id', 'approver_id'),
+        'using_sandbox_fixtures' => rblIsSandboxEnvironment()
+            && rblPartnerCredential('rbl_corp_id', '') === ''
+            && rblPartnerCredential('rbl_master_account', '') === '',
     ];
 }
 
@@ -125,7 +170,12 @@ function rblVaSerialForMerchant(int $merchantId): string
 /** Client_Id: alphanumeric, max 7 chars per sandbox specs. */
 function rblClientIdForRequest(): string
 {
-    $raw = preg_replace('/[^A-Za-z0-9]/', '', rblPartnerCredential('rbl_app_name', 'UniWeb')) ?: 'WEBUI';
+    $fx = rblSandboxOfficialFixtures();
+    $app = rblPartnerCredential('rbl_app_name', '');
+    if ($app === '' && rblIsSandboxEnvironment()) {
+        return $fx['client_id'];
+    }
+    $raw = preg_replace('/[^A-Za-z0-9]/', '', $app !== '' ? $app : $fx['client_id']) ?: $fx['client_id'];
     $raw = strtoupper((string)$raw);
     return substr($raw, 0, 7);
 }
@@ -273,18 +323,20 @@ function testRblConnection(): array
         return ['ok' => false, 'message' => 'RBL sandbox returned 403 — subscribe VA product on sandbox.rbl.bank.in for this app.'];
     }
 
+    $fx = rblSandboxOfficialFixtures();
     if ($c['corp_id'] === '' || $c['master_account'] === '') {
         return [
-            'ok' => true,
-            'message' => 'Sandbox Key/Secret accepted by RBL (HTTP ' . $authHttp . '). Paste Corp ID + Master Account to unlock VA/UPI create probes. Live keys later.',
+            'ok' => false,
+            'message' => 'RBL Corp ID / Master Account missing even after sandbox fixtures. Check adapter.',
         ];
     }
 
-    // Phase 2: operational VA probe with Owner-pasted Corp + Master (no demo defaults).
+    // Phase 2: official TestCase 1 body (VA zip) — sandbox Corp/Master from inbox specs.
     $paths = ['/virtual/account', '/virtual/v2/account', '/va/create', '/upi/collection'];
+    $serial = $fx['va_serial'];
+    $beneficiary = $c['app_name'] !== '' ? $c['app_name'] : $fx['beneficiary'];
     foreach ($paths as $p) {
-        $serial = rblVaSerialForMerchant((int)(time() % 1000000000));
-        $res = rblApiRequest('POST', $p, rblVaBody($serial, $c['app_name'] ?: 'UniWeb'), 15);
+        $res = rblApiRequest('POST', $p, rblVaBody($serial, $beneficiary), 15);
         $http = (int)($res['http'] ?? 0);
         if ($http === 200) {
             return ['ok' => true, 'message' => 'RBL sandbox ' . $p . ' connected (HTTP 200).'];
@@ -310,9 +362,9 @@ function rblDefaultHeader(): array
     return [
         'TranID' => rblNewTranId(),
         'Corp_ID' => $c['corp_id'],
-        'Maker_ID' => $c['maker_id'] !== '' ? $c['maker_id'] : 'MAKER',
-        'Checker_ID' => $c['checker_id'] !== '' ? $c['checker_id'] : 'CHECKER',
-        'Approver_ID' => $c['approver_id'] !== '' ? $c['approver_id'] : 'APPROVER',
+        'Maker_ID' => $c['maker_id'] !== '' ? $c['maker_id'] : rblSandboxOfficialFixtures()['maker_id'],
+        'Checker_ID' => $c['checker_id'] !== '' ? $c['checker_id'] : rblSandboxOfficialFixtures()['checker_id'],
+        'Approver_ID' => $c['approver_id'] !== '' ? $c['approver_id'] : rblSandboxOfficialFixtures()['approver_id'],
     ];
 }
 
