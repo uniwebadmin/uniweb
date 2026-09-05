@@ -840,6 +840,14 @@ $assert(str_contains($alSlice, "'linked'") && !str_contains($alSlice, 'createSub
 $assert(str_contains((string)file_get_contents($root . '/payment_methods.php'), 'already_live_link') && str_contains((string)file_get_contents($root . '/payment_methods.php'), 'I already have an account'), 'merchant_already_live_ui');
 $assert(str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'already_live_link') && str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'owner_override'), 'admin_already_live_on_behalf');
 $assert(is_file($root . '/migrations/085_partner_retire_and_merchant_already_live.sql'), 'migration_085_retire_already_live');
+$covSrc = (string)file_get_contents($root . '/includes/partner_doc_coverage.php');
+$assert(str_contains($covSrc, 'function partnerDocCoverageForMerchant') && str_contains($covSrc, 'docs_ready') && str_contains($covSrc, 'not_started') && str_contains($covSrc, 'docs_incomplete'), 'p3_coverage_engine_statuses');
+$assert(str_contains($covSrc, 'Not sent to the partner') && !str_contains($covSrc, 'approved by partner'), 'p3_coverage_no_fake_partner_ack');
+$assert(str_contains((string)file_get_contents($root . '/kyc.php'), 'id="partner-coverage"') && str_contains((string)file_get_contents($root . '/kyc.php'), 'coverage_upload'), 'p3_merchant_coverage_console');
+$assert(str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'id="partner-coverage"'), 'p3_admin_coverage_panel');
+$assert(str_contains($covSrc, 'function setMerchantCoverageCheckoutEnabled') && str_contains($covSrc, 'merchantPartnerMayEnableFromCoverage'), 'p3_enable_gated_on_docs_or_linked');
+$assert(is_file($root . '/migrations/086_partner_doc_coverage.sql'), 'migration_086_doc_coverage');
+$assert(str_contains((string)file_get_contents($root . '/includes/cloud_modules.php'), 'partner_doc_coverage.php'), 'p3_coverage_cloud_module');
 // 4c: Website & API Keys + Partner Requests are not PG key paste homes
 $aw4c = (string)file_get_contents($root . '/admin_website.php');
 $assert(str_contains($aw4c, 'partner PG keys are not pasted here') && str_contains($aw4c, 'Partner Registry (PG keys)'), 'p4c_website_keys_not_pg_home');

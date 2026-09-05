@@ -68,6 +68,8 @@ function ensurePartnerControlTables(): void
             "ALTER TABLE partner_merchant_links ADD COLUMN linked_by VARCHAR(20) NOT NULL DEFAULT 'merchant'",
             'ALTER TABLE partner_merchant_links ADD COLUMN linked_by_id INT DEFAULT NULL',
             'ALTER TABLE partner_merchant_links ADD COLUMN owner_override TINYINT(1) NOT NULL DEFAULT 0',
+            "ALTER TABLE partner_merchant_links ADD COLUMN coverage_status VARCHAR(32) NOT NULL DEFAULT 'not_started'",
+            'ALTER TABLE partner_merchant_links ADD COLUMN coverage_updated_at TIMESTAMP NULL DEFAULT NULL',
         ];
         foreach ($linkAlters as $sql) {
             try { $db->exec($sql); } catch (Throwable $e) { /* exists */ }

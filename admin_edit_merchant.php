@@ -15,6 +15,9 @@ if (!function_exists('ensurePartnerControlTables')) {
 if (!function_exists('partnerAllowsAlreadyLiveLink') && is_file(__DIR__ . '/includes/partner_registry_v2.php')) {
     require_once __DIR__ . '/includes/partner_registry_v2.php';
 }
+if (!function_exists('partnerDocCoverageForMerchant') && is_file(__DIR__ . '/includes/partner_doc_coverage.php')) {
+    require_once __DIR__ . '/includes/partner_doc_coverage.php';
+}
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'ops', 'kyc']);
 $db = getDB();
 
@@ -498,7 +501,34 @@ $methodCatalog = getPaymentMethodCatalog();
             <?php else: ?>
             <p class="text-xs text-emerald-400 mt-2">✓ All required docs uploaded</p>
             <?php endif; ?>
-            <a href="admin_kyc.php" class="inline-block mt-3 text-xs text-brand-400">Review KYC →</a>
+            <a href="admin_kyc.php?merchant_id=<?= $id ?>" class="inline-block mt-3 text-xs text-brand-400">Review KYC →</a>
+        </div>
+        <?php
+        $adminCoverageRows = function_exists('partnerDocCoverageForMerchant') ? partnerDocCoverageForMerchant($id) : [];
+        ?>
+        <div class="glass rounded-xl p-4 sm:p-5 text-sm" id="partner-coverage">
+            <h3 class="font-semibold mb-1">Partner document coverage</h3>
+            <p class="text-[11px] text-gray-500 mb-3">Same vault as merchant KYC. Not partner-approved. Pack codes come from Partner Registry.</p>
+            <?php if ($adminCoverageRows === []): ?>
+            <p class="text-xs text-gray-500">No active partner pack configured.</p>
+            <?php else: ?>
+            <ul class="space-y-2">
+                <?php foreach ($adminCoverageRows as $cr): ?>
+                <li class="border border-gray-800 rounded-lg p-2">
+                    <div class="flex justify-between gap-2">
+                        <span class="text-xs text-gray-200"><?= e($cr['partner_name']) ?></span>
+                        <span class="text-[10px] text-gray-400"><?= e($cr['status_label']) ?> · <?= (int)$cr['percent'] ?>%</span>
+                    </div>
+                    <?php if ($cr['missing'] !== []): ?>
+                    <p class="text-[10px] text-amber-300/90 mt-1">Missing: <?= e(implode(', ', $cr['missing'])) ?></p>
+                    <?php endif; ?>
+                    <?php if (!empty($cr['linked_valid'])): ?>
+                    <p class="text-[10px] text-sky-300 mt-1">Linked keys Valid — pack not required to enable</p>
+                    <?php endif; ?>
+                </li>
+                <?php endforeach; ?>
+            </ul>
+            <?php endif; ?>
         </div>
         <div class="glass rounded-xl p-4 sm:p-5 text-sm">
             <h3 class="font-semibold mb-2">Wallet</h3>

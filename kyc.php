@@ -20,6 +20,9 @@ require_once __DIR__ . '/includes/partner_payload.php';
 if (!function_exists('kycRejectionDisplay') && is_file(__DIR__ . '/includes/kyc_entity.php')) {
     require_once __DIR__ . '/includes/kyc_entity.php';
 }
+if (!function_exists('partnerDocCoverageForMerchant') && is_file(__DIR__ . '/includes/partner_doc_coverage.php')) {
+    require_once __DIR__ . '/includes/partner_doc_coverage.php';
+}
 $merchant = getMerchant();
 $db = getDB();
 
@@ -39,9 +42,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash('error', 'Your session expired. Refresh the page and upload again.');
         redirect('kyc.php');
     }
-    $docType = $_POST['doc_type'] ?? '';
-    if (!in_array($docType, $requiredDocs, true)) {
-        flash('error', 'This document is not required for your business type.');
+    $postAction = (string)($_POST['action'] ?? '');
+    if ($postAction === 'partner_coverage_enable' && function_exists('setMerchantCoverageCheckoutEnabled')) {
+        $pk = strtolower(trim((string)($_POST['partner_key'] ?? '')));
+        $on = ((string)($_POST['checkout_on'] ?? '')) === '1';
+        $res = setMerchantCoverageCheckoutEnabled((int)$merchant['id'], $pk, $on, ['actor_role' => 'merchant']);
+        flash(!empty($res['ok']) ? 'success' : 'error', !empty($res['ok'])
+            ? ($on ? 'Enable flag saved for this partner (UniWeb docs only — not partner approval).' : 'Enable flag turned OFF.')
+            : (string)($res['error'] ?? 'Could not update.'));
+        redirect('kyc.php#partner-coverage');
+    }
+    $docType = function_exists('canonicalizeKycDocType')
+        ? canonicalizeKycDocType((string)($_POST['doc_type'] ?? ''))
+        : (string)($_POST['doc_type'] ?? '');
+    $allowedUploadTypes = function_exists('merchantKycAllowedUploadTypes')
+        ? merchantKycAllowedUploadTypes((int)$merchant['id'], $merchant)
+        : $requiredDocs;
+    if (!in_array($docType, $allowedUploadTypes, true)) {
+        flash('error', 'This document is not on your KYC list or any partner document pack.');
     } else {
         $uploadFp = kycSubmitFileFingerprint((int)$merchant['id'], (string)$docType, $_FILES['document'] ?? []);
         $lock = claimKycSubmitLock((int)$merchant['id'], 'doc_upload', $uploadFp, 180);
@@ -92,9 +110,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg .= ' Aadhaar number has been auto-masked (first 8 digits hidden) per UIDAI compliance.';
             }
             flash('success', $msg);
+            if (function_exists('persistMerchantPartnerDocCoverage')) {
+                persistMerchantPartnerDocCoverage((int)$merchant['id']);
+            }
         }
     }
-    redirect('kyc.php');
+    redirect($postAction === 'coverage_upload' ? 'kyc.php#partner-coverage' : 'kyc.php');
 }
 
 $documents = [];
@@ -488,6 +509,82 @@ $docStatusMeta = static function (string $status): array {
             </div>
             <button type="submit" class="btn-primary px-6 py-2.5" id="kyc-upload-submit">Upload Document</button>
         </form>
+    </div>
+
+    <?php
+    $coverageRows = function_exists('partnerDocCoverageForMerchant') ? partnerDocCoverageForMerchant((int)$merchant['id']) : [];
+    ?>
+    <div class="glass rounded-xl p-6 mb-6 border border-violet-500/20" id="partner-coverage">
+        <h2 class="font-semibold mb-1">Partner document coverage</h2>
+        <p class="text-xs text-gray-500 mb-4">Each collect partner has its own pack from Partner Registry. Completing one partner does not change another. This is UniWeb vault status only — not sent to the partner and not partner-approved.</p>
+        <?php if ($coverageRows === []): ?>
+        <p class="text-sm text-gray-500">No active partner has a document pack configured. Ask Admin to set the merchant KYC doc pack on Partner Registry.</p>
+        <?php else: ?>
+        <div class="space-y-4">
+            <?php foreach ($coverageRows as $cr): ?>
+            <div class="bg-dark-900/50 rounded-xl p-4 border border-gray-800">
+                <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
+                    <div>
+                        <p class="text-sm font-medium text-gray-200"><?= e($cr['partner_name']) ?></p>
+                        <p class="text-[11px] font-mono text-gray-500"><?= e($cr['partner_key']) ?></p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[10px] px-2 py-0.5 rounded-full <?= $cr['status'] === 'docs_ready' ? 'bg-emerald-500/20 text-emerald-400' : ($cr['status'] === 'docs_incomplete' ? 'bg-amber-500/15 text-amber-300' : 'bg-gray-700/50 text-gray-400') ?>"><?= e($cr['status_label']) ?></span>
+                        <p class="text-[11px] text-gray-500 mt-1"><?= (int)$cr['present'] ?>/<?= (int)$cr['total'] ?> · <?= (int)$cr['percent'] ?>%</p>
+                    </div>
+                </div>
+                <?php if (!empty($cr['linked_valid'])): ?>
+                <p class="text-[11px] text-sky-300 mb-2">Already-live keys are Valid — enable does not require this pack to be complete.</p>
+                <?php endif; ?>
+                <ul class="text-xs space-y-1 mb-3">
+                    <?php foreach ($cr['items'] as $it): ?>
+                    <li class="<?= !empty($it['ready']) ? 'text-gray-400' : 'text-amber-200/90' ?>">
+                        <?= e($it['label']) ?> — <?= e($it['state_label']) ?>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
+                <?php foreach ($cr['items'] as $it):
+                    if (!empty($it['ready']) || ($it['code'] ?? '') === 'video_kyc') {
+                        continue;
+                    }
+                ?>
+                <form method="POST" enctype="multipart/form-data" class="mb-2 flex flex-wrap items-end gap-2">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="action" value="coverage_upload">
+                    <input type="hidden" name="doc_type" value="<?= e($it['code']) ?>">
+                    <label class="text-[11px] text-gray-400 w-full sm:w-auto"><?= e($it['label']) ?></label>
+                    <input type="file" name="document" required accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" class="text-xs text-gray-300">
+                    <button type="submit" class="text-xs px-3 py-2 rounded-lg bg-violet-600/30 text-violet-200 border border-violet-500/30">Upload</button>
+                </form>
+                <?php endforeach; ?>
+                <?php foreach ($cr['items'] as $it):
+                    if (($it['code'] ?? '') !== 'video_kyc' || !empty($it['ready'])) {
+                        continue;
+                    }
+                ?>
+                <p class="text-xs mb-2"><a href="video_kyc.php" class="text-sky-400 hover:underline">Record Video KYC →</a></p>
+                <?php endforeach; ?>
+                <?php if (!empty($cr['enable_allowed'])): ?>
+                <form method="POST" class="mt-2">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="action" value="partner_coverage_enable">
+                    <input type="hidden" name="partner_key" value="<?= e($cr['partner_key']) ?>">
+                    <?php if (!empty($cr['checkout_enabled'])): ?>
+                    <input type="hidden" name="checkout_on" value="0">
+                    <button type="submit" class="text-xs px-3 py-2 rounded-lg border border-gray-600 text-gray-300">Turn OFF enable flag</button>
+                    <?php else: ?>
+                    <input type="hidden" name="checkout_on" value="1">
+                    <button type="submit" class="text-xs px-3 py-2 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30">Enable for this partner</button>
+                    <?php endif; ?>
+                </form>
+                <?php else: ?>
+                <p class="text-[11px] text-gray-500 mt-1">Enable is not available until documents are ready (or already-live keys are Valid).</p>
+                <?php endif; ?>
+                <p class="text-[10px] text-gray-600 mt-2"><?= e($cr['honest_note']) ?></p>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
     </div>
 
     <div class="glass rounded-xl overflow-hidden">
