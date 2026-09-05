@@ -543,5 +543,75 @@ function registerPartnerRegistryV2(array $input, ?int $adminId = null): array
 function partnerRegistryV2ControlRoomNote(): string
 {
     return 'Global Control Room — partner identity, connector, credentials status, commercial mode, and capability flags. '
+        . 'Inactive partners stay visible in this list. Activate for routing is separate from registration. '
         . 'Checkout routing and KYC forward workers are later phases; this screen does not move customer money.';
+}
+
+/**
+ * Default key fields for custom (non-builtin) partners so Keys tab is always usable.
+ *
+ * @return array<string, array{label:string,type:string}>
+ */
+function partnerRegistryV2DefaultConfigKeys(string $partnerKey): array
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    $prefix = $partnerKey !== '' ? $partnerKey : 'partner';
+    return [
+        $prefix . '_api_key' => ['label' => 'API Key / Client ID', 'type' => 'password'],
+        $prefix . '_api_secret' => ['label' => 'API Secret', 'type' => 'password'],
+        $prefix . '_merchant_id' => ['label' => 'Merchant / Mid ID (optional)', 'type' => 'text'],
+        $prefix . '_webhook_secret' => ['label' => 'Webhook Secret (optional)', 'type' => 'password'],
+    ];
+}
+
+/**
+ * Builtin registry meta, or synthetic meta for custom DB partners (keys always available).
+ *
+ * @param array<string,mixed>|null $gatewayRow
+ * @return array<string,mixed>
+ */
+function resolvePartnerAdminMeta(string $partnerKey, ?array $gatewayRow = null): array
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    if (!function_exists('getPartnerRegistry')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $builtin = getPartnerRegistry()[$partnerKey] ?? null;
+    if (is_array($builtin) && !empty($builtin['config_keys']) && is_array($builtin['config_keys'])) {
+        return $builtin;
+    }
+
+    $name = trim((string)($gatewayRow['gateway_name'] ?? ''));
+    if ($name === '') {
+        $name = $partnerKey !== '' ? ucwords(str_replace('_', ' ', $partnerKey)) : 'Partner';
+    }
+    $meta = is_array($builtin) ? $builtin : [];
+    $meta['name'] = $meta['name'] ?? $name;
+    $meta['type'] = $meta['type'] ?? 'gateway';
+    $meta['icon'] = $meta['icon'] ?? '⚙️';
+    $meta['config_keys'] = partnerRegistryV2DefaultConfigKeys($partnerKey);
+    $meta['docs'] = $meta['docs'] ?? '';
+    $meta['dashboard'] = $meta['dashboard'] ?? '';
+    $meta['webhook'] = $meta['webhook'] ?? (string)($gatewayRow['webhook_url'] ?? '');
+    $meta['checklist'] = $meta['checklist'] ?? [
+        'Paste Test / Sandbox keys on the Keys tab',
+        'Run Test Connection',
+        'Paste Live keys when ready',
+        'Use Activate for routing when ready to expose methods',
+    ];
+    return $meta;
+}
+
+/** List status badge: Active | Inactive | PAUSED (circuit off while active). */
+function partnerRegistryListStatusBadge(array $gatewayRow): string
+{
+    $active = (int)($gatewayRow['is_active'] ?? 0) === 1;
+    $circuitOn = !isset($gatewayRow['circuit_breaker_on']) || (int)$gatewayRow['circuit_breaker_on'] === 1;
+    if ($active && !$circuitOn) {
+        return '<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30" title="Active but outbound circuit is off">PAUSED</span>';
+    }
+    if ($active) {
+        return '<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Active</span>';
+    }
+    return '<span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-700/60 text-gray-300 border border-gray-600/40">Inactive</span>';
 }

@@ -80,8 +80,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         }
         if (!empty($result['ok'])) {
             $code = (string)($result['partner_code'] ?? $input['partner_code']);
-            flash('success', "Partner '{$code}' registered as INACTIVE. Configure keys on the detail page, then Activate.");
-            redirect(adminPartnerDetailUrl($code) . '&tab=profile');
+            flash('success', "Partner '{$code}' registered. Visible below as Inactive — paste keys, then use Activate for routing when ready.");
+            redirect('admin_gateway_registry.php?status=all&highlight=' . rawurlencode($code));
         }
         flash('error', $result['message'] ?? ($result['error'] ?? 'Could not register partner.'));
         redirect('admin_gateway_registry.php');
@@ -120,11 +120,27 @@ $gateways = getRegisteredGateways();
 $partnerRegistry = getPartnerRegistry();
 $registryKindEdu = function_exists('registryKindAdminEducation') ? registryKindAdminEducation() : null;
 $registryKindReady = function_exists('registryKindReadinessReport') ? registryKindReadinessReport() : null;
+$statusFilter = strtolower(trim((string)($_GET['status'] ?? 'all')));
+if (!in_array($statusFilter, ['all', 'active', 'inactive'], true)) {
+    $statusFilter = 'all';
+}
+$highlightKey = strtolower(trim((string)($_GET['highlight'] ?? '')));
 $activeCount = 0;
 $inactiveCount = 0;
 foreach ($gateways as $g) {
     if ((int)$g['is_active']) $activeCount++;
     else $inactiveCount++;
+}
+$filteredGateways = [];
+foreach ($gateways as $g) {
+    $isActiveRow = (int)$g['is_active'] === 1;
+    if ($statusFilter === 'active' && !$isActiveRow) {
+        continue;
+    }
+    if ($statusFilter === 'inactive' && $isActiveRow) {
+        continue;
+    }
+    $filteredGateways[] = $g;
 }
 $pageTitle = 'Partner Registry';
 require_once __DIR__ . '/header.php';
@@ -134,7 +150,7 @@ require_once __DIR__ . '/header.php';
         <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
             <div>
                 <h2 class="font-semibold text-lg">Partner Registry — Global Control Room</h2>
-                <p class="text-xs text-gray-500 mt-1">Bank and PG <strong class="text-gray-400">tech partners</strong> — keys, methods, activate. Flow: <strong class="text-gray-400">Test keys → Test Connection → Live keys</strong>. Per-merchant checkout methods are toggled on each partner’s <strong class="text-gray-400">Detail → Methods</strong> page (not bulk-edited on this list). Partners do not own merchants; every merchant stays under UniWeb Admin.</p>
+                <p class="text-xs text-gray-500 mt-1">Bank and PG <strong class="text-gray-400">tech partners</strong> — keys, methods, routing. New partners appear here immediately as <strong class="text-gray-300">Inactive</strong>. <strong class="text-gray-300">Activate for routing</strong> is a separate step (not required to see the row). Flow: <strong class="text-gray-400">Test keys → Test Connection → Live keys → Activate for routing</strong>. Partners do not own merchants; every merchant stays under UniWeb Admin.</p>
                 <?php if (function_exists('partnerRegistryV2ControlRoomNote')): ?>
                 <p class="text-[11px] text-violet-300/90 mt-2 border border-violet-500/20 rounded-lg px-3 py-2"><?= e(partnerRegistryV2ControlRoomNote()) ?></p>
                 <?php endif; ?>
@@ -164,43 +180,49 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <div class="glass rounded-xl overflow-hidden border border-gray-800">
-        <div class="px-6 py-4 border-b border-gray-800 flex items-center justify-between gap-4">
-            <h3 class="font-semibold">Registered Gateways</h3>
-            <div class="flex items-center gap-3">
+        <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3">
+            <h3 class="font-semibold">Registered partners</h3>
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex gap-1 text-[11px]">
+                    <?php foreach (['all' => 'All', 'active' => 'Active', 'inactive' => 'Inactive'] as $sf => $sfLabel): ?>
+                    <a href="admin_gateway_registry.php?status=<?= e($sf) ?><?= $highlightKey !== '' ? '&highlight=' . rawurlencode($highlightKey) : '' ?>" class="px-2.5 py-1 rounded-lg border <?= $statusFilter === $sf ? 'border-sky-500/50 bg-sky-500/15 text-sky-300' : 'border-gray-700 text-gray-500 hover:text-gray-300' ?>"><?= e($sfLabel) ?></a>
+                    <?php endforeach; ?>
+                </div>
                 <input type="search" id="gateway-filter" placeholder="Filter by name / key…" class="bg-dark-900 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-gray-300 focus:border-sky-500 focus:outline-none" oninput="filterGateways(this.value)">
-                <span class="text-xs text-gray-500"><?= count($gateways) ?> total</span>
+                <span class="text-xs text-gray-500"><?= count($filteredGateways) ?> shown · <?= count($gateways) ?> total</span>
             </div>
         </div>
-        <?php if (empty($gateways)): ?>
-        <div class="p-8 text-center text-sm text-gray-500">No gateways registered yet.</div>
+        <?php if (empty($filteredGateways)): ?>
+        <div class="p-8 text-center text-sm text-gray-500">No partners in this filter. Try <a href="admin_gateway_registry.php?status=all" class="text-sky-400 hover:underline">All</a> — Inactive partners are included by default.</div>
         <?php else: ?>
         <div class="divide-y divide-gray-800">
-            <?php foreach ($gateways as $g):
-                $partnerInfo = $partnerRegistry[$g['gateway_key']] ?? null;
+            <?php foreach ($filteredGateways as $g):
+                $partnerInfo = function_exists('resolvePartnerAdminMeta')
+                    ? resolvePartnerAdminMeta((string)$g['gateway_key'], $g)
+                    : ($partnerRegistry[$g['gateway_key']] ?? null);
                 $isActive = (int)$g['is_active'] === 1;
-                $hasKeys = $partnerInfo && partnerIsConfigured($g['gateway_key']);
+                $hasKeys = function_exists('partnerIsConfigured') && partnerIsConfigured($g['gateway_key']);
                 $credStat = getPartnerCredentialStatus($g['gateway_key']);
                 $vaultTest = function_exists('partnerCredentialVaultStatus') ? partnerCredentialVaultStatus((string)$g['gateway_key'], 'test') : 'missing';
                 $vaultLive = function_exists('partnerCredentialVaultStatus') ? partnerCredentialVaultStatus((string)$g['gateway_key'], 'live') : 'missing';
                 $v2Profile = function_exists('partnerRegistryV2ProfileFromRow') ? partnerRegistryV2ProfileFromRow($g) : null;
                 $enabledMethods = getEnabledPartnerMethods($g['gateway_key']);
+                $isHighlight = $highlightKey !== '' && strtolower((string)$g['gateway_key']) === $highlightKey;
             ?>
-            <div class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-white/5 transition-colors" data-gw-name="<?= e(mb_strtolower($g['gateway_name'] . ' ' . $g['gateway_key'])) ?>">
+            <div class="px-6 py-4 flex items-center justify-between gap-4 hover:bg-white/5 transition-colors <?= $isHighlight ? 'bg-sky-500/10 ring-1 ring-sky-500/40' : '' ?>" data-gw-name="<?= e(mb_strtolower($g['gateway_name'] . ' ' . $g['gateway_key'])) ?>" data-gw-status="<?= $isActive ? 'active' : 'inactive' ?>" <?= $isHighlight ? 'id="highlighted-partner"' : '' ?>>
                 <div class="flex items-center gap-4">
                     <div class="w-10 h-10 rounded-lg bg-dark-900/80 flex items-center justify-center text-xl flex-shrink-0">
                         <?= e($partnerInfo['icon'] ?? '⚙️') ?>
                     </div>
                     <div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
                             <a href="<?= e(adminPartnerDetailUrl((string)$g['gateway_key'])) ?>" class="text-sm font-medium text-gray-200 hover:text-sky-300"><?= e($g['gateway_name']) ?></a>
-                            <span class="text-[10px] px-2 py-0.5 rounded-full <?= $isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700/50 text-gray-400' ?>">
-                                <?= $isActive ? '● Active' : '○ Inactive' ?>
-                            </span>
+                            <?= function_exists('partnerRegistryListStatusBadge') ? partnerRegistryListStatusBadge($g) : '<span class="text-[10px] px-2 py-0.5 rounded-full ' . ($isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700/50 text-gray-400') . '">' . ($isActive ? 'Active' : 'Inactive') . '</span>' ?>
                             <?= function_exists('partnerIntegrationStateBadgeHtml') ? partnerIntegrationStateBadgeHtml((string)$g['gateway_key']) : '' ?>
-                            <?php if ($hasKeys): ?>
+                            <?php if ($hasKeys || !empty($credStat['test']) || !empty($credStat['live'])): ?>
                             <span class="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400">Keys Saved</span>
-                            <?php elseif ($partnerInfo): ?>
-                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">Awaiting Keys</span>
+                            <?php else: ?>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">Pending keys</span>
                             <?php endif; ?>
                             <?php if (function_exists('partnerCredentialVaultStatusBadge')): ?>
                             <span title="Test vault"><?= partnerCredentialVaultStatusBadge($vaultTest) ?></span>
@@ -210,8 +232,6 @@ require_once __DIR__ . '/header.php';
                             <span class="text-[10px] px-2 py-0.5 rounded bg-gray-800 text-gray-400"><?= e(strtoupper((string)$v2Profile['partner_type'])) ?></span>
                             <span class="text-[10px] px-2 py-0.5 rounded bg-gray-800 text-gray-400"><?= e(str_replace('_', ' ', (string)$v2Profile['contract_mode'])) ?></span>
                             <?php endif; ?>
-                            <?php if ($credStat['test']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-sky-500/10 text-sky-400">Test</span><?php endif; ?>
-                            <?php if ($credStat['live']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Live</span><?php endif; ?>
                             <?php if (!empty($enabledMethods)): ?><span class="text-[10px] px-2 py-0.5 rounded bg-violet-500/10 text-violet-400"><?= count($enabledMethods) ?> methods</span><?php endif; ?>
                         </div>
                         <p class="text-xs text-gray-500 font-mono mt-0.5"><a href="<?= e(adminPartnerDetailUrl((string)$g['gateway_key'])) ?>" class="hover:text-sky-300"><?= e($g['gateway_key']) ?></a></p>
@@ -230,14 +250,14 @@ require_once __DIR__ . '/header.php';
                         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <input type="hidden" name="action" value="activate">
                         <input type="hidden" name="gateway_id" value="<?= (int)$g['id'] ?>">
-                        <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30" onclick="return confirm('Activate <?= e($g['gateway_name']) ?>? Payment method will be added to all merchants (OFF by default).')">Activate</button>
+                        <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30" title="Expose methods for merchant routing — partner already visible in this list" onclick="return confirm('Activate <?= e($g['gateway_name']) ?> for routing? Payment method will be added to merchants (OFF by default). Partner is already listed here as Inactive.')">Activate for routing</button>
                     </form>
                     <?php else: ?>
                     <form method="POST" class="inline">
                         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <input type="hidden" name="action" value="deactivate">
                         <input type="hidden" name="gateway_id" value="<?= (int)$g['id'] ?>">
-                        <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20" onclick="return confirm('Disable <?= e($g['gateway_name']) ?>? Payment methods from this partner will be hidden from checkout, QR, and payment links. History is retained.')">Disable</button>
+                        <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20" onclick="return confirm('Turn OFF routing for <?= e($g['gateway_name']) ?>? Methods hide from checkout/QR/links. Partner stays in this list as Inactive.')">Turn OFF routing</button>
                     </form>
                     <?php endif; ?>
                 </div>
@@ -249,7 +269,7 @@ require_once __DIR__ . '/header.php';
 
     <div class="glass rounded-xl p-6 border border-gray-800">
         <h3 class="font-semibold mb-2">Add partner (online collect only)</h3>
-        <p class="text-xs text-gray-500 mb-4">Payment Gateway or other online collect rail — no PPI / offline wallet product. Registered inactive until keys + Activate.</p>
+        <p class="text-xs text-gray-500 mb-4">Payment Gateway or other online collect rail — no PPI / offline wallet product. After save, the partner appears in the list above as <strong class="text-gray-300">Inactive</strong> (no Activate required to see it).</p>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="register_gateway">
@@ -351,5 +371,7 @@ function filterGateways(q){
         el.style.display=(!q||name.indexOf(q)>-1)?'':'none';
     });
 }
+var hl=document.getElementById('highlighted-partner');
+if(hl){ try{ hl.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){} }
 </script>
 <?php require_once __DIR__ . '/footer.php';

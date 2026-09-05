@@ -2271,6 +2271,10 @@ $assert(str_contains($prV2, 'partnerRegistryV2MerchantDocPackCatalog') && str_co
 $assert(str_contains($prV2, 'partnerRegistryV2ComplianceDocCatalog') && str_contains($prV2, 'partner_compliance_docs_json'), 'prv2_compliance_docs_separate');
 $assert(str_contains($regV2, 'Merchant KYC doc pack') && str_contains($regV2, 'partnerRegistryV2MerchantDocPackCatalog') && str_contains($regV2, 'Partner compliance docs'), 'prv2_admin_merchant_doc_ui');
 $assert(is_file($root . '/migrations/084_partner_registry_merchant_doc_pack.sql'), 'prv2_migration_084');
+$assert(str_contains($prV2, 'resolvePartnerAdminMeta') && str_contains($prV2, 'partnerRegistryV2DefaultConfigKeys'), 'prv2_custom_partner_default_keys');
+$assert(str_contains($regV2, 'Activate for routing') && str_contains($regV2, 'status=all') && str_contains($regV2, 'highlight='), 'prv2_list_shows_inactive_activate_honest');
+$assert(str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'ORDER BY id DESC'), 'prv2_list_newest_first');
+$assert(str_contains($detV2, 'resolvePartnerAdminMeta') && str_contains($detV2, 'Activate for routing') && str_contains($detV2, 'partnerCredentialVaultStatusBadge'), 'prv2_detail_keys_usable');
 
 $payload = [
     'ok' => $failed === 0,

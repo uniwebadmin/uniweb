@@ -52,7 +52,9 @@ if (!$gateway) {
 
 $partnerKey = $gateway['gateway_key'];
 $partnerRegistry = getPartnerRegistry();
-$partner = $partnerRegistry[$partnerKey] ?? null;
+$partner = function_exists('resolvePartnerAdminMeta')
+    ? resolvePartnerAdminMeta($partnerKey, $gateway)
+    : ($partnerRegistry[$partnerKey] ?? null);
 $partnerIsBuiltin = function_exists('isPartnerRegistryKey') && isPartnerRegistryKey($partnerKey);
 ensurePartnerControlTables();
 if (function_exists('ensurePartnerRegistryV2Columns')) {
@@ -69,6 +71,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             $env = 'live';
         }
         $configKeys = $partner['config_keys'] ?? [];
+        if ($configKeys === [] && function_exists('partnerRegistryV2DefaultConfigKeys')) {
+            $configKeys = partnerRegistryV2DefaultConfigKeys($partnerKey);
+        }
         if ($env === 'live' && !empty($partner['env_key'])) {
             $keys[(string)$partner['env_key']] = function_exists('partnerLiveEnvironmentValue')
                 ? partnerLiveEnvironmentValue($partnerKey)
@@ -335,6 +340,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 }
 
 $configKeys = $partner['config_keys'] ?? [];
+if ($configKeys === [] && function_exists('partnerRegistryV2DefaultConfigKeys')) {
+    $configKeys = partnerRegistryV2DefaultConfigKeys($partnerKey);
+}
 $testEnv = in_array(trim((string)($_GET['test_env'] ?? 'test')), ['test', 'live'], true) ? trim((string)$_GET['test_env']) : 'test';
 $testResult = $partner ? partnerTestConnection($partnerKey) : ['ok' => false, 'message' => 'No partner config.'];
 if ($activeTab === 'test' && isset($_GET['action']) && $_GET['action'] === 'test' && verifyCsrf($_GET['token'] ?? '')) {
@@ -392,9 +400,7 @@ require_once __DIR__ . '/header.php';
                 </div>
             </div>
             <div class="flex flex-col items-end gap-2">
-                <span class="text-xs px-3 py-1.5 rounded-full <?= $isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700/50 text-gray-400' ?>">
-                    <?= $isActive ? '● Active' : '○ Inactive' ?>
-                </span>
+                <?= function_exists('partnerRegistryListStatusBadge') ? partnerRegistryListStatusBadge($gateway) : '<span class="text-xs px-3 py-1.5 rounded-full ' . ($isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700/50 text-gray-400') . '">' . ($isActive ? 'Active' : 'Inactive') . '</span>' ?>
                 <div class="flex gap-1">
                     <?php if ($credStatus['test']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-sky-500/10 text-sky-400">Test ***<?= e($credStatus['test_last4']) ?></span><?php endif; ?>
                     <?php if ($credStatus['live']): ?><span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Live ***<?= e($credStatus['live_last4']) ?></span><?php endif; ?>
@@ -407,7 +413,7 @@ require_once __DIR__ . '/header.php';
             <form method="POST" class="inline">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="activate">
-                <button type="submit" class="btn-primary px-6 py-2.5" onclick="return confirm('Activate <?= e($gateway['gateway_name']) ?>?')">⚡ Activate</button>
+                <button type="submit" class="btn-primary px-6 py-2.5" onclick="return confirm('Activate <?= e($gateway['gateway_name']) ?> for routing? Partner already appears in the registry list.')">Activate for routing</button>
             </form>
             <?php if (!$partnerIsBuiltin): ?>
             <form method="POST" class="inline" onsubmit="return confirm('Permanently delete this inactive custom partner from the registry?');">
@@ -431,7 +437,7 @@ require_once __DIR__ . '/header.php';
             <a href="<?= e($partner['dashboard']) ?>" target="_blank" rel="noopener" class="glass px-5 py-2.5 rounded-xl text-sm">Dashboard ↗</a>
             <?php endif; ?>
         </div>
-        <p class="text-[11px] text-gray-600 mt-3">Change keys = Keys tab (Test then Live). Turn OFF hides methods. Delete only works after Turn OFF, and only for custom partners (not PayU / cards / UPI).</p>
+        <p class="text-[11px] text-gray-600 mt-3">Change keys = Keys tab (Test then Live). Activate for routing exposes methods — partner is already visible in the registry list without Activate. Turn OFF hides methods. Delete only works after Turn OFF, and only for custom partners.</p>
     </div>
 
     <div class="flex gap-1 border-b border-gray-800 overflow-x-auto">
@@ -525,6 +531,12 @@ require_once __DIR__ . '/header.php';
             <li>When production keys arrive → paste on <strong class="text-emerald-300">Live</strong> → Save → Test again</li>
         </ol>
         <p class="text-xs text-gray-500 mb-2">Encrypted at rest; only last4 shown after save. Leave password fields blank to keep the current value. Merchants never receive these partner keys — they use UniWeb API keys only (<code class="text-gray-400">api_settings.php</code>).</p>
+        <div class="flex flex-wrap gap-2 mb-4">
+            <?php if (function_exists('partnerCredentialVaultStatusBadge')): ?>
+            <span>Test: <?= partnerCredentialVaultStatusBadge(partnerCredentialVaultStatus($partnerKey, 'test')) ?></span>
+            <span>Live: <?= partnerCredentialVaultStatusBadge(partnerCredentialVaultStatus($partnerKey, 'live')) ?></span>
+            <?php endif; ?>
+        </div>
         <div class="flex gap-2 mb-4">
             <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=keys&env=test" class="text-xs px-3 py-1.5 rounded-lg <?= $keyEnv === 'test' ? 'bg-sky-500/20 text-sky-400' : 'glass text-gray-400' ?>">1 · Test / Sandbox</a>
             <a href="admin_gateway_detail.php?id=<?= $gatewayId ?>&tab=keys&env=live" class="text-xs px-3 py-1.5 rounded-lg <?= $keyEnv === 'live' ? 'bg-emerald-500/20 text-emerald-400' : 'glass text-gray-400' ?>">2 · Live / Production</a>
@@ -596,7 +608,7 @@ require_once __DIR__ . '/header.php';
         </p>
         <?php endif; ?>
         <?php else: ?>
-        <p class="text-xs text-gray-500">This partner has no config keys defined.</p>
+        <p class="text-xs text-amber-300">No key fields available for this partner. Reload the page or contact support — custom partners should show default API Key / Secret fields.</p>
         <?php endif; ?>
     </div>
     <?php if ($partner && !empty($partner['checklist'])): ?>

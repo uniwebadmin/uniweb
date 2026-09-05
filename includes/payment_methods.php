@@ -588,7 +588,8 @@ function getRegisteredGateways(): array
     ensurePaymentMethodsTable();
     try {
         $where = gatewayRegistryKindClause('partner');
-        return getDB()->query("SELECT * FROM gateway_registry WHERE {$where} ORDER BY is_active DESC, id ASC")->fetchAll();
+        // Newest first so freshly registered Inactive partners are immediately visible (not buried under Active).
+        return getDB()->query("SELECT * FROM gateway_registry WHERE {$where} ORDER BY id DESC")->fetchAll();
     } catch (Throwable $e) {
         return [];
     }

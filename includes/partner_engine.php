@@ -758,7 +758,11 @@ function partnerTestConnection(string $partnerKey): array
     ensurePartnerEngine();
     $reg = getPartnerRegistry()[$partnerKey] ?? null;
     if (!$reg) {
-        return ['ok' => false, 'message' => 'Unknown partner.'];
+        $has = function_exists('partnerHasSavedCredentials') && partnerHasSavedCredentials($partnerKey);
+        if ($has) {
+            return ['ok' => false, 'message' => 'Credentials saved (encrypted). No live adapter probe for this custom partner yet — status stays INVALID until a connector is wired. Keys tab fields work.'];
+        }
+        return ['ok' => false, 'message' => 'Custom partner — paste keys on the Keys tab first.'];
     }
 
     if ($partnerKey === 'axis') {
