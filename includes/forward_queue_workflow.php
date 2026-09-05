@@ -70,7 +70,8 @@ function gatewaySubmitVsForwardQueueEducation(): array
 {
     return [
         'title' => 'Gateway Submit ↔ Forward Queue — one data path',
-        'auto_screen' => forwardQueueAutoPage() . ' — auto queue after Admin Verify (one row per KYC-forward partner)',
+        'auto_screen' => forwardQueueAutoPage(),
+        'auto_screen_note' => 'Auto queue after Admin Verify (one row per KYC-forward partner)',
         'manual_screen' => forwardQueueManualPage() . ' — Multi-Gateway Forward bulk / status updates',
         'sync' => forwardQueueSyncFunction() . '() keeps gateway_submissions and partner_forward_queue aligned',
         'tables' => 'gateway_submissions (manual audit) + partner_forward_queue (worker queue)',

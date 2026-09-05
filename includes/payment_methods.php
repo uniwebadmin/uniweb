@@ -290,7 +290,11 @@ function getMerchantEnabledMethodKeys(int $merchantId): array
     $enabled = [];
     foreach ($methods as $m) {
         if ((int)$m['is_enabled'] === 1) {
-            $enabled[] = normalizeCheckoutMethodKey((string)$m['gateway_key']);
+            $gk = normalizeCheckoutMethodKey((string)$m['gateway_key']);
+            if (function_exists('isMerchantOpsMethodKey') && isMerchantOpsMethodKey($gk)) {
+                continue;
+            }
+            $enabled[] = $gk;
         }
     }
     if (empty($enabled)) {
@@ -345,6 +349,9 @@ function persistMerchantEnabledMethodsJson(int $merchantId, array $keys): void
         return;
     }
     $keys = normalizeCheckoutMethodKeys($keys);
+    if (function_exists('isCustomerCheckoutCatalogKey')) {
+        $keys = array_values(array_filter($keys, static fn($k) => isCustomerCheckoutCatalogKey((string)$k)));
+    }
     if (function_exists('getPaymentMethodCatalog')) {
         $catalog = array_keys(getPaymentMethodCatalog());
         $keys = array_values(array_intersect($keys, $catalog));
@@ -462,6 +469,9 @@ function setMerchantPaymentMethods(int $merchantId, array $enabledKeys, string $
         foreach ($all as $g) {
             $registryKey = (string)$g['gateway_key'];
             $canonical = normalizeCheckoutMethodKey($registryKey);
+            if (function_exists('isMerchantOpsMethodKey') && isMerchantOpsMethodKey($canonical)) {
+                continue;
+            }
             $isEnabled = in_array($registryKey, $enabledKeys, true) || in_array($canonical, $enabledKeys, true);
             if ($isEnabled && function_exists('merchantCanToggleMethodOn') && !merchantCanToggleMethodOn($merchantId, $canonical, $updatedBy)) {
                 $isEnabled = false;
@@ -1037,6 +1047,9 @@ function get_available_pay_methods(int $merchantId): array
     }
 
     foreach ($enabledKeys as $methodKey) {
+        if (function_exists('isCustomerCheckoutCatalogKey') && !isCustomerCheckoutCatalogKey((string)$methodKey)) {
+            continue;
+        }
         $cat = $catalog[$methodKey] ?? null;
         if (!$cat) {
             continue;

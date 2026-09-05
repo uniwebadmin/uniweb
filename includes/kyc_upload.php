@@ -128,7 +128,7 @@ function saveMerchantKycUpload(
         getDB()->prepare(
             'INSERT INTO kyc_documents
              (merchant_id,doc_type,file_name,file_path,storage_key,sha256,mime_type,file_size,scan_status,ip_address,client_ip,user_agent,lat,lng,geo_accuracy_m,geo_source,is_masked,mask_method,version_number,retention_until)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(CURDATE(),INTERVAL 8 YEAR))'
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(CURDATE(),INTERVAL 8 YEAR))'
         )->execute([$merchantId, $docType, $fileName, $target, $storageKey, $sha256, $mime, $size, $scanStatus, $realIp, $realIp, $userAgent, $geoLat, $geoLng, $geoAcc, $geoSrc, $maskResult['masked'] ? 1 : 0, $maskResult['method'], $versionNumber]);
         $newDocId = (int)getDB()->lastInsertId();
 
@@ -137,12 +137,24 @@ function saveMerchantKycUpload(
             try { getDB()->prepare("UPDATE kyc_documents SET replaced_by=? WHERE id=?")->execute([$newDocId, $previousDocId]); } catch (Throwable $e) {}
         }
     } catch (Throwable $e) {
-        @unlink($target);
-        logPlatformError('error', 'KYC database insert failed: ' . $e->getMessage(), [
-            'merchant_id' => $merchantId,
-            'doc_type' => $docType,
-        ]);
-        return ['ok' => false, 'error' => 'File reached the server but could not be registered. Support has been notified.'];
+        try {
+            getDB()->prepare(
+                'INSERT INTO kyc_documents
+                 (merchant_id,doc_type,file_name,file_path,storage_key,sha256,mime_type,file_size,scan_status,retention_until)
+                 VALUES (?,?,?,?,?,?,?,?,?,DATE_ADD(CURDATE(),INTERVAL 8 YEAR))'
+            )->execute([$merchantId, $docType, $fileName, $target, $storageKey, $sha256, $mime, $size, $scanStatus]);
+            $newDocId = (int)getDB()->lastInsertId();
+            if ($previousDocId && $newDocId) {
+                try { getDB()->prepare("UPDATE kyc_documents SET replaced_by=? WHERE id=?")->execute([$newDocId, $previousDocId]); } catch (Throwable $e3) {}
+            }
+        } catch (Throwable $e2) {
+            @unlink($target);
+            logPlatformError('error', 'KYC database insert failed: ' . $e2->getMessage(), [
+                'merchant_id' => $merchantId,
+                'doc_type' => $docType,
+            ]);
+            return ['ok' => false, 'error' => 'File reached the server but could not be registered. Support has been notified.'];
+        }
     }
 
     if (!function_exists('bootstrapMerchantMethodAutomation')) {

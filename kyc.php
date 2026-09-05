@@ -38,8 +38,13 @@ $docLabels = getKycDocLabels();
 $prefills = getMerchantKycPrefills($merchant);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $postedBytes = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+    if ($postedBytes > 0 && empty($_POST) && empty($_FILES)) {
+        flash('error', 'The file is too large for the server. Choose a smaller PDF or image (max 15MB) and try again.');
+        redirect('kyc.php');
+    }
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
-        flash('error', 'Your session expired. Refresh the page and upload again.');
+        flash('error', 'Your session expired. Refresh the page and upload again. The file was not saved.');
         redirect('kyc.php');
     }
     $postAction = (string)($_POST['action'] ?? '');
@@ -80,6 +85,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             parseGeoFromRequest()
         );
         if (empty($saved['ok'])) {
+            if (function_exists('releaseKycSubmitLock')) {
+                releaseKycSubmitLock((int)$merchant['id'], 'doc_upload', $uploadFp);
+            }
             flash('error', $saved['error'] ?? 'Upload failed. Please retry.');
         } else {
             if (!function_exists('markMerchantKycSubmitted') && is_file(__DIR__ . '/includes/kyc_workflow.php')) {

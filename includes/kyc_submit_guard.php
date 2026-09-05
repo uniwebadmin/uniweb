@@ -75,19 +75,21 @@ function claimKycSubmitLock(int $merchantId, string $action, string $fingerprint
         }
 
         if ($existing) {
+            $ttl = max(30, min(600, $ttlSeconds));
             $upd = $db->prepare(
-                'UPDATE kyc_submit_locks SET expires_at=DATE_ADD(NOW(), INTERVAL ? SECOND), created_at=NOW()
-                 WHERE id=?'
+                "UPDATE kyc_submit_locks SET expires_at=DATE_ADD(NOW(), INTERVAL {$ttl} SECOND), created_at=NOW()
+                 WHERE id=?"
             );
-            $upd->execute([$ttlSeconds, (int)$existing['id']]);
+            $upd->execute([(int)$existing['id']]);
             return ['ok' => true, 'fingerprint' => $fingerprint];
         }
 
+        $ttl = max(30, min(600, $ttlSeconds));
         $ins = $db->prepare(
-            'INSERT INTO kyc_submit_locks (merchant_id, action_key, fingerprint, expires_at)
-             VALUES (?,?,?,DATE_ADD(NOW(), INTERVAL ? SECOND))'
+            "INSERT INTO kyc_submit_locks (merchant_id, action_key, fingerprint, expires_at)
+             VALUES (?,?,?,DATE_ADD(NOW(), INTERVAL {$ttl} SECOND))"
         );
-        $ins->execute([$merchantId, $action, $fingerprint, $ttlSeconds]);
+        $ins->execute([$merchantId, $action, $fingerprint]);
         return ['ok' => true, 'fingerprint' => $fingerprint];
     } catch (Throwable $e) {
         if (str_contains($e->getMessage(), 'Duplicate') || str_contains($e->getMessage(), '1062')) {

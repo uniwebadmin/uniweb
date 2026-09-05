@@ -640,6 +640,9 @@ function buildCheckoutPaymentMethods(array $link): array
     if (function_exists('normalizeCheckoutMethodKeys')) {
         $enabled = normalizeCheckoutMethodKeys($enabled);
     }
+    if (function_exists('isMerchantOpsMethodKey')) {
+        $enabled = array_values(array_filter($enabled, static fn($k) => !isMerchantOpsMethodKey((string)$k)));
+    }
     $catalog = getPaymentMethodCatalog();
     $allow = function (string $methodKey) use ($enabled): bool {
         $want = normalizeCheckoutMethodKey($methodKey);
@@ -696,8 +699,8 @@ function buildCheckoutPaymentMethods(array $link): array
     }
     // Partner rails (razorpay/cashfree) are never separate customer tabs — internal pg_pool routing only.
 
-    // Dedicated method link — only that checkout tab
-    if (!empty($link['payment_method'])) {
+    // Dedicated method link — only that checkout tab (collect instruments only)
+    if (!empty($link['payment_method']) && (!function_exists('isCustomerCheckoutCatalogKey') || isCustomerCheckoutCatalogKey((string)$link['payment_method']))) {
         $cat = $catalog[$link['payment_method']] ?? null;
         if ($cat && !empty($cat['pay_key'])) {
             $payKey = $cat['pay_key'];

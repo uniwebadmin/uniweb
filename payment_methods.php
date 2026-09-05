@@ -88,6 +88,7 @@ require_once __DIR__ . '/header.php';
     <div class="glass rounded-xl p-6 border border-emerald-500/20 text-sm text-gray-300">
         <p class="font-semibold text-emerald-300 mb-1">Collect order: UPI first, then Card, then Net Banking</p>
         <p class="text-xs text-gray-500">Turn ON what customers should see on checkout. Card / Net Banking / Wallet / EMI go live after Admin enables the network. Until then, Test Mode can still use UniWeb Test Pay.</p>
+        <p class="text-[11px] text-gray-400 mt-2">Payouts and Recurring / AutoPay are not checkout buttons. Use <a href="merchant_payout.php" class="text-sky-400 hover:underline">Payouts</a> (send money) and <a href="merchant_recurring.php" class="text-sky-400 hover:underline">Recurring / AutoPay</a> (mandates).</p>
         <p class="text-[11px] text-gray-600 mt-2">Toggle OFF at checkout but ON here? That was alias mismatch (<code class="text-gray-500">upi</code> vs <code class="text-gray-500">upi_p2m</code>) — now auto-normalized on every save.</p>
     </div>
 
@@ -108,7 +109,7 @@ require_once __DIR__ . '/header.php';
                 <p class="text-xs text-gray-500 mt-1">Toggle ON/OFF which payment methods customers see at checkout. List is UPI → Card → Net Banking.</p>
             </div>
             <div class="text-center">
-                <p class="text-2xl font-bold text-emerald-400"><?= count(array_filter($methods, fn($m) => (int)$m['is_enabled'] === 1)) ?></p>
+                <p class="text-2xl font-bold text-emerald-400"><?= count(array_filter($methods, static fn($m) => (int)$m['is_enabled'] === 1 && (!function_exists('isMerchantOpsMethodKey') || !isMerchantOpsMethodKey((string)$m['gateway_key'])))) ?></p>
                 <p class="text-[10px] text-gray-500 uppercase">Enabled</p>
             </div>
         </div>
@@ -123,6 +124,9 @@ require_once __DIR__ . '/header.php';
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="bulk_save">
             <?php foreach ($methods as $m):
+                if (function_exists('isMerchantOpsMethodKey') && isMerchantOpsMethodKey((string)$m['gateway_key'])) {
+                    continue;
+                }
                 $canTurnOn = merchantCanToggleMethodOn($merchantId, (string)$m['gateway_key'], 'merchant');
                 $isOn = (int)$m['is_enabled'] === 1;
             ?>

@@ -190,7 +190,7 @@ require_once __DIR__ . '/header.php';
         <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
                 <h2 class="font-semibold text-lg">Recurring / AutoPay</h2>
-                <p class="text-sm text-gray-500 mt-1">Same flow as Razorpay Subscriptions / Cashfree Subscriptions — mandate → customer UPI approval → scheduled debits.</p>
+                <p class="text-sm text-gray-500 mt-1">Merchant dashboard only — same as Razorpay / Cashfree Subscriptions. Not a checkout tab. Customer still pays with UPI or bank mandate, then AutoPay runs on schedule.</p>
             </div>
             <?php if ($canCreateMandates): ?>
             <span class="text-xs px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Ready for live</span>

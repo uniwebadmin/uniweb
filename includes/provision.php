@@ -126,6 +126,7 @@ function getPaymentMethodCatalog(): array
             'collection_mode' => 'platform_pg',
             'icon' => '⚡',
             'mdr' => 'upi',
+            'customer_checkout' => false,
         ],
         'payout' => [
             'label' => 'Payouts',
@@ -134,8 +135,46 @@ function getPaymentMethodCatalog(): array
             'collection_mode' => 'platform_pg',
             'icon' => '💸',
             'mdr' => 'netbanking',
+            'customer_checkout' => false,
         ],
     ];
+}
+
+/**
+ * Merchant-ops rails — never customer checkout tabs (Razorpay/Stripe/Cashfree model).
+ * Payout = send money (RazorpayX). Recurring = mandate dashboard. Instant settlement = merchant batch.
+ *
+ * @return list<string>
+ */
+function merchantOpsMethodKeys(): array
+{
+    return ['payout', 'recurring', 'instant_settlement'];
+}
+
+function isMerchantOpsMethodKey(string $methodKey): bool
+{
+    $key = strtolower(trim($methodKey));
+    if (function_exists('normalizeCheckoutMethodKey')) {
+        $key = normalizeCheckoutMethodKey($key);
+    }
+    return in_array($key, merchantOpsMethodKeys(), true);
+}
+
+/** True only for customer collect instruments (UPI / card / NB / wallet / EMI). */
+function isCustomerCheckoutCatalogKey(string $methodKey): bool
+{
+    if (isMerchantOpsMethodKey($methodKey)) {
+        return false;
+    }
+    $key = strtolower(trim($methodKey));
+    if (function_exists('normalizeCheckoutMethodKey')) {
+        $key = normalizeCheckoutMethodKey($key);
+    }
+    $cat = getPaymentMethodCatalog()[$key] ?? null;
+    if ($cat === null) {
+        return false;
+    }
+    return ($cat['customer_checkout'] ?? true) !== false;
 }
 
 function getMerchantProvisionProfile(array $merchant): array
@@ -227,18 +266,20 @@ function getMerchantEnabledMethods(array $merchant): array
         $decoded = json_decode($raw, true);
         if (is_array($decoded) && $decoded) {
             $keys = array_values(array_unique(array_map('strval', $decoded)));
-            return function_exists('normalizeCheckoutMethodKeys')
+            $keys = function_exists('normalizeCheckoutMethodKeys')
                 ? normalizeCheckoutMethodKeys($keys)
                 : $keys;
+            return array_values(array_filter($keys, static fn($k) => !isMerchantOpsMethodKey((string)$k)));
         }
     }
     // Check new merchant_payment_methods table
     if (function_exists('getMerchantEnabledMethodKeys')) {
         $pmEnabled = getMerchantEnabledMethodKeys((int)$merchant['id']);
         if (!empty($pmEnabled)) {
-            return function_exists('normalizeCheckoutMethodKeys')
+            $pmEnabled = function_exists('normalizeCheckoutMethodKeys')
                 ? normalizeCheckoutMethodKeys($pmEnabled)
                 : $pmEnabled;
+            return array_values(array_filter($pmEnabled, static fn($k) => !isMerchantOpsMethodKey((string)$k)));
         }
     }
     // New merchants: only UPI P2M until partner/admin unlocks more.
@@ -248,7 +289,7 @@ function getMerchantEnabledMethods(array $merchant): array
 function buildPaymentLinkUrl(string $linkId, ?string $payKey = null): string
 {
     $url = APP_URL . '/checkout.php?link=' . rawurlencode($linkId);
-    if ($payKey) {
+    if ($payKey && !isMerchantOpsMethodKey($payKey)) {
         $url .= '&pay=' . rawurlencode($payKey);
     }
     return $url;
@@ -262,6 +303,9 @@ function merchantMethodPreview(array $merchant): array
     $rows = [];
     foreach ($methods as $key) {
         if (!isset($catalog[$key])) continue;
+        if (!isCustomerCheckoutCatalogKey((string)$key)) {
+            continue;
+        }
         $c = $catalog[$key];
         $rows[] = [
             'key' => $key,
@@ -285,7 +329,7 @@ function createMethodPaymentLink(int $merchantId, string $methodKey, float $amou
 {
     ensurePaymentPackSchema();
     $catalog = getPaymentMethodCatalog();
-    if (!isset($catalog[$methodKey])) {
+    if (!isset($catalog[$methodKey]) || !isCustomerCheckoutCatalogKey($methodKey)) {
         return null;
     }
 
@@ -358,7 +402,7 @@ function generateMerchantPaymentPack(int $merchantId, float $amount = 1.0, ?bool
 
     foreach ($methods as $methodKey) {
         $cat = getPaymentMethodCatalog()[$methodKey] ?? null;
-        if (!$cat) {
+        if (!$cat || !isCustomerCheckoutCatalogKey((string)$methodKey)) {
             continue;
         }
         // Fixed ₹1 (UniWeb Test Pay) + Open amount (customer enters)

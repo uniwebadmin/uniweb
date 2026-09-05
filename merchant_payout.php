@@ -134,7 +134,7 @@ require_once __DIR__ . '/header.php';
 
 <div class="mb-6">
     <h1 class="text-xl font-bold">Payouts</h1>
-    <p class="text-sm text-gray-500 mt-1">Vendor payouts after collect is approved. Gated until admin enables live payouts and partner keys are pasted. <a href="merchant_payout_keys.php" class="text-sky-400 hover:underline">Payout API keys →</a></p>
+    <p class="text-sm text-gray-500 mt-1">Send money to vendors / salary accounts — like RazorpayX / Cashfree Payouts. This is not a customer checkout option. <a href="merchant_payout_keys.php" class="text-sky-400 hover:underline">Payout API keys →</a></p>
 </div>
 
 <div class="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 mb-6 text-sm">

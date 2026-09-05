@@ -945,30 +945,38 @@ function finalizeSuccessfulPaymentTransaction(int $transactionId, array $opts = 
     }
 
     if (!empty($opts['run_risk_hooks'])) {
-        if (function_exists('recordTransactionRisk')) {
-            recordTransactionRisk(
-                $transactionId,
-                $merchantId,
-                $amount,
-                ['email' => (string)($txn['customer_email'] ?? ''), 'phone' => (string)($txn['customer_phone'] ?? '')]
-            );
-        }
-        if (function_exists('evaluateTransactionRiskFull')) {
-            evaluateTransactionRiskFull(
-                $merchantId,
-                $amount,
-                ['email' => (string)($txn['customer_email'] ?? ''), 'phone' => (string)($txn['customer_phone'] ?? '')],
-                $transactionId
-            );
-        }
-        if (function_exists('recordNodalCollection')) {
-            recordNodalCollection($transactionId, $merchantId, $amount, 'Customer collection from ' . ($txn['customer_email'] ?? 'customer'));
-        }
-        if (function_exists('updateMerchantRiskScore')) {
-            updateMerchantRiskScore($merchantId);
-        }
-        if (function_exists('applyRollingReserveHold')) {
-            applyRollingReserveHold($merchantId, $transactionId, $amount);
+        try {
+            if (function_exists('recordTransactionRisk')) {
+                recordTransactionRisk(
+                    $transactionId,
+                    $merchantId,
+                    $amount,
+                    ['email' => (string)($txn['customer_email'] ?? ''), 'phone' => (string)($txn['customer_phone'] ?? '')]
+                );
+            }
+            if (function_exists('evaluateTransactionRiskFull')) {
+                evaluateTransactionRiskFull(
+                    $merchantId,
+                    $amount,
+                    ['email' => (string)($txn['customer_email'] ?? ''), 'phone' => (string)($txn['customer_phone'] ?? '')],
+                    $transactionId
+                );
+            }
+            if (function_exists('recordNodalCollection')) {
+                recordNodalCollection($transactionId, $merchantId, $amount, 'Customer collection from ' . ($txn['customer_email'] ?? 'customer'));
+            }
+            if (function_exists('updateMerchantRiskScore')) {
+                updateMerchantRiskScore($merchantId);
+            }
+            if (function_exists('applyRollingReserveHold')) {
+                applyRollingReserveHold($merchantId, $transactionId, $amount);
+            }
+        } catch (Throwable $riskEx) {
+            if (function_exists('logPlatformError')) {
+                logPlatformError('warning', 'Post-capture risk hooks failed: ' . $riskEx->getMessage(), [
+                    'transaction_id' => $transactionId,
+                ]);
+            }
         }
     }
 

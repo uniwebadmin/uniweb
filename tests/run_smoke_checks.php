@@ -192,6 +192,11 @@ $settleDue = (string)file_get_contents($root . '/includes/settlement_engine.php'
 $assert(str_contains($settleDue, 'merchantSettlementDelayMinutes'), 'settlement_delay_wired');
 $prov = (string)file_get_contents($root . '/includes/provision.php');
 $assert(!str_contains($prov, "'nbfc'") && str_contains($prov, "'instant_settlement'"), 'catalog_no_nbfc_keeps_instant');
+$assert(str_contains($prov, 'function isCustomerCheckoutCatalogKey') && str_contains($prov, 'function isMerchantOpsMethodKey'), 'ops_methods_helper_present');
+$assert(str_contains($prov, "'customer_checkout' => false"), 'payout_not_customer_checkout_flag');
+$assert(str_contains((string)file_get_contents($root . '/includes/collection.php'), 'isCustomerCheckoutCatalogKey'), 'checkout_skips_ops_dedicated_tabs');
+$assert(str_contains($sidebarNav, "['merchant_recurring.php', 'Recurring / AutoPay'") && str_contains($sidebarNav, "'collect'"), 'recurring_nav_in_collect');
+$assert(str_contains($sidebarNav, "['merchant_payout.php', 'Payouts'") && str_contains($sidebarNav, "'settlements'"), 'payout_nav_in_settlements');
 $reg = (string)file_get_contents($root . '/merchant_register.php');
 $assert(!str_contains($reg, '$business = $invBusiness') && str_contains($reg, "'business_name' =>") && str_contains($reg, "\$pending['business_name']"), 'merchant_register_verify_business_name_from_pending');
 $assert(str_contains($reg, 'bootstrapMerchantMethodAutomation'), 'signup_auto_queues_methods');
@@ -2206,6 +2211,14 @@ $kycUploadSrc = (string)file_get_contents($root . '/includes/kyc_upload.php');
 $kycFlowSrc = (string)file_get_contents($root . '/includes/kyc_workflow.php');
 $kycPageSrc = (string)file_get_contents($root . '/kyc.php');
 $assert(str_contains($kycUploadSrc, 'function kycScanStatusLabel') && str_contains($kycUploadSrc, 'infected'), 'risk16_kyc_scan_labels_and_reject');
+$assert(str_contains($kycUploadSrc, 'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD')
+    && !str_contains($kycUploadSrc, '?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD'), 'kyc_insert_placeholder_matches_columns');
+$assert(str_contains($kycPageSrc, 'The file was not saved') && str_contains($kycPageSrc, 'CONTENT_LENGTH'), 'kyc_csrf_empty_post_not_false_saved');
+$fwdWf = (string)file_get_contents($root . '/includes/forward_queue_workflow.php');
+$assert(str_contains($fwdWf, "'auto_screen' => forwardQueueAutoPage()")
+    && !str_contains($fwdWf, "forwardQueueAutoPage() . ' —"), 'forward_queue_href_not_glued_to_copy');
+$assert(str_contains((string)file_get_contents($root . '/includes/risk.php'), 'INTERVAL {$days} DAY')
+    && str_contains((string)file_get_contents($root . '/includes/financial_integrity.php'), 'Post-capture risk hooks failed'), 'instant_test_pay_interval_bind_fixed');
 $assert(str_contains($kycPageSrc, 'Security scan') && str_contains($kycPageSrc, 'allowedExt.includes(ext)'), 'risk16_kyc_ui_scan_column_and_client_validation');
 $assert(str_contains((string)file_get_contents($root . '/merchant_shop_photos.php'), 'saveMerchantKycUpload'), 'risk16_shop_photos_canonical_upload');
 $assert(str_contains((string)file_get_contents($root . '/kyc_media_receiver.php'), 'videoMimes') || str_contains((string)file_get_contents($root . '/kyc_media_receiver.php'), 'video/mp4'), 'risk16_video_mime_guard');

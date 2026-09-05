@@ -296,15 +296,17 @@ function screenAmlWatchlist(int $merchantId, ?int $transactionId, array $custome
 
 function getChargebackCount(int $merchantId, int $days = 90): int
 {
-    $st = getDB()->prepare('SELECT COUNT(*) FROM chargebacks WHERE merchant_id=? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)');
-    $st->execute([$merchantId, $days]);
+    $days = max(1, min(3650, $days));
+    $st = getDB()->prepare("SELECT COUNT(*) FROM chargebacks WHERE merchant_id=? AND created_at >= DATE_SUB(NOW(), INTERVAL {$days} DAY)");
+    $st->execute([$merchantId]);
     return (int)$st->fetchColumn();
 }
 
 function getSuccessTransactionCount(int $merchantId, int $days = 90): int
 {
-    $st = getDB()->prepare('SELECT COUNT(*) FROM transactions WHERE merchant_id=? AND status="success" AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)');
-    $st->execute([$merchantId, $days]);
+    $days = max(1, min(3650, $days));
+    $st = getDB()->prepare("SELECT COUNT(*) FROM transactions WHERE merchant_id=? AND status=\"success\" AND created_at >= DATE_SUB(NOW(), INTERVAL {$days} DAY)");
+    $st->execute([$merchantId]);
     return (int)$st->fetchColumn();
 }
 
@@ -320,10 +322,11 @@ function getChargebackRatio(int $merchantId, int $days = 90): float
 
 function getMerchantFailureVelocity(int $merchantId, int $minutes = 60): int
 {
+    $minutes = max(1, min(10080, $minutes));
     $st = getDB()->prepare(
-        'SELECT COUNT(*) FROM velocity_events WHERE reference LIKE ? AND event_type="payment_fail" AND created_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE)'
+        "SELECT COUNT(*) FROM velocity_events WHERE reference LIKE ? AND event_type=\"payment_fail\" AND created_at >= DATE_SUB(NOW(), INTERVAL {$minutes} MINUTE)"
     );
-    $st->execute(['merchant:' . $merchantId . '%', $minutes]);
+    $st->execute(['merchant:' . $merchantId . '%']);
     return (int)$st->fetchColumn();
 }
 
