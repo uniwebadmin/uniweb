@@ -128,30 +128,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         }
         redirect('admin_gateway_registry.php');
     }
+
+    if ($action === 'retire' && function_exists('retirePartnerRegistryRow')) {
+        $gatewayId = (int)($_POST['gateway_id'] ?? 0);
+        $confirmCode = strtolower(trim((string)($_POST['confirm_code'] ?? '')));
+        $result = retirePartnerRegistryRow($gatewayId, [
+            'confirm_code' => $confirmCode,
+            'admin_id' => (int)($_SESSION['admin_id'] ?? 0),
+            'admin_email' => (string)($_SESSION['staff_email'] ?? $_SESSION['admin_email'] ?? 'admin'),
+        ]);
+        flash(!empty($result['ok']) ? 'success' : 'error', !empty($result['ok'])
+            ? ((string)($result['gateway_name'] ?? 'Partner') . ' retired. Hidden from default list and routing.')
+            : (string)($result['error'] ?? 'Could not retire.'));
+        redirect('admin_gateway_registry.php' . (!empty($result['ok']) ? '?status=retired' : ''));
+    }
 }
 
-$gateways = getRegisteredGateways();
+$includeRetired = true;
+$allGateways = getRegisteredGateways($includeRetired);
 $partnerRegistry = getPartnerRegistry();
 $registryKindEdu = function_exists('registryKindAdminEducation') ? registryKindAdminEducation() : null;
 $registryKindReady = function_exists('registryKindReadinessReport') ? registryKindReadinessReport() : null;
 $statusFilter = strtolower(trim((string)($_GET['status'] ?? 'all')));
-if (!in_array($statusFilter, ['all', 'active', 'inactive'], true)) {
+if (!in_array($statusFilter, ['all', 'active', 'inactive', 'retired'], true)) {
     $statusFilter = 'all';
 }
 $highlightKey = strtolower(trim((string)($_GET['highlight'] ?? '')));
 $activeCount = 0;
 $inactiveCount = 0;
-foreach ($gateways as $g) {
-    if ((int)$g['is_active']) $activeCount++;
-    else $inactiveCount++;
+$retiredCount = 0;
+$gateways = [];
+foreach ($allGateways as $g) {
+    $isRetired = function_exists('partnerRegistryRowIsRetired') && partnerRegistryRowIsRetired($g);
+    if ($isRetired) {
+        $retiredCount++;
+    } elseif ((int)$g['is_active']) {
+        $activeCount++;
+        $gateways[] = $g;
+    } else {
+        $inactiveCount++;
+        $gateways[] = $g;
+    }
 }
 $filteredGateways = [];
-foreach ($gateways as $g) {
-    $isActiveRow = (int)$g['is_active'] === 1;
+$sourceRows = $statusFilter === 'retired' ? $allGateways : $gateways;
+foreach ($sourceRows as $g) {
+    $isRetired = function_exists('partnerRegistryRowIsRetired') && partnerRegistryRowIsRetired($g);
+    $isActiveRow = (int)$g['is_active'] === 1 && !$isRetired;
+    if ($statusFilter === 'retired' && !$isRetired) {
+        continue;
+    }
+    if ($statusFilter === 'all' && $isRetired) {
+        continue;
+    }
     if ($statusFilter === 'active' && !$isActiveRow) {
         continue;
     }
-    if ($statusFilter === 'inactive' && $isActiveRow) {
+    if ($statusFilter === 'inactive' && ($isActiveRow || $isRetired)) {
         continue;
     }
     $filteredGateways[] = $g;
@@ -181,6 +214,10 @@ require_once __DIR__ . '/header.php';
                     <p class="text-2xl font-bold text-gray-400"><?= $inactiveCount ?></p>
                     <p class="text-[10px] text-gray-500 uppercase">Inactive</p>
                 </div>
+                <div class="text-center">
+                    <p class="text-2xl font-bold text-slate-400"><?= $retiredCount ?></p>
+                    <p class="text-[10px] text-gray-500 uppercase">Retired</p>
+                </div>
             </div>
         </div>
     </div>
@@ -190,12 +227,12 @@ require_once __DIR__ . '/header.php';
             <h3 class="font-semibold">Registered partners</h3>
             <div class="flex flex-wrap items-center gap-3">
                 <div class="flex gap-1 text-[11px]">
-                    <?php foreach (['all' => 'All', 'active' => 'Active', 'inactive' => 'Inactive'] as $sf => $sfLabel): ?>
+                    <?php foreach (['all' => 'All', 'active' => 'Active', 'inactive' => 'Inactive', 'retired' => 'Retired'] as $sf => $sfLabel): ?>
                     <a href="admin_gateway_registry.php?status=<?= e($sf) ?><?= $highlightKey !== '' ? '&highlight=' . rawurlencode($highlightKey) : '' ?>" class="px-2.5 py-1 rounded-lg border <?= $statusFilter === $sf ? 'border-sky-500/50 bg-sky-500/15 text-sky-300' : 'border-gray-700 text-gray-500 hover:text-gray-300' ?>"><?= e($sfLabel) ?></a>
                     <?php endforeach; ?>
                 </div>
                 <input type="search" id="gateway-filter" placeholder="Filter by name / key…" class="bg-dark-900 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-gray-300 focus:border-sky-500 focus:outline-none" oninput="filterGateways(this.value)">
-                <span class="text-xs text-gray-500"><?= count($filteredGateways) ?> shown · <?= count($gateways) ?> total</span>
+                <span class="text-xs text-gray-500"><?= count($filteredGateways) ?> shown · <?= $activeCount + $inactiveCount ?> in default list<?= $retiredCount > 0 ? ' · ' . $retiredCount . ' retired' : '' ?></span>
             </div>
         </div>
         <?php if (empty($filteredGateways)): ?>
@@ -265,6 +302,29 @@ require_once __DIR__ . '/header.php';
                         <input type="hidden" name="action" value="deactivate">
                         <input type="hidden" name="gateway_id" value="<?= (int)$g['id'] ?>">
                         <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20" onclick="return confirm('Turn OFF routing for <?= e($g['gateway_name']) ?>? Methods hide from checkout/QR/links. Partner stays in this list as Inactive.')">Turn OFF routing</button>
+                    </form>
+                    <?php endif; ?>
+                    <?php
+                    $rowRetired = function_exists('partnerRegistryRowIsRetired') && partnerRegistryRowIsRetired($g);
+                    $rowBuiltin = function_exists('isPartnerRegistryKey') && isPartnerRegistryKey((string)$g['gateway_key']);
+                    $retireBlockers = (!$rowBuiltin && !$isActive && !$rowRetired && function_exists('partnerRegistryRetireBlockers'))
+                        ? partnerRegistryRetireBlockers((string)$g['gateway_key']) : [];
+                    ?>
+                    <?php if ($rowRetired): ?>
+                    <span class="text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-gray-500 border border-gray-700" title="Already retired">Retired</span>
+                    <?php elseif ($rowBuiltin): ?>
+                    <span class="text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-gray-500 border border-gray-700" title="Built-in partners cannot be retired">Retire — Not available</span>
+                    <?php elseif ($isActive): ?>
+                    <span class="text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-gray-500 border border-gray-700" title="Turn OFF routing first">Retire — Turn OFF first</span>
+                    <?php elseif ($retireBlockers !== []): ?>
+                    <span class="text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-amber-400/80 border border-amber-500/20" title="<?= e(implode('; ', $retireBlockers)) ?>">Retire blocked</span>
+                    <?php else: ?>
+                    <form method="POST" class="flex items-center gap-1">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                        <input type="hidden" name="action" value="retire">
+                        <input type="hidden" name="gateway_id" value="<?= (int)$g['id'] ?>">
+                        <input type="text" name="confirm_code" required placeholder="type <?= e($g['gateway_key']) ?>" autocomplete="off" class="bg-dark-900 border border-red-500/30 rounded px-2 py-1 text-[10px] font-mono w-28 text-gray-300" title="Type the partner code to confirm">
+                        <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20" onclick="return confirm('Retire <?= e($g['gateway_name']) ?>? History is kept. Partner leaves the default list.')">Retire</button>
                     </form>
                     <?php endif; ?>
                 </div>
@@ -360,7 +420,10 @@ require_once __DIR__ . '/header.php';
             </div>
             <?php endif; ?>
             <?php endif; ?>
-            <p class="text-xs text-gray-500">Existing merchant link: <span class="text-gray-400">Not available</span> (later phase — checkbox hidden so it cannot look like a working switch).</p>
+            <label class="flex items-center gap-2 text-sm text-gray-300">
+                <input type="checkbox" name="allows_existing_merchant_link" class="rounded border-gray-600">
+                Allow already-live merchant link (merchant has their own account on this partner)
+            </label>
             <p class="text-xs text-gray-500">Outbound pause: use <a href="admin_circuit_breaker.php" class="text-sky-400 hover:underline">Circuit Breaker</a> — the register form does not fake an ON/OFF that does nothing.</p>
             <input type="hidden" name="circuit_breaker_on" value="1">
             <button type="submit" class="btn-primary px-6 py-2.5">Register partner</button>

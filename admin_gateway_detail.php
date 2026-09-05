@@ -30,7 +30,7 @@ if ($activeTab === 'pricing') { $activeTab = 'commercial'; }
 
 if ($gatewayId <= 0 && $partnerKeyParam !== '') {
     // D5: Look up by gateway_key in registry — works for both hardcoded and custom-registered partners
-    $allGws = getRegisteredGateways();
+    $allGws = getRegisteredGateways(true);
     foreach ($allGws as $ag) {
         if ($ag['gateway_key'] === $partnerKeyParam) {
             $gatewayId = (int)$ag['id'];
@@ -201,16 +201,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=' . $activeTab);
     }
 
-    if ($action === 'delete') {
-        $result = deleteInactiveGateway($gatewayId);
-        if ($result['ok']) {
-            if (function_exists('logStaffActivity')) {
-                logStaffActivity('partner_deleted', 'Deleted inactive partner ' . ($result['gateway_key'] ?? $partnerKey), null, 'partner', (string)($result['gateway_key'] ?? $partnerKey));
-            }
-            flash('success', ($result['gateway_name'] ?? 'Partner') . ' deleted from registry.');
-            redirect('admin_gateway_registry.php');
+    if ($action === 'retire' && function_exists('retirePartnerRegistryRow')) {
+        $result = retirePartnerRegistryRow($gatewayId, [
+            'confirm_code' => strtolower(trim((string)($_POST['confirm_code'] ?? ''))),
+            'admin_id' => (int)($_SESSION['admin_id'] ?? 0),
+            'admin_email' => (string)($_SESSION['staff_email'] ?? $_SESSION['admin_email'] ?? 'admin'),
+        ]);
+        if (!empty($result['ok'])) {
+            flash('success', ($result['gateway_name'] ?? 'Partner') . ' retired. Hidden from default list and routing.');
+            redirect('admin_gateway_registry.php?status=retired');
         }
-        flash('error', $result['error'] ?? 'Could not delete.');
+        flash('error', $result['error'] ?? 'Could not retire.');
+        redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=' . $activeTab);
+    }
+
+    if ($action === 'delete') {
+        flash('error', 'Hard delete is disabled. Use Retire and type the partner code.');
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=' . $activeTab);
     }
 
@@ -369,6 +375,9 @@ if ($activeTab === 'test' && isset($_GET['action']) && $_GET['action'] === 'test
 $configMeta = json_decode($gateway['config_json'] ?? '{}', true) ?: [];
 $registryProfile = function_exists('partnerRegistryV2ProfileFromRow') ? partnerRegistryV2ProfileFromRow($gateway) : null;
 $isActive = (int)$gateway['is_active'] === 1;
+$isRetired = function_exists('partnerRegistryRowIsRetired') && partnerRegistryRowIsRetired($gateway);
+$retireBlockers = (!$partnerIsBuiltin && !$isActive && !$isRetired && function_exists('partnerRegistryRetireBlockers'))
+    ? partnerRegistryRetireBlockers($partnerKey) : [];
 $credStatus = getPartnerCredentialStatus($partnerKey);
 $partnerMethods = getPartnerMethods($partnerKey);
 $apiLogs = partnerGetRecentLogs($partnerKey, 30);
@@ -428,7 +437,9 @@ require_once __DIR__ . '/header.php';
         </div>
         <div class="flex flex-wrap gap-3">
             <?php if (!$isActive): ?>
-            <?php if (empty($activateGate['allowed'])): ?>
+            <?php if ($isRetired): ?>
+            <span class="text-xs px-4 py-2.5 rounded-lg bg-gray-800 text-gray-500 border border-gray-700">Retired — not in default routing</span>
+            <?php elseif (empty($activateGate['allowed'])): ?>
             <span class="text-xs px-4 py-2.5 rounded-lg bg-gray-800 text-gray-500 border border-gray-700" title="<?= e((string)($activateGate['reason'] ?? '')) ?>">Activate — Not available</span>
             <?php else: ?>
             <form method="POST" class="inline">
@@ -437,11 +448,17 @@ require_once __DIR__ . '/header.php';
                 <button type="submit" class="btn-primary px-6 py-2.5" onclick="return confirm('<?= !empty($activateGate['warn_keys']) ? 'Keys are missing. Turn routing ON anyway? Paste keys next.' : 'Activate ' . e($gateway['gateway_name']) . ' for routing? Partner already appears in the registry list.' ?>')">Activate for routing</button>
             </form>
             <?php endif; ?>
-            <?php if (!$partnerIsBuiltin): ?>
-            <form method="POST" class="inline" onsubmit="return confirm('Permanently delete this inactive custom partner from the registry?');">
+            <?php if ($partnerIsBuiltin): ?>
+            <span class="text-xs px-4 py-2.5 rounded-lg bg-gray-800 text-gray-500 border border-gray-700" title="Built-in partners cannot be retired">Retire — Not available</span>
+            <?php elseif ($isRetired): ?>
+            <?php elseif ($retireBlockers !== []): ?>
+            <span class="text-xs px-4 py-2.5 rounded-lg bg-gray-800 text-amber-400/80 border border-amber-500/20" title="<?= e(implode('; ', $retireBlockers)) ?>">Retire blocked — <?= e($retireBlockers[0]) ?></span>
+            <?php else: ?>
+            <form method="POST" class="flex flex-wrap items-center gap-2">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                <input type="hidden" name="action" value="delete">
-                <button type="submit" class="text-xs px-4 py-2.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30">Delete</button>
+                <input type="hidden" name="action" value="retire">
+                <input type="text" name="confirm_code" required placeholder="Type <?= e($partnerKey) ?>" autocomplete="off" class="input-field text-xs font-mono w-40">
+                <button type="submit" class="text-xs px-4 py-2.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30" onclick="return confirm('Retire this partner? History is kept. It leaves the default list.')">Retire partner</button>
             </form>
             <?php endif; ?>
             <?php else: ?>
@@ -459,7 +476,7 @@ require_once __DIR__ . '/header.php';
             <a href="<?= e($partner['dashboard']) ?>" target="_blank" rel="noopener" class="glass px-5 py-2.5 rounded-xl text-sm">Dashboard ↗</a>
             <?php endif; ?>
         </div>
-        <p class="text-[11px] text-gray-600 mt-3">Keys tab saves encrypted credentials (last4 only). Activate turns routing ON — the partner is already visible in the list when Inactive. Turn OFF hides methods. Delete only after Turn OFF, custom partners only. Active is not money Live.</p>
+        <p class="text-[11px] text-gray-600 mt-3">Keys tab saves encrypted credentials (last4 only). Activate turns routing ON. Turn OFF hides methods. Retire (type partner code) hides custom partners from the default list — history stays. Active is not money Live.</p>
     </div>
 
     <div class="flex gap-1 border-b border-gray-800 overflow-x-auto">
@@ -534,7 +551,10 @@ require_once __DIR__ . '/header.php';
                 <div><label class="text-xs text-gray-500">Policy — Refund URL</label><input name="policy_refund" value="<?= e($registryProfile['policy_urls']['refund']) ?>" class="input-field mt-1 text-xs"></div>
                 <div><label class="text-xs text-gray-500">Policy — Support URL</label><input name="policy_support" value="<?= e($registryProfile['policy_urls']['support']) ?>" class="input-field mt-1 text-xs"></div>
             </div>
-            <p class="text-xs text-gray-500">Existing merchant link: <span class="text-gray-400">Not available</span> (later phase).</p>
+            <label class="flex items-center gap-2 text-xs text-gray-300">
+                <input type="checkbox" name="allows_existing_merchant_link" <?= !empty($registryProfile['allows_existing_merchant_link']) ? 'checked' : '' ?> class="rounded border-gray-600">
+                Allow already-live merchant link (merchant already has an account on this partner)
+            </label>
             <p class="text-xs text-gray-500">Outbound pause: use <a href="admin_circuit_breaker.php" class="text-sky-400 hover:underline">Circuit Breaker</a> (this checkbox did not control outbound calls).</p>
             <input type="hidden" name="circuit_breaker_on" value="1">
             <button type="submit" class="btn-primary px-6 py-2.5">Save registry profile</button>

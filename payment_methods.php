@@ -4,6 +4,12 @@ if (!function_exists('getMerchantPaymentMethods')) {
     require_once __DIR__ . '/includes/payment_methods.php';
 }
 require_once __DIR__ . '/includes/method_requests.php';
+if (!function_exists('ensurePartnerControlTables')) {
+    require_once __DIR__ . '/includes/partner_control.php';
+}
+if (!function_exists('partnerAllowsAlreadyLiveLink') && is_file(__DIR__ . '/includes/partner_registry_v2.php')) {
+    require_once __DIR__ . '/includes/partner_registry_v2.php';
+}
 requireLogin();
 $merchant = getMerchant();
 $merchantId = (int)$merchant['id'];
@@ -13,6 +19,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     $action = (string)($_POST['action'] ?? '');
     $methodKey = trim((string)($_POST['method_key'] ?? ''));
     $enabled = ($_POST['enabled'] ?? '') === '1';
+
+    if ($action === 'already_live_link' && function_exists('saveMerchantAlreadyLiveLink')) {
+        $pk = strtolower(trim((string)($_POST['partner_key'] ?? '')));
+        $result = saveMerchantAlreadyLiveLink($merchantId, $pk, [
+            'partner_mid' => (string)($_POST['partner_mid'] ?? ''),
+            'env' => (string)($_POST['env'] ?? 'test'),
+            'keys' => function_exists('merchantAlreadyLivePostedKeys') ? merchantAlreadyLivePostedKeys($pk, $_POST) : [],
+            'actor_role' => 'merchant',
+            'actor_id' => $merchantId,
+            'actor_email' => (string)($merchant['email'] ?? ''),
+            'owner_override' => false,
+        ]);
+        $msg = !empty($result['ok'])
+            ? ('Link saved. Status: ' . strtoupper((string)($result['credential_status'] ?? '')) . (!empty($result['last4']) ? ' · last4 ***' . $result['last4'] : ''))
+            : (string)($result['error'] ?? 'Could not save link.');
+        if (!empty($result['ok']) && !empty($result['message'])) {
+            $msg .= ' — ' . $result['message'];
+        }
+        flash(!empty($result['ok']) ? (($result['credential_status'] ?? '') === 'valid' ? 'success' : 'warning') : 'error', $msg);
+        redirect('payment_methods.php#already-live');
+    }
+
+    if ($action === 'already_live_checkout' && function_exists('setMerchantAlreadyLiveCheckoutEnabled')) {
+        $pk = strtolower(trim((string)($_POST['partner_key'] ?? '')));
+        $on = ((string)($_POST['checkout_on'] ?? '')) === '1';
+        $result = setMerchantAlreadyLiveCheckoutEnabled($merchantId, $pk, $on, ['actor_role' => 'merchant', 'actor_id' => $merchantId]);
+        flash(!empty($result['ok']) ? 'success' : 'error', !empty($result['ok']) ? ($on ? 'Enabled for checkout.' : 'Checkout flag turned OFF.') : ($result['error'] ?? 'Failed'));
+        redirect('payment_methods.php#already-live');
+    }
 
     if ($action === 'request_method' && $methodKey !== '') {
         $res = requestMethodEnable($merchantId, $methodKey, trim((string)($_POST['note'] ?? '')));
@@ -135,6 +170,93 @@ require_once __DIR__ . '/header.php';
             </div>
             <?php endforeach; ?>
             <button type="submit" class="btn-primary px-6 py-2.5 w-full">Save Payment Methods</button>
+        </form>
+        <?php endif; ?>
+    </div>
+
+    <?php
+    $alreadyLivePartners = function_exists('listAlreadyLiveLinkablePartners') ? listAlreadyLiveLinkablePartners() : [];
+    $alreadyLiveLinks = function_exists('getMerchantPartnerLinks') ? getMerchantPartnerLinks($merchantId) : [];
+    $alreadyLiveByKey = [];
+    foreach ($alreadyLiveLinks as $lr) {
+        $alreadyLiveByKey[strtolower((string)$lr['partner_key'])] = $lr;
+    }
+    ?>
+    <div class="glass rounded-xl p-6 border border-gray-800" id="already-live">
+        <h2 class="font-semibold text-lg">Already-live partner account</h2>
+        <p class="text-xs text-gray-500 mt-1 mb-4">Use this only if you already have a merchant account on the partner. UniWeb does not create a new partner account on this path. Secrets are stored encrypted; last4 only is shown.</p>
+        <?php if ($alreadyLivePartners === []): ?>
+        <p class="text-sm text-gray-500">No partner has already-live link enabled. Ask Admin to turn on <strong class="text-gray-400">Allow already-live merchant link</strong> for that collect partner.</p>
+        <?php else: ?>
+        <div class="space-y-3 mb-5">
+            <?php foreach ($alreadyLivePartners as $ap):
+                $ak = strtolower((string)$ap['gateway_key']);
+                $link = $alreadyLiveByKey[$ak] ?? null;
+                $state = function_exists('merchantAlreadyLivePublicState') ? merchantAlreadyLivePublicState($link) : 'not_linked';
+                $canEnable = $link && (strtolower((string)($link['credential_status'] ?? '')) === 'valid' || (int)($link['owner_override'] ?? 0) === 1);
+            ?>
+            <div class="bg-dark-900/50 rounded-xl p-4 border border-gray-800">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <p class="text-sm font-medium text-gray-200"><?= e($ap['gateway_name']) ?></p>
+                        <p class="text-[11px] font-mono text-gray-500"><?= e($ak) ?><?= !empty($link['last4']) ? ' · last4 ***' . e($link['last4']) : '' ?></p>
+                    </div>
+                    <span class="text-[10px] px-2 py-0.5 rounded-full <?= $state === 'enabled_checkout' ? 'bg-emerald-500/20 text-emerald-400' : ($state === 'linked' ? 'bg-sky-500/20 text-sky-300' : ($state === 'keys_invalid' ? 'bg-red-500/15 text-red-300' : 'bg-gray-700/50 text-gray-400')) ?>"><?= e(function_exists('merchantAlreadyLiveStateLabel') ? merchantAlreadyLiveStateLabel($state) : $state) ?></span>
+                </div>
+                <?php if ($canEnable): ?>
+                <form method="POST" class="mt-2">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="action" value="already_live_checkout">
+                    <input type="hidden" name="partner_key" value="<?= e($ak) ?>">
+                    <?php if ((int)($link['checkout_enabled'] ?? 0) === 1): ?>
+                    <input type="hidden" name="checkout_on" value="0">
+                    <button type="submit" class="text-xs px-3 py-1.5 rounded-lg border border-gray-600 text-gray-300">Turn OFF checkout flag</button>
+                    <?php else: ?>
+                    <input type="hidden" name="checkout_on" value="1">
+                    <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30">Enable for checkout</button>
+                    <?php endif; ?>
+                </form>
+                <?php elseif ($link && $state === 'keys_invalid'): ?>
+                <p class="text-[11px] text-amber-400/90 mt-2">Enable for checkout is not available until keys are Valid.</p>
+                <?php endif; ?>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <form method="POST" class="space-y-3 border-t border-gray-800 pt-4">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="action" value="already_live_link">
+            <p class="text-xs font-medium text-gray-300">I already have an account on this partner</p>
+            <div class="grid sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs text-gray-500">Partner</label>
+                    <select name="partner_key" required class="input-field mt-1 text-sm">
+                        <?php foreach ($alreadyLivePartners as $ap): ?>
+                        <option value="<?= e($ap['gateway_key']) ?>"><?= e($ap['gateway_name']) ?> (<?= e($ap['gateway_key']) ?>)</option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Partner merchant ID / MID (optional)</label>
+                    <input type="text" name="partner_mid" maxlength="120" class="input-field mt-1 font-mono text-xs" autocomplete="off">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Key ID / API key</label>
+                    <input type="password" name="already_live_key" required class="input-field mt-1 font-mono text-xs" autocomplete="new-password">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Secret</label>
+                    <input type="password" name="already_live_secret" required class="input-field mt-1 font-mono text-xs" autocomplete="new-password">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Environment</label>
+                    <select name="env" class="input-field mt-1 text-sm">
+                        <option value="test">Test / sandbox</option>
+                        <option value="live">Live</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn-primary px-6 py-2.5">Save encrypted keys and verify</button>
+            <p class="text-[11px] text-gray-600">Where a live Test Connection exists, status becomes Valid or Invalid from the partner. Other partners store keys encrypted and stay Invalid until a probe exists or Admin override.</p>
         </form>
         <?php endif; ?>
     </div>

@@ -57,6 +57,21 @@ function ensurePartnerControlTables(): void
             UNIQUE KEY uniq_merchant_partner (merchant_id, partner_key),
             INDEX idx_partner (partner_key, kyc_status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $linkAlters = [
+            "ALTER TABLE partner_merchant_links ADD COLUMN account_source VARCHAR(20) NOT NULL DEFAULT 'platform'",
+            'ALTER TABLE partner_merchant_links ADD COLUMN partner_mid VARCHAR(120) DEFAULT NULL',
+            "ALTER TABLE partner_merchant_links ADD COLUMN credential_status VARCHAR(20) NOT NULL DEFAULT 'missing'",
+            "ALTER TABLE partner_merchant_links ADD COLUMN env VARCHAR(10) NOT NULL DEFAULT 'test'",
+            'ALTER TABLE partner_merchant_links ADD COLUMN encrypted_payload TEXT DEFAULT NULL',
+            "ALTER TABLE partner_merchant_links ADD COLUMN last4 VARCHAR(8) NOT NULL DEFAULT ''",
+            'ALTER TABLE partner_merchant_links ADD COLUMN checkout_enabled TINYINT(1) NOT NULL DEFAULT 0',
+            "ALTER TABLE partner_merchant_links ADD COLUMN linked_by VARCHAR(20) NOT NULL DEFAULT 'merchant'",
+            'ALTER TABLE partner_merchant_links ADD COLUMN linked_by_id INT DEFAULT NULL',
+            'ALTER TABLE partner_merchant_links ADD COLUMN owner_override TINYINT(1) NOT NULL DEFAULT 0',
+        ];
+        foreach ($linkAlters as $sql) {
+            try { $db->exec($sql); } catch (Throwable $e) { /* exists */ }
+        }
 
         $db->exec("CREATE TABLE IF NOT EXISTS gateway_reason_maps (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -782,11 +797,17 @@ function getAllEnabledMethods(): array
         require_once __DIR__ . '/payment_methods.php';
     }
     try {
+        $retiredSql = '';
+        try {
+            if (function_exists('partnerRegistryHasRetiredColumn') && partnerRegistryHasRetiredColumn()) {
+                $retiredSql = ' AND gr.retired_at IS NULL';
+            }
+        } catch (Throwable $e) { /* ok */ }
         $st = getDB()->query(
             "SELECT pm.method, pm.partner_key, pm.priority, pm.min_amt, pm.max_amt
              FROM partner_methods pm
              INNER JOIN gateway_registry gr ON gr.gateway_key = pm.partner_key
-             WHERE pm.is_enabled = 1 AND gr.is_active = 1
+             WHERE pm.is_enabled = 1 AND gr.is_active = 1{$retiredSql}
              ORDER BY pm.method, pm.priority ASC, gr.sort_order ASC"
         );
         $rows = $st->fetchAll();
@@ -832,6 +853,402 @@ function upsertMerchantPartnerLink(int $merchantId, string $partnerKey, ?string 
     } catch (Throwable $e) {
         return false;
     }
+}
+
+function getMerchantPartnerLinkRow(int $merchantId, string $partnerKey): ?array
+{
+    ensurePartnerControlTables();
+    $partnerKey = strtolower(trim($partnerKey));
+    if ($merchantId < 1 || $partnerKey === '') {
+        return null;
+    }
+    try {
+        $st = getDB()->prepare('SELECT * FROM partner_merchant_links WHERE merchant_id=? AND partner_key=? LIMIT 1');
+        $st->execute([$merchantId, $partnerKey]);
+        $row = $st->fetch();
+        return $row ?: null;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/**
+ * Partners the merchant may already-live link (registry flag / commercial mode). Retired excluded.
+ *
+ * @return list<array<string,mixed>>
+ */
+function listAlreadyLiveLinkablePartners(): array
+{
+    if (!function_exists('getRegisteredGateways')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+    $out = [];
+    foreach (getRegisteredGateways(false) as $g) {
+        if (function_exists('partnerAllowsAlreadyLiveLink') && partnerAllowsAlreadyLiveLink($g)) {
+            $out[] = $g;
+        }
+    }
+    return $out;
+}
+
+function merchantAlreadyLivePublicState(?array $link): string
+{
+    if (!$link) {
+        return 'not_linked';
+    }
+    $status = strtolower(trim((string)($link['credential_status'] ?? 'missing')));
+    if ($status === 'invalid') {
+        return 'keys_invalid';
+    }
+    if ((int)($link['checkout_enabled'] ?? 0) === 1) {
+        return 'enabled_checkout';
+    }
+    if ($status === 'valid' || (int)($link['owner_override'] ?? 0) === 1) {
+        return 'linked';
+    }
+    if ($status === 'missing' && trim((string)($link['encrypted_payload'] ?? '')) === '') {
+        return 'not_linked';
+    }
+    return 'keys_invalid';
+}
+
+function merchantAlreadyLiveStateLabel(string $state): string
+{
+    return match ($state) {
+        'keys_invalid' => 'Keys invalid',
+        'linked' => 'Linked',
+        'enabled_checkout' => 'Enabled for checkout',
+        default => 'Not linked',
+    };
+}
+
+/**
+ * Probe merchant-owned keys in memory. Never logs secrets. Honest VALID only on HTTP 2xx.
+ *
+ * @param array<string,string> $keys
+ * @return array{status:string,message:string}
+ */
+function probeMerchantOwnedPartnerKeys(string $partnerKey, array $keys, string $env = 'test'): array
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    $env = $env === 'live' ? 'live' : 'test';
+    $keyId = '';
+    $secret = '';
+    foreach ($keys as $k => $v) {
+        $lk = strtolower((string)$k);
+        $val = trim((string)$v);
+        if ($val === '') {
+            continue;
+        }
+        if ($keyId === '' && (str_contains($lk, 'key_id') || str_contains($lk, 'app_id') || str_contains($lk, 'merchant_key') || str_contains($lk, 'api_key') || str_contains($lk, 'client_id') || $lk === 'key')) {
+            $keyId = $val;
+        }
+        if ($secret === '' && (str_contains($lk, 'secret') || str_contains($lk, 'salt') || str_contains($lk, 'secure'))) {
+            $secret = $val;
+        }
+    }
+    if ($keyId === '' && $secret === '') {
+        return ['status' => 'missing', 'message' => 'No keys submitted.'];
+    }
+    if ($keyId === '' || $secret === '') {
+        return ['status' => 'invalid', 'message' => 'Both key and secret are required.'];
+    }
+    if (!function_exists('curl_init')) {
+        return ['status' => 'invalid', 'message' => 'Server cannot run Test Connection (cURL missing).'];
+    }
+
+    if ($partnerKey === 'razorpay') {
+        $ch = curl_init('https://api.razorpay.com/v1/orders?count=1');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_USERPWD => $keyId . ':' . $secret,
+            CURLOPT_TIMEOUT => 12,
+        ]);
+        curl_exec($ch);
+        $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err = (string)curl_error($ch);
+        curl_close($ch);
+        if ($err !== '') {
+            return ['status' => 'invalid', 'message' => 'Partner did not accept the keys (connection failed).'];
+        }
+        if ($http >= 200 && $http < 300) {
+            return ['status' => 'valid', 'message' => 'Keys accepted by Razorpay.'];
+        }
+        return ['status' => 'invalid', 'message' => 'Partner rejected the keys (HTTP ' . $http . ').'];
+    }
+
+    if ($partnerKey === 'cashfree') {
+        $base = $env === 'live' ? 'https://api.cashfree.com' : 'https://sandbox.cashfree.com';
+        $ch = curl_init($base . '/pg/orders');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'x-client-id: ' . $keyId,
+                'x-client-secret: ' . $secret,
+                'x-api-version: 2023-08-01',
+            ],
+            CURLOPT_TIMEOUT => 12,
+        ]);
+        curl_exec($ch);
+        $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err = (string)curl_error($ch);
+        curl_close($ch);
+        if ($err !== '') {
+            return ['status' => 'invalid', 'message' => 'Partner did not accept the keys (connection failed).'];
+        }
+        if (in_array($http, [200, 400, 404, 422], true)) {
+            return ['status' => 'valid', 'message' => 'Cashfree accepted the client credentials.'];
+        }
+        if ($http === 401 || $http === 403) {
+            return ['status' => 'invalid', 'message' => 'Partner rejected the keys.'];
+        }
+        return ['status' => 'invalid', 'message' => 'Could not verify Cashfree keys (HTTP ' . $http . ').'];
+    }
+
+    return ['status' => 'invalid', 'message' => 'No live Test Connection for this partner. Keys are stored encrypted; status stays Invalid until a probe exists or Admin uses Owner override.'];
+}
+
+/**
+ * Map generic already-live form fields onto partner-specific vault keys.
+ *
+ * @return array<string,string>
+ */
+function merchantAlreadyLivePostedKeys(string $partnerKey, array $post): array
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    $id = trim((string)($post['already_live_key'] ?? ''));
+    $sec = trim((string)($post['already_live_secret'] ?? ''));
+    $out = [];
+    if ($partnerKey === 'razorpay') {
+        if ($id !== '') {
+            $out['razorpay_key_id'] = $id;
+        }
+        if ($sec !== '') {
+            $out['razorpay_key_secret'] = $sec;
+        }
+        return $out;
+    }
+    if ($partnerKey === 'cashfree') {
+        if ($id !== '') {
+            $out['cashfree_app_id'] = $id;
+        }
+        if ($sec !== '') {
+            $out['cashfree_secret_key'] = $sec;
+        }
+        return $out;
+    }
+    if ($partnerKey === 'payu') {
+        if ($id !== '') {
+            $out['payu_merchant_key'] = $id;
+        }
+        if ($sec !== '') {
+            $out['payu_merchant_salt'] = $sec;
+        }
+        return $out;
+    }
+    $prefix = $partnerKey !== '' ? $partnerKey : 'partner';
+    if ($id !== '') {
+        $out[$prefix . '_api_key'] = $id;
+    }
+    if ($sec !== '') {
+        $out[$prefix . '_api_secret'] = $sec;
+    }
+    return $out;
+}
+
+/**
+ * Already-live LINK: store merchant-owned keys in partner_merchant_links. Does not create a sub-merchant.
+ *
+ * @param array{partner_mid?:string,env?:string,keys?:array,owner_override?:bool,actor_role?:string,actor_id?:int,actor_email?:string} $input
+ * @return array{ok:bool,error?:string,credential_status?:string,last4?:string,message?:string}
+ */
+function saveMerchantAlreadyLiveLink(int $merchantId, string $partnerKey, array $input): array
+{
+    ensurePartnerControlTables();
+    $partnerKey = strtolower(trim($partnerKey));
+    if ($merchantId < 1 || $partnerKey === '') {
+        return ['ok' => false, 'error' => 'Invalid merchant or partner.'];
+    }
+    if (!function_exists('checkRateLimit') && is_file(__DIR__ . '/rate_limiter.php')) {
+        require_once __DIR__ . '/rate_limiter.php';
+    }
+    if (function_exists('checkRateLimit') && !checkRateLimit('m' . $merchantId, 'already_live_link', 8)) {
+        return ['ok' => false, 'error' => 'Too many link attempts. Wait a minute and try again.'];
+    }
+
+    $gw = null;
+    if (function_exists('getRegisteredGateways')) {
+        foreach (getRegisteredGateways(false) as $row) {
+            if (strtolower((string)$row['gateway_key']) === $partnerKey) {
+                $gw = $row;
+                break;
+            }
+        }
+    }
+    if (!$gw || (function_exists('partnerAllowsAlreadyLiveLink') && !partnerAllowsAlreadyLiveLink($gw))) {
+        return ['ok' => false, 'error' => 'Already-live link is not available for this partner.'];
+    }
+
+    $env = ((string)($input['env'] ?? 'test')) === 'live' ? 'live' : 'test';
+    $submitted = [];
+    foreach ((array)($input['keys'] ?? []) as $k => $v) {
+        $val = trim((string)$v);
+        if ($val === '') {
+            continue;
+        }
+        $submitted[(string)$k] = $val;
+    }
+    $existing = getMerchantPartnerLinkRow($merchantId, $partnerKey);
+    $payload = [];
+    if ($existing && !empty($existing['encrypted_payload'])) {
+        $raw = function_exists('sensitiveDecrypt')
+            ? (string)sensitiveDecrypt((string)$existing['encrypted_payload'])
+            : (string)base64_decode((string)$existing['encrypted_payload']);
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded)) {
+            $payload = $decoded;
+        }
+    }
+    foreach ($submitted as $k => $v) {
+        $payload[$k] = $v;
+    }
+
+    $probeKeys = $payload;
+    foreach ($submitted as $k => $v) {
+        $probeKeys[$k] = $v;
+    }
+    $probe = probeMerchantOwnedPartnerKeys($partnerKey, $probeKeys, $env);
+    $status = $probe['status'];
+    $actorRole = strtolower(trim((string)($input['actor_role'] ?? 'merchant')));
+    if ($actorRole !== 'admin') {
+        $actorRole = 'merchant';
+    }
+    $ownerOverride = $actorRole === 'admin' && !empty($input['owner_override']);
+    if ($ownerOverride && $status !== 'valid') {
+        $status = 'valid';
+        $probe['message'] = 'Owner override: treated as Linked without a passing Test Connection.';
+    }
+
+    $last4 = '';
+    foreach ($payload as $k => $val) {
+        if (!is_string($val) || $val === '') {
+            continue;
+        }
+        $lk = strtolower((string)$k);
+        if (str_contains($lk, 'secret') || str_contains($lk, 'salt') || str_contains($lk, 'pass')) {
+            $last4 = substr($val, -4);
+            break;
+        }
+    }
+    if ($last4 === '' && $payload !== []) {
+        $first = (string)reset($payload);
+        $last4 = substr($first, -4);
+    }
+
+    $mid = mb_substr(trim((string)($input['partner_mid'] ?? '')), 0, 120);
+    $encrypted = function_exists('sensitiveEncrypt')
+        ? sensitiveEncrypt(json_encode($payload, JSON_UNESCAPED_UNICODE))
+        : base64_encode(json_encode($payload, JSON_UNESCAPED_UNICODE));
+    $actorId = (int)($input['actor_id'] ?? 0);
+    $checkout = 0;
+    if ($existing && (int)($existing['checkout_enabled'] ?? 0) === 1 && ($status === 'valid' || $ownerOverride)) {
+        $checkout = 1;
+    }
+
+    try {
+        getDB()->prepare(
+            "INSERT INTO partner_merchant_links
+                (merchant_id, partner_key, external_id, kyc_status, account_source, partner_mid, credential_status, env, encrypted_payload, last4, checkout_enabled, linked_by, linked_by_id, owner_override)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             ON DUPLICATE KEY UPDATE
+                external_id=VALUES(external_id),
+                kyc_status='linked',
+                account_source=VALUES(account_source),
+                partner_mid=VALUES(partner_mid),
+                credential_status=VALUES(credential_status),
+                env=VALUES(env),
+                encrypted_payload=VALUES(encrypted_payload),
+                last4=VALUES(last4),
+                checkout_enabled=VALUES(checkout_enabled),
+                linked_by=VALUES(linked_by),
+                linked_by_id=VALUES(linked_by_id),
+                owner_override=VALUES(owner_override)"
+        )->execute([
+            $merchantId,
+            $partnerKey,
+            $mid !== '' ? $mid : null,
+            'linked',
+            'linked',
+            $mid !== '' ? $mid : null,
+            $status,
+            $env,
+            $encrypted,
+            $last4,
+            $checkout,
+            $actorRole,
+            $actorId > 0 ? $actorId : null,
+            $ownerOverride ? 1 : 0,
+        ]);
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not save link.'];
+    }
+
+    $who = mb_substr(trim((string)($input['actor_email'] ?? $actorRole)), 0, 120);
+    if (function_exists('recordImmutableAudit')) {
+        recordImmutableAudit(
+            'merchant_already_live_linked',
+            $merchantId,
+            'partner',
+            $partnerKey,
+            'account_source=linked status=' . $status . ' by ' . ($who !== '' ? $who : $actorRole) . ($ownerOverride ? ' override=1' : '')
+        );
+    }
+    if (function_exists('logStaffActivity') && $actorRole === 'admin') {
+        logStaffActivity('merchant_already_live_linked', 'Linked existing ' . $partnerKey . ' for merchant #' . $merchantId . ' status=' . $status, $merchantId, 'partner', $partnerKey);
+    }
+
+    return [
+        'ok' => true,
+        'credential_status' => $status,
+        'last4' => $last4,
+        'message' => (string)($probe['message'] ?? ''),
+    ];
+}
+
+/**
+ * Enable already-live partner for this merchant's checkout flag. Requires VALID or admin override.
+ *
+ * @param array{actor_role?:string,actor_id?:int,actor_email?:string} $actor
+ */
+function setMerchantAlreadyLiveCheckoutEnabled(int $merchantId, string $partnerKey, bool $enabled, array $actor = []): array
+{
+    ensurePartnerControlTables();
+    $partnerKey = strtolower(trim($partnerKey));
+    $row = getMerchantPartnerLinkRow($merchantId, $partnerKey);
+    if (!$row) {
+        return ['ok' => false, 'error' => 'Not linked.'];
+    }
+    $status = strtolower((string)($row['credential_status'] ?? ''));
+    $override = (int)($row['owner_override'] ?? 0) === 1;
+    if ($enabled && $status !== 'valid' && !$override) {
+        return ['ok' => false, 'error' => 'Enable is not available until keys are Valid (or Admin override).'];
+    }
+    try {
+        getDB()->prepare('UPDATE partner_merchant_links SET checkout_enabled=? WHERE merchant_id=? AND partner_key=?')
+            ->execute([$enabled ? 1 : 0, $merchantId, $partnerKey]);
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not update checkout flag.'];
+    }
+    if (function_exists('recordImmutableAudit')) {
+        recordImmutableAudit(
+            $enabled ? 'merchant_already_live_checkout_on' : 'merchant_already_live_checkout_off',
+            $merchantId,
+            'partner',
+            $partnerKey,
+            'checkout_enabled=' . ($enabled ? '1' : '0')
+        );
+    }
+    return ['ok' => true];
 }
 
 /**

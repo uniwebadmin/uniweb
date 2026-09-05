@@ -47,6 +47,7 @@ $__cloudModules = [
     'partner_forward_queue.php',
     'partner_payload.php',
     'partner_control.php',
+    'partner_registry_v2.php',
     'gateway_reason_map.php',
 
     // QR / VA / webhooks / reliability

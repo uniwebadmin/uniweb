@@ -188,6 +188,8 @@ function ensurePartnerRegistryV2Columns(): void
         "ALTER TABLE gateway_registry ADD COLUMN credential_test_status ENUM('missing','invalid','valid') NOT NULL DEFAULT 'missing'",
         "ALTER TABLE gateway_registry ADD COLUMN credential_live_status ENUM('missing','invalid','valid') NOT NULL DEFAULT 'missing'",
         'ALTER TABLE gateway_registry ADD COLUMN display_description VARCHAR(500) DEFAULT NULL',
+        'ALTER TABLE gateway_registry ADD COLUMN retired_at TIMESTAMP NULL DEFAULT NULL',
+        'ALTER TABLE gateway_registry ADD COLUMN retired_by VARCHAR(120) DEFAULT NULL',
     ];
     foreach ($alters as $sql) {
         try {
@@ -372,6 +374,13 @@ function partnerAdapterIsWired(string $partnerKey, ?array $gatewayRow = null): b
 function partnerRegistryActivateGate(array $gatewayRow): array
 {
     $key = strtolower(trim((string)($gatewayRow['gateway_key'] ?? '')));
+    if (partnerRegistryRowIsRetired($gatewayRow)) {
+        return [
+            'allowed' => false,
+            'reason' => 'Retired',
+            'warn_keys' => true,
+        ];
+    }
     $wired = partnerAdapterIsWired($key, $gatewayRow);
     if (!function_exists('getPartnerCredentialStatus')) {
         require_once __DIR__ . '/partner_control.php';
@@ -678,9 +687,155 @@ function resolvePartnerAdminMeta(string $partnerKey, ?array $gatewayRow = null):
 /** List status badge: Active | Inactive (routing flag only — not money Live). */
 function partnerRegistryListStatusBadge(array $gatewayRow): string
 {
+    if (function_exists('partnerRegistryRowIsRetired') && partnerRegistryRowIsRetired($gatewayRow)) {
+        return '<span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-600/40 text-slate-300 border border-slate-500/40" title="Retired — hidden from default list and routing">Retired</span>';
+    }
     $active = (int)($gatewayRow['is_active'] ?? 0) === 1;
     if ($active) {
         return '<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" title="Routing ON — methods can be offered to merchants">Active</span>';
     }
     return '<span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-700/60 text-gray-300 border border-gray-600/40" title="In the list, routing OFF">Inactive</span>';
+}
+
+function partnerRegistryRowIsRetired(array $gatewayRow): bool
+{
+    return trim((string)($gatewayRow['retired_at'] ?? '')) !== '';
+}
+
+function partnerRegistryHasRetiredColumn(): bool
+{
+    static $has = null;
+    if ($has !== null) {
+        return $has;
+    }
+    try {
+        $has = (bool)getDB()->query("SHOW COLUMNS FROM gateway_registry LIKE 'retired_at'")->fetch();
+    } catch (Throwable $e) {
+        $has = false;
+    }
+    return $has;
+}
+
+function partnerAllowsAlreadyLiveLink(array $gatewayRow): bool
+{
+    if (partnerRegistryRowIsRetired($gatewayRow)) {
+        return false;
+    }
+    if (!empty($gatewayRow['allows_existing_merchant_link'])) {
+        return true;
+    }
+    $mode = strtolower(trim((string)($gatewayRow['contract_mode'] ?? 'platform')));
+    return in_array($mode, ['linked_existing', 'hybrid'], true);
+}
+
+/**
+ * @return list<string>
+ */
+function partnerRegistryRetireBlockers(string $partnerKey): array
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    $blockers = [];
+    try {
+        $st = getDB()->prepare("SELECT COUNT(*) FROM merchant_payment_methods WHERE method_key=? AND is_enabled=1");
+        $st->execute([$partnerKey]);
+        $n = (int)$st->fetchColumn();
+        if ($n > 0) {
+            $blockers[] = $n . ' merchant(s) still have this method ON';
+        }
+    } catch (Throwable $e) { /* ok */ }
+    try {
+        $st = getDB()->prepare("SELECT COUNT(*) FROM partner_merchant_links WHERE partner_key=? AND checkout_enabled=1");
+        $st->execute([$partnerKey]);
+        $n = (int)$st->fetchColumn();
+        if ($n > 0) {
+            $blockers[] = $n . ' already-live checkout link(s) still enabled';
+        }
+    } catch (Throwable $e) { /* column may be missing */ }
+    try {
+        $cols = getDB()->query('SHOW COLUMNS FROM transactions')->fetchAll(PDO::FETCH_COLUMN);
+        $col = null;
+        foreach (['gateway', 'payment_gateway', 'pg', 'partner_key'] as $c) {
+            if (in_array($c, $cols, true)) {
+                $col = $c;
+                break;
+            }
+        }
+        if ($col !== null) {
+            $st = getDB()->prepare("SELECT COUNT(*) FROM transactions WHERE {$col}=? AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
+            $st->execute([$partnerKey]);
+            $n = (int)$st->fetchColumn();
+            if ($n > 0) {
+                $blockers[] = $n . ' transaction(s) in the last 7 days';
+            }
+        }
+    } catch (Throwable $e) { /* ok */ }
+    return $blockers;
+}
+
+/**
+ * Soft-retire a custom partner. Idempotent if already retired. Confirm code must equal partner_code.
+ *
+ * @param array{confirm_code?:string,admin_id?:int,admin_email?:string} $opts
+ * @return array{ok:bool,error?:string,gateway_key?:string,gateway_name?:string,already?:bool}
+ */
+function retirePartnerRegistryRow(int $gatewayId, array $opts = []): array
+{
+    ensurePartnerRegistryV2Columns();
+    if ($gatewayId < 1) {
+        return ['ok' => false, 'error' => 'Invalid partner.'];
+    }
+    $db = getDB();
+    $st = $db->prepare('SELECT * FROM gateway_registry WHERE id=? LIMIT 1');
+    $st->execute([$gatewayId]);
+    $gw = $st->fetch();
+    if (!$gw) {
+        return ['ok' => false, 'error' => 'Partner not found.'];
+    }
+    $key = strtolower(trim((string)$gw['gateway_key']));
+    $confirm = strtolower(trim((string)($opts['confirm_code'] ?? '')));
+    if ($confirm !== $key) {
+        return ['ok' => false, 'error' => 'Type the partner code to confirm retire.'];
+    }
+    if (partnerRegistryRowIsRetired($gw)) {
+        return ['ok' => true, 'already' => true, 'gateway_key' => $key, 'gateway_name' => (string)$gw['gateway_name']];
+    }
+    if (!function_exists('getPartnerRegistryKeys')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $protected = array_values(array_unique(array_merge(
+        function_exists('paymentMethodRegistryKeys') ? paymentMethodRegistryKeys() : [],
+        ['payu', 'razorpay', 'cashfree', 'axis', 'decentro', 'phonepe', 'paytm', 'worldline', 'digio', 'rbl'],
+        getPartnerRegistryKeys()
+    )));
+    if (in_array($key, $protected, true)) {
+        return ['ok' => false, 'error' => 'Built-in partners cannot be retired. Use Turn OFF routing.'];
+    }
+    if ((int)($gw['is_active'] ?? 0) === 1) {
+        return ['ok' => false, 'error' => 'Turn OFF routing first, then retire.'];
+    }
+    $blockers = partnerRegistryRetireBlockers($key);
+    if ($blockers !== []) {
+        return ['ok' => false, 'error' => 'Cannot retire while in use: ' . implode('; ', $blockers) . '.'];
+    }
+    $who = mb_substr(trim((string)($opts['admin_email'] ?? '')), 0, 120);
+    try {
+        if (partnerRegistryHasRetiredColumn()) {
+            $db->prepare('UPDATE gateway_registry SET is_active=0, retired_at=NOW(), retired_by=? WHERE id=? AND retired_at IS NULL')
+                ->execute([$who !== '' ? $who : 'admin', $gatewayId]);
+        } else {
+            $db->prepare('UPDATE gateway_registry SET is_active=0 WHERE id=?')->execute([$gatewayId]);
+        }
+        try {
+            $db->prepare('UPDATE gateway_method_map SET is_active=0 WHERE gateway_id=?')->execute([$gatewayId]);
+        } catch (Throwable $e) { /* ok */ }
+    } catch (Throwable $e) {
+        return ['ok' => false, 'error' => 'Could not retire partner.'];
+    }
+    if (function_exists('recordImmutableAudit')) {
+        recordImmutableAudit('partner_retired', null, 'gateway', $key, 'Retired by ' . ($who !== '' ? $who : 'admin'));
+    }
+    if (function_exists('logStaffActivity')) {
+        logStaffActivity('partner_retired', 'Retired partner ' . $key, null, 'partner', $key);
+    }
+    return ['ok' => true, 'gateway_key' => $key, 'gateway_name' => (string)$gw['gateway_name']];
 }

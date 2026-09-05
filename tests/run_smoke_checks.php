@@ -825,9 +825,21 @@ $assert(str_contains($gm4b, 'admin_gateway_registry.php') && str_contains($gm4b,
 $qrDel = (string)file_get_contents($root . '/qr_code.php');
 $assert(str_contains($qrDel, "action === 'delete'") && str_contains($qrDel, 'DELETE FROM merchant_qr_codes') && str_contains($qrDel, '>Delete</button>'), 'merchant_qr_has_delete');
 $pmDel = (string)file_get_contents($root . '/includes/payment_methods.php');
-$assert(str_contains($pmDel, 'function deleteInactiveGateway') && str_contains($pmDel, 'Built-in partners/methods cannot be deleted'), 'partner_delete_inactive_helper');
+$assert(str_contains($pmDel, 'function deleteInactiveGateway') && str_contains($pmDel, 'Hard delete is disabled'), 'partner_delete_inactive_helper');
 $gdDel = (string)file_get_contents($root . '/admin_gateway_detail.php');
-$assert(str_contains($gdDel, "action === 'delete'") && str_contains($gdDel, 'Change keys') && str_contains($gdDel, 'Turn OFF'), 'partner_detail_change_keys_and_turn_off');
+$assert(str_contains($gdDel, "action === 'retire'") && str_contains($gdDel, 'confirm_code') && str_contains($gdDel, 'Change keys') && str_contains($gdDel, 'Turn OFF'), 'partner_detail_retire_and_turn_off');
+$regRetire = (string)file_get_contents($root . '/admin_gateway_registry.php');
+$assert(str_contains($regRetire, "action === 'retire'") && str_contains($regRetire, 'confirm_code') && str_contains($regRetire, 'Retired'), 'partner_registry_retire_filter');
+$assert(str_contains($regRetire, 'allows_existing_merchant_link') && str_contains($regRetire, 'already-live merchant link'), 'partner_registry_already_live_flag');
+$v2Retire = (string)file_get_contents($root . '/includes/partner_registry_v2.php');
+$assert(str_contains($v2Retire, 'function retirePartnerRegistryRow') && str_contains($v2Retire, 'Built-in partners cannot be retired'), 'partner_retire_helper');
+$pcLive = (string)file_get_contents($root . '/includes/partner_control.php');
+$assert(str_contains($pcLive, 'function saveMerchantAlreadyLiveLink') && str_contains($pcLive, 'account_source'), 'already_live_link_helper');
+$alSlice = substr($pcLive, (int)strpos($pcLive, 'function saveMerchantAlreadyLiveLink'), 8000);
+$assert(str_contains($alSlice, "'linked'") && !str_contains($alSlice, 'createSubMerchant') && !str_contains($alSlice, 'create_submerchant'), 'already_live_no_submerchant');
+$assert(str_contains((string)file_get_contents($root . '/payment_methods.php'), 'already_live_link') && str_contains((string)file_get_contents($root . '/payment_methods.php'), 'I already have an account'), 'merchant_already_live_ui');
+$assert(str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'already_live_link') && str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'owner_override'), 'admin_already_live_on_behalf');
+$assert(is_file($root . '/migrations/085_partner_retire_and_merchant_already_live.sql'), 'migration_085_retire_already_live');
 // 4c: Website & API Keys + Partner Requests are not PG key paste homes
 $aw4c = (string)file_get_contents($root . '/admin_website.php');
 $assert(str_contains($aw4c, 'partner PG keys are not pasted here') && str_contains($aw4c, 'Partner Registry (PG keys)'), 'p4c_website_keys_not_pg_home');

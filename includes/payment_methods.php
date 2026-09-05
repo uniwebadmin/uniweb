@@ -583,12 +583,14 @@ function registerGateway(string $key, string $name, array $capabilities = []): a
 /**
  * Get all registered gateways (Partner Registry admin view).
  */
-function getRegisteredGateways(): array
+function getRegisteredGateways(bool $includeRetired = false): array
 {
     ensurePaymentMethodsTable();
     try {
         $where = gatewayRegistryKindClause('partner');
-        // Newest first so freshly registered Inactive partners are immediately visible (not buried under Active).
+        if (!$includeRetired && function_exists('partnerRegistryHasRetiredColumn') && partnerRegistryHasRetiredColumn()) {
+            $where .= ' AND retired_at IS NULL';
+        }
         return getDB()->query("SELECT * FROM gateway_registry WHERE {$where} ORDER BY id DESC")->fetchAll();
     } catch (Throwable $e) {
         return [];
@@ -603,9 +605,16 @@ function isGatewayActive(string $key): bool
 {
     ensurePaymentMethodsTable();
     try {
-        $st = getDB()->prepare("SELECT is_active FROM gateway_registry WHERE gateway_key=?");
+        $st = getDB()->prepare("SELECT is_active, retired_at FROM gateway_registry WHERE gateway_key=?");
         $st->execute([$key]);
-        return (int)$st->fetchColumn() === 1;
+        $row = $st->fetch();
+        if (!$row) {
+            return false;
+        }
+        if (trim((string)($row['retired_at'] ?? '')) !== '') {
+            return false;
+        }
+        return (int)$row['is_active'] === 1;
     } catch (Throwable $e) {
         return false;
     }
@@ -694,7 +703,11 @@ function purgeOrphanPartnerGatewayRows(): void
             if ((int)$row['is_active'] === 1) {
                 continue;
             }
-            deleteInactiveGateway((int)$row['id']);
+            if (!empty($row['retired_at'])) {
+                continue;
+            }
+            // Custom orphans stay listed until Admin retires them (soft delete). No silent hard delete.
+            continue;
         }
     } catch (Throwable $e) {
         // non-fatal
@@ -748,57 +761,15 @@ function deactivateGateway(int $gatewayId): array
 }
 
 /**
- * Hard-delete an inactive partner / method row from Partner Registry.
- * Built-in rails (PayU, cards, UPI, …) cannot be deleted — only Turn OFF.
+ * Retire (soft-delete) an inactive custom partner. Built-in rails cannot be retired.
+ * Prefer retirePartnerRegistryRow() — this wrapper keeps older call sites working.
  */
 function deleteInactiveGateway(int $gatewayId): array
 {
-    ensurePaymentMethodsTable();
-    $db = getDB();
-    try {
-        $st = $db->prepare('SELECT id, gateway_key, gateway_name, is_active FROM gateway_registry WHERE id=? LIMIT 1');
-        $st->execute([$gatewayId]);
-        $gw = $st->fetch();
-        if (!$gw) {
-            return ['ok' => false, 'error' => 'Partner not found.'];
-        }
-        if ((int)$gw['is_active'] === 1) {
-            return ['ok' => false, 'error' => 'Turn OFF (Deactivate) first, then Delete.'];
-        }
-        $key = strtolower(trim((string)$gw['gateway_key']));
-        if (!function_exists('getPartnerRegistryKeys')) {
-            require_once __DIR__ . '/partner_engine.php';
-        }
-        $protected = array_values(array_unique(array_merge(
-            paymentMethodRegistryKeys(),
-            ['payu', 'razorpay', 'cashfree', 'axis', 'decentro', 'phonepe', 'paytm', 'worldline', 'digio'],
-            getPartnerRegistryKeys()
-        )));
-        if (in_array($key, $protected, true)) {
-            return ['ok' => false, 'error' => 'Built-in partners/methods cannot be deleted. Use Deactivate (Turn OFF) instead.'];
-        }
-        $db->beginTransaction();
-        try {
-            $db->prepare('DELETE FROM gateway_method_map WHERE gateway_id=?')->execute([$gatewayId]);
-        } catch (Throwable $e) { /* optional */ }
-        try {
-            $db->prepare('DELETE FROM merchant_payment_methods WHERE method_key=?')->execute([$key]);
-        } catch (Throwable $e) { /* optional */ }
-        try {
-            $db->prepare('DELETE FROM partner_credentials WHERE partner_key=?')->execute([$key]);
-        } catch (Throwable $e) { /* optional */ }
-        try {
-            $db->prepare('DELETE FROM partner_methods WHERE partner_key=?')->execute([$key]);
-        } catch (Throwable $e) { /* optional */ }
-        $db->prepare('DELETE FROM gateway_registry WHERE id=? AND is_active=0')->execute([$gatewayId]);
-        $db->commit();
-        return ['ok' => true, 'gateway_name' => (string)$gw['gateway_name'], 'gateway_key' => $key];
-    } catch (Throwable $e) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
-        return ['ok' => false, 'error' => $e->getMessage()];
+    if (function_exists('retirePartnerRegistryRow')) {
+        return ['ok' => false, 'error' => 'Use Retire with partner code confirmation. Hard delete is disabled to keep audit history.'];
     }
+    return ['ok' => false, 'error' => 'Retire helper not loaded.'];
 }
 
 /**
