@@ -331,10 +331,7 @@ function createRblVirtualAccount(array $merchant): ?array
         $name = 'Merchant ' . $merchantId;
     }
     $name = mb_substr(preg_replace('/[^A-Za-z0-9 &\.\,\-\/\(\)]/', '', $name) ?: 'Merchant', 0, 100);
-    $serials = array_values(array_unique([
-        rblVaSerialForMerchant($merchantId),
-        rblVaSerialUnique($merchantId),
-    ]));
+    $serials = rblVaSerialsForCreate($merchantId);
     $paths = ['/virtual/account', '/virtual/v2/account', '/va/create'];
     $lastFail = 'RBL did not return a VA number.';
     foreach ($serials as $serial) {
@@ -355,6 +352,41 @@ function createRblVirtualAccount(array $merchant): ?array
     }
     rblSetLastVaCreateError($lastFail);
     return null;
+}
+
+/** How many RBL VA rows this merchant already has (used to skip the reused merchant-id serial). */
+function rblExistingVaCount(int $merchantId): int
+{
+    if ($merchantId < 1 || !function_exists('getMerchantVirtualAccounts')) {
+        return 0;
+    }
+    $n = 0;
+    foreach (getMerchantVirtualAccounts($merchantId) as $row) {
+        if (strtolower((string)($row['gateway'] ?? '')) === 'rbl') {
+            $n++;
+        }
+    }
+    return $n;
+}
+
+/**
+ * First VA: merchant-id serial (sandbox formula). Extra VAs: unique serial only —
+ * otherwise RBL returns the same Full_VA_Number and uniq_va_number fails.
+ *
+ * @return list<string>
+ */
+function rblVaSerialsForCreate(int $merchantId): array
+{
+    $existing = rblExistingVaCount($merchantId);
+    $out = [];
+    if ($existing === 0) {
+        $out[] = rblVaSerialForMerchant($merchantId);
+    }
+    $out[] = rblVaSerialUnique($merchantId);
+    $seq = str_pad((string)($existing + 1), 2, '0', STR_PAD_LEFT);
+    $mid = str_pad((string)max(1, $merchantId), 4, '0', STR_PAD_LEFT);
+    $out[] = substr($mid . $seq . substr((string)((time() % 100000000) + $existing), -7), 0, 16);
+    return array_values(array_unique(array_filter($out)));
 }
 
 /** Unique 13-digit serial (sandbox TestCase length) so merchant 7 is not always 000000000007. */

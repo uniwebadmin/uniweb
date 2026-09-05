@@ -433,11 +433,20 @@ $methodCatalog = getPaymentMethodCatalog();
             <h3 class="font-semibold mb-2">Collection</h3>
             <p class="text-xs text-gray-400 mb-2"><?= e(collectionModeLabel(getMerchantCollectionMode($merchant))) ?></p>
             <?php
+            $merchantVaRows = function_exists('getMerchantVirtualAccounts') ? getMerchantVirtualAccounts($id) : [];
             $primaryVaNumber = getMerchantPrimaryVaNumber($id);
-            if ($primaryVaNumber !== ''): ?>
+            if ($merchantVaRows !== []): ?>
+            <ul class="text-xs font-mono text-sky-400 space-y-1 mb-2">
+                <?php foreach ($merchantVaRows as $vaRow): ?>
+                <li><?= e((string)($vaRow['va_number'] ?? '')) ?><?= !empty($vaRow['is_primary']) ? ' (primary)' : '' ?> · <?= e(function_exists('vaGatewayDisplayName') ? vaGatewayDisplayName((string)($vaRow['gateway'] ?? '')) : (string)($vaRow['gateway'] ?? '')) ?></li>
+                <?php endforeach; ?>
+            </ul>
+            <?php elseif ($primaryVaNumber !== ''): ?>
             <p class="text-xs font-mono text-sky-400">Primary VA: <?= e($primaryVaNumber) ?></p>
+            <?php else: ?>
+            <p class="text-xs text-gray-500 mb-1">No virtual account on this merchant yet.</p>
             <?php endif; ?>
-            <a href="admin_virtual_accounts.php?merchant_id=<?= $id ?>" class="text-xs text-brand-400 block mt-1"><?= $primaryVaNumber !== '' ? 'Manage Virtual Accounts →' : 'Virtual Accounts (create Axis VA) →' ?></a>
+            <a href="admin_virtual_accounts.php?merchant_id=<?= $id ?>" class="text-xs text-brand-400 block mt-1"><?= $merchantVaRows !== [] || $primaryVaNumber !== '' ? 'Manage Virtual Accounts →' : 'Virtual Accounts (create) →' ?></a>
         </div>
         <div class="glass rounded-xl p-4 sm:p-5 text-xs text-gray-500 space-y-3" id="api-keys">
             <?php if ($adminNewCredential): ?>

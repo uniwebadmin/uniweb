@@ -88,6 +88,33 @@ echo renderMerchantMfaSetupPrompt($merchant, 'dashboard');
 <?php renderMerchantCommercialCard($merchant); ?>
 
 <?php
+if (!function_exists('getMerchantVirtualAccounts')) {
+    require_once __DIR__ . '/includes/va_manager.php';
+}
+$dashVas = getMerchantVirtualAccounts((int)$merchant['id']);
+?>
+<div class="glass rounded-xl p-5 mb-8 border border-teal-500/20">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div>
+            <p class="text-sm font-semibold text-teal-300">Virtual Accounts</p>
+            <p class="text-xs text-gray-500 mt-0.5">Bank collect numbers assigned to this merchant</p>
+        </div>
+        <a href="collection_settings.php" class="text-xs text-sky-400 hover:underline">Collection Mode →</a>
+    </div>
+    <?php if ($dashVas === []): ?>
+    <p class="text-sm text-gray-500">No virtual account yet. Admin creates it under Virtual Accounts. After that it appears here.</p>
+    <?php else: ?>
+    <ul class="space-y-1.5 text-sm">
+        <?php foreach ($dashVas as $va): ?>
+        <li class="font-mono text-xs text-gray-200">
+            <?= e((string)($va['va_number'] ?? '')) ?>
+            <span class="text-gray-500 font-sans ml-1"><?= e(function_exists('vaGatewayDisplayName') ? vaGatewayDisplayName((string)($va['gateway'] ?? '')) : '') ?><?= !empty($va['is_primary']) ? ' · primary' : '' ?></span>
+        </li>
+        <?php endforeach; ?>
+    </ul>
+    <?php endif; ?>
+</div>
+<?php
 $balanceMode = $viewTest ? 'test' : 'live';
 $balanceBreakdown = function_exists('getMerchantBalanceBreakdown') ? getMerchantBalanceBreakdown((int)$merchant['id'], $balanceMode) : null;
 if ($balanceBreakdown):

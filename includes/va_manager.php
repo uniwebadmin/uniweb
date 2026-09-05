@@ -249,6 +249,23 @@ function getMerchantVirtualAccounts(int $merchantId): array
     }
 }
 
+function findVirtualAccountByNumber(string $vaNumber): ?array
+{
+    $vaNumber = trim($vaNumber);
+    if ($vaNumber === '') {
+        return null;
+    }
+    ensureMerchantVirtualAccountsTable();
+    try {
+        $st = getDB()->prepare('SELECT * FROM merchant_virtual_accounts WHERE va_number = ? LIMIT 1');
+        $st->execute([$vaNumber]);
+        $row = $st->fetch();
+        return $row ?: null;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
 function countActiveMerchantVirtualAccounts(int $merchantId): int
 {
     ensureMerchantVirtualAccountsTable();
@@ -396,12 +413,24 @@ function createAdditionalVirtualAccount(int $merchantId, string $gateway = 'axis
                 'active', $isFirst ? 1 : 0,
             ]);
     } catch (Throwable $e) {
-        return ['ok' => false, 'error' => 'Could not save virtual account: ' . $e->getMessage()];
+        $existing = findVirtualAccountByNumber((string)($va['va_number'] ?? ''));
+        if ($existing && (int)($existing['merchant_id'] ?? 0) === $merchantId) {
+            syncMerchantPrimaryVaMirror($merchantId);
+            return [
+                'ok' => true,
+                'reused' => true,
+                'va' => [
+                    'va_number' => (string)($existing['va_number'] ?? ''),
+                    'va_id' => (string)($existing['va_id'] ?? ''),
+                    'ifsc' => $existing['ifsc'] ?? null,
+                    'upi_id' => $existing['upi_id'] ?? null,
+                ],
+            ];
+        }
+        return ['ok' => false, 'error' => 'Could not save virtual account. Try Create VA again — a new account number will be requested.'];
     }
 
-    if ($isFirst) {
-        syncMerchantPrimaryVaMirror($merchantId);
-    }
+    syncMerchantPrimaryVaMirror($merchantId);
 
     if (function_exists('recordImmutableAudit')) {
         recordImmutableAudit('va_created', null, 'merchant', (string)$merchantId, $va['va_number']);

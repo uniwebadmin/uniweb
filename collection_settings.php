@@ -60,11 +60,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 
 $merchant = getMerchant();
 $collectionMode = getMerchantCollectionMode($merchant);
-$merchantVas = [];
-if ($collectionMode === 'axis_va' || getMerchantPrimaryVaNumber((int)$merchant['id']) !== '') {
-    ensureMerchantVirtualAccountsTable();
-    $merchantVas = getMerchantVirtualAccounts($merchantId);
-}
+ensureMerchantVirtualAccountsTable();
+$merchantVas = getMerchantVirtualAccounts($merchantId);
 if ($collectionMode === 'axis_va' && empty($merchantVas)) {
     ensureMerchantVirtualAccount((int)$merchant['id']);
     $merchantVas = getMerchantVirtualAccounts($merchantId);
@@ -124,7 +121,7 @@ require_once __DIR__ . '/header.php';
         <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
                 <h3 class="font-semibold">Virtual Accounts</h3>
-                <p class="text-xs text-gray-500 mt-1">Bank collect accounts (Axis). Add separate accounts for branches or projects. Checkout partners (Razorpay, Cashfree, etc.) do not create a VA here — use payment links instead.</p>
+                <p class="text-xs text-gray-500 mt-1">Bank collect accounts (Axis / RBL). Admin can add more than one. Checkout partners (Razorpay, Cashfree, etc.) do not create a VA here — use payment links instead.</p>
             </div>
             <?php if ($collectionMode === 'axis_va'): ?>
             <form method="POST" class="flex flex-wrap items-end gap-2">
@@ -141,6 +138,7 @@ require_once __DIR__ . '/header.php';
         <div class="overflow-x-auto -mx-2"><table class="min-w-[520px] w-full text-sm">
             <thead class="text-xs text-gray-500 uppercase"><tr>
                 <th class="px-2 py-2 text-left">Label</th>
+                <th class="px-2 py-2 text-left">Bank</th>
                 <th class="px-2 py-2 text-left">VA Number</th>
                 <th class="px-2 py-2 text-left">IFSC</th>
                 <th class="px-2 py-2 text-left">UPI</th>
@@ -151,6 +149,7 @@ require_once __DIR__ . '/header.php';
                 <?php foreach ($merchantVas as $va): ?>
                 <tr>
                     <td class="px-2 py-2.5"><?= e($va['label'] ?: '—') ?><?= !empty($va['is_primary']) ? ' <span class="text-[10px] text-sky-400">(primary)</span>' : '' ?></td>
+                    <td class="px-2 py-2.5 text-xs text-gray-400"><?= e(function_exists('vaGatewayDisplayName') ? vaGatewayDisplayName((string)($va['gateway'] ?? 'axis')) : (string)($va['gateway'] ?? '—')) ?></td>
                     <td class="px-2 py-2.5 font-mono text-xs"><?= e($va['va_number']) ?></td>
                     <td class="px-2 py-2.5 font-mono text-xs text-gray-400"><?= e($va['ifsc'] ?: '—') ?></td>
                     <td class="px-2 py-2.5 font-mono text-xs text-gray-400"><?= e($va['upi_id'] ?: '—') ?></td>
