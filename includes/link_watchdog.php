@@ -194,6 +194,7 @@ function getWatchdogPageRegistry(): array
         ['cashfree_webhook.php', 'Cashfree Webhook', 'webhook', 'webhook'],
         ['payu_webhook.php', 'PayU Webhook', 'webhook', 'webhook'],
         ['axis_webhook.php', 'Axis Webhook', 'webhook', 'webhook'],
+        ['rbl_webhook.php', 'RBL Webhook', 'webhook', 'webhook'],
         ['whatsapp_webhook.php', 'WhatsApp Webhook', 'webhook', 'webhook'],
         ['platform_watchdog.php', 'Cron Watchdog', 'system', 'system'],
         ['cron_auto_audit.php', 'Auto Audit Cron', 'system', 'system'],

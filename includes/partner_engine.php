@@ -117,10 +117,11 @@ function getPartnerRegistry(): array
                 'rbl_base_url' => ['label' => 'API Base URL (optional)', 'type' => 'text'],
             ],
             'checklist' => [
-                'Create app on RBL sandbox portal',
-                'Subscribe to VA + UPI Collection + Payout products',
-                'Paste Client ID + Secret + Corp ID + Master Account (no demo defaults)',
-                'Run Test Connection in Partner Registry → Test',
+                'Sandbox portal: https://sandbox.rbl.bank.in — create app (e.g. Uniweb Technologist)',
+                'Subscribe: VA + VA V2 + VA Creation + UPI Collection + Blob VA + Corporate Account + Single/Bulk Payment',
+                'Paste Sandbox Client ID (API Key) + Client Secret — Environment = Sandbox',
+                'Paste Corp ID + Master Account from RBL RM (no demo defaults like VAOPENBANK)',
+                'Run Test Connection — Live/production keys later',
             ],
         ],
         'payu' => [
@@ -868,7 +869,7 @@ function partnerIntegrationState(string $partnerKey): array
         return [
             'state' => 'STUB',
             'label' => 'STUB',
-            'hint' => 'RBL operational gate — VA/payout when bank rail is live.',
+            'hint' => 'RBL sandbox-first — paste Key/Secret + Corp/Master; live keys later.',
         ];
     }
     if ($checkoutPg) {

@@ -2,10 +2,11 @@
 declare(strict_types=1);
 
 /* ------------------------------------------------------------------ *
- *  RBL Bank Open Banking adapter (UAT / production ready structure)
- *  Supported rails: VA, VA Creation, UPI Collection, Blob VA statement,
- *  Account balance, Corporate single payment, Bulk payment.
- *  Keys: Partner Registry → RBL → Keys (not gateway_settings plaintext).
+ *  RBL Bank Open Banking adapter — sandbox-first (inbox API specs).
+ *  Rails: VA, VA V2, VA Creation, UPI Collection, Blob VA, Account
+ *  balance, Corporate single payment, Bulk payment.
+ *  Keys: Partner Registry → RBL → Keys only (never gateway_settings).
+ *  Live/production keys later — no fake LIVE, no demo Corp defaults.
  * ------------------------------------------------------------------ */
 
 function rblPartnerCredential(string $field, string $default = ''): string
@@ -22,11 +23,51 @@ function rblPartnerCredential(string $field, string $default = ''): string
     return $default;
 }
 
+/** Primary sandbox host from Virtual Account / UPI / VA Creation specs. */
+function rblSandboxPrimaryBaseUrl(): string
+{
+    return 'https://apisandbox.rbl.bank.in/sandbox/api/v1';
+}
+
+/** Alternate sandbox host used by Blob VA / Bulk / Corporate Account specs. */
+function rblSandboxAltBaseUrl(): string
+{
+    return 'https://apisandbox.rblbank.com/sandbox/api/v1';
+}
+
+function rblProductionBaseUrl(): string
+{
+    return 'https://api.rbl.bank.in/api/v1';
+}
+
 function rblBaseUrl(): string
 {
+    $custom = rblPartnerCredential('rbl_base_url', '');
+    if ($custom !== '') {
+        return rtrim($custom, '/');
+    }
     return rblPartnerCredential('rbl_environment', 'sandbox') === 'production'
-        ? 'https://api.rbl.bank.in/api/v1'
-        : 'https://apisandbox.rbl.bank.in/sandbox/api/v1';
+        ? rblProductionBaseUrl()
+        : rblSandboxPrimaryBaseUrl();
+}
+
+/** Pick host for path — inbox OpenAPI servers differ by product. */
+function rblBaseUrlForPath(string $path): string
+{
+    $custom = rblPartnerCredential('rbl_base_url', '');
+    if ($custom !== '') {
+        return rtrim($custom, '/');
+    }
+    if (rblPartnerCredential('rbl_environment', 'sandbox') === 'production') {
+        return rblProductionBaseUrl();
+    }
+    $path = '/' . ltrim($path, '/');
+    foreach (['/blob/va', '/payment/bulk', '/account/balance'] as $alt) {
+        if (str_starts_with($path, $alt)) {
+            return rblSandboxAltBaseUrl();
+        }
+    }
+    return rblSandboxPrimaryBaseUrl();
 }
 
 function rblCredentials(): array
@@ -38,7 +79,7 @@ function rblCredentials(): array
         'corp_id' => rblPartnerCredential('rbl_corp_id', ''),
         'app_name' => rblPartnerCredential('rbl_app_name', 'UniWeb'),
         'environment' => rblPartnerCredential('rbl_environment', 'sandbox'),
-        'base_url' => $base !== '' ? $base : rblBaseUrl(),
+        'base_url' => $base !== '' ? rtrim($base, '/') : rblBaseUrl(),
         'master_account' => rblPartnerCredential('rbl_master_account', ''),
         'maker_id' => rblPartnerCredential('rbl_maker_id', ''),
         'checker_id' => rblPartnerCredential('rbl_checker_id', ''),
@@ -68,6 +109,27 @@ function rblOperationalGate(): ?array
     return null;
 }
 
+/**
+ * VA_SerialNo must be numeric, length 9–16 (sandbox OpenAPI test cases).
+ */
+function rblVaSerialForMerchant(int $merchantId): string
+{
+    $n = max(1, $merchantId);
+    $serial = str_pad((string)$n, 12, '0', STR_PAD_LEFT);
+    if (strlen($serial) > 16) {
+        $serial = substr($serial, -16);
+    }
+    return $serial;
+}
+
+/** Client_Id: alphanumeric, max 7 chars per sandbox specs. */
+function rblClientIdForRequest(): string
+{
+    $raw = preg_replace('/[^A-Za-z0-9]/', '', rblPartnerCredential('rbl_app_name', 'UniWeb')) ?: 'WEBUI';
+    $raw = strtoupper((string)$raw);
+    return substr($raw, 0, 7);
+}
+
 /** Parse RBL VA create response into checkout-friendly shape. */
 function rblParseVaResponse(?array $res): ?array
 {
@@ -79,17 +141,20 @@ function rblParseVaResponse(?array $res): ?array
         return null;
     }
     $candidates = [$body];
-    foreach (['create_VA', 'Create_VA', 'createVA', 'response', 'Body'] as $wrap) {
+    foreach (['create_VA', 'Create_VA', 'createVA', 'response', 'Body', 'Acc_Stmt_DtRng_Res'] as $wrap) {
         if (!empty($body[$wrap]) && is_array($body[$wrap])) {
             $candidates[] = $body[$wrap];
             if (!empty($body[$wrap]['Body']) && is_array($body[$wrap]['Body'])) {
                 $candidates[] = $body[$wrap]['Body'];
             }
+            if (!empty($body[$wrap]['Header']) && is_array($body[$wrap]['Header'])) {
+                $candidates[] = $body[$wrap]['Header'];
+            }
         }
     }
     $fields = [
-        'va_number' => ['VA_Number', 'va_number', 'VirtualAccountNumber', 'AccountNumber', 'account_number'],
-        'va_id' => ['VA_Id', 'va_id', 'VirtualAccountId', 'Id'],
+        'va_number' => ['Full_VA_Number', 'full_va_number', 'VA_Number', 'va_number', 'VirtualAccountNumber', 'AccountNumber', 'account_number'],
+        'va_id' => ['VA_Id', 'va_id', 'VirtualAccountId', 'VA_Number', 'Id'],
         'ifsc' => ['IFSC', 'ifsc', 'IFSC_Code'],
         'upi_id' => ['UPI_Id', 'upi_id', 'VPA', 'vpa'],
     ];
@@ -131,24 +196,27 @@ function createRblVirtualAccount(array $merchant): ?array
     if ($name === '') {
         $name = 'Merchant ' . $merchantId;
     }
-    $serial = 'UW' . str_pad((string)max(1, $merchantId), 10, '0', STR_PAD_LEFT);
+    $name = mb_substr(preg_replace('/[^A-Za-z0-9 &\.\,\-\/\(\)]/', '', $name) ?: 'Merchant', 0, 100);
+    $serial = rblVaSerialForMerchant($merchantId);
     $res = rblCreateVirtualAccount($serial, $name);
     $parsed = rblParseVaResponse($res);
     if ($parsed) {
         $parsed['_source'] = 'rbl_api';
+        $parsed['_serial'] = $serial;
         return $parsed;
     }
     return null;
 }
 
-/** Generic RBL API call. Auth is client_id + client_secret as query params. */
+/** Generic RBL API call. Auth is client_id + client_secret as query params (OpenAPI). */
 function rblApiRequest(string $method, string $path, ?array $body = null, int $timeout = 30): ?array
 {
     $c = rblCredentials();
     if (!$c['client_id'] || !$c['client_secret']) {
         return null;
     }
-    $base = $c['base_url'] ?: rblBaseUrl();
+    $path = '/' . ltrim($path, '/');
+    $base = rblBaseUrlForPath($path);
     $url = rtrim($base, '/') . $path;
     $url .= (strpos($url, '?') === false ? '?' : '&')
         . 'client_id=' . rawurlencode($c['client_id'])
@@ -173,52 +241,62 @@ function rblApiRequest(string $method, string $path, ?array $body = null, int $t
     curl_close($ch);
 
     if ($err) {
-        return ['http' => 0, 'error' => $err, 'body' => []];
+        return ['http' => 0, 'error' => $err, 'body' => [], 'base' => $base];
     }
     $data = json_decode($response, true);
-    return ['http' => $http, 'error' => '', 'body' => is_array($data) ? $data : []];
+    return ['http' => $http, 'error' => '', 'body' => is_array($data) ? $data : [], 'base' => $base];
 }
 
-/** @return array{ok:bool,message:string} */
+/**
+ * Sandbox Test Connection — never seeds demo Corp IDs as saved defaults.
+ *
+ * @return array{ok:bool,message:string}
+ */
 function testRblConnection(): array
 {
     if (!isRblConfigured()) {
-        return ['ok' => false, 'message' => 'RBL Client ID and Client Secret are required in Partner Registry.'];
+        return ['ok' => false, 'message' => 'RBL Client ID and Client Secret are required in Partner Registry (Sandbox Keys tab).'];
     }
     $c = rblCredentials();
-    if ($c['corp_id'] === '' || $c['master_account'] === '') {
-        return ['ok' => false, 'message' => 'RBL Corp ID and Master Account must be set in Partner Registry before probe (no demo defaults).'];
+
+    // Phase 1: auth reachability — empty body → 400 if keys accepted, 401 if bad keys.
+    $authProbe = rblApiRequest('POST', '/virtual/account', [], 15);
+    $authHttp = (int)($authProbe['http'] ?? 0);
+    if ($authHttp === 401) {
+        return ['ok' => false, 'message' => 'RBL sandbox rejected Client ID/Secret (HTTP 401). Re-paste sandbox Key + Secret from portal.'];
     }
-    $paths = ['/virtual/account', '/upi/collection', '/va/create', '/blob/va'];
-    foreach ($paths as $p) {
-        $tx = 'TXN' . strtoupper(bin2hex(random_bytes(4)));
-        $body = [
-            'create_VA' => [
-                'Header' => [
-                    'TranID' => $tx,
-                    'Corp_ID' => $c['corp_id'],
-                    'Maker_ID' => $c['maker_id'] !== '' ? $c['maker_id'] : 'MAKER',
-                    'Checker_ID' => $c['checker_id'] !== '' ? $c['checker_id'] : 'CHECKER',
-                    'Approver_ID' => $c['approver_id'] !== '' ? $c['approver_id'] : 'APPROVER',
-                ],
-                'Body' => [
-                    'Account_No' => $c['master_account'],
-                    'Client_Id' => 'WEBUI',
-                    'VA_SerialNo' => '1234567890987',
-                    'VA_Beneficiary' => $c['app_name'] ?: 'UniWeb',
-                ],
-            ],
+    if ($authHttp === 0) {
+        $err = (string)($authProbe['error'] ?? 'unreachable');
+        return ['ok' => false, 'message' => 'RBL sandbox not reachable: ' . mb_substr($err, 0, 120)];
+    }
+    if ($authHttp === 403) {
+        return ['ok' => false, 'message' => 'RBL sandbox returned 403 — subscribe VA product on sandbox.rbl.bank.in for this app.'];
+    }
+
+    if ($c['corp_id'] === '' || $c['master_account'] === '') {
+        return [
+            'ok' => true,
+            'message' => 'Sandbox Key/Secret accepted by RBL (HTTP ' . $authHttp . '). Paste Corp ID + Master Account to unlock VA/UPI create probes. Live keys later.',
         ];
-        $res = rblApiRequest('POST', $p, $body, 15);
+    }
+
+    // Phase 2: operational VA probe with Owner-pasted Corp + Master (no demo defaults).
+    $paths = ['/virtual/account', '/virtual/v2/account', '/va/create', '/upi/collection'];
+    foreach ($paths as $p) {
+        $serial = rblVaSerialForMerchant((int)(time() % 1000000000));
+        $res = rblApiRequest('POST', $p, rblVaBody($serial, $c['app_name'] ?: 'UniWeb'), 15);
         $http = (int)($res['http'] ?? 0);
         if ($http === 200) {
-            return ['ok' => true, 'message' => 'RBL ' . $p . ' connected (HTTP 200).'];
+            return ['ok' => true, 'message' => 'RBL sandbox ' . $p . ' connected (HTTP 200).'];
         }
         if ($http === 403) {
-            return ['ok' => false, 'message' => 'RBL ' . $p . ' returned 403 — product subscription not yet approved.'];
+            return ['ok' => false, 'message' => 'RBL ' . $p . ' returned 403 — product subscription not yet approved for this app.'];
+        }
+        if ($http === 401) {
+            return ['ok' => false, 'message' => 'RBL ' . $p . ' unauthorized — check Client ID/Secret.'];
         }
     }
-    return ['ok' => false, 'message' => 'RBL sandbox not reachable or all probe endpoints returned non-200.'];
+    return ['ok' => false, 'message' => 'RBL sandbox reachable but VA probes returned non-200. Check Corp ID / Master Account with RBL RM.'];
 }
 
 function rblNewTranId(): string
@@ -241,12 +319,20 @@ function rblDefaultHeader(): array
 function rblVaBody(string $serial, string $beneficiaryName, ?string $accountNo = null): array
 {
     $c = rblCredentials();
+    $serial = preg_replace('/\D/', '', $serial) ?: '1000000001';
+    if (strlen($serial) < 9) {
+        $serial = str_pad($serial, 9, '0', STR_PAD_LEFT);
+    }
+    if (strlen($serial) > 16) {
+        $serial = substr($serial, -16);
+    }
+    $beneficiaryName = mb_substr(preg_replace('/[^A-Za-z0-9 &\.\,\-\/\(\)]/', '', $beneficiaryName) ?: 'UniWeb', 0, 100);
     return [
         'create_VA' => [
             'Header' => rblDefaultHeader(),
             'Body' => [
                 'Account_No' => $accountNo ?: $c['master_account'],
-                'Client_Id' => 'WEBUI',
+                'Client_Id' => rblClientIdForRequest(),
                 'VA_SerialNo' => $serial,
                 'VA_Beneficiary' => $beneficiaryName,
             ],
@@ -359,4 +445,19 @@ function rblBulkPayment(array $debit, array $payments): ?array
         ],
     ];
     return rblApiRequest('POST', '/payment/bulk', $body);
+}
+
+/** Subscribed sandbox products from Owner portal (docs alignment). */
+function rblSandboxProductCatalog(): array
+{
+    return [
+        ['path' => '/virtual/account', 'label' => 'Virtual Account API 1.0'],
+        ['path' => '/virtual/v2/account', 'label' => 'Virtual Account API 2.0'],
+        ['path' => '/va/create', 'label' => 'VA Creation API'],
+        ['path' => '/upi/collection', 'label' => 'UPI Collection API'],
+        ['path' => '/blob/va', 'label' => 'Blob VA Statement'],
+        ['path' => '/account/balance', 'label' => 'Corporate Account Balance'],
+        ['path' => '/corp/payment', 'label' => 'Corporate Single Payment'],
+        ['path' => '/payment/bulk', 'label' => 'Bulk Payment'],
+    ];
 }

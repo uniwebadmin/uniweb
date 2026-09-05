@@ -952,6 +952,11 @@ $assert(str_contains((string)file_get_contents($root . '/includes/payout.php'), 
 $assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'onPayoutRailUnlocked'), 'payout_live_switch_kicks_dispatch');
 $assert(str_contains((string)file_get_contents($root . '/includes/verification.php'), 'decentroPartnerCredential') && str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'rblPartnerCredential'), 'p6a_decentro_rbl_registry_credentials');
 $assert(str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'no demo defaults') && !str_contains((string)file_get_contents($root . '/includes/rbl.php'), 'VAOPENBANK'), 'p6a_rbl_no_demo_corp_defaults');
+$rblSrc = (string)file_get_contents($root . '/includes/rbl.php');
+$assert(str_contains($rblSrc, 'function rblVaSerialForMerchant') && str_contains($rblSrc, 'Full_VA_Number') && str_contains($rblSrc, 'apisandbox.rbl.bank.in'), 'rbl_sandbox_serial_and_hosts');
+$assert(str_contains($rblSrc, 'apisandbox.rblbank.com') && str_contains($rblSrc, 'function rblSandboxProductCatalog'), 'rbl_sandbox_alt_host_and_catalog');
+$assert(is_file($root . '/rbl_webhook.php') && str_contains((string)file_get_contents($root . '/rbl_webhook.php'), "pgWebhookVerifyPartner('rbl'"), 'rbl_webhook_endpoint');
+$assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'Sandbox first') && str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'rbl_webhook.php'), 'rbl_admin_sandbox_hint');
 $rblFlow = (string)file_get_contents($root . '/includes/rbl_workflow.php');
 $assert(str_contains($rblFlow, 'function isRblOperational') && str_contains($rblFlow, 'function rblLiveMoneyAllowed'), 'rbl_workflow_operational_and_live_gates');
 $assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'va_workflow'"), 'va09_config_dev_loads_va_workflow');

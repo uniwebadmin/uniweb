@@ -81,11 +81,11 @@ function rblReadinessReport(): array
         'live_allowed' => $liveOk,
     ];
 
-    $message = 'Paste RBL keys in Partner Registry → RBL Bank → Keys.';
+    $message = 'Paste RBL Sandbox Key + Secret in Partner Registry → RBL Bank → Keys (Environment = Sandbox).';
     if ($hasClient && !$hasCorpMaster) {
-        $message = 'RBL Corp ID and Master Account required in Partner Registry (no demo defaults).';
+        $message = 'Sandbox Key/Secret saved. Still need Corp ID + Master Account from RBL RM (no demo defaults). Live keys later.';
     } elseif ($operational && !$liveEnv) {
-        $message = 'RBL sandbox ready — test connection OK. Live collect/settle needs production keys.';
+        $message = 'RBL sandbox operational — VA/UPI probes allowed. Live collect/settle waits for production keys.';
     } elseif ($liveOk) {
         $message = 'RBL live gate open — real collect/settle when API responds.';
     }

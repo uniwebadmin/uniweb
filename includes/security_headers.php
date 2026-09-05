@@ -14,6 +14,7 @@ function uniwebSecurityHeaderSkipScripts(): array
         'webhook.php',
         'payu_webhook.php',
         'axis_webhook.php',
+        'rbl_webhook.php',
         'razorpay_webhook.php',
         'decentro_webhook.php',
         'cashfree_webhook.php',

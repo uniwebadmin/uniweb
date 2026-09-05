@@ -102,10 +102,10 @@ function getBankingPartners(): array
             'name' => 'RBL Bank',
             'use' => 'Open Banking: Virtual Account, UPI Collection, Account Balance, Blob VA Statement, Corporate & Bulk Payments',
             'signup' => 'https://sandbox.rbl.bank.in/',
-            'docs' => 'https://sandbox.rbl.bank.in/faq',
+            'docs' => 'https://developer.rbl.bank.in/apicatalog',
             'sandbox' => 'https://apisandbox.rbl.bank.in/sandbox/api/v1',
             'email' => 'api_upi@rblbank.com',
-            'payout_note' => 'RBL Open Banking sandbox — virtual account creation, UPI collections, statements, single/bulk payouts.',
+            'payout_note' => 'Sandbox-first: Key/Secret from sandbox.rbl.bank.in. API base apisandbox.rbl.bank.in. Live keys later. Corp ID + Master Account from RM (no demo defaults).',
         ],
         'yesbank' => [
             'name' => 'Yes Bank',
