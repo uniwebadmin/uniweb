@@ -146,17 +146,23 @@ if (!function_exists('methodKeysReadinessReport')) {
     require_once __DIR__ . '/includes/method_keys_workflow.php';
 }
 $methodKeysReport = methodKeysReadinessReport();
-$gatewayCards = [
+if (!function_exists('registryPlatformGatewayStatusCards') && is_file(__DIR__ . '/includes/partner_registry_v2.php')) {
+    require_once __DIR__ . '/includes/partner_registry_v2.php';
+}
+if (!function_exists('templateDefaultPaymentGatewayOptions')) {
+    require_once __DIR__ . '/includes/partner_registry_v2.php';
+}
+$gatewayCards = function_exists('registryPlatformGatewayStatusCards')
+    ? registryPlatformGatewayStatusCards()
+    : [
     ['id' => 'razorpay', 'label' => 'Razorpay', 'test' => true],
     ['id' => 'cashfree', 'label' => 'Cashfree', 'test' => true],
     ['id' => 'payu', 'label' => 'PayU', 'test' => true],
-    ['id' => 'phonepe', 'label' => 'PhonePe', 'test' => true, 'checkout' => false, 'note' => 'Keys UI only — collect checkout not wired yet'],
-    ['id' => 'pinelabs', 'label' => 'Pine Labs Plural', 'test' => true, 'checkout' => false, 'note' => 'Paste keys when received — sandbox stub only'],
-    ['id' => 'worldline', 'label' => 'Worldline', 'test' => false, 'checkout' => false, 'note' => 'Paste keys when received — checkout STUB'],
-    ['id' => 'axis', 'label' => 'Axis Bank', 'test' => true],
-    ['id' => 'rbl', 'label' => 'RBL Bank', 'test' => true, 'checkout' => false, 'note' => 'Paste sandbox keys · VA + UPI Collection + Payouts'],
-    ['id' => 'decentro', 'label' => 'Decentro KYC', 'test' => true],
 ];
+$templatePgOptions = templateDefaultPaymentGatewayOptions();
+$readyCollectCount = count(array_filter($gatewayCards, static function (array $card): bool {
+    return function_exists('isGatewayConfigured') && isGatewayConfigured($card['id']);
+}));
 ?>
 <div class="glass rounded-xl p-5 mb-6 border border-sky-500/40 bg-sky-500/5 max-w-4xl">
     <div class="flex flex-wrap items-start justify-between gap-3">
@@ -231,7 +237,7 @@ $gatewayCards = [
 </div>
 <?php else: ?>
 <div class="glass rounded-xl p-4 mb-6 border border-emerald-500/25 max-w-4xl">
-    <p class="text-sm text-emerald-300">● Razorpay, Cashfree, and PayU keys configured — ready for checkout tests.</p>
+    <p class="text-sm text-emerald-300">● Registry collect partners have valid keys — ready for checkout tests<?= $readyCollectCount > 0 ? ' (' . (int)$readyCollectCount . ' partner' . ($readyCollectCount === 1 ? '' : 's') . ')' : '' ?>.</p>
 </div>
 <?php endif; ?>
 <div class="max-w-4xl space-y-6">
@@ -316,28 +322,35 @@ $gatewayCards = [
                 <span class="shrink-0 text-xs text-gray-500 hidden group-open:inline">Hide partner grid ↑</span>
             </div>
         </summary>
-    <p class="text-xs text-gray-500 mb-4">Test connection for gateways configured in <a href="admin_gateway_registry.php" class="text-sky-400">Partner Registry</a>. Default checkout gateway (new merchants only): <span class="text-brand-400 font-medium"><?= e(ucfirst($activePg)) ?></span></p>
+    <p class="text-xs text-gray-500 mb-4">Status from <a href="admin_gateway_registry.php" class="text-sky-400">Partner Registry</a> — Active routing, Keys Valid/Missing/Invalid, Not wired. Template default for new merchants: <span class="text-brand-400 font-medium"><?= e($templatePgOptions[$activePg] ?? ucfirst($activePg)) ?></span></p>
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <?php foreach ($gatewayCards as $card):
             $configured = isGatewayConfigured($card['id']);
             $isActive = $card['id'] === $activePg;
-            $checkoutReady = ($card['checkout'] ?? true) !== false;
-            $cardClass = !$checkoutReady
-                ? 'border-amber-500/30 bg-amber-500/5'
-                : ($configured ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-gray-800 bg-dark-900/40');
-            $statusClass = !$checkoutReady ? 'text-amber-400' : ($configured ? 'text-emerald-400' : 'text-gray-500');
+            $statusSnap = function_exists('registryPartnerCollectStatus') ? registryPartnerCollectStatus($card['id']) : null;
+            $wired = $statusSnap ? $statusSnap['wired'] : true;
+            $routingActive = $statusSnap ? $statusSnap['active'] : false;
+            $keyValid = $statusSnap && $statusSnap['key_status'] === 'valid';
+            $cardClass = !$wired
+                ? 'border-slate-600/40 bg-slate-900/40'
+                : ($keyValid && $routingActive ? 'border-emerald-500/30 bg-emerald-500/5' : ($configured ? 'border-amber-500/30 bg-amber-500/5' : 'border-gray-800 bg-dark-900/40'));
+            $statusClass = !$wired ? 'text-slate-400' : ($keyValid ? 'text-emerald-400' : ($configured ? 'text-amber-400' : 'text-gray-500'));
+            $statusLine = function_exists('registryPartnerPlatformStatusLine')
+                ? registryPartnerPlatformStatusLine($card['id'])
+                : gatewayStatusLabel($card['id']);
         ?>
         <div class="rounded-xl border p-4 <?= $cardClass ?>">
             <div class="flex items-start justify-between gap-2">
                 <div>
                     <p class="font-medium text-sm flex flex-wrap items-center gap-2">
                         <?= e($card['label']) ?>
-                        <?php if (!$checkoutReady): ?><?= uiCapabilityPill(CapabilityState::STUB, $card['note'] ?? 'Checkout not wired') ?><?php elseif ($configured && in_array($card['id'], ['razorpay', 'cashfree', 'payu'], true)): ?><?= uiCapabilityPill(CapabilityState::LIVE, 'Collect when Registry keys saved') ?><?php endif; ?>
+                        <?php if (!$wired): ?><?= uiCapabilityPill(CapabilityState::STUB, 'Not wired') ?>
+                        <?php elseif ($keyValid && $routingActive): ?><?= uiCapabilityPill(CapabilityState::LIVE, 'Collect when enabled') ?>
+                        <?php elseif ($configured): ?><?= uiCapabilityPill(CapabilityState::STUB, 'Keys saved') ?>
+                        <?php endif; ?>
                     </p>
-                    <p class="text-xs mt-1 <?= $statusClass ?>"><?= e(gatewayStatusLabel($card['id'])) ?></p>
-                    <?php if (!$checkoutReady && !empty($card['note'])): ?>
-                    <p class="text-[10px] text-gray-500 mt-1"><?= e($card['note']) ?></p>
-                    <?php elseif ($isActive && $card['id'] !== 'decentro' && $card['id'] !== 'axis'): ?>
+                    <p class="text-xs mt-1 <?= $statusClass ?>"><?= e($statusLine) ?></p>
+                    <?php if ($isActive): ?>
                     <p class="text-[10px] text-brand-400 mt-1 uppercase tracking-wide">New-merchant template</p>
                     <?php endif; ?>
                 </div>
@@ -438,14 +451,14 @@ $gatewayCards = [
             <p class="text-[11px] text-gray-600 mt-1">Used when a merchant has no custom schedule. Partner Detail MDR still overrides method pricing.</p>
         </div>
         <?= settingsSectionHeading('Payment Gateway Selection (template for new merchants)', 'slate') ?>
-        <p class="text-xs text-gray-500 mb-3">This sets the default checkout gateway for <strong>new merchants only</strong>. Per-merchant gateway routing and live API keys are managed in <a href="admin_gateway_registry.php" class="text-sky-400">Partner Registry → Partner Detail → Keys</a>.</p>
+        <p class="text-xs text-gray-500 mb-3">Template default only — live routing and keys are managed in <a href="admin_gateway_registry.php" class="text-sky-400">Partner Registry</a>. New merchants inherit this until you change per-merchant routing.</p>
         <div><label class="text-sm text-gray-400">Default Payment Gateway (new merchants)</label>
             <select name="settings[active_payment_gateway]" class="input-field mt-1">
-                <?php foreach (['razorpay'=>'Razorpay','cashfree'=>'Cashfree','payu'=>'PayU','manual'=>'Manual UPI Only'] as $val=>$label): ?>
-                <option value="<?= $val ?>" <?= ($settingsMap['active_payment_gateway'] ?? 'razorpay') === $val ? 'selected' : '' ?>><?= e($label) ?></option>
+                <?php foreach ($templatePgOptions as $val => $label): ?>
+                <option value="<?= e($val) ?>" <?= ($settingsMap['active_payment_gateway'] ?? 'registry_auto') === $val ? 'selected' : '' ?>><?= e($label) ?></option>
                 <?php endforeach; ?>
             </select>
-            <p class="text-[11px] text-gray-600 mt-1">Collect checkout only (Card · UPI · Net Banking). Easy Split / Route payout rails are parked — not configured here.</p>
+            <p class="text-[11px] text-gray-600 mt-1">Collect checkout only (Card · UPI · Net Banking). Registry auto picks the first Active partner with Valid keys. Easy Split / Route payout rails are parked.</p>
         </div>
         <div class="rounded-xl border border-sky-500/30 bg-sky-500/5 p-4 my-4 text-sm text-gray-400 space-y-2">
             <p class="font-medium text-sky-300">Partner keys, methods &amp; MDR → Partner Registry</p>
@@ -575,7 +588,7 @@ $gatewayCards = [
                     </select>
                     <label class="text-[11px] text-gray-500 block mt-3">Success-rate window (hours)</label>
                     <input type="number" name="settings[intelligent_routing_success_window_hours]" min="1" max="720" value="<?= e((string)($settingsMap['intelligent_routing_success_window_hours'] ?? '168')) ?>" class="input-field mt-1 text-sm">
-                    <p class="text-[11px] text-gray-600 mt-2">Default OFF. When ON, overrides Phase 11 at checkout. Score pick across Razorpay, Cashfree, and PayU — customer sees UniWeb methods only. Failover needs <strong class="text-gray-500">2+ healthy</strong> Registry partners.</p>
+                    <p class="text-[11px] text-gray-600 mt-2">Default OFF. When ON, overrides Phase 11 at checkout. Score pick across eligible Registry collect partners — customer sees UniWeb methods only. Failover needs <strong class="text-gray-500">2+ healthy</strong> partners.</p>
                     <?php if ($intelligentOn): ?>
                     <p class="text-[11px] mt-2 <?= !empty($intelligentReadiness['failover_capable']) ? 'text-emerald-500/90' : 'text-amber-400' ?>">
                         <?= e($intelligentStrategyDoc) ?>

@@ -848,3 +848,259 @@ function retirePartnerRegistryRow(int $gatewayId, array $opts = []): array
     }
     return ['ok' => true, 'gateway_key' => $key, 'gateway_name' => (string)$gw['gateway_name']];
 }
+
+/** Whether a gateway_registry row is a collect partner (not KYC-only / parked). */
+function registryRowSupportsCollect(array $row): bool
+{
+    $key = strtolower(trim((string)($row['gateway_key'] ?? '')));
+    if ($key === '') {
+        return false;
+    }
+    if (!function_exists('getPartnerRegistry')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $flags = getPartnerRegistry()[$key]['flags'] ?? [];
+    if (isset($flags['checkout_pg']) && $flags['checkout_pg'] === false) {
+        return false;
+    }
+    $checkoutPg = partnerHasRegistryFlag($key, 'checkout_pg');
+    if (in_array($key, ['phonepe', 'pinelabs', 'worldline', 'toucanpay', 'digio'], true) && !$checkoutPg) {
+        return false;
+    }
+    if (partnerRegistryV2HasColumns() && array_key_exists('cap_collect', $row)) {
+        return (int)($row['cap_collect'] ?? 0) === 1;
+    }
+    return (int)($row['supports_collection'] ?? 0) === 1;
+}
+
+/** Partners with card / hosted checkout order APIs (honest — not VA-only rails). */
+function registryCardCheckoutPartnerKeys(): array
+{
+    $known = ['razorpay', 'cashfree', 'payu'];
+    $out = [];
+    foreach (registryCollectCapablePartnerKeys(false) as $key) {
+        if (in_array($key, $known, true)) {
+            $out[] = $key;
+        }
+    }
+    return $out !== [] ? $out : $known;
+}
+
+/**
+ * Collect-capable registry partners sorted by routing_priority (lower = first).
+ *
+ * @return list<string>
+ */
+function registryCollectCapablePartnerKeys(bool $requireRoutingActive = false): array
+{
+    if (!function_exists('getRegisteredGateways')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+    $rows = [];
+    foreach (getRegisteredGateways(false) as $row) {
+        $key = strtolower(trim((string)($row['gateway_key'] ?? '')));
+        if ($key === '' || !registryRowSupportsCollect($row)) {
+            continue;
+        }
+        if ($requireRoutingActive && (int)($row['is_active'] ?? 0) !== 1) {
+            continue;
+        }
+        if (!partnerAdapterIsWired($key, $row)) {
+            continue;
+        }
+        $prio = (int)($row['routing_priority'] ?? 50);
+        $rows[] = ['key' => $key, 'prio' => $prio];
+    }
+    usort($rows, static fn(array $a, array $b): int => $a['prio'] <=> $b['prio'] ?: strcmp($a['key'], $b['key']));
+    return array_values(array_unique(array_column($rows, 'key')));
+}
+
+/**
+ * @return array{label:string,active:bool,wired:bool,key_status:string,collect:bool,is_template:bool}
+ */
+function registryPartnerCollectStatus(string $partnerKey): array
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    if (!function_exists('getRegisteredGateways')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+    if (!function_exists('getPartnerRegistry')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $row = null;
+    foreach (getRegisteredGateways(false) as $g) {
+        if (strtolower((string)($g['gateway_key'] ?? '')) === $partnerKey) {
+            $row = $g;
+            break;
+        }
+    }
+    $meta = getPartnerRegistry()[$partnerKey] ?? [];
+    $label = (string)($row['gateway_name'] ?? $meta['name'] ?? ucfirst($partnerKey));
+    $active = $row ? (int)($row['is_active'] ?? 0) === 1 : false;
+    $wired = partnerAdapterIsWired($partnerKey, $row);
+    $collect = $row ? registryRowSupportsCollect($row) : false;
+    $env = 'test';
+    if (function_exists('getPartnerEnvironment')) {
+        $env = getPartnerEnvironment($partnerKey, 'test') === 'production' ? 'live' : 'test';
+    }
+    $keyStatus = function_exists('partnerCredentialVaultStatus')
+        ? partnerCredentialVaultStatus($partnerKey, $env)
+        : (function_exists('isGatewayConfigured') && isGatewayConfigured($partnerKey) ? 'valid' : 'missing');
+    $templatePg = strtolower(trim((string)getSetting('active_payment_gateway', 'razorpay')));
+    return [
+        'label' => $label,
+        'active' => $active,
+        'wired' => $wired,
+        'key_status' => $keyStatus,
+        'collect' => $collect,
+        'is_template' => $templatePg !== '' && $templatePg === $partnerKey,
+    ];
+}
+
+/** Human status line for Platform Settings gateway grid. */
+function registryPartnerPlatformStatusLine(string $partnerKey): string
+{
+    $s = registryPartnerCollectStatus($partnerKey);
+    if (!$s['wired']) {
+        return 'Not wired (adapter missing)';
+    }
+    if (!$s['collect']) {
+        return 'KYC / forward only — not on collect path';
+    }
+    if (!$s['active']) {
+        return 'Routing OFF — turn ON in Partner Registry';
+    }
+    return match ($s['key_status']) {
+        'valid' => $s['is_template'] ? 'Keys Valid · new-merchant template' : 'Keys Valid · Active routing',
+        'invalid' => 'Keys Invalid — re-test in Partner Registry',
+        default => 'Keys Missing — paste in Partner Registry → Keys',
+    };
+}
+
+/**
+ * Template default PG dropdown — Registry is source of truth.
+ *
+ * @return array<string,string>
+ */
+function templateDefaultPaymentGatewayOptions(): array
+{
+    if (!function_exists('getPartnerRegistry')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $opts = ['registry_auto' => 'Registry auto (first ready / priority)'];
+    foreach (registryCollectCapablePartnerKeys(false) as $key) {
+        $meta = getPartnerRegistry()[$key] ?? [];
+        $opts[$key] = (string)($meta['name'] ?? ucfirst($key));
+    }
+    $opts['manual'] = 'Manual UPI Only';
+    return $opts;
+}
+
+/**
+ * Active (or template-selected) collect partners that still need keys.
+ *
+ * @return list<array{id:string,label:string,detail:string,status:string}>
+ */
+function registryCollectPartnerKeyGaps(): array
+{
+    if (!function_exists('getRegisteredGateways')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+    if (!function_exists('getPartnerRegistry')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $templatePg = strtolower(trim((string)getSetting('active_payment_gateway', '')));
+    $gaps = [];
+    foreach (getRegisteredGateways(false) as $row) {
+        $key = strtolower(trim((string)($row['gateway_key'] ?? '')));
+        if ($key === '' || !registryRowSupportsCollect($row)) {
+            continue;
+        }
+        if (!partnerAdapterIsWired($key, $row)) {
+            continue;
+        }
+        $routingActive = (int)($row['is_active'] ?? 0) === 1;
+        $templateSelected = $templatePg !== '' && $templatePg === $key;
+        if (!$routingActive && !$templateSelected) {
+            continue;
+        }
+        $status = registryPartnerCollectStatus($key);
+        if ($status['key_status'] === 'valid') {
+            continue;
+        }
+        $meta = getPartnerRegistry()[$key] ?? [];
+        $label = (string)($row['gateway_name'] ?? $meta['name'] ?? ucfirst($key));
+        $detail = match ($status['key_status']) {
+            'invalid' => 'Keys saved but invalid — run Test Connection in Partner Registry',
+            default => 'Paste Test keys in Partner Registry → Keys',
+        };
+        $gaps[] = [
+            'id' => $key,
+            'label' => $label,
+            'detail' => $detail,
+            'status' => $status['key_status'] === 'invalid' ? 'Keys Invalid' : 'Keys Missing',
+        ];
+    }
+    return $gaps;
+}
+
+/** First collect partner with valid keys (sandbox OK), by registry routing priority. */
+function registryFirstReadyCollectPartner(bool $sandbox = true): ?string
+{
+    $env = $sandbox ? 'test' : 'live';
+    foreach (registryCollectCapablePartnerKeys(true) as $key) {
+        if (!function_exists('isGatewayActive') || !isGatewayActive($key)) {
+            continue;
+        }
+        $vault = function_exists('partnerCredentialVaultStatus') ? partnerCredentialVaultStatus($key, $env) : 'missing';
+        if ($vault === 'valid') {
+            return $key;
+        }
+        if ($sandbox && function_exists('isGatewayConfigured') && isGatewayConfigured($key)) {
+            return $key;
+        }
+    }
+    return null;
+}
+
+/**
+ * Gateway Status cards for Platform Settings (derived from Registry).
+ *
+ * @return list<array{id:string,label:string,test:bool}>
+ */
+function registryPlatformGatewayStatusCards(): array
+{
+    if (!function_exists('getPartnerRegistry')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $cards = [];
+    foreach (registryCollectCapablePartnerKeys(false) as $key) {
+        $meta = getPartnerRegistry()[$key] ?? [];
+        $cards[] = [
+            'id' => $key,
+            'label' => (string)($meta['name'] ?? ucfirst($key)),
+            'test' => true,
+        ];
+    }
+    foreach (['axis', 'decentro'] as $extra) {
+        if (!isset(getPartnerRegistry()[$extra])) {
+            continue;
+        }
+        $already = false;
+        foreach ($cards as $c) {
+            if ($c['id'] === $extra) {
+                $already = true;
+                break;
+            }
+        }
+        if (!$already) {
+            $meta = getPartnerRegistry()[$extra];
+            $cards[] = [
+                'id' => $extra,
+                'label' => (string)($meta['name'] ?? ucfirst($extra)),
+                'test' => true,
+            ];
+        }
+    }
+    return $cards;
+}

@@ -481,7 +481,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
     } elseif ($pgPoolSelected && !$intelligentOn && !$phase11RoutingOn) {
         $returnUrl = APP_URL . '/payment_cashfree_return.php?order_id={order_id}';
-        foreach (['razorpay', 'cashfree'] as $gw) {
+        $poolPartners = ['razorpay', 'cashfree'];
+        if (function_exists('collectEligibleCheckoutPartners')) {
+            $poolPartners = array_values(array_filter(
+                collectEligibleCheckoutPartners((int)$link['merchant_id'], $isTestCheckout),
+                static fn(string $gw): bool => in_array($gw, ['razorpay', 'cashfree', 'payu'], true)
+            ));
+            if ($poolPartners === []) {
+                $poolPartners = ['razorpay', 'cashfree'];
+            }
+        }
+        foreach ($poolPartners as $gw) {
             if (function_exists('collectCheckoutPartnerIsEligible')
                 && !collectCheckoutPartnerIsEligible((int)$link['merchant_id'], $gw, $isTestCheckout)) {
                 continue;
@@ -506,7 +516,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             }
         }
         if ($pgCheckoutPartner === null && ($error ?? '') === '') {
-            $error = 'This payment method is not active yet. Try UPI or switch to UniWeb Test Mode.';
+            $error = function_exists('collectCheckoutNoneEligibleMessage')
+                ? collectCheckoutNoneEligibleMessage()
+                : 'This payment method is not active yet. Try UPI or switch to UniWeb Test Mode.';
         }
     } elseif ($legacyPgTab || ($selectedPay === 'razorpay' || ($handler === 'razorpay_route' && !isGatewayConfigured('payu')))) {
         if (isGatewayConfigured('razorpay')) {

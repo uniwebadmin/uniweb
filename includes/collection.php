@@ -782,7 +782,21 @@ function checkoutPgPoolEnabledForLink(array $link, bool $rzpConfigured, bool $cf
         $enabled = normalizeCheckoutMethodKeys($enabled);
     }
     $handler = resolveCheckoutHandlerForLink($link);
-    return ($rzpConfigured || $cfConfigured)
+    $merchantId = (int)($link['merchant_id'] ?? 0);
+    $isTest = !empty($link['is_test']) || (function_exists('merchantAccountMode') && merchantAccountMode($link) === 'test');
+    $poolPartnerReady = $rzpConfigured || $cfConfigured;
+    if (!$poolPartnerReady && function_exists('collectEligibleCheckoutPartners')) {
+        if (!is_file(__DIR__ . '/smart_routing.php')) {
+            require_once __DIR__ . '/smart_routing.php';
+        }
+        foreach (collectEligibleCheckoutPartners($merchantId, $isTest) as $partner) {
+            if (in_array($partner, ['razorpay', 'cashfree', 'payu'], true) && isGatewayConfigured($partner)) {
+                $poolPartnerReady = true;
+                break;
+            }
+        }
+    }
+    return $poolPartnerReady
         && (in_array('razorpay', $enabled, true) || in_array('cashfree', $enabled, true)
             || in_array($handler, ['razorpay_route', 'cashfree_route', 'platform_pg'], true));
 }

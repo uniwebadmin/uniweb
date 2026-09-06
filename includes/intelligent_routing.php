@@ -62,13 +62,19 @@ function intelligentRoutingStrategyDoc(): string
     return match (intelligentRoutingStrategy()) {
         'fixed' => 'Fixed — merchant/default partner only. No score ranking.',
         'rules' => 'Rules — method + amount band first; score tie-break when no rule matches.',
-        default => 'Score — live success-rate (rolling window) + gateway health + latency proxy. Razorpay/Cashfree order-API or PayU form redirect. Failover tries next healthy partner only.',
+        default => 'Score — live success-rate (rolling window) + gateway health + latency proxy. Failover tries next healthy Registry collect partner only.',
     };
 }
 
-/** Checkout partners eligible for intelligent score routing (includes PayU form redirect). */
+/** Checkout partners eligible for intelligent score routing (Registry collect + card order API). */
 function intelligentRoutingCheckoutPartners(): array
 {
+    if (!function_exists('registryCardCheckoutPartnerKeys') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    if (function_exists('registryCardCheckoutPartnerKeys')) {
+        return registryCardCheckoutPartnerKeys();
+    }
     return ['razorpay', 'cashfree', 'payu'];
 }
 

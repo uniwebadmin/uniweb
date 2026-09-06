@@ -233,7 +233,7 @@ function intelligentRoutingHealthCheck(): array
             'label' => 'Intelligent routing',
             'ok' => false,
             'status' => 'Owner ON — no usable collect partners',
-            'detail' => 'Paste Registry keys for Razorpay, Cashfree, and/or PayU.',
+            'detail' => 'Paste Registry keys for Active collect partners (any wired partner with Valid keys).',
             'test_url' => 'gateway_settings.php#live-money-switches',
         ];
     }

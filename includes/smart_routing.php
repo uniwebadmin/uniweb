@@ -75,6 +75,15 @@ function phase11RouteEngineActive(): bool
 /** @return list<string> */
 function phase11CheckoutPartnerPriority(): array
 {
+    if (!function_exists('registryCollectCapablePartnerKeys') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    if (function_exists('registryCollectCapablePartnerKeys')) {
+        $keys = registryCollectCapablePartnerKeys(false);
+        if ($keys !== []) {
+            return $keys;
+        }
+    }
     if (!function_exists('getBankingPartners') && is_file(__DIR__ . '/partners.php')) {
         require_once __DIR__ . '/partners.php';
     }
@@ -236,6 +245,9 @@ function collectEligibleCheckoutPartners(int $merchantId, bool $sandbox = true):
     if (!function_exists('partnerHasRegistryFlag') && is_file(__DIR__ . '/partner_engine.php')) {
         require_once __DIR__ . '/partner_engine.php';
     }
+    if (!function_exists('registryRowSupportsCollect') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
     if (!function_exists('isGatewayConfigured') && is_file(__DIR__ . '/gateways.php')) {
         require_once __DIR__ . '/gateways.php';
     }
@@ -252,7 +264,8 @@ function collectEligibleCheckoutPartners(int $merchantId, bool $sandbox = true):
         if (function_exists('partnerRegistryRowIsRetired') && partnerRegistryRowIsRetired($g)) {
             continue;
         }
-        $collectCapable = (function_exists('partnerHasRegistryFlag') && partnerHasRegistryFlag($key, 'checkout_pg'))
+        $collectCapable = (function_exists('registryRowSupportsCollect') && registryRowSupportsCollect($g))
+            || (function_exists('partnerHasRegistryFlag') && partnerHasRegistryFlag($key, 'checkout_pg'))
             || (function_exists('gatewaySupportsLiveCheckout') && gatewaySupportsLiveCheckout($key))
             || in_array($key, $priority, true);
         if (!$collectCapable) {

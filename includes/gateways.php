@@ -846,10 +846,17 @@ function getActivePaymentGateway(): string
     if (!function_exists('getCheckoutPgPartnerKeys')) {
         require_once __DIR__ . '/partner_engine.php';
     }
+    if (!function_exists('registryFirstReadyCollectPartner') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
     // Platform setting is a template/fallback for new merchants (P1-03), not a global live override.
-    $preferred = trim((string)getSetting('active_payment_gateway', ''));
+    $preferred = strtolower(trim((string)getSetting('active_payment_gateway', '')));
+    if ($preferred === 'registry_auto') {
+        $auto = function_exists('registryFirstReadyCollectPartner') ? registryFirstReadyCollectPartner(true) : null;
+        return $auto ?? 'manual';
+    }
     // Prefer the admin-selected primary only when fully configured AND checkout-capable.
-    if ($preferred !== ''
+    if ($preferred !== '' && $preferred !== 'manual'
         && isGatewayConfigured($preferred)
         && gatewaySupportsLiveCheckout($preferred)) {
         return $preferred;
@@ -890,9 +897,28 @@ function isGatewayConfigured(string $gateway): bool
     };
 }
 
-/** Gateways that can actually route a live checkout today (PhonePe / Pine Labs checkout is roadmap-only). */
+/** Gateways that can route collect checkout when Registry says collect-capable + adapter wired. */
 function gatewaySupportsLiveCheckout(string $gateway): bool
 {
+    if (!function_exists('registryRowSupportsCollect') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    if (!function_exists('getRegisteredGateways')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+    $gateway = strtolower(trim($gateway));
+    if ($gateway === '' || $gateway === 'manual') {
+        return false;
+    }
+    foreach (getRegisteredGateways(false) as $row) {
+        if (strtolower((string)($row['gateway_key'] ?? '')) !== $gateway) {
+            continue;
+        }
+        if (function_exists('registryRowSupportsCollect') && registryRowSupportsCollect($row)) {
+            return function_exists('partnerAdapterIsWired') && partnerAdapterIsWired($gateway, $row);
+        }
+        return false;
+    }
     if (!function_exists('partnerHasRegistryFlag')) {
         require_once __DIR__ . '/partner_engine.php';
     }
@@ -901,6 +927,14 @@ function gatewaySupportsLiveCheckout(string $gateway): bool
 
 function gatewayStatusLabel(string $gateway): string
 {
+    if (!function_exists('registryPartnerPlatformStatusLine') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    if (function_exists('registryPartnerPlatformStatusLine') && function_exists('isPartnerRegistryKey')) {
+        if (isPartnerRegistryKey($gateway)) {
+            return registryPartnerPlatformStatusLine($gateway);
+        }
+    }
     if (!isGatewayConfigured($gateway)) {
         return 'Keys pending';
     }

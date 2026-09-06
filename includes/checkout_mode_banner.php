@@ -172,6 +172,17 @@ function saveGatewaySettingsPreservingSecrets(array $posted, PDO $db): void
                 ? sanitizeDefaultCollectionMode($val)
                 : (in_array($val, ['direct_upi', 'platform_pg', 'axis_va'], true) ? $val : 'platform_pg');
         }
+        if ($key === 'active_payment_gateway') {
+            if (!function_exists('templateDefaultPaymentGatewayOptions') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+                require_once __DIR__ . '/partner_registry_v2.php';
+            }
+            $allowed = function_exists('templateDefaultPaymentGatewayOptions')
+                ? array_keys(templateDefaultPaymentGatewayOptions())
+                : ['registry_auto', 'razorpay', 'cashfree', 'payu', 'manual'];
+            if (!in_array($val, $allowed, true)) {
+                $val = 'registry_auto';
+            }
+        }
         $db->prepare('INSERT INTO gateway_settings (setting_key, setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=?')
             ->execute([$key, $val, $val]);
     }

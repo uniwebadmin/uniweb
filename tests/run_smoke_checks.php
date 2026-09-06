@@ -1441,10 +1441,12 @@ $assert(empty($indivTax['gst']) && empty($indivTax['cin']), 'kyc_individual_prof
 
 // Gateway keys UI must not present PhonePe as a live-checkout gateway (checkout is roadmap-only).
 $gwSettings = (string)file_get_contents($root . '/gateway_settings.php');
-$assert(str_contains($gwSettings, "'checkout' => false"), 'gateway_phonepe_marked_roadmap');
+$peSrc = (string)file_get_contents($root . '/includes/partner_engine.php');
+$assert(str_contains($peSrc, "'phonepe', 'pinelabs', 'worldline'"), 'gateway_phonepe_marked_roadmap');
 // Primary Payment Gateway selector must only offer gateways checkout can actually route.
 $assert(preg_match('/settings\\[active_payment_gateway\\].*?<\\/select>/s', $gwSettings, $sel) === 1
     && !str_contains($sel[0], 'phonepe'), 'gateway_primary_excludes_phonepe');
+$assert(str_contains($gwSettings, 'templateDefaultPaymentGatewayOptions') && str_contains($gwSettings, 'registry_auto'), 'p4b_template_pg_registry_auto_option');
 $gwLib = (string)file_get_contents($root . '/includes/gateways.php');
 $assert(str_contains($gwLib, 'checkout on roadmap') || str_contains($gwLib, 'later release'), 'gateway_phonepe_status_honest');
 $assert(str_contains($gwLib, 'function gatewaySupportsLiveCheckout'), 'gateway_live_checkout_helper_present');
@@ -2344,6 +2346,15 @@ $assert(str_contains($smartSrc, 'function collectEligibleCheckoutPartners') && s
 $assert(str_contains($checkoutSrc, 'collectEligibleCheckoutPartners') && str_contains($checkoutSrc, 'collectCheckoutNoneEligibleMessage'), 'p3_checkout_uses_collect_eligibility');
 $assert(str_contains($checkoutSrc, 'sandbox') && str_contains($checkoutSrc, 'Instant test pay failed'), 'p3_checkout_test_pay_honest_fail');
 $assert(!str_contains((string)file_get_contents($root . '/includes/collection.php'), "'payout'") || str_contains((string)file_get_contents($root . '/includes/collection.php'), 'isMerchantOpsMethodKey'), 'p3_checkout_collect_only_ops_filter');
+
+$prV2Src = (string)file_get_contents($root . '/includes/partner_registry_v2.php');
+$assert(str_contains($prV2Src, 'function registryCollectCapablePartnerKeys') && str_contains($prV2Src, 'function templateDefaultPaymentGatewayOptions') && str_contains($prV2Src, 'function registryCollectPartnerKeyGaps'), 'p4b_registry_collect_helpers');
+$assert(str_contains((string)file_get_contents($root . '/includes/auto_audit.php'), 'registryCollectPartnerKeyGaps'), 'p4b_gaps_from_registry_not_hardcoded_three');
+$assert(str_contains((string)file_get_contents($root . '/includes/intelligent_routing.php'), 'registryCardCheckoutPartnerKeys'), 'p4b_intelligent_routing_registry_partners');
+$assert(str_contains($gwSettings, 'registryPartnerPlatformStatusLine') && str_contains($gwSettings, 'Registry collect partners'), 'p4b_gateway_settings_registry_status_grid');
+$assert(str_contains((string)file_get_contents($root . '/includes/gateways.php'), "preferred === 'registry_auto'"), 'p4b_active_pg_registry_auto_resolve');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_engine.php'), 'registryPartnerCollectStatus'), 'p4b_integration_state_from_registry');
+$assert(str_contains($checkoutSrc, 'collectCheckoutNoneEligibleMessage') && str_contains($checkoutSrc, 'poolPartners'), 'p4b_checkout_pg_pool_registry_eligible');
 
 $payload = [
     'ok' => $failed === 0,

@@ -66,6 +66,14 @@ function decentroSandboxCheckoutAvailable(array $link): bool
     if (!function_exists('isDecentroSandboxEnvironment') && is_file(__DIR__ . '/partner_control.php')) {
         require_once __DIR__ . '/partner_control.php';
     }
+    if (!function_exists('collectCheckoutPartnerIsEligible') && is_file(__DIR__ . '/smart_routing.php')) {
+        require_once __DIR__ . '/smart_routing.php';
+    }
+    $merchantId = (int)($link['merchant_id'] ?? 0);
+    if (function_exists('collectCheckoutPartnerIsEligible')
+        && !collectCheckoutPartnerIsEligible($merchantId, 'decentro', paymentModeForLink($link) === 'test')) {
+        return false;
+    }
     return paymentModeForLink($link) === 'test'
         && isDecentroSandboxEnvironment()
         && isGatewayConfigured('decentro')

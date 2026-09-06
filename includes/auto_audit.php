@@ -698,6 +698,12 @@ function getGatewaySetupGaps(): array
 /** Payment collect gateways only — for Platform Settings launch panel (not internal workflow labels). */
 function getCriticalCollectGatewayGaps(): array
 {
+    if (!function_exists('registryCollectPartnerKeyGaps') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    if (function_exists('registryCollectPartnerKeyGaps')) {
+        return registryCollectPartnerKeyGaps();
+    }
     $collectIds = ['razorpay', 'cashfree', 'payu'];
     return array_values(array_filter(getGatewaySetupGaps(), static fn(array $svc): bool => in_array($svc['id'] ?? '', $collectIds, true)));
 }

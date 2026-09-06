@@ -687,6 +687,15 @@ function getIntegrationMatrixPartnerLabels(): array
 /** @return list<string> */
 function getCheckoutPgPartnerKeys(): array
 {
+    if (!function_exists('registryCollectCapablePartnerKeys') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    if (function_exists('registryCollectCapablePartnerKeys')) {
+        $keys = registryCollectCapablePartnerKeys(true);
+        if ($keys !== []) {
+            return $keys;
+        }
+    }
     $keys = [];
     foreach (getPartnerRegistryKeys() as $key) {
         if (partnerHasRegistryFlag($key, 'checkout_pg')) {
@@ -847,6 +856,40 @@ function partnerConfiguredCount(): array
 function partnerIntegrationState(string $partnerKey): array
 {
     $partnerKey = strtolower(trim($partnerKey));
+    if (!function_exists('registryPartnerCollectStatus') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    if (function_exists('registryPartnerCollectStatus')) {
+        $snap = registryPartnerCollectStatus($partnerKey);
+        if (!$snap['wired']) {
+            return [
+                'state' => 'STUB',
+                'label' => 'Not wired',
+                'hint' => 'No connector file — paste keys after adapter is wired.',
+            ];
+        }
+        if (!$snap['collect']) {
+            return [
+                'state' => 'STUB',
+                'label' => 'STUB',
+                'hint' => 'Registry + keys UI — live web checkout/API not wired yet.',
+            ];
+        }
+        if ($snap['key_status'] === 'valid' && $snap['active']) {
+            return [
+                'state' => 'LIVE',
+                'label' => 'LIVE',
+                'hint' => 'Collect path works when Registry keys are saved (Test or Live).',
+            ];
+        }
+        if ($snap['key_status'] === 'valid') {
+            return [
+                'state' => 'LIVE',
+                'label' => 'LIVE',
+                'hint' => 'Keys Valid — turn ON routing in Partner Registry to collect.',
+            ];
+        }
+    }
     $checkoutPg = partnerHasRegistryFlag($partnerKey, 'checkout_pg');
     $explicitStub = in_array($partnerKey, ['phonepe', 'pinelabs', 'worldline', 'toucanpay', 'digio'], true);
     $flags = getPartnerRegistry()[$partnerKey]['flags'] ?? [];
@@ -863,13 +906,6 @@ function partnerIntegrationState(string $partnerKey): array
             'state' => 'STUB',
             'label' => 'STUB',
             'hint' => 'Partner scaffold — paste keys; collect checkout follows in a later release.',
-        ];
-    }
-    if ($partnerKey === 'rbl') {
-        return [
-            'state' => 'STUB',
-            'label' => 'STUB',
-            'hint' => 'RBL sandbox-first — paste Key/Secret + Corp/Master; live keys later.',
         ];
     }
     if ($checkoutPg) {
