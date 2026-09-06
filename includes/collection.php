@@ -599,12 +599,21 @@ function buildCheckoutPaymentMethods(array $link): array
 {
     $handler = resolveCheckoutHandlerForLink($link);
     $isTest = !empty($link['is_test']) || merchantAccountMode($link) === 'test';
-    $payuConfigured = isGatewayConfigured('payu');
-    $rzpConfigured = isGatewayConfigured('razorpay');
-    $cfConfigured = isGatewayConfigured('cashfree');
     $methods = [];
 
     $merchantId = (int)($link['merchant_id'] ?? 0);
+    if (!function_exists('collectCheckoutPartnerIsEligible') && is_file(__DIR__ . '/smart_routing.php')) {
+        require_once __DIR__ . '/smart_routing.php';
+    }
+    $rzpConfigured = isGatewayConfigured('razorpay')
+        && (!function_exists('collectCheckoutPartnerIsEligible')
+            || collectCheckoutPartnerIsEligible($merchantId, 'razorpay', $isTest));
+    $cfConfigured = isGatewayConfigured('cashfree')
+        && (!function_exists('collectCheckoutPartnerIsEligible')
+            || collectCheckoutPartnerIsEligible($merchantId, 'cashfree', $isTest));
+    $payuConfigured = isGatewayConfigured('payu')
+        && (!function_exists('collectCheckoutPartnerIsEligible')
+            || collectCheckoutPartnerIsEligible($merchantId, 'payu', $isTest));
     if (($link['enabled_methods'] ?? '') === '' && $merchantId > 0) {
         try {
             $st = getDB()->prepare('SELECT enabled_methods FROM merchants WHERE id=?');

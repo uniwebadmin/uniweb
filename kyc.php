@@ -524,11 +524,11 @@ $docStatusMeta = static function (string $status): array {
     ?>
     <div class="glass rounded-xl p-6 mb-6 border border-violet-500/20" id="partner-coverage">
         <h2 class="font-semibold mb-1">Partner document coverage</h2>
-        <p class="text-xs text-gray-500 mb-4">Each collect partner has its own pack from Partner Registry. Completing one partner does not change another. This is UniWeb vault status only — not sent to the partner and not partner-approved.</p>
+        <p class="text-xs text-gray-500 mb-4">Docs for <span class="text-gray-300"><?= e(entityTypeLabel($entityType)) ?></span> only. UniWeb vault — not partner-approved.</p>
         <?php if ($coverageRows === []): ?>
-        <p class="text-sm text-gray-500">No active partner has a document pack configured. Ask Admin to set the merchant KYC doc pack on Partner Registry.</p>
+        <p class="text-sm text-gray-500">No partner pack applies to this entity. Ask Admin to set the merchant KYC doc pack on Partner Registry.</p>
         <?php else: ?>
-        <div class="space-y-4">
+        <div class="space-y-3">
             <?php foreach ($coverageRows as $cr): ?>
             <div class="bg-dark-900/50 rounded-xl p-4 border border-gray-800">
                 <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
@@ -538,11 +538,14 @@ $docStatusMeta = static function (string $status): array {
                     </div>
                     <div class="text-right">
                         <span class="text-[10px] px-2 py-0.5 rounded-full <?= $cr['status'] === 'docs_ready' ? 'bg-emerald-500/20 text-emerald-400' : ($cr['status'] === 'docs_incomplete' ? 'bg-amber-500/15 text-amber-300' : 'bg-gray-700/50 text-gray-400') ?>"><?= e($cr['status_label']) ?></span>
-                        <p class="text-[11px] text-gray-500 mt-1"><?= (int)$cr['present'] ?>/<?= (int)$cr['total'] ?> · <?= (int)$cr['percent'] ?>%</p>
+                        <?php if (!empty($cr['checkout_enabled'])): ?>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">Active</span>
+                        <?php endif; ?>
+                        <p class="text-[11px] text-gray-500 mt-1"><?= (int)$cr['present'] ?>/<?= (int)$cr['total'] ?></p>
                     </div>
                 </div>
                 <?php if (!empty($cr['linked_valid'])): ?>
-                <p class="text-[11px] text-sky-300 mb-2">Already-live keys are Valid — enable does not require this pack to be complete.</p>
+                <p class="text-[11px] text-sky-300 mb-2">Already-live keys Valid — enable does not need this pack complete.</p>
                 <?php endif; ?>
                 <ul class="text-xs space-y-1 mb-3">
                     <?php foreach ($cr['items'] as $it): ?>
@@ -579,16 +582,15 @@ $docStatusMeta = static function (string $status): array {
                     <input type="hidden" name="partner_key" value="<?= e($cr['partner_key']) ?>">
                     <?php if (!empty($cr['checkout_enabled'])): ?>
                     <input type="hidden" name="checkout_on" value="0">
-                    <button type="submit" class="text-xs px-3 py-2 rounded-lg border border-gray-600 text-gray-300">Turn OFF enable flag</button>
+                    <button type="submit" class="text-xs px-3 py-2 rounded-lg border border-gray-600 text-gray-300">Turn OFF</button>
                     <?php else: ?>
                     <input type="hidden" name="checkout_on" value="1">
                     <button type="submit" class="text-xs px-3 py-2 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30">Enable for this partner</button>
                     <?php endif; ?>
                 </form>
                 <?php else: ?>
-                <p class="text-[11px] text-gray-500 mt-1">Enable is not available until documents are ready (or already-live keys are Valid).</p>
+                <p class="text-[11px] text-gray-500 mt-1">Enable after documents are ready, or when already-live keys are Valid.</p>
                 <?php endif; ?>
-                <p class="text-[10px] text-gray-600 mt-2"><?= e($cr['honest_note']) ?></p>
             </div>
             <?php endforeach; ?>
         </div>

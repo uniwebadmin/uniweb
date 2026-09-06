@@ -197,13 +197,7 @@ require_once __DIR__ . '/header.php';
         <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
             <div>
                 <h2 class="font-semibold text-lg">Partner Registry — Global Control Room</h2>
-                <p class="text-xs text-gray-500 mt-1">Bank and PG <strong class="text-gray-400">tech partners</strong> — keys, methods, routing. New partners appear here immediately as <strong class="text-gray-300">Inactive</strong> (no Activate needed to see the row). Badges: <strong class="text-gray-300">Inactive / Active</strong> (routing), <strong class="text-gray-300">Keys Missing / Keys Valid / Keys Invalid</strong>, <strong class="text-gray-300">Not wired (adapter missing)</strong>. Flow: <strong class="text-gray-400">Test keys → Test Connection → Live keys</strong> → Activate for routing when allowed. Partners do not own merchants.</p>
-                <?php if (function_exists('partnerRegistryV2ControlRoomNote')): ?>
-                <p class="text-[11px] text-violet-300/90 mt-2 border border-violet-500/20 rounded-lg px-3 py-2"><?= e(partnerRegistryV2ControlRoomNote()) ?></p>
-                <?php endif; ?>
-                <?php if (is_array($registryKindEdu)): ?>
-                <p class="text-[11px] text-violet-300/90 mt-2"><?= e($registryKindEdu['summary']) ?> UPI/Card/QR live under <strong class="text-gray-400">Payment Methods</strong>, not here.</p>
-                <?php endif; ?>
+                <p class="text-xs text-gray-500 mt-1">Inactive / Active · Keys Missing / Valid / Invalid · Not wired. Test keys → Test Connection → Live keys → Activate for routing. Partners do not own merchants.</p>
             </div>
             <div class="flex gap-3">
                 <div class="text-center">
@@ -399,7 +393,7 @@ require_once __DIR__ . '/header.php';
             <?php if (function_exists('partnerRegistryV2MerchantDocPackCatalog')): ?>
             <div>
                 <p class="text-xs text-gray-500 mb-1 font-medium text-gray-400">Merchant KYC doc pack</p>
-                <p class="text-[11px] text-gray-600 mb-2">Onboarding documents required for progressive coverage (Phase 3). Uses same codes as merchant KYC.</p>
+                <p class="text-[11px] text-gray-500 mb-2">Superset for this partner. Merchant KYC UI filters to the merchant’s entity type.</p>
                 <div class="flex flex-wrap gap-3 max-h-36 overflow-y-auto">
                     <?php foreach (partnerRegistryV2MerchantDocPackCatalog() as $code => $label): ?>
                     <label class="flex items-center gap-1.5 text-xs text-gray-400" title="<?= e($label) ?>">

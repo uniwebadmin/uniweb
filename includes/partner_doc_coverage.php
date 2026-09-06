@@ -101,7 +101,15 @@ function partnerDocCoveragePackCodes(array $gatewayRow): array
     if (!function_exists('partnerRegistryV2FilterMerchantDocCodes')) {
         return [];
     }
-    return partnerRegistryV2FilterMerchantDocCodes($pack);
+    if (!function_exists('kycDocsApplicableForEntity') && is_file(__DIR__ . '/kyc_entity.php')) {
+        require_once __DIR__ . '/kyc_entity.php';
+    }
+    $pack = partnerRegistryV2FilterMerchantDocCodes($pack);
+    $entityType = (string)($gatewayRow['_entity_type'] ?? '');
+    if ($entityType !== '' && function_exists('kycDocsApplicableForEntity')) {
+        $pack = kycDocsApplicableForEntity($entityType, $pack);
+    }
+    return $pack;
 }
 
 function partnerDocCoverageIsLinkedValid(?array $link): bool
@@ -151,6 +159,10 @@ function partnerDocCoverageComputeOne(int $merchantId, array $gatewayRow, array 
 {
     $key = strtolower(trim((string)($gatewayRow['gateway_key'] ?? '')));
     $pack = $gatewayRow['_pack'] ?? partnerDocCoveragePackCodes($gatewayRow);
+    $entityType = (string)($gatewayRow['_entity_type'] ?? '');
+    if ($entityType !== '' && function_exists('kycDocsApplicableForEntity')) {
+        $pack = kycDocsApplicableForEntity($entityType, $pack);
+    }
     $labels = function_exists('getKycDocLabels') ? getKycDocLabels() : [];
     $items = [];
     $present = 0;
@@ -224,6 +236,17 @@ function partnerDocCoverageForMerchant(int $merchantId): array
         require_once __DIR__ . '/partner_control.php';
     }
     ensurePartnerControlTables();
+    $entityType = 'sole_proprietorship';
+    try {
+        $st = getDB()->prepare('SELECT business_entity_type FROM merchants WHERE id=? LIMIT 1');
+        $st->execute([$merchantId]);
+        $entityType = (string)$st->fetchColumn();
+    } catch (Throwable $e) {
+        $entityType = 'sole_proprietorship';
+    }
+    if (function_exists('normalizeKycEntityType')) {
+        $entityType = normalizeKycEntityType($entityType);
+    }
     $vault = partnerDocCoverageVaultLatest($merchantId);
     $links = [];
     foreach (function_exists('getMerchantPartnerLinks') ? getMerchantPartnerLinks($merchantId) : [] as $lr) {
@@ -231,8 +254,13 @@ function partnerDocCoverageForMerchant(int $merchantId): array
     }
     $rows = [];
     foreach (partnerDocCoveragePartnerRows() as $g) {
+        $g['_entity_type'] = $entityType;
         $key = strtolower((string)$g['gateway_key']);
-        $rows[] = partnerDocCoverageComputeOne($merchantId, $g, $vault, $links[$key] ?? null);
+        $one = partnerDocCoverageComputeOne($merchantId, $g, $vault, $links[$key] ?? null);
+        if ((int)$one['total'] === 0 && empty($one['linked_valid'])) {
+            continue;
+        }
+        $rows[] = $one;
     }
     return $rows;
 }
@@ -246,12 +274,20 @@ function merchantKycAllowedUploadTypes(int $merchantId, array $merchant): array
         require_once __DIR__ . '/kyc_entity.php';
     }
     $types = [];
+    $entityType = (string)($merchant['business_entity_type'] ?? 'sole_proprietorship');
     if (function_exists('getKycRequirements')) {
-        $types = getKycRequirements((string)($merchant['business_entity_type'] ?? 'sole_proprietorship'));
+        $types = getKycRequirements($entityType);
     }
     foreach (partnerDocCoverageForMerchant($merchantId) as $row) {
         foreach ($row['items'] as $item) {
-            $types[] = (string)$item['code'];
+            $code = (string)$item['code'];
+            if ($code === '') {
+                continue;
+            }
+            if (function_exists('kycDocsApplicableForEntity') && kycDocsApplicableForEntity($entityType, [$code]) === []) {
+                continue;
+            }
+            $types[] = $code;
         }
     }
     $types = array_values(array_unique(array_filter(array_map('strval', $types))));

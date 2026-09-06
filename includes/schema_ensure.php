@@ -546,21 +546,73 @@ function ensureCollationConsistency(): void
               AND TABLE_COLLATION IS NOT NULL
               AND TABLE_COLLATION != '{$target}'")->fetchAll();
 
-        if (empty($rows)) return;
-
-        $db->exec("SET FOREIGN_KEY_CHECKS = 0");
-        foreach ($rows as $row) {
-            $table = $row['TABLE_NAME'];
-            if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) continue;
-            try {
-                $db->exec("ALTER TABLE `{$table}` CONVERT TO CHARACTER SET utf8mb4 COLLATE {$target}");
-            } catch (Throwable $e) {
-                error_log("UniWeb collation fix failed for {$table}: " . $e->getMessage());
+        if (!empty($rows)) {
+            $db->exec("SET FOREIGN_KEY_CHECKS = 0");
+            foreach ($rows as $row) {
+                $table = $row['TABLE_NAME'];
+                if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) continue;
+                try {
+                    $db->exec("ALTER TABLE `{$table}` CONVERT TO CHARACTER SET utf8mb4 COLLATE {$target}");
+                } catch (Throwable $e) {
+                    error_log("UniWeb collation fix failed for {$table}: " . $e->getMessage());
+                }
             }
+            $db->exec("SET FOREIGN_KEY_CHECKS = 1");
         }
-        $db->exec("SET FOREIGN_KEY_CHECKS = 1");
+
+        ensureJoinKeyColumnCollations($db, $target);
     } catch (Throwable $e) {
         error_log('UniWeb ensureCollationConsistency failed: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Table CONVERT can leave individual VARCHAR join keys on utf8mb4_bin.
+ * Those mixes throw 1267 on Admin KYC / partner_forward_queue / registry JOINs.
+ */
+function ensureJoinKeyColumnCollations(PDO $db, string $target = 'utf8mb4_unicode_ci'): void
+{
+    $pairs = [
+        ['gateway_registry', 'gateway_key'],
+        ['partner_methods', 'partner_key'],
+        ['partner_methods', 'method'],
+        ['partner_merchant_links', 'partner_key'],
+        ['partner_forward_queue', 'partner_key'],
+        ['partner_forward_queue', 'status'],
+        ['partner_credentials', 'partner_key'],
+        ['kyc_documents', 'doc_type'],
+        ['kyc_documents', 'status'],
+        ['merchants', 'merchant_code'],
+        ['merchants', 'email'],
+        ['merchants', 'kyc_status'],
+        ['merchants', 'business_entity_type'],
+        ['gateway_submissions', 'gateway_key'],
+    ];
+    foreach ($pairs as [$table, $col]) {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $table) || !preg_match('/^[a-zA-Z0-9_]+$/', $col)) {
+            continue;
+        }
+        try {
+            $st = $db->query("SHOW FULL COLUMNS FROM `{$table}` WHERE Field = " . $db->quote($col));
+            $info = $st ? $st->fetch(PDO::FETCH_ASSOC) : false;
+            if (!$info || empty($info['Collation'])) {
+                continue;
+            }
+            if (strcasecmp((string)$info['Collation'], $target) === 0) {
+                continue;
+            }
+            $type = (string)$info['Type'];
+            $null = strtoupper((string)$info['Null']) === 'YES' ? 'NULL' : 'NOT NULL';
+            $defaultSql = '';
+            if ($info['Default'] !== null) {
+                $defaultSql = ' DEFAULT ' . $db->quote((string)$info['Default']);
+            } elseif (strtoupper((string)$info['Null']) === 'YES') {
+                $defaultSql = ' DEFAULT NULL';
+            }
+            $db->exec("ALTER TABLE `{$table}` MODIFY COLUMN `{$col}` {$type} CHARACTER SET utf8mb4 COLLATE {$target} {$null}{$defaultSql}");
+        } catch (Throwable $e) {
+            error_log("UniWeb join-key collation fix failed for {$table}.{$col}: " . $e->getMessage());
+        }
     }
 }
 

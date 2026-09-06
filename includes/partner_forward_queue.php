@@ -1109,17 +1109,17 @@ function getAdminForwardMatrix(string $statusFilter = '', string $q = '', string
         $params = [];
         $conditions = [];
         if ($statusFilter !== '') {
-            $conditions[] = "q.status = ?";
+            $conditions[] = "q.status COLLATE utf8mb4_unicode_ci = ?";
             $params[] = $statusFilter;
         }
         $partnerFilter = strtolower(trim($partnerFilter));
         if ($partnerFilter !== '') {
-            $conditions[] = 'q.partner_key = ?';
+            $conditions[] = 'q.partner_key COLLATE utf8mb4_unicode_ci = ?';
             $params[] = $partnerFilter;
         }
         if ($q !== '') {
             $like = '%' . strtolower($q) . '%';
-            $conditions[] = "(LOWER(TRIM(COALESCE(m.business_name,''))) LIKE ? OR LOWER(TRIM(COALESCE(m.merchant_code,''))) LIKE ? OR LOWER(TRIM(COALESCE(q.partner_key,''))) LIKE ? OR LOWER(TRIM(COALESCE(q.status,''))) LIKE ? OR CAST(q.id AS CHAR) LIKE ?)";
+            $conditions[] = "(LOWER(TRIM(COALESCE(m.business_name,''))) COLLATE utf8mb4_unicode_ci LIKE ? OR LOWER(TRIM(COALESCE(m.merchant_code,''))) COLLATE utf8mb4_unicode_ci LIKE ? OR LOWER(TRIM(COALESCE(q.partner_key,''))) COLLATE utf8mb4_unicode_ci LIKE ? OR LOWER(TRIM(COALESCE(q.status,''))) COLLATE utf8mb4_unicode_ci LIKE ? OR CAST(q.id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci LIKE ?)";
             array_push($params, $like, $like, $like, $like, $like);
         }
         if ($conditions) {

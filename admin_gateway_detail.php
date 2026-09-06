@@ -488,7 +488,7 @@ require_once __DIR__ . '/header.php';
             </form>
             <?php endif; ?>
         </div>
-        <p class="text-[11px] text-gray-600 mt-3">Keys tab saves encrypted credentials (last4 only). Activate turns routing ON. Turn OFF hides methods. Retire is only for custom partners you added — type the partner code. Active is not money Live.</p>
+        <p class="text-[11px] text-gray-500 mt-3">Keys tab stores encrypted credentials. Activate turns routing ON. Active is not live money.</p>
     </div>
 
     <div class="flex gap-1 border-b border-gray-800 overflow-x-auto">
@@ -500,7 +500,7 @@ require_once __DIR__ . '/header.php';
     <?php if ($activeTab === 'profile' && is_array($registryProfile)): ?>
     <div class="glass rounded-xl p-6 border border-gray-800">
         <h3 class="font-semibold mb-1">Registry profile</h3>
-        <p class="text-xs text-gray-500 mb-4">Identity, connector, commercial mode, capabilities, doc pack, and policy URLs. Credentials show status only — never plaintext secrets.</p>
+        <p class="text-xs text-gray-500 mb-4">Identity and connector. Keys stay on the Keys tab — status badges only, never secrets.</p>
         <div class="flex flex-wrap gap-2 mb-4">
             <?php if (function_exists('partnerCredentialVaultStatusBadge')): ?>
             <span>Test creds: <?= partnerCredentialVaultStatusBadge(partnerCredentialVaultStatus($partnerKey, 'test')) ?></span>
@@ -534,7 +534,7 @@ require_once __DIR__ . '/header.php';
             </div>
             <div>
                 <p class="text-xs text-gray-500 mb-1 font-medium text-gray-400">Merchant KYC doc pack</p>
-                <p class="text-[11px] text-gray-600 mb-2">Onboarding documents for progressive merchant coverage (Phase 3).</p>
+                <p class="text-[11px] text-gray-500 mb-2">Superset stored here. Merchant coverage lists only this entity’s docs.</p>
                 <div class="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                     <?php foreach (partnerRegistryV2MerchantDocPackCatalog() as $code => $label): ?>
                     <label class="text-xs text-gray-400 flex items-center gap-1" title="<?= e($label) ?>">

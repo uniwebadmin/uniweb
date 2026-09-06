@@ -22,6 +22,9 @@ if (!function_exists('buildPaymentTrackUrl') && is_file(__DIR__ . '/includes/cus
 if (!function_exists('checkoutSessionPaymentOrderKey') && is_file(__DIR__ . '/includes/payment_idempotency.php')) {
     require_once __DIR__ . '/includes/payment_idempotency.php';
 }
+if (!function_exists('collectEligibleCheckoutPartners') && is_file(__DIR__ . '/includes/smart_routing.php')) {
+    require_once __DIR__ . '/includes/smart_routing.php';
+}
 
 /**
  * Render a branded, navigable checkout error page instead of a bare white die() screen.
@@ -338,6 +341,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && ($_POST['a
         if ($rateCount >= 10) {
             $error = 'Too many payment attempts. Please wait a few minutes and try again.';
         } else {
+            $methodType = (string)($currentMethod['type'] ?? '');
+            $needsPartner = !in_array($handler, ['direct_upi', 'axis_va'], true)
+                || in_array($methodType, ['pg_pool', 'payu', 'razorpay', 'cashfree'], true);
+            if ($needsPartner && $selectedPay !== 'upi' && function_exists('collectEligibleCheckoutPartners')) {
+                $eligiblePay = collectEligibleCheckoutPartners((int)$link['merchant_id'], true);
+                if ($eligiblePay === []) {
+                    $error = function_exists('collectCheckoutNoneEligibleMessage')
+                        ? collectCheckoutNoneEligibleMessage()
+                        : 'No payment partner is ready for this checkout.';
+                }
+            }
+            if ($error === '') {
             file_put_contents($rateFile, json_encode(['ts' => time(), 'count' => $rateCount + 1]));
             $method = preg_replace('/[^a-z0-9_]/i', '', $selectedPay) ?: 'test';
         $testReference = 'TEST' . strtoupper(bin2hex(random_bytes(6)));
@@ -369,6 +384,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && ($_POST['a
                 : 'Test payment could not be recorded. Try again in a moment.';
             logPlatformError('error', 'Instant test pay failed: ' . $e->getMessage(), ['link_id' => $linkId]);
         }
+            }
         }
     }
 }
@@ -444,7 +460,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $payuForms[$selectedPay] = $smartRouted['payu'];
             $pgCheckoutPartner = 'payu';
         } elseif (!empty($smartRouted['intelligent']) && empty($smartRouted['routed_to']) && ($error ?? '') === '') {
-            $error = 'This payment method is temporarily unavailable. Please try UPI or another method.';
+                    $error = function_exists('collectCheckoutNoneEligibleMessage')
+                        ? collectCheckoutNoneEligibleMessage()
+                        : 'This payment method is not available. No eligible payment partner is ready.';
         }
     } elseif ($phase11RoutingOn && ($pgPoolSelected || $legacyPgTab) && $routeHandlersClear) {
         // Phase 11 ON: smart partner routing (Registry keys + health failover). Methods-only checkout — no partner brand CTA.
@@ -457,11 +475,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $cashfreeSession = $smartRouted['cashfree']['payment_session_id'] ?? null;
             $pgCheckoutPartner = 'cashfree';
         } elseif (!empty($smartRouted['phase11']) && empty($smartRouted['routed_to']) && ($error ?? '') === '') {
-            $error = 'This payment method is temporarily unavailable. Please try UPI or another method.';
+                    $error = function_exists('collectCheckoutNoneEligibleMessage')
+                        ? collectCheckoutNoneEligibleMessage()
+                        : 'This payment method is not available. No eligible payment partner is ready.';
         }
     } elseif ($pgPoolSelected && !$intelligentOn && !$phase11RoutingOn) {
         $returnUrl = APP_URL . '/payment_cashfree_return.php?order_id={order_id}';
         foreach (['razorpay', 'cashfree'] as $gw) {
+            if (function_exists('collectCheckoutPartnerIsEligible')
+                && !collectCheckoutPartnerIsEligible((int)$link['merchant_id'], $gw, $isTestCheckout)) {
+                continue;
+            }
             if (!isGatewayConfigured($gw)) {
                 continue;
             }

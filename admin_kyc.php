@@ -233,17 +233,10 @@ try {
          ORDER BY k.created_at ASC"
     )->fetchAll();
 } catch (Throwable $e) {
-    try {
-        $pendingDocs = $db->query(
-            "SELECT k.*, m.business_name, m.merchant_code, m.business_entity_type
-             FROM kyc_documents k
-             JOIN merchants m ON k.merchant_id = m.id
-             WHERE k.status = 'pending'
-             ORDER BY k.created_at ASC"
-        )->fetchAll();
-    } catch (Throwable $e2) {
-        $pendingDocs = [];
+    if (function_exists('logPlatformError')) {
+        logPlatformError('error', 'admin_kyc pending docs query failed: ' . $e->getMessage());
     }
+    $pendingDocs = [];
 }
 $pendingMerchants = [];
 $recentSignups = [];
@@ -275,21 +268,17 @@ $liveCandidates = [];
 try {
     $liveCandidates = $db->query(
         "SELECT id, business_name, merchant_code FROM merchants
-         WHERE status = 'active' AND kyc_status = 'verified' AND account_mode = 'test'
-           AND email <> CONVERT('demo@uniweb.co.in' USING utf8mb4)
+         WHERE status COLLATE utf8mb4_unicode_ci = 'active'
+           AND kyc_status COLLATE utf8mb4_unicode_ci = 'verified'
+           AND account_mode COLLATE utf8mb4_unicode_ci = 'test'
+           AND email COLLATE utf8mb4_unicode_ci <> 'demo@uniweb.co.in'
          ORDER BY id ASC LIMIT 50"
     )->fetchAll();
 } catch (Throwable $e) {
-    try {
-        $liveCandidates = $db->query(
-            "SELECT id, business_name, merchant_code FROM merchants
-             WHERE status = 'active' AND kyc_status = 'verified' AND account_mode = 'test'
-               AND email <> 'demo@uniweb.co.in'
-             ORDER BY id ASC LIMIT 50"
-        )->fetchAll();
-    } catch (Throwable $e2) {
-        $liveCandidates = [];
+    if (function_exists('logPlatformError')) {
+        logPlatformError('error', 'admin_kyc live candidates query failed: ' . $e->getMessage());
     }
+    $liveCandidates = [];
 }
 $verifiedForwardMerchants = array_slice($liveCandidates, 0, 20);
 $videoQueue = [];
@@ -303,8 +292,8 @@ try {
              WHERE k2.merchant_id = m.id AND k2.doc_type COLLATE utf8mb4_unicode_ci = 'video_kyc'
              ORDER BY k2.created_at DESC LIMIT 1
          )
-         WHERE m.status = 'active'
-           AND m.email <> CONVERT('demo@uniweb.co.in' USING utf8mb4)
+         WHERE m.status COLLATE utf8mb4_unicode_ci = 'active'
+           AND m.email COLLATE utf8mb4_unicode_ci <> 'demo@uniweb.co.in'
            AND COALESCE(m.video_kyc_status, 'pending') IN ('submitted', 'pending')
          ORDER BY k.created_at ASC
          LIMIT 50"
@@ -320,8 +309,8 @@ try {
                  WHERE k2.merchant_id = m.id AND k2.doc_type = 'video_kyc'
                  ORDER BY k2.created_at DESC LIMIT 1
              )
-             WHERE m.status = 'active'
-               AND m.email <> 'demo@uniweb.co.in'
+             WHERE m.status COLLATE utf8mb4_unicode_ci = 'active'
+               AND m.email COLLATE utf8mb4_unicode_ci <> 'demo@uniweb.co.in'
                AND COALESCE(m.video_kyc_status, 'pending') IN ('submitted', 'pending')
              ORDER BY k.created_at ASC
              LIMIT 50"
@@ -348,9 +337,9 @@ try {
             "SELECT m.id, m.business_name, m.merchant_code, m.onboarding_state, m.kyc_status,
                     (SELECT COUNT(*) FROM auto_kyc_runs WHERE merchant_id=m.id AND action=?) AS fail_count
              FROM merchants m
-             WHERE m.onboarding_state = 'hold'
-               AND m.status NOT IN ('blocked','suspended','deleted')
-               AND m.email <> 'demo@uniweb.co.in'
+             WHERE m.onboarding_state COLLATE utf8mb4_unicode_ci = 'hold'
+               AND m.status COLLATE utf8mb4_unicode_ci NOT IN ('blocked','suspended','deleted')
+               AND m.email COLLATE utf8mb4_unicode_ci <> 'demo@uniweb.co.in'
              ORDER BY fail_count DESC LIMIT 20"
         );
         $manualAssistQueue->execute([getKycFailAction()]);
@@ -379,15 +368,7 @@ if (!function_exists('renderKycFailureAdminPanel')) {
 <?= renderKycFailureAdminPanel() ?>
 <div class="glass rounded-xl p-5 mb-6 border border-emerald-500/20 text-sm text-gray-300">
     <p class="font-semibold text-emerald-300 mb-1">Go-live path: Signup → Docs → Verify → Live</p>
-    <p class="font-semibold text-emerald-300/80 mb-2">KYC workflow (canonical order)</p>
-    <ol class="text-xs text-gray-400 space-y-1 list-decimal list-inside">
-        <li><strong class="text-gray-300">Pending documents</strong> — approve each file (clean scan required)</li>
-        <li><strong class="text-gray-300">Video queue</strong> — verify recording when required</li>
-        <li><strong class="text-gray-300">Verify merchant</strong> — only when readiness is green (same gate for Auto + Manual)</li>
-        <li><strong class="text-gray-300">Partner forward</strong> — automatic after verify, or <strong class="text-violet-300">Forward to partners</strong> on verified merchants (Staged until keys pasted)</li>
-        <li><strong class="text-gray-300">Live activation</strong> — separate gate; verified ≠ live money</li>
-    </ol>
-    <p class="text-[11px] text-gray-600 mt-2">Master status: <code class="text-sky-400">merchants.kyc_status</code>. Helpers: documents, verifications, checker queue, forward queue.</p>
+    <p class="text-xs text-gray-500">Verified is not live money. Staged forward is not sent to the partner.</p>
 </div>
 <?php if ($filterMerchantId > 0): ?>
 <div class="glass rounded-xl p-3 mb-4 border border-sky-500/30 text-xs text-sky-200 flex flex-wrap items-center justify-between gap-2">

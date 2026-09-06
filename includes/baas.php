@@ -342,7 +342,7 @@ function getGroupedMerchantPricing(?array $merchant = null): array
         $db = getDB();
         $sql = "SELECT pm.partner_key, pm.method, pm.base_mdr_percent, g.gateway_name, g.is_active
                 FROM partner_methods pm
-                JOIN gateway_registry g ON g.gateway_key = pm.partner_key
+                JOIN gateway_registry g ON g.gateway_key COLLATE utf8mb4_unicode_ci = pm.partner_key COLLATE utf8mb4_unicode_ci
                 WHERE pm.is_enabled = 1 AND g.is_active = 1";
         if (!$isTestMode) {
             $sql .= " AND (g.public_go_live = 1 OR g.public_go_live IS NULL)";

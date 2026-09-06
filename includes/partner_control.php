@@ -777,7 +777,7 @@ function getPartnersForMethod(string $method): array
     try {
         $st = getDB()->prepare(
             "SELECT pm.partner_key FROM partner_methods pm
-             INNER JOIN gateway_registry gr ON gr.gateway_key = pm.partner_key
+             INNER JOIN gateway_registry gr ON gr.gateway_key COLLATE utf8mb4_unicode_ci = pm.partner_key COLLATE utf8mb4_unicode_ci
              WHERE pm.method = ? AND pm.is_enabled = 1 AND gr.is_active = 1
              ORDER BY pm.priority ASC, gr.sort_order ASC"
         );
@@ -808,7 +808,7 @@ function getAllEnabledMethods(): array
         $st = getDB()->query(
             "SELECT pm.method, pm.partner_key, pm.priority, pm.min_amt, pm.max_amt
              FROM partner_methods pm
-             INNER JOIN gateway_registry gr ON gr.gateway_key = pm.partner_key
+             INNER JOIN gateway_registry gr ON gr.gateway_key COLLATE utf8mb4_unicode_ci = pm.partner_key COLLATE utf8mb4_unicode_ci
              WHERE pm.is_enabled = 1 AND gr.is_active = 1{$retiredSql}
              ORDER BY pm.method, pm.priority ASC, gr.sort_order ASC"
         );

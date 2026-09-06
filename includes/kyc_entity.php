@@ -151,6 +151,39 @@ if (!function_exists('kycDocsSatisfyRequirements')) {
     }
 }
 
+/** Partner pack extras that are not entity-specific deeds (COI / MOA / partnership / trust / LLP). */
+if (!function_exists('kycPartnerUniversalDocCodes')) {
+    function kycPartnerUniversalDocCodes(): array
+    {
+        return ['letterhead', 'business_proof', 'udyam', 'iec', 'video_kyc'];
+    }
+}
+
+/**
+ * Registry doc_pack may be a superset. UI/coverage must only show docs for this entity
+ * plus true partner-universal extras — never dump partnership deed on a Pvt Ltd, etc.
+ *
+ * @param list<string> $packCodes
+ * @return list<string>
+ */
+if (!function_exists('kycDocsApplicableForEntity')) {
+    function kycDocsApplicableForEntity(string $entityType, array $packCodes): array
+    {
+        $allowed = array_fill_keys(array_merge(
+            getKycRequirements($entityType),
+            kycPartnerUniversalDocCodes()
+        ), true);
+        $out = [];
+        foreach ($packCodes as $code) {
+            $code = canonicalizeKycDocType((string)$code);
+            if ($code !== '' && isset($allowed[$code])) {
+                $out[] = $code;
+            }
+        }
+        return array_values(array_unique($out));
+    }
+}
+
 if (!function_exists('entityRequiresKycDoc')) {
     function entityRequiresKycDoc(string $entityType, string $docType): bool
     {
@@ -293,8 +326,8 @@ if (!function_exists('getPendingKycQueue')) {
                  FROM merchants
                  WHERE status != 'deleted'
                    AND kyc_status IN ('pending','submitted')
-                   AND email <> 'demo@uniweb.co.in'
-                 ORDER BY FIELD(COALESCE(business_entity_type,''), 'individual','freelancer','sole_proprietorship','sole_proprietor','proprietor','partnership','private_limited','public_limited','llp','opc','trust','society','huf','other'),
+                   AND email COLLATE utf8mb4_unicode_ci <> 'demo@uniweb.co.in'
+                 ORDER BY FIELD(COALESCE(business_entity_type,'') COLLATE utf8mb4_unicode_ci, 'individual','freelancer','sole_proprietorship','sole_proprietor','proprietor','partnership','private_limited','public_limited','llp','opc','trust','society','huf','other'),
                           created_at ASC
                  LIMIT ?"
             );
@@ -319,7 +352,7 @@ if (!function_exists('getRecentSignupQueue')) {
                         kyc_status, account_mode, status, created_at
                  FROM merchants
                  WHERE status != 'deleted'
-                   AND email <> 'demo@uniweb.co.in'
+                   AND email COLLATE utf8mb4_unicode_ci <> 'demo@uniweb.co.in'
                  ORDER BY created_at DESC
                  LIMIT ?"
             );

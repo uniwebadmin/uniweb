@@ -2323,6 +2323,28 @@ $assert(str_contains((string)file_get_contents($root . '/includes/payment_method
 $assert(str_contains($detV2, 'resolvePartnerAdminMeta') && str_contains($detV2, 'Activate for routing') && str_contains($detV2, 'partnerCredentialVaultStatusBadge'), 'prv2_detail_keys_usable');
 $assert(str_contains($detV2, "\$_GET['test_env'] ?? \$_GET['env'] ?? 'test'") || str_contains($detV2, "\$_GET['test_env'] ??"), 'prv2_test_env_no_undefined_key');
 
+$kycEntSrc = (string)file_get_contents($root . '/includes/kyc_entity.php');
+$covSrcP4 = (string)file_get_contents($root . '/includes/partner_doc_coverage.php');
+$pvtLtdDocs = getKycRequirements('private_limited');
+$propDocsP4 = getKycRequirements('sole_proprietorship');
+$pvtPack = kycDocsApplicableForEntity('private_limited', ['pan', 'gst', 'moa_aoa', 'incorporation_certificate', 'board_resolution', 'partnership_deed', 'trust_deed', 'llp_certificate']);
+$propPack = kycDocsApplicableForEntity('sole_proprietorship', ['pan', 'aadhaar', 'gst', 'moa_aoa', 'partnership_deed', 'letterhead']);
+$assert(!in_array('partnership_deed', $pvtLtdDocs, true) && !in_array('trust_deed', $pvtLtdDocs, true) && !in_array('llp_certificate', $pvtLtdDocs, true), 'p1_pvt_ltd_entity_excludes_deed_docs');
+$assert(!in_array('moa_aoa', $propDocsP4, true) && in_array('aadhaar', $propDocsP4, true), 'p1_proprietor_entity_excludes_moa');
+$assert(!in_array('partnership_deed', $pvtPack, true) && !in_array('trust_deed', $pvtPack, true) && in_array('moa_aoa', $pvtPack, true), 'p1_coverage_filters_pvt_ltd_pack');
+$assert(!in_array('moa_aoa', $propPack, true) && in_array('pan', $propPack, true) && in_array('letterhead', $propPack, true), 'p1_coverage_filters_proprietor_pack');
+$assert(str_contains($covSrcP4, 'kycDocsApplicableForEntity') && str_contains($kycEntSrc, 'function kycDocsApplicableForEntity'), 'p1_entity_filter_wired_into_coverage');
+$assert(!str_contains($kycAdmin, 'CONVERT(') && str_contains($kycAdmin, "email COLLATE utf8mb4_unicode_ci"), 'p0_admin_kyc_no_convert_using_utf8mb4');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'CAST(q.id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci'), 'p0_forward_queue_cast_unicode');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_control.php'), 'gr.gateway_key COLLATE utf8mb4_unicode_ci = pm.partner_key COLLATE utf8mb4_unicode_ci'), 'p0_partner_methods_join_collate');
+$assert(str_contains($schemaEnsure, 'function ensureJoinKeyColumnCollations'), 'p0_schema_ensure_join_key_collations');
+$assert(is_file($root . '/migrations/087_collation_join_keys.sql'), 'p0_migration_087_collation_join_keys');
+$smartSrc = (string)file_get_contents($root . '/includes/smart_routing.php');
+$assert(str_contains($smartSrc, 'function collectEligibleCheckoutPartners') && str_contains($smartSrc, 'function merchantMayCollectViaPartner'), 'p3_collect_eligible_partners_helper');
+$assert(str_contains($checkoutSrc, 'collectEligibleCheckoutPartners') && str_contains($checkoutSrc, 'collectCheckoutNoneEligibleMessage'), 'p3_checkout_uses_collect_eligibility');
+$assert(str_contains($checkoutSrc, 'sandbox') && str_contains($checkoutSrc, 'Instant test pay failed'), 'p3_checkout_test_pay_honest_fail');
+$assert(!str_contains((string)file_get_contents($root . '/includes/collection.php'), "'payout'") || str_contains((string)file_get_contents($root . '/includes/collection.php'), 'isMerchantOpsMethodKey'), 'p3_checkout_collect_only_ops_filter');
+
 $payload = [
     'ok' => $failed === 0,
     'passed' => $passed,

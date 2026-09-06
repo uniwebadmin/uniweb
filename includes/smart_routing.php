@@ -158,8 +158,22 @@ function phase11MerchantAllowsPartnerCheckout(int $merchantId, string $partnerKe
  */
 function phase11EligibleCheckoutPartners(int $merchantId, string $checkoutMethod = 'card'): array
 {
+    $sandbox = true;
+    if ($merchantId > 0) {
+        try {
+            $st = getDB()->prepare('SELECT account_mode FROM merchants WHERE id=? LIMIT 1');
+            $st->execute([$merchantId]);
+            $sandbox = strtolower((string)$st->fetchColumn()) !== 'live';
+        } catch (Throwable $e) {
+            $sandbox = true;
+        }
+    }
+    $collectOk = collectEligibleCheckoutPartners($merchantId, $sandbox);
     $eligible = [];
     foreach (phase11CheckoutPartnerPriority() as $partner) {
+        if (!in_array($partner, $collectOk, true)) {
+            continue;
+        }
         if (!function_exists('isGatewayConfigured') || !isGatewayConfigured($partner)) {
             continue;
         }
@@ -172,6 +186,106 @@ function phase11EligibleCheckoutPartners(int $merchantId, string $checkoutMethod
         $eligible[] = $partner;
     }
     return $eligible;
+}
+
+function collectCheckoutNoneEligibleMessage(): string
+{
+    return 'No payment partner is ready for this checkout. A partner must be Active, with valid keys (sandbox is OK), a connector, and enable on this merchant.';
+}
+
+/**
+ * Merchant-side collect gate: coverage enable or already-live Valid. No silent bypass.
+ */
+function merchantMayCollectViaPartner(int $merchantId, string $partnerKey): bool
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    if ($merchantId < 1 || $partnerKey === '') {
+        return false;
+    }
+    if (!function_exists('getMerchantPartnerLinkRow')) {
+        if (is_file(__DIR__ . '/partner_control.php')) {
+            require_once __DIR__ . '/partner_control.php';
+        }
+    }
+    $link = function_exists('getMerchantPartnerLinkRow') ? getMerchantPartnerLinkRow($merchantId, $partnerKey) : null;
+    if (!$link) {
+        return true;
+    }
+    if ((int)($link['checkout_enabled'] ?? 0) === 1) {
+        return true;
+    }
+    if (function_exists('partnerDocCoverageIsLinkedValid') && partnerDocCoverageIsLinkedValid($link)) {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Collect partners: routing Active + keys Valid (sandbox configured OK) + connector + merchant enable.
+ *
+ * @return list<string>
+ */
+function collectEligibleCheckoutPartners(int $merchantId, bool $sandbox = true): array
+{
+    if (!function_exists('getRegisteredGateways') && is_file(__DIR__ . '/payment_methods.php')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+    if (!function_exists('partnerAdapterIsWired') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    if (!function_exists('partnerHasRegistryFlag') && is_file(__DIR__ . '/partner_engine.php')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    if (!function_exists('isGatewayConfigured') && is_file(__DIR__ . '/gateways.php')) {
+        require_once __DIR__ . '/gateways.php';
+    }
+    $priority = phase11CheckoutPartnerPriority();
+    $eligible = [];
+    foreach (function_exists('getRegisteredGateways') ? getRegisteredGateways(false) : [] as $g) {
+        $key = strtolower(trim((string)($g['gateway_key'] ?? '')));
+        if ($key === '') {
+            continue;
+        }
+        if ((int)($g['is_active'] ?? 0) !== 1) {
+            continue;
+        }
+        if (function_exists('partnerRegistryRowIsRetired') && partnerRegistryRowIsRetired($g)) {
+            continue;
+        }
+        $collectCapable = (function_exists('partnerHasRegistryFlag') && partnerHasRegistryFlag($key, 'checkout_pg'))
+            || (function_exists('gatewaySupportsLiveCheckout') && gatewaySupportsLiveCheckout($key))
+            || in_array($key, $priority, true);
+        if (!$collectCapable) {
+            continue;
+        }
+        if (function_exists('partnerAdapterIsWired') && !partnerAdapterIsWired($key, $g)) {
+            continue;
+        }
+        $env = $sandbox ? 'test' : 'live';
+        $vault = function_exists('partnerCredentialVaultStatus') ? partnerCredentialVaultStatus($key, $env) : 'missing';
+        $configured = function_exists('isGatewayConfigured') && isGatewayConfigured($key);
+        if ($vault !== 'valid' && !($sandbox && $configured)) {
+            continue;
+        }
+        if (!merchantMayCollectViaPartner($merchantId, $key)) {
+            continue;
+        }
+        $eligible[] = $key;
+    }
+    usort($eligible, static function (string $a, string $b) use ($priority): int {
+        $ia = array_search($a, $priority, true);
+        $ib = array_search($b, $priority, true);
+        $ia = $ia === false ? 99 : (int)$ia;
+        $ib = $ib === false ? 99 : (int)$ib;
+        return $ia <=> $ib;
+    });
+    return array_values(array_unique($eligible));
+}
+
+function collectCheckoutPartnerIsEligible(int $merchantId, string $partnerKey, bool $sandbox = true): bool
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    return in_array($partnerKey, collectEligibleCheckoutPartners($merchantId, $sandbox), true);
 }
 
 /**
