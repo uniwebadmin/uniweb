@@ -873,10 +873,76 @@ function registryRowSupportsCollect(array $row): bool
     return (int)($row['supports_collection'] ?? 0) === 1;
 }
 
+/** Keys ready for checkout — same rules as Settings LIVE and routing usable count. */
+function registryPartnerKeysReadyForMode(string $partnerKey, bool $sandbox): bool
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    if ($partnerKey === '') {
+        return false;
+    }
+    $env = $sandbox ? 'test' : 'live';
+    if (function_exists('partnerCredentialVaultStatus')) {
+        if (partnerCredentialVaultStatus($partnerKey, $env) === 'valid') {
+            return true;
+        }
+    }
+    if (function_exists('isGatewayConfigured') && isGatewayConfigured($partnerKey)) {
+        return true;
+    }
+    return false;
+}
+
+/** Normalize checkout tab/method to capability bucket. */
+function registryCheckoutMethodBucket(string $checkoutMethod): string
+{
+    $m = strtolower(trim($checkoutMethod));
+    return match (true) {
+        in_array($m, ['card', 'dc', 'cc', 'debit_card', 'credit_card', 'razorpay', 'cashfree', 'pg_pool'], true) => 'card',
+        in_array($m, ['upi', 'upi_p2m', 'payu_upi', 'qr', 'qr_code', 'p2m'], true) => 'upi',
+        in_array($m, ['nb', 'netbanking', 'net_banking'], true) => 'netbanking',
+        in_array($m, ['emi'], true) => 'emi',
+        in_array($m, ['wallet'], true) => 'wallet',
+        default => $m,
+    };
+}
+
+/** Whether a registry partner can handle this checkout method (honest — no fake card on UPI-only rails). */
+function registryPartnerSupportsCheckoutMethod(string $partnerKey, string $checkoutMethod, ?array $gatewayRow = null): bool
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    $bucket = registryCheckoutMethodBucket($checkoutMethod);
+    if ($gatewayRow === null && function_exists('getRegisteredGateways')) {
+        foreach (getRegisteredGateways(false) as $row) {
+            if (strtolower((string)($row['gateway_key'] ?? '')) === $partnerKey) {
+                $gatewayRow = $row;
+                break;
+            }
+        }
+    }
+    if (!function_exists('getPartnerRegistry')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    return match ($partnerKey) {
+        'razorpay', 'cashfree', 'payu', 'ccavenue' => in_array($bucket, ['card', 'upi', 'netbanking', 'emi', 'wallet'], true),
+        'decentro' => $bucket === 'upi',
+        'rbl' => $bucket === 'upi',
+        'axis' => in_array($bucket, ['upi'], true),
+        default => match ($bucket) {
+            'card' => (int)($gatewayRow['cap_card'] ?? 0) === 1
+                || partnerHasRegistryFlag($partnerKey, 'checkout_pg'),
+            'upi' => (int)($gatewayRow['cap_upi'] ?? 0) === 1
+                || (int)($gatewayRow['supports_collection'] ?? 0) === 1,
+            'netbanking' => (int)($gatewayRow['cap_netbanking'] ?? 0) === 1,
+            'emi', 'wallet' => partnerHasRegistryFlag($partnerKey, 'checkout_pg'),
+            default => $gatewayRow ? registryRowSupportsCollect($gatewayRow) : false,
+        },
+    };
+}
+
 /** Partners with card / hosted checkout order APIs (honest — not VA-only rails). */
 function registryCardCheckoutPartnerKeys(): array
 {
-    $known = ['razorpay', 'cashfree', 'payu'];
+    $known = ['razorpay', 'cashfree', 'payu', 'ccavenue'];
     $out = [];
     foreach (registryCollectCapablePartnerKeys(false) as $key) {
         if (in_array($key, $known, true)) {
@@ -943,9 +1009,16 @@ function registryPartnerCollectStatus(string $partnerKey): array
     if (function_exists('getPartnerEnvironment')) {
         $env = getPartnerEnvironment($partnerKey, 'test') === 'production' ? 'live' : 'test';
     }
-    $keyStatus = function_exists('partnerCredentialVaultStatus')
-        ? partnerCredentialVaultStatus($partnerKey, $env)
-        : (function_exists('isGatewayConfigured') && isGatewayConfigured($partnerKey) ? 'valid' : 'missing');
+    $sandboxCheck = $env !== 'live';
+    $keyStatus = 'missing';
+    if (function_exists('registryPartnerKeysReadyForMode') && registryPartnerKeysReadyForMode($partnerKey, $sandboxCheck)) {
+        $keyStatus = 'valid';
+    } elseif (function_exists('partnerCredentialVaultStatus')) {
+        $vault = partnerCredentialVaultStatus($partnerKey, $env);
+        $keyStatus = in_array($vault, ['valid', 'invalid'], true) ? $vault : 'missing';
+    } elseif (function_exists('isGatewayConfigured') && isGatewayConfigured($partnerKey)) {
+        $keyStatus = 'valid';
+    }
     $templatePg = strtolower(trim((string)getSetting('active_payment_gateway', 'razorpay')));
     return [
         'label' => $label,

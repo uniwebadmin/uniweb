@@ -44,13 +44,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new RuntimeException('Only KYC/ops/admin roles can complete checker decisions.');
         }
         if ($action === 'approve_doc') {
-            $doc = $db->prepare('SELECT merchant_id,doc_type,scan_status FROM kyc_documents WHERE id=?');
+            $doc = $db->prepare("SELECT merchant_id, doc_type, scan_status FROM kyc_documents WHERE id=? LIMIT 1");
             $doc->execute([$id]);
             $d = $doc->fetch();
-            if (!$d || $d['scan_status'] !== 'clean') {
+            if (!$d) {
+                throw new RuntimeException('Document not found.');
+            }
+            if (strtolower(trim((string)($d['scan_status'] ?? ''))) !== 'clean') {
                 throw new RuntimeException('Document must pass malware scanning first.');
             }
             requireMerchantAccess((int)$d['merchant_id']);
+            if (!function_exists('submitApprovalRequest') && is_file(__DIR__ . '/includes/onboarding_security.php')) {
+                require_once __DIR__ . '/includes/onboarding_security.php';
+            }
             submitApprovalRequest('kyc_document_approve', (int)$d['merchant_id'], 'kyc_document', (string)$id, $reason, $d);
             flash('success', 'Document approval sent to an independent checker.');
         } elseif ($action === 'verify_merchant') {

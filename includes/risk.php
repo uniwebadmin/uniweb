@@ -699,9 +699,13 @@ function checkFingerprintVelocity(string $type, string $value, ?int $merchantId 
         };
         if ($col) {
             try {
-                $count1h = (int)$db->prepare("SELECT COUNT(*) FROM transactions WHERE {$col}=? AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)" . ($merchantId ? " AND merchant_id=?" : ""));
-                $count1h->execute($merchantId ? [$value, $merchantId] : [$value]);
-                $row['txn_count_1h'] = (int)$count1h->fetchColumn();
+                $sql = "SELECT COUNT(*) FROM transactions WHERE {$col}=? AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)";
+                if ($merchantId) {
+                    $sql .= ' AND merchant_id=?';
+                }
+                $stmt = $db->prepare($sql);
+                $stmt->execute($merchantId ? [$value, $merchantId] : [$value]);
+                $row['txn_count_1h'] = (int)$stmt->fetchColumn();
             } catch (Throwable $e) {}
         }
     }
@@ -724,7 +728,7 @@ function updateVelocityCache(string $type, string $value, ?int $merchantId, floa
         "INSERT INTO risk_velocity_cache (fingerprint_type, fingerprint_value, merchant_id, txn_count_1h, txn_count_24h, txn_amount_24h, last_txn_at)
          VALUES (?,?,?,?,1,?,NOW())
          ON DUPLICATE KEY UPDATE txn_count_1h=txn_count_1h+1, txn_count_24h=txn_count_24h+1, txn_amount_24h=txn_amount_24h+VALUES(txn_amount_24h), last_txn_at=NOW()"
-    )->execute([$type, $value, $merchantId, $amount]);
+    )->execute([$type, $value, $merchantId, 1, $amount]);
 }
 
 /**

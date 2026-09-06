@@ -642,7 +642,7 @@ function partnerHasRegistryFlag(string $partnerKey, string $flag): bool
         'gateway_submit' => in_array($partnerKey, ['razorpay', 'cashfree', 'payu', 'decentro', 'phonepe', 'axis', 'rbl', 'pinelabs'], true),
         'kyc_forward' => in_array($partnerKey, ['payu', 'razorpay', 'cashfree', 'decentro', 'axis', 'phonepe', 'rbl', 'pinelabs'], true),
         'integration_matrix' => true,
-        'checkout_pg' => in_array($partnerKey, ['razorpay', 'cashfree', 'payu'], true),
+        'checkout_pg' => in_array($partnerKey, ['razorpay', 'cashfree', 'payu', 'ccavenue'], true),
         'merchant_visibility' => in_array($partnerKey, ['decentro', 'axis', 'pinelabs', 'phonepe', 'worldline', 'digio', 'rbl'], true),
         default => false,
     };

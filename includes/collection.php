@@ -38,6 +38,27 @@ function merchantCollectionModeLabel(string $mode): string
     };
 }
 
+function getAdminMerchantCollectionModes(?array $merchant = null): array
+{
+    $all = getCollectionModes();
+    $out = [
+        'platform_pg' => 'Platform checkout (Card · UPI · Net Banking) — recommended',
+        'direct_upi' => $all['direct_upi'] ?? 'P2M Direct UPI',
+        'axis_va' => $all['axis_va'] ?? 'Axis Virtual Account + UPI Collection',
+    ];
+    $parked = ['payu_split', 'razorpay_route', 'cashfree_route'];
+    $current = $merchant ? getMerchantCollectionMode($merchant) : '';
+    foreach ($parked as $p) {
+        if ($current === $p && isset($all[$p])) {
+            $out[$p] = $all[$p] . ' — PARKED (Route/Split not live)';
+        }
+    }
+    if ($current && !isset($out[$current]) && isset($all[$current])) {
+        $out[$current] = $all[$current] . ' (current)';
+    }
+    return $out;
+}
+
 function getMerchantFacingCollectionModes(?array $merchant = null): array
 {
     // P11-01: merchants do not pick Route/Split rails as a live product — labels are method-only.
@@ -789,8 +810,8 @@ function checkoutPgPoolEnabledForLink(array $link, bool $rzpConfigured, bool $cf
         if (!is_file(__DIR__ . '/smart_routing.php')) {
             require_once __DIR__ . '/smart_routing.php';
         }
-        foreach (collectEligibleCheckoutPartners($merchantId, $isTest) as $partner) {
-            if (in_array($partner, ['razorpay', 'cashfree', 'payu'], true) && isGatewayConfigured($partner)) {
+        foreach (collectEligibleCheckoutPartners($merchantId, $isTest, 'card') as $partner) {
+            if (in_array($partner, ['razorpay', 'cashfree', 'payu', 'ccavenue'], true)) {
                 $poolPartnerReady = true;
                 break;
             }

@@ -360,10 +360,11 @@ $methodCatalog = getPaymentMethodCatalog();
                 <div>
                     <label class="text-sm text-gray-400">Collection Mode</label>
                     <select name="collection_mode" class="input-field mt-1">
-                        <?php foreach (getCollectionModes() as $k => $label): ?>
-                        <option value="<?= $k ?>" <?= getMerchantCollectionMode($merchant) === $k ? 'selected' : '' ?>><?= e($label) ?></option>
+                        <?php foreach (getAdminMerchantCollectionModes($merchant) as $k => $label): ?>
+                        <option value="<?= e($k) ?>" <?= getMerchantCollectionMode($merchant) === $k ? 'selected' : '' ?>><?= e($label) ?></option>
                         <?php endforeach; ?>
                     </select>
+                    <p class="text-[11px] text-gray-600 mt-1">Platform checkout is the live collect path. PayU Split / Razorpay Route / Cashfree Easy Split are parked — not offered for new checkouts.</p>
                 </div>
                 <div class="sm:col-span-2">
                     <label class="text-sm text-gray-400 block mb-2">Payment Methods</label>

@@ -884,6 +884,9 @@ function isGatewayConfigured(string $gateway): bool
         'razorpay' => (bool)getPartnerSetting('razorpay', 'razorpay_key_id', '') && (bool)getPartnerSetting('razorpay', 'razorpay_key_secret', ''),
         'cashfree' => (bool)getPartnerSetting('cashfree', 'cashfree_app_id', '') && (bool)getPartnerSetting('cashfree', 'cashfree_secret_key', ''),
         'payu' => (bool)getPartnerSetting('payu', 'payu_merchant_key', '') && (bool)getPartnerSetting('payu', 'payu_merchant_salt', ''),
+        'ccavenue' => (bool)getPartnerSetting('ccavenue', 'ccavenue_merchant_id', '')
+            && (bool)getPartnerSetting('ccavenue', 'ccavenue_access_code', '')
+            && (bool)getPartnerSetting('ccavenue', 'ccavenue_working_key', ''),
         'phonepe' => (bool)getPartnerSetting('phonepe', 'phonepe_merchant_id', '') && (bool)getPartnerSetting('phonepe', 'phonepe_salt_key', ''),
         'axis' => (bool)(getPartnerSetting('axis', 'axis_client_id', '') && getPartnerSetting('axis', 'axis_client_secret', '')),
         'decentro' => (bool)getPartnerSetting('decentro', 'decentro_client_id', '') && (bool)getPartnerSetting('decentro', 'decentro_client_secret', ''),

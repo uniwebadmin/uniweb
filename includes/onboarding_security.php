@@ -140,9 +140,11 @@ function submitApprovalRequest(
     }
     $existing = getDB()->prepare(
         "SELECT request_ref FROM approval_requests
-         WHERE action_type=? AND COALESCE(merchant_id,0)=COALESCE(?,0)
-           AND COALESCE(resource_type,'')=COALESCE(?,'')
-           AND COALESCE(resource_id,'')=COALESCE(?,'') AND status='pending' LIMIT 1"
+         WHERE action_type COLLATE utf8mb4_unicode_ci = ?
+           AND COALESCE(merchant_id,0)=COALESCE(?,0)
+           AND COALESCE(resource_type,'') COLLATE utf8mb4_unicode_ci = COALESCE(?,'')
+           AND COALESCE(resource_id,'') COLLATE utf8mb4_unicode_ci = COALESCE(?,'')
+           AND status COLLATE utf8mb4_unicode_ci = 'pending' LIMIT 1"
     );
     $existing->execute([$actionType, $merchantId, $resourceType, $resourceId]);
     if ($ref = $existing->fetchColumn()) {
@@ -173,7 +175,7 @@ function approveApprovalRequest(int $requestId, string $checkerReason): void
     $db = getDB();
     $db->beginTransaction();
     try {
-        $st = $db->prepare("SELECT * FROM approval_requests WHERE id=? AND status='pending' FOR UPDATE");
+        $st = $db->prepare("SELECT * FROM approval_requests WHERE id=? AND status COLLATE utf8mb4_unicode_ci = 'pending' FOR UPDATE");
         $st->execute([$requestId]);
         $request = $st->fetch();
         if (!$request) {

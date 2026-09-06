@@ -345,10 +345,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && ($_POST['a
             $needsPartner = !in_array($handler, ['direct_upi', 'axis_va'], true)
                 || in_array($methodType, ['pg_pool', 'payu', 'razorpay', 'cashfree'], true);
             if ($needsPartner && $selectedPay !== 'upi' && function_exists('collectEligibleCheckoutPartners')) {
-                $eligiblePay = collectEligibleCheckoutPartners((int)$link['merchant_id'], true);
+                $eligiblePay = collectEligibleCheckoutPartners((int)$link['merchant_id'], $isTestCheckout, $selectedPay);
                 if ($eligiblePay === []) {
                     $error = function_exists('collectCheckoutNoneEligibleMessage')
-                        ? collectCheckoutNoneEligibleMessage()
+                        ? collectCheckoutNoneEligibleMessage($selectedPay, (int)$link['merchant_id'], $isTestCheckout)
                         : 'No payment partner is ready for this checkout.';
                 }
             }
@@ -461,7 +461,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $pgCheckoutPartner = 'payu';
         } elseif (!empty($smartRouted['intelligent']) && empty($smartRouted['routed_to']) && ($error ?? '') === '') {
                     $error = function_exists('collectCheckoutNoneEligibleMessage')
-                        ? collectCheckoutNoneEligibleMessage()
+                        ? collectCheckoutNoneEligibleMessage($selectedPay, (int)$link['merchant_id'], $isTestCheckout)
                         : 'This payment method is not available. No eligible payment partner is ready.';
         }
     } elseif ($phase11RoutingOn && ($pgPoolSelected || $legacyPgTab) && $routeHandlersClear) {
@@ -476,16 +476,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $pgCheckoutPartner = 'cashfree';
         } elseif (!empty($smartRouted['phase11']) && empty($smartRouted['routed_to']) && ($error ?? '') === '') {
                     $error = function_exists('collectCheckoutNoneEligibleMessage')
-                        ? collectCheckoutNoneEligibleMessage()
+                        ? collectCheckoutNoneEligibleMessage($selectedPay, (int)$link['merchant_id'], $isTestCheckout)
                         : 'This payment method is not available. No eligible payment partner is ready.';
         }
     } elseif ($pgPoolSelected && !$intelligentOn && !$phase11RoutingOn) {
         $returnUrl = APP_URL . '/payment_cashfree_return.php?order_id={order_id}';
         $poolPartners = ['razorpay', 'cashfree'];
         if (function_exists('collectEligibleCheckoutPartners')) {
+            $poolPartners = collectEligibleCheckoutPartners((int)$link['merchant_id'], $isTestCheckout, $selectedPay);
             $poolPartners = array_values(array_filter(
-                collectEligibleCheckoutPartners((int)$link['merchant_id'], $isTestCheckout),
-                static fn(string $gw): bool => in_array($gw, ['razorpay', 'cashfree', 'payu'], true)
+                $poolPartners,
+                static fn(string $gw): bool => in_array($gw, ['razorpay', 'cashfree', 'payu', 'ccavenue'], true)
             ));
             if ($poolPartners === []) {
                 $poolPartners = ['razorpay', 'cashfree'];
@@ -517,7 +518,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
         if ($pgCheckoutPartner === null && ($error ?? '') === '') {
             $error = function_exists('collectCheckoutNoneEligibleMessage')
-                ? collectCheckoutNoneEligibleMessage()
+                ? collectCheckoutNoneEligibleMessage($selectedPay, (int)$link['merchant_id'], $isTestCheckout)
                 : 'This payment method is not active yet. Try UPI or switch to UniWeb Test Mode.';
         }
     } elseif ($legacyPgTab || ($selectedPay === 'razorpay' || ($handler === 'razorpay_route' && !isGatewayConfigured('payu')))) {

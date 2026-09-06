@@ -99,19 +99,22 @@ function intelligentRoutingOrderCreateTimeoutSeconds(): int
  */
 function intelligentRoutingUsablePartners(int $merchantId, string $method): array
 {
-    if (!function_exists('phase11EligibleCheckoutPartners')) {
+    if (!function_exists('collectEligibleCheckoutPartners')) {
         require_once __DIR__ . '/smart_routing.php';
     }
     $method = strtolower(trim($method));
-    $eligiblePartners = intelligentRoutingCheckoutPartners();
+    $sandbox = true;
+    if ($merchantId > 0) {
+        try {
+            $st = getDB()->prepare('SELECT account_mode FROM merchants WHERE id=? LIMIT 1');
+            $st->execute([$merchantId]);
+            $sandbox = strtolower((string)$st->fetchColumn()) !== 'live';
+        } catch (Throwable $e) {
+            $sandbox = true;
+        }
+    }
     $usable = [];
-    foreach (phase11EligibleCheckoutPartners($merchantId, $method) as $partner) {
-        if (!in_array($partner, $eligiblePartners, true)) {
-            continue;
-        }
-        if (!function_exists('isGatewayConfigured') || !isGatewayConfigured($partner)) {
-            continue;
-        }
+    foreach (collectEligibleCheckoutPartners($merchantId, $sandbox, $method) as $partner) {
         if (function_exists('isCircuitBreakerAllowed') && !isCircuitBreakerAllowed($partner)) {
             continue;
         }
@@ -623,7 +626,19 @@ function createCardOrderWithIntelligentRouting(float $amount, array $link, strin
     $attemptList = [];
 
     if ($readiness['usable_count'] === 0) {
-        $order['reason'] = 'No usable collect partners (Registry keys + circuit breaker).';
+        $sandbox = true;
+        if ($merchantId > 0) {
+            try {
+                $st = getDB()->prepare('SELECT account_mode FROM merchants WHERE id=? LIMIT 1');
+                $st->execute([$merchantId]);
+                $sandbox = strtolower((string)$st->fetchColumn()) !== 'live';
+            } catch (Throwable $e) {
+                $sandbox = true;
+            }
+        }
+        $order['reason'] = function_exists('collectCheckoutIneligibleDetailMessage')
+            ? collectCheckoutIneligibleDetailMessage($merchantId, $methodBucket, $sandbox)
+            : 'No usable collect partners (Registry keys + circuit breaker).';
         logIntelligentRouteDecision(
             null,
             'no_usable',

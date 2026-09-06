@@ -2356,6 +2356,17 @@ $assert(str_contains((string)file_get_contents($root . '/includes/gateways.php')
 $assert(str_contains((string)file_get_contents($root . '/includes/partner_engine.php'), 'registryPartnerCollectStatus'), 'p4b_integration_state_from_registry');
 $assert(str_contains($checkoutSrc, 'collectCheckoutNoneEligibleMessage') && str_contains($checkoutSrc, 'poolPartners'), 'p4b_checkout_pg_pool_registry_eligible');
 
+$smartSrc2 = (string)file_get_contents($root . '/includes/smart_routing.php');
+$assert(str_contains($smartSrc2, 'function collectCheckoutIneligibleDetailMessage') && str_contains($smartSrc2, 'function merchantUsesPlatformCheckoutPool'), 'blocker_eligibility_detail_and_platform_pool');
+$assert(str_contains($smartSrc2, 'merchantMayCollectViaPartner') && str_contains($smartSrc2, 'merchantUsesPlatformCheckoutPool'), 'blocker_platform_pg_merchant_gate');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_registry_v2.php'), 'function registryPartnerKeysReadyForMode') && str_contains((string)file_get_contents($root . '/includes/partner_registry_v2.php'), 'function registryPartnerSupportsCheckoutMethod'), 'blocker_registry_keys_and_method_caps');
+$assert(str_contains((string)file_get_contents($root . '/includes/intelligent_routing.php'), 'collectEligibleCheckoutPartners') && str_contains((string)file_get_contents($root . '/includes/intelligent_routing.php'), 'collectCheckoutIneligibleDetailMessage'), 'blocker_intelligent_routing_registry_usable');
+$riskSrc = (string)file_get_contents($root . '/includes/risk.php');
+$assert(str_contains($riskSrc, '->execute([$type, $value, $merchantId, 1, $amount])'), 'blocker_velocity_cache_hy093_fix');
+$assert(str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'getAdminMerchantCollectionModes') && str_contains((string)file_get_contents($root . '/includes/collection.php'), 'PARKED (Route/Split not live)'), 'blocker_admin_edit_merchant_collection_modes');
+$assert(str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), 'COLLATE utf8mb4_unicode_ci'), 'blocker_approval_requests_collation');
+$assert(str_contains((string)file_get_contents($root . '/includes/gateways.php'), "'ccavenue'"), 'blocker_ccavenue_configured');
+
 $payload = [
     'ok' => $failed === 0,
     'passed' => $passed,

@@ -107,6 +107,12 @@ function phase11CheckoutPartnerPriority(): array
 
 function phase11PartnerSupportsCheckoutMethod(string $partnerKey, string $checkoutMethod): bool
 {
+    if (!function_exists('registryPartnerSupportsCheckoutMethod') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    if (function_exists('registryPartnerSupportsCheckoutMethod')) {
+        return registryPartnerSupportsCheckoutMethod($partnerKey, $checkoutMethod);
+    }
     $partnerKey = strtolower(trim($partnerKey));
     $checkoutMethod = strtolower(trim($checkoutMethod));
     return match ($partnerKey) {
@@ -148,6 +154,8 @@ function phase11MerchantAllowsPartnerCheckout(int $merchantId, string $partnerKe
         'razorpay' => ['razorpay', 'credit_card', 'debit_card'],
         'cashfree' => ['cashfree', 'credit_card', 'debit_card'],
         'payu' => ['payu_upi', 'credit_card', 'debit_card', 'netbanking', 'wallet', 'emi'],
+        'ccavenue' => ['credit_card', 'debit_card', 'ccavenue'],
+        'decentro', 'rbl' => ['upi_p2m', 'upi'],
         default => [],
     };
     foreach ($need as $k) {
@@ -177,7 +185,7 @@ function phase11EligibleCheckoutPartners(int $merchantId, string $checkoutMethod
             $sandbox = true;
         }
     }
-    $collectOk = collectEligibleCheckoutPartners($merchantId, $sandbox);
+    $collectOk = collectEligibleCheckoutPartners($merchantId, $sandbox, $checkoutMethod);
     $eligible = [];
     foreach (phase11CheckoutPartnerPriority() as $partner) {
         if (!in_array($partner, $collectOk, true)) {
@@ -197,19 +205,44 @@ function phase11EligibleCheckoutPartners(int $merchantId, string $checkoutMethod
     return $eligible;
 }
 
-function collectCheckoutNoneEligibleMessage(): string
+function collectCheckoutNoneEligibleMessage(?string $checkoutMethod = null, int $merchantId = 0, bool $sandbox = true): string
 {
+    if (function_exists('collectCheckoutIneligibleDetailMessage')) {
+        return collectCheckoutIneligibleDetailMessage($merchantId, $checkoutMethod ?? 'card', $sandbox);
+    }
     return 'No payment partner is ready for this checkout. A partner must be Active, with valid keys (sandbox is OK), a connector, and enable on this merchant.';
 }
 
+/** Merchant uses Platform checkout pool — does not require per-partner already-live for every partner. */
+function merchantUsesPlatformCheckoutPool(int $merchantId): bool
+{
+    if ($merchantId < 1) {
+        return false;
+    }
+    try {
+        $st = getDB()->prepare('SELECT collection_mode FROM merchants WHERE id=? LIMIT 1');
+        $st->execute([$merchantId]);
+        $mode = strtolower(trim((string)$st->fetchColumn()));
+        return in_array($mode, ['platform_pg', 'razorpay_route', 'cashfree_route', 'payu_split'], true);
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 /**
- * Merchant-side collect gate: coverage enable or already-live Valid. No silent bypass.
+ * Merchant-side collect gate: coverage enable, already-live Valid, or Platform checkout pool.
  */
 function merchantMayCollectViaPartner(int $merchantId, string $partnerKey): bool
 {
     $partnerKey = strtolower(trim($partnerKey));
-    if ($merchantId < 1 || $partnerKey === '') {
+    if ($partnerKey === '') {
         return false;
+    }
+    if ($merchantId < 1) {
+        return true;
+    }
+    if (merchantUsesPlatformCheckoutPool($merchantId)) {
+        return true;
     }
     if (!function_exists('getMerchantPartnerLinkRow')) {
         if (is_file(__DIR__ . '/partner_control.php')) {
@@ -230,11 +263,81 @@ function merchantMayCollectViaPartner(int $merchantId, string $partnerKey): bool
 }
 
 /**
+ * Honest checkout message naming WHY no partner is ready.
+ */
+function collectCheckoutIneligibleDetailMessage(int $merchantId, string $checkoutMethod, bool $sandbox = true): string
+{
+    if (!function_exists('registryCheckoutMethodBucket') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    if (!function_exists('getRegisteredGateways') && is_file(__DIR__ . '/payment_methods.php')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+    $bucket = function_exists('registryCheckoutMethodBucket')
+        ? registryCheckoutMethodBucket($checkoutMethod)
+        : strtolower(trim($checkoutMethod));
+    $modeLabel = $sandbox ? 'Test' : 'Live';
+    $activePartners = [];
+    $methodCapable = [];
+    $keysReady = [];
+    $merchantBlocked = [];
+    foreach (function_exists('getRegisteredGateways') ? getRegisteredGateways(false) : [] as $g) {
+        $key = strtolower(trim((string)($g['gateway_key'] ?? '')));
+        if ($key === '' || (int)($g['is_active'] ?? 0) !== 1) {
+            continue;
+        }
+        if (function_exists('registryRowSupportsCollect') && !registryRowSupportsCollect($g)) {
+            continue;
+        }
+        if (function_exists('partnerAdapterIsWired') && !partnerAdapterIsWired($key, $g)) {
+            continue;
+        }
+        $activePartners[] = $key;
+        if (function_exists('registryPartnerSupportsCheckoutMethod')
+            && registryPartnerSupportsCheckoutMethod($key, $checkoutMethod, $g)) {
+            $methodCapable[] = $key;
+            if (function_exists('registryPartnerKeysReadyForMode') && registryPartnerKeysReadyForMode($key, $sandbox)) {
+                $keysReady[] = $key;
+            }
+            if ($merchantId > 0 && !merchantMayCollectViaPartner($merchantId, $key)) {
+                $merchantBlocked[] = $key;
+            }
+        }
+    }
+    if ($keysReady !== [] && $merchantId > 0) {
+        $eligible = collectEligibleCheckoutPartners($merchantId, $sandbox, $checkoutMethod);
+        if ($eligible !== []) {
+            return 'No payment partner is ready for this checkout. A partner must be Active, with valid keys (sandbox is OK), a connector, and enable on this merchant.';
+        }
+    }
+    if ($bucket === 'card' && $methodCapable === []) {
+        return 'No partner supports Debit/Credit Card in ' . $modeLabel . ' Mode — enable card on a collect partner in Partner Registry or use UPI.';
+    }
+    if ($bucket === 'upi' && $methodCapable === []) {
+        return 'No partner supports UPI collect in ' . $modeLabel . ' Mode — turn ON UPI on Decentro or RBL in Partner Registry.';
+    }
+    if ($methodCapable !== [] && $keysReady === []) {
+        $names = implode(', ', array_map('ucfirst', $methodCapable));
+        if ($bucket === 'card' && in_array('ccavenue', $methodCapable, true)) {
+            return 'Card checkout needs ' . $modeLabel . ' keys — CCAvenue Test keys are Missing (Live Valid does not apply in Test Mode). Paste Test keys in Partner Registry or use UPI.';
+        }
+        return 'Partner(s) support this method but ' . $modeLabel . ' keys are Missing or Invalid: ' . $names . '. Paste keys in Partner Registry → Keys.';
+    }
+    if ($keysReady !== [] && $merchantBlocked !== []) {
+        return 'Registry partner(s) are ready but not enabled for this merchant — turn ON checkout in Partner coverage or use Platform checkout mode.';
+    }
+    if ($activePartners === []) {
+        return 'No Active collect partner in Partner Registry — turn ON routing and paste keys for at least one partner.';
+    }
+    return 'No payment partner is ready for ' . $bucket . ' in ' . $modeLabel . ' Mode — check Partner Registry (Active + Keys Valid + method ON).';
+}
+
+/**
  * Collect partners: routing Active + keys Valid (sandbox configured OK) + connector + merchant enable.
  *
  * @return list<string>
  */
-function collectEligibleCheckoutPartners(int $merchantId, bool $sandbox = true): array
+function collectEligibleCheckoutPartners(int $merchantId, bool $sandbox = true, ?string $checkoutMethod = null): array
 {
     if (!function_exists('getRegisteredGateways') && is_file(__DIR__ . '/payment_methods.php')) {
         require_once __DIR__ . '/payment_methods.php';
@@ -274,11 +377,15 @@ function collectEligibleCheckoutPartners(int $merchantId, bool $sandbox = true):
         if (function_exists('partnerAdapterIsWired') && !partnerAdapterIsWired($key, $g)) {
             continue;
         }
-        $env = $sandbox ? 'test' : 'live';
-        $vault = function_exists('partnerCredentialVaultStatus') ? partnerCredentialVaultStatus($key, $env) : 'missing';
-        $configured = function_exists('isGatewayConfigured') && isGatewayConfigured($key);
-        if ($vault !== 'valid' && !($sandbox && $configured)) {
+        if ($checkoutMethod !== null && $checkoutMethod !== ''
+            && function_exists('registryPartnerSupportsCheckoutMethod')
+            && !registryPartnerSupportsCheckoutMethod($key, $checkoutMethod, $g)) {
             continue;
+        }
+        if (!function_exists('registryPartnerKeysReadyForMode') || !registryPartnerKeysReadyForMode($key, $sandbox)) {
+            if (!($sandbox && function_exists('isGatewayConfigured') && isGatewayConfigured($key))) {
+                continue;
+            }
         }
         if (!merchantMayCollectViaPartner($merchantId, $key)) {
             continue;
@@ -295,10 +402,10 @@ function collectEligibleCheckoutPartners(int $merchantId, bool $sandbox = true):
     return array_values(array_unique($eligible));
 }
 
-function collectCheckoutPartnerIsEligible(int $merchantId, string $partnerKey, bool $sandbox = true): bool
+function collectCheckoutPartnerIsEligible(int $merchantId, string $partnerKey, bool $sandbox = true, ?string $checkoutMethod = null): bool
 {
     $partnerKey = strtolower(trim($partnerKey));
-    return in_array($partnerKey, collectEligibleCheckoutPartners($merchantId, $sandbox), true);
+    return in_array($partnerKey, collectEligibleCheckoutPartners($merchantId, $sandbox, $checkoutMethod), true);
 }
 
 /**

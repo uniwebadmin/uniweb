@@ -513,6 +513,9 @@ $readyCollectCount = count(array_filter($gatewayCards, static function (array $c
         $intelligentReadiness = ($intelligentOn && function_exists('intelligentRoutingReadiness'))
             ? intelligentRoutingReadiness(0, 'card')
             : ['usable_count' => 0, 'healthy_count' => 0, 'failover_capable' => false, 'usable' => [], 'healthy' => []];
+        $intelligentReadinessUpi = ($intelligentOn && function_exists('intelligentRoutingReadiness'))
+            ? intelligentRoutingReadiness(0, 'upi')
+            : ['usable_count' => 0, 'healthy_count' => 0];
         $intelligentStrategyDoc = function_exists('intelligentRoutingStrategyDoc') ? intelligentRoutingStrategyDoc() : '';
         $phase11RouteLog = function_exists('getPhase11RouteDecisionLog') ? getPhase11RouteDecisionLog(10) : [];
         $intelligentRouteLog = function_exists('getIntelligentRouteDecisionLog') ? getIntelligentRouteDecisionLog(15) : [];
@@ -592,7 +595,7 @@ $readyCollectCount = count(array_filter($gatewayCards, static function (array $c
                     <?php if ($intelligentOn): ?>
                     <p class="text-[11px] mt-2 <?= !empty($intelligentReadiness['failover_capable']) ? 'text-emerald-500/90' : 'text-amber-400' ?>">
                         <?= e($intelligentStrategyDoc) ?>
-                        · Usable: <?= (int)$intelligentReadiness['usable_count'] ?> · Healthy: <?= (int)$intelligentReadiness['healthy_count'] ?>
+                        · Usable (card): <?= (int)$intelligentReadiness['usable_count'] ?> · Usable (UPI): <?= (int)($intelligentReadinessUpi['usable_count'] ?? 0) ?> · Healthy: <?= (int)$intelligentReadiness['healthy_count'] ?>
                         <?= !empty($intelligentReadiness['failover_capable']) ? '· Failover ready' : '· Single-partner fixed path (no failover)' ?>
                     </p>
                     <?php endif; ?>
