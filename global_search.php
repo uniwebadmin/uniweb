@@ -93,7 +93,8 @@ $featureAliases = [
     'owner today' => 'admin_kyc.php',
     'orchestrator' => 'admin_gateway_registry.php',
     'gateway orchestrator' => 'admin_gateway_registry.php',
-    'forward queue' => 'admin_forward_queue.php',
+    'forward queue' => 'admin_kyc.php?tab=forward',
+    'kyc forward' => 'admin_kyc.php?tab=forward',
     'gateway submit' => 'admin_gateway_submit.php',
     'gateway submission' => 'admin_gateway_submit.php',
     'test connection' => 'admin_gateway_registry.php',
@@ -551,7 +552,7 @@ if ($isMerchant) {
 
     $canRefunds = $canPage('admin_refunds.php');
     $canKyc = $canPage('admin_kyc.php');
-    $canForward = $canPage('admin_forward_queue.php');
+    $canForward = $canPage('admin_kyc.php') || $canPage('admin_forward_queue.php');
     $canDisputes = $canPage('admin_disputes.php');
     $canChargebacks = $canPage('admin_chargebacks.php');
     $canMethodRequests = $canPage('admin_method_requests.php');
@@ -601,7 +602,7 @@ if ($isMerchant) {
             if (!staffHasMerchantAccess((int)$row['merchant_id'])) {
                 continue;
             }
-            $add('Forward Queue', '#' . $row['id'] . ' · ' . $row['partner_key'], ucfirst((string)$row['status']) . ' · ' . $row['business_name'], 'admin_forward_queue.php?q=' . rawurlencode((string)$row['id']));
+            $add('KYC Forward Queue', '#' . $row['id'] . ' · ' . $row['partner_key'], ucfirst((string)$row['status']) . ' · ' . $row['business_name'], 'admin_kyc.php?tab=forward&q=' . rawurlencode((string)$row['id']));
         }
     }
 

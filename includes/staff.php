@@ -276,7 +276,7 @@ function staffNavForRole(string $role): array
     $all = [
         'staff_dashboard.php' => ['Dashboard', ['super', 'ceo', 'regional_manager', 'area_sales_manager', 'team_leader', 'staff_manager', 'field_staff', 'ops', 'support', 'kyc', 'finance']],
         'manage_merchant.php' => ['Merchants', ['super', 'ceo', 'regional_manager', 'area_sales_manager', 'team_leader', 'staff_manager', 'field_staff', 'ops', 'kyc']],
-        'admin_kyc.php' => ['KYC Review', ['super', 'ceo', 'regional_manager', 'area_sales_manager', 'team_leader', 'staff_manager', 'field_staff', 'ops', 'kyc']],
+        'admin_kyc.php' => ['KYC Ops', ['super', 'ceo', 'regional_manager', 'area_sales_manager', 'team_leader', 'staff_manager', 'field_staff', 'ops', 'kyc']],
         'admin_refunds.php' => ['Refunds', ['super', 'ceo', 'regional_manager', 'finance', 'ops']],
         'admin_disputes.php' => ['Disputes', ['super', 'ceo', 'regional_manager', 'team_leader', 'support', 'ops']],
         'admin_support.php' => ['Support Tickets', ['super', 'ceo', 'regional_manager', 'team_leader', 'support', 'ops']],

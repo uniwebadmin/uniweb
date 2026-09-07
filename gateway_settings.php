@@ -777,7 +777,7 @@ $readyCollectCount = count(array_filter($gatewayCards, static function (array $c
                 <?php if (!empty($holdWindowReport['next_sample'])): ?>
                 <p class="text-gray-600"><?= e($holdWindowReport['next_sample']) ?></p>
                 <?php endif; ?>
-                <p class="text-gray-600 mt-2"><a href="admin_forward_queue.php" class="text-sky-400 underline">KYC Forward Queue</a></p>
+                <p class="text-gray-600 mt-2"><a href="admin_kyc.php?tab=forward" class="text-sky-400 underline">KYC Forward Queue</a></p>
             </div>
             <?php endif; ?>
             <?php if (!empty($autoKycRiskReport['checks'])): ?>

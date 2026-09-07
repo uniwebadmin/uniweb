@@ -607,18 +607,21 @@ $assert(str_contains($kycFlowP5, 'resolveKycPendingFlags'), 'p5_auto_kyc_clears_
 // 5a: fan-out = every partner with keys (partnerIsConfigured), not chargeable-only / active-without-keys
 $assert(str_contains($fwdP5, 'partnerIsConfigured($partnerKey)') && !str_contains($fwdP5, 'isPartnerChargeable'), 'p5a_enqueue_all_partners_with_keys');
 $assert(!str_contains($fwdP5, 'isGatewayActive($partnerKey)'), 'p5a_enqueue_no_active_without_keys_tier');
-$assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'one queue row per partner that already has keys'), 'p5a_forward_queue_copy_keys');
+$fwdPanelUi = (string)file_get_contents($root . '/includes/admin_kyc_forward_panel.php');
+$kycOpsUi = (string)file_get_contents($root . '/admin_kyc.php');
+$fwdUi = $fwdPanelUi . (string)file_get_contents($root . '/admin_forward_queue.php') . $kycOpsUi . (string)file_get_contents($root . '/includes/kyc_ops.php');
+$assert(str_contains($fwdUi, 'Registry partner with KYC-forward') || str_contains($fwdUi, 'one row per Registry partner'), 'p5a_forward_queue_copy_keys');
 $qP5 = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
 $assert(str_contains($qP5, 'forwardQueueResolveExistingId') && str_contains($qP5, 'forwardQueueIsDuplicateKeyError'), 'p5_forward_enqueue_idempotent');
 $assert(str_contains($kycFlowP5, 'enqueueMerchantToAllEnabledPartners'), 'p5_kyc_verify_enqueues_forward');
 // 5b: push uses partnerIsConfigured (not fake keys_configured); staged outcome until adapters
 $assert(str_contains($qP5, 'function pushPackageToPartner') && str_contains($qP5, 'partnerIsConfigured($partnerKey)') && !str_contains($qP5, "keys_configured"), 'p5b_push_uses_partnerIsConfigured');
 $assert(str_contains($qP5, "'staged'") && str_contains($qP5, "status='staged'"), 'p5b_push_staged_when_adapter_pending');
-$assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'status=staged') && str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), '>Staged<'), 'p5b_forward_queue_staged_filter');
+$assert(str_contains($fwdUi, '>Staged<') && str_contains($fwdUi, 'waiting_keys'), 'p5b_forward_queue_staged_filter');
 // 5c: adapter registry + queue stats on existing forward page (no Phase 11 route)
 $assert(str_contains($qP5, 'function getKycForwardAdapterRegistry') && str_contains($qP5, 'function runKycForwardAdapter') && str_contains($qP5, 'local_record'), 'p5c_kyc_forward_adapter_registry');
 $assert(str_contains($qP5, 'function getForwardQueueStats') && str_contains($qP5, 'by_status'), 'p5c_forward_queue_stats_helper');
-$assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'getForwardQueueStats') && str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'Partner adapters'), 'p5c_forward_queue_stats_ui');
+$assert(str_contains($fwdUi, 'getForwardQueueStats') && str_contains($fwdUi, 'Partner adapters'), 'p5c_forward_queue_stats_ui');
 $assert(!str_contains($qP5, 'success-rate route') && str_contains($qP5, 'not Phase 11'), 'p5c_no_phase11_success_routing');
 
 // P5-03 — event_key dedup + optional archive
@@ -660,7 +663,7 @@ $assert(str_contains($gsP6, 'function_exists(\'uwDetectIdKind\')') || str_contai
 $assert(str_contains($gsP6, 'mb_strlen($q) < $minLen') && str_contains($gsP6, '$minLen = 2'), 'p6_search_min_two_chars');
 // SRCH-04 — staff search loops gated by canPage / staffCanAccess
 $assert(str_contains($gsP6, "\$canRefunds = \$canPage('admin_refunds.php')") && str_contains($gsP6, "\$canKyc = \$canPage('admin_kyc.php')"), 'srch04_refunds_kyc_gated');
-$assert(str_contains($gsP6, "\$canForward = \$canPage('admin_forward_queue.php')") && str_contains($gsP6, 'if ($canForward)'), 'srch04_forward_gated');
+$assert((str_contains($gsP6, "\$canForward = \$canPage('admin_kyc.php')") || str_contains($gsP6, "\$canPage('admin_forward_queue.php')")) && str_contains($gsP6, 'if ($canForward)'), 'srch04_forward_gated');
 $assert(str_contains($gsP6, 'if ($canRefunds)') && str_contains($gsP6, 'if ($canKyc)') && str_contains($gsP6, 'if ($canChargebacks)'), 'srch04_money_loops_gated');
 // SRCH-06 — high-value money / risk entities (program coverage step)
 $assert(str_contains($gsP6, 'FROM payout_orders') && str_contains($gsP6, 'FROM payout_beneficiaries'), 'srch02_beneficiaries_searchable');
@@ -948,7 +951,7 @@ $assert(!str_contains($cmpP9, 'nbfc.php') || str_contains($cmpP9, 'Not a UniWeb 
 $assert(str_contains($cmpP9, 'Aggregator model') && str_contains($cmpP9, 'Methods only') && str_contains($cmpP9, 'Typical market PG'), 'p4_market_compare_matrix_on_compare_page');
 $dashP4 = (string)file_get_contents($root . '/admin_dashboard.php');
 $platP4 = (string)file_get_contents($root . '/admin_platform_status.php');
-$assert(str_contains($dashP4, 'UniWeb vs market') && str_contains($dashP4, 'admin_forward_queue.php') && str_contains($dashP4, 'Partner Registry →'), 'p4_admin_dashboard_market_bar_and_forward');
+$assert(str_contains($dashP4, 'UniWeb vs market') && str_contains($dashP4, 'admin_kyc.php?tab=forward') && str_contains($dashP4, 'Partner Registry →'), 'p4_admin_dashboard_market_bar_and_forward');
 $assert(str_contains($platP4, 'Partner Registry (keys)') && str_contains($platP4, 'Platform API guide (Advanced)') && !str_contains($platP4, 'Website & API Keys'), 'p4_platform_status_keys_not_website_page');
 $assert(str_contains((string)file_get_contents($root . '/lang/en.php'), 'One UniWeb account') && str_contains((string)file_get_contents($root . '/solutions.php'), 'no separate signup at each payment company'), 'p4_signup_and_solutions_one_portal');
 $assert(str_contains((string)file_get_contents($root . '/chargebacks.php'), 'disputes.php') && str_contains((string)file_get_contents($root . '/chargebacks.php'), 'main lane'), 'p4_chargebacks_points_to_disputes');
@@ -961,7 +964,7 @@ $assert(str_contains((string)file_get_contents($root . '/global_search.php'), "'
 $assert(str_contains((string)file_get_contents($root . '/admin_website.php'), 'Platform API guide') && !str_contains((string)file_get_contents($root . '/admin_website.php'), '$pageTitle = \'Website & API Keys\''), 'p5_admin_website_renamed_not_pg_keys');
 $assert(str_contains((string)file_get_contents($root . '/chargebacks.php'), "redirect('disputes.php')") && str_contains((string)file_get_contents($root . '/disputes.php'), 'legacy list'), 'p5_chargebacks_silo_merged_to_disputes');
 $assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Git') && str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'SFTP/FTP'), 'p5_deploy_git_pull_not_ftp_only');
-$assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'not sent to the bank'), 'p5_forward_staged_honest_not_at_partner');
+$assert(str_contains($fwdUi, 'not sent to bank'), 'p5_forward_staged_honest_not_at_partner');
 
 $assert(str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'partnerForwardQueueUpgradeLegacySchema') && str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'forwardQueueNextScheduleAt'), 'p6a_forward_queue_single_schema_and_schedule');
 $assert(str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'function enqueueMerchantToAllEnabledPartners') && str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'function syncGatewaySubmissionToForwardQueue'), 'p6a_forward_enqueue_single_module');
@@ -1036,7 +1039,7 @@ $assert(str_contains($gsCharge, "chargeback_ref") && str_contains($gsCharge, "CB
 $assert(is_file($root . '/includes/layout_footer.php') && str_contains((string)file_get_contents($root . '/footer.php'), 'layout_footer.php'), 'watchdog_fix_footer_layout_fallback');
 $assert(str_contains((string)file_get_contents($root . '/includes/onboarding.php'), 'function platformReadinessHasPartnerKeys'), 'watchdog_fix_readiness_no_isGatewayConfigured_loop');
 $pfqP6 = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
-$fwdPageP6 = (string)file_get_contents($root . '/admin_forward_queue.php');
+$fwdPageP6 = $fwdUi;
 $assert(str_contains($pfqP6, 'function forwardQueueStatusVocabulary') && str_contains($pfqP6, 'function forwardQueueRetryPolicyHint'), 'p6_forward_status_vocab_and_retry_hint');
 $assert(str_contains($pfqP6, 'function maskForwardQueueErrorMessage') && str_contains($pfqP6, 'Partner mismatch'), 'p6_forward_mask_errors_and_crosswire_guard');
 $assert(str_contains($pfqP6, 'Duplicate success blocked') && str_contains($pfqP6, 'Fail-closed: local_record'), 'p6_forward_idempotent_fail_closed');
@@ -1048,7 +1051,7 @@ $assert(str_contains($txnDetP5, 'ensurePaymentPackSchema') && str_contains($txnD
 $assert(str_contains((string)file_get_contents($root . '/includes/pg_webhooks.php'), 'function logPgWebhookVerifyFailure'), 'p5_webhook_verify_failure_safe_log');
 $assert(str_contains((string)file_get_contents($root . '/includes/email_templates.php'), 'Templated email skipped') === false, 'p5_smtp_skip_not_platform_error');
 $assert(str_contains((string)file_get_contents($root . '/includes/error_catcher.php'), 'Unknown column%link_label'), 'p5_auto_resolve_stale_link_label');
-$assert(str_contains((string)file_get_contents($root . '/admin_gateway_submit.php'), 'gateway_submissions') && str_contains((string)file_get_contents($root . '/admin_gateway_submit.php'), 'admin_forward_queue.php'), 'p7b_gateway_submit_vs_forward_queue_copy');
+$assert(str_contains((string)file_get_contents($root . '/admin_gateway_submit.php'), 'gateway_submissions') && str_contains((string)file_get_contents($root . '/admin_gateway_submit.php'), 'admin_kyc.php?tab=forward'), 'p7b_gateway_submit_vs_forward_queue_copy');
 $assert(str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'getPartnerRegistry') || str_contains((string)file_get_contents($root . '/includes/partner_forward_queue.php'), 'partnerDisplayName'), 'p7b_kyc_notify_partner_name');
 
 // Payout adapters — live dispatch implemented (still gated by payout_live_enabled)
@@ -1145,7 +1148,7 @@ $hwFlow = (string)file_get_contents($root . '/includes/hold_window_workflow.php'
 $pfqLib = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
 $assert(str_contains($hwFlow, 'function holdWindowComputeSchedule') && str_contains($hwFlow, 'function holdWindowHealthCheck'), 'split17_workflow_core_functions');
 $assert(str_contains($pfqLib, 'holdWindowComputeSchedule'), 'split17_forward_queue_delegates_hold_window');
-$assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'holdWindowAdminEducation'), 'split17_forward_queue_education');
+$assert(str_contains($fwdUi, 'holdWindowEdu'), 'split17_forward_queue_education');
 $assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'holdWindowHealthCheck'), 'split17_platform_health');
 $assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'hold_window_workflow'"), 'split17_config_dev_loads');
 require_once $root . '/includes/hold_window_workflow.php';
@@ -1198,7 +1201,7 @@ $assert(wiringDeepLinkSettlementActionUrl('Payout sent', '₹100') === 'transact
 $assert(str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'forwardStagedEdu') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'forwardStagedAdminEducation'), 'split_b68_dashboard_staged_card');
 $assert(str_contains((string)file_get_contents($root . '/header.php'), 'admin_support.php') && str_contains((string)file_get_contents($root . '/header.php'), 'support</a>'), 'split_b68_header_support_badge');
 $assert(str_contains($fwdQFlow, 'function forwardStagedAdminEducation') && str_contains($fwdQFlow, 'function forwardQueueWorkflowHealthCheck'), 'split_b68_forward_queue_workflow');
-$assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'forwardStagedAdminEducation'), 'split_b68_forward_queue_staged_edu');
+$assert(str_contains($fwdUi, 'forwardStagedEdu'), 'split_b68_forward_queue_staged_edu');
 $assert(str_contains((string)file_get_contents($root . '/admin_gateway_submit.php'), 'gatewaySubmitVsForwardQueueEducation'), 'split_b68_gateway_submit_sync_edu');
 $assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'forwardQueueWorkflowHealthCheck'), 'split_b68_platform_health');
 $assert(str_contains((string)file_get_contents($root . '/config.dev.php'), "'forward_queue_workflow'"), 'split_b68_config_dev_loads');
@@ -1831,7 +1834,8 @@ $assert(function_exists('routeSplitIsParked') && routeSplitIsParked(), 'prio7_ro
 $assert(!str_contains($checkoutSrc, 'Pay with Razorpay') && !str_contains($checkoutSrc, 'Powered by PayU'), 'prio1_checkout_no_partner_brand_cta');
 $assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'Partner Registry → Partner Detail → Keys'), 'prio2_keys_plane_registry_banner');
 $assert(str_contains((string)file_get_contents($root . '/includes/partner_control.php'), 'pinelabs_access_code'), 'prio2_pinelabs_canonical_alias');
-$assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'not sent to the bank/partner yet'), 'prio3_kyc_forward_staged_honest');
+$fwdWf = (string)file_get_contents($root . '/includes/forward_queue_workflow.php');
+$assert(str_contains($fwdWf, 'not sent to the bank/partner yet'), 'prio3_kyc_forward_staged_honest');
 $assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'merchant_customer_tickets.php?q='), 'prio4_notify_ct_to_complaints');
 $assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'disputes.php?id='), 'prio4_notify_dsp_to_disputes');
 $assert(str_contains((string)file_get_contents($root . '/includes/notifications.php'), 'transactions.php'), 'prio4_notify_settlement_to_transactions');
@@ -2412,7 +2416,13 @@ $assert(str_contains($regV2Src, 'function registryKycForwardCapablePartnerKeys')
 $assert(str_contains($peSrcR4, 'registryKycForwardCapablePartnerKeys'), 'r4_get_kyc_forward_from_registry');
 $assert(str_contains($fwdQSrc, "'waiting_keys'") && str_contains($fwdQSrc, 'function forwardQueuePushLiveApi'), 'r4_waiting_keys_and_sandbox_stub');
 $assert(str_contains($fwdQSrc, "status='waiting_keys'") && !str_contains($fwdQSrc, "targets = ['unassigned']"), 'r4_honest_waiting_keys_no_fake_unassigned');
-$assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'waiting_keys'), 'r4_admin_forward_queue_waiting_keys_filter');
+$assert(str_contains($fwdUi, 'waiting_keys'), 'r4_admin_forward_queue_waiting_keys_filter');
+$kycOpsSrc = (string)file_get_contents($root . '/includes/kyc_ops.php');
+$sidebarNav = (string)file_get_contents($root . '/includes/sidebar_nav.php');
+$assert(str_contains($kycOpsUi, 'renderKycOpsTabs') && str_contains($kycOpsUi, "kycOpsUrl('forward')") && str_contains($kycOpsUi, 'admin_kyc_forward_panel.php'), 'kyc_ops_hub_tabs_and_forward_panel');
+$assert(str_contains($kycOpsSrc, 'kycOpsAfterCheckerApprove') && str_contains($kycOpsSrc, "kycOpsUrl('forward'"), 'kyc_ops_checker_redirect_forward_tab');
+$assert(str_contains($sidebarNav, "'KYC Ops'") && !str_contains($sidebarNav, "['admin_forward_queue.php', 'KYC Forward Queue']"), 'kyc_ops_sidebar_single_entry');
+$assert(str_contains((string)file_get_contents($root . '/includes/forward_queue_workflow.php'), "return 'admin_kyc.php?tab=forward'"), 'kyc_ops_forward_auto_page_hub');
 $assert(str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), 'COLLATE utf8mb4_unicode_ci'), 'r4_approve_doc_collation_safe');
 
 $payload = [

@@ -563,7 +563,7 @@ function getPlatformServiceHealth(): array
             'forward_queue_sync',
             'Forward queue / Gateway submit (B7–B8)',
             'forward_queue_workflow.php',
-            'admin_forward_queue.php?status=staged'
+            'admin_kyc.php?tab=forward'
         ),
         function_exists('checkoutCollectionWorkflowHealthCheck') ? checkoutCollectionWorkflowHealthCheck() : platformWorkflowHealthFallback(
             'checkout_collection_b9',

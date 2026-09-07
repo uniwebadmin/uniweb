@@ -141,7 +141,7 @@ function uniwebAdminNavGroups(): array
             ['admin_dashboard.php', 'Overview'],
         ]],
         ['id' => 'owner_today', 'title' => 'Today', 'items' => [
-            ['admin_kyc.php', 'KYC Review'],
+            ['admin_kyc.php', 'KYC Ops'],
             ['admin_gateway_registry.php', 'Partner Registry'],
             ['admin_support.php', 'Support Tickets'],
             ['admin_customer_tickets.php', 'Customer Complaints'],
@@ -157,7 +157,6 @@ function uniwebAdminNavGroups(): array
         ['id' => 'partners', 'title' => 'Partners (rails / keys)', 'items' => [
             ['gateway_settings.php', 'Platform Settings (SMTP / cron)'],
             ['admin_method_requests.php', 'Method Requests'],
-            ['admin_forward_queue.php', 'KYC Forward Queue'],
         ]],
         ['id' => 'payments', 'title' => 'Transactions & Refunds', 'items' => [
             ['admin_transactions.php', 'Transactions'],
@@ -206,8 +205,6 @@ function uniwebAdminNavGroups(): array
             ['admin_merchant_health.php', 'Merchant Health'],
             ['admin_customer_view.php', 'Customer Lookup'],
             ['admin_reason_map.php', 'Reason Maps'],
-            ['admin_auto_kyc.php', 'Auto KYC Engine'],
-            ['admin_gateway_submit.php', 'KYC Submissions'],
             ['admin_integration_matrix.php', 'Integration Board'],
             ['admin_gateway_matrix.php', 'Gateway Routing'],
             ['admin_gateway_health.php', 'Gateway Health'],

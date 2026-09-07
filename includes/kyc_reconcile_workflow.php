@@ -86,7 +86,7 @@ function renderKycFailureAdminPanel(): string
     foreach (kycForwardFailureScenarios() as $row) {
         $html .= '<li><strong class="text-gray-300">' . e($row['scenario']) . ':</strong> ' . e($row['meaning']) . '</li>';
     }
-    $html .= '</ul><p class="text-[11px] text-gray-600 mt-2"><a href="admin_forward_queue.php" class="text-sky-400 hover:underline">Forward queue</a> — filter Staged; not sent to bank until adapter + keys.</p></div>';
+    $html .= '</ul><p class="text-[11px] text-gray-600 mt-2"><a href="admin_kyc.php?tab=forward" class="text-sky-400 hover:underline">Forward queue</a> — filter Staged; not sent to bank until adapter + keys.</p></div>';
     $html .= '</div></div>';
     return $html;
 }

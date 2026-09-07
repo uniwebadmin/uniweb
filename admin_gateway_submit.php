@@ -104,7 +104,7 @@ require_once __DIR__ . '/header.php';
 <div class="max-w-6xl mx-auto space-y-4 sm:space-y-6 min-w-0">
     <div>
         <h1 class="text-xl sm:text-2xl font-bold">Multi-Gateway Forward</h1>
-        <p class="text-sm text-gray-400 mt-1">Manual forward + status matrix for <code class="text-xs bg-gray-800 px-1 rounded">gateway_submissions</code>. After Admin Verify, the automatic <a href="admin_forward_queue.php" class="text-sky-400 hover:underline">KYC Forward Queue</a> also enqueues one row per partner with keys — mostly <strong class="text-amber-300">staged</strong> until live API. Use this page to bulk-forward or update submission status; cron does not replace your review here.</p>
+        <p class="text-sm text-gray-400 mt-1">Manual forward + status matrix for <code class="text-xs bg-gray-800 px-1 rounded">gateway_submissions</code>. After Admin Verify, the automatic <a href="admin_kyc.php?tab=forward" class="text-sky-400 hover:underline">KYC Forward Queue</a> also enqueues one row per partner with keys — mostly <strong class="text-amber-300">staged</strong> until live API. Use this page to bulk-forward or update submission status; cron does not replace your review here.</p>
         <?php if (is_array($gwSubEdu)): ?>
         <p class="text-[11px] text-rose-300/90 mt-2"><?= e($gwSubEdu['summary']) ?></p>
         <?php endif; ?>

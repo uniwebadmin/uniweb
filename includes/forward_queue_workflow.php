@@ -33,7 +33,7 @@ function forwardStagedIsNormal(array $statsByStatus): bool
 
 function forwardQueueAutoPage(): string
 {
-    return 'admin_forward_queue.php';
+    return 'admin_kyc.php?tab=forward';
 }
 
 function forwardQueueManualPage(): string

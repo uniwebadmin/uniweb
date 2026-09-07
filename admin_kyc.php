@@ -9,6 +9,7 @@ require_once __DIR__ . '/includes/auto_kyc.php';
 require_once __DIR__ . '/includes/kyc_workflow.php';
 require_once __DIR__ . '/includes/kyc_submit_guard.php';
 require_once __DIR__ . '/includes/onboarding_state_machine.php';
+require_once __DIR__ . '/includes/kyc_ops.php';
 if (!function_exists('kycRejectReasonPresets') && is_file(__DIR__ . '/includes/kyc_entity.php')) {
     require_once __DIR__ . '/includes/kyc_entity.php';
 }
@@ -17,9 +18,18 @@ $canMutateKyc = staffCanMutateKyc();
 $canChecker = staffCanCheckerApproveKyc();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $fwdPostRedirect = kycOpsForwardHandlePost(false);
+    if ($fwdPostRedirect !== null) {
+        redirect($fwdPostRedirect);
+    }
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
         flash('error', 'Session expired.');
-        redirect('admin_kyc.php');
+        redirect(kycOpsUrl('review'));
+    }
+    $redirectAfterPost = kycOpsUrl('review');
+    $preserveMerchantId = (int)($_GET['merchant_id'] ?? $_POST['merchant_id'] ?? 0);
+    if ($preserveMerchantId > 0) {
+        $redirectAfterPost = kycOpsUrl('review', ['merchant_id' => $preserveMerchantId]);
     }
     $action = (string)($_POST['action'] ?? '');
     $id = (int)($_POST['id'] ?? 0);
@@ -32,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             : ['ok' => strlen($reason) >= 10, 'reason' => $reason, 'error' => 'Rejection reason must be at least 10 characters. Please provide a clear explanation for the merchant.'];
         if (empty($norm['ok'])) {
             flash('error', $norm['error'] ?? 'Rejection reason must be at least 10 characters. Please provide a clear explanation for the merchant.');
-            redirect('admin_kyc.php');
+            redirect($redirectAfterPost);
         }
         $reason = (string)$norm['reason'];
     }
@@ -89,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $verifyLock = claimKycSubmitLock($id, 'admin_verify_now', $verifyFp, 90);
             if (!empty($verifyLock['replay'])) {
                 flash('success', 'KYC verify already completed — refresh the queue.');
-                redirect('admin_kyc.php');
+                redirect(kycOpsUrl('forward'));
             }
             if (empty($verifyLock['ok'])) {
                 throw new RuntimeException($verifyLock['message'] ?? 'Verify already in progress.');
@@ -100,6 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             verifyMerchantKycNow($id, $reason);
             flash('success', 'Merchant KYC verified. Live money still needs the separate Live activation gate.');
+            $redirectAfterPost = kycOpsUrl('forward');
         } elseif ($action === 'forward_partners_now') {
             requireMerchantAccess($id);
             if (!function_exists('forwardMerchantToPartnersNow') && is_file(__DIR__ . '/includes/kyc_workflow.php')) {
@@ -112,6 +123,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $processed = (int)($fwd['forward']['forward']['processed'] ?? 0);
             $staged = (int)($fwd['forward']['forward']['staged'] ?? 0);
             flash('success', 'Partner forward queued. Processed ' . $processed . ' row(s)' . ($staged > 0 ? (', ' . $staged . ' staged (not sent to bank yet)') : '') . '.');
+            $mCode = '';
+            try {
+                $mc = $db->prepare('SELECT merchant_code FROM merchants WHERE id=? LIMIT 1');
+                $mc->execute([$id]);
+                $mCode = trim((string)$mc->fetchColumn());
+            } catch (Throwable $e) {
+                $mCode = '';
+            }
+            $redirectAfterPost = kycOpsForwardHubUrl($mCode !== '' ? ['q' => $mCode] : []);
         } elseif ($action === 'live_enable') {
             requireStepUpAuth();
             requireMerchantAccess($id);
@@ -206,8 +226,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('success', 'Document rejected. Merchant sees: ' . $reason);
         } elseif ($action === 'approve_request') {
             requireStepUpAuth();
+            $reqSt = $db->prepare("SELECT action_type, merchant_id FROM approval_requests WHERE id=? LIMIT 1");
+            $reqSt->execute([$id]);
+            $reqRow = $reqSt->fetch() ?: [];
             approveApprovalRequest($id, $reason);
-            flash('success', 'Independent checker approval completed.');
+            $afterApprove = kycOpsAfterCheckerApprove((string)($reqRow['action_type'] ?? ''), (int)($reqRow['merchant_id'] ?? 0));
+            flash('success', $afterApprove['message']);
+            $redirectAfterPost = kycOpsUrl($afterApprove['tab'], $preserveMerchantId > 0 ? ['merchant_id' => $preserveMerchantId] : []);
         } elseif ($action === 'reject_request') {
             rejectApprovalRequest($id, $reason);
             flash('success', 'Approval request rejected.');
@@ -241,9 +266,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             logPlatformError('error', 'admin_kyc action failed: ' . $action, ['merchant_id' => $id, 'error' => $e->getMessage()]);
         }
     }
-    redirect('admin_kyc.php');
+    redirect($redirectAfterPost);
 }
 
+$kycTab = kycOpsCurrentTab();
 $pendingDocs = [];
 try {
     $pendingDocs = $db->query(
@@ -379,12 +405,37 @@ if ($filterMerchantId > 0) {
     $manualAssistQueue = array_values(array_filter($manualAssistQueue, static fn(array $row): bool => (int)($row['id'] ?? 0) === $filterMerchantId));
 }
 
-$pageTitle = 'KYC Review';
+$pageTitle = 'KYC Ops';
 require_once __DIR__ . '/header.php';
 if (!function_exists('renderKycFailureAdminPanel')) {
     require_once __DIR__ . '/includes/kyc_reconcile_workflow.php';
 }
+echo renderKycOpsTabs($kycTab);
 ?>
+
+<?php if ($kycTab === 'forward'): ?>
+<?php
+$ctx = kycOpsForwardLoadContext();
+extract($ctx, EXTR_SKIP);
+$kycForwardPanelStandalone = false;
+$kycForwardPanelPostUrl = kycOpsForwardHubUrl();
+require __DIR__ . '/includes/admin_kyc_forward_panel.php';
+?>
+<?php elseif ($kycTab === 'tools'): ?>
+<div class="space-y-4 mb-8">
+    <p class="text-sm text-gray-400">Secondary tools — same KYC Ops path. Primary review and forward queue are on the other tabs.</p>
+    <div class="grid md:grid-cols-2 gap-4">
+        <a href="admin_auto_kyc.php" class="glass rounded-xl p-5 border border-violet-500/30 hover:border-violet-500/50 block">
+            <h2 class="font-semibold text-violet-300">Auto KYC Engine</h2>
+            <p class="text-xs text-gray-500 mt-2">Scheduled zero-touch rules — same merchants as manual KYC Review.</p>
+        </a>
+        <a href="admin_gateway_submit.php" class="glass rounded-xl p-5 border border-gray-700 hover:border-gray-600 block">
+            <h2 class="font-semibold text-gray-200">KYC Submissions (legacy)</h2>
+            <p class="text-xs text-gray-500 mt-2">Manual multi-gateway forward / gateway_submissions matrix. Auto queue syncs after verify.</p>
+        </a>
+    </div>
+</div>
+<?php else: ?>
 
 <?= renderKycFailureAdminPanel() ?>
 <div class="glass rounded-xl p-5 mb-6 border border-emerald-500/20 text-sm text-gray-300">
@@ -402,7 +453,7 @@ if (!function_exists('renderKycFailureAdminPanel')) {
     <?php if (isSuperAdmin()): ?>
     <a href="admin_watchdog.php" class="glass px-4 py-2 rounded-xl text-sm text-amber-400 text-center w-full sm:w-auto">Link Watchdog</a>
     <?php endif; ?>
-    <a href="admin_auto_kyc.php" class="glass px-4 py-2 rounded-xl text-sm text-violet-300 text-center w-full sm:w-auto">Auto KYC + Partner forward</a>
+    <a href="<?= e(kycOpsUrl('forward')) ?>" class="glass px-4 py-2 rounded-xl text-sm text-violet-300 text-center w-full sm:w-auto">Forward queue</a>
     <a href="manage_merchant.php" class="glass px-4 py-2 rounded-xl text-sm text-gray-300 text-center w-full sm:w-auto">All Merchants</a>
 </div>
 
@@ -650,7 +701,7 @@ if (!function_exists('renderKycFailureAdminPanel')) {
                 <p class="text-xs text-gray-500"><?= adminMerchantLink($vmId, $vm['merchant_code'], 'font-mono text-sky-400') ?></p>
             </div>
             <div class="flex gap-2 flex-wrap">
-                <a href="admin_forward_queue.php?q=<?= urlencode((string)$vm['merchant_code']) ?>" class="text-xs bg-gray-700/50 text-gray-300 px-3 py-1.5 rounded-lg">Forward Queue</a>
+                <a href="<?= e(kycOpsForwardHubUrl(['q' => (string)$vm['merchant_code']])) ?>" class="text-xs bg-gray-700/50 text-gray-300 px-3 py-1.5 rounded-lg">Forward Queue</a>
                 <?php if ($canMutateKyc): ?>
                 <form method="post" class="inline"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><input type="hidden" name="action" value="forward_partners_now"><input type="hidden" name="id" value="<?= $vmId ?>"><button class="text-xs bg-violet-600 text-white px-3 py-1.5 rounded-lg">Forward to partners</button></form>
                 <?php endif; ?>
@@ -660,4 +711,5 @@ if (!function_exists('renderKycFailureAdminPanel')) {
     </div>
     <?php endif; ?>
 </div>
+<?php endif; ?>
 <?php require_once __DIR__ . '/footer.php'; ?>
