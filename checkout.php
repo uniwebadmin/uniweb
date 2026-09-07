@@ -344,12 +344,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && ($_POST['a
             $methodType = (string)($currentMethod['type'] ?? '');
             $needsPartner = !in_array($handler, ['direct_upi', 'axis_va'], true)
                 || in_array($methodType, ['pg_pool', 'payu', 'razorpay', 'cashfree'], true);
-            if ($needsPartner && $selectedPay !== 'upi' && function_exists('collectEligibleCheckoutPartners')) {
-                $eligiblePay = collectEligibleCheckoutPartners((int)$link['merchant_id'], $isTestCheckout, $selectedPay);
+            if ($needsPartner && function_exists('collectEligibleCheckoutPartners')) {
+                $payProbe = in_array($selectedPay, ['dc', 'cc'], true) ? 'card' : $selectedPay;
+                if ($payProbe !== 'upi') {
+                $eligiblePay = collectEligibleCheckoutPartners((int)$link['merchant_id'], $isTestCheckout, $payProbe);
                 if ($eligiblePay === []) {
                     $error = function_exists('collectCheckoutNoneEligibleMessage')
-                        ? collectCheckoutNoneEligibleMessage($selectedPay, (int)$link['merchant_id'], $isTestCheckout)
+                        ? collectCheckoutNoneEligibleMessage($payProbe, (int)$link['merchant_id'], $isTestCheckout)
                         : 'No payment partner is ready for this checkout.';
+                }
                 }
             }
             if ($error === '') {
@@ -428,6 +431,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         : null;
     if ($selectedPay === 'upi' && function_exists('decentroSandboxCheckoutAvailable') && decentroSandboxCheckoutAvailable($link)) {
         $decentroQr = createDecentroSandboxCheckoutQr($link);
+    }
+    if ($selectedPay === 'upi' && empty($decentroQr['ok']) && $handler === 'platform_pg' && function_exists('collectEligibleCheckoutPartners')) {
+        $upiEligible = collectEligibleCheckoutPartners((int)$link['merchant_id'], $isTestCheckout, 'upi');
+        if ($upiEligible === [] && ($error ?? '') === '') {
+            $error = function_exists('collectCheckoutNoneEligibleMessage')
+                ? collectCheckoutNoneEligibleMessage('upi', (int)$link['merchant_id'], $isTestCheckout)
+                : 'No UPI collect partner is ready for Platform checkout.';
+        } elseif (count($upiEligible) === 1 && ($upiEligible[0] ?? '') === 'rbl' && ($error ?? '') === '') {
+            $error = 'RBL UPI is configured but QR checkout is not wired yet — use Decentro UPI (sandbox) or UniWeb Test Mode.';
+        }
     }
     $smartRouted = null;
     if (!function_exists('intelligentRoutingEnabled') && is_file(__DIR__ . '/includes/intelligent_routing.php')) {

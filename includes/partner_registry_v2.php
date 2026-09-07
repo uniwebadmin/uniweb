@@ -990,7 +990,61 @@ function registryPartnerEffectiveCaps(string $partnerKey, ?array $gatewayRow = n
     if (!$caps['collect'] && ($caps['upi'] || $caps['card'] || $caps['netbanking'])) {
         $caps['collect'] = true;
     }
+    if (in_array($partnerKey, registryPartnerUpiOnlyRailKeys(), true)) {
+        $caps['collect'] = true;
+        $caps['upi'] = true;
+        $caps['card'] = false;
+        $caps['netbanking'] = false;
+        $caps['emi'] = false;
+        $caps['wallet'] = false;
+    }
     return $caps;
+}
+
+/** Partners that only support UPI collect on checkout (never card/NB regardless of wrong cap_card in DB). */
+function registryPartnerUpiOnlyRailKeys(): array
+{
+    return ['decentro', 'rbl', 'axis'];
+}
+
+/**
+ * Hosted checkout / QR pay path exists in UniWeb for this method (Keys Valid alone is not enough).
+ */
+function registryPartnerCollectPayPathWired(string $partnerKey, string $checkoutMethod): bool
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    $bucket = registryCheckoutMethodBucket($checkoutMethod);
+    if (!function_exists('isGatewayConfigured') && is_file(__DIR__ . '/gateways.php')) {
+        require_once __DIR__ . '/gateways.php';
+    }
+    return match ($bucket) {
+        'card', 'netbanking', 'emi', 'wallet' => in_array($partnerKey, ['razorpay', 'cashfree', 'payu'], true),
+        'upi' => match ($partnerKey) {
+            'decentro' => function_exists('createDecentroDynamicQr'),
+            'rbl' => function_exists('rblUpiCollection'),
+            'razorpay', 'cashfree', 'payu' => true,
+            default => false,
+        },
+        default => false,
+    };
+}
+
+/**
+ * Checkout UI can invoke collect for this partner+method (API wired into checkout.php / upi_confirm).
+ */
+function registryPartnerCheckoutUiWired(string $partnerKey, string $checkoutMethod): bool
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    $bucket = registryCheckoutMethodBucket($checkoutMethod);
+    return match ($bucket) {
+        'card', 'netbanking', 'emi', 'wallet' => in_array($partnerKey, ['razorpay', 'cashfree', 'payu'], true),
+        'upi' => match ($partnerKey) {
+            'decentro' => true,
+            'rbl' => false,
+            default => in_array($partnerKey, ['razorpay', 'cashfree', 'payu'], true),
+        },
+        default => false,
+    };
 }
 
 /** Registry cap allows this checkout bucket (ignores partner_methods toggle). */
@@ -1085,14 +1139,21 @@ function registryPartnerMethodAdminGate(string $partnerKey, string $partnerMetho
         'emandate_nb' => 'netbanking',
         default => $partnerMethod,
     };
+    if (in_array($partnerKey, registryPartnerUpiOnlyRailKeys(), true)
+        && in_array($partnerMethod, ['debit_card', 'credit_card', 'netbanking', 'emi', 'wallet', 'emandate_card', 'emandate_nb'], true)) {
+        return ['allowed' => false, 'reason' => 'UPI-only rail — card not supported'];
+    }
     if (!registryPartnerCapSupportsCheckoutMethod($partnerKey, $checkoutProbe, $gatewayRow)) {
         return ['allowed' => false, 'reason' => 'Registry cap does not include this method'];
+    }
+    if (!registryPartnerCollectPayPathWired($partnerKey, $checkoutProbe)) {
+        return ['allowed' => false, 'reason' => 'Not wired for hosted checkout'];
     }
     return ['allowed' => true, 'reason' => ''];
 }
 
 /**
- * Full checkout eligibility: caps + Detail Methods ON + connector_collect_ready.
+ * Registry capability + Detail Methods ON + connector + pay path (no keys / merchant gates).
  * Commercial rates never unlock methods.
  */
 function registryPartnerSupportsCheckoutMethod(string $partnerKey, string $checkoutMethod, ?array $gatewayRow = null): bool
@@ -1104,7 +1165,26 @@ function registryPartnerSupportsCheckoutMethod(string $partnerKey, string $check
     if (!registryPartnerCapSupportsCheckoutMethod($partnerKey, $checkoutMethod, $gatewayRow)) {
         return false;
     }
+    if (!registryPartnerCollectPayPathWired($partnerKey, $checkoutMethod)) {
+        return false;
+    }
     return registryPartnerDetailMethodSupportsCheckout($partnerKey, $checkoutMethod);
+}
+
+/**
+ * Full eligible() partner gate: registry method support + keys for mode + checkout UI wired.
+ */
+function registryPartnerCheckoutEligible(string $partnerKey, string $checkoutMethod, bool $sandbox, ?array $gatewayRow = null): bool
+{
+    if (!registryPartnerSupportsCheckoutMethod($partnerKey, $checkoutMethod, $gatewayRow)) {
+        return false;
+    }
+    if (!registryPartnerKeysReadyForMode($partnerKey, $sandbox)) {
+        if (!($sandbox && function_exists('isGatewayConfigured') && isGatewayConfigured($partnerKey))) {
+            return false;
+        }
+    }
+    return registryPartnerCheckoutUiWired($partnerKey, $checkoutMethod);
 }
 
 /** Partners with card / hosted checkout order APIs (Registry caps + Detail Methods). */
@@ -1112,8 +1192,8 @@ function registryCardCheckoutPartnerKeys(): array
 {
     $out = [];
     foreach (registryCollectCapablePartnerKeys(false) as $key) {
-        if (registryPartnerCapSupportsCheckoutMethod($key, 'card')
-            && registryPartnerDetailMethodSupportsCheckout($key, 'card')) {
+        if (registryPartnerSupportsCheckoutMethod($key, 'card')
+            && registryPartnerCheckoutUiWired($key, 'card')) {
             $out[] = $key;
         }
     }
@@ -1207,6 +1287,11 @@ function registryPartnerPlatformStatusLine(string $partnerKey): string
     }
     if (!$s['collect']) {
         return 'KYC / forward only — not on collect path';
+    }
+    if ($s['key_status'] === 'valid' && function_exists('registryPartnerCollectPayPathWired')
+        && !registryPartnerCollectPayPathWired($partnerKey, 'card')
+        && !registryPartnerCollectPayPathWired($partnerKey, 'upi')) {
+        return 'Keys Valid · Not wired for hosted checkout';
     }
     if (!$s['active']) {
         return 'Routing OFF — turn ON in Partner Registry';

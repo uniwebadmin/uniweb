@@ -61,7 +61,7 @@ function confirmUpiPaymentForLink(array $link, string $utr, bool $isTestCheckout
     return ['ok' => true, 'txn_id' => $txnId ?: null];
 }
 
-function decentroSandboxCheckoutAvailable(array $link): bool
+function decentroCheckoutUpiAvailable(array $link): bool
 {
     if (!function_exists('isDecentroSandboxEnvironment') && is_file(__DIR__ . '/partner_control.php')) {
         require_once __DIR__ . '/partner_control.php';
@@ -70,14 +70,19 @@ function decentroSandboxCheckoutAvailable(array $link): bool
         require_once __DIR__ . '/smart_routing.php';
     }
     $merchantId = (int)($link['merchant_id'] ?? 0);
+    $sandbox = paymentModeForLink($link) === 'test';
     if (function_exists('collectCheckoutPartnerIsEligible')
-        && !collectCheckoutPartnerIsEligible($merchantId, 'decentro', paymentModeForLink($link) === 'test')) {
+        && !collectCheckoutPartnerIsEligible($merchantId, 'decentro', $sandbox, 'upi')) {
         return false;
     }
+    return isGatewayConfigured('decentro') && decentroConsumerUrn() !== '';
+}
+
+function decentroSandboxCheckoutAvailable(array $link): bool
+{
     return paymentModeForLink($link) === 'test'
         && isDecentroSandboxEnvironment()
-        && isGatewayConfigured('decentro')
-        && decentroConsumerUrn() !== '';
+        && decentroCheckoutUpiAvailable($link);
 }
 
 function createDecentroSandboxCheckoutQr(array $link): array

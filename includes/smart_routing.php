@@ -262,6 +262,57 @@ function merchantMayCollectViaPartner(int $merchantId, string $partnerKey): bool
     return false;
 }
 
+/** Merchant product toggle ON for this checkout method (subset of partner methods). */
+function merchantCollectMethodEnabled(int $merchantId, string $checkoutMethod): bool
+{
+    if ($merchantId < 1) {
+        return true;
+    }
+    if (!function_exists('registryCheckoutMethodBucket') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    $bucket = function_exists('registryCheckoutMethodBucket')
+        ? registryCheckoutMethodBucket($checkoutMethod)
+        : strtolower(trim($checkoutMethod));
+    $catalogKeys = match ($bucket) {
+        'card' => ['debit_card', 'credit_card'],
+        'upi' => ['upi_p2m'],
+        'netbanking' => ['netbanking'],
+        'emi' => ['emi'],
+        'wallet' => ['wallet'],
+        default => [strtolower(trim($checkoutMethod))],
+    };
+    if (!function_exists('getMerchantEnabledMethods') && is_file(__DIR__ . '/provision.php')) {
+        require_once __DIR__ . '/provision.php';
+    }
+    $enabled = [];
+    try {
+        $st = getDB()->prepare('SELECT enabled_methods FROM merchants WHERE id=? LIMIT 1');
+        $st->execute([$merchantId]);
+        $row = $st->fetch();
+        if ($row && function_exists('getMerchantEnabledMethods')) {
+            $enabled = getMerchantEnabledMethods($row);
+        } elseif ($row && !empty($row['enabled_methods'])) {
+            $decoded = json_decode((string)$row['enabled_methods'], true);
+            $enabled = is_array($decoded) ? $decoded : [];
+        }
+    } catch (Throwable $e) {
+        return true;
+    }
+    if (function_exists('normalizeCheckoutMethodKeys')) {
+        $enabled = normalizeCheckoutMethodKeys($enabled);
+    }
+    if ($enabled === []) {
+        return $bucket === 'upi';
+    }
+    foreach ($catalogKeys as $key) {
+        if (in_array($key, $enabled, true)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /**
  * Honest checkout message naming WHY no partner is ready.
  */
@@ -282,6 +333,10 @@ function collectCheckoutIneligibleDetailMessage(int $merchantId, string $checkou
     $keysReady = [];
     $merchantBlocked = [];
     $methodOff = [];
+    $notUiWired = [];
+    if ($merchantId > 0 && !merchantCollectMethodEnabled($merchantId, $checkoutMethod)) {
+        return 'This payment method is OFF for this merchant — turn it ON in Payment Methods.';
+    }
     foreach (function_exists('getRegisteredGateways') ? getRegisteredGateways(false) : [] as $g) {
         $key = strtolower(trim((string)($g['gateway_key'] ?? '')));
         if ($key === '' || (int)($g['is_active'] ?? 0) !== 1) {
@@ -304,22 +359,28 @@ function collectCheckoutIneligibleDetailMessage(int $merchantId, string $checkou
                 && !registryPartnerDetailMethodSupportsCheckout($key, $checkoutMethod)) {
                 $methodOff[] = $key;
             }
+            if (function_exists('registryPartnerCollectPayPathWired')
+                && registryPartnerCapSupportsCheckoutMethod($key, $checkoutMethod, $g)
+                && !registryPartnerCollectPayPathWired($key, $checkoutMethod)) {
+                $notUiWired[] = $key;
+            }
             if ($merchantId > 0 && !merchantMayCollectViaPartner($merchantId, $key)) {
                 $merchantBlocked[] = $key;
             }
         }
     }
-    if ($keysReady !== [] && $merchantId > 0) {
-        $eligible = collectEligibleCheckoutPartners($merchantId, $sandbox, $checkoutMethod);
-        if ($eligible !== []) {
-            return 'No payment partner is ready for this checkout. A partner must be Active, with valid keys (sandbox is OK), a connector, and enable on this merchant.';
-        }
-    }
     if ($bucket === 'card' && $methodCapable === []) {
-        return 'No partner supports Debit/Credit Card in ' . $modeLabel . ' Mode — enable card on a collect partner in Partner Registry or use UPI.';
+        return 'No card collect-ready partner in ' . $modeLabel . ' Mode — turn ON card on Razorpay/Cashfree/PayU in Partner Registry (UPI-only rails like RBL/Decentro cannot take cards).';
     }
     if ($bucket === 'upi' && $methodCapable === []) {
         return 'No partner supports UPI collect in ' . $modeLabel . ' Mode — turn ON UPI on Decentro or RBL in Partner Registry.';
+    }
+    if ($notUiWired !== []) {
+        $names = implode(', ', array_map('ucfirst', array_unique($notUiWired)));
+        if ($bucket === 'card') {
+            return 'No card collect-ready partner — ' . $names . ' has keys but hosted card checkout is not wired yet. Use Razorpay, Cashfree, or PayU for cards.';
+        }
+        return $names . ' is not wired for checkout on this method yet.';
     }
     if ($methodCapable !== [] && $keysReady === []) {
         $names = implode(', ', array_map('ucfirst', $methodCapable));
@@ -386,14 +447,25 @@ function collectEligibleCheckoutPartners(int $merchantId, bool $sandbox = true, 
         if (function_exists('partnerAdapterIsWired') && !partnerAdapterIsWired($key, $g)) {
             continue;
         }
-        if ($checkoutMethod !== null && $checkoutMethod !== ''
-            && function_exists('registryPartnerSupportsCheckoutMethod')
-            && !registryPartnerSupportsCheckoutMethod($key, $checkoutMethod, $g)) {
-            continue;
-        }
-        if (!function_exists('registryPartnerKeysReadyForMode') || !registryPartnerKeysReadyForMode($key, $sandbox)) {
-            if (!($sandbox && function_exists('isGatewayConfigured') && isGatewayConfigured($key))) {
+        if ($checkoutMethod !== null && $checkoutMethod !== '') {
+            if (!merchantCollectMethodEnabled($merchantId, $checkoutMethod)) {
                 continue;
+            }
+            if (function_exists('registryPartnerCheckoutEligible')
+                && !registryPartnerCheckoutEligible($key, $checkoutMethod, $sandbox, $g)) {
+                continue;
+            }
+            if (!function_exists('registryPartnerCheckoutEligible')
+                && function_exists('registryPartnerSupportsCheckoutMethod')
+                && !registryPartnerSupportsCheckoutMethod($key, $checkoutMethod, $g)) {
+                continue;
+            }
+        }
+        if (!function_exists('registryPartnerCheckoutEligible')) {
+            if (!function_exists('registryPartnerKeysReadyForMode') || !registryPartnerKeysReadyForMode($key, $sandbox)) {
+                if (!($sandbox && function_exists('isGatewayConfigured') && isGatewayConfigured($key))) {
+                    continue;
+                }
             }
         }
         if (!merchantMayCollectViaPartner($merchantId, $key)) {

@@ -712,6 +712,7 @@ require_once __DIR__ . '/header.php';
                     ? registryPartnerMethodAdminGate($partnerKey, $methodKey, $gateway)
                     : ['allowed' => true, 'reason' => ''];
                 $toggleLocked = !$enabled && empty($methodGate['allowed']);
+                $methodStaleOn = $enabled && empty($methodGate['allowed']);
             ?>
             <form method="POST" class="flex flex-wrap items-center gap-3 bg-dark-900/40 rounded-lg p-3">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
@@ -737,6 +738,10 @@ require_once __DIR__ . '/header.php';
                 <span class="text-[10px] px-2 py-0.5 rounded-full <?= $enabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700/50 text-gray-400' ?>"><?= $enabled ? 'ON' : 'OFF' ?></span>
                 <?php if ($toggleLocked): ?>
                 <span class="text-[10px] text-amber-400" title="<?= e($methodGate['reason']) ?>"><?= e($methodGate['reason']) ?></span>
+                <?php elseif ($methodStaleOn): ?>
+                <span class="text-[10px] text-rose-400">Turn OFF — <?= e($methodGate['reason']) ?></span>
+                <?php elseif ($enabled && function_exists('registryPartnerCheckoutEligible') && !registryPartnerCheckoutEligible($partnerKey, $methodKey === 'debit_card' || $methodKey === 'credit_card' ? 'card' : $methodKey, true, $gateway)): ?>
+                <span class="text-[10px] text-amber-400">ON but checkout blocked — paste keys or fix cap</span>
                 <?php elseif ($enabled && function_exists('registryPartnerSupportsCheckoutMethod') && !registryPartnerSupportsCheckoutMethod($partnerKey, $methodKey === 'debit_card' || $methodKey === 'credit_card' ? 'card' : $methodKey, $gateway)): ?>
                 <span class="text-[10px] text-amber-400">ON but checkout blocked — paste keys or fix cap</span>
                 <?php endif; ?>

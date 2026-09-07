@@ -2375,6 +2375,14 @@ $assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.ph
 $assert(!str_contains($checkoutSrc, "poolPartners = ['razorpay', 'cashfree']"), 'spine_checkout_no_rzp_cf_pool_fallback');
 $assert(str_contains((string)file_get_contents($root . '/includes/collection.php'), 'collectEligibleCheckoutPartners($merchantId, $isTest, \'card\')'), 'spine_collection_pool_from_registry');
 
+$prR1 = (string)file_get_contents($root . '/includes/partner_registry_v2.php');
+$assert(str_contains($prR1, 'function registryPartnerUpiOnlyRailKeys') && str_contains($prR1, 'function registryPartnerCollectPayPathWired'), 'r1_upi_only_rail_and_pay_path');
+$assert(str_contains($prR1, 'function registryPartnerCheckoutEligible') && str_contains($prR1, 'registryPartnerCheckoutUiWired'), 'r1_checkout_eligible_helpers');
+$assert(str_contains((string)file_get_contents($root . '/includes/smart_routing.php'), 'function merchantCollectMethodEnabled'), 'r1_merchant_method_toggle_gate');
+$assert(str_contains((string)file_get_contents($root . '/includes/upi_confirm.php'), 'function decentroCheckoutUpiAvailable'), 'r1_decentro_upi_eligibility');
+$assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'methodStaleOn') && str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'Turn OFF'), 'r1_admin_stale_method_toggle');
+$assert(str_contains((string)file_get_contents($root . '/includes/smart_routing.php'), 'No card collect-ready partner'), 'r1_honest_card_message');
+
 $payload = [
     'ok' => $failed === 0,
     'passed' => $passed,
