@@ -19,11 +19,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     }
     $txn = $db->prepare('SELECT * FROM transactions WHERE id = ? AND merchant_id = ?');
     $txn->execute([$txnId, $merchant['id']]);
-    if ($txn->fetch() && $reason !== '') {
+    $txnRow = $txn->fetch();
+    if ($txnRow && $reason !== '') {
+        if (!function_exists('disputePartnerKeyForTransaction') && is_file(__DIR__ . '/includes/ops_partner.php')) {
+            require_once __DIR__ . '/includes/ops_partner.php';
+        }
+        if (function_exists('ensureDisputePartnerKeyColumn')) {
+            ensureDisputePartnerKeyColumn();
+        }
+        $partnerKey = function_exists('disputePartnerKeyForTransaction')
+            ? disputePartnerKeyForTransaction($txnRow)
+            : null;
         $disputeId = generateId('DSP');
         try {
-            $db->prepare('INSERT INTO disputes (dispute_id, merchant_id, transaction_id, reason, sla_due_at) VALUES (?,?,?,?, DATE_ADD(NOW(), INTERVAL 5 DAY))')
-                ->execute([$disputeId, $merchant['id'], $txnId, $reason]);
+            if ($partnerKey !== null && $partnerKey !== '') {
+                $db->prepare('INSERT INTO disputes (dispute_id, merchant_id, transaction_id, partner_key, reason, sla_due_at) VALUES (?,?,?,?,?, DATE_ADD(NOW(), INTERVAL 5 DAY))')
+                    ->execute([$disputeId, $merchant['id'], $txnId, $partnerKey, $reason]);
+            } else {
+                $db->prepare('INSERT INTO disputes (dispute_id, merchant_id, transaction_id, reason, sla_due_at) VALUES (?,?,?,?, DATE_ADD(NOW(), INTERVAL 5 DAY))')
+                    ->execute([$disputeId, $merchant['id'], $txnId, $reason]);
+            }
         } catch (Throwable $e) {
             $db->prepare('INSERT INTO disputes (dispute_id, merchant_id, transaction_id, reason) VALUES (?,?,?,?)')
                 ->execute([$disputeId, $merchant['id'], $txnId, $reason]);
@@ -38,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
     redirect('disputes.php');
 }
 
-$disputes = $db->prepare('SELECT d.*, t.txn_id, t.amount FROM disputes d JOIN transactions t ON d.transaction_id = t.id WHERE d.merchant_id = ? ORDER BY d.created_at DESC');
+$disputes = $db->prepare('SELECT d.*, t.txn_id, t.amount, t.partner_key AS txn_partner_key FROM disputes d JOIN transactions t ON d.transaction_id = t.id WHERE d.merchant_id = ? ORDER BY d.created_at DESC');
 $disputes->execute([$merchant['id']]);
 $disputeList = $disputes->fetchAll() ?: [];
 
@@ -80,7 +95,7 @@ if ($viewKey !== '') {
     // If filter hid the match, look up directly for this merchant
     if (!$view) {
         $stView = $db->prepare(
-            'SELECT d.*, t.txn_id, t.amount FROM disputes d
+            'SELECT d.*, t.txn_id, t.amount, t.partner_key AS txn_partner_key FROM disputes d
              JOIN transactions t ON d.transaction_id = t.id
              WHERE d.merchant_id = ? AND (d.dispute_id = ? OR d.id = ?)
              LIMIT 1'
@@ -154,6 +169,21 @@ echo renderComplianceSupportPathPanel('dsp');
                     <p class="text-[10px] text-gray-600 uppercase">Transaction</p>
                     <p class="font-mono text-xs mt-1"><?= txnDetailLink((string)$view['txn_id']) ?></p>
                     <p class="text-gray-300 mt-1"><?= formatMoney(capStatAmount((float)$view['amount'])) ?></p>
+                </div>
+                <div>
+                    <p class="text-[10px] text-gray-600 uppercase">Collect partner</p>
+                    <?php
+                    if (!function_exists('resolveDisputePartnerKey') && is_file(__DIR__ . '/includes/ops_partner.php')) {
+                        require_once __DIR__ . '/includes/ops_partner.php';
+                    }
+                    $dspPartner = function_exists('resolveDisputePartnerKey')
+                        ? resolveDisputePartnerKey($view, $view)
+                        : '';
+                    $dspPartnerLabel = $dspPartner !== '' && function_exists('transactionPartnerLabel')
+                        ? transactionPartnerLabel($dspPartner)
+                        : '—';
+                    ?>
+                    <p class="text-xs mt-1 text-sky-300"><?= e($dspPartnerLabel) ?></p>
                 </div>
                 <div>
                     <p class="text-[10px] text-gray-600 uppercase">SLA due</p>

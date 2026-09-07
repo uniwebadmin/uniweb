@@ -1,15 +1,36 @@
 <?php
 declare(strict_types=1);
 
-function getPgReconciliationReport(int $days = 7): array
+if (is_file(__DIR__ . '/ops_partner.php')) {
+    require_once __DIR__ . '/ops_partner.php';
+}
+
+function getPgReconciliationReport(int $days = 7, ?string $partnerFilter = null): array
 {
     ensurePgWebhookTables();
+    if (function_exists('ensureTransactionPartnerKeyColumn')) {
+        require_once __DIR__ . '/schema_ensure.php';
+        ensureTransactionPartnerKeyColumn();
+    }
     $db = getDB();
     $days = max(1, min(90, $days));
+    $partnerFilter = $partnerFilter !== null && $partnerFilter !== '' ? normalizeTxnPartnerKey($partnerFilter) : null;
 
     $webhooks = $db->query("SELECT gateway, status, COUNT(*) AS c FROM pg_webhook_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL {$days} DAY) GROUP BY gateway, status")->fetchAll();
-    $txnSuccess = (int)$db->query("SELECT COUNT(*) FROM transactions WHERE status='success' AND created_at >= DATE_SUB(NOW(), INTERVAL {$days} DAY)")->fetchColumn();
-    $txnPending = (int)$db->query("SELECT COUNT(*) FROM transactions WHERE status='pending' AND created_at >= DATE_SUB(NOW(), INTERVAL {$days} DAY)")->fetchColumn();
+
+    $txnWhere = 'created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)';
+    $txnParams = [$days];
+    if ($partnerFilter !== null) {
+        $txnWhere .= ' AND (partner_key = ? OR (partner_key IS NULL AND payment_method = ?))';
+        $txnParams[] = $partnerFilter;
+        $txnParams[] = $partnerFilter;
+    }
+    $txnSuccessSt = $db->prepare("SELECT COUNT(*) FROM transactions WHERE status='success' AND {$txnWhere}");
+    $txnSuccessSt->execute($txnParams);
+    $txnSuccess = (int)$txnSuccessSt->fetchColumn();
+    $txnPendingSt = $db->prepare("SELECT COUNT(*) FROM transactions WHERE status='pending' AND {$txnWhere}");
+    $txnPendingSt->execute($txnParams);
+    $txnPending = (int)$txnPendingSt->fetchColumn();
 
     $unmatched = $db->query("SELECT w.id, w.gateway, w.reference, w.link_id, w.status, w.event_type, w.created_at
         FROM pg_webhook_logs w
@@ -17,14 +38,30 @@ function getPgReconciliationReport(int $days = 7): array
         WHERE w.status IN ('received','processed','success') AND w.created_at >= DATE_SUB(NOW(), INTERVAL {$days} DAY)
         AND t.id IS NULL
         ORDER BY w.created_at DESC LIMIT 50")->fetchAll();
+    if ($partnerFilter !== null) {
+        $unmatched = array_values(array_filter($unmatched, static fn(array $w): bool => normalizeTxnPartnerKey((string)($w['gateway'] ?? '')) === $partnerFilter));
+    }
 
-    $missingWebhooks = $db->query("SELECT t.txn_id, t.amount, t.payment_method, t.utr, t.created_at
+    $missingSql = "SELECT t.txn_id, t.amount, t.payment_method, t.partner_key, t.utr, t.created_at
         FROM transactions t
         LEFT JOIN pg_webhook_logs w ON w.reference = t.utr OR w.link_id IN (SELECT link_id FROM payment_links WHERE id = t.payment_link_id)
-        WHERE t.status='success' AND t.created_at >= DATE_SUB(NOW(), INTERVAL {$days} DAY)
-        AND t.payment_method IN ('razorpay','cashfree','payu','card','netbanking','wallet')
-        AND w.id IS NULL
-        ORDER BY t.created_at DESC LIMIT 50")->fetchAll();
+        WHERE t.status='success' AND t.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+        AND w.id IS NULL";
+    $missingParams = [$days];
+    if ($partnerFilter !== null) {
+        $missingSql .= ' AND (t.partner_key = ? OR (t.partner_key IS NULL AND t.payment_method = ?))';
+        $missingParams[] = $partnerFilter;
+        $missingParams[] = $partnerFilter;
+    } else {
+        $missingSql .= " AND (
+            t.partner_key IS NOT NULL AND TRIM(t.partner_key) != ''
+            OR t.payment_method IN ('razorpay','cashfree','payu','decentro','card','netbanking','wallet','sandbox')
+        )";
+    }
+    $missingSql .= ' ORDER BY t.created_at DESC LIMIT 50';
+    $missingSt = $db->prepare($missingSql);
+    $missingSt->execute($missingParams);
+    $missingWebhooks = $missingSt->fetchAll();
 
     $refunds = 0;
     $delayedRefunds = 0;
@@ -40,6 +77,8 @@ function getPgReconciliationReport(int $days = 7): array
 
     return [
         'days' => $days,
+        'partner_filter' => $partnerFilter,
+        'partner_volumes' => getReconciliationPartnerVolumes($days, $partnerFilter),
         'webhook_stats' => $webhooks,
         'transactions_success' => $txnSuccess,
         'transactions_pending' => $txnPending,
@@ -185,6 +224,8 @@ function parseGatewaySettlementCsv(string $tmpPath, string $gateway): array
 function reconcileGatewaySettlementRows(array $rows, string $gateway, ?int $adminId = null, string $filename = 'upload.csv'): array
 {
     ensureReconciliationTables();
+    $gateway = normalizeTxnPartnerKey($gateway);
+    $fileWired = reconcilePartnerSettlementFileWired($gateway);
     $db = getDB();
     $matched = 0;
     $unmatched = 0;
@@ -207,6 +248,9 @@ function reconcileGatewaySettlementRows(array $rows, string $gateway, ?int $admi
         $matchReason = null;
         $matchStatus = 'unmatched';
 
+        if (!$fileWired) {
+            $matchReason = 'Partner settlement file reconcile not wired — manual only';
+        } else {
         // 1. Try UTR match
         if ($utr !== '') {
             $st = $db->prepare("SELECT id, txn_id, amount, status FROM transactions WHERE utr = ? LIMIT 1");
@@ -239,8 +283,8 @@ function reconcileGatewaySettlementRows(array $rows, string $gateway, ?int $admi
 
         // 3. Try amount + merchant + date match
         if ($matchedTxnId === null && $amount > 0) {
-            $sql = "SELECT id, txn_id, amount, status FROM transactions WHERE amount = ? AND payment_method = ?";
-            $params = [$amount, $gateway];
+            $sql = "SELECT id, txn_id, amount, status FROM transactions WHERE amount = ? AND (partner_key = ? OR payment_method = ?)";
+            $params = [$amount, $gateway, $gateway];
             if ($merchantCode !== '') {
                 $sql .= " AND merchant_id IN (SELECT id FROM merchants WHERE merchant_code = ?)";
                 $params[] = $merchantCode;
@@ -261,6 +305,7 @@ function reconcileGatewaySettlementRows(array $rows, string $gateway, ?int $admi
                 $db->prepare("UPDATE transactions SET reconciliation_status='matched', reconciled_at=NOW() WHERE id=?")
                     ->execute([$matchedTxnId]);
             }
+        }
         }
 
         if ($matchStatus === 'unmatched') {
@@ -289,6 +334,7 @@ function reconcileGatewaySettlementRows(array $rows, string $gateway, ?int $admi
         'unmatched' => $unmatched,
         'total_amount' => $totalAmount,
         'matched_amount' => $matchedAmount,
+        'partner_wired' => $fileWired,
     ];
 }
 
@@ -364,35 +410,93 @@ function getUnmatchedSettlementRows(int $fileId, int $limit = 100): array
 function generateDailyReconciliationSummary(string $date): array
 {
     ensureReconciliationTables();
+    if (function_exists('ensureTransactionPartnerKeyColumn')) {
+        require_once __DIR__ . '/schema_ensure.php';
+        ensureTransactionPartnerKeyColumn();
+    }
     $db = getDB();
-    $gateways = ['razorpay', 'cashfree', 'payu', 'axis', 'upi', 'card', 'netbanking', 'wallet'];
+    $partners = reconcileRegistryPartnerFilterOptions(90);
+    $partnerKeys = array_map(static fn(array $p): string => (string)$p['partner_key'], $partners);
+    if ($partnerKeys === []) {
+        $partnerKeys = ['razorpay', 'cashfree', 'payu', 'axis', 'decentro', 'sandbox'];
+    }
     $summaries = [];
 
-    foreach ($gateways as $gw) {
-        $totalTxns = (int)$db->query("SELECT COUNT(*) FROM transactions WHERE payment_method='{$gw}' AND DATE(created_at)='{$date}'")->fetchColumn();
-        if ($totalTxns === 0) continue;
+    foreach ($partnerKeys as $gw) {
+        $gw = normalizeTxnPartnerKey($gw);
+        if ($gw === '') {
+            continue;
+        }
+        $countSt = $db->prepare(
+            "SELECT COUNT(*) FROM transactions
+             WHERE DATE(created_at)=?
+               AND (partner_key = ? OR (partner_key IS NULL AND payment_method = ?))"
+        );
+        $countSt->execute([$date, $gw, $gw]);
+        $totalTxns = (int)$countSt->fetchColumn();
+        if ($totalTxns === 0) {
+            continue;
+        }
 
-        $successTxns = (int)$db->query("SELECT COUNT(*) FROM transactions WHERE payment_method='{$gw}' AND status='success' AND DATE(created_at)='{$date}'")->fetchColumn();
-        $failedTxns = (int)$db->query("SELECT COUNT(*) FROM transactions WHERE payment_method='{$gw}' AND status='failed' AND DATE(created_at)='{$date}'")->fetchColumn();
-        $pendingTxns = (int)$db->query("SELECT COUNT(*) FROM transactions WHERE payment_method='{$gw}' AND status='pending' AND DATE(created_at)='{$date}'")->fetchColumn();
-        $totalAmount = (float)$db->query("SELECT COALESCE(SUM(amount),0) FROM transactions WHERE payment_method='{$gw}' AND DATE(created_at)='{$date}'")->fetchColumn();
-        $successAmount = (float)$db->query("SELECT COALESCE(SUM(amount),0) FROM transactions WHERE payment_method='{$gw}' AND status='success' AND DATE(created_at)='{$date}'")->fetchColumn();
+        $successSt = $db->prepare(
+            "SELECT COUNT(*) FROM transactions
+             WHERE DATE(created_at)=? AND status='success'
+               AND (partner_key = ? OR (partner_key IS NULL AND payment_method = ?))"
+        );
+        $successSt->execute([$date, $gw, $gw]);
+        $successTxns = (int)$successSt->fetchColumn();
+        $failedSt = $db->prepare(
+            "SELECT COUNT(*) FROM transactions
+             WHERE DATE(created_at)=? AND status='failed'
+               AND (partner_key = ? OR (partner_key IS NULL AND payment_method = ?))"
+        );
+        $failedSt->execute([$date, $gw, $gw]);
+        $failedTxns = (int)$failedSt->fetchColumn();
+        $pendingSt = $db->prepare(
+            "SELECT COUNT(*) FROM transactions
+             WHERE DATE(created_at)=? AND status='pending'
+               AND (partner_key = ? OR (partner_key IS NULL AND payment_method = ?))"
+        );
+        $pendingSt->execute([$date, $gw, $gw]);
+        $pendingTxns = (int)$pendingSt->fetchColumn();
+        $totalAmtSt = $db->prepare(
+            "SELECT COALESCE(SUM(amount),0) FROM transactions
+             WHERE DATE(created_at)=?
+               AND (partner_key = ? OR (partner_key IS NULL AND payment_method = ?))"
+        );
+        $totalAmtSt->execute([$date, $gw, $gw]);
+        $totalAmount = (float)$totalAmtSt->fetchColumn();
+        $successAmtSt = $db->prepare(
+            "SELECT COALESCE(SUM(amount),0) FROM transactions
+             WHERE DATE(created_at)=? AND status='success'
+               AND (partner_key = ? OR (partner_key IS NULL AND payment_method = ?))"
+        );
+        $successAmtSt->execute([$date, $gw, $gw]);
+        $successAmount = (float)$successAmtSt->fetchColumn();
 
         $webhooksReceived = 0;
         $webhooksMatched = 0;
         $webhooksUnmatched = 0;
         try {
-            $webhooksReceived = (int)$db->query("SELECT COUNT(*) FROM pg_webhook_logs WHERE gateway='{$gw}' AND DATE(created_at)='{$date}'")->fetchColumn();
-            $webhooksMatched = (int)$db->query("SELECT COUNT(*) FROM pg_webhook_logs WHERE gateway='{$gw}' AND status='processed' AND DATE(created_at)='{$date}'")->fetchColumn();
-            $webhooksUnmatched = (int)$db->query("SELECT COUNT(*) FROM pg_webhook_logs WHERE gateway='{$gw}' AND status IN ('received','failed') AND DATE(created_at)='{$date}'")->fetchColumn();
+            $whRecv = $db->prepare("SELECT COUNT(*) FROM pg_webhook_logs WHERE gateway=? AND DATE(created_at)=?");
+            $whRecv->execute([$gw, $date]);
+            $webhooksReceived = (int)$whRecv->fetchColumn();
+            $whMatch = $db->prepare("SELECT COUNT(*) FROM pg_webhook_logs WHERE gateway=? AND status='processed' AND DATE(created_at)=?");
+            $whMatch->execute([$gw, $date]);
+            $webhooksMatched = (int)$whMatch->fetchColumn();
+            $whUnmatch = $db->prepare("SELECT COUNT(*) FROM pg_webhook_logs WHERE gateway=? AND status IN ('received','failed') AND DATE(created_at)=?");
+            $whUnmatch->execute([$gw, $date]);
+            $webhooksUnmatched = (int)$whUnmatch->fetchColumn();
         } catch (Throwable $e) {}
 
         $settlementFiles = 0;
         try {
-            $settlementFiles = (int)$db->query("SELECT COUNT(*) FROM gateway_settlement_files WHERE gateway='{$gw}' AND file_date='{$date}'")->fetchColumn();
+            $sfSt = $db->prepare("SELECT COUNT(*) FROM gateway_settlement_files WHERE gateway=? AND file_date=?");
+            $sfSt->execute([$gw, $date]);
+            $settlementFiles = (int)$sfSt->fetchColumn();
         } catch (Throwable $e) {}
 
-        $mismatches = $webhooksUnmatched + ($totalTxns - $successTxns - $failedTxns - $pendingTxns > 0 ? $totalTxns - $successTxns - $failedTxns - $pendingTxns : 0);
+        $mismatches = $webhooksUnmatched + max(0, $totalTxns - $successTxns - $failedTxns - $pendingTxns);
 
         $db->prepare(
             "INSERT INTO reconciliation_daily_summary

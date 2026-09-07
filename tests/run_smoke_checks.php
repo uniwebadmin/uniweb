@@ -2395,6 +2395,16 @@ $assert(str_contains($refundsSrcR2, 'Refunds are not supported for'), 'r2_refund
 $assert(str_contains((string)file_get_contents($root . '/transaction_detail.php'), 'Collect Partner') && str_contains((string)file_get_contents($root . '/includes/transaction_detail.php'), 'transactionMoneyPathSummary'), 'r2_txn_detail_partner_method_mode');
 $assert(str_contains((string)file_get_contents($root . '/includes/upi_confirm.php'), "'payment_method' => 'upi'"), 'r2_upi_capture_sets_collect_method');
 
+$opsSrc = (string)file_get_contents($root . '/includes/ops_partner.php');
+$reconSrcR3 = (string)file_get_contents($root . '/includes/reconciliation.php');
+$assert(is_file($root . '/migrations/089_disputes_partner_key.sql'), 'r3_migration_089_dispute_partner_key');
+$assert(str_contains($opsSrc, 'function getReconciliationPartnerVolumes') && str_contains($opsSrc, 'function reconcilePartnerSettlementFileWired'), 'r3_ops_partner_reconcile_helpers');
+$assert(str_contains($reconSrcR3, 'partner_volumes') && str_contains($reconSrcR3, 'reconcileRegistryPartnerFilterOptions'), 'r3_reconcile_by_partner_key');
+$assert(str_contains($reconSrcR3, 'partner_wired') && str_contains($reconSrcR3, 'not wired — manual'), 'r3_no_fake_settlement_match');
+$assert(str_contains((string)file_get_contents($root . '/admin_reconciliation.php'), 'By Registry partner'), 'r3_admin_reconcile_partner_filter');
+$assert(str_contains((string)file_get_contents($root . '/disputes.php'), 'partner_key') && str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'dispute_partner_key'), 'r3_dispute_partner_from_txn');
+$assert(str_contains((string)file_get_contents($root . '/includes/demo_tour.php'), 'partner_tag'), 'r3_support_ticket_optional_partner_tag');
+
 $payload = [
     'ok' => $failed === 0,
     'passed' => $passed,

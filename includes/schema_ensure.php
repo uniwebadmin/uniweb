@@ -221,6 +221,8 @@ function ensureDisputesEngine(): void
     schemaExecQuiet('ALTER TABLE disputes ADD COLUMN forwarded_partner_key VARCHAR(40) DEFAULT NULL AFTER resolution');
     schemaExecQuiet('ALTER TABLE disputes ADD COLUMN forwarded_at DATETIME DEFAULT NULL AFTER forwarded_partner_key');
     schemaExecQuiet('ALTER TABLE disputes ADD COLUMN forwarded_note VARCHAR(500) DEFAULT NULL AFTER forwarded_at');
+    schemaExecQuiet('ALTER TABLE disputes ADD COLUMN partner_key VARCHAR(40) DEFAULT NULL AFTER transaction_id');
+    schemaExecQuiet('ALTER TABLE disputes ADD INDEX idx_dispute_partner_key (partner_key)');
 }
 
 /**

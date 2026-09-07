@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+if (is_file(__DIR__ . '/ops_partner.php')) {
+    require_once __DIR__ . '/ops_partner.php';
+}
+
 /**
  * Payment reconciliation — one path for webhook, poll, checkout return, manual backfill.
  *
@@ -528,7 +532,13 @@ function manualReconcileTransaction(string $ref, int $adminId = 0): array
         return ['ok' => false, 'error' => 'No bound payment order — cannot poll partner. Wait for webhook or checkout verify.'];
     }
 
-    $provider = strtolower(trim((string)$order['provider']));
+    $provider = strtolower(trim((string)($order['provider'] ?? '')));
+    if ($provider === '' && function_exists('resolveTxnPartnerKeyFromTransaction')) {
+        $provider = resolveTxnPartnerKeyFromTransaction($txn);
+    }
+    if ($provider === '') {
+        $provider = strtolower(trim((string)$order['provider']));
+    }
     if (!partnerGatewayConfigured($provider)) {
         return ['ok' => false, 'error' => ucfirst($provider) . ' keys not configured — paste keys in Partner Registry before Reconcile.'];
     }

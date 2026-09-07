@@ -116,7 +116,7 @@ $openSt = $db->prepare($openCountSql);
 $openSt->execute($openCountParams);
 $openCount = (int)$openSt->fetchColumn();
 
-$listSql = 'SELECT d.*, m.business_name, m.id AS merchant_row_id, t.txn_id, t.amount FROM disputes d JOIN merchants m ON d.merchant_id=m.id JOIN transactions t ON t.id=d.transaction_id';
+$listSql = 'SELECT d.*, m.business_name, m.id AS merchant_row_id, t.txn_id, t.amount, t.partner_key AS txn_partner_key, COALESCE(d.partner_key, t.partner_key) AS dispute_partner_key FROM disputes d JOIN merchants m ON d.merchant_id=m.id JOIN transactions t ON t.id=d.transaction_id';
 $listWhere = [];
 $listParams = [];
 if ($filterMerchantId > 0) {
@@ -165,7 +165,7 @@ if ($highlightDisputeId !== '' && function_exists('wiringAdminDisputesEnsureHigh
     if (!$exact) {
         try {
             $exSt = $db->prepare(
-                'SELECT d.*, m.business_name, m.id AS merchant_row_id, t.txn_id, t.amount
+                'SELECT d.*, m.business_name, m.id AS merchant_row_id, t.txn_id, t.amount, t.partner_key AS txn_partner_key, COALESCE(d.partner_key, t.partner_key) AS dispute_partner_key
                  FROM disputes d
                  JOIN merchants m ON d.merchant_id=m.id
                  JOIN transactions t ON t.id=d.transaction_id
@@ -290,17 +290,23 @@ if (is_array($wiringEdu)):
     <table class="min-w-[720px] w-full text-sm">
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
             <th class="px-4 sm:px-5 py-3 text-left">ID</th><th class="px-4 sm:px-5 py-3 text-left">Merchant</th><th class="px-4 sm:px-5 py-3 text-left">Txn</th>
-            <th class="px-4 sm:px-5 py-3 text-left">Amount</th><th class="px-4 sm:px-5 py-3 text-left">Reason</th><th class="px-4 sm:px-5 py-3 text-left">Due</th><th class="px-4 sm:px-5 py-3 text-left">Status</th><th class="px-4 sm:px-5 py-3 text-left">Action</th>
+            <th class="px-4 sm:px-5 py-3 text-left">Partner</th><th class="px-4 sm:px-5 py-3 text-left">Amount</th><th class="px-4 sm:px-5 py-3 text-left">Reason</th><th class="px-4 sm:px-5 py-3 text-left">Due</th><th class="px-4 sm:px-5 py-3 text-left">Status</th><th class="px-4 sm:px-5 py-3 text-left">Action</th>
         </tr></thead>
         <tbody class="divide-y divide-gray-800">
-            <?php if (empty($disputes)): ?><tr><td colspan="8" class="px-5 py-12 text-center text-gray-500">No disputes yet. When a merchant raises one, it appears here for Admin first.</td></tr>
+            <?php if (empty($disputes)): ?><tr><td colspan="9" class="px-5 py-12 text-center text-gray-500">No disputes yet. When a merchant raises one, it appears here for Admin first.</td></tr>
             <?php else: foreach ($disputes as $d):
                 $openD = in_array((string)$d['status'], ['open', 'under_review', 'forwarded_partner'], true);
+                if (!function_exists('resolveDisputePartnerKey') && is_file(__DIR__ . '/includes/ops_partner.php')) {
+                    require_once __DIR__ . '/includes/ops_partner.php';
+                }
+                $rowPartner = function_exists('resolveDisputePartnerKey') ? resolveDisputePartnerKey($d, $d) : '';
+                $rowPartnerLabel = $rowPartner !== '' && function_exists('transactionPartnerLabel') ? transactionPartnerLabel($rowPartner) : '—';
             ?>
             <tr id="dispute-<?= e($d['dispute_id']) ?>" class="<?= $highlightDisputeId !== '' && strcasecmp((string)$d['dispute_id'], $highlightDisputeId) === 0 ? 'bg-sky-500/10 ring-1 ring-sky-500/30' : '' ?>">
                 <td class="px-4 sm:px-5 py-3 font-mono text-xs text-gray-300"><?= e($d['dispute_id']) ?></td>
                 <td class="px-4 sm:px-5 py-3 text-xs"><?= adminMerchantLink((int)$d['merchant_row_id'], $d['business_name']) ?></td>
                 <td class="px-4 sm:px-5 py-3 font-mono text-xs"><?= txnDetailLink($d['txn_id']) ?></td>
+                <td class="px-4 sm:px-5 py-3 text-xs text-sky-300"><?= e($rowPartnerLabel) ?></td>
                 <td class="px-4 sm:px-5 py-3"><?= formatMoney(capStatAmount((float)$d['amount'])) ?></td>
                 <td class="px-4 sm:px-5 py-3 text-xs text-gray-400 max-w-[10rem] sm:max-w-xs truncate" title="<?= e($d['reason']) ?>"><?= e($d['reason']) ?></td>
                 <?php

@@ -3,16 +3,20 @@ require_once __DIR__ . '/config.php';
 requireStaffAccess(['super', 'ceo', 'finance', 'ops']);
 
 $days = (int)($_GET['days'] ?? 7);
+$partnerFilter = preg_replace('/[^a-z0-9_]/', '', strtolower(trim((string)($_GET['partner'] ?? ''))));
 $adminId = (int)($_SESSION['admin_id'] ?? 0);
+if (!function_exists('reconcileRegistryPartnerFilterOptions') && is_file(__DIR__ . '/includes/ops_partner.php')) {
+    require_once __DIR__ . '/includes/ops_partner.php';
+}
 
 // POST actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     $action = $_POST['action'] ?? '';
 
     if ($action === 'upload_settlement' && isset($_FILES['settlement_file'])) {
-        $gateway = trim($_POST['gateway'] ?? '');
-        if (!in_array($gateway, ['razorpay', 'cashfree', 'payu', 'axis', 'upi', 'card', 'netbanking', 'wallet'], true)) {
-            flash('error', 'Invalid gateway.');
+        $gateway = preg_replace('/[^a-z0-9_]/', '', strtolower(trim((string)($_POST['gateway'] ?? ''))));
+        if ($gateway === '') {
+            flash('error', 'Select a Registry partner for this settlement file.');
         } elseif ($_FILES['settlement_file']['error'] !== UPLOAD_ERROR_OK) {
             flash('error', 'File upload failed.');
         } else {
@@ -21,10 +25,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 flash('error', 'No valid rows found in CSV.');
             } else {
                 $result = reconcileGatewaySettlementRows($rows, $gateway, $adminId, $_FILES['settlement_file']['name']);
-                flash('success', "Settlement file processed: {$result['matched']} matched, {$result['unmatched']} unmatched out of {$result['total']} rows.");
+                $wired = !empty($result['partner_wired']);
+                $msg = "Settlement file processed: {$result['matched']} matched, {$result['unmatched']} unmatched out of {$result['total']} rows.";
+                if (!$wired) {
+                    $msg .= ' Partner settlement CSV reconcile is not wired ù rows kept for manual review only.';
+                }
+                flash($wired ? 'success' : 'info', $msg);
             }
         }
-        redirect('admin_reconciliation.php?days=' . $days . '&tab=settlement');
+        redirect('admin_reconciliation.php?days=' . $days . '&tab=settlement' . ($partnerFilter !== '' ? '&partner=' . rawurlencode($partnerFilter) : ''));
     }
 
     if ($action === 'manual_resolve' && isset($_POST['row_id'], $_POST['txn_id'])) {
@@ -128,7 +137,10 @@ if (isset($_GET['action'], $_GET['token']) && verifyCsrf($_GET['token'])) {
     }
 }
 
-$report = getPgReconciliationReport($days);
+$report = getPgReconciliationReport($days, $partnerFilter !== '' ? $partnerFilter : null);
+$reconcilePartners = function_exists('reconcileRegistryPartnerFilterOptions')
+    ? reconcileRegistryPartnerFilterOptions($days)
+    : [];
 $settlementFiles = getGatewaySettlementFiles(20);
 $dailySummaries = getDailyReconciliationSummaries($days);
 $settlementUnmatchedTotal = 0;
@@ -188,10 +200,43 @@ if (!function_exists('renderReconcileToolsMapPanel')) {
         </div>
         <div class="flex gap-2 text-xs">
             <?php foreach ([7, 14, 30] as $d): ?>
-            <a href="?days=<?= $d ?>" class="px-3 py-1.5 rounded-lg <?= $days === $d ? 'bg-brand-600/20 text-brand-400' : 'text-gray-400 hover:text-white border border-gray-800' ?>"><?= $d ?> days</a>
+            <a href="?days=<?= $d ?><?= $partnerFilter !== '' ? '&partner=' . e($partnerFilter) : '' ?>" class="px-3 py-1.5 rounded-lg <?= $days === $d ? 'bg-brand-600/20 text-brand-400' : 'text-gray-400 hover:text-white border border-gray-800' ?>"><?= $d ?> days</a>
             <?php endforeach; ?>
         </div>
     </div>
+
+    <?php if ($reconcilePartners !== []): ?>
+    <div class="glass rounded-xl p-4 border border-sky-500/20">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <h2 class="font-semibold text-sm">By Registry partner (<?= (int)$days ?> days)</h2>
+            <div class="flex flex-wrap gap-2 text-xs">
+                <a href="?days=<?= $days ?>" class="px-3 py-1 rounded-lg <?= $partnerFilter === '' ? 'bg-brand-600/20 text-brand-400' : 'text-gray-400 border border-gray-800 hover:text-white' ?>">All partners</a>
+                <?php foreach ($reconcilePartners as $rp): ?>
+                <?php $pk = (string)($rp['partner_key'] ?? ''); if ($pk === '') continue; ?>
+                <a href="?days=<?= $days ?>&partner=<?= e($pk) ?>" class="px-3 py-1 rounded-lg <?= $partnerFilter === $pk ? 'bg-brand-600/20 text-brand-400' : 'text-gray-400 border border-gray-800 hover:text-white' ?>"><?= e((string)($rp['label'] ?? $pk)) ?></a>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <div class="overflow-x-auto"><table class="min-w-[640px] w-full text-xs">
+            <thead class="text-gray-500 uppercase"><tr>
+                <th class="py-2 text-left">Partner</th><th class="py-2 text-left">Txns</th><th class="py-2 text-left">Success</th><th class="py-2 text-left">Reconcile</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-800">
+                <?php foreach ($reconcilePartners as $rp):
+                    $ops = (array)($rp['ops'] ?? []);
+                    $mode = (string)($ops['mode'] ?? 'manual');
+                ?>
+                <tr>
+                    <td class="py-2 pr-4"><?= e((string)($rp['label'] ?? $rp['partner_key'])) ?></td>
+                    <td class="py-2"><?= (int)($rp['txn_count'] ?? 0) ?></td>
+                    <td class="py-2 text-emerald-400"><?= (int)($rp['success_count'] ?? 0) ?></td>
+                    <td class="py-2 <?= $mode === 'wired' ? 'text-emerald-400' : ($mode === 'test' ? 'text-amber-400' : 'text-gray-400') ?>"><?= e((string)($ops['detail'] ?? 'Manual')) ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table></div>
+    </div>
+    <?php endif; ?>
 
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div class="glass rounded-xl p-5 stat-card"><p class="text-xs text-gray-500">Successful Txns (paid captures)</p><p class="text-2xl font-bold text-brand-400 mt-1"><?= number_format($report['transactions_success']) ?></p></div>
@@ -306,13 +351,24 @@ if (!function_exists('renderReconcileToolsMapPanel')) {
             <form method="POST" enctype="multipart/form-data" class="flex flex-col sm:flex-row gap-3 items-end">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="upload_settlement">
-                <div><label class="text-sm text-gray-400">Gateway</label>
-                    <select name="gateway" class="input-field mt-1 w-full">
+                <div><label class="text-sm text-gray-400">Registry partner</label>
+                    <select name="gateway" class="input-field mt-1 w-full" required>
+                        <option value="">Select partner</option>
+                        <?php foreach ($reconcilePartners as $rp): ?>
+                        <?php
+                            $pk = (string)($rp['partner_key'] ?? '');
+                            if ($pk === '') continue;
+                            $ops = (array)($rp['ops'] ?? []);
+                            $wired = (($ops['mode'] ?? '') === 'wired');
+                        ?>
+                        <option value="<?= e($pk) ?>"><?= e((string)($rp['label'] ?? $pk)) ?><?= $wired ? '' : ' ù manual / not wired' ?></option>
+                        <?php endforeach; ?>
+                        <?php if ($reconcilePartners === []): ?>
                         <option value="razorpay">Razorpay</option>
                         <option value="cashfree">Cashfree</option>
                         <option value="payu">PayU</option>
                         <option value="axis">Axis Bank</option>
-                        <option value="upi">UPI</option>
+                        <?php endif; ?>
                     </select>
                 </div>
                 <div class="flex-1"><label class="text-sm text-gray-400">CSV File</label>
@@ -320,7 +376,7 @@ if (!function_exists('renderReconcileToolsMapPanel')) {
                 </div>
                 <button type="submit" class="btn-primary px-6 py-2.5">Upload &amp; Match</button>
             </form>
-            <p class="text-xs text-gray-500 mt-2">Runbook: 1) Download the partner settlement file. 2) Upload CSV here (UTR, Amount, Date, Merchant Code, Gateway Ref). 3) Open unmatched and link or ignore. 4) Generate daily summary. Use after there is live volume ù empty files are expected in Test.</p>
+            <p class="text-xs text-gray-500 mt-2">Partners without settlement CSV wiring (e.g. Decentro, RBL) accept upload for audit only. Rows stay unmatched until you link manually ó no fake matched OK.</p>
         </div>
 
         <div class="glass rounded-xl overflow-hidden">
@@ -395,13 +451,13 @@ if (!function_exists('renderReconcileToolsMapPanel')) {
         <div class="glass rounded-xl overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Daily Reconciliation Summaries (Last <?= $days ?> days)</h2></div>
             <div class="overflow-x-auto"><table class="min-w-[800px] w-full text-sm">
-                <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr><th class="px-4 py-3 text-left">Date</th><th class="px-4 py-3 text-left">Gateway</th><th class="px-4 py-3 text-left">Total</th><th class="px-4 py-3 text-left">Success</th><th class="px-4 py-3 text-left">Failed</th><th class="px-4 py-3 text-left">Pending</th><th class="px-4 py-3 text-left">Amount</th><th class="px-4 py-3 text-left">Webhooks</th><th class="px-4 py-3 text-left">Mismatches</th></tr></thead>
+                <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr><th class="px-4 py-3 text-left">Date</th><th class="px-4 py-3 text-left">Partner</th><th class="px-4 py-3 text-left">Total</th><th class="px-4 py-3 text-left">Success</th><th class="px-4 py-3 text-left">Failed</th><th class="px-4 py-3 text-left">Pending</th><th class="px-4 py-3 text-left">Amount</th><th class="px-4 py-3 text-left">Webhooks</th><th class="px-4 py-3 text-left">Mismatches</th></tr></thead>
                 <tbody class="divide-y divide-gray-800">
                     <?php if (empty($dailySummaries)): ?><tr><td colspan="9" class="px-4 py-8 text-center text-gray-500">No summaries generated yet.</td></tr>
                     <?php else: foreach ($dailySummaries as $s): ?>
                     <tr>
                         <td class="px-4 py-3 text-xs"><?= e($s['summary_date']) ?></td>
-                        <td class="px-4 py-3 capitalize"><?= e($s['gateway']) ?></td>
+                        <td class="px-4 py-3 capitalize"><?= e(function_exists('transactionPartnerLabel') ? transactionPartnerLabel((string)$s['gateway']) : $s['gateway']) ?></td>
                         <td class="px-4 py-3"><?= (int)$s['total_txns'] ?></td>
                         <td class="px-4 py-3 text-emerald-400"><?= (int)$s['success_txns'] ?></td>
                         <td class="px-4 py-3 text-red-400"><?= (int)$s['failed_txns'] ?></td>
