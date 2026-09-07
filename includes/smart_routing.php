@@ -281,6 +281,7 @@ function collectCheckoutIneligibleDetailMessage(int $merchantId, string $checkou
     $methodCapable = [];
     $keysReady = [];
     $merchantBlocked = [];
+    $methodOff = [];
     foreach (function_exists('getRegisteredGateways') ? getRegisteredGateways(false) : [] as $g) {
         $key = strtolower(trim((string)($g['gateway_key'] ?? '')));
         if ($key === '' || (int)($g['is_active'] ?? 0) !== 1) {
@@ -293,11 +294,15 @@ function collectCheckoutIneligibleDetailMessage(int $merchantId, string $checkou
             continue;
         }
         $activePartners[] = $key;
-        if (function_exists('registryPartnerSupportsCheckoutMethod')
-            && registryPartnerSupportsCheckoutMethod($key, $checkoutMethod, $g)) {
+        if (function_exists('registryPartnerCapSupportsCheckoutMethod')
+            && registryPartnerCapSupportsCheckoutMethod($key, $checkoutMethod, $g)) {
             $methodCapable[] = $key;
             if (function_exists('registryPartnerKeysReadyForMode') && registryPartnerKeysReadyForMode($key, $sandbox)) {
                 $keysReady[] = $key;
+            }
+            if (function_exists('registryPartnerDetailMethodSupportsCheckout')
+                && !registryPartnerDetailMethodSupportsCheckout($key, $checkoutMethod)) {
+                $methodOff[] = $key;
             }
             if ($merchantId > 0 && !merchantMayCollectViaPartner($merchantId, $key)) {
                 $merchantBlocked[] = $key;
@@ -322,6 +327,10 @@ function collectCheckoutIneligibleDetailMessage(int $merchantId, string $checkou
             return 'Card checkout needs ' . $modeLabel . ' keys — CCAvenue Test keys are Missing (Live Valid does not apply in Test Mode). Paste Test keys in Partner Registry or use UPI.';
         }
         return 'Partner(s) support this method but ' . $modeLabel . ' keys are Missing or Invalid: ' . $names . '. Paste keys in Partner Registry → Keys.';
+    }
+    if ($keysReady !== [] && $methodOff !== []) {
+        $names = implode(', ', array_map('ucfirst', $methodOff));
+        return 'Partner(s) have valid keys but method is OFF in Partner Detail → Methods: ' . $names . '. Turn ON ' . $bucket . ' there first.';
     }
     if ($keysReady !== [] && $merchantBlocked !== []) {
         return 'Registry partner(s) are ready but not enabled for this merchant — turn ON checkout in Partner coverage or use Platform checkout mode.';

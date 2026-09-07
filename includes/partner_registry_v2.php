@@ -906,11 +906,52 @@ function registryCheckoutMethodBucket(string $checkoutMethod): string
     };
 }
 
-/** Whether a registry partner can handle this checkout method (honest — no fake card on UPI-only rails). */
-function registryPartnerSupportsCheckoutMethod(string $partnerKey, string $checkoutMethod, ?array $gatewayRow = null): bool
+/** partner_methods.method rows that satisfy a checkout bucket. */
+function registryCheckoutBucketPartnerMethods(string $bucket): array
+{
+    return match ($bucket) {
+        'card' => ['debit_card', 'credit_card'],
+        'upi' => ['upi'],
+        'netbanking' => ['netbanking'],
+        'emi' => ['emi'],
+        'wallet' => ['wallet'],
+        default => [$bucket],
+    };
+}
+
+/** Inferred caps when gateway_registry cap_* columns are unset (upgrade-first). */
+function registryPartnerInferredCaps(string $partnerKey): array
 {
     $partnerKey = strtolower(trim($partnerKey));
-    $bucket = registryCheckoutMethodBucket($checkoutMethod);
+    if (!function_exists('partnerHasRegistryFlag')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $checkoutPg = partnerHasRegistryFlag($partnerKey, 'checkout_pg');
+    return match ($partnerKey) {
+        'razorpay', 'cashfree', 'payu', 'ccavenue' => [
+            'collect' => true, 'upi' => true, 'card' => true, 'netbanking' => true, 'emi' => true, 'wallet' => true,
+        ],
+        'decentro', 'rbl' => ['collect' => true, 'upi' => true, 'card' => false, 'netbanking' => false, 'emi' => false, 'wallet' => false],
+        'axis' => ['collect' => true, 'upi' => true, 'card' => false, 'netbanking' => false, 'emi' => false, 'wallet' => false],
+        default => [
+            'collect' => $checkoutPg,
+            'upi' => $checkoutPg,
+            'card' => $checkoutPg,
+            'netbanking' => $checkoutPg,
+            'emi' => $checkoutPg,
+            'wallet' => $checkoutPg,
+        ],
+    };
+}
+
+/**
+ * Effective registry caps (DB cap_* with upgrade-first inference).
+ *
+ * @return array{collect:bool,upi:bool,card:bool,netbanking:bool,emi:bool,wallet:bool}
+ */
+function registryPartnerEffectiveCaps(string $partnerKey, ?array $gatewayRow = null): array
+{
+    $partnerKey = strtolower(trim($partnerKey));
     if ($gatewayRow === null && function_exists('getRegisteredGateways')) {
         foreach (getRegisteredGateways(false) as $row) {
             if (strtolower((string)($row['gateway_key'] ?? '')) === $partnerKey) {
@@ -919,37 +960,164 @@ function registryPartnerSupportsCheckoutMethod(string $partnerKey, string $check
             }
         }
     }
-    if (!function_exists('getPartnerRegistry')) {
-        require_once __DIR__ . '/partner_engine.php';
+    $hasExplicit = false;
+    $caps = [
+        'collect' => false,
+        'upi' => false,
+        'card' => false,
+        'netbanking' => false,
+        'emi' => false,
+        'wallet' => false,
+    ];
+    if ($gatewayRow && function_exists('partnerRegistryV2HasColumns') && partnerRegistryV2HasColumns()) {
+        $caps['collect'] = (int)($gatewayRow['cap_collect'] ?? 0) === 1;
+        $caps['upi'] = (int)($gatewayRow['cap_upi'] ?? 0) === 1;
+        $caps['card'] = (int)($gatewayRow['cap_card'] ?? 0) === 1;
+        $caps['netbanking'] = (int)($gatewayRow['cap_netbanking'] ?? 0) === 1;
+        $hasExplicit = $caps['collect'] || $caps['upi'] || $caps['card'] || $caps['netbanking'];
+    } elseif ($gatewayRow) {
+        $caps['collect'] = (int)($gatewayRow['supports_collection'] ?? 0) === 1;
+        $hasExplicit = $caps['collect'];
     }
-    return match ($partnerKey) {
-        'razorpay', 'cashfree', 'payu', 'ccavenue' => in_array($bucket, ['card', 'upi', 'netbanking', 'emi', 'wallet'], true),
-        'decentro' => $bucket === 'upi',
-        'rbl' => $bucket === 'upi',
-        'axis' => in_array($bucket, ['upi'], true),
-        default => match ($bucket) {
-            'card' => (int)($gatewayRow['cap_card'] ?? 0) === 1
-                || partnerHasRegistryFlag($partnerKey, 'checkout_pg'),
-            'upi' => (int)($gatewayRow['cap_upi'] ?? 0) === 1
-                || (int)($gatewayRow['supports_collection'] ?? 0) === 1,
-            'netbanking' => (int)($gatewayRow['cap_netbanking'] ?? 0) === 1,
-            'emi', 'wallet' => partnerHasRegistryFlag($partnerKey, 'checkout_pg'),
-            default => $gatewayRow ? registryRowSupportsCollect($gatewayRow) : false,
-        },
+    if (!$hasExplicit) {
+        $inferred = registryPartnerInferredCaps($partnerKey);
+        foreach ($inferred as $k => $v) {
+            if ($v) {
+                $caps[$k] = true;
+            }
+        }
+    }
+    if (!$caps['collect'] && ($caps['upi'] || $caps['card'] || $caps['netbanking'])) {
+        $caps['collect'] = true;
+    }
+    return $caps;
+}
+
+/** Registry cap allows this checkout bucket (ignores partner_methods toggle). */
+function registryPartnerCapSupportsCheckoutMethod(string $partnerKey, string $checkoutMethod, ?array $gatewayRow = null): bool
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    $bucket = registryCheckoutMethodBucket($checkoutMethod);
+    $caps = registryPartnerEffectiveCaps($partnerKey, $gatewayRow);
+    if (!$caps['collect']) {
+        return false;
+    }
+    return match ($bucket) {
+        'card' => $caps['card'],
+        'upi' => $caps['upi'],
+        'netbanking' => $caps['netbanking'],
+        'emi' => $caps['emi'],
+        'wallet' => $caps['wallet'],
+        default => $caps['collect'],
     };
 }
 
-/** Partners with card / hosted checkout order APIs (honest — not VA-only rails). */
+/** Active routing + collect cap + wired adapter (keys optional). */
+function registryPartnerConnectorCollectReady(string $partnerKey, ?array $gatewayRow = null): bool
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    if ($gatewayRow === null && function_exists('getRegisteredGateways')) {
+        foreach (getRegisteredGateways(false) as $row) {
+            if (strtolower((string)($row['gateway_key'] ?? '')) === $partnerKey) {
+                $gatewayRow = $row;
+                break;
+            }
+        }
+    }
+    if (!$gatewayRow || (int)($gatewayRow['is_active'] ?? 0) !== 1) {
+        return false;
+    }
+    if (function_exists('partnerRegistryRowIsRetired') && partnerRegistryRowIsRetired($gatewayRow)) {
+        return false;
+    }
+    if (!registryRowSupportsCollect($gatewayRow)) {
+        return false;
+    }
+    return partnerAdapterIsWired($partnerKey, $gatewayRow);
+}
+
+/** Detail Methods tab: at least one partner_methods row ON for this checkout bucket. */
+function registryPartnerDetailMethodSupportsCheckout(string $partnerKey, string $checkoutMethod): bool
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    if (!function_exists('isPartnerMethodEnabled')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    $bucket = registryCheckoutMethodBucket($checkoutMethod);
+    foreach (registryCheckoutBucketPartnerMethods($bucket) as $method) {
+        if (isPartnerMethodEnabled($partnerKey, $method)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Admin Methods toggle gate — cap + connector only (Commercial never unlocks).
+ *
+ * @return array{allowed:bool,reason:string}
+ */
+function registryPartnerMethodAdminGate(string $partnerKey, string $partnerMethod, ?array $gatewayRow = null): array
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    $partnerMethod = strtolower(trim($partnerMethod));
+    if ($gatewayRow === null && function_exists('getRegisteredGateways')) {
+        foreach (getRegisteredGateways(false) as $row) {
+            if (strtolower((string)($row['gateway_key'] ?? '')) === $partnerKey) {
+                $gatewayRow = $row;
+                break;
+            }
+        }
+    }
+    if (!registryPartnerConnectorCollectReady($partnerKey, $gatewayRow)) {
+        if ($gatewayRow && (int)($gatewayRow['is_active'] ?? 0) !== 1) {
+            return ['allowed' => false, 'reason' => 'Routing OFF — activate partner first'];
+        }
+        if (!partnerAdapterIsWired($partnerKey, $gatewayRow)) {
+            return ['allowed' => false, 'reason' => 'Not wired — adapter missing'];
+        }
+        return ['allowed' => false, 'reason' => 'Collect not enabled on this partner'];
+    }
+    $checkoutProbe = match ($partnerMethod) {
+        'debit_card', 'credit_card' => 'card',
+        'emandate_card' => 'card',
+        'emandate_upi' => 'upi',
+        'emandate_nb' => 'netbanking',
+        default => $partnerMethod,
+    };
+    if (!registryPartnerCapSupportsCheckoutMethod($partnerKey, $checkoutProbe, $gatewayRow)) {
+        return ['allowed' => false, 'reason' => 'Registry cap does not include this method'];
+    }
+    return ['allowed' => true, 'reason' => ''];
+}
+
+/**
+ * Full checkout eligibility: caps + Detail Methods ON + connector_collect_ready.
+ * Commercial rates never unlock methods.
+ */
+function registryPartnerSupportsCheckoutMethod(string $partnerKey, string $checkoutMethod, ?array $gatewayRow = null): bool
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    if (!registryPartnerConnectorCollectReady($partnerKey, $gatewayRow)) {
+        return false;
+    }
+    if (!registryPartnerCapSupportsCheckoutMethod($partnerKey, $checkoutMethod, $gatewayRow)) {
+        return false;
+    }
+    return registryPartnerDetailMethodSupportsCheckout($partnerKey, $checkoutMethod);
+}
+
+/** Partners with card / hosted checkout order APIs (Registry caps + Detail Methods). */
 function registryCardCheckoutPartnerKeys(): array
 {
-    $known = ['razorpay', 'cashfree', 'payu', 'ccavenue'];
     $out = [];
     foreach (registryCollectCapablePartnerKeys(false) as $key) {
-        if (in_array($key, $known, true)) {
+        if (registryPartnerCapSupportsCheckoutMethod($key, 'card')
+            && registryPartnerDetailMethodSupportsCheckout($key, 'card')) {
             $out[] = $key;
         }
     }
-    return $out !== [] ? $out : $known;
+    return $out;
 }
 
 /**

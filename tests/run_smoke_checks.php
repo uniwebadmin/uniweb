@@ -2367,6 +2367,14 @@ $assert(str_contains((string)file_get_contents($root . '/admin_edit_merchant.php
 $assert(str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), 'COLLATE utf8mb4_unicode_ci'), 'blocker_approval_requests_collation');
 $assert(str_contains((string)file_get_contents($root . '/includes/gateways.php'), "'ccavenue'"), 'blocker_ccavenue_configured');
 
+$prV2Spine = (string)file_get_contents($root . '/includes/partner_registry_v2.php');
+$assert(str_contains($prV2Spine, 'function registryPartnerConnectorCollectReady') && str_contains($prV2Spine, 'function registryPartnerCapSupportsCheckoutMethod'), 'spine_connector_and_cap_helpers');
+$assert(str_contains($prV2Spine, 'function registryPartnerDetailMethodSupportsCheckout') && str_contains($prV2Spine, 'function registryPartnerMethodAdminGate'), 'spine_detail_methods_and_admin_gate');
+$assert(str_contains($prV2Spine, 'registryPartnerDetailMethodSupportsCheckout($partnerKey, $checkoutMethod)'), 'spine_checkout_requires_detail_method_on');
+$assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'registryPartnerMethodAdminGate') && str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'toggleLocked'), 'spine_admin_method_toggle_disabled_reason');
+$assert(!str_contains($checkoutSrc, "poolPartners = ['razorpay', 'cashfree']"), 'spine_checkout_no_rzp_cf_pool_fallback');
+$assert(str_contains((string)file_get_contents($root . '/includes/collection.php'), 'collectEligibleCheckoutPartners($merchantId, $isTest, \'card\')'), 'spine_collection_pool_from_registry');
+
 $payload = [
     'ok' => $failed === 0,
     'passed' => $passed,

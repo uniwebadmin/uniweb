@@ -626,15 +626,17 @@ function buildCheckoutPaymentMethods(array $link): array
     if (!function_exists('collectCheckoutPartnerIsEligible') && is_file(__DIR__ . '/smart_routing.php')) {
         require_once __DIR__ . '/smart_routing.php';
     }
-    $rzpConfigured = isGatewayConfigured('razorpay')
-        && (!function_exists('collectCheckoutPartnerIsEligible')
-            || collectCheckoutPartnerIsEligible($merchantId, 'razorpay', $isTest));
-    $cfConfigured = isGatewayConfigured('cashfree')
-        && (!function_exists('collectCheckoutPartnerIsEligible')
-            || collectCheckoutPartnerIsEligible($merchantId, 'cashfree', $isTest));
-    $payuConfigured = isGatewayConfigured('payu')
-        && (!function_exists('collectCheckoutPartnerIsEligible')
-            || collectCheckoutPartnerIsEligible($merchantId, 'payu', $isTest));
+    $partnerReadyFor = static function (string $method) use ($merchantId, $isTest): bool {
+        if (!function_exists('collectEligibleCheckoutPartners')) {
+            return false;
+        }
+        return collectEligibleCheckoutPartners($merchantId, $isTest, $method) !== [];
+    };
+    $rzpConfigured = collectCheckoutPartnerIsEligible($merchantId, 'razorpay', $isTest, 'card');
+    $cfConfigured = collectCheckoutPartnerIsEligible($merchantId, 'cashfree', $isTest, 'card');
+    $payuConfigured = collectCheckoutPartnerIsEligible($merchantId, 'payu', $isTest, 'card');
+    $cardPoolReady = $partnerReadyFor('card');
+    $nbPoolReady = $partnerReadyFor('netbanking');
     if (($link['enabled_methods'] ?? '') === '' && $merchantId > 0) {
         try {
             $st = getDB()->prepare('SELECT enabled_methods FROM merchants WHERE id=?');
@@ -682,49 +684,56 @@ function buildCheckoutPaymentMethods(array $link): array
     $poolPg = checkoutPgPoolEnabledForLink($link, $rzpConfigured, $cfConfigured);
 
     if ($allow('upi_p2m') || in_array($handler, ['direct_upi', 'axis_va'], true) || empty($link['payment_method'])) {
-        $methods[] = ['key' => 'upi', 'label' => 'UPI / QR', 'sub' => checkoutUniwebMethodSubline('upi', $isTest, true), 'icon' => '📱', 'type' => 'p2m'];
+        $upiActive = $isTest || $partnerReadyFor('upi') || in_array($handler, ['direct_upi', 'axis_va'], true);
+        $methods[] = ['key' => 'upi', 'label' => 'UPI / QR', 'sub' => checkoutUniwebMethodSubline('upi', $isTest, $upiActive), 'icon' => '📱', 'type' => 'p2m'];
     }
 
     if ($allow('debit_card')) {
+        $dcActive = $payuConfigured || $cardPoolReady;
         if ($payuConfigured) {
             $methods[] = ['key' => 'dc', 'label' => 'Debit Card', 'sub' => checkoutUniwebMethodSubline('dc', $isTest, true), 'icon' => '💳', 'type' => 'payu', 'pg' => 'DC'];
-        } elseif ($poolPg) {
+        } elseif ($cardPoolReady && $poolPg) {
             $methods[] = ['key' => 'dc', 'label' => 'Debit Card', 'sub' => checkoutUniwebMethodSubline('dc', $isTest, true), 'icon' => '💳', 'type' => 'pg_pool', 'pg' => 'DC'];
         } else {
-            $methods[] = ['key' => 'dc', 'label' => 'Debit Card', 'sub' => checkoutUniwebMethodSubline('dc', $isTest, false), 'icon' => '💳', 'type' => 'payu', 'pg' => 'DC'];
+            $methods[] = ['key' => 'dc', 'label' => 'Debit Card', 'sub' => checkoutUniwebMethodSubline('dc', $isTest, $dcActive), 'icon' => '💳', 'type' => 'payu', 'pg' => 'DC'];
         }
     }
     if ($allow('credit_card')) {
+        $ccActive = $payuConfigured || $cardPoolReady;
         if ($payuConfigured) {
             $methods[] = ['key' => 'cc', 'label' => 'Credit Card', 'sub' => checkoutUniwebMethodSubline('cc', $isTest, true), 'icon' => '💳', 'type' => 'payu', 'pg' => 'CC'];
-        } elseif ($poolPg) {
+        } elseif ($cardPoolReady && $poolPg) {
             $methods[] = ['key' => 'cc', 'label' => 'Credit Card', 'sub' => checkoutUniwebMethodSubline('cc', $isTest, true), 'icon' => '💳', 'type' => 'pg_pool', 'pg' => 'CC'];
         } else {
-            $methods[] = ['key' => 'cc', 'label' => 'Credit Card', 'sub' => checkoutUniwebMethodSubline('cc', $isTest, false), 'icon' => '💳', 'type' => 'payu', 'pg' => 'CC'];
+            $methods[] = ['key' => 'cc', 'label' => 'Credit Card', 'sub' => checkoutUniwebMethodSubline('cc', $isTest, $ccActive), 'icon' => '💳', 'type' => 'payu', 'pg' => 'CC'];
         }
     }
     if ($allow('netbanking')) {
+        $nbActive = $payuConfigured || $nbPoolReady;
         if ($payuConfigured) {
             $methods[] = ['key' => 'nb', 'label' => 'Net Banking', 'sub' => checkoutUniwebMethodSubline('nb', $isTest, true), 'icon' => '🏦', 'type' => 'payu', 'pg' => 'NB'];
-        } elseif ($poolPg) {
+        } elseif ($nbPoolReady && $poolPg) {
             $methods[] = ['key' => 'nb', 'label' => 'Net Banking', 'sub' => checkoutUniwebMethodSubline('nb', $isTest, true), 'icon' => '🏦', 'type' => 'pg_pool', 'pg' => 'NB'];
         } else {
-            $methods[] = ['key' => 'nb', 'label' => 'Net Banking', 'sub' => checkoutUniwebMethodSubline('nb', $isTest, false), 'icon' => '🏦', 'type' => 'payu', 'pg' => 'NB'];
+            $methods[] = ['key' => 'nb', 'label' => 'Net Banking', 'sub' => checkoutUniwebMethodSubline('nb', $isTest, $nbActive), 'icon' => '🏦', 'type' => 'payu', 'pg' => 'NB'];
         }
     }
     if ($allow('emi')) {
-        $methods[] = ['key' => 'emi', 'label' => 'EMI', 'sub' => checkoutUniwebMethodSubline('emi', $isTest, $payuConfigured || $poolPg), 'icon' => '📅', 'type' => $payuConfigured ? 'payu' : ($poolPg ? 'pg_pool' : 'payu'), 'pg' => 'EMI'];
+        $emiActive = $payuConfigured || $cardPoolReady;
+        $methods[] = ['key' => 'emi', 'label' => 'EMI', 'sub' => checkoutUniwebMethodSubline('emi', $isTest, $emiActive && ($payuConfigured || $poolPg)), 'icon' => '📅', 'type' => $payuConfigured ? 'payu' : ($poolPg && $cardPoolReady ? 'pg_pool' : 'payu'), 'pg' => 'EMI'];
     }
     if ($allow('wallet')) {
-        $methods[] = ['key' => 'wallet', 'label' => 'Wallets', 'sub' => checkoutUniwebMethodSubline('wallet', $isTest, $payuConfigured || $poolPg), 'icon' => '👛', 'type' => $payuConfigured ? 'payu' : ($poolPg ? 'pg_pool' : 'payu'), 'pg' => 'CASH'];
+        $walletActive = $payuConfigured || $cardPoolReady;
+        $methods[] = ['key' => 'wallet', 'label' => 'Wallets', 'sub' => checkoutUniwebMethodSubline('wallet', $isTest, $walletActive && ($payuConfigured || $poolPg)), 'icon' => '👛', 'type' => $payuConfigured ? 'payu' : ($poolPg && $cardPoolReady ? 'pg_pool' : 'payu'), 'pg' => 'CASH'];
     }
     if ($allow('payu_upi')) {
-        if ($payuConfigured) {
+        $payuUpiActive = collectCheckoutPartnerIsEligible($merchantId, 'payu', $isTest, 'upi') || $partnerReadyFor('upi');
+        if ($payuConfigured && collectCheckoutPartnerIsEligible($merchantId, 'payu', $isTest, 'upi')) {
             $methods[] = ['key' => 'payu_upi', 'label' => 'UPI', 'sub' => checkoutUniwebMethodSubline('payu_upi', $isTest, true), 'icon' => '⚡', 'type' => 'payu', 'pg' => 'UPI'];
-        } elseif ($poolPg) {
+        } elseif ($poolPg && $partnerReadyFor('upi')) {
             $methods[] = ['key' => 'payu_upi', 'label' => 'UPI', 'sub' => checkoutUniwebMethodSubline('payu_upi', $isTest, true), 'icon' => '⚡', 'type' => 'pg_pool', 'pg' => 'UPI'];
         } else {
-            $methods[] = ['key' => 'payu_upi', 'label' => 'UPI', 'sub' => checkoutUniwebMethodSubline('payu_upi', $isTest, false), 'icon' => '⚡', 'type' => 'payu', 'pg' => 'UPI'];
+            $methods[] = ['key' => 'payu_upi', 'label' => 'UPI', 'sub' => checkoutUniwebMethodSubline('payu_upi', $isTest, $payuUpiActive), 'icon' => '⚡', 'type' => 'payu', 'pg' => 'UPI'];
         }
     }
     // Partner rails (razorpay/cashfree) are never separate customer tabs — internal pg_pool routing only.
@@ -795,14 +804,9 @@ function checkoutUniwebMethodSubline(string $methodKey, bool $isTest, bool $conf
     };
 }
 
-/** Merchant has API-based PG pool (RZP/CF) without exposing partner tabs on checkout. */
+/** Merchant has API-based PG pool when Registry has eligible collect partners (not RZP/CF-only). */
 function checkoutPgPoolEnabledForLink(array $link, bool $rzpConfigured, bool $cfConfigured): bool
 {
-    $enabled = getMerchantEnabledMethods($link);
-    if (function_exists('normalizeCheckoutMethodKeys')) {
-        $enabled = normalizeCheckoutMethodKeys($enabled);
-    }
-    $handler = resolveCheckoutHandlerForLink($link);
     $merchantId = (int)($link['merchant_id'] ?? 0);
     $isTest = !empty($link['is_test']) || (function_exists('merchantAccountMode') && merchantAccountMode($link) === 'test');
     $poolPartnerReady = $rzpConfigured || $cfConfigured;
@@ -810,16 +814,13 @@ function checkoutPgPoolEnabledForLink(array $link, bool $rzpConfigured, bool $cf
         if (!is_file(__DIR__ . '/smart_routing.php')) {
             require_once __DIR__ . '/smart_routing.php';
         }
-        foreach (collectEligibleCheckoutPartners($merchantId, $isTest, 'card') as $partner) {
-            if (in_array($partner, ['razorpay', 'cashfree', 'payu', 'ccavenue'], true)) {
-                $poolPartnerReady = true;
-                break;
-            }
-        }
+        $poolPartnerReady = collectEligibleCheckoutPartners($merchantId, $isTest, 'card') !== [];
     }
+    $mode = function_exists('resolveEffectiveCollectionModeKey')
+        ? resolveEffectiveCollectionModeKey($link)
+        : getMerchantCollectionMode($link);
     return $poolPartnerReady
-        && (in_array('razorpay', $enabled, true) || in_array('cashfree', $enabled, true)
-            || in_array($handler, ['razorpay_route', 'cashfree_route', 'platform_pg'], true));
+        && in_array($mode, ['platform_pg', 'razorpay_route', 'cashfree_route', 'payu_split'], true);
 }
 
 /** Audit B #9 — effective collection rail for a checkout link (link → method → merchant). */

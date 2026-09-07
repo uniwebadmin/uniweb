@@ -481,20 +481,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
     } elseif ($pgPoolSelected && !$intelligentOn && !$phase11RoutingOn) {
         $returnUrl = APP_URL . '/payment_cashfree_return.php?order_id={order_id}';
-        $poolPartners = ['razorpay', 'cashfree'];
-        if (function_exists('collectEligibleCheckoutPartners')) {
-            $poolPartners = collectEligibleCheckoutPartners((int)$link['merchant_id'], $isTestCheckout, $selectedPay);
-            $poolPartners = array_values(array_filter(
-                $poolPartners,
-                static fn(string $gw): bool => in_array($gw, ['razorpay', 'cashfree', 'payu', 'ccavenue'], true)
-            ));
-            if ($poolPartners === []) {
-                $poolPartners = ['razorpay', 'cashfree'];
-            }
-        }
+        $poolPartners = function_exists('collectEligibleCheckoutPartners')
+            ? collectEligibleCheckoutPartners((int)$link['merchant_id'], $isTestCheckout, $selectedPay)
+            : [];
         foreach ($poolPartners as $gw) {
             if (function_exists('collectCheckoutPartnerIsEligible')
-                && !collectCheckoutPartnerIsEligible((int)$link['merchant_id'], $gw, $isTestCheckout)) {
+                && !collectCheckoutPartnerIsEligible((int)$link['merchant_id'], $gw, $isTestCheckout, $selectedPay)) {
                 continue;
             }
             if (!isGatewayConfigured($gw)) {

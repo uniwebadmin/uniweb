@@ -226,6 +226,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
         $priority = (int)($_POST['priority'] ?? 50);
         $minAmt = (float)($_POST['min_amt'] ?? 0);
         $maxAmt = (float)($_POST['max_amt'] ?? 0);
+        if ($enabled && function_exists('registryPartnerMethodAdminGate')) {
+            $gate = registryPartnerMethodAdminGate($partnerKey, $method, $gateway);
+            if (empty($gate['allowed'])) {
+                flash('error', 'Cannot turn ON ' . $method . ': ' . ($gate['reason'] ?? 'Registry cap or connector blocks this method.'));
+                redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=methods');
+            }
+        }
         $ok = togglePartnerMethod($partnerKey, $method, $enabled, $priority, $minAmt, $maxAmt);
         flash($ok ? 'success' : 'error', $ok ? "Method {$method} " . ($enabled ? 'enabled' : 'disabled') . " for {$partnerKey}" : 'Failed');
         redirect('admin_gateway_detail.php?id=' . $gatewayId . '&tab=methods');
@@ -701,13 +708,17 @@ require_once __DIR__ . '/header.php';
                 $methodKey = $pm['method'];
                 $label = $methodLabels[$methodKey] ?? ucfirst($methodKey);
                 $enabled = (int)$pm['is_enabled'] === 1;
+                $methodGate = function_exists('registryPartnerMethodAdminGate')
+                    ? registryPartnerMethodAdminGate($partnerKey, $methodKey, $gateway)
+                    : ['allowed' => true, 'reason' => ''];
+                $toggleLocked = !$enabled && empty($methodGate['allowed']);
             ?>
             <form method="POST" class="flex flex-wrap items-center gap-3 bg-dark-900/40 rounded-lg p-3">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="toggle_method">
                 <input type="hidden" name="method" value="<?= e($methodKey) ?>">
-                <label class="flex items-center gap-2 text-sm text-gray-300 min-w-[140px]">
-                    <input type="checkbox" name="enabled" <?= $enabled ? 'checked' : '' ?> class="rounded border-gray-600" onchange="this.form.submit()">
+                <label class="flex items-center gap-2 text-sm <?= $toggleLocked ? 'text-gray-500' : 'text-gray-300' ?> min-w-[140px]">
+                    <input type="checkbox" name="enabled" <?= $enabled ? 'checked' : '' ?> <?= $toggleLocked ? 'disabled' : '' ?> class="rounded border-gray-600" onchange="this.form.submit()">
                     <?= e($label) ?>
                     <?php if ($methodKey === 'upi'): ?><span class="text-[10px] text-emerald-500">start here</span><?php endif; ?>
                 </label>
@@ -724,6 +735,11 @@ require_once __DIR__ . '/header.php';
                     <input type="number" name="max_amt" value="<?= (float)$pm['max_amt'] ?>" class="input-field !py-1 !px-2 w-24 text-xs" step="0.01" min="0">
                 </div>
                 <span class="text-[10px] px-2 py-0.5 rounded-full <?= $enabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700/50 text-gray-400' ?>"><?= $enabled ? 'ON' : 'OFF' ?></span>
+                <?php if ($toggleLocked): ?>
+                <span class="text-[10px] text-amber-400" title="<?= e($methodGate['reason']) ?>"><?= e($methodGate['reason']) ?></span>
+                <?php elseif ($enabled && function_exists('registryPartnerSupportsCheckoutMethod') && !registryPartnerSupportsCheckoutMethod($partnerKey, $methodKey === 'debit_card' || $methodKey === 'credit_card' ? 'card' : $methodKey, $gateway)): ?>
+                <span class="text-[10px] text-amber-400">ON but checkout blocked — paste keys or fix cap</span>
+                <?php endif; ?>
             </form>
             <?php endforeach; endif; ?>
         </div>
