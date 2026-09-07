@@ -1143,7 +1143,18 @@ function captureVerifiedPaymentOrder(array $verification): array
             ]);
 
             $link['amount'] = $amount;
-            $link['payment_method'] = (string)($verification['payment_method'] ?? $provider);
+            if (!function_exists('normalizeTxnPartnerKey') && is_file(__DIR__ . '/txn_partner.php')) {
+                require_once __DIR__ . '/txn_partner.php';
+            }
+            if (function_exists('ensureTransactionPartnerKeyColumn')) {
+                ensureTransactionPartnerKeyColumn();
+            }
+            $partnerKey = function_exists('normalizeTxnPartnerKey') ? normalizeTxnPartnerKey($provider) : $provider;
+            $collectMethod = function_exists('resolveTxnCollectMethod')
+                ? resolveTxnCollectMethod($verification, $partnerKey)
+                : '';
+            $paymentMethodStored = $collectMethod !== '' ? $collectMethod : $provider;
+            $link['payment_method'] = $paymentMethodStored;
             $split = calculateSplitBreakdown($amount, $link);
 
             $txnRef = generateId('TXN');
@@ -1152,7 +1163,7 @@ function captureVerifiedPaymentOrder(array $verification): array
                 (int)$order['merchant_id'],
                 $amount,
                 'success',
-                $provider,
+                $paymentMethodStored,
                 $link['description'],
                 (string)($verification['reference'] ?? $verification['provider_payment_id']),
                 (int)$order['payment_link_id'],
@@ -1166,26 +1177,70 @@ function captureVerifiedPaymentOrder(array $verification): array
                 mb_substr(trim((string)($order['customer_phone'] ?? '')), 0, 32) ?: null,
                 (int)($order['qr_code_id'] ?? 0) > 0 ? (int)$order['qr_code_id'] : null,
             ];
-            try {
-                $db->prepare(
-                    'INSERT INTO transactions
-                     (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id,gst_on_fee,mdr_m,mdr_p,partner_fee,pricing_snapshot)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
-                )->execute(array_merge($txnValues, [
-                    (float)($split['gst_on_fee'] ?? 0),
-                    (float)($split['mdr_m'] ?? 0),
-                    (float)($split['mdr_p'] ?? 0),
-                    (float)($split['partner_fee'] ?? 0),
-                    $split['pricing_snapshot'] ?? null,
-                ]));
-            } catch (Throwable $e) {
+            $pricingTail = [
+                (float)($split['gst_on_fee'] ?? 0),
+                (float)($split['mdr_m'] ?? 0),
+                (float)($split['mdr_p'] ?? 0),
+                (float)($split['partner_fee'] ?? 0),
+                $split['pricing_snapshot'] ?? null,
+            ];
+            if (function_exists('executeTransactionInsertVariants')) {
+                executeTransactionInsertVariants($db, [
+                    [
+                        'sql' => 'INSERT INTO transactions
+                         (txn_id,merchant_id,amount,status,payment_method,partner_key,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id,gst_on_fee,mdr_m,mdr_p,partner_fee,pricing_snapshot)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                        'params' => array_merge(
+                            [$txnValues[0], $txnValues[1], $txnValues[2], $txnValues[3], $txnValues[4], $partnerKey],
+                            array_slice($txnValues, 5),
+                            $pricingTail
+                        ),
+                    ],
+                    [
+                        'sql' => 'INSERT INTO transactions
+                         (txn_id,merchant_id,amount,status,payment_method,partner_key,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                        'params' => array_merge(
+                            [$txnValues[0], $txnValues[1], $txnValues[2], $txnValues[3], $txnValues[4], $partnerKey],
+                            array_slice($txnValues, 5)
+                        ),
+                    ],
+                    [
+                        'sql' => 'INSERT INTO transactions
+                         (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id,gst_on_fee,mdr_m,mdr_p,partner_fee,pricing_snapshot)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                        'params' => array_merge($txnValues, $pricingTail),
+                    ],
+                    [
+                        'sql' => 'INSERT INTO transactions
+                         (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                        'params' => $txnValues,
+                    ],
+                    [
+                        'sql' => 'INSERT INTO transactions
+                         (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id)
+                         VALUES (?,?,?,?,?,?,?,?)',
+                        'params' => [
+                            $txnRef,
+                            (int)$order['merchant_id'],
+                            $amount,
+                            'success',
+                            $paymentMethodStored,
+                            $link['description'],
+                            (string)($verification['reference'] ?? $verification['provider_payment_id']),
+                            (int)$order['payment_link_id'],
+                        ],
+                    ],
+                ]);
+            } else {
                 try {
                     $db->prepare(
                         'INSERT INTO transactions
-                         (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id)
-                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
-                    )->execute($txnValues);
-                } catch (Throwable $e2) {
+                         (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,qr_code_id,gst_on_fee,mdr_m,mdr_p,partner_fee,pricing_snapshot)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                    )->execute(array_merge($txnValues, $pricingTail));
+                } catch (Throwable $e) {
                     $db->prepare(
                         'INSERT INTO transactions
                          (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id)
@@ -1195,7 +1250,7 @@ function captureVerifiedPaymentOrder(array $verification): array
                         (int)$order['merchant_id'],
                         $amount,
                         'success',
-                        $provider,
+                        $paymentMethodStored,
                         $link['description'],
                         (string)($verification['reference'] ?? $verification['provider_payment_id']),
                         (int)$order['payment_link_id'],
@@ -1394,31 +1449,68 @@ function recordPaymentOrderFailure(array $payload): array
 
         $txnRef = generateId('TXN');
         $collectionMode = $order['link_collection_mode'] ?: $order['collection_mode'] ?: 'platform_pg';
+        if (!function_exists('normalizeTxnPartnerKey') && is_file(__DIR__ . '/txn_partner.php')) {
+            require_once __DIR__ . '/txn_partner.php';
+        }
+        if (function_exists('ensureTransactionPartnerKeyColumn')) {
+            ensureTransactionPartnerKeyColumn();
+        }
+        $partnerKey = function_exists('normalizeTxnPartnerKey') ? normalizeTxnPartnerKey($provider) : $provider;
+        $collectMethod = function_exists('resolveTxnCollectMethod')
+            ? resolveTxnCollectMethod(['payment_method' => $provider], $partnerKey)
+            : $provider;
+        $paymentMethodStored = $collectMethod !== '' ? $collectMethod : $provider;
+        $failCore = [
+            $txnRef,
+            (int)$order['merchant_id'],
+            $amount,
+            'failed',
+            $paymentMethodStored,
+            $order['link_description'] ?: $order['description'],
+            mb_substr($providerPaymentId, 0, 64),
+            (int)$order['payment_link_id'],
+            0,
+            0,
+            $order['mode'] === 'test' ? 1 : 0,
+            $collectionMode,
+            mb_substr(trim((string)($order['customer_name'] ?? '')), 0, 160) ?: null,
+            mb_substr(trim((string)($order['customer_email'] ?? '')), 0, 190) ?: null,
+            mb_substr(trim((string)($order['customer_phone'] ?? '')), 0, 32) ?: null,
+            $reason,
+            (int)($order['qr_code_id'] ?? 0) > 0 ? (int)$order['qr_code_id'] : null,
+        ];
+        if (function_exists('executeTransactionInsertVariants')) {
+            executeTransactionInsertVariants($db, [
+                [
+                    'sql' => 'INSERT INTO transactions
+                     (txn_id,merchant_id,amount,status,payment_method,partner_key,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,failure_reason,qr_code_id)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?,?)',
+                    'params' => array_merge(
+                        [$failCore[0], $failCore[1], $failCore[2], $failCore[3], $failCore[4], $partnerKey],
+                        array_slice($failCore, 5)
+                    ),
+                ],
+                [
+                    'sql' => 'INSERT INTO transactions
+                     (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,failure_reason,qr_code_id)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?)',
+                    'params' => $failCore,
+                ],
+                [
+                    'sql' => 'INSERT INTO transactions
+                     (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?)',
+                    'params' => array_slice($failCore, 0, 16),
+                ],
+            ]);
+        } else {
         $txnInsert = $db->prepare(
             'INSERT INTO transactions
              (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone,failure_reason,qr_code_id)
              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?)'
         );
         try {
-            $txnInsert->execute([
-                $txnRef,
-                (int)$order['merchant_id'],
-                $amount,
-                'failed',
-                $provider,
-                $order['link_description'] ?: $order['description'],
-                mb_substr($providerPaymentId, 0, 64),
-                (int)$order['payment_link_id'],
-                0,
-                0,
-                $order['mode'] === 'test' ? 1 : 0,
-                $collectionMode,
-                mb_substr(trim((string)($order['customer_name'] ?? '')), 0, 160) ?: null,
-                mb_substr(trim((string)($order['customer_email'] ?? '')), 0, 190) ?: null,
-                mb_substr(trim((string)($order['customer_phone'] ?? '')), 0, 32) ?: null,
-                $reason,
-                (int)($order['qr_code_id'] ?? 0) > 0 ? (int)$order['qr_code_id'] : null,
-            ]);
+            $txnInsert->execute($failCore);
         } catch (Throwable $e) {
             // Older DBs without failure_reason column — insert without it, then best-effort UPDATE.
             $txnInsert2 = $db->prepare(
@@ -1426,26 +1518,11 @@ function recordPaymentOrderFailure(array $payload): array
                  (txn_id,merchant_id,amount,status,payment_method,description,utr,payment_link_id,platform_fee,split_amount,is_test,collection_mode,wallet_credited,customer_name,customer_email,customer_phone)
                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?)'
             );
-            $txnInsert2->execute([
-                $txnRef,
-                (int)$order['merchant_id'],
-                $amount,
-                'failed',
-                $provider,
-                $order['link_description'] ?: $order['description'],
-                mb_substr($providerPaymentId, 0, 64),
-                (int)$order['payment_link_id'],
-                0,
-                0,
-                $order['mode'] === 'test' ? 1 : 0,
-                $collectionMode,
-                mb_substr(trim((string)($order['customer_name'] ?? '')), 0, 160) ?: null,
-                mb_substr(trim((string)($order['customer_email'] ?? '')), 0, 190) ?: null,
-                mb_substr(trim((string)($order['customer_phone'] ?? '')), 0, 32) ?: null,
-            ]);
+            $txnInsert2->execute(array_slice($failCore, 0, 16));
             try {
                 $db->prepare('UPDATE transactions SET failure_reason=? WHERE txn_id=?')->execute([$reason, $txnRef]);
             } catch (Throwable $ignored) { /* column missing */ }
+        }
         }
         $transactionId = (int)$db->lastInsertId();
         $db->prepare('INSERT INTO payment_order_transactions (payment_order_id,transaction_id) VALUES (?,?)')

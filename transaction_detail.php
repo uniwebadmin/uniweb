@@ -183,7 +183,15 @@ require_once __DIR__ . '/header.php';
             </div>
 
             <div class="grid sm:grid-cols-2 gap-4 text-sm">
-                <div><p class="text-gray-500 text-xs">Payment Method</p><p class="font-medium mt-1"><?= e(paymentMethodLabel($txn['payment_method'])) ?></p></div>
+                <?php
+                $moneyPath = $txn['money_path'] ?? (function_exists('transactionMoneyPathSummary') ? transactionMoneyPathSummary($txn) : []);
+                $partnerLabel = (string)($moneyPath['partner_label'] ?? '');
+                $methodLabel = (string)($moneyPath['collect_method_label'] ?? paymentMethodLabel($txn['payment_method']));
+                $modeLabel = (string)($moneyPath['mode_label'] ?? (!empty($txn['is_test']) ? 'Test / Sandbox' : 'Live'));
+                ?>
+                <div><p class="text-gray-500 text-xs">Collect Partner</p><p class="font-medium mt-1"><?= e($partnerLabel !== '' && $partnerLabel !== '—' ? $partnerLabel : 'Not recorded') ?></p></div>
+                <div><p class="text-gray-500 text-xs">Payment Method</p><p class="font-medium mt-1"><?= e($methodLabel) ?></p></div>
+                <div><p class="text-gray-500 text-xs">Mode</p><p class="mt-1 <?= !empty($txn['is_test']) ? 'text-amber-400' : 'text-emerald-400' ?>"><?= e($modeLabel) ?></p></div>
                 <div><p class="text-gray-500 text-xs">UTR / Gateway Ref</p><p class="font-mono text-xs mt-1"><?= e($txn['utr'] ?: '—') ?></p></div>
                 <div><p class="text-gray-500 text-xs">Collection Mode</p><p class="mt-1"><?= e(collectionModeLabel($txn['collection_mode'] ?? $txn['merchant_collection_mode'] ?? '', !$adminView)) ?></p></div>
                 <div><p class="text-gray-500 text-xs">Date & Time</p><p class="mt-1"><?= formatDate($txn['created_at']) ?></p></div>

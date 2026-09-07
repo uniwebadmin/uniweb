@@ -2383,6 +2383,18 @@ $assert(str_contains((string)file_get_contents($root . '/includes/upi_confirm.ph
 $assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'methodStaleOn') && str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'Turn OFF'), 'r1_admin_stale_method_toggle');
 $assert(str_contains((string)file_get_contents($root . '/includes/smart_routing.php'), 'No card collect-ready partner'), 'r1_honest_card_message');
 
+$txnPartnerSrc = (string)file_get_contents($root . '/includes/txn_partner.php');
+$finSrcR2 = (string)file_get_contents($root . '/includes/financial_integrity.php');
+$refundsSrcR2 = (string)file_get_contents($root . '/includes/refunds.php');
+$assert(is_file($root . '/migrations/088_transactions_partner_key.sql'), 'r2_migration_088_partner_key');
+$assert(str_contains($schemaEnsure, 'function ensureTransactionPartnerKeyColumn'), 'r2_schema_ensure_partner_key');
+$assert(str_contains($txnPartnerSrc, 'function resolveTxnPartnerKeyFromTransaction') && str_contains($txnPartnerSrc, 'function transactionMoneyPathSummary'), 'r2_txn_partner_helpers');
+$assert(str_contains($finSrcR2, 'partner_key') && str_contains($finSrcR2, 'executeTransactionInsertVariants'), 'r2_capture_writes_partner_key');
+$assert(str_contains($refundsSrcR2, 'resolveTxnPartnerKeyFromTransaction') && str_contains($refundsSrcR2, 'refundProviderHasLiveApi'), 'r2_refund_routes_by_partner_key');
+$assert(str_contains($refundsSrcR2, 'Refunds are not supported for'), 'r2_refund_honest_not_supported');
+$assert(str_contains((string)file_get_contents($root . '/transaction_detail.php'), 'Collect Partner') && str_contains((string)file_get_contents($root . '/includes/transaction_detail.php'), 'transactionMoneyPathSummary'), 'r2_txn_detail_partner_method_mode');
+$assert(str_contains((string)file_get_contents($root . '/includes/upi_confirm.php'), "'payment_method' => 'upi'"), 'r2_upi_capture_sets_collect_method');
+
 $payload = [
     'ok' => $failed === 0,
     'passed' => $passed,

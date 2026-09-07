@@ -372,6 +372,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && ($_POST['a
             'signature_verified' => true,
             'provider_verified' => true,
             'reference' => $testReference,
+            'payment_method' => $method === 'dc' || $method === 'cc' ? 'card' : ($method ?: 'sandbox'),
         ]);
         $txnDbId = (int)($captured['transaction_id'] ?? 0);
         $txnRow = getDB()->prepare('SELECT txn_id FROM transactions WHERE id = ?');

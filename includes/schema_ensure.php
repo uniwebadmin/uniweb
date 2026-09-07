@@ -361,6 +361,7 @@ function ensureMissingColumns(): void
     schemaExecQuiet('ALTER TABLE merchant_agreement_acceptances ADD COLUMN partner_names VARCHAR(500) DEFAULT NULL');
     schemaExecQuiet('ALTER TABLE merchant_agreement_acceptances ADD COLUMN requires_resign TINYINT(1) NOT NULL DEFAULT 0');
     schemaExecQuiet('ALTER TABLE transactions ADD COLUMN metadata JSON DEFAULT NULL');
+    ensureTransactionPartnerKeyColumn();
     ensureContactInquirySchema();
 
     // P0-02: partner_commercial may be missing entirely — CREATE then ALTER (aligned with split_settlement).
@@ -481,6 +482,18 @@ function ensureMissingColumns(): void
     schemaExecQuiet('ALTER TABLE payment_links ADD COLUMN link_collection_mode VARCHAR(32) DEFAULT NULL');
     schemaExecQuiet("ALTER TABLE payment_links ADD COLUMN amount_type VARCHAR(16) NOT NULL DEFAULT 'fixed'");
     schemaExecQuiet('ALTER TABLE payment_links ADD COLUMN qr_code_id INT UNSIGNED DEFAULT NULL');
+}
+
+/** Phase R2: Registry partner identity on transactions (refund routing + txn detail). */
+function ensureTransactionPartnerKeyColumn(): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $ready = true;
+    schemaExecQuiet('ALTER TABLE transactions ADD COLUMN partner_key VARCHAR(40) DEFAULT NULL AFTER payment_method');
+    schemaExecQuiet('ALTER TABLE transactions ADD INDEX idx_txn_partner_key (partner_key)');
 }
 
 /** F2: Ensure pricing snapshot columns on transactions table. */

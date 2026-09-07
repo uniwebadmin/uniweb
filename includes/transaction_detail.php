@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+if (is_file(__DIR__ . '/txn_partner.php')) {
+    require_once __DIR__ . '/txn_partner.php';
+}
+
 function fetchTransactionDetail(string $txnId, ?int $merchantId = null, bool $adminView = false): ?array
 {
     if (function_exists('ensurePaymentPackSchema')) {
@@ -49,6 +53,12 @@ function fetchTransactionDetail(string $txnId, ?int $merchantId = null, bool $ad
     }
     if (!array_key_exists('link_label', $row)) {
         $row['link_label'] = null;
+    }
+    if (function_exists('transactionMoneyPathSummary')) {
+        $row['money_path'] = transactionMoneyPathSummary($row);
+        if (($row['partner_key'] ?? '') === '' && !empty($row['money_path']['partner_key'])) {
+            $row['partner_key'] = $row['money_path']['partner_key'];
+        }
     }
 
     $walletTxn = $db->prepare('SELECT * FROM wallet_transactions WHERE merchant_id = ? AND (transaction_id = ? OR reference = ?) ORDER BY id DESC LIMIT 1');
@@ -170,8 +180,10 @@ function paymentMethodLabel(?string $method): string
 {
     $map = [
         'upi' => 'UPI', 'upi_p2m' => 'UPI P2M (Direct)', 'payu' => 'PayU Gateway',
-        'card' => 'Card', 'netbanking' => 'Net Banking', 'wallet' => 'Wallet',
-        'razorpay' => 'Razorpay', 'cashfree' => 'Cashfree', 'axis_va' => 'Axis Virtual Account',
+        'card' => 'Card', 'debit_card' => 'Debit Card', 'credit_card' => 'Credit Card',
+        'netbanking' => 'Net Banking', 'wallet' => 'Wallet', 'sandbox' => 'Sandbox test',
+        'razorpay' => 'Razorpay', 'cashfree' => 'Cashfree', 'decentro' => 'Decentro UPI',
+        'axis_va' => 'Axis Virtual Account', 'rbl_va' => 'RBL Virtual Account',
         'qr' => 'QR Code',
     ];
     return $map[$method ?? ''] ?? ucfirst(str_replace('_', ' ', $method ?? '—'));

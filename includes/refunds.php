@@ -4,33 +4,46 @@ declare(strict_types=1);
 if (is_file(__DIR__ . '/release_helpers.php')) {
     require_once __DIR__ . '/release_helpers.php';
 }
+if (is_file(__DIR__ . '/txn_partner.php')) {
+    require_once __DIR__ . '/txn_partner.php';
+}
 
 function ensureRefundsEngine(): void
 {
     // Schema changes are versioned under migrations/. Request-time DDL is forbidden.
 }
 
-/** Map txn payment_method / order binding → refund provider key. */
+/** Map txn partner_key / order binding → refund provider key. */
 function resolveRefundProvider(array $txn): string
 {
-    $method = strtolower(trim((string)($txn['payment_method'] ?? '')));
-    if (str_starts_with($method, 'razorpay')) {
-        return 'razorpay';
-    }
-    if (str_starts_with($method, 'cashfree')) {
-        return 'cashfree';
-    }
-    if (str_starts_with($method, 'payu')) {
-        return 'payu';
-    }
     if (!empty($txn['is_test'])) {
         return 'sandbox';
     }
+
+    $partnerKey = function_exists('resolveTxnPartnerKeyFromTransaction')
+        ? resolveTxnPartnerKeyFromTransaction($txn)
+        : '';
+    if ($partnerKey === '') {
+        $method = strtolower(trim((string)($txn['payment_method'] ?? '')));
+        if (str_starts_with($method, 'razorpay')) {
+            $partnerKey = 'razorpay';
+        } elseif (str_starts_with($method, 'cashfree')) {
+            $partnerKey = 'cashfree';
+        } elseif (str_starts_with($method, 'payu')) {
+            $partnerKey = 'payu';
+        }
+    }
+
+    if ($partnerKey !== '' && function_exists('refundProviderHasLiveApi') && refundProviderHasLiveApi($partnerKey)) {
+        return $partnerKey;
+    }
+
     $ctx = resolveTransactionRefundContext($txn);
     $provider = strtolower(trim((string)($ctx['provider'] ?? '')));
-    if (in_array($provider, ['razorpay', 'cashfree', 'payu'], true)) {
+    if ($provider !== '' && function_exists('refundProviderHasLiveApi') && refundProviderHasLiveApi($provider)) {
         return $provider;
     }
+
     return '';
 }
 
@@ -41,14 +54,19 @@ function resolveRefundProvider(array $txn): string
  */
 function resolveTransactionRefundContext(array $txn): array
 {
+    $partnerKey = function_exists('resolveTxnPartnerKeyFromTransaction')
+        ? resolveTxnPartnerKeyFromTransaction($txn)
+        : '';
     $method = strtolower(trim((string)($txn['payment_method'] ?? '')));
-    $provider = '';
-    if (str_starts_with($method, 'razorpay')) {
-        $provider = 'razorpay';
-    } elseif (str_starts_with($method, 'cashfree')) {
-        $provider = 'cashfree';
-    } elseif (str_starts_with($method, 'payu')) {
-        $provider = 'payu';
+    $provider = $partnerKey;
+    if ($provider === '') {
+        if (str_starts_with($method, 'razorpay')) {
+            $provider = 'razorpay';
+        } elseif (str_starts_with($method, 'cashfree')) {
+            $provider = 'cashfree';
+        } elseif (str_starts_with($method, 'payu')) {
+            $provider = 'payu';
+        }
     }
     $paymentId = trim((string)($txn['utr'] ?? ''));
     $providerOrderId = '';
@@ -428,7 +446,10 @@ function processRefund(int $transactionId, float $amount, string $reason, ?int $
     $refundId = generateId('RFD');
     $provider = resolveRefundProvider($txn);
     if ($provider === '') {
-        return ['ok' => false, 'error' => 'This payment provider does not have an activated refund API.'];
+        $partnerLabel = function_exists('transactionPartnerLabel')
+            ? transactionPartnerLabel(resolveTxnPartnerKeyFromTransaction($txn))
+            : 'this partner';
+        return ['ok' => false, 'error' => 'Refunds are not supported for ' . $partnerLabel . ' on this payment yet.'];
     }
     $db->prepare('INSERT INTO refunds (refund_id, merchant_id, transaction_id, amount, status, reason, admin_note, provider) VALUES (?,?,?,?,?,?,?,?)')
         ->execute([$refundId, (int)$txn['merchant_id'], $transactionId, $amount, 'pending', $reason, $adminId ? 'admin:' . $adminId : null, $provider !== 'sandbox' ? $provider : null]);

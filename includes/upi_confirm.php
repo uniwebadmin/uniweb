@@ -50,6 +50,7 @@ function confirmUpiPaymentForLink(array $link, string $utr, bool $isTestCheckout
         'signature_verified' => true,
         'provider_verified' => true,
         'reference' => $utr,
+        'payment_method' => 'upi',
     ]);
     $txnId = null;
     if (!empty($result['transaction_id'])) {
@@ -165,6 +166,7 @@ function syncDecentroCheckoutPayment(string $linkId): array
                 'signature_verified' => true,
                 'provider_verified' => true,
                 'reference' => (string)($description['reference_id'] ?? $providerOrderId),
+                'payment_method' => 'upi',
             ]);
             return ['ok' => true, 'paid' => true, 'transaction_id' => (int)($captured['transaction_id'] ?? 0)];
         } catch (Throwable $e) {

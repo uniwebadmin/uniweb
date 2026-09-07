@@ -399,33 +399,83 @@ function createTransactionFromPayment(array $link, string $method, string $statu
     $split = calculateSplitBreakdown($amount, $link);
     $methodStored = preg_replace('/[^a-z0-9_]/i', '', $method) ?: 'upi';
     if (strlen($methodStored) > 32) $methodStored = substr($methodStored, 0, 32);
+    if (!function_exists('normalizeTxnPartnerKey') && is_file(__DIR__ . '/txn_partner.php')) {
+        require_once __DIR__ . '/txn_partner.php';
+    }
+    if (function_exists('ensureTransactionPartnerKeyColumn')) {
+        require_once __DIR__ . '/schema_ensure.php';
+        ensureTransactionPartnerKeyColumn();
+    }
+    $partnerKey = function_exists('inferTxnPartnerKeyFromPaymentMethod')
+        ? inferTxnPartnerKeyFromPaymentMethod($methodStored)
+        : $methodStored;
+    if ($partnerKey === '' && function_exists('normalizeTxnPartnerKey')) {
+        $partnerKey = normalizeTxnPartnerKey($methodStored);
+    }
+    $collectMethod = function_exists('resolveTxnCollectMethod')
+        ? resolveTxnCollectMethod($methodStored, $partnerKey)
+        : '';
+    $paymentMethodStored = $collectMethod !== '' ? $collectMethod : $methodStored;
     $customerName = mb_substr(trim((string)($link['customer_name'] ?? '')), 0, 160) ?: null;
     $customerEmail = mb_substr(trim((string)($link['customer_email'] ?? '')), 0, 190) ?: null;
     $customerPhone = mb_substr(trim((string)($link['customer_phone'] ?? '')), 0, 32) ?: null;
     $txnCore = [
-        $txnId, $link['merchant_id'], $amount, $status, $methodStored,
+        $txnId, $link['merchant_id'], $amount, $status, $paymentMethodStored,
         $link['description'] ?? '', $ref, $link['id'],
         $split['platform_fee'], $split['merchant_net'], $isTest ? 1 : 0,
         getMerchantCollectionMode($link),
         $customerName, $customerEmail, $customerPhone,
         (int)($link['qr_code_id'] ?? 0) > 0 ? (int)$link['qr_code_id'] : null,
     ];
+    $pricingTail = [
+        (float)($split['mdr_m'] ?? 0),
+        (float)($split['mdr_p'] ?? 0),
+        (float)($split['partner_fee'] ?? 0),
+        $split['pricing_snapshot'] ?? null,
+    ];
+    if (function_exists('executeTransactionInsertVariants')) {
+        executeTransactionInsertVariants($db, [
+            [
+                'sql' => 'INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, partner_key, description, utr, payment_link_id, platform_fee, split_amount, is_test, collection_mode, customer_name, customer_email, customer_phone, qr_code_id, mdr_m, mdr_p, partner_fee, pricing_snapshot) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                'params' => array_merge(
+                    [$txnCore[0], $txnCore[1], $txnCore[2], $txnCore[3], $txnCore[4], $partnerKey],
+                    array_slice($txnCore, 5),
+                    $pricingTail
+                ),
+            ],
+            [
+                'sql' => 'INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, partner_key, description, utr, payment_link_id, platform_fee, split_amount, is_test, collection_mode, customer_name, customer_email, customer_phone, qr_code_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                'params' => array_merge(
+                    [$txnCore[0], $txnCore[1], $txnCore[2], $txnCore[3], $txnCore[4], $partnerKey],
+                    array_slice($txnCore, 5)
+                ),
+            ],
+            [
+                'sql' => 'INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, utr, payment_link_id, platform_fee, split_amount, is_test, collection_mode, customer_name, customer_email, customer_phone, qr_code_id, mdr_m, mdr_p, partner_fee, pricing_snapshot) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                'params' => array_merge($txnCore, $pricingTail),
+            ],
+            [
+                'sql' => 'INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, utr, payment_link_id, platform_fee, split_amount, is_test, collection_mode, customer_name, customer_email, customer_phone, qr_code_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                'params' => $txnCore,
+            ],
+            [
+                'sql' => 'INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, utr, payment_link_id) VALUES (?,?,?,?,?,?,?,?)',
+                'params' => [$txnId, $link['merchant_id'], $amount, $status, $paymentMethodStored, $link['description'] ?? '', $ref, $link['id']],
+            ],
+        ]);
+    } else {
     try {
         $db->prepare('INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, utr, payment_link_id, platform_fee, split_amount, is_test, collection_mode, customer_name, customer_email, customer_phone, qr_code_id, mdr_m, mdr_p, partner_fee, pricing_snapshot) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-            ->execute(array_merge($txnCore, [
-                (float)($split['mdr_m'] ?? 0),
-                (float)($split['mdr_p'] ?? 0),
-                (float)($split['partner_fee'] ?? 0),
-                $split['pricing_snapshot'] ?? null,
-            ]));
+            ->execute(array_merge($txnCore, $pricingTail));
     } catch (Throwable $e) {
         try {
             $db->prepare('INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, utr, payment_link_id, platform_fee, split_amount, is_test, collection_mode, customer_name, customer_email, customer_phone, qr_code_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
                 ->execute($txnCore);
         } catch (Throwable $e2) {
             $db->prepare('INSERT INTO transactions (txn_id, merchant_id, amount, status, payment_method, description, utr, payment_link_id) VALUES (?,?,?,?,?,?,?,?)')
-                ->execute([$txnId, $link['merchant_id'], $amount, $status, $methodStored, $link['description'] ?? '', $ref, $link['id']]);
+                ->execute([$txnId, $link['merchant_id'], $amount, $status, $paymentMethodStored, $link['description'] ?? '', $ref, $link['id']]);
         }
+    }
     }
     $id = (int)$db->lastInsertId();
     if ($status === 'success') {
