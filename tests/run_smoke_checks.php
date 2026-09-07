@@ -598,10 +598,10 @@ $wdP5 = (string)file_get_contents($root . '/admin_watchdog.php');
 $assert(str_contains($wdP5, 'Failed checks') && str_contains($wdP5, 'maskSecretKey'), 'p5_watchdog_ui_failed_labels_key_masked');
 $assert(!str_contains($wdP5, 'cron_auto_audit.php?key=' . '<?=') && str_contains($wdP5, 'cron_auto_audit.php?key=****'), 'p5_watchdog_cron_url_key_masked');
 
-// P5-02 — KYC/live enqueue always leaves a queue row (idempotent)
+// P5-02 — KYC forward enqueue is idempotent per Registry partner (no fake unassigned row)
 $fwdP5 = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
 $autoP5Fwd = (string)file_get_contents($root . '/includes/auto_kyc.php');
-$assert(str_contains($fwdP5, "\$targets = ['unassigned']") && str_contains($fwdP5, 'enqueuePartnerForward'), 'p5_forward_enqueue_fallback_row');
+$assert(str_contains($fwdP5, 'getKycForwardPartnerKeys') && str_contains($fwdP5, 'enqueuePartnerForward') && str_contains($fwdP5, 'partner_enqueue_skip'), 'p5_forward_enqueue_fallback_row');
 $kycFlowP5 = (string)file_get_contents($root . '/includes/kyc_workflow.php');
 $assert(str_contains($kycFlowP5, 'resolveKycPendingFlags'), 'p5_auto_kyc_clears_aml_on_verify');
 // 5a: fan-out = every partner with keys (partnerIsConfigured), not chargeable-only / active-without-keys
@@ -2404,6 +2404,16 @@ $assert(str_contains($reconSrcR3, 'partner_wired') && str_contains($reconSrcR3, 
 $assert(str_contains((string)file_get_contents($root . '/admin_reconciliation.php'), 'By Registry partner'), 'r3_admin_reconcile_partner_filter');
 $assert(str_contains((string)file_get_contents($root . '/disputes.php'), 'partner_key') && str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'dispute_partner_key'), 'r3_dispute_partner_from_txn');
 $assert(str_contains((string)file_get_contents($root . '/includes/demo_tour.php'), 'partner_tag'), 'r3_support_ticket_optional_partner_tag');
+
+$fwdQSrc = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
+$regV2Src = (string)file_get_contents($root . '/includes/partner_registry_v2.php');
+$peSrcR4 = (string)file_get_contents($root . '/includes/partner_engine.php');
+$assert(str_contains($regV2Src, 'function registryKycForwardCapablePartnerKeys') && str_contains($regV2Src, 'function registryRowSupportsKycForward'), 'r4_registry_kyc_forward_capable');
+$assert(str_contains($peSrcR4, 'registryKycForwardCapablePartnerKeys'), 'r4_get_kyc_forward_from_registry');
+$assert(str_contains($fwdQSrc, "'waiting_keys'") && str_contains($fwdQSrc, 'function forwardQueuePushLiveApi'), 'r4_waiting_keys_and_sandbox_stub');
+$assert(str_contains($fwdQSrc, "status='waiting_keys'") && !str_contains($fwdQSrc, "targets = ['unassigned']"), 'r4_honest_waiting_keys_no_fake_unassigned');
+$assert(str_contains((string)file_get_contents($root . '/admin_forward_queue.php'), 'waiting_keys'), 'r4_admin_forward_queue_waiting_keys_filter');
+$assert(str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), 'COLLATE utf8mb4_unicode_ci'), 'r4_approve_doc_collation_safe');
 
 $payload = [
     'ok' => $failed === 0,

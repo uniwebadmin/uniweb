@@ -663,6 +663,15 @@ function getGatewaySubmissionPartnerKeys(): array
 /** @return list<string> */
 function getKycForwardPartnerKeys(): array
 {
+    if (!function_exists('registryKycForwardCapablePartnerKeys') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    if (function_exists('registryKycForwardCapablePartnerKeys')) {
+        $keys = registryKycForwardCapablePartnerKeys(false);
+        if ($keys !== []) {
+            return $keys;
+        }
+    }
     $keys = [];
     foreach (getPartnerRegistryKeys() as $key) {
         if (partnerHasRegistryFlag($key, 'kyc_forward')) {

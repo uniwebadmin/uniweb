@@ -207,6 +207,7 @@ if (!function_exists('renderReconcileToolsMapPanel')) {
 
     <?php if ($reconcilePartners !== []): ?>
     <div class="glass rounded-xl p-4 border border-sky-500/20">
+        <p class="text-[11px] text-gray-500 mb-2">Runbook: filter by Registry partner; upload settlement CSV only when partner reconcile is wired — otherwise keep rows for manual review.</p>
         <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
             <h2 class="font-semibold text-sm">By Registry partner (<?= (int)$days ?> days)</h2>
             <div class="flex flex-wrap gap-2 text-xs">

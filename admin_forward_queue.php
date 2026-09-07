@@ -80,7 +80,7 @@ require_once __DIR__ . '/header.php';
         <?php endif; ?>
         <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-4">
             <?php
-            $statOrder = ['queued', 'processing', 'staged', 'success', 'retry', 'failed', 'paused'];
+            $statOrder = ['queued', 'processing', 'waiting_keys', 'staged', 'success', 'retry', 'failed', 'paused'];
             foreach ($statOrder as $sk):
                 $n = (int)($fwdStats['by_status'][$sk] ?? 0);
                 $statLabel = function_exists('forwardQueueAdminStatusLabel') ? forwardQueueAdminStatusLabel($sk) : $sk;
@@ -102,6 +102,7 @@ require_once __DIR__ . '/header.php';
             <a href="?status=processing" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'processing' ? 'bg-brand-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Processing</a>
             <a href="?status=success" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'success' ? 'bg-emerald-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Success</a>
             <a href="?status=staged" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'staged' ? 'bg-sky-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Staged</a>
+            <a href="?status=waiting_keys" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'waiting_keys' ? 'bg-orange-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Waiting keys</a>
             <a href="?status=retry" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'retry' ? 'bg-amber-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Retry</a>
             <a href="?status=failed" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $statusFilter === 'failed' ? 'bg-red-500 text-white' : 'bg-dark-700 text-gray-400' ?>">Failed</a>
         </div>

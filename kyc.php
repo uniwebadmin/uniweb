@@ -777,6 +777,7 @@ $docStatusMeta = static function (string $status): array {
                         'queued' => 'text-blue-400',
                         'processing' => 'text-purple-400',
                         'staged' => 'text-amber-400',
+                        'waiting_keys' => 'text-orange-400',
                         'success' => 'text-emerald-400',
                         'retry' => 'text-amber-400',
                         'failed' => 'text-red-400',

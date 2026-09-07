@@ -849,6 +849,53 @@ function retirePartnerRegistryRow(int $gatewayId, array $opts = []): array
     return ['ok' => true, 'gateway_key' => $key, 'gateway_name' => (string)$gw['gateway_name']];
 }
 
+/** Whether a gateway_registry row supports KYC forward (cap flag or built-in registry flag). */
+function registryRowSupportsKycForward(array $row): bool
+{
+    $key = strtolower(trim((string)($row['gateway_key'] ?? '')));
+    if ($key === '') {
+        return false;
+    }
+    if (partnerRegistryV2HasColumns() && array_key_exists('cap_kyc_forward_api', $row)) {
+        if ((int)($row['cap_kyc_forward_api'] ?? 0) === 1) {
+            return true;
+        }
+    }
+    if (!function_exists('getPartnerRegistry')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    return partnerHasRegistryFlag($key, 'kyc_forward');
+}
+
+/**
+ * Registry partners with KYC-forward capability, sorted by routing_priority.
+ *
+ * @return list<string>
+ */
+function registryKycForwardCapablePartnerKeys(bool $requireActive = false): array
+{
+    if (!function_exists('getRegisteredGateways')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+    $rows = [];
+    foreach (getRegisteredGateways(false) as $row) {
+        $key = strtolower(trim((string)($row['gateway_key'] ?? '')));
+        if ($key === '' || !registryRowSupportsKycForward($row)) {
+            continue;
+        }
+        if ($requireActive && (int)($row['is_active'] ?? 0) !== 1) {
+            continue;
+        }
+        if (!partnerAdapterIsWired($key, $row)) {
+            continue;
+        }
+        $prio = (int)($row['routing_priority'] ?? 50);
+        $rows[] = ['key' => $key, 'prio' => $prio];
+    }
+    usort($rows, static fn(array $a, array $b): int => $a['prio'] <=> $b['prio'] ?: strcmp($a['key'], $b['key']));
+    return array_values(array_unique(array_column($rows, 'key')));
+}
+
 /** Whether a gateway_registry row is a collect partner (not KYC-only / parked). */
 function registryRowSupportsCollect(array $row): bool
 {
