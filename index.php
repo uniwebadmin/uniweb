@@ -47,7 +47,12 @@ require_once __DIR__ . '/header.php';
 
 <section class="py-10 border-y border-gray-800/80 bg-dark-900/40">
     <div class="max-w-6xl mx-auto px-4 sm:px-6">
-        <?php require __DIR__ . '/includes/trust_strip.php'; ?>
+        <?php
+        $trustStrip = __DIR__ . '/includes/trust_strip.php';
+        if (is_file($trustStrip)) {
+            require $trustStrip;
+        }
+        ?>
     </div>
 </section>
 

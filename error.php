@@ -61,7 +61,19 @@ if (PHP_SAPI !== 'cli') {
 }
 
 if (!$rendered) {
-    require_once __DIR__ . '/includes/error_page.php';
-    renderUniwebErrorShell($code, $heading, $detail, $extraActions);
+    $errorPage = __DIR__ . '/includes/error_page.php';
+    if (is_file($errorPage)) {
+        require_once $errorPage;
+        renderUniwebErrorShell($code, $heading, $detail, $extraActions);
+    } else {
+        if (!headers_sent()) {
+            http_response_code($code);
+            header('Content-Type: text/html; charset=utf-8');
+        }
+        echo '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>UniWeb</title></head><body style="font-family:system-ui;background:#0f172a;color:#e2e8f0;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0">'
+            . '<div style="max-width:420px;padding:24px;text-align:center"><h1 style="font-size:1.25rem">' . htmlspecialchars($heading, ENT_QUOTES, 'UTF-8') . '</h1>'
+            . '<p style="color:#94a3b8">' . htmlspecialchars($detail, ENT_QUOTES, 'UTF-8') . '</p>'
+            . '<a href="index.php" style="color:#38bdf8">Home</a></div></body></html>';
+    }
 }
 exit;

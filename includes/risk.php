@@ -1014,14 +1014,15 @@ function getRiskEngineStats(): array
 function checkQrVelocity(string $qrCode, int $merchantId, int $windowMinutes = 10): array
 {
     $db = getDB();
+    $windowMinutes = max(1, min(1440, $windowMinutes));
     try {
         $st = $db->prepare(
             "SELECT COUNT(*) as count, COALESCE(SUM(amount),0) as volume
              FROM transactions t
              JOIN merchant_qr_codes q ON q.id = t.qr_code_id
-             WHERE q.qr_code = ? AND t.merchant_id = ? AND t.created_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE)"
+             WHERE q.qr_code = ? AND t.merchant_id = ? AND t.created_at >= DATE_SUB(NOW(), INTERVAL {$windowMinutes} MINUTE)"
         );
-        $st->execute([$qrCode, $merchantId, $windowMinutes]);
+        $st->execute([$qrCode, $merchantId]);
         $row = $st->fetch();
         return [
             'count' => (int)($row['count'] ?? 0),
@@ -1039,13 +1040,14 @@ function checkQrVelocity(string $qrCode, int $merchantId, int $windowMinutes = 1
 function checkVaVelocity(string $vaNumber, int $merchantId, int $windowMinutes = 10): array
 {
     $db = getDB();
+    $windowMinutes = max(1, min(1440, $windowMinutes));
     try {
         $st = $db->prepare(
             "SELECT COUNT(*) as count, COALESCE(SUM(amount),0) as volume
              FROM transactions t
-             WHERE t.va_number = ? AND t.merchant_id = ? AND t.created_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE)"
+             WHERE t.va_number = ? AND t.merchant_id = ? AND t.created_at >= DATE_SUB(NOW(), INTERVAL {$windowMinutes} MINUTE)"
         );
-        $st->execute([$vaNumber, $merchantId, $windowMinutes]);
+        $st->execute([$vaNumber, $merchantId]);
         $row = $st->fetch();
         return [
             'count' => (int)($row['count'] ?? 0),

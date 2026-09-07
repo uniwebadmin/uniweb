@@ -72,9 +72,10 @@ function checkVelocityBlock(string $type, ?string $ip = null): array
     ensureVelocityCheckTable();
     $ip = $ip ?: velocityClientIp();
     $policy = velocityPolicy($type);
+    $windowMinutes = max(1, min(10080, (int)$policy['window_minutes']));
     try {
-        $st = getDB()->prepare('SELECT COUNT(*) FROM velocity_events WHERE ip_address = ? AND event_type = ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE)');
-        $st->execute([$ip, $type, $policy['window_minutes']]);
+        $st = getDB()->prepare('SELECT COUNT(*) FROM velocity_events WHERE ip_address = ? AND event_type = ? AND created_at >= DATE_SUB(NOW(), INTERVAL ' . $windowMinutes . ' MINUTE)');
+        $st->execute([$ip, $type]);
         $count = (int)$st->fetchColumn();
     } catch (Throwable $e) {
         return ['blocked' => false, 'count' => 0, 'retry_after_minutes' => 0];
@@ -82,8 +83,8 @@ function checkVelocityBlock(string $type, ?string $ip = null): array
 
     if ($count >= $policy['max_attempts']) {
         try {
-            $st2 = getDB()->prepare('SELECT MAX(created_at) FROM velocity_events WHERE ip_address = ? AND event_type = ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE)');
-            $st2->execute([$ip, $type, $policy['window_minutes']]);
+            $st2 = getDB()->prepare('SELECT MAX(created_at) FROM velocity_events WHERE ip_address = ? AND event_type = ? AND created_at >= DATE_SUB(NOW(), INTERVAL ' . $windowMinutes . ' MINUTE)');
+            $st2->execute([$ip, $type]);
             $lastAt = $st2->fetchColumn();
             $cooldownEnds = $lastAt ? strtotime((string)$lastAt) + ($policy['cooldown_minutes'] * 60) : time();
             $remaining = max(1, (int)ceil(($cooldownEnds - time()) / 60));

@@ -57,8 +57,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!function_exists('submitApprovalRequest') && is_file(__DIR__ . '/includes/onboarding_security.php')) {
                 require_once __DIR__ . '/includes/onboarding_security.php';
             }
-            submitApprovalRequest('kyc_document_approve', (int)$d['merchant_id'], 'kyc_document', (string)$id, $reason, $d);
-            flash('success', 'Document approval sent to an independent checker.');
+            if (function_exists('isSuperAdmin') && isSuperAdmin()) {
+                $db->prepare("UPDATE kyc_documents SET status='approved', rejection_reason=NULL, reviewed_at=NOW() WHERE id=? AND merchant_id=?")
+                    ->execute([$id, (int)$d['merchant_id']]);
+                if (!function_exists('syncMerchantKycSubmittedIfReady') && is_file(__DIR__ . '/includes/kyc_workflow.php')) {
+                    require_once __DIR__ . '/includes/kyc_workflow.php';
+                }
+                if (function_exists('syncMerchantKycSubmittedIfReady')) {
+                    syncMerchantKycSubmittedIfReady((int)$d['merchant_id']);
+                }
+                if (function_exists('logStaffActivity')) {
+                    logStaffActivity('kyc_document_approved', $reason, (int)$d['merchant_id'], 'kyc_document', (string)$id);
+                }
+                flash('success', 'Document approved.');
+            } else {
+                submitApprovalRequest('kyc_document_approve', (int)$d['merchant_id'], 'kyc_document', (string)$id, $reason, $d);
+                flash('success', 'Document approval sent to an independent checker.');
+            }
         } elseif ($action === 'verify_merchant') {
             requireMerchantAccess($id);
             submitApprovalRequest('kyc_merchant_verify', $id, 'merchant', (string)$id, $reason);
