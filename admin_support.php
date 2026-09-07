@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/page_ux.php';
+require_once __DIR__ . '/includes/cases_ops.php';
+ensureCasesSpineSchema();
 if (!function_exists('listPublicContactInquiries') && is_file(__DIR__ . '/includes/schema_ensure.php')) {
     require_once __DIR__ . '/includes/schema_ensure.php';
 }
@@ -11,6 +13,14 @@ requireStaffAccess(['super', 'ceo', 'regional_manager', 'team_leader', 'support'
 ensureSupportTicketTable();
 $db = getDB();
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['cases_action'])) {
+        $casesRedirect = casesOpsHandlePost('admin_support.php' . (isset($_GET['tab']) ? ('?tab=' . urlencode((string)$_GET['tab'])) : ''));
+        if ($casesRedirect !== null) {
+            redirect($casesRedirect);
+        }
+    }
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     if (($_POST['action'] ?? '') === 'close_inquiry') {
         $inquiryId = trim((string)($_POST['inquiry_id'] ?? ''));
@@ -103,17 +113,81 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     }
     sendCsvDownload(['Ticket', 'Merchant', 'Subject', 'Status', 'Priority', 'Created'], $csvRows, 'support-tickets-' . date('Y-m-d') . '.csv');
 }
-$pageTitle = 'Support Tickets';
+$pageTitle = 'Cases';
+$casesTab = casesOpsCurrentTab();
 require_once __DIR__ . '/header.php';
 if (!function_exists('renderComplianceSupportPathPanel')) {
     require_once __DIR__ . '/includes/compliance_workflow.php';
 }
+echo renderCasesOpsTabs($casesTab === 'support' ? 'support' : ($casesTab === 'all' ? 'all' : 'support'));
+?>
+
+<?php if ($casesTab === 'all'): ?>
+<?php
+$allTypeFilter = trim((string)($_GET['case_type'] ?? ''));
+$allStatus = trim((string)($_GET['status'] ?? 'open'));
+$allQ = mb_substr(trim((string)($_GET['q'] ?? '')), 0, 100);
+$allMerchantId = (int)($_GET['merchant_id'] ?? 0);
+$unifiedCases = casesUnifiedInbox(
+    $allTypeFilter !== '' ? $allTypeFilter : null,
+    $allStatus !== '' ? $allStatus : 'open',
+    $allQ,
+    $allMerchantId
+);
+$partnerChoices = casesOpsPartnerChoices();
+?>
+<div class="glass rounded-xl p-5 mb-6 border border-emerald-500/20 text-sm text-gray-300">
+    <p class="font-semibold text-emerald-300 mb-1">Cases hub — one inbox</p>
+    <p class="text-xs text-gray-500">Support tickets, customer complaints, and disputes in one place. Close here or forward to Registry partner (honest if API not wired).</p>
+</div>
+<form method="GET" class="glass rounded-xl p-4 mb-4 border border-gray-800 flex flex-wrap gap-3 items-end">
+    <div class="flex-1 min-w-[160px]"><label class="text-[10px] text-gray-600 uppercase">Search</label><input name="q" value="<?= e($allQ) ?>" class="input-field mt-1 text-sm" placeholder="Ref / subject / merchant"></div>
+    <div><label class="text-[10px] text-gray-600 uppercase">Type</label><select name="case_type" class="input-field mt-1 text-sm"><option value="">All types</option><?php foreach (casesValidTypes() as $ct): ?><option value="<?= e($ct) ?>" <?= $allTypeFilter === $ct ? 'selected' : '' ?>><?= e(casesTypeLabel($ct)) ?></option><?php endforeach; ?></select></div>
+    <div><label class="text-[10px] text-gray-600 uppercase">Status</label><select name="status" class="input-field mt-1 text-sm"><option value="open" <?= $allStatus === 'open' ? 'selected' : '' ?>>Open / active</option><option value="all" <?= $allStatus === 'all' ? 'selected' : '' ?>>All statuses</option><option value="closed" <?= $allStatus === 'closed' ? 'selected' : '' ?>>Closed</option></select></div>
+    <button class="btn-primary px-4 py-2.5 text-sm">Filter</button>
+</form>
+<form method="POST" class="glass rounded-xl overflow-hidden mb-8">
+    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+    <div class="px-4 py-3 border-b border-gray-800 flex flex-wrap gap-2 items-center text-xs">
+        <span class="text-gray-500">Bulk:</span>
+        <select name="partner_key" class="input-field text-sm"><option value="">Partner (forward)</option><?php foreach ($partnerChoices as $pk => $pl): ?><option value="<?= e($pk) ?>"><?= e($pl) ?></option><?php endforeach; ?></select>
+        <input type="text" name="note" placeholder="Note / resolution" class="input-field text-sm flex-1 min-w-[140px]">
+        <button type="submit" name="cases_action" value="bulk_close" class="px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300">Close selected</button>
+        <button type="submit" name="cases_action" value="bulk_forward" class="px-3 py-1.5 rounded-lg bg-violet-600/20 text-violet-300">Forward selected</button>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[720px]">
+            <thead class="bg-dark-900/50 text-gray-400 text-xs uppercase"><tr>
+                <th class="px-3 py-2 text-left w-8"></th><th class="px-3 py-2 text-left">Type</th><th class="px-3 py-2 text-left">Ref</th><th class="px-3 py-2 text-left">Merchant</th><th class="px-3 py-2 text-left">Subject</th><th class="px-3 py-2 text-left">Status</th><th class="px-3 py-2 text-left">Partner</th><th class="px-3 py-2 text-left">Open</th>
+            </tr></thead>
+            <tbody>
+            <?php if ($unifiedCases === []): ?>
+            <tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">No open cases — customer complaints and disputes appear here when raised.</td></tr>
+            <?php else: foreach ($unifiedCases as $uc): ?>
+            <tr class="border-t border-gray-800/50">
+                <td class="px-3 py-3"><input type="checkbox" name="selected[]" value="<?= e($uc['case_type'] . ':' . $uc['case_db_id']) ?>"></td>
+                <td class="px-3 py-3 text-xs text-gray-400"><?= e(casesTypeLabel((string)$uc['case_type'])) ?></td>
+                <td class="px-3 py-3 font-mono text-xs"><a href="<?= e((string)$uc['detail_url']) ?>" class="text-sky-400 hover:underline"><?= e((string)$uc['case_ref']) ?></a></td>
+                <td class="px-3 py-3 text-xs"><?= !empty($uc['merchant_id']) ? adminMerchantLink((int)$uc['merchant_id'], (string)$uc['business_name']) : '—' ?></td>
+                <td class="px-3 py-3 text-xs text-gray-300 max-w-xs truncate"><?= e((string)$uc['subject']) ?></td>
+                <td class="px-3 py-3"><?= statusBadge((string)$uc['status']) ?></td>
+                <td class="px-3 py-3 text-xs text-gray-500"><?= e((string)($uc['partner_status'] ?? '—')) ?></td>
+                <td class="px-3 py-3 text-xs text-gray-500"><?= e((string)($uc['sort_at'] ?? '')) ?></td>
+            </tr>
+            <?php endforeach; endif; ?>
+            </tbody>
+        </table>
+    </div>
+</form>
+<?php else: ?>
+
+<?php
 echo renderComplianceSupportPathPanel('tkt');
 ?>
 
 <div class="glass rounded-xl p-4 mb-6 border border-emerald-500/20 text-sm text-gray-300">
     <p class="font-semibold text-emerald-300 mb-1">Admin first — support queue</p>
-    <p class="text-xs text-gray-500">Merchant tickets land here for Admin/staff reply. Paste <strong class="text-gray-300">TKT…</strong> in search to jump to that ticket. Payment chargeback disputes: use <a href="admin_disputes.php" class="text-sky-400 hover:underline">Disputes</a> (resolve or single partner forward). Bulk routing later — no new app.</p>
+    <p class="text-xs text-gray-500">Merchant tickets (UniWeb-only unless you forward). Use <a href="<?= e(casesOpsUrl('complaints')) ?>" class="text-sky-400 hover:underline">Customer complaints</a> or <a href="<?= e(casesOpsUrl('disputes')) ?>" class="text-sky-400 hover:underline">Disputes</a> tabs for payer cases.</p>
 </div>
 <?php
 $supportEdu = function_exists('wiringAdminSupportEducation') ? wiringAdminSupportEducation() : null;
@@ -173,6 +247,7 @@ if (is_array($supportEdu)):
 <?php endif; ?>
 
 <form method="GET" class="glass rounded-xl p-4 mb-6 border border-gray-800 flex flex-wrap gap-3 items-end no-print" aria-label="Filter support tickets">
+    <input type="hidden" name="tab" value="support">
     <div class="flex-1 min-w-[180px]"><?= uxLabel('support-q', 'Search') ?><input id="support-q" name="q" value="<?= e($q) ?>" class="input-field mt-1 text-sm" placeholder="Ticket ID / subject / merchant"></div>
     <div><?= uxLabel('support-status', 'Status') ?><select id="support-status" name="status" class="input-field mt-1 text-sm"><?php foreach (['all'=>'All','open'=>'Open','in_progress'=>'In Progress','resolved'=>'Resolved','closed'=>'Closed'] as $sk=>$sl): ?><option value="<?= $sk ?>" <?= $statusFilter===$sk?'selected':'' ?>><?= $sl ?></option><?php endforeach; ?></select></div>
     <button class="btn-primary px-4 py-2.5 text-sm">Filter</button>
@@ -228,6 +303,17 @@ if (is_array($supportEdu)):
             <p class="text-gray-300 whitespace-pre-wrap"><?= e($msg['message']) ?></p>
         </div>
         <?php endforeach; ?>
+        <?= renderCasesPartnerEventsPanel('support_ticket', (int)$t['id']) ?>
+        <div class="flex flex-wrap gap-2 mt-3 text-xs">
+            <form method="POST" class="inline-flex flex-wrap gap-2 items-end" onsubmit="return confirm('Close this ticket?')">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="cases_action" value="close_case">
+                <input type="hidden" name="case_type" value="support_ticket">
+                <input type="hidden" name="case_id" value="<?= (int)$t['id'] ?>">
+                <input type="text" name="note" placeholder="Close note" class="input-field text-sm w-40">
+                <button type="submit" class="px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300">Close here</button>
+            </form>
+        </div>
         <form method="POST" class="space-y-3 border-t border-gray-800 pt-4" aria-label="Reply to ticket <?= e($t['ticket_id']) ?>">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="ticket_id" value="<?= $t['id'] ?>">
@@ -250,6 +336,8 @@ if (is_array($supportEdu)):
 </div>
 <?php if ($focusTicketId !== ''): ?>
 <script>document.getElementById('ticket-<?= e($focusTicketId) ?>')?.scrollIntoView({block:'start',behavior:'smooth'});</script>
+<?php endif; ?>
+
 <?php endif; ?>
 
 <?php require_once __DIR__ . '/footer.php'; ?>

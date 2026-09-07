@@ -129,10 +129,10 @@ $assert(in_array('customer_login.php', $registryFiles, true), 'watchdog_registry
 $assert(in_array('customer_portal.php', $registryFiles, true) && in_array('customer_ticket.php', $registryFiles, true), 'watchdog_registry_covers_customer_pages');
 $assert(in_array('merchant_customer_tickets.php', $registryFiles, true), 'watchdog_registry_covers_merchant_customer_tickets');
 $assert(in_array('admin_customer_tickets.php', $registryFiles, true), 'watchdog_registry_covers_admin_customer_tickets');
-$assert(str_contains($navSrc, 'admin_customer_tickets.php'), 'admin_nav_has_customer_complaints');
+$assert(str_contains($navSrc, "['admin_support.php', 'Cases']"), 'admin_nav_has_cases_hub');
 $assert(str_contains($navSrc, 'merchant_customer_tickets.php'), 'merchant_nav_has_customer_complaints');
 $staffNavSrc = (string)file_get_contents($root . '/includes/staff.php');
-$assert(str_contains($staffNavSrc, "'admin_customer_tickets.php'") && str_contains($staffNavSrc, 'Customer Complaints'), 'staff_nav_has_customer_complaints');
+$assert(str_contains($staffNavSrc, "'admin_customer_tickets.php'") && str_contains($staffNavSrc, 'Cases · Complaints'), 'staff_nav_has_cases_complaints');
 $assert(is_file($root . '/merchant_customer_tickets.php'), 'merchant_customer_tickets_page_present');
 $mCust = (string)file_get_contents($root . '/merchant_customer_tickets.php');
 $assert(str_contains($mCust, 'getMerchantCustomerTicket') && str_contains($mCust, 'replyToCustomerTicket'), 'merchant_customer_tickets_scoped_reply');
@@ -791,7 +791,7 @@ $assert(str_contains((string)file_get_contents($root . '/gateway_settings.php'),
 // Block 9 — Dispute / Support Admin-first (V1 single forward; bulk parked; no new app)
 $assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'Admin first — complaint → Admin → resolve / forward'), 'b9_admin_disputes_first_banner');
 $assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'forward_partner') && str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'Forward (single)'), 'b9_admin_single_forward_ui');
-$assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'Bulk select + smart partner route') && str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'parked'), 'b9_bulk_smart_route_parked');
+$assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'cases-bulk-disputes') && str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'bulk_forward'), 'b9_bulk_forward_on_disputes');
 $assert(str_contains((string)file_get_contents($root . '/includes/schema_ensure.php'), 'function forwardDisputeToPartner') && str_contains((string)file_get_contents($root . '/includes/schema_ensure.php'), 'forwarded_partner'), 'b9_forward_helper_and_status');
 $assert(str_contains((string)file_get_contents($root . '/disputes.php'), 'Admin reviews first') && str_contains((string)file_get_contents($root . '/disputes.php'), 'Admin will review first'), 'b9_merchant_admin_first_copy');
 // 3a: merchant disputes honour ?q=/?id= and open a detail panel (DSP deep links)
@@ -2423,6 +2423,15 @@ $assert(str_contains($kycOpsUi, 'renderKycOpsTabs') && str_contains($kycOpsUi, "
 $assert(str_contains($kycOpsSrc, 'kycOpsAfterCheckerApprove') && str_contains($kycOpsSrc, "kycOpsUrl('forward'"), 'kyc_ops_checker_redirect_forward_tab');
 $assert(str_contains($sidebarNav, "'KYC Ops'") && !str_contains($sidebarNav, "['admin_forward_queue.php', 'KYC Forward Queue']"), 'kyc_ops_sidebar_single_entry');
 $assert(str_contains((string)file_get_contents($root . '/includes/forward_queue_workflow.php'), "return 'admin_kyc.php?tab=forward'"), 'kyc_ops_forward_auto_page_hub');
+
+$casesOpsSrc = (string)file_get_contents($root . '/includes/cases_ops.php');
+$adminSupportCases = (string)file_get_contents($root . '/admin_support.php');
+$assert(str_contains($casesOpsSrc, 'function casesUnifiedInbox') && str_contains($casesOpsSrc, 'case_partner_events'), 'c1_cases_ops_spine_module');
+$assert(str_contains($casesOpsSrc, 'function casesBulkForward') && str_contains($casesOpsSrc, 'function casesLogPartnerEvent'), 'c1_cases_bulk_and_partner_log');
+$assert(str_contains($adminSupportCases, 'renderCasesOpsTabs') && str_contains($adminSupportCases, 'casesUnifiedInbox'), 'c1_admin_cases_hub_all_tab');
+$assert(str_contains($sidebarNav, "['admin_support.php', 'Cases']") && !str_contains($sidebarNav, "['admin_customer_tickets.php', 'Customer Complaints']"), 'c1_sidebar_single_cases_entry');
+$assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'cases-bulk-disputes') && str_contains((string)file_get_contents($root . '/admin_customer_tickets.php'), 'cases-bulk-complaints'), 'c1_admin_bulk_forward_close');
+$assert(str_contains((string)file_get_contents($root . '/merchant_customer_tickets.php'), 'renderMerchantCasesPartnerEvents'), 'c1_merchant_sees_partner_inbound');
 $assert(str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), 'COLLATE utf8mb4_unicode_ci'), 'r4_approve_doc_collation_safe');
 
 $payload = [

@@ -81,6 +81,9 @@ if (!function_exists('renderComplianceCustomerSupportNote')) {
                 </div>
                 <?= statusBadge((string)$ticket['status']) ?>
             </div>
+            <?php if (!empty($ticket['partner_forward_status']) && in_array((string)$ticket['partner_forward_status'], ['need_info', 'partner_query', 'forwarded', 'not_wired'], true)): ?>
+            <p class="text-xs text-amber-700 mt-2">Status: <?= e(ucfirst(str_replace('_', ' ', (string)$ticket['partner_forward_status']))) ?> — our team is working on it.</p>
+            <?php endif; ?>
             <p class="text-sm text-slate-700 whitespace-pre-wrap mt-4 leading-relaxed"><?= e($ticket['message']) ?></p>
             <?php if (!empty($ticket['txn_reference'])): ?>
             <p class="cp-mono mt-3">Transaction: <?= e($ticket['txn_reference']) ?></p>

@@ -1,9 +1,23 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/cases_ops.php';
+ensureCasesSpineSchema();
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'team_leader', 'support', 'ops']);
 require_once __DIR__ . '/includes/customer_portal.php';
 ensureCustomerPortalSchema();
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['cases_action'])) {
+        $ret = 'admin_customer_tickets.php';
+        if (!empty($_GET['id'])) {
+            $ret .= '?id=' . (int)$_GET['id'];
+        }
+        $casesRedirect = casesOpsHandlePost($ret);
+        if ($casesRedirect !== null) {
+            redirect($casesRedirect);
+        }
+    }
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '')) {
     $id = (int)($_POST['ticket_db_id'] ?? 0);
     $reply = trim((string)($_POST['admin_reply'] ?? ''));
@@ -79,11 +93,12 @@ if ($view) {
     $customerHistory = getCustomerTransactions((string)$view['customer_phone'], 20);
 }
 
-$pageTitle = 'Customer Complaints';
+$pageTitle = 'Cases · Complaints';
 require_once __DIR__ . '/header.php';
 if (!function_exists('renderComplianceSupportPathPanel')) {
     require_once __DIR__ . '/includes/compliance_workflow.php';
 }
+echo renderCasesOpsTabs('complaints');
 ?>
 <div class="space-y-6">
 <?= renderComplianceSupportPathPanel('ct') ?>
@@ -194,6 +209,33 @@ if (!function_exists('renderComplianceSupportPathPanel')) {
         </div>
         <?php endif; ?>
 
+        <?= renderCasesPartnerEventsPanel('customer_complaint', (int)$view['id']) ?>
+        <?php $complaintPartners = casesOpsPartnerChoices(); $resolvedPk = casesResolvePartnerKeyForCase('customer_complaint', (int)$view['id']); ?>
+        <div class="mt-4 flex flex-wrap gap-2 text-xs">
+            <form method="POST" class="inline-flex flex-wrap gap-2 items-end" onsubmit="return confirm('Close this complaint?')">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="cases_action" value="close_case">
+                <input type="hidden" name="case_type" value="customer_complaint">
+                <input type="hidden" name="case_id" value="<?= (int)$view['id'] ?>">
+                <input type="text" name="note" placeholder="Close note" class="input-field text-sm w-40">
+                <button type="submit" class="px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300">Close here</button>
+            </form>
+            <form method="POST" class="inline-flex flex-wrap gap-2 items-end">
+                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                <input type="hidden" name="cases_action" value="forward_case">
+                <input type="hidden" name="case_type" value="customer_complaint">
+                <input type="hidden" name="case_id" value="<?= (int)$view['id'] ?>">
+                <select name="partner_key" class="input-field text-sm">
+                    <option value="">Partner</option>
+                    <?php foreach ($complaintPartners as $pk => $pl): ?>
+                    <option value="<?= e($pk) ?>" <?= !empty($resolvedPk['partner_key']) && $resolvedPk['partner_key'] === $pk ? 'selected' : '' ?>><?= e($pl) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <input type="text" name="note" placeholder="Forward note" class="input-field text-sm w-40">
+                <button type="submit" class="px-3 py-1.5 rounded-lg bg-violet-600/20 text-violet-300">Forward to partner</button>
+            </form>
+        </div>
+
         <form method="POST" class="space-y-3 mt-6 border-t border-gray-800 pt-5">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="ticket_db_id" value="<?= (int)$view['id'] ?>">
@@ -211,11 +253,24 @@ if (!function_exists('renderComplianceSupportPathPanel')) {
     </div>
     <?php endif; ?>
 
+    <?php if (!$view): ?>
+    <form method="POST" id="cases-bulk-complaints" class="glass rounded-xl overflow-hidden mb-4">
+        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+        <div class="px-4 py-3 border-b border-gray-800 flex flex-wrap gap-2 items-center text-xs">
+            <span class="text-gray-500">Bulk:</span>
+            <select name="partner_key" class="input-field text-sm"><option value="">Partner (forward)</option><?php foreach (casesOpsPartnerChoices() as $pk => $pl): ?><option value="<?= e($pk) ?>"><?= e($pl) ?></option><?php endforeach; ?></select>
+            <input type="text" name="note" placeholder="Note" class="input-field text-sm flex-1 min-w-[120px]">
+            <button type="submit" name="cases_action" value="bulk_close" class="px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300">Close selected</button>
+            <button type="submit" name="cases_action" value="bulk_forward" class="px-3 py-1.5 rounded-lg bg-violet-600/20 text-violet-300">Forward selected</button>
+        </div>
+    <?php endif; ?>
+
     <div class="glass rounded-xl overflow-hidden min-w-0">
         <div class="px-4 sm:px-6 py-4 border-b border-gray-800"><h2 class="font-semibold">Complaints</h2></div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm min-w-[820px]">
                 <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
+                    <?php if (!$view): ?><th class="px-3 py-3 w-8"></th><?php endif; ?>
                     <th class="px-5 py-3 text-left">Ticket</th>
                     <th class="px-5 py-3 text-left">Customer</th>
                     <th class="px-5 py-3 text-left">Txn</th>
@@ -237,6 +292,7 @@ if (!function_exists('renderComplianceSupportPathPanel')) {
                         }
                     ?>
                     <tr class="hover:bg-white/5 cursor-pointer" onclick="location.href='<?= e($rowHref) ?>'">
+                        <?php if (!$view): ?><td class="px-3 py-3" onclick="event.stopPropagation()"><input type="checkbox" form="cases-bulk-complaints" name="selected[]" value="customer_complaint:<?= (int)$tk['id'] ?>"></td><?php endif; ?>
                         <td class="px-5 py-3 font-mono text-xs text-sky-400"><?= e($tk['ticket_id']) ?></td>
                         <td class="px-5 py-3 text-xs" onclick="event.stopPropagation()"><a href="<?= e(adminCustomerHistoryUrl((string)$tk['customer_phone'])) ?>" class="text-sky-400 hover:underline">+91 <?= e($tk['customer_phone']) ?></a></td>
                         <td class="px-5 py-3 font-mono text-xs" onclick="event.stopPropagation()"><?= !empty($tk['txn_reference']) ? txnDetailLink((string)$tk['txn_reference']) : '—' ?></td>
@@ -256,5 +312,6 @@ if (!function_exists('renderComplianceSupportPathPanel')) {
             </table>
         </div>
     </div>
+    <?php if (!$view): ?></form><?php endif; ?>
 </div>
 <?php require_once __DIR__ . '/footer.php'; ?>

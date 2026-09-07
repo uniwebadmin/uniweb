@@ -113,6 +113,10 @@ $txns->execute([$merchant['id'], $merchant['id']]);
 $txnList = $txns->fetchAll();
 $pageTitle = 'Disputes';
 require_once __DIR__ . '/header.php';
+if (!function_exists('renderMerchantCasesTabs')) {
+    require_once __DIR__ . '/includes/cases_ops.php';
+}
+echo renderMerchantCasesTabs('disputes');
 if (!function_exists('renderComplianceDisputeVsRefundPanel')) {
     require_once __DIR__ . '/includes/compliance_workflow.php';
 }

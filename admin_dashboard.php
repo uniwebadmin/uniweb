@@ -155,8 +155,7 @@ require_once __DIR__ . '/header.php';
 <?php endif; ?>
 
 <div class="flex flex-wrap gap-2 sm:gap-3 mb-4">
-    <a href="admin_support.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-sky-300 hover:text-sky-200">Support</a>
-    <a href="admin_customer_tickets.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-amber-300 hover:text-amber-200">Complaints</a>
+    <a href="admin_support.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-sky-300 hover:text-sky-200">Cases</a>
     <a href="admin_kyc.php?tab=forward" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm <?= ($forwardStaged + $forwardQueued) > 0 ? 'text-amber-300 border border-amber-500/30' : 'text-gray-400' ?>">KYC Ops · Forward<?= ($forwardStaged + $forwardQueued) > 0 ? ' (' . ($forwardStaged + $forwardQueued) . ')' : '' ?></a>
     <a href="admin_disputes.php?status=open" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-red-300 hover:text-red-200">Disputes<?= $openDisputes > 0 ? " ($openDisputes)" : '' ?></a>
     <a href="admin_gateway_registry.php" class="glass px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm text-violet-400 hover:text-violet-300">Partner Registry</a>

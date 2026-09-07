@@ -77,6 +77,10 @@ require_once __DIR__ . '/header.php';
 if (!function_exists('renderComplianceSupportPathPanel')) {
     require_once __DIR__ . '/includes/compliance_workflow.php';
 }
+if (!function_exists('renderMerchantCasesTabs')) {
+    require_once __DIR__ . '/includes/cases_ops.php';
+}
+echo renderMerchantCasesTabs('support');
 echo renderComplianceSupportPathPanel('tkt');
 ?>
 

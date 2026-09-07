@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/cases_ops.php';
+ensureCasesSpineSchema();
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'team_leader', 'support', 'ops']);
 ensureDisputesEngine();
 $db = getDB();
@@ -31,6 +33,13 @@ if (!function_exists('adminDisputesReturnUrl')) {
             $params['q'] = $q;
         }
         return $params === [] ? 'admin_disputes.php' : ('admin_disputes.php?' . http_build_query($params));
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? '') && isset($_POST['cases_action'])) {
+    $casesRedirect = casesOpsHandlePost(adminDisputesReturnUrl($_POST));
+    if ($casesRedirect !== null) {
+        redirect($casesRedirect);
     }
 }
 
@@ -207,8 +216,9 @@ $disputeFilterHidden = static function () use ($filterMerchantId, $statusFilter,
     }
     return $html;
 };
-$pageTitle = 'Disputes';
+$pageTitle = 'Cases · Disputes';
 require_once __DIR__ . '/header.php';
+echo renderCasesOpsTabs('disputes');
 ?>
 
 <div class="glass rounded-xl p-5 mb-6 border border-emerald-500/20 text-sm text-gray-300">
@@ -275,10 +285,20 @@ if (is_array($wiringEdu)):
 </form>
 
 <div class="glass rounded-xl p-4 mb-6 border border-amber-500/20 text-xs text-amber-200/90">
-    Bulk select + smart partner route: <strong class="text-amber-100">parked</strong>. Use one row → Forward to partner.
+    Select rows below for bulk close or bulk forward to Registry partner (honest if API not wired).
 </div>
 
-<div class="glass rounded-xl overflow-hidden min-w-0">
+<form method="POST" id="cases-bulk-disputes" class="glass rounded-xl overflow-hidden mb-4">
+    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+    <div class="px-4 py-3 border-b border-gray-800 flex flex-wrap gap-2 items-center text-xs">
+        <span class="text-gray-500">Bulk:</span>
+        <select name="partner_key" class="input-field text-sm"><option value="">Partner (forward)</option><?php foreach ($partnerChoices as $pk => $pl): ?><option value="<?= e($pk) ?>"><?= e($pl) ?></option><?php endforeach; ?></select>
+        <input type="text" name="note" placeholder="Note" class="input-field text-sm flex-1 min-w-[120px]">
+        <button type="submit" name="cases_action" value="bulk_close" class="px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300">Close selected</button>
+        <button type="submit" name="cases_action" value="bulk_forward" class="px-3 py-1.5 rounded-lg bg-violet-600/20 text-violet-300">Forward selected</button>
+    </div>
+
+<div class="border-t border-gray-800">
     <div class="px-4 sm:px-6 py-4 border-b border-gray-800 flex flex-wrap justify-between items-center gap-2">
         <h2 class="font-semibold">Admin dispute queue (<?= $openCount ?> open)</h2>
         <div class="flex flex-wrap gap-2 text-[11px]">
@@ -289,11 +309,12 @@ if (is_array($wiringEdu)):
     <div class="overflow-x-auto">
     <table class="min-w-[720px] w-full text-sm">
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
+            <th class="px-3 py-3 w-8"></th>
             <th class="px-4 sm:px-5 py-3 text-left">ID</th><th class="px-4 sm:px-5 py-3 text-left">Merchant</th><th class="px-4 sm:px-5 py-3 text-left">Txn</th>
             <th class="px-4 sm:px-5 py-3 text-left">Partner</th><th class="px-4 sm:px-5 py-3 text-left">Amount</th><th class="px-4 sm:px-5 py-3 text-left">Reason</th><th class="px-4 sm:px-5 py-3 text-left">Due</th><th class="px-4 sm:px-5 py-3 text-left">Status</th><th class="px-4 sm:px-5 py-3 text-left">Action</th>
         </tr></thead>
         <tbody class="divide-y divide-gray-800">
-            <?php if (empty($disputes)): ?><tr><td colspan="9" class="px-5 py-12 text-center text-gray-500">No disputes yet. When a merchant raises one, it appears here for Admin first.</td></tr>
+            <?php if (empty($disputes)): ?><tr><td colspan="10" class="px-5 py-12 text-center text-gray-500">No disputes yet. When a merchant raises one, it appears here for Admin first.</td></tr>
             <?php else: foreach ($disputes as $d):
                 $openD = in_array((string)$d['status'], ['open', 'under_review', 'forwarded_partner'], true);
                 if (!function_exists('resolveDisputePartnerKey') && is_file(__DIR__ . '/includes/ops_partner.php')) {
@@ -303,6 +324,7 @@ if (is_array($wiringEdu)):
                 $rowPartnerLabel = $rowPartner !== '' && function_exists('transactionPartnerLabel') ? transactionPartnerLabel($rowPartner) : '—';
             ?>
             <tr id="dispute-<?= e($d['dispute_id']) ?>" class="<?= $highlightDisputeId !== '' && strcasecmp((string)$d['dispute_id'], $highlightDisputeId) === 0 ? 'bg-sky-500/10 ring-1 ring-sky-500/30' : '' ?>">
+                <td class="px-3 py-3"><input type="checkbox" form="cases-bulk-disputes" name="selected[]" value="dispute:<?= (int)$d['id'] ?>"></td>
                 <td class="px-4 sm:px-5 py-3 font-mono text-xs text-gray-300"><?= e($d['dispute_id']) ?></td>
                 <td class="px-4 sm:px-5 py-3 text-xs"><?= adminMerchantLink((int)$d['merchant_row_id'], $d['business_name']) ?></td>
                 <td class="px-4 sm:px-5 py-3 font-mono text-xs"><?= txnDetailLink($d['txn_id']) ?></td>
@@ -349,6 +371,7 @@ if (is_array($wiringEdu)):
                             <button class="text-xs bg-violet-600/80 text-white px-2 py-1 rounded">Forward (single)</button>
                         </form>
                         <form method="post"><input type="hidden" name="csrf_token" value="<?= csrfToken() ?>"><?= $disputeFilterHidden() ?><input type="hidden" name="action" value="close"><input type="hidden" name="id" value="<?= (int)$d['id'] ?>"><input type="hidden" name="resolution" value="Closed by Admin"><button class="text-xs text-gray-500 hover:underline">Close</button></form>
+                        <?= renderCasesPartnerEventsPanel('dispute', (int)$d['id'], true) ?>
                     </div>
                     <?php else: ?>
                     <span class="text-xs text-gray-600">—</span>
@@ -360,6 +383,7 @@ if (is_array($wiringEdu)):
     </table>
     </div>
 </div>
+</form>
 <?php if ($highlightDisputeId !== ''): ?>
 <script>document.getElementById('dispute-<?= e($highlightDisputeId) ?>')?.scrollIntoView({block:'center',behavior:'smooth'});</script>
 <?php endif; ?>

@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/customer_portal.php';
+require_once __DIR__ . '/includes/cases_ops.php';
+ensureCasesSpineSchema();
 requireLogin();
 requireMerchantTeamCapability('support');
 ensureCustomerPortalSchema();
@@ -53,11 +55,12 @@ $ticketTotal = count($allTickets);
 $tickets = array_slice($allTickets, $listParams['offset'], $listParams['perPage']);
 $openCount = getPendingMerchantCustomerTicketCount($merchantId);
 
-$pageTitle = 'Customer Complaints';
+$pageTitle = 'Cases';
 require_once __DIR__ . '/header.php';
 if (!function_exists('renderComplianceSupportPathPanel')) {
     require_once __DIR__ . '/includes/compliance_workflow.php';
 }
+echo renderMerchantCasesTabs('complaints');
 ?>
 <div class="space-y-6">
 <?= renderComplianceSupportPathPanel('ct') ?>
@@ -87,7 +90,8 @@ if (!function_exists('renderComplianceSupportPathPanel')) {
             <?= statusBadge((string)$view['status']) ?>
         </div>
         <p class="text-sm text-gray-300 whitespace-pre-wrap"><?= e($view['message']) ?></p>
-        <p class="text-xs text-gray-600 mt-2"><?= formatDate($view['created_at']) ?></p>
+        <?= renderMerchantCasesPartnerEvents('customer_complaint', (int)$view['id']) ?>
+    <p class="text-xs text-gray-600 mt-2"><?= formatDate($view['created_at']) ?></p>
         <?php foreach (getCustomerTicketMessages((int)$view['id']) as $msg):
             $stype = (string)($msg['sender_type'] ?? 'customer');
             $label = customerTicketSenderLabel($stype, $msg['sender_label'] ?? null);
