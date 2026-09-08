@@ -213,7 +213,7 @@ function syncMerchantKycSubmittedIfReady(int $merchantId): void
  *
  * @return array{enqueued?:bool,primed?:int,forward?:array<string,int>}
  */
-function advanceMerchantForwardAfterVerify(int $merchantId): array
+function advanceMerchantForwardAfterVerify(int $merchantId, string $forwardSource = 'kyc_verify'): array
 {
     $out = ['enqueued' => false, 'primed' => 0, 'forward' => []];
     if ($merchantId < 1) {
@@ -224,7 +224,7 @@ function advanceMerchantForwardAfterVerify(int $merchantId): array
     }
     if (function_exists('enqueueMerchantToAllEnabledPartners')) {
         try {
-            enqueueMerchantToAllEnabledPartners($merchantId);
+            enqueueMerchantToAllEnabledPartners($merchantId, $forwardSource);
             $out['enqueued'] = true;
         } catch (Throwable $e) {
             error_log('advanceMerchantForwardAfterVerify enqueue: ' . $e->getMessage());
@@ -263,7 +263,7 @@ function forwardMerchantToPartnersNow(int $merchantId, string $source = 'admin_m
         require_once __DIR__ . '/onboarding_state_machine.php';
     }
     merchant_transition($merchantId, 'queue_forward', 'Manual forward to partners (' . $source . ')');
-    $forward = advanceMerchantForwardAfterVerify($merchantId);
+    $forward = advanceMerchantForwardAfterVerify($merchantId, 'admin_manual');
     if (function_exists('recordImmutableAudit')) {
         recordImmutableAudit(
             'kyc_forward_manual',

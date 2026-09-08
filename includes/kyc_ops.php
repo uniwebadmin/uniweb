@@ -56,7 +56,7 @@ function kycOpsForwardQuery(array $overrides = [], bool $standalone = false): st
     if (!$standalone) {
         $params['tab'] = 'forward';
     }
-    foreach (['status', 'partner', 'q', 'item_id'] as $key) {
+    foreach (['status', 'view', 'partner', 'q', 'item_id'] as $key) {
         if (array_key_exists($key, $overrides)) {
             $val = $overrides[$key];
             if ($val !== null && $val !== '') {
@@ -64,11 +64,6 @@ function kycOpsForwardQuery(array $overrides = [], bool $standalone = false): st
             }
         } elseif (isset($_GET[$key]) && (string)$_GET[$key] !== '') {
             $params[$key] = $_GET[$key];
-        }
-    }
-    foreach ($overrides as $key => $val) {
-        if (!in_array($key, ['status', 'partner', 'q', 'item_id'], true) && $val !== null && $val !== '') {
-            $params[$key] = $val;
         }
     }
     return http_build_query($params);
@@ -92,19 +87,24 @@ function kycOpsForwardLoadContext(): array
     }
 
     $statusFilter = trim((string)($_GET['status'] ?? ''));
+    $viewFilter = trim((string)($_GET['view'] ?? ''));
+    if ($statusFilter === '' && $viewFilter === '') {
+        $viewFilter = 'active';
+    }
     $partnerFilter = strtolower(trim((string)($_GET['partner'] ?? '')));
     $q = mb_substr(trim((string)($_GET['q'] ?? '')), 0, 100);
     $detailId = (int)($_GET['item_id'] ?? 0);
 
     return [
         'statusFilter' => $statusFilter,
+        'viewFilter' => $viewFilter,
         'partnerFilter' => $partnerFilter,
         'q' => $q,
         'detailId' => $detailId,
         'detailTimeline' => ($detailId > 0 && function_exists('getForwardQueueRowTimeline'))
             ? getForwardQueueRowTimeline($detailId)
             : [],
-        'matrix' => getAdminForwardMatrix($statusFilter, $q, $partnerFilter),
+        'matrix' => getAdminForwardMatrix($statusFilter, $q, $partnerFilter, $viewFilter),
         'fwdStats' => getForwardQueueStats(),
         'adapterRegistry' => getKycForwardAdapterRegistry(),
         'holdWindowEdu' => function_exists('holdWindowAdminEducation') ? holdWindowAdminEducation() : null,
@@ -122,7 +122,7 @@ function kycOpsForwardHandlePost(bool $standalone = false): ?string
         return null;
     }
     $action = (string)($_POST['action'] ?? '');
-    if (!in_array($action, ['requeue', 'run_now'], true)) {
+    if (!in_array($action, ['requeue', 'run_now', 'partner_inbound_log'], true)) {
         return null;
     }
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
@@ -132,6 +132,14 @@ function kycOpsForwardHandlePost(bool $standalone = false): ?string
     if ($action === 'requeue' && !empty($_POST['item_id'])) {
         $ok = manualRequeueForward((int)$_POST['item_id']);
         flash($ok ? 'success' : 'error', $ok ? 'Item re-queued for processing.' : 'Could not re-queue item.');
+    } elseif ($action === 'partner_inbound_log' && !empty($_POST['item_id'])) {
+        if (!function_exists('forwardQueueLogPartnerInbound')) {
+            require_once __DIR__ . '/partner_forward_queue.php';
+        }
+        $eventType = (string)($_POST['event_type'] ?? 'need_info');
+        $note = trim((string)($_POST['note'] ?? ''));
+        $ok = forwardQueueLogPartnerInbound((int)$_POST['item_id'], $eventType, $note, (int)($_SESSION['admin_id'] ?? 0));
+        flash($ok ? 'success' : 'error', $ok ? 'Partner message logged — merchant KYC page will show it.' : 'Could not log partner message.');
     } elseif ($action === 'run_now' && isSuperAdmin()) {
         if (function_exists('recordImmutableAudit')) {
             recordImmutableAudit('forward_queue_run_now', 0, 'system', '0', 'Super-admin triggered immediate queue processing');
@@ -148,10 +156,12 @@ function kycOpsForwardHandlePost(bool $standalone = false): ?string
     }
 
     $statusFilter = trim((string)($_GET['status'] ?? $_POST['status'] ?? ''));
+    $viewFilter = trim((string)($_GET['view'] ?? $_POST['view'] ?? ''));
     $partnerFilter = strtolower(trim((string)($_GET['partner'] ?? $_POST['partner'] ?? '')));
     $q = mb_substr(trim((string)($_GET['q'] ?? $_POST['q'] ?? '')), 0, 100);
     $query = array_filter([
         'status' => $statusFilter !== '' ? $statusFilter : null,
+        'view' => $viewFilter !== '' ? $viewFilter : null,
         'partner' => $partnerFilter !== '' ? $partnerFilter : null,
         'q' => $q !== '' ? $q : null,
     ]);
@@ -179,7 +189,9 @@ function renderKycOpsTabs(string $activeTab): string
     } catch (Throwable $e) {
         $fwdStats = [];
     }
-    $fwdBadge = (int)($fwdStats['staged'] ?? 0) + (int)($fwdStats['waiting_keys'] ?? 0) + (int)($fwdStats['queued'] ?? 0);
+    $fwdBadge = function_exists('getForwardQueueNeedsActionCount')
+        ? getForwardQueueNeedsActionCount()
+        : (int)($fwdStats['staged'] ?? 0) + (int)($fwdStats['waiting_keys'] ?? 0) + (int)($fwdStats['queued'] ?? 0);
 
     $html = '<nav class="mb-6 flex flex-wrap gap-2 border-b border-gray-800 pb-3" aria-label="KYC Ops sections">';
     foreach ($tabs as $key => $label) {
@@ -213,8 +225,14 @@ function kycOpsAfterCheckerApprove(string $actionType, int $merchantId): array
         require_once __DIR__ . '/kyc_workflow.php';
     }
     if ($actionType === 'kyc_merchant_verify') {
+        if (!function_exists('advanceMerchantForwardAfterVerify') && is_file(__DIR__ . '/kyc_workflow.php')) {
+            require_once __DIR__ . '/kyc_workflow.php';
+        }
+        if (function_exists('advanceMerchantForwardAfterVerify')) {
+            advanceMerchantForwardAfterVerify($merchantId);
+        }
         $tab = 'forward';
-        $message = 'KYC verified — partner forward queue updated. Staged = not sent to bank yet.';
+        $message = 'KYC verified — new forward rows queued. Open Forward tab (Needs action filter).';
         return ['tab' => $tab, 'message' => $message];
     }
     if ($actionType === 'kyc_document_approve') {

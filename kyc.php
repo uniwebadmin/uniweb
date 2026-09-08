@@ -768,27 +768,40 @@ $docStatusMeta = static function (string $status): array {
         <?php if (!empty($forwardStatus)): ?>
         <div class="glass rounded-2xl p-5 border border-gray-800">
             <h3 class="font-semibold text-sm mb-3">Network activation status</h3>
-            <div class="space-y-2">
-                <?php foreach ($forwardStatus as $fwd): ?>
-                <div class="flex items-center justify-between text-xs">
-                    <span class="text-gray-400">Payment network</span>
-                    <?php
-                    $statusColors = [
-                        'queued' => 'text-blue-400',
-                        'processing' => 'text-purple-400',
-                        'staged' => 'text-amber-400',
-                        'waiting_keys' => 'text-orange-400',
-                        'success' => 'text-emerald-400',
-                        'retry' => 'text-amber-400',
-                        'failed' => 'text-red-400',
-                    ];
-                    $statusLabel = merchantForwardQueueStatusLabel((string)($fwd['status'] ?? 'pending'));
-                    ?>
-                    <span class="font-medium <?= e($statusColors[$fwd['status'] ?? ''] ?? 'text-gray-400') ?>"><?= e($statusLabel) ?></span>
+            <div class="space-y-3">
+                <?php foreach ($forwardStatus as $fwd):
+                    $pk = (string)($fwd['partner_key'] ?? '');
+                    $inbound = trim((string)($fwd['partner_inbound_message'] ?? ''));
+                    $inboundType = (string)($fwd['partner_inbound_status'] ?? '');
+                ?>
+                <div class="rounded-lg border border-gray-800/80 p-3">
+                    <div class="flex items-center justify-between text-xs gap-2">
+                        <span class="text-gray-300 font-medium"><?= e($pk !== '' ? ucfirst($pk) : 'Payment network') ?></span>
+                        <?php
+                        $statusColors = [
+                            'queued' => 'text-blue-400',
+                            'processing' => 'text-purple-400',
+                            'staged' => 'text-amber-400',
+                            'waiting_keys' => 'text-orange-400',
+                            'success' => 'text-emerald-400',
+                            'retry' => 'text-amber-400',
+                            'failed' => 'text-red-400',
+                        ];
+                        $statusLabel = merchantForwardQueueStatusLabel((string)($fwd['status'] ?? 'pending'));
+                        ?>
+                        <span class="font-medium <?= e($statusColors[$fwd['status'] ?? ''] ?? 'text-gray-400') ?>"><?= e($statusLabel) ?></span>
+                    </div>
+                    <?php if ($inbound !== ''): ?>
+                    <p class="text-xs text-amber-300 mt-2 border-t border-amber-500/20 pt-2">
+                        <strong><?= e(ucfirst(str_replace('_', ' ', $inboundType !== '' ? $inboundType : 'partner_query'))) ?>:</strong>
+                        <?= e($inbound) ?>
+                    </p>
+                    <p class="text-[10px] text-gray-500 mt-1">Upload or fix documents on this page, then wait for Admin to re-forward.</p>
+                    <?php endif; ?>
                 </div>
                 <?php endforeach; ?>
             </div>
-            <p class="text-xs text-gray-500 mt-3"><strong class="text-gray-400">Prepared — not sent to bank yet</strong> means UniWeb saved your pack locally; live bank API goes only when Admin + partner adapter is ready. You get updates here — not a second KYC app.</p>
+            <p class="text-xs text-gray-500 mt-3"><strong class="text-gray-400">Waiting for keys</strong> = UniWeb needs partner keys. <strong class="text-gray-400">Prepared</strong> = saved locally, not sent to bank yet.</p>
         </div>
         <?php elseif ($onboardingState === 'kyc_verified' || $onboardingState === 'queue_forward'): ?>
         <div class="glass rounded-2xl p-5 border border-gray-800">

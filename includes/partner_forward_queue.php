@@ -170,6 +170,10 @@ function partnerForwardQueueUpgradeLegacySchema(PDO $db): void
         'partner_response LONGTEXT DEFAULT NULL',
         'error_message VARCHAR(500) DEFAULT NULL',
         'updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP',
+        "forward_source VARCHAR(32) NOT NULL DEFAULT 'gateway_sync'",
+        'partner_inbound_status VARCHAR(24) DEFAULT NULL',
+        'partner_inbound_message VARCHAR(500) DEFAULT NULL',
+        'partner_inbound_at DATETIME DEFAULT NULL',
     ] as $def) {
         $name = trim(explode(' ', $def)[0]);
         if (!in_array($name, $cols, true)) {
@@ -268,11 +272,98 @@ function forwardQueueNextScheduleAt(): DateTime
     return $schedule;
 }
 
+/** @return list<string> */
+function forwardQueueValidSources(): array
+{
+    return ['kyc_verify', 'admin_manual', 'gateway_sync', 'auto_kyc'];
+}
+
+function forwardQueueRowForwardSource(array $row): string
+{
+    $col = strtolower(trim((string)($row['forward_source'] ?? '')));
+    if ($col !== '' && in_array($col, forwardQueueValidSources(), true)) {
+        return $col;
+    }
+    $raw = (string)($row['package_payload'] ?? '');
+    if ($raw !== '') {
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded)) {
+            $fromPayload = strtolower(trim((string)($decoded['forward_source'] ?? '')));
+            if ($fromPayload !== '' && in_array($fromPayload, forwardQueueValidSources(), true)) {
+                return $fromPayload;
+            }
+        }
+    }
+    return 'gateway_sync';
+}
+
+function forwardQueueIsLegacySyncRow(array $row): bool
+{
+    return forwardQueueRowForwardSource($row) === 'gateway_sync';
+}
+
+function forwardQueueSourceAdminNote(string $forwardSource, bool $keysReady): string
+{
+    return match ($forwardSource) {
+        'kyc_verify' => $keysReady
+            ? 'KYC verified — worker will attempt partner forward'
+            : 'KYC verified — waiting for partner keys in Registry',
+        'admin_manual' => $keysReady
+            ? 'Admin re-forward — worker will attempt adapter'
+            : 'Admin re-forward — waiting for partner keys',
+        'gateway_sync' => $keysReady
+            ? 'Legacy sync from Gateway Submit — worker may attempt forward'
+            : 'Legacy sync from Gateway Submit — waiting for keys',
+        'auto_kyc' => $keysReady
+            ? 'Auto KYC verify — worker will attempt forward'
+            : 'Auto KYC verify — waiting for partner keys',
+        default => $keysReady ? 'Queued for partner forward' : 'Waiting for partner keys',
+    };
+}
+
+function forwardQueueShouldRefreshExistingRow(string $existingSource, string $newSource, string $existingStatus): bool
+{
+    if (in_array($newSource, ['kyc_verify', 'admin_manual', 'auto_kyc'], true)) {
+        return true;
+    }
+    if ($newSource === 'gateway_sync') {
+        if ($existingSource !== 'gateway_sync') {
+            return false;
+        }
+        return in_array($existingStatus, ['failed', 'cancelled', 'paused'], true);
+    }
+    return false;
+}
+
+function forwardQueueScheduleForSource(string $forwardSource): string
+{
+    if (in_array($forwardSource, ['kyc_verify', 'admin_manual', 'auto_kyc'], true)) {
+        return date('Y-m-d H:i:s');
+    }
+    return forwardQueueNextScheduleAt()->format('Y-m-d H:i:s');
+}
+
+function forwardQueueApplyRowAfterEnqueue(PDO $db, int $queueId, string $partnerKey, string $forwardSource): void
+{
+    if (!function_exists('partnerIsConfigured')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $keysReady = partnerIsConfigured($partnerKey);
+    $status = $keysReady ? 'queued' : 'waiting_keys';
+    $note = forwardQueueSourceAdminNote($forwardSource, $keysReady);
+    $db->prepare(
+        "UPDATE partner_forward_queue SET status=?, forward_source=?, error_message=?, schedule_at=?, attempts=0,
+         partner_reference=CASE WHEN ?= 'kyc_verify' OR ? = 'admin_manual' OR ? = 'auto_kyc' THEN NULL ELSE partner_reference END,
+         updated_at=NOW()
+         WHERE id=?"
+    )->execute([$status, $forwardSource, $note, forwardQueueScheduleForSource($forwardSource), $forwardSource, $forwardSource, $forwardSource, $queueId]);
+}
+
 /**
  * D3: Enqueue a KYC package to the forward queue.
- * schedule_at = now + 60-90 min. If after 18:00, schedule next day 09:00.
+ * Post-verify rows use forward_source=kyc_verify and schedule immediately (not silent legacy staged).
  */
-function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payload = null): int
+function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payload = null, string $forwardSource = 'kyc_verify'): int
 {
     ensurePartnerForwardQueueTable();
     $db = getDB();
@@ -280,46 +371,71 @@ function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payl
     if ($partnerKey === '') {
         $partnerKey = 'unassigned';
     }
+    $forwardSource = strtolower(trim($forwardSource));
+    if (!in_array($forwardSource, forwardQueueValidSources(), true)) {
+        $forwardSource = 'kyc_verify';
+    }
+    if ($payload === null) {
+        $payload = ['merchant_id' => $merchantId, 'partner' => $partnerKey];
+    }
+    $payload['forward_source'] = $forwardSource;
+    $payload['partner'] = $partnerKey;
 
     $existingId = forwardQueueResolveExistingId($db, $merchantId, $partnerKey);
     if ($existingId > 0) {
         try {
-            $statusSt = $db->prepare('SELECT status FROM partner_forward_queue WHERE id=? LIMIT 1');
-            $statusSt->execute([$existingId]);
-            $status = (string)$statusSt->fetchColumn();
-            if (in_array($status, ['queued', 'retry', 'processing', 'staged', 'waiting_keys', 'success'], true)) {
-                return $existingId;
-            }
-            if (in_array($status, ['failed', 'cancelled', 'paused'], true)) {
-                $schedule = forwardQueueNextScheduleAt();
+            $rowSt = $db->prepare('SELECT * FROM partner_forward_queue WHERE id=? LIMIT 1');
+            $rowSt->execute([$existingId]);
+            $existingRow = $rowSt->fetch();
+            if ($existingRow) {
+                $status = (string)($existingRow['status'] ?? '');
+                $existingSource = forwardQueueRowForwardSource($existingRow);
+                if (forwardQueueShouldRefreshExistingRow($existingSource, $forwardSource, $status)) {
+                    $db->prepare(
+                        'UPDATE partner_forward_queue SET package_payload=?, updated_at=NOW() WHERE id=?'
+                    )->execute([json_encode($payload), $existingId]);
+                    forwardQueueApplyRowAfterEnqueue($db, $existingId, $partnerKey, $forwardSource);
+                    return $existingId;
+                }
+                if (in_array($status, ['queued', 'retry', 'processing', 'waiting_keys', 'success'], true)) {
+                    return $existingId;
+                }
+                if ($status === 'staged' && $existingSource === 'gateway_sync' && $forwardSource === 'gateway_sync') {
+                    return $existingId;
+                }
+                if ($status === 'staged' && !forwardQueueShouldRefreshExistingRow($existingSource, $forwardSource, $status)) {
+                    return $existingId;
+                }
+                $schedule = forwardQueueScheduleForSource($forwardSource);
                 $db->prepare(
-                    "UPDATE partner_forward_queue SET status='queued', partner_key=?, package_payload=?, schedule_at=?, attempts=0, error_message=NULL, updated_at=NOW() WHERE id=?"
-                )->execute([
-                    $partnerKey,
-                    $payload ? json_encode($payload) : null,
-                    $schedule->format('Y-m-d H:i:s'),
-                    $existingId,
-                ]);
+                    "UPDATE partner_forward_queue SET status='queued', forward_source=?, package_payload=?, schedule_at=?, attempts=0, error_message=NULL, updated_at=NOW() WHERE id=?"
+                )->execute([$forwardSource, json_encode($payload), $schedule, $existingId]);
+                forwardQueueApplyRowAfterEnqueue($db, $existingId, $partnerKey, $forwardSource);
                 return $existingId;
             }
         } catch (Throwable $e) { /* fall through to insert */ }
     }
 
-    $schedule = forwardQueueNextScheduleAt();
+    $schedule = forwardQueueScheduleForSource($forwardSource);
     try {
         $st = $db->prepare(
-            'INSERT INTO partner_forward_queue (merchant_id, partner_key, package_payload, status, schedule_at, max_attempts)
-             VALUES (?, ?, ?, ?, ?, ?)'
+            'INSERT INTO partner_forward_queue (merchant_id, partner_key, package_payload, status, forward_source, schedule_at, max_attempts)
+             VALUES (?, ?, ?, ?, ?, ?, ?)'
         );
         $st->execute([
             $merchantId,
             $partnerKey,
-            $payload ? json_encode($payload) : null,
+            json_encode($payload),
             'queued',
-            $schedule->format('Y-m-d H:i:s'),
+            $forwardSource,
+            $schedule,
             forwardQueueDefaultMaxAttempts(),
         ]);
-        return (int)$db->lastInsertId();
+        $newId = (int)$db->lastInsertId();
+        if ($newId > 0) {
+            forwardQueueApplyRowAfterEnqueue($db, $newId, $partnerKey, $forwardSource);
+        }
+        return $newId;
     } catch (Throwable $e) {
         if (forwardQueueIsDuplicateKeyError($e)) {
             $dupId = forwardQueueResolveExistingId($db, $merchantId, $partnerKey);
@@ -337,7 +453,7 @@ function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payl
  * Enqueue merchant KYC package to every partner that already has keys (idempotent).
  * Single entry point after Admin Verify / Auto KYC / Live enable.
  */
-function enqueueMerchantToAllEnabledPartners(int $merchantId): void
+function enqueueMerchantToAllEnabledPartners(int $merchantId, string $forwardSource = 'kyc_verify'): void
 {
     if (!function_exists('getPartnerRegistry')) {
         require_once __DIR__ . '/partner_engine.php';
@@ -368,18 +484,10 @@ function enqueueMerchantToAllEnabledPartners(int $merchantId): void
                     $payload = redactPartnerPayload($payload);
                 }
             }
-            $queueId = enqueuePartnerForward($merchantId, $partnerKey, $payload);
+            $payload['forward_source'] = $forwardSource;
+            $queueId = enqueuePartnerForward($merchantId, $partnerKey, $payload, $forwardSource);
             if ($queueId > 0) {
                 $enqueued++;
-                if (!partnerIsConfigured($partnerKey)) {
-                    getDB()->prepare(
-                        "UPDATE partner_forward_queue SET status='waiting_keys', error_message=?, updated_at=NOW()
-                         WHERE id=? AND status IN ('queued','retry')"
-                    )->execute([
-                        'Partner keys not configured — paste in Partner Registry, then re-queue.',
-                        $queueId,
-                    ]);
-                }
                 if (function_exists('logAutoKycRun')) {
                     logAutoKycRun($merchantId, 'partner_enqueued', "Enqueued to {$partnerKey} (queue_id={$queueId})");
                 }
@@ -424,34 +532,20 @@ function syncGatewaySubmissionToForwardQueue(int $merchantId, string $gateway, s
     if (function_exists('redactPartnerPayload')) {
         $payload = redactPartnerPayload($payload);
     }
-    $payload['forward_source'] = $source;
+    $payload['forward_source'] = 'gateway_sync';
     $payload['gateway'] = $gateway;
 
-    $queueId = enqueuePartnerForward($merchantId, $gateway, $payload);
+    $queueId = enqueuePartnerForward($merchantId, $gateway, $payload, 'gateway_sync');
     if ($queueId <= 0) {
         return 0;
     }
 
     $ref = $submissionId && $submissionId > 0 ? 'SUB-' . $submissionId : ('GW-' . strtoupper($gateway) . '-' . $merchantId);
-    if (!function_exists('partnerIsConfigured')) {
-        require_once __DIR__ . '/partner_engine.php';
-    }
-    $keysReady = partnerIsConfigured($gateway);
-    $status = $keysReady ? 'queued' : 'waiting_keys';
-    $note = $source === 'manual'
-        ? ($keysReady
-            ? 'Synced from Gateway Submit — worker will attempt partner forward'
-            : 'Synced from Gateway Submit — waiting for partner keys in Registry')
-        : ($keysReady
-            ? 'Synced from KYC forward — worker will attempt adapter'
-            : 'Synced from KYC forward — waiting for partner keys');
-
     try {
         getDB()->prepare(
-            "UPDATE partner_forward_queue SET status=?, partner_reference=?, error_message=?, schedule_at=NOW(), updated_at=NOW()
-             WHERE id=? AND status IN ('queued','retry','processing','paused','staged','waiting_keys')"
-        )->execute([$status, $ref, $note, $queueId]);
-        if ($keysReady && function_exists('processPerPartnerForwardQueue')) {
+            "UPDATE partner_forward_queue SET partner_reference=?, forward_source='gateway_sync', updated_at=NOW() WHERE id=?"
+        )->execute([$ref, $queueId]);
+        if (function_exists('partnerIsConfigured') && partnerIsConfigured($gateway) && function_exists('processPerPartnerForwardQueue')) {
             processPerPartnerForwardQueue(1, $merchantId, $gateway);
         }
     } catch (Throwable $e) {
@@ -1198,10 +1292,11 @@ function getMerchantForwardStatus(int $merchantId): array
     ensurePartnerForwardQueueTable();
     try {
         $st = getDB()->prepare(
-            "SELECT partner_key, status, attempts, schedule_at, last_attempt_at, error_message, partner_reference
+            "SELECT partner_key, status, attempts, schedule_at, last_attempt_at, error_message, partner_reference,
+                    forward_source, partner_inbound_status, partner_inbound_message, partner_inbound_at, updated_at
              FROM partner_forward_queue
              WHERE merchant_id=?
-             ORDER BY created_at DESC"
+             ORDER BY updated_at DESC, created_at DESC"
         );
         $st->execute([$merchantId]);
         return $st->fetchAll();
@@ -1210,10 +1305,67 @@ function getMerchantForwardStatus(int $merchantId): array
     }
 }
 
+function getForwardQueueNeedsActionCount(): int
+{
+    ensurePartnerForwardQueueTable();
+    try {
+        $st = getDB()->query(
+            "SELECT COUNT(*) FROM partner_forward_queue
+             WHERE status IN ('queued','processing','waiting_keys','retry','failed')
+                OR (forward_source IN ('kyc_verify','admin_manual','auto_kyc') AND status IN ('staged','success') AND updated_at >= DATE_SUB(NOW(), INTERVAL 60 DAY))"
+        );
+        return (int)$st->fetchColumn();
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+/**
+ * Log partner inbound request on a forward row (webhook not wired — manual Admin).
+ */
+function forwardQueueLogPartnerInbound(int $queueId, string $eventType, string $message, int $adminId = 0): bool
+{
+    ensurePartnerForwardQueueTable();
+    $eventType = strtolower(trim($eventType));
+    if (!in_array($eventType, ['need_info', 'partner_query', 'partner_reply', 'reject'], true)) {
+        $eventType = 'partner_query';
+    }
+    $message = trim($message);
+    if ($message === '' || $queueId < 1) {
+        return false;
+    }
+    try {
+        $db = getDB();
+        $rowSt = $db->prepare('SELECT merchant_id, partner_key FROM partner_forward_queue WHERE id=? LIMIT 1');
+        $rowSt->execute([$queueId]);
+        $row = $rowSt->fetch();
+        if (!$row) {
+            return false;
+        }
+        $merchantId = (int)($row['merchant_id'] ?? 0);
+        $partnerKey = (string)($row['partner_key'] ?? '');
+        $db->prepare(
+            "UPDATE partner_forward_queue SET partner_inbound_status=?, partner_inbound_message=?, partner_inbound_at=NOW(), updated_at=NOW() WHERE id=?"
+        )->execute([$eventType, mb_substr($message, 0, 500), $queueId]);
+        if ($merchantId > 0) {
+            $title = $eventType === 'need_info' ? 'Partner needs more KYC documents' : 'Message from payment network';
+            $body = ($partnerKey !== '' ? ucfirst($partnerKey) . ': ' : '') . $message;
+            if (function_exists('notifyMerchant')) {
+                notifyMerchant($merchantId, $title, $body, 'kyc_inbound_' . $queueId . '_' . $eventType);
+            } elseif (function_exists('createNotification')) {
+                createNotification($merchantId, $title, $body);
+            }
+        }
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 /**
  * Get all forward queue items for admin status matrix (D4).
  */
-function getAdminForwardMatrix(string $statusFilter = '', string $q = '', string $partnerFilter = ''): array
+function getAdminForwardMatrix(string $statusFilter = '', string $q = '', string $partnerFilter = '', string $viewFilter = 'active'): array
 {
     ensurePartnerForwardQueueTable();
     try {
@@ -1225,6 +1377,11 @@ function getAdminForwardMatrix(string $statusFilter = '', string $q = '', string
         if ($statusFilter !== '') {
             $conditions[] = "q.status COLLATE utf8mb4_unicode_ci = ?";
             $params[] = $statusFilter;
+        } elseif ($viewFilter === 'active') {
+            $conditions[] = "(q.status IN ('queued','processing','waiting_keys','retry','failed')
+                OR (q.forward_source IN ('kyc_verify','admin_manual','auto_kyc') AND q.status IN ('staged','success') AND q.updated_at >= DATE_SUB(NOW(), INTERVAL 60 DAY)))";
+        } elseif ($viewFilter === 'legacy_sync') {
+            $conditions[] = "q.forward_source = 'gateway_sync' AND q.status = 'staged'";
         }
         $partnerFilter = strtolower(trim($partnerFilter));
         if ($partnerFilter !== '') {
@@ -1239,7 +1396,7 @@ function getAdminForwardMatrix(string $statusFilter = '', string $q = '', string
         if ($conditions) {
             $sql .= " WHERE " . implode(' AND ', $conditions);
         }
-        $sql .= " ORDER BY q.schedule_at DESC LIMIT 200";
+        $sql .= " ORDER BY q.updated_at DESC, q.schedule_at DESC LIMIT 200";
         $st = getDB()->prepare($sql);
         $st->execute($params);
         return $st->fetchAll();

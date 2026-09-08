@@ -25,7 +25,9 @@ $forwardChipHref = static function (array $overrides = []) use ($kycForwardPanel
 };
 
 $chipStatuses = [
-    '' => ['label' => 'All', 'cls' => 'bg-brand-500 text-white'],
+    'view:active' => ['label' => 'Needs action', 'cls' => 'bg-emerald-600 text-white'],
+    'view:legacy_sync' => ['label' => 'Legacy sync', 'cls' => 'bg-slate-600 text-white'],
+    '' => ['label' => 'All statuses', 'cls' => 'bg-brand-500 text-white'],
     'queued' => ['label' => 'Queued', 'cls' => 'bg-brand-500 text-white'],
     'processing' => ['label' => 'Processing', 'cls' => 'bg-brand-500 text-white'],
     'waiting_keys' => ['label' => 'Waiting keys', 'cls' => 'bg-orange-500 text-white'],
@@ -53,7 +55,7 @@ $chipStatuses = [
             </form>
             <?php endif; ?>
         </div>
-        <p class="text-xs text-gray-500 mb-2">After KYC verify: one row per Registry partner with KYC-forward capability. <strong class="text-gray-300">Staged</strong> / <strong class="text-orange-300">Waiting keys</strong> = not sent to bank yet.</p>
+        <p class="text-xs text-gray-500 mb-2">After KYC verify: one row per Registry partner (<code class="text-gray-400">kyc_verify</code>). <strong class="text-orange-300">Waiting keys</strong> = paste keys. <strong class="text-slate-400">Legacy sync</strong> = old Gateway Submit rows — use <strong>Needs action</strong> filter for today’s work.</p>
         <p class="text-xs text-amber-200/90 mb-2"><?= e(function_exists('forwardQueueRetryPolicyHint') ? forwardQueueRetryPolicyHint() : '') ?></p>
         <?php if (is_array($forwardStagedEdu ?? null)): ?>
         <p class="text-[11px] text-amber-200/90 mb-3"><?= e((string)$forwardStagedEdu['mostly_staged']) ?></p>
@@ -84,10 +86,17 @@ $chipStatuses = [
         <p class="text-[10px] uppercase text-gray-600 mb-2">Filter by status</p>
         <div class="flex flex-wrap gap-2 text-xs mb-3">
             <?php foreach ($chipStatuses as $chipKey => $chipMeta):
-                $active = ($statusFilter === $chipKey);
+                if (str_starts_with($chipKey, 'view:')) {
+                    $viewKey = substr($chipKey, 5);
+                    $active = (($viewFilter ?? 'active') === $viewKey) && ($statusFilter ?? '') === '';
+                    $href = $forwardChipHref(['view' => $viewKey, 'status' => null, 'item_id' => null]);
+                } else {
+                    $active = ($statusFilter ?? '') === $chipKey && ($viewFilter ?? '') === '';
+                    $href = $forwardChipHref(['status' => $chipKey, 'view' => null, 'item_id' => null]);
+                }
                 $cls = $active ? $chipMeta['cls'] : 'bg-dark-700 text-gray-400';
             ?>
-            <a href="<?= e($forwardChipHref(['status' => $chipKey, 'item_id' => null])) ?>" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $cls ?>"><?= e($chipMeta['label']) ?></a>
+            <a href="<?= e($href) ?>" class="px-3 py-1.5 rounded-lg whitespace-nowrap <?= $cls ?>"><?= e($chipMeta['label']) ?></a>
             <?php endforeach; ?>
         </div>
         <form method="GET" action="<?= e($kycForwardPanelStandalone ? 'admin_forward_queue.php' : 'admin_kyc.php') ?>" data-live-search-form data-results-target="forward-results" class="flex flex-wrap gap-2 items-end">
@@ -107,6 +116,7 @@ $chipStatuses = [
                 </select>
             </div>
             <input type="hidden" name="status" value="<?= e($statusFilter) ?>">
+            <input type="hidden" name="view" value="<?= e($viewFilter ?? '') ?>">
             <button class="btn-primary px-4 py-2.5 text-sm whitespace-nowrap">Search</button>
         </form>
         <?php if ($detailId > 0 && ($detailTimeline ?? []) !== []): ?>
@@ -127,6 +137,7 @@ $chipStatuses = [
         <table class="w-full text-sm min-w-[640px]">
             <thead class="bg-dark-900/50 text-gray-400 text-xs uppercase">
                 <tr>
+                    <th class="px-4 py-3 text-left">Source</th>
                     <th class="px-4 py-3 text-left">Merchant</th>
                     <th class="px-4 py-3 text-left">Partner</th>
                     <th class="px-4 py-3 text-left">Status</th>
@@ -140,9 +151,15 @@ $chipStatuses = [
             </thead>
             <tbody>
                 <?php if (empty($matrix)): ?>
-                <tr><td colspan="9" class="px-4 py-8 text-center text-gray-500">No forward rows yet. After KYC verify, use <strong class="text-gray-400">Queue partner forward</strong> on the Review tab — rows show Staged until partner keys + adapter are ready (not fake Sent).</td></tr>
-                <?php else: foreach ($matrix as $row): ?>
+                <tr><td colspan="10" class="px-4 py-8 text-center text-gray-500">No rows in this view. After checker <strong class="text-gray-400">Verify KYC</strong>, open <strong class="text-emerald-400">Needs action</strong> — new <code class="text-gray-400">kyc_verify</code> rows appear here (not the old Gateway Submit pile).</td></tr>
+                <?php else: foreach ($matrix as $row):
+                    $rowSource = function_exists('forwardQueueRowForwardSource') ? forwardQueueRowForwardSource($row) : 'gateway_sync';
+                    $sourceLabel = $rowSource === 'gateway_sync' ? 'Legacy sync' : str_replace('_', ' ', $rowSource);
+                ?>
                 <tr class="border-t border-gray-800/50">
+                    <td class="px-4 py-3 text-xs">
+                        <span class="<?= $rowSource === 'gateway_sync' ? 'text-slate-400' : 'text-emerald-400' ?>"><?= e($sourceLabel) ?></span>
+                    </td>
                     <td class="px-4 py-3">
                         <div class="font-medium text-gray-200"><a href="admin_view_merchant.php?id=<?= (int)($row['merchant_id'] ?? 0) ?>" class="hover:text-sky-300"><?= e($row['business_name'] ?? '—') ?></a></div>
                         <div class="text-xs text-gray-500"><?= e($row['merchant_code'] ?? '') ?></div>
@@ -174,6 +191,16 @@ $chipStatuses = [
                         </form>
                         <?php endif; ?>
                         <a href="<?= e($forwardChipHref(['item_id' => (int)$row['id']])) ?>" class="text-xs text-sky-400 hover:text-sky-300 ml-2">Timeline</a>
+                        <?php if (isSuperAdmin()): ?>
+                        <form method="POST" action="<?= e($kycForwardPanelPostUrl) ?>" class="inline mt-1">
+                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                            <input type="hidden" name="action" value="partner_inbound_log">
+                            <input type="hidden" name="item_id" value="<?= (int)$row['id'] ?>">
+                            <input type="hidden" name="event_type" value="need_info">
+                            <input type="hidden" name="note" value="Partner requested more documents (manual log)">
+                            <button type="submit" class="text-xs text-violet-400 hover:text-violet-300 ml-2" title="Quick log need_info for merchant">Log need docs</button>
+                        </form>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <?php endforeach; endif; ?>

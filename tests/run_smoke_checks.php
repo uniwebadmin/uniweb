@@ -617,7 +617,7 @@ $assert(str_contains($kycFlowP5, 'enqueueMerchantToAllEnabledPartners'), 'p5_kyc
 // 5b: push uses partnerIsConfigured (not fake keys_configured); staged outcome until adapters
 $assert(str_contains($qP5, 'function pushPackageToPartner') && str_contains($qP5, 'partnerIsConfigured($partnerKey)') && !str_contains($qP5, "keys_configured"), 'p5b_push_uses_partnerIsConfigured');
 $assert(str_contains($qP5, "'staged'") && str_contains($qP5, "status='staged'"), 'p5b_push_staged_when_adapter_pending');
-$assert(str_contains($fwdUi, '>Staged<') && str_contains($fwdUi, 'waiting_keys'), 'p5b_forward_queue_staged_filter');
+$assert(str_contains($fwdUi, "'label' => 'Staged'") && str_contains($fwdUi, 'waiting_keys') && str_contains($fwdUi, 'Needs action'), 'p5b_forward_queue_staged_filter');
 // 5c: adapter registry + queue stats on existing forward page (no Phase 11 route)
 $assert(str_contains($qP5, 'function getKycForwardAdapterRegistry') && str_contains($qP5, 'function runKycForwardAdapter') && str_contains($qP5, 'local_record'), 'p5c_kyc_forward_adapter_registry');
 $assert(str_contains($qP5, 'function getForwardQueueStats') && str_contains($qP5, 'by_status'), 'p5c_forward_queue_stats_helper');
@@ -2415,6 +2415,10 @@ $peSrcR4 = (string)file_get_contents($root . '/includes/partner_engine.php');
 $assert(str_contains($regV2Src, 'function registryKycForwardCapablePartnerKeys') && str_contains($regV2Src, 'function registryRowSupportsKycForward'), 'r4_registry_kyc_forward_capable');
 $assert(str_contains($peSrcR4, 'registryKycForwardCapablePartnerKeys'), 'r4_get_kyc_forward_from_registry');
 $assert(str_contains($fwdQSrc, "'waiting_keys'") && str_contains($fwdQSrc, 'function forwardQueuePushLiveApi'), 'r4_waiting_keys_and_sandbox_stub');
+$assert(str_contains($fwdQSrc, 'function forwardQueueRowForwardSource') && str_contains($fwdQSrc, 'function getForwardQueueNeedsActionCount'), 'kyc_forward_source_and_active_filter');
+$assert(str_contains($fwdUi, 'Needs action') && str_contains($fwdUi, 'Legacy sync'), 'kyc_forward_panel_active_legacy_chips');
+$assert(str_contains((string)file_get_contents($root . '/kyc.php'), 'partner_inbound_message'), 'kyc_merchant_sees_partner_inbound');
+$assert(is_file($root . '/migrations/091_kyc_forward_source.sql'), 'm091_kyc_forward_source');
 $assert(str_contains($fwdQSrc, "status='waiting_keys'") && !str_contains($fwdQSrc, "targets = ['unassigned']"), 'r4_honest_waiting_keys_no_fake_unassigned');
 $assert(str_contains($fwdUi, 'waiting_keys'), 'r4_admin_forward_queue_waiting_keys_filter');
 $kycOpsSrc = (string)file_get_contents($root . '/includes/kyc_ops.php');
