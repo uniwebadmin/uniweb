@@ -117,6 +117,11 @@ if (!function_exists('renderMerchantCasesTabs')) {
     require_once __DIR__ . '/includes/cases_ops.php';
 }
 echo renderMerchantCasesTabs('disputes');
+?>
+<div class="mb-4 rounded-lg border border-brand-500/30 bg-brand-500/5 px-4 py-3 text-sm text-gray-300">
+    Disputes are in <a href="merchant_customer_tickets.php" class="text-brand-400 underline">Cases → All cases</a>. This page is for raising and tracking chargebacks on your transactions.
+</div>
+<?php
 if (!function_exists('renderComplianceDisputeVsRefundPanel')) {
     require_once __DIR__ . '/includes/compliance_workflow.php';
 }

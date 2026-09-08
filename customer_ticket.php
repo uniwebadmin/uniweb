@@ -127,9 +127,9 @@ if (!function_exists('renderComplianceCustomerSupportNote')) {
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="create">
                 <div class="cp-field">
-                    <label for="txn">Transaction ID (optional)</label>
-                    <input id="txn" type="text" name="txn" class="cp-input font-mono text-sm" placeholder="e.g. TXN..." value="<?= e($prefillTxn) ?>">
-                    <p class="text-xs text-slate-500 mt-1">Must be a payment from your mobile number. Leave blank for a general complaint.</p>
+                    <label for="txn">Transaction ID</label>
+                    <input id="txn" type="text" name="txn" required class="cp-input font-mono text-sm" placeholder="e.g. TXN..." value="<?= e($prefillTxn) ?>">
+                    <p class="text-xs text-slate-500 mt-1">Required — must be a payment from your mobile number so your merchant can receive this complaint.</p>
                 </div>
                 <div class="cp-field">
                     <label for="subject">Subject</label>

@@ -26,9 +26,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 }
 
 $viewId = (int)($_GET['id'] ?? 0);
-$view = $viewId ? getMerchantCustomerTicket($merchantId, $viewId) : null;
 $statusFilter = (string)($_GET['status'] ?? '');
 $ticketQ = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
+$casesTab = $viewId > 0 ? 'complaints' : merchantCasesCurrentTab();
+$view = $viewId ? getMerchantCustomerTicket($merchantId, $viewId) : null;
 if (!function_exists('wiringMerchantComplaintQueryState') && is_file(__DIR__ . '/includes/wiring_deep_link_workflow.php')) {
     require_once __DIR__ . '/includes/wiring_deep_link_workflow.php';
 }
@@ -60,10 +61,58 @@ require_once __DIR__ . '/header.php';
 if (!function_exists('renderComplianceSupportPathPanel')) {
     require_once __DIR__ . '/includes/compliance_workflow.php';
 }
-echo renderMerchantCasesTabs('complaints');
+echo renderMerchantCasesTabs($view ? 'complaints' : $casesTab);
+$unifiedCases = ($casesTab === 'all' && !$view) ? casesUnifiedInbox(null, $statusFilter ?: null, $ticketQ, $merchantId, 60) : [];
 ?>
 <div class="space-y-6">
 <?= renderComplianceSupportPathPanel('ct') ?>
+    <?php if ($casesTab === 'all' && !$view): ?>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <p class="text-sm text-gray-400">All open cases on your account — customer complaints, your support tickets, and disputes.</p>
+        </div>
+        <div class="flex gap-2 text-xs flex-wrap">
+            <?php foreach (['' => 'Open', 'all' => 'All statuses'] as $k => $lbl): ?>
+            <a href="?<?= $k === 'all' ? 'status=all' : '' ?>&q=<?= rawurlencode($ticketQ) ?>" class="px-3 py-1.5 rounded-lg <?= ($statusFilter === $k || ($k === '' && $statusFilter === '')) ? 'bg-brand-600/20 text-brand-400' : 'text-gray-400 hover:text-white border border-gray-800' ?>"><?= e($lbl) ?></a>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <div class="glass rounded-xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="font-semibold">Cases inbox</h2>
+            <form method="GET" class="flex gap-2 items-center">
+                <input type="hidden" name="tab" value="all">
+                <input type="hidden" name="status" value="<?= e($statusFilter) ?>">
+                <input type="search" name="q" value="<?= e($ticketQ) ?>" placeholder="Search ref / subject" class="input-field text-sm" aria-label="Search cases">
+                <button type="submit" class="btn-primary text-sm px-3 py-1.5">Search</button>
+            </form>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[720px]">
+                <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
+                    <th class="px-5 py-3 text-left">Type</th>
+                    <th class="px-5 py-3 text-left">Ref</th>
+                    <th class="px-5 py-3 text-left">Subject</th>
+                    <th class="px-5 py-3 text-left">Status</th>
+                    <th class="px-5 py-3 text-left">Updated</th>
+                </tr></thead>
+                <tbody class="divide-y divide-gray-800">
+                    <?php if ($unifiedCases === []): ?>
+                    <tr><td colspan="5" class="p-0"><?= renderMerchantEmptyState('No open cases', 'Customer complaints on your transactions, support tickets, and disputes appear here.', null, null) ?></td></tr>
+                    <?php else: foreach ($unifiedCases as $row): ?>
+                    <tr class="hover:bg-white/5 cursor-pointer" onclick="location.href='<?= e((string)($row['detail_url'] ?? merchantCasesUrl('complaints'))) ?>'">
+                        <td class="px-5 py-3 text-xs text-gray-400"><?= e(casesTypeLabel((string)$row['case_type'])) ?></td>
+                        <td class="px-5 py-3 font-mono text-xs text-sky-400"><?= e((string)$row['case_ref']) ?></td>
+                        <td class="px-5 py-3 max-w-[280px] truncate"><?= e((string)$row['subject']) ?></td>
+                        <td class="px-5 py-3"><?= statusBadge((string)$row['status']) ?></td>
+                        <td class="px-5 py-3 text-xs text-gray-500 whitespace-nowrap"><?= formatDate((string)($row['sort_at'] ?? '')) ?></td>
+                    </tr>
+                    <?php endforeach; endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <?php else: ?>
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
             <p class="text-sm text-gray-400">Complaints from payers on <strong class="text-white">your</strong> transactions only. Replies notify the customer in-app and via WhatsApp/SMS when configured.</p>
@@ -145,7 +194,7 @@ echo renderMerchantCasesTabs('complaints');
                     <?php if (empty($tickets)): ?>
                     <tr><td colspan="6" class="p-0"><?= renderMerchantEmptyState('No customer complaints yet', 'When a payer raises a complaint on your transaction, it will appear here for you to reply.', null, null) ?></td></tr>
                     <?php else: foreach ($tickets as $tk): ?>
-                    <tr id="complaint-<?= e($tk['ticket_id']) ?>" class="hover:bg-white/5 cursor-pointer <?= $focusTicketId !== '' && strcasecmp((string)$tk['ticket_id'], $focusTicketId) === 0 ? 'bg-sky-500/10 ring-1 ring-sky-500/30' : '' ?>" onclick="location.href='?id=<?= (int)$tk['id'] ?><?= $statusFilter !== '' ? '&status=' . urlencode($statusFilter) : '' ?><?= $ticketQ !== '' ? '&q=' . urlencode($ticketQ) : '' ?>'">
+                    <tr id="complaint-<?= e($tk['ticket_id']) ?>" class="hover:bg-white/5 cursor-pointer <?= $focusTicketId !== '' && strcasecmp((string)$tk['ticket_id'], $focusTicketId) === 0 ? 'bg-sky-500/10 ring-1 ring-sky-500/30' : '' ?>" onclick="location.href='?tab=complaints&id=<?= (int)$tk['id'] ?><?= $statusFilter !== '' ? '&status=' . urlencode($statusFilter) : '' ?><?= $ticketQ !== '' ? '&q=' . urlencode($ticketQ) : '' ?>'">
                         <td class="px-5 py-3 font-mono text-xs text-sky-400"><?= e($tk['ticket_id']) ?></td>
                         <td class="px-5 py-3 text-xs">+91 <?= e($tk['customer_phone']) ?></td>
                         <td class="px-5 py-3 max-w-[240px] truncate"><?= e($tk['subject']) ?></td>
@@ -157,8 +206,9 @@ echo renderMerchantCasesTabs('complaints');
                 </tbody>
             </table>
         </div>
-        <?= renderListPagination($listParams['page'], $ticketTotal, $listParams['perPage'], ['status' => $statusFilter, 'q' => $ticketQ]) ?>
+        <?= renderListPagination($listParams['page'], $ticketTotal, $listParams['perPage'], ['status' => $statusFilter, 'q' => $ticketQ, 'tab' => 'complaints']) ?>
     </div>
+    <?php endif; ?>
 </div>
 <?php if ($focusTicketId !== '' && !$view): ?>
 <script>document.getElementById('complaint-<?= e($focusTicketId) ?>')?.scrollIntoView({block:'center',behavior:'smooth'});</script>

@@ -81,6 +81,11 @@ if (!function_exists('renderMerchantCasesTabs')) {
     require_once __DIR__ . '/includes/cases_ops.php';
 }
 echo renderMerchantCasesTabs('support');
+?>
+<div class="mb-4 rounded-lg border border-brand-500/30 bg-brand-500/5 px-4 py-3 text-sm text-gray-300">
+    Support tickets are part of <a href="merchant_customer_tickets.php" class="text-brand-400 underline">Cases</a> — use <strong>All cases</strong> for one inbox, or stay here to raise a new ticket to UniWeb admin.
+</div>
+<?php
 echo renderComplianceSupportPathPanel('tkt');
 ?>
 

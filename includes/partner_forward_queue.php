@@ -432,16 +432,28 @@ function syncGatewaySubmissionToForwardQueue(int $merchantId, string $gateway, s
         return 0;
     }
 
-    $ref = $submissionId && $submissionId > 0 ? 'SUB-' . $submissionId : ('STAGED-' . strtoupper($gateway) . '-' . $merchantId);
+    $ref = $submissionId && $submissionId > 0 ? 'SUB-' . $submissionId : ('GW-' . strtoupper($gateway) . '-' . $merchantId);
+    if (!function_exists('partnerIsConfigured')) {
+        require_once __DIR__ . '/partner_engine.php';
+    }
+    $keysReady = partnerIsConfigured($gateway);
+    $status = $keysReady ? 'queued' : 'waiting_keys';
     $note = $source === 'manual'
-        ? 'Synced from Gateway Submit — see gateway_submissions'
-        : 'Synced from KYC forward adapter';
+        ? ($keysReady
+            ? 'Synced from Gateway Submit — worker will attempt partner forward'
+            : 'Synced from Gateway Submit — waiting for partner keys in Registry')
+        : ($keysReady
+            ? 'Synced from KYC forward — worker will attempt adapter'
+            : 'Synced from KYC forward — waiting for partner keys');
 
     try {
         getDB()->prepare(
-            "UPDATE partner_forward_queue SET status='staged', partner_reference=?, error_message=?, updated_at=NOW()
-             WHERE id=? AND status IN ('queued','retry','processing','paused')"
-        )->execute([$ref, $note, $queueId]);
+            "UPDATE partner_forward_queue SET status=?, partner_reference=?, error_message=?, schedule_at=NOW(), updated_at=NOW()
+             WHERE id=? AND status IN ('queued','retry','processing','paused','staged','waiting_keys')"
+        )->execute([$status, $ref, $note, $queueId]);
+        if ($keysReady && function_exists('processPerPartnerForwardQueue')) {
+            processPerPartnerForwardQueue(1, $merchantId, $gateway);
+        }
     } catch (Throwable $e) {
         /* non-fatal */
     }

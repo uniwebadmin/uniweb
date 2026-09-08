@@ -84,6 +84,24 @@ function casesOpsTabForPage(string $scriptName): string
     return 'all';
 }
 
+function casesMerchantDetailUrl(string $caseType, int $caseDbId, string $caseRef, int $merchantId = 0): string
+{
+    if ($merchantId > 0) {
+        return match ($caseType) {
+            'support_ticket' => 'support_ticket.php?id=' . rawurlencode($caseRef),
+            'customer_complaint' => 'merchant_customer_tickets.php?tab=complaints&id=' . $caseDbId,
+            'dispute' => 'disputes.php?id=' . rawurlencode($caseRef),
+            default => merchantCasesUrl('all'),
+        };
+    }
+    return match ($caseType) {
+        'support_ticket' => 'admin_support.php?q=' . rawurlencode($caseRef),
+        'customer_complaint' => 'admin_customer_tickets.php?id=' . $caseDbId,
+        'dispute' => 'admin_disputes.php?q=' . rawurlencode($caseRef),
+        default => casesOpsUrl('all'),
+    };
+}
+
 function ensureCasesSpineSchema(): void
 {
     if (!function_exists('schemaExecQuiet')) {
@@ -557,7 +575,7 @@ function casesUnifiedInbox(?string $typeFilter = null, ?string $statusFilter = n
                 'status' => (string)$r['status'],
                 'partner_status' => (string)($r['partner_forward_status'] ?? ''),
                 'sort_at' => (string)($r['updated_at'] ?? $r['created_at']),
-                'detail_url' => 'admin_support.php?q=' . rawurlencode((string)$r['case_ref']),
+                'detail_url' => casesMerchantDetailUrl('support_ticket', (int)$r['id'], (string)$r['case_ref'], $merchantId),
             ];
         }
     }
@@ -594,7 +612,7 @@ function casesUnifiedInbox(?string $typeFilter = null, ?string $statusFilter = n
                 'status' => (string)$r['status'],
                 'partner_status' => (string)($r['partner_forward_status'] ?? ''),
                 'sort_at' => (string)($r['updated_at'] ?? $r['created_at']),
-                'detail_url' => 'admin_customer_tickets.php?id=' . (int)$r['id'],
+                'detail_url' => casesMerchantDetailUrl('customer_complaint', (int)$r['id'], (string)$r['case_ref'], $merchantId),
             ];
         }
     }
@@ -635,7 +653,7 @@ function casesUnifiedInbox(?string $typeFilter = null, ?string $statusFilter = n
                 'status' => (string)$r['status'],
                 'partner_status' => (string)($r['forwarded_partner_key'] ?? ''),
                 'sort_at' => (string)$r['created_at'],
-                'detail_url' => 'admin_disputes.php?q=' . rawurlencode((string)$r['case_ref']),
+                'detail_url' => casesMerchantDetailUrl('dispute', (int)$r['id'], (string)$r['case_ref'], $merchantId),
             ];
         }
     }
@@ -760,22 +778,50 @@ function renderCasesOpsTabs(string $activeTab): string
 /**
  * Partner inbound panel for admin case detail.
  */
+function merchantCasesCurrentTab(): string
+{
+    $tab = strtolower(trim((string)($_GET['tab'] ?? 'all')));
+    if (in_array($tab, ['all', 'complaints', 'support', 'disputes'], true)) {
+        return $tab;
+    }
+    return isset($_GET['id']) ? 'complaints' : 'all';
+}
+
+function merchantCasesUrl(string $tab = 'all', array $query = []): string
+{
+    $tab = in_array($tab, ['all', 'complaints', 'support', 'disputes'], true) ? $tab : 'all';
+    if ($tab === 'support') {
+        return 'support.php';
+    }
+    if ($tab === 'disputes') {
+        return 'disputes.php';
+    }
+    $query['tab'] = $tab === 'complaints' ? 'complaints' : ($tab === 'all' ? 'all' : $tab);
+    if ($query['tab'] === 'all') {
+        unset($query['tab']);
+    }
+    $qs = http_build_query(array_filter($query, static fn($v) => $v !== null && $v !== ''));
+    return 'merchant_customer_tickets.php' . ($qs !== '' ? ('?' . $qs) : '');
+}
+
 function renderMerchantCasesTabs(string $active): string
 {
     $tabs = [
-        'complaints' => ['merchant_customer_tickets.php', 'Customer complaints'],
-        'support' => ['support.php', 'My support tickets'],
-        'disputes' => ['disputes.php', 'Disputes'],
+        'all' => ['All cases', merchantCasesUrl('all')],
+        'complaints' => ['Customer complaints', merchantCasesUrl('complaints')],
+        'support' => ['My support tickets', 'support.php'],
+        'disputes' => ['Disputes', 'disputes.php'],
     ];
     $html = '<nav class="mb-6 flex flex-wrap gap-2 border-b border-gray-800 pb-3" aria-label="Merchant cases">';
     foreach ($tabs as $key => $meta) {
         $activeCls = $key === $active ? 'bg-brand-600 text-white border-brand-500' : 'bg-dark-800 text-gray-400 border-gray-700 hover:text-white';
-        $html .= '<a href="' . e($meta[0]) . '" class="px-4 py-2 rounded-lg border text-sm font-medium ' . $activeCls . '">' . e($meta[1]) . '</a>';
+        $html .= '<a href="' . e($meta[1]) . '" class="px-4 py-2 rounded-lg border text-sm font-medium ' . $activeCls . '">' . e($meta[0]) . '</a>';
     }
     $html .= '</nav>';
     return $html;
 }
 
+function renderCasesPartnerEventsPanel(string $caseType, int $caseDbId, bool $allowLog = true): string
 {
     $events = casesGetPartnerEvents($caseType, $caseDbId);
     $html = '<div class="mt-4 rounded-lg border border-violet-500/25 bg-violet-500/5 p-4">';

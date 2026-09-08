@@ -539,6 +539,9 @@ function createCustomerTicket(string $phone, string $subject, string $message, ?
     $merchantId = null;
     $customerName = null;
     $txnRef = $txnRef ? trim($txnRef) : null;
+    if ($txnRef === null || $txnRef === '') {
+        return ['ok' => false, 'message' => 'Please enter your Transaction ID so your merchant can see and reply to this complaint.'];
+    }
     if ($txnRef) {
         $tx = findCustomerOwnedTransaction($phone, $txnRef);
         if (!$tx) {
