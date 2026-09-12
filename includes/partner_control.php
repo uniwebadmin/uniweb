@@ -1066,6 +1066,10 @@ function merchantAlreadyLivePostedKeys(string $partnerKey, array $post): array
         if ($sec !== '') {
             $out['razorpay_key_secret'] = $sec;
         }
+        $wh = trim((string)($post['already_live_webhook_secret'] ?? ''));
+        if ($wh !== '') {
+            $out['razorpay_webhook_secret'] = $wh;
+        }
         return $out;
     }
     if ($partnerKey === 'cashfree') {

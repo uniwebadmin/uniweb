@@ -201,6 +201,7 @@ function pgWebhookVerifyPartner(string $partner, string $rawBody, ?array $parsed
         ];
     }
     $headers = $headers ?? pgWebhookHeadersFromServer();
+    pgWebhookBindCollectContext($partner, $rawBody, $parsedForm);
 
     if ($partner === 'razorpay') {
         if ($rawBody === '') {
@@ -252,10 +253,6 @@ function pgWebhookVerifyPartner(string $partner, string $rawBody, ?array $parsed
         if ($form === []) {
             $form = array_merge($_GET ?? [], $_POST ?? []);
         }
-        $payuMid = (int)($form['udf2'] ?? 0);
-        if ($payuMid > 0 && function_exists('setCollectCredentialContext')) {
-            setCollectCredentialContext($payuMid, false);
-        }
         $ok = $form !== [] && verifyPayUResponseHash($form);
         return [
             'ok' => $ok,
@@ -293,6 +290,172 @@ function pgWebhookVerifyPartner(string $partner, string $rawBody, ?array $parsed
         'http_code' => 403,
         'reason' => 'unsupported_partner',
     ];
+}
+
+/**
+ * Bind merchant LINK / platform collect keys before signature check.
+ * Unsigned JSON is only used to find the order row; money still requires a valid signature.
+ */
+function pgWebhookBindCollectContext(string $partnerKey, string $rawBody, ?array $parsedForm = null): void
+{
+    if (!function_exists('setCollectCredentialContext')) {
+        return;
+    }
+    $partnerKey = strtolower(trim($partnerKey));
+    $merchantId = 0;
+    $sandbox = false;
+
+    if ($partnerKey === 'payu') {
+        $form = is_array($parsedForm) ? $parsedForm : [];
+        if ($form === [] && $rawBody !== '') {
+            $decoded = json_decode($rawBody, true);
+            $form = is_array($decoded) ? $decoded : [];
+        }
+        if ($form === []) {
+            $form = array_merge($_GET ?? [], $_POST ?? []);
+        }
+        $ids = array_filter([
+            trim((string)($form['txnid'] ?? '')),
+            trim((string)($form['mihpayid'] ?? '')),
+        ], static fn(string $v): bool => $v !== '');
+        $linkIds = array_filter([trim((string)($form['udf1'] ?? ''))], static fn(string $v): bool => $v !== '');
+        $row = pgWebhookLookupCollectOrder('payu', $ids, $linkIds);
+        if ($row) {
+            $merchantId = (int)$row['merchant_id'];
+            $sandbox = (string)($row['mode'] ?? '') === 'test';
+        } else {
+            $merchantId = (int)($form['udf2'] ?? 0);
+            if ($merchantId > 0 && function_exists('isMerchantTest')) {
+                try {
+                    $st = getDB()->prepare('SELECT account_mode FROM merchants WHERE id=? LIMIT 1');
+                    $st->execute([$merchantId]);
+                    $mode = strtolower(trim((string)$st->fetchColumn()));
+                    $sandbox = $mode !== 'live';
+                } catch (Throwable $e) {
+                    $sandbox = false;
+                }
+            }
+        }
+    } elseif (in_array($partnerKey, ['razorpay', 'cashfree'], true)) {
+        $decoded = json_decode($rawBody, true);
+        if (!is_array($decoded)) {
+            return;
+        }
+        [$ids, $linkIds] = pgWebhookExtractCollectIds($partnerKey, $decoded);
+        $row = pgWebhookLookupCollectOrder($partnerKey, $ids, $linkIds);
+        if ($row) {
+            $merchantId = (int)$row['merchant_id'];
+            $sandbox = (string)($row['mode'] ?? '') === 'test';
+        }
+    }
+
+    if ($merchantId > 0) {
+        setCollectCredentialContext($merchantId, $sandbox);
+    }
+}
+
+/**
+ * @param array<string,mixed> $decoded
+ * @return array{0:list<string>,1:list<string>}
+ */
+function pgWebhookExtractCollectIds(string $partnerKey, array $decoded): array
+{
+    $ids = [];
+    $linkIds = [];
+    if ($partnerKey === 'razorpay') {
+        $pay = is_array($decoded['payload']['payment']['entity'] ?? null) ? $decoded['payload']['payment']['entity'] : [];
+        $ord = is_array($decoded['payload']['order']['entity'] ?? null) ? $decoded['payload']['order']['entity'] : [];
+        $ref = is_array($decoded['payload']['refund']['entity'] ?? null) ? $decoded['payload']['refund']['entity'] : [];
+        $payNotes = is_array($pay['notes'] ?? null) ? $pay['notes'] : [];
+        $ordNotes = is_array($ord['notes'] ?? null) ? $ord['notes'] : [];
+        foreach ([
+            (string)($pay['order_id'] ?? ''),
+            (string)($ord['id'] ?? ''),
+            (string)($ord['receipt'] ?? ''),
+            (string)($payNotes['payment_order_ref'] ?? ''),
+            (string)($ordNotes['payment_order_ref'] ?? ''),
+            (string)($ref['payment_id'] ?? ''),
+            (string)($pay['id'] ?? ''),
+        ] as $id) {
+            $id = trim($id);
+            if ($id !== '') {
+                $ids[] = $id;
+            }
+        }
+        foreach ([(string)($payNotes['link_id'] ?? ''), (string)($ordNotes['link_id'] ?? '')] as $lid) {
+            $lid = trim($lid);
+            if ($lid !== '') {
+                $linkIds[] = $lid;
+            }
+        }
+    } elseif ($partnerKey === 'cashfree') {
+        $data = is_array($decoded['data'] ?? null) ? $decoded['data'] : $decoded;
+        $order = is_array($data['order'] ?? null) ? $data['order'] : $data;
+        $orderId = trim((string)($order['order_id'] ?? $data['order_id'] ?? ''));
+        if ($orderId !== '') {
+            $ids[] = $orderId;
+        }
+        $parsedLink = parseCashfreeLinkIdFromOrder($orderId);
+        if ($parsedLink !== '') {
+            $linkIds[] = $parsedLink;
+        }
+    }
+    return [array_values(array_unique($ids)), array_values(array_unique($linkIds))];
+}
+
+/**
+ * @param list<string> $providerIds
+ * @param list<string> $linkIds
+ * @return array{merchant_id:int,mode:string}|null
+ */
+function pgWebhookLookupCollectOrder(string $partnerKey, array $providerIds, array $linkIds): ?array
+{
+    if (!function_exists('getDB')) {
+        return null;
+    }
+    $partnerKey = strtolower(trim($partnerKey));
+    $db = getDB();
+    foreach ($providerIds as $id) {
+        $id = trim((string)$id);
+        if ($id === '' || strlen($id) > 80) {
+            continue;
+        }
+        try {
+            $st = $db->prepare(
+                'SELECT merchant_id, mode FROM payment_orders WHERE provider=? AND (provider_order_id=? OR order_ref=?) LIMIT 1'
+            );
+            $st->execute([$partnerKey, $id, $id]);
+            $row = $st->fetch();
+            if ($row) {
+                return ['merchant_id' => (int)$row['merchant_id'], 'mode' => (string)$row['mode']];
+            }
+        } catch (Throwable $e) { /* table may not exist yet */ }
+        try {
+            $st = $db->prepare(
+                'SELECT o.merchant_id, o.mode
+                 FROM payment_verifications v
+                 JOIN payment_orders o ON o.id = v.payment_order_id
+                 WHERE v.provider=? AND v.provider_payment_id=? LIMIT 1'
+            );
+            $st->execute([$partnerKey, $id]);
+            $row = $st->fetch();
+            if ($row) {
+                return ['merchant_id' => (int)$row['merchant_id'], 'mode' => (string)$row['mode']];
+            }
+        } catch (Throwable $e) { /* optional table */ }
+    }
+    foreach ($linkIds as $lid) {
+        $lid = trim((string)$lid);
+        if ($lid === '') {
+            continue;
+        }
+        $link = function_exists('loadPaymentLinkRow') ? loadPaymentLinkRow($lid) : null;
+        if ($link && (int)($link['merchant_id'] ?? 0) > 0) {
+            $mode = strtolower((string)($link['account_mode'] ?? '')) === 'live' ? 'live' : 'test';
+            return ['merchant_id' => (int)$link['merchant_id'], 'mode' => $mode];
+        }
+    }
+    return null;
 }
 
 function verifyDecentroWebhookSignature(string $rawBody, string $signature): bool

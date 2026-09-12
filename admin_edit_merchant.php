@@ -481,6 +481,7 @@ $methodCatalog = getPaymentMethodCatalog();
                 <input type="text" name="partner_mid" placeholder="Partner MID (optional)" class="input-field font-mono text-xs" autocomplete="off">
                 <input type="password" name="already_live_key" required placeholder="Key ID / API key" class="input-field font-mono text-xs" autocomplete="new-password">
                 <input type="password" name="already_live_secret" required placeholder="Secret" class="input-field font-mono text-xs" autocomplete="new-password">
+                <input type="password" name="already_live_webhook_secret" placeholder="Razorpay webhook secret (optional)" class="input-field font-mono text-xs" autocomplete="new-password">
                 <select name="env" class="input-field text-xs">
                     <option value="test">Test / sandbox</option>
                     <option value="live">Live</option>

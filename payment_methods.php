@@ -252,6 +252,10 @@ require_once __DIR__ . '/header.php';
                     <input type="password" name="already_live_secret" required class="input-field mt-1 font-mono text-xs" autocomplete="new-password">
                 </div>
                 <div>
+                    <label class="text-xs text-gray-500">Webhook secret (Razorpay optional)</label>
+                    <input type="password" name="already_live_webhook_secret" class="input-field mt-1 font-mono text-xs" autocomplete="new-password" placeholder="Leave blank to use Secret">
+                </div>
+                <div>
                     <label class="text-xs text-gray-500">Environment</label>
                     <select name="env" class="input-field mt-1 text-sm">
                         <option value="test">Test / sandbox</option>
@@ -261,6 +265,12 @@ require_once __DIR__ . '/header.php';
             </div>
             <button type="submit" class="btn-primary px-6 py-2.5">Save encrypted keys and verify</button>
             <p class="text-[11px] text-gray-600">Where a live Test Connection exists, status becomes Valid or Invalid from the partner. Other partners store keys encrypted and stay Invalid until a probe exists or Admin override.</p>
+            <p class="text-[11px] text-gray-500 mt-2">After Enable for checkout, paste this webhook URL in <strong class="text-gray-400">your</strong> partner dashboard so payment confirmation reaches UniWeb (not UniWeb&rsquo;s keys):</p>
+            <ul class="text-[11px] font-mono text-gray-400 mt-1 space-y-0.5 break-all">
+                <li>Razorpay: <?= e(rtrim((string)APP_URL, '/') . '/razorpay_webhook.php') ?></li>
+                <li>Cashfree: <?= e(rtrim((string)APP_URL, '/') . '/cashfree_webhook.php') ?></li>
+                <li>PayU: <?= e(rtrim((string)APP_URL, '/') . '/payu_webhook.php') ?></li>
+            </ul>
         </form>
         <?php endif; ?>
     </div>

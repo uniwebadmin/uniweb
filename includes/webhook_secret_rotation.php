@@ -76,7 +76,7 @@ function partnerWebhookPrimarySecret(string $partnerKey, ?array $creds = null): 
     if ($primary === '' && $partnerKey === 'razorpay') {
         $primary = trim((string)($creds['razorpay_key_secret'] ?? ''));
     }
-    if ($primary === '' && function_exists('getPartnerSetting')) {
+    if ($primary === '' && function_exists('getPartnerSetting') && ($creds['_source'] ?? '') !== 'merchant_link') {
         $primary = trim((string)getPartnerSetting($partnerKey, $primaryKey, ''));
         if ($primary === '' && $partnerKey === 'razorpay') {
             $primary = trim((string)getPartnerSetting($partnerKey, 'razorpay_key_secret', ''));
@@ -94,6 +94,18 @@ function partnerWebhookSecretCandidates(string $partnerKey, ?array $creds = null
         return [];
     }
 
+    if ($creds === null) {
+        $ctx = $GLOBALS['_uniweb_collect_ctx'] ?? null;
+        $mid = is_array($ctx) ? (int)($ctx['merchant_id'] ?? 0) : 0;
+        if ($mid > 0 && function_exists('resolveCollectPartnerCredentials')) {
+            $collectCreds = resolveCollectPartnerCredentials($mid, $partnerKey, !empty($ctx['sandbox']));
+            if ($collectCreds !== []) {
+                $creds = $collectCreds;
+            } elseif (function_exists('merchantHasAlreadyLivePayload') && merchantHasAlreadyLivePayload($mid, $partnerKey)) {
+                return [];
+            }
+        }
+    }
     if ($creds === null) {
         $env = partnerCredentialEnvForPartner($partnerKey);
         $creds = getPartnerCredentials($partnerKey, $env);
