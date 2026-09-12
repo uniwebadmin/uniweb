@@ -489,9 +489,8 @@ function intelligentScorePartners(array $partners, string $method, ?float $amoun
     $health = gatewayHealthSummary();
     $scores = [];
     foreach ($partners as $gw) {
-        if (!function_exists('isGatewayConfigured') || !isGatewayConfigured($gw)) {
-            continue;
-        }
+        // Partners are already collect-eligible (LINK or platform keys). Do not
+        // re-gate on UniWeb platform isGatewayConfigured() — that hides LINK-only.
         if (function_exists('isCircuitBreakerAllowed') && !isCircuitBreakerAllowed($gw)) {
             continue;
         }

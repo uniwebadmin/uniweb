@@ -191,7 +191,10 @@ function phase11EligibleCheckoutPartners(int $merchantId, string $checkoutMethod
         if (!in_array($partner, $collectOk, true)) {
             continue;
         }
-        if (!function_exists('isGatewayConfigured') || !isGatewayConfigured($partner)) {
+        $collectReady = function_exists('isCollectPartnerConfigured')
+            ? isCollectPartnerConfigured($partner, $merchantId, $sandbox)
+            : (function_exists('isGatewayConfigured') && isGatewayConfigured($partner));
+        if (!$collectReady) {
             continue;
         }
         if (!phase11PartnerSupportsCheckoutMethod($partner, $checkoutMethod)) {
@@ -723,8 +726,12 @@ function createCardOrderWithSmartRouting(float $amount, array $link, string $ret
 
     $cbAvailable = function_exists('isCircuitBreakerAllowed');
     $firstPreferred = $ranked[0];
-    $tryOrder = function (string $gw) use ($link, $returnUrl, $cbAvailable) {
-        if (!isGatewayConfigured($gw)) {
+    $tryOrder = function (string $gw) use ($link, $returnUrl, $cbAvailable, $merchantId) {
+        $sandbox = !empty($link['is_test']);
+        $collectReady = function_exists('isCollectPartnerConfigured')
+            ? isCollectPartnerConfigured($gw, $merchantId, $sandbox)
+            : isGatewayConfigured($gw);
+        if (!$collectReady) {
             return null;
         }
         if ($cbAvailable && !isCircuitBreakerAllowed($gw)) {

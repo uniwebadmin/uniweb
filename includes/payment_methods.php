@@ -1042,7 +1042,8 @@ function get_available_pay_methods(int $merchantId): array
         ? isMerchantPaymentTest($merchant)
         : !function_exists('isMerchantLive') || !isMerchantLive($merchant);
 
-    if (!function_exists('isPartnerMethodEnabled') && is_file(__DIR__ . '/partner_control.php')) {
+    if ((!function_exists('isPartnerMethodEnabled') || !function_exists('isCollectPartnerConfigured'))
+        && is_file(__DIR__ . '/partner_control.php')) {
         require_once __DIR__ . '/partner_control.php';
     }
 
@@ -1087,14 +1088,18 @@ function get_available_pay_methods(int $merchantId): array
             continue;
         }
 
-        // Partner PG — Live Mode hard-gates: registry active + credentials + partner method ON.
+        // Partner PG — Live Mode hard-gates: registry active + collect credentials + partner method ON.
+        // Collect credentials = merchant already-live LINK keys, else UniWeb platform keys.
         // Test Mode may list entitled methods for Instant Test Pay (no real settlement).
         // P9-06: never present cards/POS as available without Partner Registry + merchant activation.
         if (!$isTest) {
             if (function_exists('isGatewayActive') && !isGatewayActive($gateway)) {
                 continue;
             }
-            if (function_exists('isGatewayConfigured') && !isGatewayConfigured($gateway)) {
+            $collectReady = function_exists('isCollectPartnerConfigured')
+                ? isCollectPartnerConfigured($gateway, $merchantId, $isTest)
+                : (function_exists('isGatewayConfigured') && isGatewayConfigured($gateway));
+            if (!$collectReady) {
                 continue;
             }
             if (function_exists('isPartnerMethodEnabled')) {

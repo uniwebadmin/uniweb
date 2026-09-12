@@ -535,7 +535,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 ? collectCheckoutNoneEligibleMessage($selectedPay, (int)$link['merchant_id'], $isTestCheckout)
                 : 'This payment method is not active yet. Try UPI or switch to UniWeb Test Mode.';
         }
-    } elseif ($legacyPgTab || ($selectedPay === 'razorpay' || ($handler === 'razorpay_route' && !isGatewayConfigured('payu')))) {
+    } elseif ($legacyPgTab || ($selectedPay === 'razorpay' || ($handler === 'razorpay_route' && !(function_exists('isCollectPartnerConfigured') ? isCollectPartnerConfigured('payu', (int)$link['merchant_id'], $isTestCheckout) : isGatewayConfigured('payu'))))) {
         if (function_exists('isCollectPartnerConfigured')
             ? isCollectPartnerConfigured('razorpay', (int)$link['merchant_id'], $isTestCheckout)
             : isGatewayConfigured('razorpay')) {
