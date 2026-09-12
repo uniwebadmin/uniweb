@@ -1007,6 +1007,44 @@ function probeMerchantOwnedPartnerKeys(string $partnerKey, array $keys, string $
         return ['status' => 'invalid', 'message' => 'Could not verify Cashfree keys (HTTP ' . $http . ').'];
     }
 
+    if ($partnerKey === 'payu') {
+        $base = $env === 'live' ? 'https://info.payu.in' : 'https://test.payu.in';
+        $command = 'verify_payment';
+        $var1 = 'UNIWEBPROBE';
+        $hash = strtolower(hash('sha512', $keyId . '|' . $command . '|' . $var1 . '|' . $secret));
+        $ch = curl_init($base . '/merchant/postservice?form=2');
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POSTFIELDS => http_build_query([
+                'key' => $keyId,
+                'command' => $command,
+                'var1' => $var1,
+                'hash' => $hash,
+            ]),
+            CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+            CURLOPT_TIMEOUT => 12,
+        ]);
+        $body = (string)curl_exec($ch);
+        $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err = (string)curl_error($ch);
+        curl_close($ch);
+        if ($err !== '') {
+            return ['status' => 'invalid', 'message' => 'Partner did not accept the keys (connection failed).'];
+        }
+        $lower = strtolower($body);
+        if (str_contains($lower, 'invalid hash') || str_contains($lower, 'invalid key') || str_contains($lower, 'invalid merchant')) {
+            return ['status' => 'invalid', 'message' => 'Partner rejected the PayU key or salt.'];
+        }
+        if ($http === 401 || $http === 403) {
+            return ['status' => 'invalid', 'message' => 'Partner rejected the keys.'];
+        }
+        if ($http >= 200 && $http < 300) {
+            return ['status' => 'valid', 'message' => 'PayU accepted the merchant key and salt.'];
+        }
+        return ['status' => 'invalid', 'message' => 'Could not verify PayU keys (HTTP ' . $http . ').'];
+    }
+
     return ['status' => 'invalid', 'message' => 'No live Test Connection for this partner. Keys are stored encrypted; status stays Invalid until a probe exists or Admin uses Owner override.'];
 }
 

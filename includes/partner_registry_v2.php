@@ -198,6 +198,7 @@ function ensurePartnerRegistryV2Columns(): void
             /* column may exist */
         }
     }
+    seedCollectPartnerAlreadyLiveLinkDefault();
     if (partnerRegistryV2HasColumns()) {
         migratePartnerRegistryDocPackSemantics();
     }
@@ -726,6 +727,25 @@ function partnerAllowsAlreadyLiveLink(array $gatewayRow): bool
     }
     $mode = strtolower(trim((string)($gatewayRow['contract_mode'] ?? 'platform')));
     return in_array($mode, ['linked_existing', 'hybrid'], true);
+}
+
+/** One-time: Razorpay / Cashfree / PayU already-live LINK on. Admin can still uncheck later. */
+function seedCollectPartnerAlreadyLiveLinkDefault(): void
+{
+    static $ran = false;
+    if ($ran) {
+        return;
+    }
+    $ran = true;
+    if (function_exists('getSetting') && getSetting('seed_already_live_collect_pg', '') === '1') {
+        return;
+    }
+    try {
+        getDB()->exec("UPDATE gateway_registry SET allows_existing_merchant_link=1 WHERE gateway_key IN ('razorpay','cashfree','payu')");
+        if (function_exists('saveSetting')) {
+            saveSetting('seed_already_live_collect_pg', '1');
+        }
+    } catch (Throwable $e) { /* registry table may be missing on first boot */ }
 }
 
 /**

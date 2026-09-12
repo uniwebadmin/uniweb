@@ -852,6 +852,10 @@ $assert(str_contains((string)file_get_contents($root . '/includes/financial_inte
 $assert(str_contains((string)file_get_contents($root . '/payment_verify.php'), 'setCollectCredentialContext'), 'already_live_razorpay_verify_merchant_keys');
 $assert(str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'already_live_checkout') && str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'Enable for checkout'), 'admin_already_live_checkout_toggle');
 $assert(str_contains((string)file_get_contents($root . '/admin_transactions.php'), 'transactionPartnerLabel') && str_contains((string)file_get_contents($root . '/admin_transactions.php'), 'Partner'), 'admin_txn_list_partner_column');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_registry_v2.php'), 'function seedCollectPartnerAlreadyLiveLinkDefault') && str_contains((string)file_get_contents($root . '/includes/partner_registry_v2.php'), 'seed_already_live_collect_pg'), 'already_live_collect_pg_seed');
+$pcProbe = (string)file_get_contents($root . '/includes/partner_control.php');
+$assert(str_contains($pcProbe, "partnerKey === 'payu'") && str_contains($pcProbe, 'UNIWEBPROBE') && str_contains($pcProbe, 'PayU accepted the merchant key'), 'already_live_payu_key_probe');
+$assert(str_contains((string)file_get_contents($root . '/includes/collection.php'), 'Live checkout hides unwired card tabs'), 'live_checkout_hides_unwired_card_tabs');
 $assert(is_file($root . '/migrations/085_partner_retire_and_merchant_already_live.sql'), 'migration_085_retire_already_live');
 $covSrc = (string)file_get_contents($root . '/includes/partner_doc_coverage.php');
 $assert(str_contains($covSrc, 'function partnerDocCoverageForMerchant') && str_contains($covSrc, 'docs_ready') && str_contains($covSrc, 'not_started') && str_contains($covSrc, 'docs_incomplete'), 'p3_coverage_engine_statuses');
