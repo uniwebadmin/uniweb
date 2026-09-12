@@ -1459,6 +1459,29 @@ function isCollectPartnerConfigured(string $partnerKey, int $merchantId = 0, ?bo
 }
 
 /**
+ * True when this merchant can take Card / Net Banking: already-live LINK
+ * (Valid + Enable for checkout + env match) or UniWeb platform keys.
+ */
+function merchantHasCollectPgReady(int $merchantId, bool $sandbox): bool
+{
+    $keys = [];
+    if (function_exists('registryCardCheckoutPartnerKeys')) {
+        $keys = registryCardCheckoutPartnerKeys();
+    } elseif (function_exists('getCheckoutPgPartnerKeys')) {
+        $keys = getCheckoutPgPartnerKeys();
+    }
+    if ($keys === []) {
+        $keys = ['razorpay', 'cashfree', 'payu'];
+    }
+    foreach ($keys as $pk) {
+        if (isCollectPartnerConfigured((string)$pk, $merchantId, $sandbox)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
  * Get reason map for a partner + error code.
  */
 function getReasonMap(string $partnerKey, string $rawCode): ?array

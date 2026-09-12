@@ -78,9 +78,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
 }
 
 $methods = getMerchantPaymentMethods($merchantId);
-$payuReady = function_exists('isGatewayConfigured') && isGatewayConfigured('payu');
-$rzpReady = function_exists('isGatewayConfigured') && isGatewayConfigured('razorpay');
-$cfReady = function_exists('isGatewayConfigured') && isGatewayConfigured('cashfree');
+$collectSandbox = function_exists('isMerchantPaymentTest') ? isMerchantPaymentTest($merchant) : true;
+$collectPgReady = function_exists('merchantHasCollectPgReady')
+    ? merchantHasCollectPgReady($merchantId, $collectSandbox)
+    : (function_exists('isGatewayConfigured') && (isGatewayConfigured('payu') || isGatewayConfigured('razorpay') || isGatewayConfigured('cashfree')));
 $pageTitle = 'Payment Methods';
 require_once __DIR__ . '/header.php';
 ?>
@@ -92,13 +93,13 @@ require_once __DIR__ . '/header.php';
         <p class="text-[11px] text-gray-600 mt-2">Toggle OFF at checkout but ON here? That was alias mismatch (<code class="text-gray-500">upi</code> vs <code class="text-gray-500">upi_p2m</code>) — now auto-normalized on every save.</p>
     </div>
 
-    <?php if (!$payuReady && !$rzpReady && !$cfReady): ?>
+    <?php if (!$collectPgReady): ?>
     <div class="glass rounded-xl p-4 border border-amber-500/20 text-xs text-amber-200/90">
-        Card / Net Banking are waiting on Admin. <strong class="text-amber-100">UPI</strong> can still collect when you turn it ON.
+        Card / Net Banking are waiting on Admin. <strong class="text-amber-100">UPI</strong> can still collect when you turn it ON. If you already have a partner account, link it below and Enable for checkout.
     </div>
     <?php else: ?>
     <div class="glass rounded-xl p-4 border border-sky-500/20 text-xs text-gray-400">
-        Card / Net Banking network is ready on the platform. Turn methods ON below so they appear on your checkout.
+        Card / Net Banking can go live. Turn methods ON below so they appear on checkout. If you linked your own partner account, paste the webhook URL in that partner dashboard.
     </div>
     <?php endif; ?>
 

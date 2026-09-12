@@ -140,9 +140,13 @@ $links = $db->prepare("SELECT pl.*, $paidCountSql AS paid_count FROM payment_lin
 $links->execute($linkParams);
 $paymentLinks = $links->fetchAll();
 require_once __DIR__ . '/header.php';
-$payuReady = isGatewayConfigured('payu');
-$rzpReady = isGatewayConfigured('razorpay');
-$cfReady = isGatewayConfigured('cashfree');
+if (!function_exists('merchantHasCollectPgReady') && is_file(__DIR__ . '/includes/partner_control.php')) {
+    require_once __DIR__ . '/includes/partner_control.php';
+}
+$collectSandbox = function_exists('isMerchantPaymentTest') ? isMerchantPaymentTest($merchant) : !empty($testMode);
+$collectPgReady = function_exists('merchantHasCollectPgReady')
+    ? merchantHasCollectPgReady((int)$merchant['id'], $collectSandbox)
+    : (isGatewayConfigured('payu') || isGatewayConfigured('razorpay') || isGatewayConfigured('cashfree'));
 $createdId = trim((string)($_GET['created'] ?? ''));
 $createdUrl = '';
 if ($createdId !== '') {
@@ -181,7 +185,7 @@ if ($createdId !== '') {
         <strong class="text-sky-300">Tip:</strong> Choose <strong class="text-white">UPI</strong> for QR.
         <strong class="text-amber-300">Test Mode</strong> = UniWeb Test Pay (sandbox).
         <strong class="text-emerald-300">Live Mode</strong> = real UPI ID + UTR (or Axis/webhooks).
-        Card / Net Banking need UniWeb to activate your methods<?= $payuReady ? ' <span class="text-emerald-400">(activated)</span>' : ' <span class="text-amber-400">(pending — Test Mode uses Instant Test)</span>' ?>.
+        Card / Net Banking need methods ON<?= $collectPgReady ? ' <span class="text-emerald-400">(ready)</span>' : ' <span class="text-amber-400">(pending — Test Mode uses Instant Test)</span>' ?>.
     </p>
     <a href="merchant_payment_pack.php" class="text-sky-400 hover:text-sky-300 whitespace-nowrap">Payment Pack (₹1 per method) →</a>
 </div>
@@ -247,8 +251,8 @@ if ($createdId !== '') {
             </div>
             <button type="submit" formnovalidate class="w-full btn-primary py-3">Generate Link</button>
         </form>
-        <?php if (!$payuReady && !$rzpReady && !$cfReady): ?>
-        <p class="text-[11px] text-amber-400/90 mt-4">Card / UPI checkout links need UniWeb to activate payment methods (Admin enables them in Partner Registry). Until then use <strong>UPI</strong> or Test Instant Pay.</p>
+        <?php if (!$collectPgReady): ?>
+        <p class="text-[11px] text-amber-400/90 mt-4">Card checkout links need your partner keys Valid and Enable for checkout (Payment Methods → Already-live), or Admin activation. Until then use <strong>UPI</strong> or Test Instant Pay.</p>
         <?php endif; ?>
     </div>
     <div id="payment-link-results" class="lg:col-span-2 glass rounded-xl overflow-hidden min-w-0 max-w-full">

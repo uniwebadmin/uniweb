@@ -183,8 +183,20 @@ function providerCredentialsMatchOrderMode(string $provider, string $mode): bool
 {
     $provider = strtolower($provider);
     if ($provider === 'razorpay') {
-        $keyId = function_exists('collectPartnerSetting') ? collectPartnerSetting('razorpay', 'razorpay_key_id', '') : getPartnerSetting('razorpay', 'razorpay_key_id', '');
-        $credentialMode = str_starts_with((string)$keyId, 'rzp_live_') ? 'live' : 'test';
+        $keyId = trim((string)(function_exists('collectPartnerSetting') ? collectPartnerSetting('razorpay', 'razorpay_key_id', '') : getPartnerSetting('razorpay', 'razorpay_key_id', '')));
+        if (function_exists('collectCredentialContextSandbox') && isset($GLOBALS['_uniweb_collect_ctx'])) {
+            $credentialMode = collectCredentialContextSandbox() ? 'test' : 'live';
+            if ($keyId !== '') {
+                if (str_starts_with($keyId, 'rzp_live_') && $credentialMode === 'test') {
+                    return false;
+                }
+                if (str_starts_with($keyId, 'rzp_test_') && $credentialMode === 'live') {
+                    return false;
+                }
+            }
+        } else {
+            $credentialMode = str_starts_with($keyId, 'rzp_live_') ? 'live' : 'test';
+        }
     } elseif ($provider === 'cashfree') {
         if (function_exists('collectCredentialContextSandbox') && isset($GLOBALS['_uniweb_collect_ctx'])) {
             $credentialMode = collectCredentialContextSandbox() ? 'test' : 'live';

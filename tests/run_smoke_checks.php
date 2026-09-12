@@ -855,6 +855,9 @@ $assert(str_contains((string)file_get_contents($root . '/includes/webhook_secret
 $assert(str_contains((string)file_get_contents($root . '/includes/partner_control.php'), 'function bindCollectContextFromOrderRow'), 'already_live_bind_collect_from_order_row');
 $assert(str_contains((string)file_get_contents($root . '/includes/payment_reconcile.php'), 'bindCollectContextFromOrderRow') && str_contains((string)file_get_contents($root . '/includes/payment_reconcile.php'), 'isCollectPartnerConfigured'), 'already_live_poll_uses_collect_keys');
 $assert(str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'isCollectPartnerConfigured($gateway, $merchantId, $isTest)'), 'already_live_pay_methods_use_collect_keys');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_control.php'), 'function merchantHasCollectPgReady'), 'already_live_collect_pg_ready_helper');
+$assert(str_contains((string)file_get_contents($root . '/payment_methods.php'), 'merchantHasCollectPgReady') && str_contains((string)file_get_contents($root . '/payment_links.php'), 'merchantHasCollectPgReady'), 'already_live_merchant_pages_use_collect_pg_ready');
+$assert(str_contains($capLive, "str_starts_with(\$keyId, 'rzp_test_')") && str_contains($capLive, 'collectCredentialContextSandbox'), 'already_live_razorpay_mode_uses_collect_context');
 $srLive = (string)file_get_contents($root . '/includes/smart_routing.php');
 $assert(str_contains($srLive, 'isCollectPartnerConfigured($partner, $merchantId, $sandbox)') && str_contains($srLive, 'isCollectPartnerConfigured($gw, $merchantId, $sandbox)'), 'already_live_phase11_uses_collect_keys');
 $assert(str_contains((string)file_get_contents($root . '/includes/intelligent_routing.php'), 're-gate on UniWeb platform isGatewayConfigured'), 'already_live_intelligent_score_keeps_link');
