@@ -847,6 +847,11 @@ $alSlice = substr($pcLive, (int)strpos($pcLive, 'function saveMerchantAlreadyLiv
 $assert(str_contains($alSlice, "'linked'") && !str_contains($alSlice, 'createSubMerchant') && !str_contains($alSlice, 'create_submerchant'), 'already_live_no_submerchant');
 $assert(str_contains((string)file_get_contents($root . '/payment_methods.php'), 'already_live_link') && str_contains((string)file_get_contents($root . '/payment_methods.php'), 'I already have an account'), 'merchant_already_live_ui');
 $assert(str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'already_live_link') && str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'owner_override'), 'admin_already_live_on_behalf');
+$assert(str_contains($pcLive, 'function resolveCollectPartnerCredentials') && str_contains($pcLive, 'function merchantAlreadyLiveCollectReady') && str_contains($pcLive, "merchant_link"), 'already_live_collect_credential_resolver');
+$assert(str_contains((string)file_get_contents($root . '/includes/financial_integrity.php'), 'setCollectCredentialContext') && str_contains((string)file_get_contents($root . '/includes/gateways.php'), 'collectPartnerSetting'), 'already_live_order_uses_collect_keys');
+$assert(str_contains((string)file_get_contents($root . '/payment_verify.php'), 'setCollectCredentialContext'), 'already_live_razorpay_verify_merchant_keys');
+$assert(str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'already_live_checkout') && str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'Enable for checkout'), 'admin_already_live_checkout_toggle');
+$assert(str_contains((string)file_get_contents($root . '/admin_transactions.php'), 'transactionPartnerLabel') && str_contains((string)file_get_contents($root . '/admin_transactions.php'), 'Partner'), 'admin_txn_list_partner_column');
 $assert(is_file($root . '/migrations/085_partner_retire_and_merchant_already_live.sql'), 'migration_085_retire_already_live');
 $covSrc = (string)file_get_contents($root . '/includes/partner_doc_coverage.php');
 $assert(str_contains($covSrc, 'function partnerDocCoverageForMerchant') && str_contains($covSrc, 'docs_ready') && str_contains($covSrc, 'not_started') && str_contains($covSrc, 'docs_incomplete'), 'p3_coverage_engine_statuses');

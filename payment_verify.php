@@ -12,6 +12,20 @@ $paymentId = $_POST['razorpay_payment_id'] ?? '';
 $orderId = $_POST['razorpay_order_id'] ?? '';
 $signature = $_POST['razorpay_signature'] ?? '';
 
+$orderRow = null;
+if ($orderId !== '') {
+    try {
+        $ost = getDB()->prepare('SELECT merchant_id, mode FROM payment_orders WHERE provider=? AND provider_order_id=? ORDER BY id DESC LIMIT 1');
+        $ost->execute(['razorpay', $orderId]);
+        $orderRow = $ost->fetch() ?: null;
+    } catch (Throwable $e) {
+        $orderRow = null;
+    }
+}
+if ($orderRow && function_exists('setCollectCredentialContext')) {
+    setCollectCredentialContext((int)$orderRow['merchant_id'], (string)($orderRow['mode'] ?? '') === 'test');
+}
+
 if (!$paymentId || !$orderId || !$signature || !verifyRazorpayPayment($orderId, $paymentId, $signature)) {
     flash('error', 'Payment verification failed.');
     redirect('index.php');

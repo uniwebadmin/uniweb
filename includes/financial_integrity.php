@@ -183,12 +183,20 @@ function providerCredentialsMatchOrderMode(string $provider, string $mode): bool
 {
     $provider = strtolower($provider);
     if ($provider === 'razorpay') {
-        $keyId = getPartnerSetting('razorpay', 'razorpay_key_id', '');
+        $keyId = function_exists('collectPartnerSetting') ? collectPartnerSetting('razorpay', 'razorpay_key_id', '') : getPartnerSetting('razorpay', 'razorpay_key_id', '');
         $credentialMode = str_starts_with((string)$keyId, 'rzp_live_') ? 'live' : 'test';
     } elseif ($provider === 'cashfree') {
-        $credentialMode = cashfreeActiveCredentialMode();
+        if (function_exists('collectCredentialContextSandbox') && isset($GLOBALS['_uniweb_collect_ctx'])) {
+            $credentialMode = collectCredentialContextSandbox() ? 'test' : 'live';
+        } else {
+            $credentialMode = cashfreeActiveCredentialMode();
+        }
     } elseif ($provider === 'payu') {
-        $credentialMode = getPartnerEnvironment('payu', 'test') === 'test' ? 'test' : 'live';
+        if (function_exists('collectCredentialContextSandbox') && isset($GLOBALS['_uniweb_collect_ctx'])) {
+            $credentialMode = collectCredentialContextSandbox() ? 'test' : 'live';
+        } else {
+            $credentialMode = getPartnerEnvironment('payu', 'test') === 'test' ? 'test' : 'live';
+        }
     } else {
         return true;
     }
@@ -199,6 +207,10 @@ function createBoundGatewayCheckoutOrder(array $link, string $provider, string $
 {
     $provider = strtolower($provider);
     $order = createBoundPaymentOrder($link, $provider, $idempotencyKey);
+    $mid = (int)($link['merchant_id'] ?? $order['merchant_id'] ?? 0);
+    if ($mid > 0 && function_exists('setCollectCredentialContext')) {
+        setCollectCredentialContext($mid, (string)($order['mode'] ?? '') === 'test');
+    }
     if (!providerCredentialsMatchOrderMode($provider, (string)$order['mode'])) {
         return null;
     }

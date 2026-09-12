@@ -393,7 +393,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && ($_POST['a
     }
 }
 
-$razorpayKey = getPartnerSetting('razorpay', 'razorpay_key_id', '');
+$razorpayKey = '';
+if (function_exists('setCollectCredentialContext')) {
+    setCollectCredentialContext((int)$link['merchant_id'], $isTestCheckout);
+}
+$razorpayKey = function_exists('collectPartnerSetting')
+    ? collectPartnerSetting('razorpay', 'razorpay_key_id', '')
+    : getPartnerSetting('razorpay', 'razorpay_key_id', '');
 $razorpayOrder = null;
 $cashfreeSession = null;
 $payuForms = [];
@@ -503,7 +509,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 && !collectCheckoutPartnerIsEligible((int)$link['merchant_id'], $gw, $isTestCheckout, $selectedPay)) {
                 continue;
             }
-            if (!isGatewayConfigured($gw)) {
+            if (function_exists('isCollectPartnerConfigured')
+                ? !isCollectPartnerConfigured($gw, (int)$link['merchant_id'], $isTestCheckout)
+                : !isGatewayConfigured($gw)) {
                 continue;
             }
             try {
@@ -528,7 +536,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 : 'This payment method is not active yet. Try UPI or switch to UniWeb Test Mode.';
         }
     } elseif ($legacyPgTab || ($selectedPay === 'razorpay' || ($handler === 'razorpay_route' && !isGatewayConfigured('payu')))) {
-        if (isGatewayConfigured('razorpay')) {
+        if (function_exists('isCollectPartnerConfigured')
+            ? isCollectPartnerConfigured('razorpay', (int)$link['merchant_id'], $isTestCheckout)
+            : isGatewayConfigured('razorpay')) {
             try {
                 $razorpayOrder = createBoundGatewayCheckoutOrder($link, 'razorpay', '', $checkoutOrderIdemKey);
                 $pgCheckoutPartner = 'razorpay';
@@ -537,7 +547,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 logPlatformError('error', 'Bound card checkout order creation failed.', ['error' => $e->getMessage(), 'link_id' => $linkId]);
             }
         }
-    } elseif (($legacyPgTab && $selectedPay === 'cashfree') || ($pgCheckoutPartner === null && $selectedPay === 'cashfree' && isGatewayConfigured('cashfree'))) {
+    } elseif (($legacyPgTab && $selectedPay === 'cashfree') || ($pgCheckoutPartner === null && $selectedPay === 'cashfree' && (function_exists('isCollectPartnerConfigured') ? isCollectPartnerConfigured('cashfree', (int)$link['merchant_id'], $isTestCheckout) : isGatewayConfigured('cashfree')))) {
         $returnUrl = APP_URL . '/payment_cashfree_return.php?order_id={order_id}';
         $cf = null;
         try {
@@ -556,7 +566,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $error = 'This payment method is not available in this Test/Live mode. Use UPI or another method.';
         }
     }
-    if (isGatewayConfigured('payu') && function_exists('buildPayUPaymentForm')) {
+    if ((function_exists('isCollectPartnerConfigured') ? isCollectPartnerConfigured('payu', (int)$link['merchant_id'], $isTestCheckout) : isGatewayConfigured('payu')) && function_exists('buildPayUPaymentForm')) {
         foreach ($paymentMethods as $m) {
             if (($m['type'] ?? '') === 'payu' && !empty($m['pg']) && !isset($payuForms[$m['key']])) {
                 try {
@@ -699,6 +709,11 @@ endif;
                     <p class="text-xs text-gray-600 mt-1 font-mono">Ref: <?= e($link['link_id']) ?></p>
                     <?php
                     $pgKeysMissing = !$isTestCheckout
+                        && !(function_exists('isCollectPartnerConfigured') && (
+                            isCollectPartnerConfigured('payu', (int)$link['merchant_id'], false)
+                            || isCollectPartnerConfigured('razorpay', (int)$link['merchant_id'], false)
+                            || isCollectPartnerConfigured('cashfree', (int)$link['merchant_id'], false)
+                        ))
                         && !isGatewayConfigured('payu')
                         && !isGatewayConfigured('razorpay')
                         && !isGatewayConfigured('cashfree');

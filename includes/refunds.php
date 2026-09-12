@@ -137,6 +137,10 @@ function submitProviderRefund(string $provider, array $txn, string $refundId, fl
 
     $ctx = resolveTransactionRefundContext($txn);
     $provider = strtolower(trim($provider));
+    $refundMid = (int)($txn['merchant_id'] ?? 0);
+    if ($refundMid > 0 && function_exists('setCollectCredentialContext')) {
+        setCollectCredentialContext($refundMid, !empty($txn['is_test']));
+    }
 
     if (!function_exists('pgOutboundCircuitBlocked') && is_file(__DIR__ . '/circuit_breaker.php')) {
         require_once __DIR__ . '/circuit_breaker.php';

@@ -241,13 +241,19 @@ function merchantMayCollectViaPartner(int $merchantId, string $partnerKey): bool
     if ($merchantId < 1) {
         return true;
     }
-    if (merchantUsesPlatformCheckoutPool($merchantId)) {
-        return true;
-    }
     if (!function_exists('getMerchantPartnerLinkRow')) {
         if (is_file(__DIR__ . '/partner_control.php')) {
             require_once __DIR__ . '/partner_control.php';
         }
+    }
+    if (function_exists('merchantHasAlreadyLivePayload') && merchantHasAlreadyLivePayload($merchantId, $partnerKey)) {
+        $link = getMerchantPartnerLinkRow($merchantId, $partnerKey);
+        $status = strtolower(trim((string)($link['credential_status'] ?? '')));
+        $override = (int)($link['owner_override'] ?? 0) === 1;
+        return (int)($link['checkout_enabled'] ?? 0) === 1 && ($status === 'valid' || $override);
+    }
+    if (merchantUsesPlatformCheckoutPool($merchantId)) {
+        return true;
     }
     $link = function_exists('getMerchantPartnerLinkRow') ? getMerchantPartnerLinkRow($merchantId, $partnerKey) : null;
     if (!$link) {
@@ -352,7 +358,7 @@ function collectCheckoutIneligibleDetailMessage(int $merchantId, string $checkou
         if (function_exists('registryPartnerCapSupportsCheckoutMethod')
             && registryPartnerCapSupportsCheckoutMethod($key, $checkoutMethod, $g)) {
             $methodCapable[] = $key;
-            if (function_exists('registryPartnerKeysReadyForMode') && registryPartnerKeysReadyForMode($key, $sandbox)) {
+            if (function_exists('registryPartnerKeysReadyForMode') && registryPartnerKeysReadyForMode($key, $sandbox, $merchantId)) {
                 $keysReady[] = $key;
             }
             if (function_exists('registryPartnerDetailMethodSupportsCheckout')
@@ -387,7 +393,7 @@ function collectCheckoutIneligibleDetailMessage(int $merchantId, string $checkou
         if ($bucket === 'card' && in_array('ccavenue', $methodCapable, true)) {
             return 'Card checkout needs ' . $modeLabel . ' keys — CCAvenue Test keys are Missing (Live Valid does not apply in Test Mode). Paste Test keys in Partner Registry or use UPI.';
         }
-        return 'Partner(s) support this method but ' . $modeLabel . ' keys are Missing or Invalid: ' . $names . '. Paste keys in Partner Registry → Keys.';
+        return 'Partner(s) support this method but ' . $modeLabel . ' keys are Missing or Invalid: ' . $names . '. Paste keys in Partner Registry → Keys, or LINK the merchant already-live account and Enable for checkout.';
     }
     if ($keysReady !== [] && $methodOff !== []) {
         $names = implode(', ', array_map('ucfirst', $methodOff));
@@ -452,7 +458,7 @@ function collectEligibleCheckoutPartners(int $merchantId, bool $sandbox = true, 
                 continue;
             }
             if (function_exists('registryPartnerCheckoutEligible')
-                && !registryPartnerCheckoutEligible($key, $checkoutMethod, $sandbox, $g)) {
+                && !registryPartnerCheckoutEligible($key, $checkoutMethod, $sandbox, $g, $merchantId)) {
                 continue;
             }
             if (!function_exists('registryPartnerCheckoutEligible')
@@ -462,9 +468,12 @@ function collectEligibleCheckoutPartners(int $merchantId, bool $sandbox = true, 
             }
         }
         if (!function_exists('registryPartnerCheckoutEligible')) {
-            if (!function_exists('registryPartnerKeysReadyForMode') || !registryPartnerKeysReadyForMode($key, $sandbox)) {
-                if (!($sandbox && function_exists('isGatewayConfigured') && isGatewayConfigured($key))) {
-                    continue;
+            if (!function_exists('registryPartnerKeysReadyForMode') || !registryPartnerKeysReadyForMode($key, $sandbox, $merchantId)) {
+                if (!($sandbox && function_exists('isCollectPartnerConfigured') && isCollectPartnerConfigured($key, $merchantId, $sandbox))) {
+                    if (!($sandbox && function_exists('isGatewayConfigured') && isGatewayConfigured($key)
+                        && !(function_exists('merchantHasAlreadyLivePayload') && merchantHasAlreadyLivePayload($merchantId, $key)))) {
+                        continue;
+                    }
                 }
             }
         }

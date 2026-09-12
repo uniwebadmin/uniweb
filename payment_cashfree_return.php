@@ -11,7 +11,6 @@ if (!$orderId) {
     redirect('index.php');
 }
 
-$cfOrder = fetchCashfreeOrder($orderId);
 $stmt = getDB()->prepare(
     'SELECT o.*, pl.link_id, pl.description, m.business_name
      FROM payment_orders o JOIN payment_links pl ON pl.id=o.payment_link_id JOIN merchants m ON m.id=o.merchant_id
@@ -19,6 +18,11 @@ $stmt = getDB()->prepare(
 );
 $stmt->execute(['cashfree', $orderId]);
 $link = $stmt->fetch();
+if ($link && function_exists('setCollectCredentialContext')) {
+    setCollectCredentialContext((int)$link['merchant_id'], (string)($link['mode'] ?? '') === 'test');
+}
+
+$cfOrder = fetchCashfreeOrder($orderId);
 if (!$link || !$cfOrder
     || (string)($cfOrder['order_id'] ?? '') !== $orderId
     || abs((float)($cfOrder['order_amount'] ?? 0) - (float)$link['expected_amount']) > 0.001

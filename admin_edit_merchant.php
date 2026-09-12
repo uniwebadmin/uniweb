@@ -437,7 +437,7 @@ $methodCatalog = getPaymentMethodCatalog();
         ?>
         <div class="glass rounded-xl p-4 sm:p-5 text-sm" id="already-live">
             <h3 class="font-semibold mb-1">Already-live partner link</h3>
-            <p class="text-xs text-gray-500 mb-3">Admin on behalf of this merchant. Does not create a partner sub-account. Secrets encrypted; last4 only.</p>
+            <p class="text-xs text-gray-500 mb-3">Admin on behalf of this merchant. Does not create a partner sub-account. After keys are Valid, Enable for checkout so collect uses this merchant MID — not UniWeb platform keys.</p>
             <?php if ($alreadyLivePartners === []): ?>
             <p class="text-xs text-gray-500">No partner allows already-live link. Enable the checkbox on Partner Registry → Registry profile first.</p>
             <?php else: ?>
@@ -450,6 +450,23 @@ $methodCatalog = getPaymentMethodCatalog();
                 <div class="flex flex-wrap items-center justify-between gap-2 bg-dark-900/50 rounded-lg p-2 border border-gray-800">
                     <span class="text-xs text-gray-300"><?= e($ap['gateway_name']) ?> <span class="font-mono text-gray-500"><?= e($ak) ?></span></span>
                     <span class="text-[10px] text-gray-400"><?= e(function_exists('merchantAlreadyLiveStateLabel') ? merchantAlreadyLiveStateLabel($state) : $state) ?><?= !empty($link['last4']) ? ' · ***' . e($link['last4']) : '' ?></span>
+                    <?php
+                    $canEnable = $link && (strtolower((string)($link['credential_status'] ?? '')) === 'valid' || (int)($link['owner_override'] ?? 0) === 1);
+                    if ($canEnable):
+                    ?>
+                    <form method="POST" class="ml-auto">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                        <input type="hidden" name="admin_action" value="already_live_checkout">
+                        <input type="hidden" name="partner_key" value="<?= e($ak) ?>">
+                        <?php if ((int)($link['checkout_enabled'] ?? 0) === 1): ?>
+                        <input type="hidden" name="checkout_on" value="0">
+                        <button type="submit" class="text-[10px] px-2 py-1 rounded-lg border border-gray-600 text-gray-300">Turn OFF checkout</button>
+                        <?php else: ?>
+                        <input type="hidden" name="checkout_on" value="1">
+                        <button type="submit" class="text-[10px] px-2 py-1 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30">Enable for checkout</button>
+                        <?php endif; ?>
+                    </form>
+                    <?php endif; ?>
                 </div>
                 <?php endforeach; ?>
             </div>

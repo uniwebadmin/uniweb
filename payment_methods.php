@@ -188,7 +188,7 @@ require_once __DIR__ . '/header.php';
     ?>
     <div class="glass rounded-xl p-6 border border-gray-800" id="already-live">
         <h2 class="font-semibold text-lg">Already-live partner account</h2>
-        <p class="text-xs text-gray-500 mt-1 mb-4">Use this only if you already have a merchant account on the partner. UniWeb does not create a new partner account on this path. Secrets are stored encrypted; last4 only is shown.</p>
+        <p class="text-xs text-gray-500 mt-1 mb-4">Use this only if you already have a merchant account on the partner. After keys are Valid, tap Enable for checkout — that payment then uses your partner account, not a new UniWeb sub-account. Secrets are stored encrypted; last4 only is shown.</p>
         <?php if ($alreadyLivePartners === []): ?>
         <p class="text-sm text-gray-500">No partner has already-live link enabled. Ask Admin to turn on <strong class="text-gray-400">Allow already-live merchant link</strong> for that collect partner.</p>
         <?php else: ?>

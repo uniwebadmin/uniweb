@@ -252,6 +252,10 @@ function pgWebhookVerifyPartner(string $partner, string $rawBody, ?array $parsed
         if ($form === []) {
             $form = array_merge($_GET ?? [], $_POST ?? []);
         }
+        $payuMid = (int)($form['udf2'] ?? 0);
+        if ($payuMid > 0 && function_exists('setCollectCredentialContext')) {
+            setCollectCredentialContext($payuMid, false);
+        }
         $ok = $form !== [] && verifyPayUResponseHash($form);
         return [
             'ok' => $ok,

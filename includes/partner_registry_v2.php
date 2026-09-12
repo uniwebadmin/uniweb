@@ -920,11 +920,19 @@ function registryRowSupportsCollect(array $row): bool
     return (int)($row['supports_collection'] ?? 0) === 1;
 }
 
-/** Keys ready for checkout — same rules as Settings LIVE and routing usable count. */
-function registryPartnerKeysReadyForMode(string $partnerKey, bool $sandbox): bool
+/** Keys ready for checkout — merchant already-live LINK or platform vault. */
+function registryPartnerKeysReadyForMode(string $partnerKey, bool $sandbox, int $merchantId = 0): bool
 {
     $partnerKey = strtolower(trim($partnerKey));
     if ($partnerKey === '') {
+        return false;
+    }
+    if ($merchantId > 0 && function_exists('merchantAlreadyLiveCollectReady')
+        && merchantAlreadyLiveCollectReady($merchantId, $partnerKey, $sandbox)) {
+        return true;
+    }
+    if ($merchantId > 0 && function_exists('merchantHasAlreadyLivePayload')
+        && merchantHasAlreadyLivePayload($merchantId, $partnerKey)) {
         return false;
     }
     $env = $sandbox ? 'test' : 'live';
@@ -1216,14 +1224,17 @@ function registryPartnerSupportsCheckoutMethod(string $partnerKey, string $check
 /**
  * Full eligible() partner gate: registry method support + keys for mode + checkout UI wired.
  */
-function registryPartnerCheckoutEligible(string $partnerKey, string $checkoutMethod, bool $sandbox, ?array $gatewayRow = null): bool
+function registryPartnerCheckoutEligible(string $partnerKey, string $checkoutMethod, bool $sandbox, ?array $gatewayRow = null, int $merchantId = 0): bool
 {
     if (!registryPartnerSupportsCheckoutMethod($partnerKey, $checkoutMethod, $gatewayRow)) {
         return false;
     }
-    if (!registryPartnerKeysReadyForMode($partnerKey, $sandbox)) {
-        if (!($sandbox && function_exists('isGatewayConfigured') && isGatewayConfigured($partnerKey))) {
-            return false;
+    if (!registryPartnerKeysReadyForMode($partnerKey, $sandbox, $merchantId)) {
+        if (!($sandbox && function_exists('isCollectPartnerConfigured') && isCollectPartnerConfigured($partnerKey, $merchantId, $sandbox))) {
+            if (!($sandbox && function_exists('isGatewayConfigured') && isGatewayConfigured($partnerKey)
+                && !($merchantId > 0 && function_exists('merchantHasAlreadyLivePayload') && merchantHasAlreadyLivePayload($merchantId, $partnerKey)))) {
+                return false;
+            }
         }
     }
     return registryPartnerCheckoutUiWired($partnerKey, $checkoutMethod);

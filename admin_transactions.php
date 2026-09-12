@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/page_ux.php';
+if (!function_exists('transactionPartnerLabel') && is_file(__DIR__ . '/includes/txn_partner.php')) {
+    require_once __DIR__ . '/includes/txn_partner.php';
+}
 requireStaffAccess(['super', 'ceo', 'regional_manager', 'finance', 'ops']);
 $db = getDB();
 
@@ -65,7 +68,14 @@ if ($q !== '') {
     array_push($params, $like, $like, $like, $like, $like, $like, $like, $like, $like, $like);
 }
 if ($method !== 'all' && in_array($method, ['upi','card','netbanking','wallet','qr','razorpay','cashfree','payu'], true)) {
-    $where .= ' AND t.payment_method = ?'; $params[] = $method;
+    if (in_array($method, ['razorpay', 'cashfree', 'payu'], true)) {
+        $where .= ' AND (t.partner_key = ? OR t.payment_method = ?)';
+        $params[] = $method;
+        $params[] = $method;
+    } else {
+        $where .= ' AND t.payment_method = ?';
+        $params[] = $method;
+    }
 }
 if ($from !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) { $where .= ' AND DATE(t.created_at) >= ?'; $params[] = $from; }
 if ($to !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) { $where .= ' AND DATE(t.created_at) <= ?'; $params[] = $to; }
@@ -86,9 +96,9 @@ if ($q !== '' && preg_match('/^TXN[A-F0-9]{8,}$/i', $q)) {
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     $csvRows = [];
     foreach ($transactions as $t) {
-        $csvRows[] = [$t['txn_id'] ?? '', $t['business_name'] ?? '', $t['amount'] ?? '', $t['utr'] ?? '', $t['status'] ?? '', $t['created_at'] ?? ''];
+        $csvRows[] = [$t['txn_id'] ?? '', $t['business_name'] ?? '', function_exists('transactionPartnerLabel') ? transactionPartnerLabel((string)($t['partner_key'] ?? '')) : ($t['partner_key'] ?? ''), $t['amount'] ?? '', $t['utr'] ?? '', $t['status'] ?? '', $t['created_at'] ?? ''];
     }
-    sendCsvDownload(['Txn ID', 'Merchant', 'Amount', 'UTR', 'Status', 'Date'], $csvRows, 'admin-transactions-' . date('Y-m-d') . '.csv');
+    sendCsvDownload(['Txn ID', 'Merchant', 'Partner', 'Amount', 'UTR', 'Status', 'Date'], $csvRows, 'admin-transactions-' . date('Y-m-d') . '.csv');
 }
 $filterMerchant = null;
 if ($merchantFilter > 0) {
@@ -132,6 +142,7 @@ require_once __DIR__ . '/header.php';
         <?= uxTableCaption('Admin transaction list') ?>
         <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
             <th class="px-5 py-3 text-left">Txn ID</th><th class="px-5 py-3 text-left">Merchant</th>
+            <th class="px-5 py-3 text-left">Partner</th>
             <th class="px-5 py-3 text-left">Amount</th><th class="px-5 py-3 text-left">UTR</th>
             <th class="px-5 py-3 text-left">Status</th><th class="px-5 py-3 text-left">Actions</th>
         </tr></thead>
@@ -147,6 +158,7 @@ require_once __DIR__ . '/header.php';
                         <p class="text-xs text-sky-400 font-mono"><?= e($t['merchant_code']) ?></p>
                     </a>
                 </td>
+                <td class="px-5 py-3 text-xs text-gray-300"><?= e(function_exists('transactionPartnerLabel') ? transactionPartnerLabel((string)($t['partner_key'] ?? '')) : ((string)($t['partner_key'] ?? '') !== '' ? $t['partner_key'] : '—')) ?></td>
                 <td class="px-5 py-3 font-semibold"><?= formatMoney((float)$t['amount']) ?></td>
                 <td class="px-5 py-3 font-mono text-xs"><?= e($t['utr'] ?: '—') ?></td>
                 <td class="px-5 py-3"><?= statusBadge($t['status']) ?></td>

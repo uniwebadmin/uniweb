@@ -17,11 +17,8 @@ if (!function_exists('cryptoTimingSafeEqual') && is_file(__DIR__ . '/crypto_comp
 
 function createRazorpayOrder(float $amount, string $receipt, array $notes = []): ?array
 {
-    if (!isGatewayConfigured('razorpay')) {
-        return null;
-    }
-    $keyId = getPartnerSetting('razorpay', 'razorpay_key_id', '');
-    $keySecret = getPartnerSetting('razorpay', 'razorpay_key_secret', '');
+    $keyId = function_exists('collectPartnerSetting') ? collectPartnerSetting('razorpay', 'razorpay_key_id', '') : getPartnerSetting('razorpay', 'razorpay_key_id', '');
+    $keySecret = function_exists('collectPartnerSetting') ? collectPartnerSetting('razorpay', 'razorpay_key_secret', '') : getPartnerSetting('razorpay', 'razorpay_key_secret', '');
     if (!$keyId || !$keySecret) return null;
 
     $ch = curl_init('https://api.razorpay.com/v1/orders');
@@ -44,7 +41,7 @@ function createRazorpayOrder(float $amount, string $receipt, array $notes = []):
 
 function verifyRazorpayPayment(string $orderId, string $paymentId, string $signature): bool
 {
-    $secret = getPartnerSetting('razorpay', 'razorpay_key_secret', '');
+    $secret = function_exists('collectPartnerSetting') ? collectPartnerSetting('razorpay', 'razorpay_key_secret', '') : getPartnerSetting('razorpay', 'razorpay_key_secret', '');
     if (!$secret) return false;
     $expected = hash_hmac('sha256', $orderId . '|' . $paymentId, $secret);
     return hash_equals($expected, $signature);
@@ -52,8 +49,8 @@ function verifyRazorpayPayment(string $orderId, string $paymentId, string $signa
 
 function fetchRazorpayPayment(string $paymentId): ?array
 {
-    $keyId = getPartnerSetting('razorpay', 'razorpay_key_id', '');
-    $keySecret = getPartnerSetting('razorpay', 'razorpay_key_secret', '');
+    $keyId = function_exists('collectPartnerSetting') ? collectPartnerSetting('razorpay', 'razorpay_key_id', '') : getPartnerSetting('razorpay', 'razorpay_key_id', '');
+    $keySecret = function_exists('collectPartnerSetting') ? collectPartnerSetting('razorpay', 'razorpay_key_secret', '') : getPartnerSetting('razorpay', 'razorpay_key_secret', '');
     if (!$keyId || !$keySecret || $paymentId === '') {
         return null;
     }
@@ -81,8 +78,8 @@ function createRazorpayRefund(string $paymentId, float $amount, string $receipt)
             return null;
         }
     }
-    $keyId = getPartnerSetting('razorpay', 'razorpay_key_id', '');
-    $keySecret = getPartnerSetting('razorpay', 'razorpay_key_secret', '');
+    $keyId = function_exists('collectPartnerSetting') ? collectPartnerSetting('razorpay', 'razorpay_key_id', '') : getPartnerSetting('razorpay', 'razorpay_key_id', '');
+    $keySecret = function_exists('collectPartnerSetting') ? collectPartnerSetting('razorpay', 'razorpay_key_secret', '') : getPartnerSetting('razorpay', 'razorpay_key_secret', '');
     if (!$keyId || !$keySecret || $paymentId === '' || $amount <= 0) {
         return null;
     }
@@ -124,8 +121,8 @@ function fetchRazorpayRefund(string $paymentId, string $refundId): ?array
             return null;
         }
     }
-    $keyId = getPartnerSetting('razorpay', 'razorpay_key_id', '');
-    $keySecret = getPartnerSetting('razorpay', 'razorpay_key_secret', '');
+    $keyId = function_exists('collectPartnerSetting') ? collectPartnerSetting('razorpay', 'razorpay_key_id', '') : getPartnerSetting('razorpay', 'razorpay_key_id', '');
+    $keySecret = function_exists('collectPartnerSetting') ? collectPartnerSetting('razorpay', 'razorpay_key_secret', '') : getPartnerSetting('razorpay', 'razorpay_key_secret', '');
     if (!$keyId || !$keySecret || $paymentId === '' || $refundId === '') {
         return null;
     }
@@ -251,6 +248,11 @@ function fetchRazorpayXPayout(string $payoutId): ?array
 
 function cashfreeApiBase(): string
 {
+    if (function_exists('collectCredentialContextSandbox') && isset($GLOBALS['_uniweb_collect_ctx'])) {
+        return collectCredentialContextSandbox()
+            ? 'https://sandbox.cashfree.com/pg'
+            : 'https://api.cashfree.com/pg';
+    }
     return getPartnerEnvironment('cashfree', 'production') === 'sandbox'
         ? 'https://sandbox.cashfree.com/pg'
         : 'https://api.cashfree.com/pg';
@@ -258,11 +260,8 @@ function cashfreeApiBase(): string
 
 function createCashfreeOrder(string $orderId, float $amount, string $customerPhone, string $customerEmail, string $returnUrl, string $linkId = ''): ?array
 {
-    if (!isGatewayConfigured('cashfree')) {
-        return null;
-    }
-    $appId = cashfreeAppId();
-    $secret = cashfreeSecretKey();
+    $appId = function_exists('collectPartnerSetting') ? collectPartnerSetting('cashfree', 'cashfree_app_id', '') : cashfreeAppId();
+    $secret = function_exists('collectPartnerSetting') ? collectPartnerSetting('cashfree', 'cashfree_secret_key', '') : cashfreeSecretKey();
     if (!$appId || !$secret) return null;
 
     $phone = preg_replace('/\D/', '', $customerPhone);
@@ -304,8 +303,8 @@ function createCashfreeOrder(string $orderId, float $amount, string $customerPho
 
 function fetchCashfreeOrder(string $orderId): ?array
 {
-    $appId = cashfreeAppId();
-    $secret = cashfreeSecretKey();
+    $appId = function_exists('collectPartnerSetting') ? collectPartnerSetting('cashfree', 'cashfree_app_id', '') : cashfreeAppId();
+    $secret = function_exists('collectPartnerSetting') ? collectPartnerSetting('cashfree', 'cashfree_secret_key', '') : cashfreeSecretKey();
     if (!$appId || !$secret) return null;
 
     $ch = curl_init(cashfreeApiBase() . '/orders/' . rawurlencode($orderId));
@@ -325,8 +324,8 @@ function fetchCashfreeOrder(string $orderId): ?array
 
 function fetchCashfreeOrderPayments(string $orderId): array
 {
-    $appId = cashfreeAppId();
-    $secret = cashfreeSecretKey();
+    $appId = function_exists('collectPartnerSetting') ? collectPartnerSetting('cashfree', 'cashfree_app_id', '') : cashfreeAppId();
+    $secret = function_exists('collectPartnerSetting') ? collectPartnerSetting('cashfree', 'cashfree_secret_key', '') : cashfreeSecretKey();
     if (!$appId || !$secret || $orderId === '') {
         return [];
     }
@@ -1094,6 +1093,11 @@ function testGatewayConnection(string $gateway): array
 
 function payuBaseUrl(): string
 {
+    if (function_exists('collectCredentialContextSandbox') && isset($GLOBALS['_uniweb_collect_ctx'])) {
+        return collectCredentialContextSandbox()
+            ? 'https://test.payu.in'
+            : 'https://secure.payu.in';
+    }
     return getPartnerEnvironment('payu', 'test') === 'test'
         ? 'https://test.payu.in'
         : 'https://secure.payu.in';
@@ -1102,8 +1106,8 @@ function payuBaseUrl(): string
 function payuCredentials(): array
 {
     return [
-        'key' => function_exists('getPartnerSetting') ? getPartnerSetting('payu', 'payu_merchant_key', '') : '',
-        'salt' => function_exists('getPartnerSetting') ? getPartnerSetting('payu', 'payu_merchant_salt', '') : '',
+        'key' => function_exists('collectPartnerSetting') ? collectPartnerSetting('payu', 'payu_merchant_key', '') : (function_exists('getPartnerSetting') ? getPartnerSetting('payu', 'payu_merchant_key', '') : ''),
+        'salt' => function_exists('collectPartnerSetting') ? collectPartnerSetting('payu', 'payu_merchant_salt', '') : (function_exists('getPartnerSetting') ? getPartnerSetting('payu', 'payu_merchant_salt', '') : ''),
     ];
 }
 
@@ -1190,8 +1194,10 @@ function buildPayUSplitRequest(float $amount, array $merchant): string
 
 function buildPayUPaymentForm(array $link, array $merchant, bool $withSplit = true, string $enforcePg = '', string $txnidSuffix = '', ?float $amountOverride = null): ?array
 {
-    if (!isGatewayConfigured('payu')) {
-        return null;
+    $mid = (int)($link['merchant_id'] ?? $merchant['merchant_id'] ?? $merchant['id'] ?? 0);
+    $sandbox = !empty($link['is_test']) || (function_exists('merchantAccountMode') && merchantAccountMode($merchant === [] ? $link : $merchant) === 'test');
+    if ($mid > 0 && function_exists('setCollectCredentialContext')) {
+        setCollectCredentialContext($mid, $sandbox);
     }
     $c = payuCredentials();
     if (!$c['key'] || !$c['salt']) return null;

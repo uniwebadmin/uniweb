@@ -1254,6 +1254,155 @@ function setMerchantAlreadyLiveCheckoutEnabled(int $merchantId, string $partnerK
 }
 
 /**
+ * Decrypt already-live merchant keys. Never logs secrets.
+ *
+ * @return array<string,mixed>
+ */
+function decryptMerchantPartnerLinkCredentials(?array $link): array
+{
+    if (!$link || trim((string)($link['encrypted_payload'] ?? '')) === '') {
+        return [];
+    }
+    $raw = function_exists('sensitiveDecrypt')
+        ? (string)sensitiveDecrypt((string)$link['encrypted_payload'])
+        : (string)base64_decode((string)$link['encrypted_payload']);
+    $decoded = json_decode($raw, true);
+    return is_array($decoded) ? $decoded : [];
+}
+
+function merchantHasAlreadyLivePayload(int $merchantId, string $partnerKey): bool
+{
+    $link = getMerchantPartnerLinkRow($merchantId, $partnerKey);
+    return $link !== null && trim((string)($link['encrypted_payload'] ?? '')) !== '';
+}
+
+/**
+ * Merchant-owned LINK is allowed to collect: checkout ON + Valid (or override) + env matches Test/Live.
+ */
+function merchantAlreadyLiveCollectReady(int $merchantId, string $partnerKey, bool $sandbox): bool
+{
+    $link = getMerchantPartnerLinkRow($merchantId, $partnerKey);
+    if (!$link || trim((string)($link['encrypted_payload'] ?? '')) === '') {
+        return false;
+    }
+    if ((int)($link['checkout_enabled'] ?? 0) !== 1) {
+        return false;
+    }
+    $status = strtolower(trim((string)($link['credential_status'] ?? '')));
+    $override = (int)($link['owner_override'] ?? 0) === 1;
+    if ($status !== 'valid' && !$override) {
+        return false;
+    }
+    $linkEnv = strtolower(trim((string)($link['env'] ?? 'test')));
+    $linkLive = in_array($linkEnv, ['live', 'production'], true);
+    if ($sandbox && $linkLive) {
+        return false;
+    }
+    if (!$sandbox && !$linkLive) {
+        return false;
+    }
+    return decryptMerchantPartnerLinkCredentials($link) !== [];
+}
+
+/**
+ * Collect credentials: merchant LINK when they enabled checkout, else platform vault.
+ * If the merchant has a LINK payload for this partner, never fall back to UniWeb platform keys.
+ *
+ * @return array<string,mixed>
+ */
+function resolveCollectPartnerCredentials(int $merchantId, string $partnerKey, bool $sandbox): array
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    if ($partnerKey === '') {
+        return [];
+    }
+    if ($merchantId > 0 && merchantHasAlreadyLivePayload($merchantId, $partnerKey)) {
+        if (!merchantAlreadyLiveCollectReady($merchantId, $partnerKey, $sandbox)) {
+            return [];
+        }
+        $creds = decryptMerchantPartnerLinkCredentials(getMerchantPartnerLinkRow($merchantId, $partnerKey));
+        if ($creds === []) {
+            return [];
+        }
+        $creds['_source'] = 'merchant_link';
+        return $creds;
+    }
+    $env = $sandbox ? 'test' : 'live';
+    $creds = getPartnerCredentials($partnerKey, $env);
+    if ($creds === [] && $env === 'live') {
+        $creds = getPartnerCredentials($partnerKey, 'production');
+    }
+    if ($creds === []) {
+        $creds = getPartnerCredentials($partnerKey, 'test');
+    }
+    if ($creds === []) {
+        return [];
+    }
+    $creds['_source'] = 'platform';
+    return $creds;
+}
+
+function getCollectPartnerSetting(int $merchantId, string $partnerKey, string $keyName, string $default = '', bool $sandbox = false): string
+{
+    if ($merchantId < 1) {
+        return getPartnerSetting($partnerKey, $keyName, $default);
+    }
+    $creds = resolveCollectPartnerCredentials($merchantId, $partnerKey, $sandbox);
+    if ($creds === []) {
+        return $default;
+    }
+    $resolved = resolvePartnerCredentialValue($creds, $partnerKey, $keyName);
+    if ($resolved !== '') {
+        return $resolved;
+    }
+    return $default;
+}
+
+function setCollectCredentialContext(int $merchantId, bool $sandbox): void
+{
+    $GLOBALS['_uniweb_collect_ctx'] = [
+        'merchant_id' => max(0, $merchantId),
+        'sandbox' => $sandbox,
+    ];
+}
+
+function clearCollectCredentialContext(): void
+{
+    unset($GLOBALS['_uniweb_collect_ctx']);
+}
+
+/**
+ * Read a partner key for the current collect request (merchant LINK or platform vault).
+ */
+function collectPartnerSetting(string $partnerKey, string $keyName, string $default = ''): string
+{
+    $ctx = $GLOBALS['_uniweb_collect_ctx'] ?? null;
+    $mid = is_array($ctx) ? (int)($ctx['merchant_id'] ?? 0) : 0;
+    if ($mid < 1) {
+        return getPartnerSetting($partnerKey, $keyName, $default);
+    }
+    return getCollectPartnerSetting($mid, $partnerKey, $keyName, $default, !empty($ctx['sandbox']));
+}
+
+function collectCredentialContextSandbox(): bool
+{
+    $ctx = $GLOBALS['_uniweb_collect_ctx'] ?? null;
+    return is_array($ctx) && !empty($ctx['sandbox']);
+}
+
+function isCollectPartnerConfigured(string $partnerKey, int $merchantId = 0, ?bool $sandbox = null): bool
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    if ($merchantId > 0 && merchantHasAlreadyLivePayload($merchantId, $partnerKey)) {
+        if ($sandbox === null) {
+            $sandbox = collectCredentialContextSandbox();
+        }
+        return merchantAlreadyLiveCollectReady($merchantId, $partnerKey, (bool)$sandbox);
+    }
+    return function_exists('isGatewayConfigured') && isGatewayConfigured($partnerKey);
+}
+
+/**
  * Get reason map for a partner + error code.
  */
 function getReasonMap(string $partnerKey, string $rawCode): ?array

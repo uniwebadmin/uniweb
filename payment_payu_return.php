@@ -34,6 +34,10 @@ if (!$link) {
     exit;
 }
 
+if (function_exists('setCollectCredentialContext')) {
+    $payuSandbox = !empty($link['is_test']) || strtolower((string)($link['account_mode'] ?? '')) === 'test';
+    setCollectCredentialContext((int)$link['merchant_id'], $payuSandbox);
+}
 $verified = verifyPayUResponseHash($post);
 $success = $verified && in_array($status, ['success', 'successful'], true);
 

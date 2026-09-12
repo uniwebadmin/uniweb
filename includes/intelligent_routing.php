@@ -244,7 +244,16 @@ function intelligentTryPayUCheckoutForm(array $link, float $amount, string $chec
     if (!function_exists('buildPayUPaymentForm')) {
         require_once __DIR__ . '/gateways.php';
     }
-    if (!isGatewayConfigured('payu')) {
+    if (function_exists('isCollectPartnerConfigured')) {
+        $mid = (int)($link['merchant_id'] ?? 0);
+        $sandbox = !empty($link['is_test']);
+        if ($mid > 0 && function_exists('setCollectCredentialContext')) {
+            setCollectCredentialContext($mid, $sandbox);
+        }
+        if (!isCollectPartnerConfigured('payu', $mid, $sandbox)) {
+            return ['ok' => false, 'detail' => 'not_configured'];
+        }
+    } elseif (!isGatewayConfigured('payu')) {
         return ['ok' => false, 'detail' => 'not_configured'];
     }
     if (function_exists('isCircuitBreakerAllowed') && !isCircuitBreakerAllowed('payu')) {
@@ -732,7 +741,14 @@ function createCardOrderWithIntelligentRouting(float $amount, array $link, strin
         if ($gw === 'payu') {
             return intelligentTryPayUCheckoutForm($link, $amount, $checkoutPayKey, $withPayuSplit, $payuEnforcePg);
         }
-        if (!isGatewayConfigured($gw)) {
+        $mid = (int)($link['merchant_id'] ?? 0);
+        $sandbox = !empty($link['is_test']);
+        if (function_exists('setCollectCredentialContext') && $mid > 0) {
+            setCollectCredentialContext($mid, $sandbox);
+        }
+        if (function_exists('isCollectPartnerConfigured')
+            ? !isCollectPartnerConfigured($gw, $mid, $sandbox)
+            : !isGatewayConfigured($gw)) {
             return ['ok' => false, 'detail' => 'not_configured'];
         }
         if ($cbAvailable && !isCircuitBreakerAllowed($gw)) {
