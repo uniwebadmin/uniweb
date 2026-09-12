@@ -125,6 +125,20 @@ $overall = $health['operational'] && !$health['maintenance'] && empty($openIncid
         <p><strong class="text-gray-300">Merchant Dashboard:</strong> Available</p>
         <p><strong class="text-gray-300">Settlement ledger:</strong> Internal tracking; bank payout depends on activated rail</p>
         <p><strong class="text-gray-300">Platform version:</strong> v<?= e($health['version']) ?></p>
+        <?php
+        if (!function_exists('uniwebPublicCodeProof') && is_file(__DIR__ . '/includes/deploy_meta.php')) {
+            require_once __DIR__ . '/includes/deploy_meta.php';
+        }
+        $codeProof = function_exists('uniwebPublicCodeProof') ? uniwebPublicCodeProof() : ['already_live_link' => false, 'file_time' => ''];
+        ?>
+        <p><strong class="text-gray-300">Server code:</strong>
+            <?= !empty($codeProof['already_live_link'])
+                ? 'Already-live LINK collect is on this server'
+                : 'Already-live LINK collect helper missing — this server still has an older file' ?>
+            <?php if (!empty($codeProof['file_time'])): ?>
+            · file <?= e($codeProof['file_time']) ?> IST
+            <?php endif; ?>
+        </p>
         <p class="text-xs text-gray-600 pt-2">For payment issues contact <?= e(COMPANY_SUPPORT_EMAIL) ?> · <?= e(COMPANY_PHONE) ?></p>
     </div>
 </section>

@@ -2300,6 +2300,8 @@ $openapiRaw = (string)file_get_contents($root . '/openapi.json');
 $assert(str_contains($openapiRaw, '/api_qr_create.php') && str_contains($openapiRaw, 'Idempotency-Key'), 'risk48_openapi_qr_live_path');
 $deployMetaSrc = (string)file_get_contents($root . '/includes/deploy_meta.php');
 $assert(str_contains($deployMetaSrc, 'uniwebDeployMeta') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'uniwebDeployMeta'), 'risk49_deploy_version_banner');
+$assert(str_contains($deployMetaSrc, 'function uniwebPublicCodeProof') && str_contains((string)file_get_contents($root . '/status.php'), 'Already-live LINK collect is on this server'), 'public_status_shows_server_code_proof');
+$assert(str_contains((string)file_get_contents($root . '/index.php'), 'These counts stay 0 until the first verified Live payment'), 'homepage_live_zeros_are_honest');
 $assert(str_contains($deployMetaSrc, 'uniwebPendingMigrationCount') && str_contains((string)file_get_contents($root . '/admin_dashboard.php'), 'pendingMigrations'), 'risk50_pending_migrations_banner');
 $assert(str_contains((string)file_get_contents($root . '/includes/platform_health.php'), 'settlement_cron') && str_contains((string)file_get_contents($root . '/admin_platform_status.php'), 'platformHealthSummary'), 'risk51_cron_stale_platform_status');
 $assert(str_contains((string)file_get_contents($root . '/includes/mailer.php'), 'notifyChannelWasSent') || str_contains((string)file_get_contents($root . '/gateway_settings.php'), 'SMTP'), 'risk52_smtp_notify_path');

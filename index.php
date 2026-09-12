@@ -41,6 +41,7 @@ require_once __DIR__ . '/header.php';
             <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= number_format($publicStats['partners'] ?? 0) ?></div><div class="text-xs text-gray-500 mt-1">Live Partners</div></div>
             <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= number_format($publicStats['transactions']) ?></div><div class="text-xs text-gray-500 mt-1">Verified Live Payments</div></div>
         </div>
+        <p class="text-center text-[11px] text-gray-600 mt-3">These counts stay 0 until the first verified Live payment. Test Mode is not counted.</p>
         <p class="text-center text-xs text-gray-600 mt-6"><a href="trust.php" class="text-sky-400 hover:underline">Trust centre</a> · <a href="status.php" class="text-sky-400 hover:underline">System status</a> · <a href="api_docs.php" class="text-sky-400 hover:underline">API docs</a></p>
     </div>
 </section>

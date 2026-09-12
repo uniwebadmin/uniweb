@@ -25,8 +25,36 @@ function uniwebDeployMeta(): array
         }
     }
     $label = $version . ($commit !== '' ? '+' . $commit : '');
-    $cache = ['version' => $version, 'commit' => $commit, 'label' => $label];
+    $proof = uniwebPublicCodeProof();
+    if ($commit === '' && !empty($proof['file_time'])) {
+        $label .= ' · files ' . $proof['file_time'];
+    }
+    $cache = ['version' => $version, 'commit' => $commit, 'label' => $label, 'proof' => $proof];
     return $cache;
+}
+
+/**
+ * Public proof that this server actually has the current collect/LINK code.
+ * Hostinger often has no .git folder, so APP_VERSION in live config.php never moves.
+ *
+ * @return array{already_live_link:bool,file_time:string}
+ */
+function uniwebPublicCodeProof(): array
+{
+    $file = dirname(__DIR__) . '/includes/partner_control.php';
+    $fileTime = '';
+    if (is_file($file)) {
+        $fileTime = date('d M Y, H:i', (int)filemtime($file));
+    }
+    $hasLink = function_exists('merchantHasCollectPgReady');
+    if (!$hasLink && is_file($file)) {
+        $src = (string)file_get_contents($file);
+        $hasLink = str_contains($src, 'function merchantHasCollectPgReady');
+    }
+    return [
+        'already_live_link' => $hasLink,
+        'file_time' => $fileTime,
+    ];
 }
 
 /** Count pending SQL/PHP migrations (081+ etc.). */
