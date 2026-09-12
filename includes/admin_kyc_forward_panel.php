@@ -192,14 +192,24 @@ $chipStatuses = [
                         <?php endif; ?>
                         <a href="<?= e($forwardChipHref(['item_id' => (int)$row['id']])) ?>" class="text-xs text-sky-400 hover:text-sky-300 ml-2">Timeline</a>
                         <?php if (isSuperAdmin()): ?>
-                        <form method="POST" action="<?= e($kycForwardPanelPostUrl) ?>" class="inline mt-1">
-                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                            <input type="hidden" name="action" value="partner_inbound_log">
-                            <input type="hidden" name="item_id" value="<?= (int)$row['id'] ?>">
-                            <input type="hidden" name="event_type" value="need_info">
-                            <input type="hidden" name="note" value="Partner requested more documents (manual log)">
-                            <button type="submit" class="text-xs text-violet-400 hover:text-violet-300 ml-2" title="Quick log need_info for merchant">Log need docs</button>
-                        </form>
+                        <details class="inline-block mt-1 ml-2 align-top">
+                            <summary class="text-xs text-violet-400 hover:text-violet-300 cursor-pointer">Log need docs</summary>
+                            <form method="POST" action="<?= e($kycForwardPanelPostUrl) ?>" class="mt-2 p-2 rounded-lg border border-violet-500/20 bg-dark-900/80 space-y-1 min-w-[220px]">
+                                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                <input type="hidden" name="action" value="partner_inbound_log">
+                                <input type="hidden" name="item_id" value="<?= (int)$row['id'] ?>">
+                                <label class="block text-[10px] text-gray-500">Type</label>
+                                <select name="event_type" class="w-full text-xs rounded-md bg-dark-800 border border-gray-700 text-gray-200 px-2 py-1">
+                                    <option value="need_info" selected>Need more documents</option>
+                                    <option value="partner_query">Partner query</option>
+                                    <option value="partner_reply">Partner reply</option>
+                                    <option value="reject">Reject</option>
+                                </select>
+                                <label class="block text-[10px] text-gray-500">Note</label>
+                                <textarea name="note" required rows="2" class="w-full text-xs rounded-md bg-dark-800 border border-gray-700 text-gray-200 px-2 py-1" placeholder="What the partner asked"></textarea>
+                                <button type="submit" class="text-xs text-violet-300 hover:text-violet-200">Save log</button>
+                            </form>
+                        </details>
                         <?php endif; ?>
                     </td>
                 </tr>

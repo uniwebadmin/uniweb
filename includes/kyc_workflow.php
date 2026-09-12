@@ -286,6 +286,16 @@ function forwardMerchantToPartnersNow(int $merchantId, string $source = 'admin_m
     return ['ok' => true, 'forward' => $forward];
 }
 
+/** Map verify actor string to partner_forward_queue.forward_source. Auto KYC uses kyc_verify, not auto_kyc. */
+function kycForwardSourceFromVerifyActor(string $source): string
+{
+    $source = strtolower(trim($source));
+    if ($source === 'admin_manual' || str_contains($source, 'manual_forward')) {
+        return 'admin_manual';
+    }
+    return 'kyc_verify';
+}
+
 /**
  * Single canonical KYC verify + forward enqueue (manual, auto, checker).
  *
@@ -296,7 +306,7 @@ function completeMerchantKycVerification(int $merchantId, string $source, string
     $source = trim($source) !== '' ? trim($source) : 'system';
     $report = merchantKycReadinessReport($merchantId);
     if (!empty($report['already_verified'])) {
-        advanceMerchantForwardAfterVerify($merchantId);
+        advanceMerchantForwardAfterVerify($merchantId, kycForwardSourceFromVerifyActor($source));
         return ['ok' => true, 'already' => true];
     }
     if (empty($report['ok'])) {
@@ -345,7 +355,7 @@ function completeMerchantKycVerification(int $merchantId, string $source, string
 
     merchant_transition($merchantId, 'queue_forward', 'Enqueued for partner forward');
 
-    advanceMerchantForwardAfterVerify($merchantId);
+    advanceMerchantForwardAfterVerify($merchantId, kycForwardSourceFromVerifyActor($source));
 
     if (function_exists('recordImmutableAudit')) {
         recordImmutableAudit(

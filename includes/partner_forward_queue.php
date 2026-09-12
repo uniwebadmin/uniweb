@@ -16,12 +16,13 @@ if (is_file(__DIR__ . '/release_helpers.php')) {
  *   queued / processing / retry / paused — worker pipeline (not at partner yet)
  *   staged — UniWeb saved package only (`local_record` adapter); partner API NOT success
  *   waiting_keys — partner selected but keys/connector not ready; never sent
- *   success — partner API acknowledged (live adapter only; never from local_record alone)
+ *   success — partner API acknowledged (live adapter only; never from local_record or sandbox stub)
  *   failed — partner reject, timeout, or max retries exhausted
  *   cancelled / paused — manual ops stop
  *
  * Adapter sub-modes (stored in partner_response JSON, not a separate DB status):
  *   local_record — gateway_submissions + API log on UniWeb; row stays `staged`
+ *   sandbox_stub — test-key stub ACK; row stays `staged`; never counts as live network
  *   live_api     — real partner KYC/onboarding HTTP; may set `success` when ACK received
  *
  * Retry policy (no infinite silent retry):
@@ -93,6 +94,21 @@ function forwardQueueRowAdapterMode(array $row): string
         return '';
     }
     return (string)($decoded['adapter'] ?? $decoded['mode'] ?? '');
+}
+
+/** True when partner_response is a sandbox stub — never treat as live partner ACK. */
+function forwardQueueRowIsSandboxStub(array $row): bool
+{
+    $adapter = forwardQueueRowAdapterMode($row);
+    if ($adapter === 'sandbox_stub') {
+        return true;
+    }
+    $raw = (string)($row['partner_response'] ?? '');
+    if ($raw === '') {
+        return false;
+    }
+    $decoded = json_decode($raw, true);
+    return is_array($decoded) && !empty($decoded['sandbox']);
 }
 
 if (!function_exists('ensurePartnerForwardQueueTable')) {
@@ -664,12 +680,16 @@ function processPerPartnerForwardQueue(int $limit = 20, ?int $merchantId = null,
 
             $result = pushPackageToPartner($partnerKey, $merchantId, $payload);
 
-            // Fail-closed: local_record / staged adapters must never mark success.
-            if (!empty($result['success']) && (!empty($result['staged']) || ($result['adapter'] ?? '') === 'local_record')) {
+            // Fail-closed: local_record / staged / sandbox stub must never mark success.
+            $resultAdapter = (string)($result['adapter'] ?? '');
+            $fakeLiveAck = !empty($result['staged'])
+                || !empty($result['sandbox'])
+                || in_array($resultAdapter, ['local_record', 'sandbox_stub', 'none'], true);
+            if (!empty($result['success']) && $fakeLiveAck) {
                 $result['success'] = false;
                 $result['staged'] = true;
                 if (empty($result['message'])) {
-                    $result['message'] = 'Local record only — not partner API acceptance.';
+                    $result['message'] = 'Local/sandbox record only — not partner API acceptance.';
                 }
             }
 
@@ -924,15 +944,16 @@ function forwardQueuePushLiveApi(string $partnerKey, int $merchantId, array $ful
             'sandbox_stub',
             $ref,
             200,
-            'ok'
+            'stub'
         );
     }
     return [
-        'success' => true,
-        'adapter' => 'live_api',
+        'success' => false,
+        'staged' => true,
+        'adapter' => 'sandbox_stub',
         'sandbox' => true,
         'reference' => $ref,
-        'message' => 'Sandbox partner KYC forward acknowledged (test keys).',
+        'message' => 'Sandbox test ACK — not live network. Partner did not accept KYC.',
     ];
 }
 
@@ -953,7 +974,7 @@ function getKycForwardAdapterRegistry(): array
         $label = (string)($registry[$partnerKey]['name'] ?? ucfirst($partnerKey));
         $mode = kycForwardAdapterModeForPartner($partnerKey);
         $modeLabel = match ($mode) {
-            'live_api' => 'sandbox live_api stub',
+            'live_api' => 'sandbox stub (not live ACK)',
             'waiting_keys' => 'waiting for keys',
             default => 'local_record',
         };
@@ -1012,7 +1033,9 @@ function runKycForwardAdapter(string $partnerKey, int $merchantId, array $fullPa
     if ($adapterMode === 'live_api' && function_exists('forwardQueuePushLiveApi')) {
         $live = forwardQueuePushLiveApi($partnerKey, $merchantId, $fullPayload);
         if (is_array($live)) {
-            $live['adapter'] = 'live_api';
+            if (empty($live['adapter'])) {
+                $live['adapter'] = 'live_api';
+            }
             return $live;
         }
     }
@@ -1176,6 +1199,15 @@ function merchantForwardQueueStatusLabel(string $status): string
     };
 }
 
+/** Merchant-safe label from the full queue row (sandbox stub is never “accepted”). */
+function merchantForwardQueueStatusLabelForRow(array $row): string
+{
+    if (forwardQueueRowIsSandboxStub($row)) {
+        return 'Sandbox test ACK — not live network';
+    }
+    return merchantForwardQueueStatusLabel((string)($row['status'] ?? ''));
+}
+
 /** Admin matrix — honest labels; success only when partner API confirmed. */
 function forwardQueueAdminStatusLabel(string $status): string
 {
@@ -1191,6 +1223,12 @@ function forwardQueueAdminStatusBadge(array $row): string
     $adapter = forwardQueueRowAdapterMode($row);
     if ($status === 'staged' && $adapter === 'local_record') {
         return $label . ' · local_record';
+    }
+    if ($status === 'staged' && ($adapter === 'sandbox_stub' || forwardQueueRowIsSandboxStub($row))) {
+        return $label . ' · sandbox_stub';
+    }
+    if ($status === 'success' && forwardQueueRowIsSandboxStub($row)) {
+        return 'Staged — sandbox stub (not live ACK)';
     }
     if ($status === 'success' && $adapter === 'live_api') {
         return $label . ' · live_api';
@@ -1209,8 +1247,11 @@ function forwardQueueStatusPill(array $row): string
     }
     $status = (string)($row['status'] ?? '');
     $adapter = forwardQueueRowAdapterMode($row);
-    if ($status === 'staged' || $status === 'waiting_keys' || ($status === 'success' && $adapter === 'local_record')) {
-        return uiCapabilityPill(CapabilityState::PARKED, forwardQueueAdminStatusBadge($row));
+    $sandboxStub = forwardQueueRowIsSandboxStub($row);
+    if ($sandboxStub || $status === 'staged' || $status === 'waiting_keys' || ($status === 'success' && $adapter === 'local_record')) {
+        $pillState = $sandboxStub ? CapabilityState::STUB : CapabilityState::PARKED;
+        $hint = $sandboxStub ? 'STUB — sandbox test ACK (not live)' : forwardQueueAdminStatusBadge($row);
+        return uiCapabilityPill($pillState, $hint);
     }
     if ($status === 'success' && $adapter === 'live_api') {
         return uiCapabilityPill(CapabilityState::LIVE, 'Partner API confirmed');
@@ -1293,7 +1334,7 @@ function getMerchantForwardStatus(int $merchantId): array
     try {
         $st = getDB()->prepare(
             "SELECT partner_key, status, attempts, schedule_at, last_attempt_at, error_message, partner_reference,
-                    forward_source, partner_inbound_status, partner_inbound_message, partner_inbound_at, updated_at
+                    partner_response, forward_source, partner_inbound_status, partner_inbound_message, partner_inbound_at, updated_at
              FROM partner_forward_queue
              WHERE merchant_id=?
              ORDER BY updated_at DESC, created_at DESC"
@@ -1312,7 +1353,7 @@ function getForwardQueueNeedsActionCount(): int
         $st = getDB()->query(
             "SELECT COUNT(*) FROM partner_forward_queue
              WHERE status IN ('queued','processing','waiting_keys','retry','failed')
-                OR (forward_source IN ('kyc_verify','admin_manual','auto_kyc') AND status IN ('staged','success') AND updated_at >= DATE_SUB(NOW(), INTERVAL 60 DAY))"
+                OR (forward_source IN ('kyc_verify','admin_manual','auto_kyc') AND status IN ('staged') AND updated_at >= DATE_SUB(NOW(), INTERVAL 60 DAY))"
         );
         return (int)$st->fetchColumn();
     } catch (Throwable $e) {
@@ -1379,7 +1420,7 @@ function getAdminForwardMatrix(string $statusFilter = '', string $q = '', string
             $params[] = $statusFilter;
         } elseif ($viewFilter === 'active') {
             $conditions[] = "(q.status IN ('queued','processing','waiting_keys','retry','failed')
-                OR (q.forward_source IN ('kyc_verify','admin_manual','auto_kyc') AND q.status IN ('staged','success') AND q.updated_at >= DATE_SUB(NOW(), INTERVAL 60 DAY)))";
+                OR (q.forward_source IN ('kyc_verify','admin_manual','auto_kyc') AND q.status IN ('staged') AND q.updated_at >= DATE_SUB(NOW(), INTERVAL 60 DAY)))";
         } elseif ($viewFilter === 'legacy_sync') {
             $conditions[] = "q.forward_source = 'gateway_sync' AND q.status = 'staged'";
         }

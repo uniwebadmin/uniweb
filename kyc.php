@@ -538,14 +538,28 @@ $docStatusMeta = static function (string $status): array {
                     </div>
                     <div class="text-right">
                         <span class="text-[10px] px-2 py-0.5 rounded-full <?= $cr['status'] === 'docs_ready' ? 'bg-emerald-500/20 text-emerald-400' : ($cr['status'] === 'docs_incomplete' ? 'bg-amber-500/15 text-amber-300' : 'bg-gray-700/50 text-gray-400') ?>"><?= e($cr['status_label']) ?></span>
-                        <?php if (!empty($cr['checkout_enabled'])): ?>
-                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">Active</span>
+                        <?php
+                        $covPartnerKey = strtolower((string)($cr['partner_key'] ?? ''));
+                        $covFwdLive = false;
+                        foreach ($forwardStatus as $covFwd) {
+                            if (strtolower((string)($covFwd['partner_key'] ?? '')) !== $covPartnerKey) {
+                                continue;
+                            }
+                            $covFwdLive = (string)($covFwd['status'] ?? '') === 'success'
+                                && (!function_exists('forwardQueueRowIsSandboxStub') || !forwardQueueRowIsSandboxStub($covFwd));
+                            break;
+                        }
+                        if (!empty($cr['checkout_enabled'])): ?>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full <?= $covFwdLive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-sky-500/15 text-sky-300' ?>"><?= $covFwdLive ? 'Active' : 'Enabled (docs only)' ?></span>
                         <?php endif; ?>
                         <p class="text-[11px] text-gray-500 mt-1"><?= (int)$cr['present'] ?>/<?= (int)$cr['total'] ?></p>
                     </div>
                 </div>
                 <?php if (!empty($cr['linked_valid'])): ?>
                 <p class="text-[11px] text-sky-300 mb-2">Already-live keys Valid — enable does not need this pack complete.</p>
+                <?php endif; ?>
+                <?php if (!empty($cr['honest_note']) && empty($covFwdLive)): ?>
+                <p class="text-[11px] text-gray-500 mb-2"><?= e((string)$cr['honest_note']) ?></p>
                 <?php endif; ?>
                 <ul class="text-xs space-y-1 mb-3">
                     <?php foreach ($cr['items'] as $it): ?>
@@ -787,7 +801,9 @@ $docStatusMeta = static function (string $status): array {
                             'retry' => 'text-amber-400',
                             'failed' => 'text-red-400',
                         ];
-                        $statusLabel = merchantForwardQueueStatusLabel((string)($fwd['status'] ?? 'pending'));
+                        $statusLabel = function_exists('merchantForwardQueueStatusLabelForRow')
+                            ? merchantForwardQueueStatusLabelForRow($fwd)
+                            : merchantForwardQueueStatusLabel((string)($fwd['status'] ?? 'pending'));
                         ?>
                         <span class="font-medium <?= e($statusColors[$fwd['status'] ?? ''] ?? 'text-gray-400') ?>"><?= e($statusLabel) ?></span>
                     </div>
