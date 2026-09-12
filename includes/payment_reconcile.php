@@ -259,9 +259,12 @@ function resolveManualReconcileTransactionRef(string $ref): ?array
     return null;
 }
 
-function partnerGatewayConfigured(string $provider): bool
+function partnerGatewayConfigured(string $provider, int $merchantId = 0, ?bool $sandbox = null): bool
 {
     $provider = strtolower(trim($provider));
+    if (function_exists('isCollectPartnerConfigured')) {
+        return isCollectPartnerConfigured($provider, $merchantId, $sandbox);
+    }
     return function_exists('isGatewayConfigured') && isGatewayConfigured($provider);
 }
 
@@ -280,7 +283,12 @@ function partnerPollPayloadForPaymentOrder(array $order, ?string $hintPaymentId 
     if ($provider === '' || $providerOrderId === '') {
         return null;
     }
-    if (!partnerGatewayConfigured($provider)) {
+    if (function_exists('bindCollectContextFromOrderRow')) {
+        bindCollectContextFromOrderRow($order);
+    }
+    $mid = (int)($order['merchant_id'] ?? 0);
+    $sandbox = strtolower((string)($order['mode'] ?? '')) === 'test';
+    if (!partnerGatewayConfigured($provider, $mid, $sandbox)) {
         return null;
     }
 
@@ -539,8 +547,13 @@ function manualReconcileTransaction(string $ref, int $adminId = 0): array
     if ($provider === '') {
         $provider = strtolower(trim((string)$order['provider']));
     }
-    if (!partnerGatewayConfigured($provider)) {
-        return ['ok' => false, 'error' => ucfirst($provider) . ' keys not configured — paste keys in Partner Registry before Reconcile.'];
+    if (function_exists('bindCollectContextFromOrderRow')) {
+        bindCollectContextFromOrderRow($order);
+    }
+    $mid = (int)($order['merchant_id'] ?? $txn['merchant_id'] ?? 0);
+    $sandbox = strtolower((string)($order['mode'] ?? '')) === 'test';
+    if (!partnerGatewayConfigured($provider, $mid, $sandbox)) {
+        return ['ok' => false, 'error' => ucfirst($provider) . ' keys not configured — paste Partner Registry keys, or LINK the merchant already-live account and Enable for checkout.'];
     }
 
     $payload = partnerPollPayloadForPaymentOrder($order, trim((string)($txn['utr'] ?? '')));

@@ -26,6 +26,18 @@ function webhookRetryWithReconcileSource(string $source, callable $fn): bool
     }
 }
 
+function webhookRetryBindCollectContext(string $partner, array $payload): void
+{
+    if (!function_exists('pgWebhookBindCollectContext') && is_file(__DIR__ . '/pg_webhooks.php')) {
+        require_once __DIR__ . '/pg_webhooks.php';
+    }
+    if (!function_exists('pgWebhookBindCollectContext')) {
+        return;
+    }
+    $raw = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?: '';
+    pgWebhookBindCollectContext($partner, $raw, $partner === 'payu' ? $payload : null);
+}
+
 /** Inbound partner webhook retry policy (internal queue — webhook_events). */
 const WEBHOOK_INBOUND_MAX_RETRIES = 5;
 const WEBHOOK_INBOUND_RETRY_DELAY_CAP_MINUTES = 60;
@@ -285,6 +297,7 @@ function dispatchWebhookRetry(string $gateway, array $payload, string $eventId, 
  */
 function retryRazorpayWebhook(array $payload, string $eventType): bool
 {
+    webhookRetryBindCollectContext('razorpay', $payload);
     $entity = $payload['payload']['payment']['entity'] ?? $payload['payload']['order']['entity'] ?? [];
     $paymentId = (string)($entity['id'] ?? '');
     $refundEntity = $payload['payload']['refund']['entity'] ?? [];
@@ -387,6 +400,7 @@ function retryRazorpayWebhook(array $payload, string $eventType): bool
  */
 function retryCashfreeWebhook(array $payload, string $eventType): bool
 {
+    webhookRetryBindCollectContext('cashfree', $payload);
     $data = $payload['data'] ?? $payload;
     $order = $data['order'] ?? $data;
     $payment = $data['payment'] ?? [];
@@ -457,6 +471,7 @@ function retryCashfreeWebhook(array $payload, string $eventType): bool
  */
 function retryPayUWebhook(array $post): bool
 {
+    webhookRetryBindCollectContext('payu', $post);
     $status = strtolower((string)($post['status'] ?? ''));
     $reference = (string)($post['mihpayid'] ?? $post['txnid'] ?? '');
     $amount = (float)($post['amount'] ?? 0);

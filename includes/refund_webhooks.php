@@ -72,7 +72,7 @@ function applyPartnerRefundWebhookEvent(string $provider, array $context): array
     $refund = false;
     if ($providerRefundId !== '') {
         $st = $db->prepare(
-            "SELECT r.*, t.utr AS payment_id, t.txn_id
+            "SELECT r.*, t.utr AS payment_id, t.txn_id, t.merchant_id AS txn_merchant_id, t.is_test
              FROM refunds r
              JOIN transactions t ON t.id = r.transaction_id
              WHERE r.provider = ? AND (r.provider_refund_id = ? OR r.refund_id = ?)
@@ -83,7 +83,7 @@ function applyPartnerRefundWebhookEvent(string $provider, array $context): array
     }
     if (!$refund && $localRefundId !== '') {
         $st = $db->prepare(
-            "SELECT r.*, t.utr AS payment_id, t.txn_id
+            "SELECT r.*, t.utr AS payment_id, t.txn_id, t.merchant_id AS txn_merchant_id, t.is_test
              FROM refunds r
              JOIN transactions t ON t.id = r.transaction_id
              WHERE r.refund_id = ?
@@ -101,6 +101,11 @@ function applyPartnerRefundWebhookEvent(string $provider, array $context): array
     }
     if (($refund['status'] ?? '') === 'failed' && $terminalHint !== 'failed') {
         return ['ok' => true, 'duplicate' => true, 'status' => 'failed'];
+    }
+
+    $refundMid = (int)($refund['txn_merchant_id'] ?? $refund['merchant_id'] ?? 0);
+    if ($refundMid > 0 && function_exists('setCollectCredentialContext')) {
+        setCollectCredentialContext($refundMid, !empty($refund['is_test']));
     }
 
     $verified = verifyPartnerRefundStatus($provider, $refund, $providerRefundId ?: (string)($refund['provider_refund_id'] ?? ''));

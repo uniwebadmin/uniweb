@@ -1408,6 +1408,20 @@ function setCollectCredentialContext(int $merchantId, bool $sandbox): void
     ];
 }
 
+/** Bind collect keys from a payment_orders (or similar) row — poll / retry / refund. */
+function bindCollectContextFromOrderRow(?array $order): bool
+{
+    if (!is_array($order)) {
+        return false;
+    }
+    $mid = (int)($order['merchant_id'] ?? 0);
+    if ($mid < 1) {
+        return false;
+    }
+    setCollectCredentialContext($mid, strtolower((string)($order['mode'] ?? '')) === 'test');
+    return true;
+}
+
 function clearCollectCredentialContext(): void
 {
     unset($GLOBALS['_uniweb_collect_ctx']);

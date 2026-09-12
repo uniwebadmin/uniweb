@@ -1133,6 +1133,12 @@ function verifyPayUResponseHash(array $post): bool
     $salts = function_exists('partnerWebhookSecretCandidates')
         ? partnerWebhookSecretCandidates('payu')
         : [];
+    if (isset($GLOBALS['_uniweb_collect_ctx']) && function_exists('payuCredentials')) {
+        $collectSalt = trim((string)(payuCredentials()['salt'] ?? ''));
+        if ($collectSalt !== '') {
+            $salts = array_values(array_unique(array_merge([$collectSalt], $salts)));
+        }
+    }
     if ($salts === []) {
         $c = payuCredentials();
         if (!empty($c['salt'])) {
