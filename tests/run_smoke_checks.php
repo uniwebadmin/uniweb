@@ -2408,6 +2408,10 @@ $assert(str_contains($reconSrcR3, 'partner_wired') && str_contains($reconSrcR3, 
 $assert(str_contains((string)file_get_contents($root . '/admin_reconciliation.php'), 'By Registry partner'), 'r3_admin_reconcile_partner_filter');
 $assert(str_contains((string)file_get_contents($root . '/disputes.php'), 'partner_key') && str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'dispute_partner_key'), 'r3_dispute_partner_from_txn');
 $assert(str_contains((string)file_get_contents($root . '/includes/demo_tour.php'), 'partner_tag'), 'r3_support_ticket_optional_partner_tag');
+$assert(str_contains($opsSrc, 'function getPartnerFeeReport') && str_contains($opsSrc, 'uniweb_fee'), 'fee_report_helper_by_partner_key');
+$commFeeSrc = (string)file_get_contents($root . '/admin_partner_commercial.php');
+$assert(str_contains($commFeeSrc, 'getPartnerFeeReport') && str_contains($commFeeSrc, 'export=csv') && !str_contains($commFeeSrc, 'WHERE gateway = ?'), 'fee_report_page_partner_key_not_gateway');
+$assert(str_contains($commFeeSrc, 'Customer payment money stays with the partner') && str_contains($commFeeSrc, 'Download CSV (invoice)'), 'fee_report_honest_no_custody_copy');
 
 $fwdQSrc = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
 $regV2Src = (string)file_get_contents($root . '/includes/partner_registry_v2.php');
