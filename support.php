@@ -3,6 +3,9 @@ require_once __DIR__ . '/config.php';
 if (!function_exists('uxFormLabel')) {
     require_once __DIR__ . '/includes/page_ux.php';
 }
+if (!function_exists('ensureSupportTicketTable')) {
+    require_once __DIR__ . '/includes/demo_tour.php';
+}
 requireLogin();
 ensureSupportTicketTable();
 $merchant = getMerchant();

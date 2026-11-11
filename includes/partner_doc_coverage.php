@@ -12,7 +12,25 @@ function partnerDocCoverageStatusLabels(): array
     return [
         'not_started' => 'Not started',
         'docs_incomplete' => 'Documents incomplete',
+        'docs_in_review' => 'Documents awaiting UniWeb approval',
         'docs_ready' => 'Documents ready',
+    ];
+}
+
+function partnerDocCoverageBlueprintStates(): array
+{
+    return [
+        'NOT_STARTED' => 'Not started',
+        'DOCS_INCOMPLETE' => 'Documents incomplete',
+        'DOCS_IN_REVIEW' => 'Documents awaiting UniWeb approval',
+        'DOCS_READY' => 'Documents ready',
+        'IN_REVIEW' => 'In review',
+        'LINKED_VERIFIED' => 'Already-live account verified',
+        'ACCEPTED' => 'Accepted',
+        'AGREEMENT_PENDING' => 'Agreement pending',
+        'ENABLED' => 'Enabled',
+        'SUSPENDED' => 'Suspended',
+        'REJECTED' => 'Rejected',
     ];
 }
 
@@ -53,10 +71,7 @@ function partnerDocCoverageVaultSatisfies(?array $row): bool
     }
     $status = strtolower(trim((string)($row['status'] ?? '')));
     $scan = strtolower(trim((string)($row['scan_status'] ?? '')));
-    if ($status === 'rejected' || $scan === 'infected' || $scan === 'missing') {
-        return false;
-    }
-    return true;
+    return $status === 'approved' && $scan === 'clean';
 }
 
 function partnerDocCoverageVaultItemState(?array $row): string
@@ -69,7 +84,7 @@ function partnerDocCoverageVaultItemState(?array $row): string
     if ($status === 'rejected' || $scan === 'infected') {
         return 'rejected';
     }
-    if ($status === 'approved') {
+    if ($status === 'approved' && $scan === 'clean') {
         return 'approved';
     }
     return 'pending';
@@ -126,6 +141,14 @@ function partnerDocCoverageIsLinkedValid(?array $link): bool
     return in_array($src, ['linked', 'preexisting'], true) && $cred === 'valid';
 }
 
+function partnerDocCoverageLifecycleAllowsEnable(string $status): bool
+{
+    if (function_exists('partnerRegistryLifecycleAllowsMerchantEnablement')) {
+        return partnerRegistryLifecycleAllowsMerchantEnablement($status);
+    }
+    return in_array(strtolower(trim($status)), ['legacy_unverified', 'live'], true);
+}
+
 /**
  * @return list<array<string,mixed>>
  */
@@ -137,6 +160,10 @@ function partnerDocCoveragePartnerRows(): array
     $out = [];
     foreach (getRegisteredGateways(false) as $g) {
         if ((int)($g['is_active'] ?? 0) !== 1) {
+            continue;
+        }
+        if (function_exists('partnerRegistrySupportsPlatformOnboarding')
+            && !partnerRegistrySupportsPlatformOnboarding($g)) {
             continue;
         }
         if (function_exists('partnerRegistryRowIsRetired') && partnerRegistryRowIsRetired($g)) {
@@ -166,11 +193,19 @@ function partnerDocCoverageComputeOne(int $merchantId, array $gatewayRow, array 
     $labels = function_exists('getKycDocLabels') ? getKycDocLabels() : [];
     $items = [];
     $present = 0;
+    $uploaded = 0;
+    $hasRejectedDocument = false;
     $missingCodes = [];
     foreach ($pack as $code) {
         $row = $vault[$code] ?? null;
         $state = partnerDocCoverageVaultItemState($row);
         $ok = partnerDocCoverageVaultSatisfies($row);
+        if ($row && $state !== 'rejected') {
+            $uploaded++;
+        }
+        if ($state === 'rejected') {
+            $hasRejectedDocument = true;
+        }
         if ($ok) {
             $present++;
         } else {
@@ -188,9 +223,12 @@ function partnerDocCoverageComputeOne(int $merchantId, array $gatewayRow, array 
     if ($total === 0) {
         $status = 'not_started';
         $pct = 0;
-    } elseif ($present === 0) {
-        $status = 'not_started';
+    } elseif ($present === 0 && $uploaded === 0) {
+        $status = $hasRejectedDocument ? 'docs_incomplete' : 'not_started';
         $pct = 0;
+    } elseif ($present < $total && $uploaded === $total) {
+        $status = 'docs_in_review';
+        $pct = (int)round(100 * $present / $total);
     } elseif ($present < $total) {
         $status = 'docs_incomplete';
         $pct = (int)round(100 * $present / $total);
@@ -199,11 +237,33 @@ function partnerDocCoverageComputeOne(int $merchantId, array $gatewayRow, array 
         $pct = 100;
     }
     $linkedValid = partnerDocCoverageIsLinkedValid($link);
+    $integrationStatus = function_exists('partnerRegistryLifecycleStatus')
+        ? partnerRegistryLifecycleStatus($gatewayRow)
+        : strtolower(trim((string)($gatewayRow['integration_status'] ?? 'legacy_unverified')));
+    $integrationPaused = !partnerDocCoverageLifecycleAllowsEnable($integrationStatus);
     $enableVia = '';
     if ($linkedValid) {
         $enableVia = 'linked';
     } elseif ($status === 'docs_ready') {
         $enableVia = 'docs';
+    }
+    $blueprintState = 'NOT_STARTED';
+    if ($link && strtolower((string)($link['kyc_status'] ?? '')) === 'suspended') {
+        $blueprintState = 'SUSPENDED';
+    } elseif ($hasRejectedDocument) {
+        $blueprintState = 'REJECTED';
+    } elseif ($link && (int)($link['checkout_enabled'] ?? 0) === 1) {
+        $blueprintState = 'ENABLED';
+    } elseif ($linkedValid) {
+        $blueprintState = 'LINKED_VERIFIED';
+    } elseif ($status === 'docs_ready') {
+        $blueprintState = 'ACCEPTED';
+    } elseif ($status === 'docs_in_review') {
+        $blueprintState = 'IN_REVIEW';
+    } elseif ($status === 'docs_incomplete') {
+        $blueprintState = 'IN_REVIEW';
+    } elseif ($status === 'not_started') {
+        $blueprintState = 'NOT_STARTED';
     }
     $statusLabels = partnerDocCoverageStatusLabels();
     return [
@@ -211,14 +271,17 @@ function partnerDocCoverageComputeOne(int $merchantId, array $gatewayRow, array 
         'partner_name' => (string)($gatewayRow['gateway_name'] ?? $key),
         'status' => $status,
         'status_label' => $statusLabels[$status] ?? $status,
+        'blueprint_state' => $blueprintState,
+        'blueprint_state_label' => partnerDocCoverageBlueprintStates()[$blueprintState] ?? $blueprintState,
         'percent' => $pct,
         'present' => $present,
         'total' => $total,
         'missing' => $missingCodes,
         'items' => $items,
         'linked_valid' => $linkedValid,
-        'enable_allowed' => $enableVia !== '',
+        'enable_allowed' => $enableVia !== '' && !$integrationPaused,
         'enable_via' => $enableVia,
+        'integration_not_ready' => $integrationPaused,
         'checkout_enabled' => $link ? ((int)($link['checkout_enabled'] ?? 0) === 1) : false,
         'honest_note' => 'UniWeb document check only. Not sent to the partner. Not partner-approved.',
     ];
@@ -332,6 +395,9 @@ function merchantPartnerMayEnableFromCoverage(int $merchantId, string $partnerKe
     $partnerKey = strtolower(trim($partnerKey));
     foreach (partnerDocCoverageForMerchant($merchantId) as $row) {
         if ($row['partner_key'] === $partnerKey) {
+            if (!empty($row['integration_not_ready'])) {
+                return ['ok' => false, 'error' => 'Partner integration is not LIVE-ready. Existing checkout stays unchanged; complete or resume the integration before enabling it for this merchant.'];
+            }
             if (!empty($row['enable_allowed'])) {
                 return ['ok' => true, 'via' => (string)$row['enable_via']];
             }
@@ -357,6 +423,21 @@ function setMerchantCoverageCheckoutEnabled(int $merchantId, string $partnerKey,
     }
     ensurePartnerControlTables();
     if ($enabled) {
+        $gateway = null;
+        if (function_exists('getRegisteredGateways')) {
+            foreach (getRegisteredGateways(true) as $candidate) {
+                if (strtolower(trim((string)($candidate['gateway_key'] ?? ''))) === $partnerKey) {
+                    $gateway = $candidate;
+                    break;
+                }
+            }
+        }
+        $lifecycleStatus = is_array($gateway) && function_exists('partnerRegistryLifecycleStatus')
+            ? partnerRegistryLifecycleStatus($gateway)
+            : strtolower(trim((string)($gateway['integration_status'] ?? 'legacy_unverified')));
+        if (!is_array($gateway) || !partnerDocCoverageLifecycleAllowsEnable($lifecycleStatus)) {
+            return ['ok' => false, 'error' => 'This partner integration is not LIVE-ready or unavailable. Existing checkout is unchanged; complete or resume the integration before enabling it.'];
+        }
         $gate = merchantPartnerMayEnableFromCoverage($merchantId, $partnerKey);
         if (empty($gate['ok'])) {
             return ['ok' => false, 'error' => (string)($gate['error'] ?? 'Not available.')];

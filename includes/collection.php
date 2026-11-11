@@ -811,25 +811,7 @@ function buildCheckoutPaymentMethods(array $link): array
         if ($cat && !empty($cat['pay_key'])) {
             $payKey = $cat['pay_key'];
             $filtered = array_values(array_filter($methods, fn($m) => $m['key'] === $payKey));
-            if (!empty($filtered)) {
-                $methods = $filtered;
-            } else {
-                // Method locked but not yet buildable — still show a single Instant/Test-friendly tab
-                $methods = [[
-                    'key' => $payKey,
-                    'label' => $cat['label'],
-                    'sub' => $isTest ? checkoutUniwebMethodSubline($payKey, true, false) : 'Awaiting activation',
-                    'icon' => $cat['icon'] ?? '💳',
-                    'type' => match ($cat['gateway'] ?? '') {
-                        'payu' => 'payu',
-                        'razorpay', 'cashfree' => 'pg_pool',
-                        default => 'p2m',
-                    },
-                    'pg' => match ($payKey) {
-                        'dc' => 'DC', 'cc' => 'CC', 'nb' => 'NB', 'emi' => 'EMI', 'wallet' => 'CASH', 'payu_upi' => 'UPI', default => '',
-                    },
-                ]];
-            }
+            $methods = $filtered;
         }
     }
 

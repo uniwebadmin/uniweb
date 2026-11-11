@@ -9,7 +9,7 @@ declare(strict_types=1);
 /** @return list<string> */
 function partnerRegistryV2PartnerTypes(): array
 {
-    return ['pg', 'other_online'];
+    return ['pg', 'bnpl', 'other_online'];
 }
 
 /** @return list<string> */
@@ -94,6 +94,12 @@ function partnerRegistryV2FilterMerchantDocCodes(array $raw): array
 }
 
 /** @param list<mixed> $raw @return list<string> */
+function partnerRegistryV2FilterOptionalMerchantDocCodes(array $raw, array $required = []): array
+{
+    return array_values(array_diff(partnerRegistryV2FilterMerchantDocCodes($raw), $required));
+}
+
+/** @param list<mixed> $raw @return list<string> */
 function partnerRegistryV2FilterComplianceDocCodes(array $raw): array
 {
     $allowed = array_keys(partnerRegistryV2ComplianceDocCatalog());
@@ -105,6 +111,268 @@ function partnerRegistryV2FilterComplianceDocCodes(array $raw): array
         }
     }
     return array_values(array_unique($out));
+}
+
+/** @return list<string> */
+function partnerRegistryV2NormalizeCurrencies(mixed $raw): array
+{
+    if (is_string($raw)) {
+        if (strlen($raw) > 500) {
+            throw new InvalidArgumentException('Currency list must be 500 characters or fewer.');
+        }
+        $raw = preg_split('/[\s,;]+/', strtoupper(trim($raw))) ?: [];
+    }
+    if (!is_array($raw)) {
+        throw new InvalidArgumentException('Currencies must be comma-separated ISO 4217-format alpha-3 codes.');
+    }
+    if (count($raw) > 50) {
+        throw new InvalidArgumentException('Currency list cannot contain more than 50 entries.');
+    }
+    $currencies = [];
+    foreach ($raw as $currency) {
+        $currency = strtoupper(trim((string)$currency));
+        if ($currency === '') {
+            continue;
+        }
+        if (!preg_match('/^[A-Z]{3}$/', $currency)) {
+            throw new InvalidArgumentException('Each currency must use the three-letter ISO 4217 code format.');
+        }
+        $currencies[] = $currency;
+    }
+    return array_values(array_unique($currencies));
+}
+
+function partnerRegistryV2NormalizeWebhookPath(string $raw): string
+{
+    $raw = trim($raw);
+    if ($raw === '' || strlen($raw) > 255 || preg_match('/[\x00-\x20\x7f\\\\]/', $raw)) {
+        throw new InvalidArgumentException('UniWeb webhook path is required and must be a valid local endpoint.');
+    }
+
+    $parts = parse_url($raw);
+    if (!is_array($parts) || isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) {
+        throw new InvalidArgumentException('UniWeb webhook endpoint must not contain credentials, query parameters, or a fragment.');
+    }
+
+    if (isset($parts['host'])) {
+        $appParts = parse_url(defined('APP_URL') ? APP_URL : '');
+        if (!is_array($appParts)
+            || strtolower((string)($parts['scheme'] ?? '')) !== strtolower((string)($appParts['scheme'] ?? ''))
+            || strtolower((string)$parts['host']) !== strtolower((string)($appParts['host'] ?? ''))
+            || (int)($parts['port'] ?? (strtolower((string)($parts['scheme'] ?? '')) === 'https' ? 443 : 80))
+                !== (int)($appParts['port'] ?? (strtolower((string)($appParts['scheme'] ?? '')) === 'https' ? 443 : 80))) {
+            throw new InvalidArgumentException('Webhook URL must use the configured UniWeb origin.');
+        }
+        $raw = (string)($parts['path'] ?? '/');
+    }
+
+    if (!str_starts_with($raw, '/') || str_starts_with($raw, '//')) {
+        throw new InvalidArgumentException('UniWeb webhook endpoint must be a root-relative path or a URL on the configured UniWeb origin.');
+    }
+    foreach (explode('/', rawurldecode($raw)) as $segment) {
+        if ($segment === '.' || $segment === '..') {
+            throw new InvalidArgumentException('UniWeb webhook path cannot contain dot segments.');
+        }
+    }
+    return $raw;
+}
+
+function partnerRegistryV2NormalizePolicyUrl(string $raw): string
+{
+    $raw = trim($raw);
+    if ($raw === '') {
+        return '';
+    }
+    $parts = parse_url($raw);
+    if (strlen($raw) > 500
+        || !filter_var($raw, FILTER_VALIDATE_URL)
+        || !is_array($parts)
+        || strtolower((string)($parts['scheme'] ?? '')) !== 'https'
+        || empty($parts['host'])
+        || isset($parts['user'])
+        || isset($parts['pass'])) {
+        throw new InvalidArgumentException('Partner policy links must be valid HTTPS URLs without embedded credentials.');
+    }
+    return $raw;
+}
+
+function partnerRegistryV2NormalizeFeePercent(mixed $raw): string
+{
+    $raw = trim((string)$raw);
+    if ($raw === '') {
+        return '0.0000';
+    }
+    if (!preg_match('/^(\d{1,3})(?:\.(\d{1,4}))?$/', $raw, $matches)) {
+        throw new InvalidArgumentException('Default platform fee percent must be between 0 and 100 with up to 4 decimal places.');
+    }
+    $whole = (int)$matches[1];
+    $fraction = str_pad($matches[2] ?? '', 4, '0');
+    if ($whole > 100 || ($whole === 100 && trim($fraction, '0') !== '')) {
+        throw new InvalidArgumentException('Default platform fee percent must be between 0 and 100 with up to 4 decimal places.');
+    }
+    return $whole . '.' . $fraction;
+}
+
+function partnerRegistryV2NormalizeFeeFlat(mixed $raw): string
+{
+    $raw = trim((string)$raw);
+    if ($raw === '') {
+        return '0.00';
+    }
+    if (!preg_match('/^(\d{1,10})(?:\.(\d{1,2}))?$/', $raw, $matches)) {
+        throw new InvalidArgumentException('Default platform flat fee must be non-negative with up to 2 decimal places.');
+    }
+    $whole = ltrim($matches[1], '0');
+    $fraction = str_pad($matches[2] ?? '', 2, '0');
+    return ($whole !== '' ? $whole : '0') . '.' . $fraction;
+}
+
+function partnerRegistryV2NormalizeSuccessWeight(mixed $raw): string
+{
+    $raw = trim((string)$raw);
+    if ($raw === '') {
+        return '0.0000';
+    }
+    if (!preg_match('/^(\d{1,3})(?:\.(\d{1,4}))?$/', $raw, $matches)) {
+        throw new InvalidArgumentException('Success weight must be between 0 and 100 with up to 4 decimal places.');
+    }
+    $whole = (int)$matches[1];
+    $fraction = str_pad($matches[2] ?? '', 4, '0');
+    if ($whole > 100 || ($whole === 100 && trim($fraction, '0') !== '')) {
+        throw new InvalidArgumentException('Success weight must be between 0 and 100 with up to 4 decimal places.');
+    }
+    return $whole . '.' . $fraction;
+}
+
+function partnerRegistryV2NormalizeRoutingPriority(mixed $raw): int
+{
+    $raw = trim((string)$raw);
+    if (!preg_match('/^\d{1,3}$/', $raw) || (int)$raw < 1 || (int)$raw > 999) {
+        throw new InvalidArgumentException('Routing priority must be a whole number from 1 to 999.');
+    }
+    return (int)$raw;
+}
+
+/**
+ * Required workbook fields for configuring a partner. Optional profile data is
+ * deliberately not included here.
+ *
+ * @return list<string>
+ */
+function partnerRegistryV2RequiredProfileErrors(array $input): array
+{
+    $errors = [];
+    try {
+        if (partnerRegistryV2NormalizeConnectorId((string)($input['connector_id'] ?? '')) === null) {
+            $errors[] = 'Connector ID is required.';
+        }
+    } catch (InvalidArgumentException $e) {
+        $errors[] = $e->getMessage();
+    }
+    try {
+        partnerRegistryV2NormalizeWebhookPath((string)($input['webhook_url'] ?? ''));
+    } catch (InvalidArgumentException $e) {
+        $errors[] = $e->getMessage();
+    }
+    try {
+        if (partnerRegistryV2NormalizeCountries($input['countries'] ?? []) === []) {
+            $errors[] = 'Select at least one country.';
+        }
+    } catch (InvalidArgumentException $e) {
+        $errors[] = $e->getMessage();
+    }
+    $docPack = $input['doc_pack'] ?? [];
+    if (!is_array($docPack) || partnerRegistryV2FilterMerchantDocCodes($docPack) === []) {
+        $errors[] = 'Select at least one required merchant KYC document.';
+    }
+    return $errors;
+}
+
+function partnerRegistryV2ProfileIsComplete(array $row): bool
+{
+    $partnerCode = strtolower(trim((string)($row['gateway_key'] ?? '')));
+    $displayName = trim((string)($row['gateway_name'] ?? ''));
+    if (!preg_match('/^[a-z0-9_]{2,40}$/', $partnerCode)
+        || $displayName === ''
+        || mb_strlen($displayName) > 80) {
+        return false;
+    }
+    $errors = partnerRegistryV2RequiredProfileErrors([
+        'connector_id' => $row['connector_id'] ?? '',
+        'webhook_url' => $row['webhook_url'] ?? '',
+        'countries' => json_decode((string)($row['countries_json'] ?? ''), true) ?? [],
+        'doc_pack' => json_decode((string)($row['doc_pack_json'] ?? ''), true) ?? [],
+    ]);
+    if ($errors !== []) {
+        return false;
+    }
+    try {
+        partnerRegistryV2NormalizePartnerType((string)($row['partner_type'] ?? ''));
+        partnerRegistryV2NormalizeContractMode((string)($row['contract_mode'] ?? ''));
+        partnerRegistryV2NormalizeFeePercent($row['platform_fee_pct_default'] ?? '0');
+        partnerRegistryV2NormalizeFeeFlat($row['platform_fee_flat_default'] ?? '0');
+        partnerRegistryV2NormalizeSuccessWeight($row['weight_success'] ?? '0');
+        partnerRegistryV2NormalizeRoutingPriority($row['routing_priority'] ?? 50);
+        partnerRegistryV2NormalizeApiBaseUrl((string)($row['api_base_url'] ?? ''));
+        partnerRegistryV2NormalizeLogoUrl((string)($row['logo_url'] ?? ''));
+        partnerRegistryV2NormalizeCurrencies(json_decode((string)($row['currencies_json'] ?? ''), true) ?? []);
+        $policyUrls = json_decode((string)($row['policy_urls_json'] ?? ''), true) ?? [];
+        foreach (['terms', 'privacy', 'refund', 'support'] as $policyKey) {
+            partnerRegistryV2NormalizePolicyUrl((string)($policyUrls[$policyKey] ?? ''));
+        }
+    } catch (InvalidArgumentException $e) {
+        return false;
+    }
+    $supportEmail = trim((string)($row['support_email'] ?? ''));
+    if ($supportEmail !== '' && (strlen($supportEmail) > 190 || !filter_var($supportEmail, FILTER_VALIDATE_EMAIL))) {
+        return false;
+    }
+    $settleNote = (string)($row['settle_note'] ?? '');
+    if (mb_strlen($settleNote) > 500) {
+        return false;
+    }
+    $supportPhone = trim((string)($row['support_phone'] ?? ''));
+    if ($supportPhone !== '') {
+        $phoneDigits = preg_replace('/\D/', '', $supportPhone) ?? '';
+        if (strlen($supportPhone) > 40
+            || !preg_match('/^\+?[0-9().\s-]+$/', $supportPhone)
+            || strlen($phoneDigits) < 7
+            || strlen($phoneDigits) > 15) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function partnerRegistryV2NormalizeConnectorId(string $raw): ?string
+{
+    $raw = strtolower(trim($raw));
+    if ($raw === '') {
+        return null;
+    }
+    if (strlen($raw) > 80 || !preg_match('/^[a-z0-9_]{2,80}$/', $raw)) {
+        throw new InvalidArgumentException('Connector ID must use 2–80 lowercase letters, numbers, or underscores.');
+    }
+    return $raw;
+}
+
+function partnerRegistryV2NormalizeLogoUrl(string $raw): ?string
+{
+    $raw = trim($raw);
+    if ($raw === '') {
+        return null;
+    }
+    $parts = parse_url($raw);
+    if (strlen($raw) > 500
+        || !filter_var($raw, FILTER_VALIDATE_URL)
+        || !is_array($parts)
+        || strtolower((string)($parts['scheme'] ?? '')) !== 'https'
+        || empty($parts['host'])
+        || isset($parts['user'])
+        || isset($parts['pass'])) {
+        throw new InvalidArgumentException('Partner logo must use a valid HTTPS URL without embedded credentials.');
+    }
+    return $raw;
 }
 
 function migratePartnerRegistryDocPackSemantics(): void
@@ -169,7 +437,8 @@ function ensurePartnerRegistryV2Columns(): void
     ensurePaymentMethodsTable();
     $db = getDB();
     $alters = [
-        "ALTER TABLE gateway_registry ADD COLUMN partner_type ENUM('pg','other_online') NOT NULL DEFAULT 'pg'",
+        "ALTER TABLE gateway_registry ADD COLUMN partner_type ENUM('pg','bnpl','other_online') NOT NULL DEFAULT 'pg'",
+        "ALTER TABLE gateway_registry MODIFY COLUMN partner_type ENUM('pg','bnpl','other_online') NOT NULL DEFAULT 'pg'",
         "ALTER TABLE gateway_registry ADD COLUMN contract_mode ENUM('platform','linked_existing','hybrid') NOT NULL DEFAULT 'platform'",
         'ALTER TABLE gateway_registry ADD COLUMN allows_existing_merchant_link TINYINT(1) NOT NULL DEFAULT 0',
         'ALTER TABLE gateway_registry ADD COLUMN cap_collect TINYINT(1) NOT NULL DEFAULT 1',
@@ -178,8 +447,11 @@ function ensurePartnerRegistryV2Columns(): void
         'ALTER TABLE gateway_registry ADD COLUMN cap_netbanking TINYINT(1) NOT NULL DEFAULT 0',
         'ALTER TABLE gateway_registry ADD COLUMN cap_refund TINYINT(1) NOT NULL DEFAULT 0',
         'ALTER TABLE gateway_registry ADD COLUMN cap_pay_later TINYINT(1) NOT NULL DEFAULT 0',
+        'ALTER TABLE gateway_registry ADD COLUMN cap_qr TINYINT(1) NOT NULL DEFAULT 0',
+        'ALTER TABLE gateway_registry ADD COLUMN cap_payout TINYINT(1) NOT NULL DEFAULT 0',
         'ALTER TABLE gateway_registry ADD COLUMN cap_kyc_forward_api TINYINT(1) NOT NULL DEFAULT 0',
         'ALTER TABLE gateway_registry ADD COLUMN doc_pack_json TEXT DEFAULT NULL',
+        'ALTER TABLE gateway_registry ADD COLUMN optional_doc_pack_json TEXT DEFAULT NULL',
         'ALTER TABLE gateway_registry ADD COLUMN partner_compliance_docs_json TEXT DEFAULT NULL',
         'ALTER TABLE gateway_registry ADD COLUMN policy_urls_json TEXT DEFAULT NULL',
         'ALTER TABLE gateway_registry ADD COLUMN routing_priority INT NOT NULL DEFAULT 50',
@@ -188,6 +460,24 @@ function ensurePartnerRegistryV2Columns(): void
         "ALTER TABLE gateway_registry ADD COLUMN credential_test_status ENUM('missing','invalid','valid') NOT NULL DEFAULT 'missing'",
         "ALTER TABLE gateway_registry ADD COLUMN credential_live_status ENUM('missing','invalid','valid') NOT NULL DEFAULT 'missing'",
         'ALTER TABLE gateway_registry ADD COLUMN display_description VARCHAR(500) DEFAULT NULL',
+        'ALTER TABLE gateway_registry ADD COLUMN channel_capabilities_json TEXT DEFAULT NULL',
+        'ALTER TABLE gateway_registry ADD COLUMN api_base_url VARCHAR(500) DEFAULT NULL',
+        'ALTER TABLE gateway_registry ADD COLUMN connector_id VARCHAR(80) DEFAULT NULL',
+        'ALTER TABLE gateway_registry ADD COLUMN logo_url VARCHAR(500) DEFAULT NULL',
+        'ALTER TABLE gateway_registry ADD COLUMN countries_json TEXT DEFAULT NULL',
+        'ALTER TABLE gateway_registry ADD COLUMN currencies_json TEXT DEFAULT NULL',
+        'ALTER TABLE gateway_registry ADD COLUMN support_email VARCHAR(190) DEFAULT NULL',
+        'ALTER TABLE gateway_registry ADD COLUMN support_phone VARCHAR(40) DEFAULT NULL',
+        'ALTER TABLE gateway_registry ADD COLUMN platform_fee_pct_default DECIMAL(8,4) NOT NULL DEFAULT 0',
+        'ALTER TABLE gateway_registry ADD COLUMN platform_fee_flat_default DECIMAL(12,2) NOT NULL DEFAULT 0',
+        'ALTER TABLE gateway_registry ADD COLUMN settle_note VARCHAR(500) DEFAULT NULL',
+        'ALTER TABLE gateway_registry ADD COLUMN updated_by INT DEFAULT NULL',
+        'ALTER TABLE gateway_registry ADD COLUMN weight_success DECIMAL(8,4) NOT NULL DEFAULT 0',
+        "ALTER TABLE gateway_registry ADD COLUMN integration_status ENUM('legacy_unverified','draft','sandbox','live') NOT NULL DEFAULT 'legacy_unverified'",
+        "ALTER TABLE gateway_registry MODIFY COLUMN integration_status ENUM('legacy_unverified','draft','sandbox','live','paused','retired') NOT NULL DEFAULT 'legacy_unverified'",
+        "ALTER TABLE gateway_registry ADD COLUMN lifecycle_resume_status ENUM('legacy_unverified','draft','sandbox','live') DEFAULT NULL",
+        'ALTER TABLE gateway_registry ADD COLUMN lifecycle_updated_at TIMESTAMP NULL DEFAULT NULL',
+        'ALTER TABLE gateway_registry ADD COLUMN lifecycle_updated_by INT DEFAULT NULL',
         'ALTER TABLE gateway_registry ADD COLUMN retired_at TIMESTAMP NULL DEFAULT NULL',
         'ALTER TABLE gateway_registry ADD COLUMN retired_by VARCHAR(120) DEFAULT NULL',
     ];
@@ -223,7 +513,7 @@ function partnerRegistryV2NormalizePartnerType(string $raw): string
 {
     $raw = strtolower(trim($raw));
     if (str_contains($raw, 'ppi') || str_contains($raw, 'wallet') || str_contains($raw, 'offline')) {
-        throw new InvalidArgumentException('Partner type not allowed. Use Payment Gateway or other online collect only.');
+        throw new InvalidArgumentException('Partner type not allowed. Use Payment Gateway, BNPL partner, or other online collect only.');
     }
     if (!in_array($raw, partnerRegistryV2PartnerTypes(), true)) {
         throw new InvalidArgumentException('Invalid partner type.');
@@ -234,7 +524,273 @@ function partnerRegistryV2NormalizePartnerType(string $raw): string
 function partnerRegistryV2NormalizeContractMode(string $raw): string
 {
     $raw = strtolower(trim($raw));
-    return in_array($raw, partnerRegistryV2ContractModes(), true) ? $raw : 'platform';
+    if (!in_array($raw, partnerRegistryV2ContractModes(), true)) {
+        throw new InvalidArgumentException('Invalid partner contract mode.');
+    }
+    return $raw;
+}
+
+/** @return list<string> */
+function partnerRegistryV2NormalizeCountries(mixed $raw): array
+{
+    if (is_string($raw)) {
+        if (strlen($raw) > 500) {
+            throw new InvalidArgumentException('Country list must be 500 characters or fewer.');
+        }
+        $raw = preg_split('/[\s,;]+/', strtoupper(trim($raw))) ?: [];
+    }
+    if (!is_array($raw)) {
+        throw new InvalidArgumentException('Countries must be comma-separated ISO 3166-1 alpha-2 format codes.');
+    }
+    if (count($raw) > 50) {
+        throw new InvalidArgumentException('Country list cannot contain more than 50 entries.');
+    }
+    $countries = [];
+    foreach ($raw as $country) {
+        $country = strtoupper(trim((string)$country));
+        if ($country === '') {
+            continue;
+        }
+        if (!preg_match('/^[A-Z]{2}$/', $country)) {
+            throw new InvalidArgumentException('Each country must use the two-letter ISO country code format.');
+        }
+        $countries[] = $country;
+    }
+    return array_values(array_unique($countries));
+}
+
+function partnerRegistryV2NormalizeApiBaseUrl(string $raw): ?string
+{
+    $raw = trim($raw);
+    if ($raw === '') {
+        return null;
+    }
+    $parts = parse_url($raw);
+    if (strlen($raw) > 500
+        || !filter_var($raw, FILTER_VALIDATE_URL)
+        || !is_array($parts)
+        || strtolower((string)($parts['scheme'] ?? '')) !== 'https'
+        || empty($parts['host'])
+        || isset($parts['user'])
+        || isset($parts['pass'])
+        || isset($parts['query'])
+        || isset($parts['fragment'])) {
+        throw new InvalidArgumentException('API base URL must be an HTTPS URL without credentials, query, or fragment.');
+    }
+    return rtrim($raw, '/');
+}
+
+/** @return list<string> */
+function partnerRegistryLifecycleStatuses(): array
+{
+    return ['legacy_unverified', 'draft', 'sandbox', 'live', 'paused', 'retired'];
+}
+
+function partnerRegistryLifecycleStatus(array $row): string
+{
+    if (partnerRegistryRowIsRetired($row)) {
+        return 'retired';
+    }
+    $status = strtolower(trim((string)($row['integration_status'] ?? 'legacy_unverified')));
+    return in_array($status, partnerRegistryLifecycleStatuses(), true) ? $status : 'legacy_unverified';
+}
+
+function partnerRegistryLifecycleAllowsMerchantEnablement(string $status): bool
+{
+    return in_array(strtolower(trim($status)), ['legacy_unverified', 'live'], true);
+}
+
+/**
+ * @param array{adapter_wired?:bool,test_credentials_valid?:bool,live_credentials_valid?:bool,sandbox_certified?:bool,contract_approved?:bool,live_keys_validated?:bool,resume_status?:string} $checks
+ * @return array{allowed:bool,reason:string}
+ */
+function partnerRegistryLifecycleTransitionGate(string $current, string $target, array $checks): array
+{
+    $current = strtolower(trim($current));
+    $target = strtolower(trim($target));
+    if (!in_array($current, partnerRegistryLifecycleStatuses(), true)) {
+        $current = 'legacy_unverified';
+    }
+    if ($current === 'retired') {
+        return ['allowed' => false, 'reason' => 'Retired partners cannot change lifecycle.'];
+    }
+    if ($target === 'retired') {
+        return ['allowed' => false, 'reason' => 'Use the guarded Retire action to retire a partner.'];
+    }
+    if ($target === 'draft' && in_array($current, ['legacy_unverified', 'sandbox', 'live'], true)) {
+        return ['allowed' => true, 'reason' => ''];
+    }
+    if ($target === 'paused' && $current !== 'paused') {
+        return ['allowed' => true, 'reason' => ''];
+    }
+    if (in_array($target, ['sandbox', 'live'], true)
+        && array_key_exists('profile_complete', $checks)
+        && empty($checks['profile_complete'])) {
+        return ['allowed' => false, 'reason' => 'Complete the required partner registry profile before entering Sandbox or LIVE readiness.'];
+    }
+    if ($current === 'paused' && $target === ($checks['resume_status'] ?? '')) {
+        if ($target === 'sandbox' && (empty($checks['adapter_wired']) || empty($checks['test_credentials_valid']))) {
+            return ['allowed' => false, 'reason' => 'A wired connector and passing Test credentials are required to resume Sandbox.'];
+        }
+        if ($target === 'live' && (empty($checks['adapter_wired'])
+            || empty($checks['test_credentials_valid'])
+            || empty($checks['live_credentials_valid']))) {
+            return ['allowed' => false, 'reason' => 'Wired connector and currently verified Test and Live credentials are required to resume LIVE readiness.'];
+        }
+        return ['allowed' => true, 'reason' => ''];
+    }
+    if ($target === 'sandbox' && in_array($current, ['draft', 'legacy_unverified'], true)) {
+        if (empty($checks['adapter_wired'])) {
+            return ['allowed' => false, 'reason' => 'A wired connector is required before sandbox testing.'];
+        }
+        if (empty($checks['test_credentials_valid'])) {
+            return ['allowed' => false, 'reason' => 'Test credentials must pass Test Connection before entering sandbox.'];
+        }
+        return ['allowed' => true, 'reason' => ''];
+    }
+    if ($target === 'live' && $current === 'sandbox') {
+        if (empty($checks['adapter_wired'])
+            || empty($checks['test_credentials_valid'])
+            || empty($checks['live_credentials_valid'])) {
+            return ['allowed' => false, 'reason' => 'Wired connector, verified sandbox credentials, and verified live credentials are required.'];
+        }
+        if (empty($checks['sandbox_certified']) || empty($checks['contract_approved']) || empty($checks['live_keys_validated'])) {
+            return ['allowed' => false, 'reason' => 'Confirm sandbox certification, commercial/legal approval, and live-key validation.'];
+        }
+        return ['allowed' => true, 'reason' => ''];
+    }
+    return ['allowed' => false, 'reason' => 'This partner lifecycle transition is not allowed.'];
+}
+
+function partnerRegistryLifecycleStatusBadge(array $row): string
+{
+    $status = partnerRegistryLifecycleStatus($row);
+    $labels = [
+        'legacy_unverified' => ['Legacy · not verified', 'bg-slate-700/50 text-slate-300'],
+        'draft' => ['Draft', 'bg-gray-700/50 text-gray-300'],
+        'sandbox' => ['Sandbox', 'bg-sky-500/15 text-sky-300'],
+        'live' => ['LIVE readiness approved', 'bg-emerald-500/15 text-emerald-300'],
+        'paused' => ['Paused', 'bg-amber-500/15 text-amber-300'],
+        'retired' => ['Retired', 'bg-slate-600/40 text-slate-300'],
+    ];
+    [$label, $classes] = $labels[$status];
+    return '<span class="text-[10px] px-2 py-0.5 rounded border border-gray-700 ' . $classes . '" title="Integration lifecycle; routing activation is a separate control">' . e($label) . '</span>';
+}
+
+/**
+ * Advance the connector lifecycle after checking current credentials and explicit release attestations.
+ *
+ * @param array<string,mixed> $confirmations
+ * @return array{ok:bool,message:string}
+ */
+function advancePartnerRegistryLifecycle(int $gatewayId, string $target, array $confirmations, ?int $adminId = null): array
+{
+    if ($gatewayId < 1) {
+        return ['ok' => false, 'message' => 'Invalid partner.'];
+    }
+    $target = strtolower(trim($target));
+    if ($target === 'draft' && empty($confirmations['confirm_demote'])) {
+        return ['ok' => false, 'message' => 'Confirm that lifecycle demotion removes readiness without changing routing.'];
+    }
+    $stmt = getDB()->prepare("SELECT * FROM gateway_registry WHERE id=? AND registry_kind='partner' LIMIT 1");
+    $stmt->execute([$gatewayId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($row)) {
+        return ['ok' => false, 'message' => 'Partner not found.'];
+    }
+    if (partnerRegistryRowIsRetired($row)) {
+        return ['ok' => false, 'message' => 'Retired partners cannot advance lifecycle.'];
+    }
+
+    $key = strtolower(trim((string)($row['gateway_key'] ?? '')));
+    $checks = [
+        'adapter_wired' => partnerAdapterIsWired($key, $row),
+        'profile_complete' => partnerRegistryV2ProfileIsComplete($row),
+        'test_credentials_valid' => partnerCredentialVaultStatus($key, 'test') === 'valid',
+        'live_credentials_valid' => partnerCredentialVaultStatus($key, 'live') === 'valid',
+        'resume_status' => strtolower(trim((string)($row['lifecycle_resume_status'] ?? ''))),
+        'sandbox_certified' => !empty($confirmations['sandbox_certified']),
+        'contract_approved' => !empty($confirmations['contract_approved']),
+        'live_keys_validated' => !empty($confirmations['live_keys_validated']),
+    ];
+    $current = partnerRegistryLifecycleStatus($row);
+    if ($target === 'resume') {
+        $target = $checks['resume_status'];
+    }
+    $gate = partnerRegistryLifecycleTransitionGate($current, $target, $checks);
+    if (empty($gate['allowed'])) {
+        return ['ok' => false, 'message' => (string)$gate['reason']];
+    }
+
+    $resumeStatus = $target === 'paused' ? $current : null;
+    $update = getDB()->prepare('UPDATE gateway_registry SET integration_status=?, lifecycle_resume_status=?, lifecycle_updated_at=NOW(), lifecycle_updated_by=? WHERE id=? AND integration_status=?');
+    $update->execute([$target, $resumeStatus, $adminId, $gatewayId, $current]);
+    if ($update->rowCount() !== 1) {
+        return ['ok' => false, 'message' => 'Partner lifecycle changed during this request. Reload and try again.'];
+    }
+
+    $detail = json_encode([
+        'from' => $current,
+        'to' => $target,
+        'attestations' => [
+            'sandbox_certified' => $checks['sandbox_certified'],
+            'contract_approved' => $checks['contract_approved'],
+            'live_keys_validated' => $checks['live_keys_validated'],
+        ],
+    ], JSON_UNESCAPED_UNICODE);
+    if (function_exists('recordImmutableAudit')) {
+        recordImmutableAudit('partner_lifecycle_advanced', null, 'gateway', $key, (string)$detail);
+    }
+    if (function_exists('logStaffActivity')) {
+        logStaffActivity('partner_lifecycle_advanced', 'Partner lifecycle ' . $current . ' → ' . $target . ' for ' . $key, null, 'partner', $key);
+    }
+    $message = $target === 'paused'
+        ? 'Partner paused. Existing routing was left unchanged.'
+        : 'Partner integration lifecycle resumed at ' . strtoupper($target) . '.';
+    return ['ok' => true, 'message' => $message];
+}
+
+/**
+ * Cross-platform partner channels. Every surface reads this contract instead
+ * of maintaining a separate partner allow-list.
+ *
+ * @return list<string>
+ */
+function partnerRegistryV2ChannelCatalog(): array
+{
+    return [
+        'checkout_hosted',
+        'status_webhook',
+        'document_forward',
+        'notifications',
+        'support_forward',
+        'dispute_forward',
+        'refunds',
+    ];
+}
+
+/** @return array<string,bool> */
+function partnerRegistryV2ChannelCapabilities(array $row): array
+{
+    $defaults = [
+        'checkout_hosted' => !empty($row['cap_collect']),
+        'status_webhook' => trim((string)($row['webhook_url'] ?? '')) !== '',
+        'document_forward' => !empty($row['cap_kyc_forward_api']),
+        'notifications' => false,
+        'support_forward' => false,
+        'dispute_forward' => false,
+        'refunds' => !empty($row['cap_refund']),
+    ];
+    $raw = json_decode((string)($row['channel_capabilities_json'] ?? ''), true);
+    if (!is_array($raw)) {
+        return $defaults;
+    }
+    foreach (partnerRegistryV2ChannelCatalog() as $channel) {
+        if (array_key_exists($channel, $raw)) {
+            $defaults[$channel] = (bool)$raw[$channel];
+        }
+    }
+    return $defaults;
 }
 
 /** @return array<string,mixed> */
@@ -265,8 +821,24 @@ function partnerRegistryV2ProfileFromRow(array $row): array
         'partner_code' => (string)($row['gateway_key'] ?? ''),
         'display_name' => (string)($row['gateway_name'] ?? ''),
         'partner_type' => (string)($row['partner_type'] ?? 'pg'),
+        'logo_url' => (string)($row['logo_url'] ?? ''),
+        'connector_id' => (string)($row['connector_id'] ?? ''),
         'contract_mode' => (string)($row['contract_mode'] ?? 'platform'),
         'allows_existing_merchant_link' => !empty($row['allows_existing_merchant_link']),
+        'api_base_url' => (string)($row['api_base_url'] ?? ''),
+        'countries' => partnerRegistryV2NormalizeCountries(
+            json_decode((string)($row['countries_json'] ?? ''), true) ?? []
+        ),
+        'currencies' => partnerRegistryV2NormalizeCurrencies(
+            json_decode((string)($row['currencies_json'] ?? ''), true) ?? []
+        ),
+        'support_email' => (string)($row['support_email'] ?? ''),
+        'support_phone' => (string)($row['support_phone'] ?? ''),
+        'platform_fee_pct_default' => partnerRegistryV2NormalizeFeePercent($row['platform_fee_pct_default'] ?? '0'),
+        'platform_fee_flat_default' => partnerRegistryV2NormalizeFeeFlat($row['platform_fee_flat_default'] ?? '0'),
+        'weight_success' => partnerRegistryV2NormalizeSuccessWeight($row['weight_success'] ?? '0'),
+        'settle_note' => (string)($row['settle_note'] ?? ''),
+        'updated_by' => isset($row['updated_by']) ? (int)$row['updated_by'] : null,
         'connector_notes' => (string)($row['connector_notes'] ?? ''),
         'display_description' => (string)($row['display_description'] ?? ''),
         'capabilities' => [
@@ -276,9 +848,15 @@ function partnerRegistryV2ProfileFromRow(array $row): array
             'netbanking' => !empty($row['cap_netbanking']),
             'refund' => !empty($row['cap_refund']),
             'pay_later' => !empty($row['cap_pay_later']),
+            'qr' => !empty($row['cap_qr']),
+            'payout' => !empty($row['cap_payout']),
             'kyc_forward_api' => !empty($row['cap_kyc_forward_api']),
         ],
         'doc_pack' => $docPack,
+        'optional_doc_pack' => partnerRegistryV2FilterOptionalMerchantDocCodes(
+            json_decode((string)($row['optional_doc_pack_json'] ?? ''), true) ?: [],
+            $docPack
+        ),
         'partner_compliance_docs' => $complianceDocs,
         'policy_urls' => [
             'terms' => (string)($policyUrls['terms'] ?? ''),
@@ -292,7 +870,33 @@ function partnerRegistryV2ProfileFromRow(array $row): array
         'credential_live_status' => (string)($row['credential_live_status'] ?? 'missing'),
         'webhook_url' => (string)($row['webhook_url'] ?? ''),
         'adapter_class' => (string)($row['adapter_class'] ?? ''),
+        'channels' => partnerRegistryV2ChannelCapabilities($row),
     ];
+}
+
+function registryPartnerSupportsChannel(string $partnerKey, string $channel, ?array $gatewayRow = null): bool
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    $channel = strtolower(trim($channel));
+    if ($partnerKey === '' || !in_array($channel, partnerRegistryV2ChannelCatalog(), true)) {
+        return false;
+    }
+    if ($gatewayRow === null) {
+        if (!function_exists('getRegisteredGateways')) {
+            require_once __DIR__ . '/payment_methods.php';
+        }
+        foreach (getRegisteredGateways(false) as $row) {
+            if (strtolower(trim((string)($row['gateway_key'] ?? ''))) === $partnerKey) {
+                $gatewayRow = $row;
+                break;
+            }
+        }
+    }
+    if (!$gatewayRow) {
+        return false;
+    }
+    $profile = partnerRegistryV2ProfileFromRow($gatewayRow);
+    return !empty($profile['channels'][$channel]);
 }
 
 function partnerCredentialVaultStatus(string $partnerKey, string $env = 'test'): string
@@ -375,11 +979,27 @@ function partnerAdapterIsWired(string $partnerKey, ?array $gatewayRow = null): b
 function partnerRegistryActivateGate(array $gatewayRow): array
 {
     $key = strtolower(trim((string)($gatewayRow['gateway_key'] ?? '')));
-    if (partnerRegistryRowIsRetired($gatewayRow)) {
+    if (partnerRegistryLifecycleStatus($gatewayRow) === 'retired') {
         return [
             'allowed' => false,
             'reason' => 'Retired',
             'warn_keys' => true,
+        ];
+    }
+    $lifecycleStatus = partnerRegistryLifecycleStatus($gatewayRow);
+    if (in_array($lifecycleStatus, ['draft', 'sandbox', 'paused'], true)) {
+        return [
+            'allowed' => false,
+            'reason' => 'Integration lifecycle is ' . strtoupper($lifecycleStatus) . ' — complete LIVE certification first',
+            'warn_keys' => false,
+        ];
+    }
+    if ($lifecycleStatus === 'live'
+        && (partnerCredentialVaultStatus($key, 'test') !== 'valid' || partnerCredentialVaultStatus($key, 'live') !== 'valid')) {
+        return [
+            'allowed' => false,
+            'reason' => 'LIVE readiness is approved, but current Test and Live credentials must both pass Test Connection before routing can be activated.',
+            'warn_keys' => false,
         ];
     }
     $wired = partnerAdapterIsWired($key, $gatewayRow);
@@ -469,32 +1089,78 @@ function savePartnerRegistryProfile(int $gatewayId, array $input, ?int $adminId 
         return ['ok' => false, 'message' => 'Partner code must be 2–40 chars: lowercase letters, numbers, underscore.'];
     }
     if ($partnerCode !== (string)$existing['gateway_key']) {
-        $dup = getDB()->prepare('SELECT id FROM gateway_registry WHERE gateway_key=? AND id<>? LIMIT 1');
-        $dup->execute([$partnerCode, $gatewayId]);
-        if ($dup->fetchColumn()) {
-            return ['ok' => false, 'message' => 'Partner code already exists. Choose a unique code.'];
-        }
+        return ['ok' => false, 'message' => 'Partner code is immutable after registration; do not rename a key referenced by existing merchant links or transactions.'];
+    }
+
+    $requiredProfileInput = [
+        'connector_id' => $input['connector_id'] ?? $existing['connector_id'] ?? '',
+        'webhook_url' => $input['webhook_url'] ?? $existing['webhook_url'] ?? '',
+        'countries' => $input['countries'] ?? (json_decode((string)($existing['countries_json'] ?? ''), true) ?? []),
+        'doc_pack' => $input['doc_pack'] ?? (json_decode((string)($existing['doc_pack_json'] ?? ''), true) ?? []),
+    ];
+    $requiredErrors = partnerRegistryV2RequiredProfileErrors($requiredProfileInput);
+    if ($requiredErrors !== []) {
+        return ['ok' => false, 'message' => implode(' ', $requiredErrors)];
     }
 
     try {
-        $partnerType = partnerRegistryV2NormalizePartnerType((string)($input['partner_type'] ?? 'pg'));
+        $partnerType = partnerRegistryV2NormalizePartnerType((string)($input['partner_type'] ?? $existing['partner_type'] ?? 'pg'));
+        $contractMode = partnerRegistryV2NormalizeContractMode((string)($input['contract_mode'] ?? $existing['contract_mode'] ?? 'platform'));
     } catch (InvalidArgumentException $e) {
         return ['ok' => false, 'message' => $e->getMessage()];
     }
 
     $displayName = trim((string)($input['display_name'] ?? $existing['gateway_name']));
-    if ($displayName === '') {
-        return ['ok' => false, 'message' => 'Display name is required.'];
+    if ($displayName === '' || mb_strlen($displayName) > 80) {
+        return ['ok' => false, 'message' => 'Display name is required and must be 80 characters or fewer.'];
     }
 
-    $contractMode = partnerRegistryV2NormalizeContractMode((string)($input['contract_mode'] ?? 'platform'));
     $allowsLink = !empty($input['allows_existing_merchant_link']) ? 1 : 0;
-    $routingPriority = max(1, min(999, (int)($input['routing_priority'] ?? 50)));
+    try {
+        $apiBaseUrl = partnerRegistryV2NormalizeApiBaseUrl((string)($input['api_base_url'] ?? $existing['api_base_url'] ?? ''));
+        $countries = partnerRegistryV2NormalizeCountries($requiredProfileInput['countries']);
+        $currencies = partnerRegistryV2NormalizeCurrencies($input['currencies'] ?? (json_decode((string)($existing['currencies_json'] ?? ''), true) ?? []));
+        $connectorId = partnerRegistryV2NormalizeConnectorId((string)$requiredProfileInput['connector_id']);
+        $logoUrl = partnerRegistryV2NormalizeLogoUrl((string)($input['logo_url'] ?? $existing['logo_url'] ?? ''));
+        $webhookUrl = partnerRegistryV2NormalizeWebhookPath((string)$requiredProfileInput['webhook_url']);
+        $platformFeePct = partnerRegistryV2NormalizeFeePercent($input['platform_fee_pct_default'] ?? $existing['platform_fee_pct_default'] ?? '');
+        $platformFeeFlat = partnerRegistryV2NormalizeFeeFlat($input['platform_fee_flat_default'] ?? $existing['platform_fee_flat_default'] ?? '');
+        $successWeight = partnerRegistryV2NormalizeSuccessWeight($input['weight_success'] ?? $existing['weight_success'] ?? '');
+        $policyIn = is_array($input['policy_urls'] ?? null) ? $input['policy_urls'] : [];
+        $policyUrls = [
+            'terms' => partnerRegistryV2NormalizePolicyUrl((string)($policyIn['terms'] ?? '')),
+            'privacy' => partnerRegistryV2NormalizePolicyUrl((string)($policyIn['privacy'] ?? '')),
+            'refund' => partnerRegistryV2NormalizePolicyUrl((string)($policyIn['refund'] ?? '')),
+            'support' => partnerRegistryV2NormalizePolicyUrl((string)($policyIn['support'] ?? '')),
+        ];
+        $routingPriority = partnerRegistryV2NormalizeRoutingPriority($input['routing_priority'] ?? $existing['routing_priority'] ?? 50);
+    } catch (InvalidArgumentException $e) {
+        return ['ok' => false, 'message' => $e->getMessage()];
+    }
+    $supportEmail = trim((string)($input['support_email'] ?? ''));
+    if ($supportEmail !== '' && (strlen($supportEmail) > 190 || !filter_var($supportEmail, FILTER_VALIDATE_EMAIL))) {
+        return ['ok' => false, 'message' => 'Enter a valid partner support email address.'];
+    }
+    $supportPhone = trim((string)($input['support_phone'] ?? ''));
+    if ($supportPhone !== '') {
+        $phoneDigits = preg_replace('/\D/', '', $supportPhone) ?? '';
+        if (strlen($supportPhone) > 40
+            || !preg_match('/^\+?[0-9().\s-]+$/', $supportPhone)
+            || strlen($phoneDigits) < 7
+            || strlen($phoneDigits) > 15) {
+            return ['ok' => false, 'message' => 'Enter a valid partner support phone number.'];
+        }
+    }
     $circuitOn = !empty($input['circuit_breaker_on']) ? 1 : 0;
     $connectorNotes = mb_substr(trim((string)($input['connector_notes'] ?? '')), 0, 255);
     $displayDescription = mb_substr(trim((string)($input['display_description'] ?? '')), 0, 500);
-    $webhookUrl = mb_substr(trim((string)($input['webhook_url'] ?? '')), 0, 255) ?: null;
     $adapterClass = mb_substr(trim((string)($input['adapter_class'] ?? '')), 0, 120) ?: null;
+    $settleNote = trim((string)($input['settle_note'] ?? $existing['settle_note'] ?? ''));
+    if (mb_strlen($settleNote) > 500) {
+        return ['ok' => false, 'message' => 'Settlement note must be 500 characters or fewer.'];
+    }
+    $settleNote = $settleNote !== '' ? $settleNote : null;
+    $updatedBy = $adminId !== null && $adminId > 0 ? $adminId : null;
 
     $caps = is_array($input['capabilities'] ?? null) ? $input['capabilities'] : [];
     $capCollect = !empty($caps['collect']) ? 1 : 0;
@@ -503,26 +1169,32 @@ function savePartnerRegistryProfile(int $gatewayId, array $input, ?int $adminId 
     $capNb = !empty($caps['netbanking']) ? 1 : 0;
     $capRefund = !empty($caps['refund']) ? 1 : 0;
     $capPayLater = !empty($caps['pay_later']) ? 1 : 0;
+    $capQr = !empty($caps['qr']) ? 1 : 0;
+    $capPayout = !empty($caps['payout']) ? 1 : 0;
     $capKyc = !empty($caps['kyc_forward_api']) ? 1 : 0;
+    $channels = is_array($input['channels'] ?? null) ? $input['channels'] : [];
+    $channelCapabilities = [];
+    foreach (partnerRegistryV2ChannelCatalog() as $channel) {
+        if (array_key_exists($channel, $channels)) {
+            $channelCapabilities[$channel] = (bool)$channels[$channel];
+        }
+    }
 
-    $docPackRaw = $input['doc_pack'] ?? [];
+    $docPackRaw = $requiredProfileInput['doc_pack'];
     $docPack = is_array($docPackRaw) ? partnerRegistryV2FilterMerchantDocCodes($docPackRaw) : [];
+    $optionalDocPackRaw = $input['optional_doc_pack'] ?? [];
+    $optionalDocPack = is_array($optionalDocPackRaw)
+        ? partnerRegistryV2FilterOptionalMerchantDocCodes($optionalDocPackRaw, $docPack)
+        : [];
 
     $complianceRaw = $input['partner_compliance_docs'] ?? [];
     $complianceDocs = is_array($complianceRaw) ? partnerRegistryV2FilterComplianceDocCodes($complianceRaw) : [];
 
-    $policyIn = is_array($input['policy_urls'] ?? null) ? $input['policy_urls'] : [];
-    $policyUrls = [
-        'terms' => mb_substr(trim((string)($policyIn['terms'] ?? '')), 0, 500),
-        'privacy' => mb_substr(trim((string)($policyIn['privacy'] ?? '')), 0, 500),
-        'refund' => mb_substr(trim((string)($policyIn['refund'] ?? '')), 0, 500),
-        'support' => mb_substr(trim((string)($policyIn['support'] ?? '')), 0, 500),
-    ];
-
     $sql = 'UPDATE gateway_registry SET gateway_key=?, gateway_name=?, partner_type=?, contract_mode=?, allows_existing_merchant_link=?,
-            cap_collect=?, cap_upi=?, cap_card=?, cap_netbanking=?, cap_refund=?, cap_pay_later=?, cap_kyc_forward_api=?,
-            doc_pack_json=?, partner_compliance_docs_json=?, policy_urls_json=?, routing_priority=?, circuit_breaker_on=?, connector_notes=?, display_description=?,
-            webhook_url=?, adapter_class=?, supports_collection=?, supports_refund=?, updated_at=NOW() WHERE id=?';
+            cap_collect=?, cap_upi=?, cap_card=?, cap_netbanking=?, cap_refund=?, cap_pay_later=?, cap_qr=?, cap_payout=?, cap_kyc_forward_api=?,
+            doc_pack_json=?, optional_doc_pack_json=?, partner_compliance_docs_json=?, policy_urls_json=?, routing_priority=?, circuit_breaker_on=?, connector_notes=?, display_description=?,
+            webhook_url=?, adapter_class=?, connector_id=?, logo_url=?, channel_capabilities_json=?, api_base_url=?, countries_json=?, currencies_json=?, support_email=?, support_phone=?,
+            platform_fee_pct_default=?, platform_fee_flat_default=?, weight_success=?, settle_note=?, supports_collection=?, supports_refund=?, updated_by=?, updated_at=NOW() WHERE id=?';
     getDB()->prepare($sql)->execute([
         $partnerCode,
         $displayName,
@@ -535,8 +1207,11 @@ function savePartnerRegistryProfile(int $gatewayId, array $input, ?int $adminId 
         $capNb,
         $capRefund,
         $capPayLater,
+        $capQr,
+        $capPayout,
         $capKyc,
         $docPack === [] ? null : json_encode($docPack, JSON_UNESCAPED_UNICODE),
+        $optionalDocPack === [] ? null : json_encode($optionalDocPack, JSON_UNESCAPED_UNICODE),
         $complianceDocs === [] ? null : json_encode($complianceDocs, JSON_UNESCAPED_UNICODE),
         json_encode($policyUrls, JSON_UNESCAPED_UNICODE),
         $routingPriority,
@@ -545,14 +1220,28 @@ function savePartnerRegistryProfile(int $gatewayId, array $input, ?int $adminId 
         $displayDescription !== '' ? $displayDescription : null,
         $webhookUrl,
         $adapterClass,
+        $connectorId,
+        $logoUrl,
+        $channelCapabilities === [] ? null : json_encode($channelCapabilities, JSON_UNESCAPED_UNICODE),
+        $apiBaseUrl,
+        $countries === [] ? null : json_encode($countries, JSON_UNESCAPED_UNICODE),
+        $currencies === [] ? null : json_encode($currencies, JSON_UNESCAPED_UNICODE),
+        $supportEmail !== '' ? $supportEmail : null,
+        $supportPhone !== '' ? $supportPhone : null,
+        $platformFeePct,
+        $platformFeeFlat,
+        $successWeight,
+        $settleNote,
         $capCollect,
         $capRefund,
+        $updatedBy,
         $gatewayId,
     ]);
 
     $auditDetail = json_encode([
         'partner_code' => $partnerCode,
         'partner_type' => $partnerType,
+        'connector_id' => $connectorId,
         'contract_mode' => $contractMode,
         'routing_priority' => $routingPriority,
     ], JSON_UNESCAPED_UNICODE);
@@ -580,34 +1269,69 @@ function registerPartnerRegistryV2(array $input, ?int $adminId = null): array
     if ($partnerCode === '' || $displayName === '') {
         return ['ok' => false, 'message' => 'Partner code and display name are required.'];
     }
+    if (mb_strlen($displayName) > 80) {
+        return ['ok' => false, 'message' => 'Display name must be 80 characters or fewer.'];
+    }
     try {
         partnerRegistryV2NormalizePartnerType((string)($input['partner_type'] ?? 'pg'));
+        partnerRegistryV2NormalizeContractMode((string)($input['contract_mode'] ?? 'platform'));
+        partnerRegistryV2NormalizeFeePercent($input['platform_fee_pct_default'] ?? '');
+        partnerRegistryV2NormalizeFeeFlat($input['platform_fee_flat_default'] ?? '');
     } catch (InvalidArgumentException $e) {
         return ['ok' => false, 'message' => $e->getMessage()];
+    }
+    $requiredErrors = partnerRegistryV2RequiredProfileErrors($input);
+    if ($requiredErrors !== []) {
+        return ['ok' => false, 'message' => implode(' ', $requiredErrors)];
     }
 
     if (!function_exists('registerGateway')) {
         require_once __DIR__ . '/payment_methods.php';
     }
     $caps = is_array($input['capabilities'] ?? null) ? $input['capabilities'] : [];
-    $result = registerGateway($partnerCode, $displayName, [
-        'collection' => !empty($caps['collect']) ? 1 : (int)!empty($input['supports_collection']),
-        'payout' => (int)!empty($input['supports_payout']),
-        'refund' => !empty($caps['refund']) ? 1 : (int)!empty($input['supports_refund']),
-        'recurring' => (int)!empty($input['supports_recurring']),
-        'adapter' => trim((string)($input['adapter_class'] ?? '')) ?: null,
-        'webhook_url' => trim((string)($input['webhook_url'] ?? '')) ?: null,
-    ]);
-    if (empty($result['ok'])) {
-        return ['ok' => false, 'message' => (string)($result['error'] ?? 'Could not register partner.')];
+    $db = getDB();
+    $ownsTransaction = !$db->inTransaction();
+    if ($ownsTransaction) {
+        $db->beginTransaction();
     }
+    try {
+        $result = registerGateway($partnerCode, $displayName, [
+            'collection' => !empty($caps['collect']) ? 1 : (int)!empty($input['supports_collection']),
+            'payout' => 0,
+            'refund' => !empty($caps['refund']) ? 1 : (int)!empty($input['supports_refund']),
+            'recurring' => (int)!empty($input['supports_recurring']),
+            'adapter' => trim((string)($input['adapter_class'] ?? '')) ?: null,
+            'webhook_url' => partnerRegistryV2NormalizeWebhookPath((string)($input['webhook_url'] ?? '')),
+        ]);
+        if (empty($result['ok'])) {
+            if ($ownsTransaction && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            return ['ok' => false, 'message' => (string)($result['error'] ?? 'Could not register partner.')];
+        }
 
-    $gatewayId = (int)($result['gateway_id'] ?? 0);
-    if ($gatewayId > 0) {
+        $gatewayId = (int)($result['gateway_id'] ?? 0);
+        if ($gatewayId < 1) {
+            throw new RuntimeException('Partner registration returned no registry ID.');
+        }
+        getDB()->prepare("UPDATE gateway_registry SET integration_status='draft', lifecycle_updated_at=NOW(), lifecycle_updated_by=? WHERE id=? AND integration_status='legacy_unverified'")
+            ->execute([$adminId, $gatewayId]);
         $save = savePartnerRegistryProfile($gatewayId, $input, $adminId);
         if (empty($save['ok'])) {
+            if ($ownsTransaction && $db->inTransaction()) {
+                $db->rollBack();
+            }
             return $save;
         }
+        if ($ownsTransaction) {
+            $db->commit();
+        }
+    } catch (Throwable $e) {
+        if ($ownsTransaction && $db->inTransaction()) {
+            $db->rollBack();
+        }
+        error_log('registerPartnerRegistryV2 failed: ' . $e->getMessage());
+        return ['ok' => false, 'message' => 'Could not register partner profile. Check the application log and retry.'];
     }
 
     if (function_exists('recordImmutableAudit')) {
@@ -626,7 +1350,8 @@ function partnerRegistryV2ControlRoomNote(): string
 {
     return 'Global Control Room — partner identity, connector, keys status, and capability flags. '
         . 'New partners show immediately as Inactive (Activate is not required to see the row). '
-        . 'Activate turns routing ON. Keys Missing / Keys Valid / Keys Invalid come from saved keys and Test Connection. '
+        . 'New integrations progress Draft → Sandbox → LIVE readiness; routing activation stays separate. '
+        . 'Keys Missing / Keys Valid / Keys Invalid come from saved keys and Test Connection. '
         . 'Not wired means no adapter file — routing ON is blocked. This screen does not move customer money.';
 }
 
@@ -719,7 +1444,7 @@ function partnerRegistryHasRetiredColumn(): bool
 
 function partnerAllowsAlreadyLiveLink(array $gatewayRow): bool
 {
-    if (partnerRegistryRowIsRetired($gatewayRow)) {
+    if (!partnerRegistryLifecycleAllowsMerchantEnablement(partnerRegistryLifecycleStatus($gatewayRow))) {
         return false;
     }
     if (!empty($gatewayRow['allows_existing_merchant_link'])) {
@@ -746,6 +1471,253 @@ function seedCollectPartnerAlreadyLiveLinkDefault(): void
             saveSetting('seed_already_live_collect_pg', '1');
         }
     } catch (Throwable $e) { /* registry table may be missing on first boot */ }
+}
+
+function merchantPartnerRouteOverview(int $merchantId): array
+{
+    if ($merchantId < 1) {
+        return [];
+    }
+    if (!function_exists('getMerchantPartnerLinks')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    if (!function_exists('getRegisteredGateways')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+
+    $rows = [];
+    foreach (getMerchantPartnerLinks($merchantId) as $link) {
+        $partnerKey = strtolower(trim((string)($link['partner_key'] ?? '')));
+        if ($partnerKey === '') {
+            continue;
+        }
+        $gateway = null;
+        foreach (getRegisteredGateways(false) as $candidate) {
+            if (strtolower(trim((string)($candidate['gateway_key'] ?? ''))) === $partnerKey) {
+                $gateway = $candidate;
+                break;
+            }
+        }
+
+        $contractMode = strtolower(trim((string)($gateway['contract_mode'] ?? 'platform')));
+        $source = strtolower(trim((string)($link['account_source'] ?? 'platform')));
+        $credentialStatus = strtolower(trim((string)($link['credential_status'] ?? 'missing')));
+        $ownerOverride = (int)($link['owner_override'] ?? 0) === 1;
+        $isExistingAccount = in_array($source, ['linked', 'preexisting'], true);
+        $linkedValid = $isExistingAccount && ($credentialStatus === 'valid' || $ownerOverride);
+
+        $lifecycle = function_exists('partnerRegistryLifecycleStatus')
+            ? partnerRegistryLifecycleStatus($gateway ?: ['integration_status' => 'legacy_unverified'])
+            : strtolower(trim((string)($gateway['integration_status'] ?? 'legacy_unverified')));
+
+        $route = 'platform';
+        $routeLabel = 'Platform onboarding';
+        $message = 'Platform onboarding path is in use for this partner.';
+        if ($isExistingAccount) {
+            $route = 'linked_existing';
+            $routeLabel = 'Already-live account path';
+            $message = $linkedValid
+                ? 'Merchant already has a linked partner account and the link is valid; do not create a new platform onboarding record.'
+                : 'Existing partner account is on file, but it is not yet valid. Platform onboarding stays blocked until the link is corrected.';
+        } elseif (in_array($contractMode, ['linked_existing', 'hybrid'], true)) {
+            $route = 'hybrid';
+            $routeLabel = 'Hybrid route';
+            $message = 'This partner allows hybrid routing. Platform onboarding is allowed only when no valid already-live account is linked.';
+        }
+
+        if ($gateway && function_exists('partnerRegistryLifecycleAllowsMerchantEnablement')
+            && !partnerRegistryLifecycleAllowsMerchantEnablement($lifecycle)) {
+            $message .= ' Lifecycle status: ' . strtoupper($lifecycle) . ' — existing checkout state stays unchanged.';
+        }
+
+        $rows[] = [
+            'partner_key' => $partnerKey,
+            'partner_name' => (string)($gateway['gateway_name'] ?? ucfirst(str_replace('_', ' ', $partnerKey))),
+            'route' => $route,
+            'route_label' => $routeLabel,
+            'message' => $message,
+            'linked_valid' => $linkedValid,
+            'contract_mode' => $contractMode,
+            'lifecycle' => $lifecycle,
+            'platform_blocked' => $isExistingAccount && $linkedValid,
+        ];
+    }
+
+    return $rows;
+}
+
+function merchantPartnerOnboardingDecision(int $merchantId, string $partnerKey): array
+{
+    $merchantId = (int)$merchantId;
+    $partnerKey = strtolower(trim((string)$partnerKey));
+    $gateway = null;
+    if ($partnerKey === '') {
+        return ['decision' => 'blocked', 'summary' => 'No partner key supplied.', 'checks' => []];
+    }
+    if (!function_exists('getRegisteredGateways')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+    foreach (getRegisteredGateways(false) as $candidate) {
+        if (strtolower(trim((string)($candidate['gateway_key'] ?? ''))) === $partnerKey) {
+            $gateway = $candidate;
+            break;
+        }
+    }
+    $link = function_exists('getMerchantPartnerLinkRow') ? getMerchantPartnerLinkRow($merchantId, $partnerKey) : null;
+    $source = strtolower(trim((string)($link['account_source'] ?? 'platform')));
+    $credentialStatus = strtolower(trim((string)($link['credential_status'] ?? 'missing')));
+    $ownerOverride = (int)($link['owner_override'] ?? 0) === 1;
+    $validLinked = in_array($source, ['linked', 'preexisting'], true) && ($credentialStatus === 'valid' || $ownerOverride);
+    $contractMode = strtolower(trim((string)($gateway['contract_mode'] ?? 'platform')));
+    $platformAllowed = $gateway ? partnerRegistrySupportsPlatformOnboarding($gateway) : false;
+    $lifecycle = $gateway && function_exists('partnerRegistryLifecycleStatus')
+        ? partnerRegistryLifecycleStatus($gateway)
+        : strtolower(trim((string)($gateway['integration_status'] ?? 'legacy_unverified')));
+    $lifecycleEligible = $gateway ? partnerRegistryLifecycleAllowsMerchantEnablement($lifecycle) : false;
+    $coverage = function_exists('merchantPartnerMayEnableFromCoverage')
+        ? merchantPartnerMayEnableFromCoverage($merchantId, $partnerKey)
+        : ['ok' => false, 'error' => 'Coverage gate not available.'];
+
+    $checks = [
+        ['key' => 'platform_mode', 'ok' => $platformAllowed, 'label' => 'Partner supports platform onboarding', 'detail' => $platformAllowed ? 'This partner is configured for platform or hybrid onboarding.' : 'This partner is configured for linked-existing only.'],
+        ['key' => 'lifecycle', 'ok' => $lifecycleEligible, 'label' => 'Partner lifecycle permits enablement', 'detail' => $gateway ? 'Lifecycle status is ' . strtoupper($lifecycle) . '.' : 'No registry row found.'],
+        ['key' => 'existing_link', 'ok' => !$validLinked, 'label' => 'No valid already-live account block', 'detail' => $validLinked ? 'A valid already-live link exists and blocks a fresh platform onboarding record.' : 'No valid already-live link is present.'],
+        ['key' => 'coverage', 'ok' => !empty($coverage['ok']), 'label' => 'Document coverage gate is satisfied', 'detail' => !empty($coverage['ok']) ? 'Coverage allows enablement.' : ((string)($coverage['error'] ?? 'Coverage gate is not satisfied.'))],
+    ];
+
+    $decision = 'blocked';
+    $summary = 'Blocked: platform onboarding is not allowed under the current partner state.';
+    if ($validLinked) {
+        $decision = 'linked_existing';
+        $summary = 'Linked existing route wins. A valid already-live account is already connected and platform onboarding is deliberately blocked.';
+    } elseif ($platformAllowed && $lifecycleEligible && !empty($coverage['ok'])) {
+        $decision = 'platform';
+        $summary = 'Platform onboarding is permitted. No valid already-live link is present, lifecycle is eligible, and coverage gate is satisfied.';
+    } elseif ($platformAllowed && $lifecycleEligible && empty($coverage['ok'])) {
+        $summary = 'Platform onboarding is still blocked until the coverage gate is satisfied.';
+    } elseif ($platformAllowed && !$lifecycleEligible) {
+        $summary = 'Platform onboarding is blocked because the partner lifecycle is not eligible for merchant enablement.';
+    } elseif (!$platformAllowed) {
+        $summary = 'This partner is configured as linked-existing only; platform onboarding is not available.';
+    }
+
+    return ['decision' => $decision, 'summary' => $summary, 'checks' => $checks, 'partner_key' => $partnerKey, 'lifecycle' => $lifecycle, 'linked_valid' => $validLinked];
+}
+
+function merchantPartnerRouteSummary(int $merchantId): array
+{
+    $merchantId = (int)$merchantId;
+    $summary = ['platform' => 0, 'linked_existing' => 0, 'blocked' => 0, 'total' => 0, 'partners' => []];
+    if ($merchantId < 1) {
+        return $summary;
+    }
+    if (!function_exists('getMerchantPartnerLinks')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    foreach (getMerchantPartnerLinks($merchantId) as $link) {
+        $partnerKey = strtolower(trim((string)($link['partner_key'] ?? '')));
+        if ($partnerKey === '') {
+            continue;
+        }
+        $decision = merchantPartnerOnboardingDecision($merchantId, $partnerKey);
+        $summary['total']++;
+        if ($decision['decision'] === 'platform') {
+            $summary['platform']++;
+        } elseif ($decision['decision'] === 'linked_existing') {
+            $summary['linked_existing']++;
+        } else {
+            $summary['blocked']++;
+        }
+        $summary['partners'][] = [
+            'partner_key' => $partnerKey,
+            'decision' => $decision['decision'],
+            'summary' => $decision['summary'],
+            'lifecycle' => $decision['lifecycle'] ?? '',
+        ];
+    }
+    return $summary;
+}
+
+function partnerRegistrySupportsPlatformOnboarding(array $gatewayRow): bool
+{
+    $mode = strtolower(trim((string)($gatewayRow['contract_mode'] ?? 'platform')));
+    return in_array($mode, ['platform', 'hybrid'], true);
+}
+
+/**
+ * @return array{platform_ready:bool,linked_ready:bool,blockers:list<string>,lifecycle:string,summary:string}
+ */
+function partnerRegistryRouteReadinessSummary(array $gatewayRow): array
+{
+    $key = strtolower(trim((string)($gatewayRow['gateway_key'] ?? '')));
+    $lifecycle = partnerRegistryLifecycleStatus($gatewayRow);
+    $blockers = [];
+
+    if ($lifecycle === 'retired') {
+        $blockers[] = 'Retired — routing and lifecycle actions are locked.';
+    }
+    if (in_array($lifecycle, ['draft', 'sandbox', 'paused'], true)) {
+        $blockers[] = 'Lifecycle status is ' . strtoupper($lifecycle) . ' — not eligible for live merchant enablement.';
+    }
+    if (!partnerAdapterIsWired($key, $gatewayRow)) {
+        $blockers[] = 'No connector adapter / wiring file is present.';
+    }
+    if ($key !== '' && partnerCredentialVaultStatus($key, 'test') !== 'valid') {
+        $blockers[] = 'Test credentials are missing or invalid.';
+    }
+    if ($key !== '' && $lifecycle === 'live' && partnerCredentialVaultStatus($key, 'live') !== 'valid') {
+        $blockers[] = 'Live credentials are missing or invalid for LIVE certification.';
+    }
+
+    $platformReady = partnerRegistrySupportsPlatformOnboarding($gatewayRow)
+        && !in_array($lifecycle, ['draft', 'sandbox', 'paused', 'retired'], true)
+        && partnerRegistryActivateGate($gatewayRow)['allowed'];
+
+    $linkedReady = partnerAllowsAlreadyLiveLink($gatewayRow)
+        && !in_array($lifecycle, ['draft', 'sandbox', 'paused', 'retired'], true);
+
+    $summary = 'Platform: ' . ($platformReady ? 'ready' : 'blocked') . '; Linked existing: ' . ($linkedReady ? 'ready' : 'blocked');
+    if ($blockers !== []) {
+        $summary .= ' — ' . implode('; ', $blockers);
+    }
+
+    return [
+        'platform_ready' => $platformReady,
+        'linked_ready' => $linkedReady,
+        'blockers' => $blockers,
+        'lifecycle' => $lifecycle,
+        'summary' => $summary,
+    ];
+}
+
+/**
+ * @param list<array<string,mixed>> $gateways
+ * @return array{platform_ready:int,linked_ready:int,blocked:int,platform_blocked:int,linked_blocked:int,hybrid_ready:int}
+ */
+function partnerRegistryRouteReadinessCounts(array $gateways): array
+{
+    $counts = ['platform_ready' => 0, 'linked_ready' => 0, 'blocked' => 0, 'platform_blocked' => 0, 'linked_blocked' => 0, 'hybrid_ready' => 0];
+    foreach ($gateways as $gateway) {
+        $summary = function_exists('partnerRegistryRouteReadinessSummary') ? partnerRegistryRouteReadinessSummary($gateway) : ['platform_ready' => false, 'linked_ready' => false, 'summary' => ''];
+        $mode = strtolower(trim((string)($gateway['contract_mode'] ?? 'platform')));
+        if (!empty($summary['platform_ready'])) {
+            $counts['platform_ready']++;
+        } else {
+            $counts['platform_blocked']++;
+        }
+        if (!empty($summary['linked_ready'])) {
+            $counts['linked_ready']++;
+        } else {
+            $counts['linked_blocked']++;
+        }
+        if (in_array($mode, ['hybrid', 'linked_existing'], true) && !empty($summary['linked_ready'])) {
+            $counts['hybrid_ready']++;
+        }
+        if (empty($summary['platform_ready']) && empty($summary['linked_ready'])) {
+            $counts['blocked']++;
+        }
+    }
+    return $counts;
 }
 
 /**
@@ -849,8 +1821,8 @@ function retirePartnerRegistryRow(int $gatewayId, array $opts = []): array
     $who = mb_substr(trim((string)($opts['admin_email'] ?? '')), 0, 120);
     try {
         if (partnerRegistryHasRetiredColumn()) {
-            $db->prepare('UPDATE gateway_registry SET is_active=0, retired_at=NOW(), retired_by=? WHERE id=? AND retired_at IS NULL')
-                ->execute([$who !== '' ? $who : 'admin', $gatewayId]);
+            $db->prepare("UPDATE gateway_registry SET is_active=0, retired_at=NOW(), retired_by=?, integration_status='retired', lifecycle_resume_status=NULL, lifecycle_updated_at=NOW(), lifecycle_updated_by=? WHERE id=? AND retired_at IS NULL")
+                ->execute([$who !== '' ? $who : 'admin', (int)($opts['admin_id'] ?? 0), $gatewayId]);
         } else {
             $db->prepare('UPDATE gateway_registry SET is_active=0 WHERE id=?')->execute([$gatewayId]);
         }
@@ -873,13 +1845,11 @@ function retirePartnerRegistryRow(int $gatewayId, array $opts = []): array
 function registryRowSupportsKycForward(array $row): bool
 {
     $key = strtolower(trim((string)($row['gateway_key'] ?? '')));
-    if ($key === '') {
+    if ($key === '' || !partnerRegistrySupportsPlatformOnboarding($row)) {
         return false;
     }
-    if (partnerRegistryV2HasColumns() && array_key_exists('cap_kyc_forward_api', $row)) {
-        if ((int)($row['cap_kyc_forward_api'] ?? 0) === 1) {
-            return true;
-        }
+    if (registryPartnerSupportsChannel($key, 'document_forward', $row)) {
+        return true;
     }
     if (!function_exists('getPartnerRegistry')) {
         require_once __DIR__ . '/partner_engine.php';
@@ -1125,6 +2095,9 @@ function registryPartnerCheckoutUiWired(string $partnerKey, string $checkoutMeth
 function registryPartnerCapSupportsCheckoutMethod(string $partnerKey, string $checkoutMethod, ?array $gatewayRow = null): bool
 {
     $partnerKey = strtolower(trim($partnerKey));
+    if (!registryPartnerSupportsChannel($partnerKey, 'checkout_hosted', $gatewayRow)) {
+        return false;
+    }
     $bucket = registryCheckoutMethodBucket($checkoutMethod);
     $caps = registryPartnerEffectiveCaps($partnerKey, $gatewayRow);
     if (!$caps['collect']) {

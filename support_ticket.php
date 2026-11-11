@@ -2,6 +2,8 @@
 require_once __DIR__ . '/config.php';
 requireLogin();
 ensureSupportTicketTable();
+require_once __DIR__ . '/includes/cases_ops.php';
+ensureCasesSpineSchema();
 $merchant = getMerchant();
 $id = trim($_GET['id'] ?? '');
 $db = getDB();
@@ -63,6 +65,7 @@ require_once __DIR__ . '/header.php';
             <p class="text-xs text-gray-600 mt-2"><?= formatDate($msg['created_at']) ?></p>
         </div>
         <?php endforeach; ?>
+        <?= renderMerchantCasesPartnerEvents('support_ticket', (int)$ticket['id']) ?>
         <p class="text-xs text-gray-600 mt-4"><?= formatDate($ticket['created_at']) ?> · Priority: <?= e(ucfirst($ticket['priority'] ?? 'medium')) ?></p>
     </div>
     <div class="glass rounded-xl p-6 border border-sky-500/20">

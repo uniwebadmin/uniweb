@@ -8,7 +8,7 @@ function qrSvg(string $text, int $size = 200): string
         return '<svg xmlns="http://www.w3.org/2000/svg" width="' . $size . '" height="' . $size . '"><text x="10" y="20" fill="#666" font-size="12">QR unavailable</text></svg>';
     }
     require_once $lib;
-    if (!class_exists('QRcode', false)) {
+    if (!class_exists('QRcode', false) || !function_exists('imagecreatetruecolor')) {
         return '<svg xmlns="http://www.w3.org/2000/svg" width="' . $size . '" height="' . $size . '"><text x="10" y="20" fill="#666" font-size="12">QR library missing</text></svg>';
     }
     ob_start();

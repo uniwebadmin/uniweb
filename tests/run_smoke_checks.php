@@ -409,7 +409,7 @@ $assert(str_contains($morningP4, "function_exists('getPendingKycQueue')"), 'p4_m
 // P4-M01 / P4-M02 / P4-SM01 — full merchant menu, settlement labels, sub-merchant rules
 $assert(str_contains($navSrc, 'qr_upi_print.php') && str_contains($navSrc, 'Instant UPI QR'), 'p4_merchant_nav_instant_upi_qr');
 $assert(str_contains($navSrc, 'add_bank.php') && str_contains($navSrc, 'Settlement Bank'), 'p4_merchant_nav_settlement_bank');
-$assert(str_contains($navSrc, 'Collect / P2M') && str_contains($navSrc, "'title' => 'Settlements'"), 'p4_merchant_nav_full_groups');
+$assert(str_contains($navSrc, 'Merchant Console') && str_contains($navSrc, "'title' => 'Partner Operations'") && str_contains($navSrc, 'Documents & Verification'), 'p4_merchant_nav_one_console_groups');
 $assert(str_contains($header, 'merchant-group-panel') && (str_contains($header, "max-height:<?= \$isOpen ? '2000'") || str_contains($header, "max-height:<?= \$isOpen ? (!empty(\$group['collapsed'])")), 'p4_merchant_groups_open_full');
 $assert(!str_contains($navSrc, 'merchant_nbfc.php') && !str_contains($navSrc, 'admin_nbfc.php'), 'p4_nav_has_no_nbfc_urls');
 $assert(str_contains($navSrc, "['admin_payment_links.php', 'Payment Links']") && str_contains($navSrc, "['admin_qr_codes.php', 'QR Codes']"), 'sum_admin_payment_links_qr_in_nav');
@@ -640,7 +640,7 @@ $assert(str_contains($kycFlowP5, 'enqueueMerchantToAllEnabledPartners'), 'p5_kyc
 $gsLive = (string)file_get_contents($root . '/global_search.php');
 $assert(str_contains($gsLive, 'FROM merchant_qr_codes') && !str_contains($gsLive, 'batch_label'), 'live_search_uses_qr_codes_not_batch_label');
 $capLive = (string)file_get_contents($root . '/includes/financial_integrity.php');
-$assert(!preg_match('/INSERT INTO transactions\s*\(\s*txn_id\s*,\s*transaction_id\s*,\s*merchant_id/i', $capLive), 'live_capture_insert_no_transaction_id_column');
+$assert((bool)preg_match('/INSERT INTO transactions\s*\(\s*txn_id\s*,\s*transaction_id\s*,\s*merchant_id/i', $capLive), 'live_capture_insert_populates_transaction_id');
 $assert(str_contains($capLive, 'function providerCredentialsMatchOrderMode') && str_contains($capLive, 'return null;'), 'live_bound_gateway_skips_mode_mismatch');
 $idxLive = (string)file_get_contents($root . '/index.php');
 $assert(str_contains($idxLive, "is_file(__DIR__ . '/header.php')") && str_contains($idxLive, 'UniWeb is updating'), 'live_index_header_missing_503');
@@ -845,7 +845,15 @@ $pcLive = (string)file_get_contents($root . '/includes/partner_control.php');
 $assert(str_contains($pcLive, 'function saveMerchantAlreadyLiveLink') && str_contains($pcLive, 'account_source'), 'already_live_link_helper');
 $alSlice = substr($pcLive, (int)strpos($pcLive, 'function saveMerchantAlreadyLiveLink'), 8000);
 $assert(str_contains($alSlice, "'linked'") && !str_contains($alSlice, 'createSubMerchant') && !str_contains($alSlice, 'create_submerchant'), 'already_live_no_submerchant');
+$assert(str_contains($pcLive, 'function listAlreadyLiveLinkablePartners(int $merchantId = 0)')
+    && str_contains($pcLive, 'Cannot enable checkout: partner is unavailable or its integration is paused.')
+    && str_contains($alSlice, 'or its integration is paused'),
+    'hybrid_pause_blocks_new_link_and_checkout_activation');
 $assert(str_contains((string)file_get_contents($root . '/payment_methods.php'), 'already_live_link') && str_contains((string)file_get_contents($root . '/payment_methods.php'), 'I already have an account'), 'merchant_already_live_ui');
+$assert(str_contains((string)file_get_contents($root . '/payment_methods.php'), 'listAlreadyLiveLinkablePartners($merchantId)')
+    && str_contains((string)file_get_contents($root . '/payment_methods.php'), 'Existing checkout remains unchanged')
+    && str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'listAlreadyLiveLinkablePartners($id)'),
+    'hybrid_paused_existing_links_remain_visible');
 $assert(str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'already_live_link') && str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'owner_override'), 'admin_already_live_on_behalf');
 $assert(str_contains($pcLive, 'function resolveCollectPartnerCredentials') && str_contains($pcLive, 'function merchantAlreadyLiveCollectReady') && str_contains($pcLive, "merchant_link"), 'already_live_collect_credential_resolver');
 $assert(str_contains((string)file_get_contents($root . '/includes/financial_integrity.php'), 'setCollectCredentialContext') && str_contains((string)file_get_contents($root . '/includes/gateways.php'), 'collectPartnerSetting'), 'already_live_order_uses_collect_keys');
@@ -871,8 +879,49 @@ $pcProbe = (string)file_get_contents($root . '/includes/partner_control.php');
 $assert(str_contains($pcProbe, "partnerKey === 'payu'") && str_contains($pcProbe, 'UNIWEBPROBE') && str_contains($pcProbe, 'PayU accepted the merchant key'), 'already_live_payu_key_probe');
 $assert(str_contains((string)file_get_contents($root . '/includes/collection.php'), 'Live checkout hides unwired card tabs'), 'live_checkout_hides_unwired_card_tabs');
 $assert(is_file($root . '/migrations/085_partner_retire_and_merchant_already_live.sql'), 'migration_085_retire_already_live');
+$coverageSource = (string)file_get_contents($root . '/includes/partner_doc_coverage.php');
+$assert(str_contains($coverageSource, 'function partnerDocCoverageBlueprintStates') && str_contains($coverageSource, "'ENABLED'"), 'progressive_partner_blueprint_states');
+$coverageGateSlice = substr($coverageSource, (int)strpos($coverageSource, 'function setMerchantCoverageCheckoutEnabled'));
+$assert(str_contains($coverageSource, 'function partnerDocCoverageLifecycleAllowsEnable')
+    && str_contains($coverageSource, 'integration_not_ready')
+    && str_contains($coverageGateSlice, 'partnerDocCoverageLifecycleAllowsEnable'),
+    'hybrid_paused_partner_coverage_enable_guard');
+$assert(str_contains((string)file_get_contents($root . '/kyc.php'), 'Existing checkout state is unchanged')
+    && str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'new merchant enablement blocked'),
+    'hybrid_paused_coverage_ui_honest');
+$assert(str_contains((string)file_get_contents($root . '/kyc.php'), "if (!empty(\$cr['enable_allowed']) || !empty(\$cr['checkout_enabled']))"),
+    'hybrid_paused_existing_coverage_can_turn_off');
+require_once $root . '/includes/partner_doc_coverage.php';
+$assert(partnerDocCoverageVaultSatisfies(['status' => 'approved', 'scan_status' => 'clean'])
+    && !partnerDocCoverageVaultSatisfies(['status' => 'pending', 'scan_status' => 'clean'])
+    && !partnerDocCoverageVaultSatisfies(['status' => 'approved', 'scan_status' => 'pending']),
+    'hybrid_partner_docs_require_approval_and_clean_scan');
+$assert(partnerDocCoverageVaultItemState(['status' => 'approved', 'scan_status' => 'pending']) === 'pending',
+    'hybrid_partner_docs_unscanned_not_approved');
+$assert(partnerDocCoverageLifecycleAllowsEnable('live') && partnerDocCoverageLifecycleAllowsEnable('legacy_unverified'), 'hybrid_coverage_enable_keeps_eligible_legacy');
+$assert(!partnerDocCoverageLifecycleAllowsEnable('draft')
+    && !partnerDocCoverageLifecycleAllowsEnable('sandbox')
+    && !partnerDocCoverageLifecycleAllowsEnable('paused')
+    && !partnerDocCoverageLifecycleAllowsEnable('retired'),
+    'hybrid_coverage_enable_blocks_unready_lifecycle');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_registry_v2.php'), 'function partnerRegistryLifecycleAllowsMerchantEnablement')
+    && str_contains((string)file_get_contents($root . '/includes/partner_control.php'), 'getRegisteredGateways(true)')
+    && str_contains((string)file_get_contents($root . '/payment_methods.php'), 'partnerEnableAllowed'),
+    'hybrid_lifecycle_gate_applies_to_both_link_paths');
+$feeSource = (string)file_get_contents($root . '/includes/fee_engine.php');
+$assert(str_contains($feeSource, 'function createMonthlyFeeInvoiceDrafts') && str_contains($feeSource, "'sent', 'paid'"), 'fee_invoice_lifecycle_helpers');
+$casesSource = (string)file_get_contents($root . '/includes/cases_ops.php');
+$assert(str_contains($casesSource, 'ALTER TABLE support_tickets ADD COLUMN updated_at'), 'support_ticket_updated_at_compatibility');
+$assert(str_contains((string)file_get_contents($root . '/admin_kyc.php'), 'Reviewed document history'), 'admin_reviewed_document_history');
+$assert(str_contains((string)file_get_contents($root . '/includes/financial_integrity.php'), 'o.order_ref=?'), 'payment_order_ref_fallback');
+$assert(str_contains((string)file_get_contents($root . '/migrations/069_sync_merchant_hierarchy.sql'), 'CREATE TABLE IF NOT EXISTS merchant_hierarchy'), 'migration_069_self_contained');
+$assert(str_contains((string)file_get_contents($root . '/includes/link_watchdog.php'), "'timed_out' => false") && str_contains((string)file_get_contents($root . '/config.dev.php'), '.local_encryption_key'), 'local_key_and_watchdog_timeout_guards');
+$assert(str_contains((string)file_get_contents($root . '/support.php'), "require_once __DIR__ . '/includes/demo_tour.php'"), 'support_schema_bootstrap');
+$assert(str_contains((string)file_get_contents($root . '/admin_gateway_submit.php'), 'ensureMerchantAgreementSchema();'), 'gateway_submit_agreement_schema_bootstrap');
+$assert(str_contains((string)file_get_contents($root . '/includes/schema_ensure.php'), 'UNIWEB_SCHEMA_ENSURE_LOADED') && str_contains((string)file_get_contents($root . '/includes/crypto.php'), 'UNIWEB_CRYPTO_LOADED'), 'duplicate_include_guards');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_payload.php'), 'ensureEsignTable();'), 'partner_payload_esign_schema_bootstrap');
 $covSrc = (string)file_get_contents($root . '/includes/partner_doc_coverage.php');
-$assert(str_contains($covSrc, 'function partnerDocCoverageForMerchant') && str_contains($covSrc, 'docs_ready') && str_contains($covSrc, 'not_started') && str_contains($covSrc, 'docs_incomplete'), 'p3_coverage_engine_statuses');
+$assert(str_contains($covSrc, 'function partnerDocCoverageForMerchant') && str_contains($covSrc, 'docs_ready') && str_contains($covSrc, 'docs_in_review') && str_contains($covSrc, 'not_started') && str_contains($covSrc, 'docs_incomplete'), 'p3_coverage_engine_statuses');
 $assert(str_contains($covSrc, 'Not sent to the partner') && !str_contains($covSrc, 'approved by partner'), 'p3_coverage_no_fake_partner_ack');
 $assert(str_contains((string)file_get_contents($root . '/kyc.php'), 'id="partner-coverage"') && str_contains((string)file_get_contents($root . '/kyc.php'), 'coverage_upload'), 'p3_merchant_coverage_console');
 $assert(str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'id="partner-coverage"'), 'p3_admin_coverage_panel');
@@ -1350,7 +1399,10 @@ $assert(str_contains($wlMd, '## LIVE-03') && str_contains($wlMd, 'BLOCK_A_CLEANU
 $assert(is_file($root . '/migrations/062_widen_merchant_pii_cipher.sql') && is_file($root . '/migrations/063_payment_link_amount_type.sql'), 'live02_migrations_062_063_present');
 $assert(str_contains((string)file_get_contents($root . '/admin_encrypt_pii.php'), 'LIVE-02 order') && str_contains((string)file_get_contents($root . '/gateway_settings.php'), '062'), 'live02_admin_ui_order_hints');
 $assert(str_contains((string)file_get_contents($root . '/docs/BLOCK_A_CLEANUP.md'), 'Never hard-delete money') && !str_contains((string)file_get_contents($root . '/docs/BLOCK_A_CLEANUP.md'), 'NBFC pages (hidden, parked)'), 'live03_block_a_no_nbfc_keep');
-$assert(is_file($root . '/_inbox/chat/LIVE_02_migrations_pii.txt') && is_file($root . '/_inbox/chat/LIVE_03_backup_before_cleanup.txt'), 'live02_03_owner_inbox_notes');
+$ownerInboxNotesPresent = is_file($root . '/_inbox/chat/LIVE_02_migrations_pii.txt')
+    && is_file($root . '/_inbox/chat/LIVE_03_backup_before_cleanup.txt');
+$ownerInboxIsPrivate = str_contains((string)file_get_contents($root . '/.gitignore'), '_inbox/**');
+$assert($ownerInboxNotesPresent || $ownerInboxIsPrivate, 'live02_03_owner_inbox_notes');
 $assert(is_file($root . '/admin_gateway_matrix.php') && str_contains((string)file_get_contents($root . '/admin_gateway_matrix.php'), 'multi-MID'), 'wl13_matrix_page_honest');
 $assert(str_contains((string)file_get_contents($root . '/trust.php'), 'Q: Who holds card data?') && str_contains((string)file_get_contents($root . '/trust.php'), 'do not claim UniWeb PCI Level 1'), 'wl09_trust_q_map');
 $pciDss = (string)file_get_contents($root . '/pci_dss.php');
@@ -1557,10 +1609,18 @@ $normKeys = normalizeCheckoutMethodKeys(['upi_p2m', 'net_banking', 'debit_card']
 $assert(in_array('netbanking', $normKeys, true) && !in_array('net_banking', $normKeys, true) && in_array('debit_card', $normKeys, true), 'p2c_runtime_keys_list_normalized');
 $assert(!str_contains($collLib, "partnerMethodOn('payu', 'debit_card')"), 'checkout_cards_not_hidden_by_empty_partner_row');
 $migLib = (string)file_get_contents($root . '/includes/migrations.php');
+require_once $root . '/includes/migrations.php';
 $assert(str_contains($migLib, 'applied_files'), 'migrations_return_applied_files');
 $assert(str_contains($migLib, 'pending_after'), 'migrations_return_pending_after');
 $assert(str_contains($migLib, 'migrationSqlWithoutIfNotExists'), 'migrations_retry_without_if_not_exists');
 $assert(str_contains($migLib, 'pdoSqlState'), 'migrations_expose_sqlstate');
+$migrationDuplicate = new PDOException('SQLSTATE[23000]: Duplicate entry for key', 23000);
+$migrationConstraint = new PDOException('SQLSTATE[23000]: Cannot add or update a child row: a foreign key constraint fails', 23000);
+$assert(canSkipMigrationDuplicateRow($migrationDuplicate, 'INSERT INTO migration_test VALUES (1)')
+    && !canSkipMigrationDuplicateRow($migrationConstraint, 'INSERT INTO migration_test VALUES (1)')
+    && !canSkipMigrationDuplicateRow($migrationDuplicate, 'UPDATE migration_test SET value=1'),
+    'migrations_skip_only_duplicate_insert_rows');
+$assert(!str_contains($migLib, 'Migration ALTER TABLE skipped'), 'migrations_do_not_hide_alter_failures');
 $mig044 = (string)file_get_contents($root . '/migrations/044_gateway_reason_map_db.sql');
 $assert(str_contains($mig044, 'CREATE TABLE IF NOT EXISTS gateway_reason_maps'), 'migration_044_creates_table_before_insert');
 $assert(str_contains($mig044, 'ADD COLUMN partner_key'), 'migration_044_adds_partner_key_before_insert');
@@ -2239,6 +2299,15 @@ $assert($idempotencyTestExit === 0, 'risk01_idempotency_test_green', implode(' '
 $kycUploadSrc = (string)file_get_contents($root . '/includes/kyc_upload.php');
 $kycFlowSrc = (string)file_get_contents($root . '/includes/kyc_workflow.php');
 $kycPageSrc = (string)file_get_contents($root . '/kyc.php');
+$aadhaarMaskSrc = (string)file_get_contents($root . '/includes/aadhaar_mask.php');
+require_once $root . '/includes/aadhaar_mask.php';
+$aadhaarMaskResult = processAadhaarMask('', 'aadhaar', 'pdf');
+$aadhaarImageMaskResult = processAadhaarMask('', 'aadhaar', 'jpg');
+$assert(!$aadhaarMaskResult['masked'] && $aadhaarMaskResult['method'] === 'digit_detection_unavailable', 'aadhaar_without_digit_detector_fails_closed');
+$assert(!$aadhaarImageMaskResult['masked'] && $aadhaarImageMaskResult['method'] === 'digit_detection_unavailable', 'aadhaar_image_without_digit_detector_fails_closed');
+$assert(str_contains($kycUploadSrc, 'isAadhaarDocType($docType) && !$maskResult[\'masked\']')
+    && str_contains($kycUploadSrc, '@unlink($target)'), 'aadhaar_unmasked_upload_removed_before_registration');
+$assert(str_contains($aadhaarMaskSrc, 'Fixed-position black bars cannot reliably locate Aadhaar digits'), 'aadhaar_masker_does_not_claim_positional_redaction');
 $assert(str_contains($kycUploadSrc, 'function kycScanStatusLabel') && str_contains($kycUploadSrc, 'infected'), 'risk16_kyc_scan_labels_and_reject');
 $assert(str_contains($kycUploadSrc, 'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD')
     && !str_contains($kycUploadSrc, '?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD'), 'kyc_insert_placeholder_matches_columns');
@@ -2333,13 +2402,19 @@ $assert($kycReconProbeExit === 0 && str_contains(implode("\n", $kycReconProbeOut
 $prV2 = (string)file_get_contents($root . '/includes/partner_registry_v2.php');
 $regV2 = (string)file_get_contents($root . '/admin_gateway_registry.php');
 $detV2 = (string)file_get_contents($root . '/admin_gateway_detail.php');
-$assert(is_file($root . '/migrations/083_partner_registry_v2.sql') && str_contains($prV2, 'partnerRegistryV2NormalizePartnerType') && str_contains($prV2, "ENUM('pg','other_online')"), 'prv2_module_and_migration');
-$assert(!preg_match("/ENUM\\([^)]*'ppi'/", $prV2) && str_contains($prV2, "'pg','other_online'"), 'prv2_no_ppi_partner_type');
+$assert(is_file($root . '/migrations/083_partner_registry_v2.sql') && str_contains($prV2, 'partnerRegistryV2NormalizePartnerType') && str_contains($prV2, "ENUM('pg','bnpl','other_online')"), 'prv2_module_and_migration');
+$assert(!preg_match("/ENUM\\([^)]*'ppi'/", $prV2) && str_contains($prV2, "'pg','bnpl','other_online'"), 'prv2_no_ppi_partner_type');
 $assert(str_contains($prV2, 'savePartnerRegistryProfile') && str_contains($prV2, 'partnerCredentialVaultStatus') && str_contains($prV2, 'recordImmutableAudit'), 'prv2_save_audit_cred_status');
 $assert(str_contains($regV2, 'Global Control Room') && str_contains($regV2, 'verifyCsrf') && str_contains($regV2, 'registerPartnerRegistryV2'), 'prv2_admin_list_register');
 $assert(str_contains($regV2, 'partnerCredentialVaultStatusBadge') && str_contains($regV2, 'cap_pay_later'), 'prv2_list_cred_badges_caps');
 $assert(str_contains($detV2, "tab=profile") && str_contains($detV2, 'save_registry_profile') && str_contains($detV2, 'partnerCredentialVaultStatusBadge'), 'prv2_detail_profile_tab');
-$assert(str_contains($prV2, 'Partner code already exists') && str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'Partner key already exists'), 'prv2_unique_partner_code');
+$assert(str_contains($prV2, 'Partner code is immutable after registration')
+    && str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'Partner key already exists'),
+    'prv2_partner_code_immutable_and_unique');
+$gatewayRegistrationSrc = (string)file_get_contents($root . '/includes/payment_methods.php');
+$assert(str_contains($gatewayRegistrationSrc, 'INSERT IGNORE INTO partner_methods (partner_key, method, is_enabled, priority)')
+    && str_contains($gatewayRegistrationSrc, '$seedMethod->execute([$key, $methodKey, $priority])'),
+    'prv2_custom_partner_methods_seeded_inactive');
 $assert(str_contains($prV2, 'partnerRegistryV2MerchantDocPackCatalog') && str_contains($prV2, "'aadhaar'") && str_contains($prV2, "'pan'") && str_contains($prV2, "'gst'"), 'prv2_merchant_doc_pack_codes');
 $assert(str_contains($prV2, 'partnerRegistryV2ComplianceDocCatalog') && str_contains($prV2, 'partner_compliance_docs_json'), 'prv2_compliance_docs_separate');
 $assert(str_contains($regV2, 'Merchant KYC doc pack') && str_contains($regV2, 'partnerRegistryV2MerchantDocPackCatalog') && str_contains($regV2, 'Partner compliance docs'), 'prv2_admin_merchant_doc_ui');
@@ -2349,6 +2424,237 @@ $assert(str_contains($regV2, 'Activate for routing') && str_contains($regV2, 'st
 $assert(str_contains($regV2, 'Keys Missing') && str_contains($regV2, 'Not wired') && !str_contains($regV2, 'STUB ·'), 'prv2_list_owner_badges_no_stub_legend');
 $assert(str_contains($prV2, 'function partnerAdapterIsWired') && str_contains($prV2, 'function partnerRegistryActivateGate') && str_contains($prV2, 'Keys Valid'), 'prv2_adapter_gate_and_key_labels');
 $assert(str_contains($detV2, 'Saved (leave blank to keep)') && !str_contains($detV2, "Current: ' . e(substr"), 'prv2_keys_tab_no_plaintext_placeholder');
+$assert(is_file($root . '/migrations/092_partner_unified_channels.sql') && str_contains($prV2, 'function partnerRegistryV2ChannelCapabilities') && str_contains($prV2, 'function registryPartnerSupportsChannel') && str_contains($prV2, "'document_forward'"), 'prv2_unified_partner_channels_contract');
+$assert(str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'channel_capabilities') && str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'channel_capabilities_json'), 'prv2_registration_persists_channels');
+$assert(str_contains($regV2, 'channel_document_forward') && str_contains($detV2, 'channel_support_forward') && str_contains($detV2, "registryProfile['channels']"), 'prv2_admin_channel_controls');
+$assert(is_file($root . '/migrations/094_partner_registry_operational_profile.sql')
+    && str_contains($prV2, 'api_base_url') && str_contains($prV2, 'countries_json')
+    && str_contains($prV2, 'support_email') && str_contains($prV2, 'support_phone')
+    && str_contains($regV2, 'name="countries"') && str_contains($detV2, 'name="api_base_url"'),
+    'prv2_operational_profile_fields');
+$assert(is_file($root . '/migrations/098_partner_registry_capability_fields.sql')
+    && str_contains($prV2, 'optional_doc_pack_json')
+    && str_contains($prV2, 'currencies_json')
+    && str_contains($prV2, 'connector_id')
+    && str_contains($prV2, 'cap_qr')
+    && str_contains($prV2, 'cap_payout')
+    && str_contains($regV2, 'name="currencies"')
+    && str_contains($regV2, 'name="optional_doc_pack[]"')
+    && str_contains($regV2, 'name="countries" required')
+    && str_contains($regV2, 'name="webhook_url" required')
+    && str_contains($regV2, 'name="routing_priority"')
+    && str_contains($regV2, 'name="circuit_breaker_on" checked')
+    && str_contains($detV2, 'name="connector_id" required')
+    && str_contains($detV2, 'name="routing_priority"')
+    && str_contains($detV2, 'name="circuit_breaker_on"')
+    && str_contains($detV2, 'name="logo_url"')
+    && str_contains($detV2, "'payout' => 'Payout metadata (does not enable payouts)'")
+    && str_contains($prV2, "'payout' => 0")
+    && str_contains($regV2, 'Payout metadata only')
+    && str_contains($prV2, '$db->beginTransaction()')
+    && str_contains($prV2, '$db->rollBack()'),
+    'prv2_blueprint_registry_identity_capability_fields');
+$assert(is_file($root . '/migrations/099_partner_registry_commercial_audit_fields.sql')
+    && str_contains($prV2, 'platform_fee_pct_default')
+    && str_contains($prV2, 'platform_fee_flat_default')
+    && str_contains($prV2, 'weight_success')
+    && str_contains($prV2, 'settle_note')
+    && str_contains($prV2, 'updated_by')
+    && is_file($root . '/migrations/100_partner_registry_success_weight.sql')
+    && str_contains($regV2, 'name="weight_success"')
+    && str_contains($detV2, 'name="weight_success"')
+    && str_contains($regV2, 'name="policy_terms"')
+    && str_contains($regV2, 'name="platform_fee_pct_default"')
+    && str_contains($detV2, 'name="policy_privacy"')
+    && str_contains($prV2, 'partnerRegistryV2ProfileIsComplete'),
+    'prv2_registry_commercial_policy_and_audit_fields');
+$assert(is_file($root . '/migrations/095_partner_integration_lifecycle.sql')
+    && str_contains($prV2, 'partnerRegistryLifecycleTransitionGate')
+    && str_contains($prV2, 'integration_status')
+    && str_contains($detV2, 'advance_partner_lifecycle')
+    && str_contains($detV2, "requireStaffAccess(['super', 'ceo'])")
+    && str_contains($regV2, 'partnerRegistryLifecycleStatusBadge'),
+    'prv2_partner_integration_lifecycle_wired');
+$assert(is_file($root . '/migrations/096_partner_lifecycle_pause.sql')
+    && str_contains($prV2, "'paused'")
+    && str_contains($detV2, 'target_status" value="paused"')
+    && str_contains($detV2, 'current routing is not changed'),
+    'prv2_partner_lifecycle_pause_wired');
+$assert(is_file($root . '/migrations/097_partner_lifecycle_retired.sql')
+    && str_contains($prV2, "'retired'")
+    && str_contains($prV2, "integration_status='retired'")
+    && str_contains($detV2, "integrationStatus === 'retired'"),
+    'prv2_partner_lifecycle_retirement_synced');
+require_once $root . '/includes/partner_registry_v2.php';
+$assert(partnerRegistryV2NormalizePartnerType('bnpl') === 'bnpl'
+    && !in_array('ppi', partnerRegistryV2PartnerTypes(), true),
+    'prv2_bnpl_partner_type_without_ppi');
+$assert(partnerRegistryV2NormalizeCurrencies('inr, AED INR') === ['INR', 'AED'], 'prv2_currency_codes_normalized_deduplicated');
+$assert(partnerRegistryV2NormalizeConnectorId('RazorPay_v1') === 'razorpay_v1', 'prv2_connector_id_normalized');
+$assert(partnerRegistryV2FilterOptionalMerchantDocCodes(['pan', 'gst', 'not_a_doc'], ['pan']) === ['gst'], 'prv2_optional_doc_pack_excludes_required_and_unknown');
+$assert(partnerRegistryV2NormalizeWebhookPath('/partner_webhook.php') === '/partner_webhook.php'
+    && partnerRegistryV2NormalizePolicyUrl('https://partner.example/refunds') === 'https://partner.example/refunds'
+    && partnerRegistryV2NormalizeFeePercent('2.5') === '2.5000'
+    && partnerRegistryV2NormalizeFeePercent('100') === '100.0000'
+    && partnerRegistryV2NormalizeFeeFlat('0012.5') === '12.50'
+    && partnerRegistryV2NormalizeSuccessWeight('1.25') === '1.2500'
+    && partnerRegistryV2NormalizeRoutingPriority('50') === 50,
+    'prv2_registry_url_and_commercial_value_normalizers');
+$requiredPartnerProfile = [
+    'connector_id' => 'generic_rest_v1',
+    'webhook_url' => '/partner_webhook.php',
+    'countries' => 'IN',
+    'doc_pack' => ['pan'],
+];
+$assert(partnerRegistryV2RequiredProfileErrors($requiredPartnerProfile) === []
+    && count(partnerRegistryV2RequiredProfileErrors(['countries' => '??'])) === 4,
+    'prv2_registry_required_workbook_fields');
+$assert(!partnerRegistryV2ProfileIsComplete([
+    'partner_type' => 'pg',
+    'contract_mode' => 'platform',
+    'connector_id' => '',
+    'webhook_url' => '',
+])
+    && partnerRegistryV2ProfileIsComplete([
+        'gateway_key' => 'example_bnpl',
+        'gateway_name' => 'Example BNPL',
+        'partner_type' => 'bnpl',
+        'contract_mode' => 'hybrid',
+        'connector_id' => 'generic_rest_v1',
+        'webhook_url' => '/partner_webhook.php',
+        'countries_json' => '["IN"]',
+        'doc_pack_json' => '["pan"]',
+        'platform_fee_pct_default' => '0.5',
+        'platform_fee_flat_default' => '10.00',
+    ]),
+    'prv2_registry_profile_completion_gate');
+$assert(!partnerRegistryLifecycleTransitionGate('draft', 'sandbox', [
+    'adapter_wired' => true,
+    'test_credentials_valid' => true,
+    'profile_complete' => false,
+])['allowed'],
+    'prv2_lifecycle_requires_complete_registry_profile');
+$invalidRegistryInputsRejected = 0;
+foreach ([
+    static fn() => partnerRegistryV2NormalizeWebhookPath('https://external.example/hook'),
+    static fn() => partnerRegistryV2NormalizeWebhookPath('/../admin'),
+    static fn() => partnerRegistryV2NormalizePolicyUrl('http://partner.example/terms'),
+    static fn() => partnerRegistryV2NormalizePolicyUrl('https://user:pass@partner.example/terms'),
+    static fn() => partnerRegistryV2NormalizeFeePercent('100.0001'),
+    static fn() => partnerRegistryV2NormalizeSuccessWeight('100.0001'),
+    static fn() => partnerRegistryV2NormalizeFeeFlat('-1'),
+    static fn() => partnerRegistryV2NormalizeRoutingPriority('1000'),
+    static fn() => partnerRegistryV2NormalizeContractMode('unknown'),
+    static fn() => partnerRegistryV2NormalizeCurrencies('US1'),
+    static fn() => partnerRegistryV2NormalizeCountries('USA'),
+    static fn() => partnerRegistryV2NormalizePartnerType('ppi'),
+] as $invalidRegistryInput) {
+    try {
+        $invalidRegistryInput();
+    } catch (InvalidArgumentException $e) {
+        $invalidRegistryInputsRejected++;
+    }
+}
+$assert($invalidRegistryInputsRejected === 12, 'prv2_invalid_registry_values_rejected');
+$profileCapabilities = partnerRegistryV2ProfileFromRow([
+    'gateway_key' => 'example_pg',
+    'currencies_json' => '["INR"]',
+    'cap_qr' => 1,
+    'cap_payout' => 0,
+]);
+$assert($profileCapabilities['currencies'] === ['INR']
+    && $profileCapabilities['capabilities']['qr']
+    && !$profileCapabilities['capabilities']['payout'],
+    'prv2_capability_profile_qr_and_default_payout_off');
+$assert(partnerRegistryLifecycleStatus(['integration_status' => 'live', 'retired_at' => '2026-10-06 10:00:00']) === 'retired', 'prv2_lifecycle_retired_timestamp_is_authoritative');
+$assert(!partnerAllowsAlreadyLiveLink(['gateway_key' => 'hybrid_partner', 'contract_mode' => 'hybrid', 'integration_status' => 'paused']), 'hybrid_pause_stops_new_existing_account_links');
+$assert(partnerAllowsAlreadyLiveLink(['gateway_key' => 'hybrid_partner', 'contract_mode' => 'hybrid', 'integration_status' => 'live']), 'hybrid_live_partner_allows_existing_account_links');
+$assert(partnerRegistrySupportsPlatformOnboarding(['contract_mode' => 'platform'])
+    && !partnerRegistrySupportsPlatformOnboarding(['contract_mode' => 'linked_existing'])
+    && partnerRegistrySupportsPlatformOnboarding(['contract_mode' => 'hybrid']),
+    'hybrid_contract_mode_platform_onboarding_matrix');
+$kycForwardSrc = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
+$assert(str_contains($kycForwardSrc, 'platform onboarding forward skipped')
+    && str_contains($prV2, '!partnerRegistrySupportsPlatformOnboarding($row)')
+    && str_contains($coverageSource, '!partnerRegistrySupportsPlatformOnboarding($g)'),
+    'hybrid_linked_existing_blocks_platform_forward_and_doc_pack');
+$assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'Platform: submit new merchant onboarding')
+    && str_contains((string)file_get_contents($root . '/admin_gateway_registry.php'), 'Hybrid: both routes'),
+    'hybrid_account_modes_explained_in_admin');
+$sandboxGate = partnerRegistryLifecycleTransitionGate('draft', 'sandbox', [
+    'adapter_wired' => true,
+    'test_credentials_valid' => true,
+]);
+$assert(!empty($sandboxGate['allowed']), 'prv2_lifecycle_sandbox_requires_ready_test');
+$assert(empty(partnerRegistryLifecycleTransitionGate('draft', 'sandbox', [
+    'adapter_wired' => true,
+    'test_credentials_valid' => false,
+])['allowed']), 'prv2_lifecycle_sandbox_blocks_without_valid_test');
+$liveGateChecks = [
+    'adapter_wired' => true,
+    'test_credentials_valid' => true,
+    'live_credentials_valid' => true,
+    'sandbox_certified' => true,
+    'contract_approved' => true,
+    'live_keys_validated' => true,
+];
+$assert(!empty(partnerRegistryLifecycleTransitionGate('sandbox', 'live', $liveGateChecks)['allowed']), 'prv2_lifecycle_live_requires_all_evidence');
+unset($liveGateChecks['contract_approved']);
+$assert(empty(partnerRegistryLifecycleTransitionGate('sandbox', 'live', $liveGateChecks)['allowed']), 'prv2_lifecycle_live_blocks_without_approval');
+$assert(empty(partnerRegistryLifecycleTransitionGate('draft', 'live', [
+    'adapter_wired' => true,
+    'test_credentials_valid' => true,
+    'live_credentials_valid' => true,
+    'sandbox_certified' => true,
+    'contract_approved' => true,
+    'live_keys_validated' => true,
+])['allowed']), 'prv2_lifecycle_no_direct_draft_to_live');
+$assert(!empty(partnerRegistryLifecycleTransitionGate('live', 'draft', [])['allowed'])
+    && !empty(partnerRegistryLifecycleTransitionGate('sandbox', 'draft', [])['allowed']),
+    'prv2_lifecycle_demotion_requires_explicit_transition');
+$assert(str_contains((string)file_get_contents($root . '/includes/partner_registry_v2.php'), "if (\$target === 'draft' && empty(\$confirmations['confirm_demote']))")
+    && str_contains((string)file_get_contents($root . '/includes/partner_registry_v2.php'), 'without changing routing'),
+    'prv2_lifecycle_demotion_guarded_against_routing_change');
+$assert(str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), "name=\"confirm_demote\" required")
+    && str_contains((string)file_get_contents($root . '/admin_gateway_detail.php'), 'routing is not automatically turned OFF'),
+    'admin_gateway_detail_demote_requires_confirmation');
+$assert(!empty(partnerRegistryLifecycleTransitionGate('live', 'paused', [])['allowed']), 'prv2_lifecycle_can_pause_live');
+$assert(empty(partnerRegistryLifecycleTransitionGate('paused', 'live', [
+    'resume_status' => 'draft',
+    'adapter_wired' => true,
+    'test_credentials_valid' => true,
+    'live_credentials_valid' => true,
+])['allowed']), 'prv2_lifecycle_pause_restores_prior_status_only');
+$assert(!empty(partnerRegistryLifecycleTransitionGate('paused', 'live', [
+    'resume_status' => 'live',
+    'adapter_wired' => true,
+    'test_credentials_valid' => true,
+    'live_credentials_valid' => true,
+])['allowed']), 'prv2_lifecycle_resume_live_requires_current_credentials');
+$assert(empty(partnerRegistryLifecycleTransitionGate('paused', 'live', [
+    'resume_status' => 'live',
+    'adapter_wired' => true,
+    'test_credentials_valid' => true,
+    'live_credentials_valid' => false,
+])['allowed']), 'prv2_lifecycle_resume_live_blocks_invalid_credentials');
+$assert(empty(partnerRegistryLifecycleTransitionGate('retired', 'paused', [])['allowed']), 'prv2_lifecycle_retired_terminal');
+$assert(empty(partnerRegistryLifecycleTransitionGate('live', 'retired', [])['allowed']), 'prv2_lifecycle_retirement_uses_guarded_action');
+$assert(partnerRegistryV2NormalizeCountries('in, AE;in') === ['IN', 'AE'], 'prv2_country_codes_normalized');
+$invalidCountryRejected = false;
+try {
+    partnerRegistryV2NormalizeCountries('India');
+} catch (InvalidArgumentException) {
+    $invalidCountryRejected = true;
+}
+$assert($invalidCountryRejected, 'prv2_invalid_country_rejected');
+$assert(partnerRegistryV2NormalizeApiBaseUrl('https://api.partner.example/v1/') === 'https://api.partner.example/v1', 'prv2_https_api_base_url_normalized');
+$insecureApiUrlRejected = false;
+try {
+    partnerRegistryV2NormalizeApiBaseUrl('http://api.partner.example');
+} catch (InvalidArgumentException) {
+    $insecureApiUrlRejected = true;
+}
+$assert($insecureApiUrlRejected, 'prv2_insecure_api_base_url_rejected');
 $assert(str_contains($detV2, '$testRan') && str_contains($detV2, 'does not auto-run'), 'prv2_test_connection_on_demand');
 $assert(str_contains((string)file_get_contents($root . '/includes/payment_methods.php'), 'ORDER BY id DESC'), 'prv2_list_newest_first');
 $assert(str_contains($detV2, 'resolvePartnerAdminMeta') && str_contains($detV2, 'Activate for routing') && str_contains($detV2, 'partnerCredentialVaultStatusBadge'), 'prv2_detail_keys_usable');
@@ -2441,6 +2747,45 @@ $assert(str_contains($commFeeSrc, 'Customer payment money stays with the partner
 $fwdQSrc = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
 $regV2Src = (string)file_get_contents($root . '/includes/partner_registry_v2.php');
 $peSrcR4 = (string)file_get_contents($root . '/includes/partner_engine.php');
+$assert(str_contains($fwdQSrc, 'function forwardQueueLifecycleGateResult')
+    && substr_count($fwdQSrc, 'forwardQueueLifecycleGate($partnerKey, $merchantId)') >= 2,
+    'hybrid_partner_forward_lifecycle_gate_wired');
+$assert(str_contains($fwdQSrc, 'function forwardQueueExistingAccountLinkBlocksSubmission')
+    && str_contains($fwdQSrc, 'function forwardQueueExistingAccountSubmissionBlock')
+    && str_contains($fwdQSrc, 'platform onboarding forward skipped')
+    && str_contains($fwdQSrc, 'existing-account link'),
+    'hybrid_existing_account_route_blocks_platform_submission');
+require_once $root . '/includes/partner_forward_queue.php';
+$assert(forwardQueueDocumentApprovalGateResult('docs_ready', 'demo_partner', 1) === null
+    && (forwardQueueDocumentApprovalGateResult('docs_in_review', 'demo_partner', 1)['staged'] ?? false)
+    && (forwardQueueDocumentApprovalGateResult('docs_incomplete', 'demo_partner', 1)['staged'] ?? false),
+    'hybrid_forward_queue_waits_for_approved_partner_document_pack');
+$assert(forwardQueueExistingAccountLinkBlocksSubmission(['account_source' => 'linked'])
+    && forwardQueueExistingAccountLinkBlocksSubmission(['account_source' => 'preexisting'])
+    && !forwardQueueExistingAccountLinkBlocksSubmission(['account_source' => 'platform'])
+    && !forwardQueueExistingAccountLinkBlocksSubmission(null),
+    'hybrid_existing_account_route_source_gate');
+$linkedSubmissionBlock = forwardQueueExistingAccountSubmissionBlockForLink(
+    ['account_source' => 'linked'],
+    7,
+    'hybrid_partner'
+);
+$assert(is_array($linkedSubmissionBlock)
+    && !empty($linkedSubmissionBlock['staged'])
+    && ($linkedSubmissionBlock['adapter'] ?? '') === 'existing_account_link'
+    && str_contains((string)($linkedSubmissionBlock['message'] ?? ''), 'not submitted as a new account request'),
+    'hybrid_existing_account_submission_is_honestly_staged');
+$assert(forwardQueueLifecycleGateResult('legacy_unverified', 'production', 'legacy_partner', 1) === null
+    && forwardQueueLifecycleGateResult('live', 'production', 'live_partner', 1) === null,
+    'hybrid_forward_keeps_legacy_and_live_lifecycle');
+$assert(forwardQueueLifecycleGateResult('sandbox', 'test', 'sandbox_partner', 1) === null,
+    'hybrid_sandbox_forward_allows_test_environment');
+$assert(forwardQueueLifecycleGateResult('sandbox', 'production', 'sandbox_partner', 1) !== null,
+    'hybrid_sandbox_forward_blocks_production_environment');
+foreach (['draft', 'paused', 'retired'] as $blockedLifecycle) {
+    $assert(forwardQueueLifecycleGateResult($blockedLifecycle, 'test', 'blocked_partner', 1) !== null,
+        'hybrid_forward_blocks_' . $blockedLifecycle);
+}
 $assert(str_contains($regV2Src, 'function registryKycForwardCapablePartnerKeys') && str_contains($regV2Src, 'function registryRowSupportsKycForward'), 'r4_registry_kyc_forward_capable');
 $assert(str_contains($peSrcR4, 'registryKycForwardCapablePartnerKeys'), 'r4_get_kyc_forward_from_registry');
 $assert(str_contains($fwdQSrc, "'waiting_keys'") && str_contains($fwdQSrc, 'function forwardQueuePushLiveApi'), 'r4_waiting_keys_and_sandbox_stub');
@@ -2449,6 +2794,33 @@ $assert(str_contains($fwdQSrc, "status IN ('staged')") && !str_contains($fwdQSrc
 $assert(str_contains($fwdUi, 'name="event_type"') && str_contains($fwdUi, 'name="note"') && str_contains($fwdUi, 'Log need docs'), 'kyc_log_need_docs_form');
 $assert(str_contains((string)file_get_contents($root . '/kyc.php'), 'Enabled (docs only)') && str_contains((string)file_get_contents($root . '/kyc.php'), 'honest_note'), 'kyc_coverage_honest_note_and_docs_only');
 $assert(str_contains((string)file_get_contents($root . '/includes/kyc_workflow.php'), 'function kycForwardSourceFromVerifyActor') && str_contains((string)file_get_contents($root . '/includes/kyc_workflow.php'), "return 'kyc_verify'"), 'kyc_auto_verify_tags_kyc_verify');
+$assert(str_contains($fwdQSrc, 'registryPartnerSupportsChannel') && str_contains($fwdQSrc, "'document_forward'")
+    && str_contains($fwdQSrc, 'DOC-FORWARD-DISABLED-'), 'p2_document_forward_registry_gate');
+$assert(str_contains($fwdQSrc, 'function forwardQueuePlatformOnboardingContractBlock')
+    && substr_count($fwdQSrc, 'forwardQueuePlatformOnboardingContractBlock($partnerKey, $merchantId)') >= 2
+    && str_contains($fwdQSrc, 'already-live merchant accounts only')
+    && str_contains($fwdQSrc, 'This platform onboarding package was retained on UniWeb and not sent.'),
+    'hybrid_stale_platform_queue_blocked_at_send');
+$casesSrc = (string)file_get_contents($root . '/includes/cases_ops.php');
+$assert(str_contains($casesSrc, 'support_forward') && str_contains($casesSrc, 'dispute_forward') && str_contains($casesSrc, 'registryPartnerSupportsChannel'), 'p2_case_forward_registry_gate');
+$webhookSrc = (string)file_get_contents($root . '/includes/pg_webhooks.php');
+$assert(str_contains($webhookSrc, 'pgWebhookPartnerChannelEnabled') && str_contains($webhookSrc, "'status_webhook_disabled'"), 'p2_status_webhook_registry_gate');
+$assert(str_contains($regV2Src, "registryPartnerSupportsChannel(\$partnerKey, 'checkout_hosted'") && str_contains($regV2Src, 'function registryPartnerCapSupportsCheckoutMethod'), 'p3_checkout_hosted_registry_gate');
+$payloadSrc = (string)file_get_contents($root . '/includes/partner_payload.php');
+$assert(str_contains($payloadSrc, 'partnerKey') && str_contains($payloadSrc, 'doc_pack'), 'p3_partner_specific_document_pack_payload');
+$assert(substr_count($fwdQSrc, 'build_partner_onboarding_payload($merchantId, $partnerKey)') >= 1
+    && str_contains($fwdQSrc, 'build_partner_onboarding_payload($merchantId, $partnerKey)'),
+    'hybrid_partner_forward_payload_scoped_to_partner_pack');
+$assert(str_contains($fwdQSrc, 'enqueueMerchantReadyDocumentPacks') && str_contains($fwdQSrc, 'document_upload') && str_contains($fwdQSrc, "'document_upload' =>"), 'p3_document_upload_ready_pack_enqueue');
+$assert(strpos($fwdQSrc, 'function enqueueMerchantReadyDocumentPacks') < strpos($fwdQSrc, 'function enqueueMerchantToAllEnabledPartners'), 'p3_document_upload_enqueue_helper_global');
+$assert(str_contains($fwdQSrc, 'normalizePartnerInboundEvent') && str_contains($fwdQSrc, "'approved'") && str_contains($fwdQSrc, "'need_info'"), 'p3_partner_response_normalization');
+$assert(str_contains($fwdQSrc, 'Payment network approved your onboarding documents')
+    && str_contains($fwdQSrc, 'Payment network rejected your onboarding documents')
+    && str_contains($fwdQSrc, '$body = $message'), 'p3_partner_response_notifications');
+$assert(str_contains($fwdQSrc, 'partnerInboundStatusLabel') && str_contains((string)file_get_contents($root . '/kyc.php'), 'partnerInboundStatusLabel'), 'p3_merchant_partner_status_timeline');
+$assert(str_contains((string)file_get_contents($root . '/dashboard.php'), 'getMerchantForwardStatus')
+    && str_contains((string)file_get_contents($root . '/dashboard.php'), 'Partner onboarding status'), 'p3_dashboard_partner_status_panel');
+$assert(str_contains((string)file_get_contents($root . '/kyc.php'), 'enqueueMerchantReadyDocumentPacks'), 'p3_kyc_upload_triggers_partner_enqueue');
 $assert(str_contains($fwdQSrc, 'function forwardQueueRowForwardSource') && str_contains($fwdQSrc, 'function getForwardQueueNeedsActionCount'), 'kyc_forward_source_and_active_filter');
 $assert(str_contains($fwdUi, 'Needs action') && str_contains($fwdUi, 'Legacy sync'), 'kyc_forward_panel_active_legacy_chips');
 $assert(str_contains((string)file_get_contents($root . '/kyc.php'), 'partner_inbound_message'), 'kyc_merchant_sees_partner_inbound');
@@ -2470,6 +2842,9 @@ $assert(str_contains($adminSupportCases, 'renderCasesOpsTabs') && str_contains($
 $assert(str_contains($sidebarNav, "['admin_support.php', 'Cases']") && !str_contains($sidebarNav, "['admin_customer_tickets.php', 'Customer Complaints']"), 'c1_sidebar_single_cases_entry');
 $assert(str_contains((string)file_get_contents($root . '/admin_disputes.php'), 'cases-bulk-disputes') && str_contains((string)file_get_contents($root . '/admin_customer_tickets.php'), 'cases-bulk-complaints'), 'c1_admin_bulk_forward_close');
 $assert(str_contains((string)file_get_contents($root . '/merchant_customer_tickets.php'), 'renderMerchantCasesPartnerEvents'), 'c1_merchant_sees_partner_inbound');
+$casesOpsMerchant = (string)file_get_contents($root . '/includes/cases_ops.php');
+$merchantEventsFn = substr($casesOpsMerchant, (int)strpos($casesOpsMerchant, 'function renderMerchantCasesPartnerEvents'));
+$assert(str_contains($merchantEventsFn, 'Partner / bank messages') && !str_contains($merchantEventsFn, 'e((string)$ev[\'partner_key\'])'), 'c1_merchant_case_events_hide_partner_key');
 $assert(str_contains($casesOpsSrc, 'function merchantCasesUrl') && str_contains((string)file_get_contents($root . '/merchant_customer_tickets.php'), 'casesUnifiedInbox'), 'c1_merchant_cases_unified_inbox');
 $assert(str_contains($fwdQSrc, "worker will attempt partner forward") || str_contains($fwdQSrc, 'processPerPartnerForwardQueue(1'), 'r4_gateway_sync_attempts_worker');
 $assert(str_contains((string)file_get_contents($root . '/includes/onboarding_security.php'), 'COLLATE utf8mb4_unicode_ci'), 'r4_approve_doc_collation_safe');

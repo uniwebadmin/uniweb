@@ -81,7 +81,7 @@ function uniwebMerchantNavGroups(): array
             ['dashboard.php', $t('dashboard', 'Dashboard'), 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'],
             ['merchant_launch.php', 'Launch Center', 'M13 10V3L4 14h7v7l9-11h-7z'],
         ]],
-        ['id' => 'collect', 'title' => 'Collect / P2M', 'items' => [
+        ['id' => 'collect', 'title' => 'Merchant Console', 'items' => [
             ['payment_links.php', $t('payment_links', 'Payment Links'), 'M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244'],
             ['qr_code.php', $t('qr_code', 'QR Code'), 'M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z'],
             ['merchant_website.php', 'Website / Pay button', 'M3 5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-5l-3 3-3-3H5a2 2 0 01-2-2V5z'],
@@ -94,7 +94,7 @@ function uniwebMerchantNavGroups(): array
             ['reports.php', $t('reports', 'Reports'), 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'],
             ['orders.php', 'Orders', 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z'],
         ]],
-        ['id' => 'settlements', 'title' => 'Settlements', 'items' => [
+        ['id' => 'operations', 'title' => 'Partner Operations', 'items' => [
             ['wallet.php', 'Settlement Balance', 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z'],
             ['settlements.php', $t('settlements', 'Settlements'), 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01'],
             ['add_bank.php', 'Settlement Bank', 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z'],
@@ -109,7 +109,7 @@ function uniwebMerchantNavGroups(): array
             ['qr_upi_print.php', 'Instant UPI QR', 'M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 3h2v2h-2v-2zm3 0h3v2h-3v-2z'],
             ['qr_analytics.php', 'QR Analytics', 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'],
         ]],
-        ['id' => 'kyc', 'title' => 'KYC', 'items' => [
+        ['id' => 'documents', 'title' => 'Documents & Verification', 'items' => [
             ['kyc.php', $t('kyc', 'KYC'), 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'],
             ['merchant_shop_photos.php', 'Shop Photos', 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'],
         ]],

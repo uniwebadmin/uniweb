@@ -16,7 +16,9 @@ if (isset($_GET['scan']) && verifyCsrf($_GET['csrf'] ?? '')) {
     $broken = (int)($scan['summary']['broken_links'] ?? 0);
     $missing = (int)($scan['summary']['missing_files'] ?? 0);
     $httpFail = (int)($scan['summary']['http_fail'] ?? 0);
-    if (!empty($scan['ok'])) {
+    if (!empty($scan['summary']['timed_out'])) {
+        flash('warning', "Watchdog stopped safely at its local time limit after scanning " . (int)($scan['summary']['total_files'] ?? 0) . " file(s). Use Static Scan Only for the complete local scan.");
+    } elseif (!empty($scan['ok'])) {
         flash('success', 'Watchdog scan clean — no broken links, missing files, or HTTP failures.');
     } else {
         flash('error', "Watchdog found issues: {$broken} broken link(s), {$missing} missing file(s), {$httpFail} HTTP fail(s).");

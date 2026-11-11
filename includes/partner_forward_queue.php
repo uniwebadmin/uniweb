@@ -291,7 +291,7 @@ function forwardQueueNextScheduleAt(): DateTime
 /** @return list<string> */
 function forwardQueueValidSources(): array
 {
-    return ['kyc_verify', 'admin_manual', 'gateway_sync', 'auto_kyc'];
+    return ['kyc_verify', 'admin_manual', 'gateway_sync', 'auto_kyc', 'document_upload'];
 }
 
 function forwardQueueRowForwardSource(array $row): string
@@ -333,13 +333,16 @@ function forwardQueueSourceAdminNote(string $forwardSource, bool $keysReady): st
         'auto_kyc' => $keysReady
             ? 'Auto KYC verify — worker will attempt forward'
             : 'Auto KYC verify — waiting for partner keys',
+        'document_upload' => $keysReady
+            ? 'Partner document pack complete — worker will attempt forward'
+            : 'Partner document pack complete — waiting for partner keys',
         default => $keysReady ? 'Queued for partner forward' : 'Waiting for partner keys',
     };
 }
 
 function forwardQueueShouldRefreshExistingRow(string $existingSource, string $newSource, string $existingStatus): bool
 {
-    if (in_array($newSource, ['kyc_verify', 'admin_manual', 'auto_kyc'], true)) {
+    if (in_array($newSource, ['kyc_verify', 'admin_manual', 'auto_kyc', 'document_upload'], true)) {
         return true;
     }
     if ($newSource === 'gateway_sync') {
@@ -353,7 +356,7 @@ function forwardQueueShouldRefreshExistingRow(string $existingSource, string $ne
 
 function forwardQueueScheduleForSource(string $forwardSource): string
 {
-    if (in_array($forwardSource, ['kyc_verify', 'admin_manual', 'auto_kyc'], true)) {
+    if (in_array($forwardSource, ['kyc_verify', 'admin_manual', 'auto_kyc', 'document_upload'], true)) {
         return date('Y-m-d H:i:s');
     }
     return forwardQueueNextScheduleAt()->format('Y-m-d H:i:s');
@@ -369,10 +372,10 @@ function forwardQueueApplyRowAfterEnqueue(PDO $db, int $queueId, string $partner
     $note = forwardQueueSourceAdminNote($forwardSource, $keysReady);
     $db->prepare(
         "UPDATE partner_forward_queue SET status=?, forward_source=?, error_message=?, schedule_at=?, attempts=0,
-         partner_reference=CASE WHEN ?= 'kyc_verify' OR ? = 'admin_manual' OR ? = 'auto_kyc' THEN NULL ELSE partner_reference END,
+         partner_reference=CASE WHEN ?= 'kyc_verify' OR ? = 'admin_manual' OR ? = 'auto_kyc' OR ? = 'document_upload' THEN NULL ELSE partner_reference END,
          updated_at=NOW()
          WHERE id=?"
-    )->execute([$status, $forwardSource, $note, forwardQueueScheduleForSource($forwardSource), $forwardSource, $forwardSource, $forwardSource, $queueId]);
+    )->execute([$status, $forwardSource, $note, forwardQueueScheduleForSource($forwardSource), $forwardSource, $forwardSource, $forwardSource, $forwardSource, $queueId]);
 }
 
 /**
@@ -393,6 +396,30 @@ function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payl
     }
     if ($payload === null) {
         $payload = ['merchant_id' => $merchantId, 'partner' => $partnerKey];
+    }
+    if (function_exists('partnerRegistrySupportsPlatformOnboarding')) {
+        if (!function_exists('getRegisteredGateways')) {
+            require_once __DIR__ . '/payment_methods.php';
+        }
+        foreach (getRegisteredGateways(false) as $partnerRow) {
+            if (strtolower(trim((string)($partnerRow['gateway_key'] ?? ''))) !== $partnerKey) {
+                continue;
+            }
+            if (!partnerRegistrySupportsPlatformOnboarding($partnerRow)) {
+                if (function_exists('logAutoKycRun')) {
+                    logAutoKycRun($merchantId, 'partner_enqueue_skip', 'Partner ' . $partnerKey . ' is linked-existing only; platform onboarding forward skipped');
+                }
+                return 0;
+            }
+            break;
+        }
+    }
+    $alreadyLiveLink = forwardQueueMerchantAlreadyLiveLink($merchantId, $partnerKey);
+    if (forwardQueueExistingAccountLinkBlocksSubmission($alreadyLiveLink)) {
+        if (function_exists('logAutoKycRun')) {
+            logAutoKycRun($merchantId, 'partner_enqueue_skip', 'Partner ' . $partnerKey . ' already has an existing-account link; platform onboarding forward skipped');
+        }
+        return 0;
     }
     $payload['forward_source'] = $forwardSource;
     $payload['partner'] = $partnerKey;
@@ -462,6 +489,39 @@ function enqueuePartnerForward(int $merchantId, string $partnerKey, ?array $payl
         }
         logPlatformError('error', 'enqueuePartnerForward failed: ' . $e->getMessage(), ['merchant_id' => $merchantId]);
         return 0;
+    }
+}
+
+/**
+ * Enqueue only partners whose own document pack is complete in the UniWeb vault.
+ * The queue remains idempotent and still records waiting_keys when credentials lag.
+ */
+function enqueueMerchantReadyDocumentPacks(int $merchantId, string $forwardSource = 'document_upload'): void
+{
+    if ($merchantId < 1) {
+        return;
+    }
+    if (!function_exists('partnerDocCoverageForMerchant') && is_file(__DIR__ . '/partner_doc_coverage.php')) {
+        require_once __DIR__ . '/partner_doc_coverage.php';
+    }
+    if (!function_exists('build_partner_onboarding_payload') && is_file(__DIR__ . '/partner_payload.php')) {
+        require_once __DIR__ . '/partner_payload.php';
+    }
+    if (!function_exists('partnerDocCoverageForMerchant') || !function_exists('build_partner_onboarding_payload')) {
+        logPlatformError('error', 'Document pack enqueue dependencies unavailable', ['merchant_id' => $merchantId]);
+        return;
+    }
+    foreach (partnerDocCoverageForMerchant($merchantId) as $coverage) {
+        if (($coverage['status'] ?? '') !== 'docs_ready') {
+            continue;
+        }
+        $partnerKey = strtolower(trim((string)($coverage['partner_key'] ?? '')));
+        if ($partnerKey === '') {
+            continue;
+        }
+        $payload = build_partner_onboarding_payload($merchantId, $partnerKey);
+        $payload['document_pack_status'] = 'docs_ready';
+        enqueuePartnerForward($merchantId, $partnerKey, $payload, $forwardSource);
     }
 }
 
@@ -912,6 +972,25 @@ function kycForwardAdapterModeForPartner(string $partnerKey): string
 function forwardQueuePushLiveApi(string $partnerKey, int $merchantId, array $fullPayload): array
 {
     $partnerKey = strtolower(trim($partnerKey));
+    $lifecycleBlock = forwardQueueLifecycleGate($partnerKey, $merchantId);
+    if ($lifecycleBlock !== null) {
+        return $lifecycleBlock;
+    }
+    $contractBlock = forwardQueuePlatformOnboardingContractBlock($partnerKey, $merchantId);
+    if ($contractBlock !== null) {
+        return $contractBlock;
+    }
+    if (!function_exists('registryPartnerSupportsChannel') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    if (function_exists('registryPartnerSupportsChannel')
+        && !registryPartnerSupportsChannel($partnerKey, 'document_forward')) {
+        return [
+            'success' => false,
+            'terminal' => true,
+            'error' => 'Partner document forwarding is not enabled in the Partner Registry.',
+        ];
+    }
     if (!function_exists('partnerIsConfigured')) {
         require_once __DIR__ . '/partner_engine.php';
     }
@@ -1136,6 +1215,30 @@ function pushPackageToPartner(string $partnerKey, int $merchantId, array $payloa
             'message' => 'No partner keys yet — paste keys in Partner Registry, then re-queue.',
         ];
     }
+    $contractBlock = forwardQueuePlatformOnboardingContractBlock($partnerKey, $merchantId);
+    if ($contractBlock !== null) {
+        return $contractBlock;
+    }
+    $lifecycleBlock = forwardQueueLifecycleGate($partnerKey, $merchantId);
+    if ($lifecycleBlock !== null) {
+        return $lifecycleBlock;
+    }
+    $documentBlock = forwardQueuePartnerDocumentApprovalBlock($partnerKey, $merchantId);
+    if ($documentBlock !== null) {
+        return $documentBlock;
+    }
+    if (!function_exists('registryPartnerSupportsChannel') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    if (function_exists('registryPartnerSupportsChannel') && !registryPartnerSupportsChannel($partnerKey, 'document_forward')) {
+        return [
+            'success' => false,
+            'staged' => true,
+            'adapter' => 'document_forward_channel',
+            'reference' => 'DOC-FORWARD-DISABLED-' . strtoupper($partnerKey) . '-' . $merchantId,
+            'message' => 'Partner document forwarding is not enabled in the Partner Registry. Nothing was sent.',
+        ];
+    }
 
     if (!function_exists('getPartnerRegistry')) {
         require_once __DIR__ . '/partner_engine.php';
@@ -1161,7 +1264,7 @@ function pushPackageToPartner(string $partnerKey, int $merchantId, array $payloa
     if (!function_exists('build_partner_onboarding_payload')) {
         require_once __DIR__ . '/partner_payload.php';
     }
-    $fullPayload = build_partner_onboarding_payload($merchantId);
+    $fullPayload = build_partner_onboarding_payload($merchantId, $partnerKey);
     $payloadReady = !empty($fullPayload['merchant']);
 
     $adapted = runKycForwardAdapter($partnerKey, $merchantId, $fullPayload);
@@ -1178,6 +1281,206 @@ function pushPackageToPartner(string $partnerKey, int $merchantId, array $payloa
         'message' => $payloadReady
             ? 'Keys OK — KYC package ready. No adapter registered for this partner yet.'
             : 'Keys OK — package incomplete (merchant payload empty). Check KYC docs.',
+    ];
+}
+
+/**
+ * Keep platform onboarding staged until this partner's required documents are approved and scanned clean.
+ *
+ * @return array<string,mixed>|null
+ */
+function forwardQueuePartnerDocumentApprovalBlock(string $partnerKey, int $merchantId): ?array
+{
+    if (!function_exists('partnerDocCoverageForMerchant') && is_file(__DIR__ . '/partner_doc_coverage.php')) {
+        require_once __DIR__ . '/partner_doc_coverage.php';
+    }
+    if (!function_exists('partnerDocCoverageForMerchant')) {
+        return forwardQueueDocumentApprovalGateResult('not_started', $partnerKey, $merchantId);
+    }
+    foreach (partnerDocCoverageForMerchant($merchantId) as $coverage) {
+        if (strtolower(trim((string)($coverage['partner_key'] ?? ''))) === strtolower(trim($partnerKey))) {
+            return forwardQueueDocumentApprovalGateResult(
+                (string)($coverage['status'] ?? 'not_started'),
+                $partnerKey,
+                $merchantId
+            );
+        }
+    }
+    return forwardQueueDocumentApprovalGateResult('not_started', $partnerKey, $merchantId);
+}
+
+/**
+ * @return array<string,mixed>|null
+ */
+function forwardQueueDocumentApprovalGateResult(string $coverageStatus, string $partnerKey, int $merchantId): ?array
+{
+    $coverageStatus = strtolower(trim($coverageStatus));
+    if ($coverageStatus === 'docs_ready') {
+        return null;
+    }
+    $message = match ($coverageStatus) {
+        'docs_in_review' => 'Required partner documents are uploaded but await UniWeb approval and a clean security scan.',
+        'docs_incomplete' => 'Required partner documents are missing, rejected, or not yet approved with a clean security scan.',
+        default => 'The partner document pack is not configured or has no approved documents. Nothing was sent.',
+    };
+    return [
+        'success' => false,
+        'staged' => true,
+        'adapter' => 'document_approval_gate',
+        'reference' => 'DOCS-BLOCKED-' . strtoupper(trim($partnerKey)) . '-' . $merchantId,
+        'message' => $message,
+    ];
+}
+
+/**
+ * Prevent stale queued platform-onboarding rows from reaching a linked-existing-only partner.
+ * Keep the queue item staged so it can be reviewed and re-queued if the contract changes.
+ *
+ * @return array<string,mixed>|null
+ */
+function forwardQueuePlatformOnboardingContractBlock(string $partnerKey, int $merchantId): ?array
+{
+    if (!function_exists('partnerRegistrySupportsPlatformOnboarding') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    if (!function_exists('partnerRegistrySupportsPlatformOnboarding')) {
+        return null;
+    }
+    if (!function_exists('getRegisteredGateways')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+    foreach (getRegisteredGateways(true) as $partnerRow) {
+        if (strtolower(trim((string)($partnerRow['gateway_key'] ?? ''))) !== strtolower(trim($partnerKey))) {
+            continue;
+        }
+        if (!partnerRegistrySupportsPlatformOnboarding($partnerRow)) {
+            return [
+                'success' => false,
+                'staged' => true,
+                'adapter' => 'contract_gate',
+                'reference' => 'MODE-BLOCKED-' . strtoupper(trim($partnerKey)) . '-' . $merchantId,
+                'message' => 'Partner is configured for already-live merchant accounts only. This platform onboarding package was retained on UniWeb and not sent.',
+            ];
+        }
+        break;
+    }
+    return null;
+}
+
+/**
+ * An existing-account link selects the hybrid linked-existing route, not platform sub-account onboarding.
+ *
+ * @param array<string,mixed>|null $link
+ */
+function forwardQueueExistingAccountLinkBlocksSubmission(?array $link): bool
+{
+    $source = strtolower(trim((string)($link['account_source'] ?? '')));
+    return in_array($source, ['linked', 'preexisting'], true);
+}
+
+/**
+ * @return array<string,mixed>|null
+ */
+function forwardQueueMerchantAlreadyLiveLink(int $merchantId, string $partnerKey): ?array
+{
+    if (!function_exists('getMerchantPartnerLinkRow') && is_file(__DIR__ . '/partner_control.php')) {
+        require_once __DIR__ . '/partner_control.php';
+    }
+    if (!function_exists('getMerchantPartnerLinkRow')) {
+        return null;
+    }
+    return getMerchantPartnerLinkRow($merchantId, strtolower(trim($partnerKey)));
+}
+
+/**
+ * @return array<string,mixed>|null
+ */
+function forwardQueueExistingAccountSubmissionBlock(int $merchantId, string $partnerKey): ?array
+{
+    return forwardQueueExistingAccountSubmissionBlockForLink(
+        forwardQueueMerchantAlreadyLiveLink($merchantId, $partnerKey),
+        $merchantId,
+        $partnerKey
+    );
+}
+
+/**
+ * @param array<string,mixed>|null $link
+ * @return array<string,mixed>|null
+ */
+function forwardQueueExistingAccountSubmissionBlockForLink(?array $link, int $merchantId, string $partnerKey): ?array
+{
+    if (!forwardQueueExistingAccountLinkBlocksSubmission($link)) {
+        return null;
+    }
+    return [
+        'success' => false,
+        'staged' => true,
+        'adapter' => 'existing_account_link',
+        'reference' => 'EXISTING-LINK-' . strtoupper(trim($partnerKey)) . '-' . $merchantId,
+        'message' => 'This merchant is using an already-existing partner account. Platform onboarding was kept on UniWeb and not submitted as a new account request.',
+    ];
+}
+
+/**
+ * Lifecycle guard for external KYC submission. Legacy rows retain their prior behavior;
+ * new integrations must be in Sandbox with test credentials or LIVE-ready.
+ *
+ * @return array<string,mixed>|null
+ */
+function forwardQueueLifecycleGate(string $partnerKey, int $merchantId): ?array
+{
+    if (!function_exists('partnerRegistryLifecycleStatus') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    if (!function_exists('getRegisteredGateways')) {
+        require_once __DIR__ . '/payment_methods.php';
+    }
+    $partnerKey = strtolower(trim($partnerKey));
+    $existingAccountBlock = forwardQueueExistingAccountSubmissionBlock($merchantId, $partnerKey);
+    if ($existingAccountBlock !== null) {
+        return $existingAccountBlock;
+    }
+    foreach (getRegisteredGateways(true) as $partnerRow) {
+        if (strtolower(trim((string)($partnerRow['gateway_key'] ?? ''))) !== $partnerKey) {
+            continue;
+        }
+        $status = function_exists('partnerRegistryLifecycleStatus')
+            ? partnerRegistryLifecycleStatus($partnerRow)
+            : strtolower(trim((string)($partnerRow['integration_status'] ?? 'legacy_unverified')));
+        $environment = function_exists('getPartnerEnvironment')
+            ? strtolower(trim(getPartnerEnvironment($partnerKey, 'test')))
+            : 'test';
+        return forwardQueueLifecycleGateResult($status, $environment, $partnerKey, $merchantId);
+    }
+    return null;
+}
+
+/**
+ * @return array<string,mixed>|null
+ */
+function forwardQueueLifecycleGateResult(string $status, string $environment, string $partnerKey, int $merchantId): ?array
+{
+    $status = strtolower(trim($status));
+    $environment = strtolower(trim($environment));
+    $reason = match ($status) {
+        'paused' => 'Partner integration is paused.',
+        'retired' => 'Partner integration is retired.',
+        'draft' => 'Partner integration is still in Draft.',
+        'sandbox' => in_array($environment, ['test', 'sandbox', 'staging', 'development'], true)
+            ? ''
+            : 'Sandbox lifecycle permits test credentials only.',
+        default => '',
+    };
+    if ($reason === '') {
+        return null;
+    }
+    return [
+        'success' => false,
+        'staged' => true,
+        'adapter' => 'lifecycle_gate',
+        'reference' => 'LIFECYCLE-BLOCKED-' . strtoupper(trim($partnerKey)) . '-' . $merchantId,
+        'message' => $reason . ' The onboarding package remains on UniWeb and was not sent to the partner.',
     ];
 }
 
@@ -1362,16 +1665,55 @@ function getForwardQueueNeedsActionCount(): int
 }
 
 /**
- * Log partner inbound request on a forward row (webhook not wired — manual Admin).
+ * Normalize partner inbound statuses before they reach the merchant timeline.
+ *
+ * @return array{status:string,message:string}
+ */
+function normalizePartnerInboundEvent(string $eventType, string $message): array
+{
+    $eventType = strtolower(trim($eventType));
+    $aliases = [
+        'additional_documents' => 'need_info',
+        'additional_document' => 'need_info',
+        'documents_required' => 'need_info',
+        'approved' => 'approved',
+        'accepted' => 'approved',
+        'rejected' => 'reject',
+        'declined' => 'reject',
+        'query' => 'partner_query',
+        'reply' => 'partner_reply',
+    ];
+    $status = $aliases[$eventType] ?? $eventType;
+    if (!in_array($status, ['need_info', 'partner_query', 'partner_reply', 'approved', 'reject'], true)) {
+        $status = 'partner_query';
+    }
+    $message = trim($message);
+    return [
+        'status' => $status,
+        'message' => mb_substr($message, 0, 500),
+    ];
+}
+
+function partnerInboundStatusLabel(string $status): string
+{
+    return match (strtolower(trim($status))) {
+        'need_info' => 'Additional documents requested',
+        'approved' => 'Approved',
+        'reject' => 'Rejected',
+        'partner_reply' => 'Partner reply',
+        default => 'Partner query',
+    };
+}
+
+/**
+ * Log partner inbound request on a forward row and notify the merchant.
  */
 function forwardQueueLogPartnerInbound(int $queueId, string $eventType, string $message, int $adminId = 0): bool
 {
     ensurePartnerForwardQueueTable();
-    $eventType = strtolower(trim($eventType));
-    if (!in_array($eventType, ['need_info', 'partner_query', 'partner_reply', 'reject'], true)) {
-        $eventType = 'partner_query';
-    }
-    $message = trim($message);
+    $normalized = normalizePartnerInboundEvent($eventType, $message);
+    $eventType = $normalized['status'];
+    $message = $normalized['message'];
     if ($message === '' || $queueId < 1) {
         return false;
     }
@@ -1389,8 +1731,13 @@ function forwardQueueLogPartnerInbound(int $queueId, string $eventType, string $
             "UPDATE partner_forward_queue SET partner_inbound_status=?, partner_inbound_message=?, partner_inbound_at=NOW(), updated_at=NOW() WHERE id=?"
         )->execute([$eventType, mb_substr($message, 0, 500), $queueId]);
         if ($merchantId > 0) {
-            $title = $eventType === 'need_info' ? 'Partner needs more KYC documents' : 'Message from payment network';
-            $body = ($partnerKey !== '' ? ucfirst($partnerKey) . ': ' : '') . $message;
+            $title = match ($eventType) {
+                'need_info' => 'Payment network needs more KYC documents',
+                'approved' => 'Payment network approved your onboarding documents',
+                'reject' => 'Payment network rejected your onboarding documents',
+                default => 'Message from payment network',
+            };
+            $body = $message;
             if (function_exists('notifyMerchant')) {
                 notifyMerchant($merchantId, $title, $body, 'kyc_inbound_' . $queueId . '_' . $eventType);
             } elseif (function_exists('createNotification')) {

@@ -99,7 +99,7 @@ $lib = __DIR__ . '/includes/phpqrcode/qrlib.php';
 if (is_file($lib)) {
     require_once $lib;
 }
-if (class_exists('QRcode', false)) {
+if (class_exists('QRcode', false) && function_exists('imagecreatetruecolor')) {
     // High error-correction (H, ~30% recoverable) so a center logo cutout stays scannable.
     // @-suppress: the vendored phpqrcode lib throws PHP 8.1+ "implicit float->int
     // conversion" deprecations. With display_errors on, those get echoed straight

@@ -532,6 +532,21 @@ function registerGateway(string $key, string $name, array $capabilities = []): a
         $webhookUrl = $capabilities['webhook_url'] ?? null;
         $configJson = $capabilities['config_json'] ?? null;
         $sortOrder = $capabilities['sort_order'] ?? 99;
+        $channelCapabilities = $capabilities['channel_capabilities'] ?? [];
+        if (!is_array($channelCapabilities)) {
+            $channelCapabilities = [];
+        }
+        $allowedChannels = [
+            'checkout_hosted',
+            'status_webhook',
+            'document_forward',
+            'notifications',
+            'support_forward',
+            'dispute_forward',
+            'refunds',
+        ];
+        $channelCapabilities = array_intersect_key($channelCapabilities, array_flip($allowedChannels));
+        $channelCapabilities = array_map(static fn($value): bool => (bool)$value, $channelCapabilities);
 
         // Check for duplicate
         $check = $db->prepare("SELECT id FROM gateway_registry WHERE gateway_key=?");
@@ -561,23 +576,38 @@ function registerGateway(string $key, string $name, array $capabilities = []): a
             $st->execute([$key]);
             $gatewayId = (int)$st->fetchColumn();
         }
+        if ($channelCapabilities !== []) {
+            try {
+                $db->prepare('UPDATE gateway_registry SET channel_capabilities_json=? WHERE gateway_key=?')
+                    ->execute([json_encode($channelCapabilities, JSON_UNESCAPED_UNICODE), $key]);
+            } catch (Throwable $e) {
+                error_log('registerGateway channel capabilities: ' . $e->getMessage());
+            }
+        }
 
         // Seed gateway_method_map (inactive)
         $db->prepare("INSERT INTO gateway_method_map (gateway_id, method_key, is_active) VALUES (?,?,0) ON DUPLICATE KEY UPDATE is_active=0")
             ->execute([$gatewayId, $key]);
 
-        // Seed partner_methods rows (all disabled) for standard methods
+        // Seed standard methods for this custom partner; registry-wide seeding only covers built-ins.
+        $defaultMethods = [
+            ['upi', 10],
+            ['debit_card', 30],
+            ['credit_card', 31],
+            ['netbanking', 40],
+            ['emi', 50],
+            ['emandate_upi', 60],
+            ['emandate_card', 61],
+            ['emandate_nb', 62],
+        ];
         if (function_exists('seedPartnerMethods')) {
-            // seedPartnerMethods seeds for all registry partners — call it to cover the new one
             seedPartnerMethods();
-        } elseif (class_exists('PDO') && $db) {
-            $defaultMethods = ['upi', 'credit_card', 'debit_card', 'netbanking', 'emi', 'emandate_upi', 'emandate_card', 'emandate_nb'];
-            foreach ($defaultMethods as $method) {
-                try {
-                    $db->prepare("INSERT IGNORE INTO partner_methods (partner_key, method, is_enabled, priority) VALUES (?,?,0,50)")
-                        ->execute([$key, $method]);
-                } catch (Throwable $e) { /* ok */ }
-            }
+        }
+        $seedMethod = $db->prepare(
+            'INSERT IGNORE INTO partner_methods (partner_key, method, is_enabled, priority) VALUES (?,?,0,?)'
+        );
+        foreach ($defaultMethods as [$methodKey, $priority]) {
+            $seedMethod->execute([$key, $methodKey, $priority]);
         }
 
         return ['ok' => true, 'gateway_id' => $gatewayId, 'gateway_name' => $name];

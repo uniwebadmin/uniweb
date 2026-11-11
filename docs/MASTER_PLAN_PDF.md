@@ -46,6 +46,8 @@
 ## Γ¥î REMAINING WORK (in priority order)
 
 ### Phase A: Aadhaar Auto-Mask Pipeline (PDF priority #2)
+**Current repository state:** Not complete. Aadhaar file uploads now fail closed and are not registered while reliable digit-level redaction is unavailable. Do not mark this phase done until masking is verified for image/PDF and DigiLocker flows.
+
 - [ ] Aadhaar upload pe detect ΓåÆ first 8 digits black out ΓåÆ save only masked image
 - [ ] Original unmasked file discard immediately
 - [ ] Last 4 digits visible for ops

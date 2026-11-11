@@ -37,7 +37,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             'contract_mode' => (string)($_POST['contract_mode'] ?? 'platform'),
             'allows_existing_merchant_link' => isset($_POST['allows_existing_merchant_link']),
             'adapter_class' => trim((string)($_POST['adapter_class'] ?? '')),
+            'connector_id' => trim((string)($_POST['connector_id'] ?? '')),
+            'logo_url' => trim((string)($_POST['logo_url'] ?? '')),
             'webhook_url' => trim((string)($_POST['webhook_url'] ?? '')),
+            'api_base_url' => trim((string)($_POST['api_base_url'] ?? '')),
+            'countries' => (string)($_POST['countries'] ?? ''),
+            'currencies' => (string)($_POST['currencies'] ?? ''),
+            'support_email' => trim((string)($_POST['support_email'] ?? '')),
+            'support_phone' => trim((string)($_POST['support_phone'] ?? '')),
+            'platform_fee_pct_default' => (string)($_POST['platform_fee_pct_default'] ?? ''),
+            'platform_fee_flat_default' => (string)($_POST['platform_fee_flat_default'] ?? ''),
+            'weight_success' => (string)($_POST['weight_success'] ?? ''),
+            'settle_note' => trim((string)($_POST['settle_note'] ?? '')),
+            'policy_urls' => [
+                'terms' => (string)($_POST['policy_terms'] ?? ''),
+                'privacy' => (string)($_POST['policy_privacy'] ?? ''),
+                'refund' => (string)($_POST['policy_refund'] ?? ''),
+                'support' => (string)($_POST['policy_support'] ?? ''),
+            ],
             'routing_priority' => (int)($_POST['routing_priority'] ?? 50),
             'circuit_breaker_on' => isset($_POST['circuit_breaker_on']),
             'connector_notes' => trim((string)($_POST['connector_notes'] ?? '')),
@@ -48,11 +65,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
                 'netbanking' => isset($_POST['cap_netbanking']),
                 'refund' => isset($_POST['cap_refund']) || isset($_POST['supports_refund']),
                 'pay_later' => isset($_POST['cap_pay_later']),
+                'qr' => isset($_POST['cap_qr']),
+                'payout' => isset($_POST['cap_payout']),
                 'kyc_forward_api' => isset($_POST['cap_kyc_forward_api']),
             ],
+            'channels' => [
+                'checkout_hosted' => isset($_POST['channel_checkout_hosted']),
+                'status_webhook' => isset($_POST['channel_status_webhook']),
+                'document_forward' => isset($_POST['channel_document_forward']),
+                'notifications' => isset($_POST['channel_notifications']),
+                'support_forward' => isset($_POST['channel_support_forward']),
+                'dispute_forward' => isset($_POST['channel_dispute_forward']),
+                'refunds' => isset($_POST['channel_refunds']),
+            ],
             'doc_pack' => $_POST['doc_pack'] ?? [],
+            'optional_doc_pack' => $_POST['optional_doc_pack'] ?? [],
             'partner_compliance_docs' => $_POST['partner_compliance_docs'] ?? [],
-            'supports_payout' => isset($_POST['supports_payout']),
+            'supports_payout' => false,
             'supports_recurring' => isset($_POST['supports_recurring']),
         ];
         if (function_exists('registerPartnerRegistryV2')) {
@@ -66,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             }
             $result = registerGateway($key, $name, [
                 'collection' => $input['capabilities']['collect'] ? 1 : 0,
-                'payout' => $input['supports_payout'] ? 1 : 0,
+                'payout' => 0,
                 'refund' => $input['capabilities']['refund'] ? 1 : 0,
                 'recurring' => $input['supports_recurring'] ? 1 : 0,
                 'adapter' => $input['adapter_class'] ?: null,
@@ -189,6 +218,7 @@ foreach ($sourceRows as $g) {
     }
     $filteredGateways[] = $g;
 }
+$routeCounts = function_exists('partnerRegistryRouteReadinessCounts') ? partnerRegistryRouteReadinessCounts($filteredGateways) : ['platform_ready' => 0, 'linked_ready' => 0, 'blocked' => 0, 'hybrid_ready' => 0];
 $pageTitle = 'Partner Registry';
 require_once __DIR__ . '/header.php';
 ?>
@@ -212,6 +242,24 @@ require_once __DIR__ . '/header.php';
                     <p class="text-2xl font-bold text-slate-400"><?= $retiredCount ?></p>
                     <p class="text-[10px] text-gray-500 uppercase">Retired</p>
                 </div>
+            </div>
+        </div>
+        <div class="grid sm:grid-cols-4 gap-3 mt-4">
+            <div class="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                <p class="text-[10px] uppercase tracking-wide text-emerald-300/80">Platform ready</p>
+                <p class="text-2xl font-bold text-emerald-300 mt-1"><?= (int)($routeCounts['platform_ready'] ?? 0) ?></p>
+            </div>
+            <div class="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
+                <p class="text-[10px] uppercase tracking-wide text-sky-300/80">Linked ready</p>
+                <p class="text-2xl font-bold text-sky-300 mt-1"><?= (int)($routeCounts['linked_ready'] ?? 0) ?></p>
+            </div>
+            <div class="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3">
+                <p class="text-[10px] uppercase tracking-wide text-violet-300/80">Hybrid ready</p>
+                <p class="text-2xl font-bold text-violet-300 mt-1"><?= (int)($routeCounts['hybrid_ready'] ?? 0) ?></p>
+            </div>
+            <div class="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                <p class="text-[10px] uppercase tracking-wide text-amber-300/80">Blocked</p>
+                <p class="text-2xl font-bold text-amber-300 mt-1"><?= (int)($routeCounts['blocked'] ?? 0) ?></p>
             </div>
         </div>
     </div>
@@ -243,6 +291,7 @@ require_once __DIR__ . '/header.php';
                 $adapterWired = function_exists('partnerAdapterIsWired') ? partnerAdapterIsWired((string)$g['gateway_key'], $g) : true;
                 $activateGate = function_exists('partnerRegistryActivateGate') ? partnerRegistryActivateGate($g) : ['allowed' => true, 'reason' => '', 'warn_keys' => false];
                 $v2Profile = function_exists('partnerRegistryV2ProfileFromRow') ? partnerRegistryV2ProfileFromRow($g) : null;
+                $routeReadiness = function_exists('partnerRegistryRouteReadinessSummary') ? partnerRegistryRouteReadinessSummary($g) : ['platform_ready' => false, 'linked_ready' => false, 'summary' => ''];
                 $enabledMethods = getEnabledPartnerMethods($g['gateway_key']);
                 $isHighlight = $highlightKey !== '' && strtolower((string)$g['gateway_key']) === $highlightKey;
             ?>
@@ -255,6 +304,13 @@ require_once __DIR__ . '/header.php';
                         <div class="flex items-center gap-2 flex-wrap">
                             <a href="<?= e(adminPartnerDetailUrl((string)$g['gateway_key'])) ?>" class="text-sm font-medium text-gray-200 hover:text-sky-300"><?= e($g['gateway_name']) ?></a>
                             <?= function_exists('partnerRegistryListStatusBadge') ? partnerRegistryListStatusBadge($g) : '<span class="text-[10px] px-2 py-0.5 rounded-full ' . ($isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700/50 text-gray-400') . '">' . ($isActive ? 'Active' : 'Inactive') . '</span>' ?>
+                            <?php if (function_exists('partnerRegistryLifecycleStatusBadge')): ?>
+                            <?= partnerRegistryLifecycleStatusBadge($g) ?>
+                            <?php endif; ?>
+                            <?php if (function_exists('partnerRegistryV2ProfileIsComplete')): ?>
+                            <?php $profileComplete = partnerRegistryV2ProfileIsComplete($g); ?>
+                            <span class="text-[10px] px-2 py-0.5 rounded border <?= $profileComplete ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-amber-500/30 bg-amber-500/10 text-amber-300' ?>" title="Required workbook identity and onboarding fields"><?= $profileComplete ? 'Profile complete' : 'Profile incomplete' ?></span>
+                            <?php endif; ?>
                             <?php if (!$adapterWired && function_exists('partnerRegistryNotWiredBadgeHtml')): ?>
                             <?= partnerRegistryNotWiredBadgeHtml() ?>
                             <?php endif; ?>
@@ -268,12 +324,21 @@ require_once __DIR__ . '/header.php';
                             <?php endif; ?>
                             <?php if (!empty($enabledMethods)): ?><span class="text-[10px] px-2 py-0.5 rounded bg-violet-500/10 text-violet-400"><?= count($enabledMethods) ?> methods</span><?php endif; ?>
                         </div>
+                        <div class="flex flex-wrap gap-1.5 mt-2">
+                            <span class="text-[9px] px-2 py-1 rounded-full <?= !empty($routeReadiness['platform_ready']) ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-300 border border-amber-500/20' ?>">Platform: <?= !empty($routeReadiness['platform_ready']) ? 'ready' : 'blocked' ?></span>
+                            <span class="text-[9px] px-2 py-1 rounded-full <?= !empty($routeReadiness['linked_ready']) ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-300 border border-amber-500/20' ?>">Linked existing: <?= !empty($routeReadiness['linked_ready']) ? 'ready' : 'blocked' ?></span>
+                        </div>
                         <p class="text-xs text-gray-500 font-mono mt-0.5"><a href="<?= e(adminPartnerDetailUrl((string)$g['gateway_key'])) ?>" class="hover:text-sky-300"><?= e($g['gateway_key']) ?></a></p>
+                        <?php if (!empty($routeReadiness['summary'])): ?>
+                        <p class="text-[10px] text-gray-400 mt-1"><?= e($routeReadiness['summary']) ?></p>
+                        <?php endif; ?>
                         <div class="flex gap-1.5 mt-1">
                             <?php if ((int)$g['supports_collection']): ?><span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Collection</span><?php endif; ?>
                             <?php if ((int)$g['supports_payout']): ?><span class="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400">Payout</span><?php endif; ?>
+                            <?php if (!empty($g['cap_payout'])): ?><span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-700/60 text-gray-300" title="Registry metadata only; no payout route or execution is enabled">Payout metadata only</span><?php endif; ?>
                             <?php if ((int)$g['supports_refund']): ?><span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400">Refund</span><?php endif; ?>
                             <?php if ((int)$g['supports_recurring']): ?><span class="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400">Recurring</span><?php endif; ?>
+                            <?php if (is_array($v2Profile)): ?><span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400">Priority <?= (int)$v2Profile['routing_priority'] ?> · metadata</span><?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -334,34 +399,36 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <div class="glass rounded-xl p-6 border border-gray-800">
-        <h3 class="font-semibold mb-2">Add partner (online collect only)</h3>
-        <p class="text-xs text-gray-500 mb-4">Payment Gateway or other online collect rail — no PPI / offline wallet product. After save, the partner appears in the list above as <strong class="text-gray-300">Inactive</strong> (no Activate required to see it).</p>
+        <h3 class="font-semibold mb-2">Add partner (online collection)</h3>
+        <p class="text-xs text-gray-500 mb-4">Payment Gateway, partner-hosted BNPL, or other online collection rail — no PPI / offline wallet product. Complete the required connector, UniWeb webhook path, country, and merchant KYC doc pack. New partners remain <strong class="text-gray-300">Draft / Inactive</strong> until separately certified and activated.</p>
         <form method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="register_gateway">
             <div class="grid sm:grid-cols-2 gap-4">
                 <div>
                     <label class="text-sm text-gray-400">Partner code *</label>
-                    <input type="text" name="gateway_key" required placeholder="e.g. razorpay, payu" class="input-field mt-1 font-mono text-sm" pattern="[a-z0-9_]+">
+                    <input type="text" name="gateway_key" required maxlength="40" placeholder="e.g. razorpay, payu" class="input-field mt-1 font-mono text-sm" pattern="[a-z0-9_]+">
                 </div>
                 <div>
                     <label class="text-sm text-gray-400">Display name *</label>
-                    <input type="text" name="gateway_name" required placeholder="e.g. Razorpay" class="input-field mt-1">
+                    <input type="text" name="gateway_name" required maxlength="80" placeholder="e.g. Razorpay" class="input-field mt-1">
                 </div>
                 <div>
                     <label class="text-sm text-gray-400">Partner type</label>
                     <select name="partner_type" class="input-field mt-1 text-sm">
                         <option value="pg">Payment Gateway (PG)</option>
+                        <option value="bnpl">BNPL provider (partner-hosted)</option>
                         <option value="other_online">Other online collect</option>
                     </select>
                 </div>
                 <div>
-                    <label class="text-sm text-gray-400">Commercial mode</label>
+                    <label class="text-sm text-gray-400">Account operating mode</label>
                     <select name="contract_mode" class="input-field mt-1 text-sm">
                         <option value="platform">Platform</option>
                         <option value="linked_existing">Linked existing</option>
                         <option value="hybrid">Hybrid</option>
                     </select>
+                    <p class="text-[10px] text-gray-500 mt-1">Platform: new partner onboarding. Linked existing: use the merchant's existing partner account only. Hybrid: both routes.</p>
                 </div>
                 <div>
                     <label class="text-sm text-gray-400">Connector notes</label>
@@ -372,8 +439,76 @@ require_once __DIR__ . '/header.php';
                     <input type="text" name="adapter_class" placeholder="includes/gateways/..." class="input-field mt-1 font-mono text-xs">
                 </div>
                 <div>
-                    <label class="text-sm text-gray-400">Webhook URL (optional)</label>
-                    <input type="text" name="webhook_url" placeholder="<?= e(APP_URL) ?>/partner_webhook.php" class="input-field mt-1 font-mono text-xs">
+                    <label class="text-sm text-gray-400">Connector ID</label>
+                    <input type="text" name="connector_id" required maxlength="80" placeholder="razorpay_v1" class="input-field mt-1 font-mono text-xs">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">UniWeb webhook endpoint *</label>
+                    <input type="text" name="webhook_url" required value="<?= e(rtrim(APP_URL, '/')) ?>/partner_webhook.php" placeholder="/partner_webhook.php" class="input-field mt-1 font-mono text-xs">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Partner API base URL</label>
+                    <input type="url" name="api_base_url" placeholder="https://api.partner.example" class="input-field mt-1 font-mono text-xs">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Countries (ISO codes)</label>
+                    <input type="text" name="countries" required placeholder="IN" class="input-field mt-1 text-sm">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Currencies (ISO 4217 alpha-3 format)</label>
+                    <input type="text" name="currencies" placeholder="INR, AED" class="input-field mt-1 text-sm">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Partner logo URL (HTTPS)</label>
+                    <input type="url" name="logo_url" placeholder="https://partner.example/logo.svg" class="input-field mt-1 text-sm">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Partner support email</label>
+                    <input type="email" name="support_email" class="input-field mt-1 text-sm">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Partner support phone</label>
+                    <input type="tel" name="support_phone" class="input-field mt-1 text-sm">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Default platform fee (%)</label>
+                    <input type="number" name="platform_fee_pct_default" min="0" max="100" step="0.0001" value="0" class="input-field mt-1 text-sm">
+                    <p class="text-[10px] text-gray-500 mt-1">Stored metadata only; does not change checkout fees.</p>
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Default platform flat fee (partner currency)</label>
+                    <input type="number" name="platform_fee_flat_default" min="0" step="0.01" value="0" class="input-field mt-1 text-sm">
+                    <p class="text-[10px] text-gray-500 mt-1">Stored metadata only; does not change checkout fees.</p>
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Success weight (0–100)</label>
+                    <input type="number" name="weight_success" min="0" max="100" step="0.0001" value="0" class="input-field mt-1 text-sm">
+                    <p class="text-[10px] text-gray-500 mt-1">Stored only; smart-routing use is not enabled yet.</p>
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Routing priority</label>
+                    <input type="number" name="routing_priority" min="1" max="999" step="1" value="50" class="input-field mt-1 text-sm">
+                    <p class="text-[10px] text-gray-500 mt-1">Stored for routing work; does not change live traffic yet.</p>
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="text-sm text-gray-400">Settlement note (internal)</label>
+                    <input type="text" name="settle_note" maxlength="500" class="input-field mt-1 text-sm">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Merchant terms URL (HTTPS)</label>
+                    <input type="url" name="policy_terms" class="input-field mt-1 text-sm">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Privacy policy URL (HTTPS)</label>
+                    <input type="url" name="policy_privacy" class="input-field mt-1 text-sm">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Refund policy URL (HTTPS)</label>
+                    <input type="url" name="policy_refund" class="input-field mt-1 text-sm">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400">Support policy URL (HTTPS)</label>
+                    <input type="url" name="policy_support" class="input-field mt-1 text-sm">
                 </div>
             </div>
             <div>
@@ -384,20 +519,41 @@ require_once __DIR__ . '/header.php';
                     <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="cap_card" class="rounded border-gray-600"> Card</label>
                     <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="cap_netbanking" class="rounded border-gray-600"> Net banking</label>
                     <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="cap_refund" class="rounded border-gray-600"> Refund</label>
-                    <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="cap_pay_later" class="rounded border-gray-600"> Pay later (PG method)</label>
+                    <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="cap_pay_later" class="rounded border-gray-600"> Pay later (partner-hosted)</label>
+                    <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="cap_qr" class="rounded border-gray-600"> QR</label>
                     <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="cap_kyc_forward_api" class="rounded border-gray-600"> KYC forward API</label>
-                    <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="supports_payout" class="rounded border-gray-600"> Payout rail</label>
+                    <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="cap_payout" class="rounded border-gray-600"> Payout capability metadata (does not enable payouts)</label>
                     <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="supports_recurring" class="rounded border-gray-600"> Recurring</label>
+                </div>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 mb-2">Global platform channels</p>
+                <div class="flex flex-wrap gap-4">
+                    <?php foreach (['checkout_hosted' => 'Hosted checkout', 'status_webhook' => 'Status webhook', 'document_forward' => 'Document forwarding', 'notifications' => 'Notifications', 'support_forward' => 'Support forwarding', 'dispute_forward' => 'Dispute forwarding', 'refunds' => 'Refunds'] as $channelKey => $channelLabel): ?>
+                    <label class="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" name="channel_<?= e($channelKey) ?>" class="rounded border-gray-600"> <?= e($channelLabel) ?></label>
+                    <?php endforeach; ?>
                 </div>
             </div>
             <?php if (function_exists('partnerRegistryV2MerchantDocPackCatalog')): ?>
             <div>
                 <p class="text-xs text-gray-500 mb-1 font-medium text-gray-400">Merchant KYC doc pack</p>
-                <p class="text-[11px] text-gray-500 mb-2">Superset for this partner. Merchant KYC UI filters to the merchant’s entity type.</p>
+                <p class="text-[11px] text-gray-500 mb-2">Choose at least one required document. Optional documents are stored separately. Merchant KYC UI filters to the merchant’s entity type.</p>
                 <div class="flex flex-wrap gap-3 max-h-36 overflow-y-auto">
                     <?php foreach (partnerRegistryV2MerchantDocPackCatalog() as $code => $label): ?>
                     <label class="flex items-center gap-1.5 text-xs text-gray-400" title="<?= e($label) ?>">
                         <input type="checkbox" name="doc_pack[]" value="<?= e($code) ?>" class="rounded border-gray-600">
+                        <span class="font-mono text-gray-300"><?= e($code) ?></span>
+                        <span class="text-gray-600 hidden sm:inline">— <?= e($label) ?></span>
+                    </label>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 mb-1 font-medium text-gray-400">Optional merchant KYC documents</p>
+                <div class="flex flex-wrap gap-3 max-h-36 overflow-y-auto">
+                    <?php foreach (partnerRegistryV2MerchantDocPackCatalog() as $code => $label): ?>
+                    <label class="flex items-center gap-1.5 text-xs text-gray-400" title="<?= e($label) ?>">
+                        <input type="checkbox" name="optional_doc_pack[]" value="<?= e($code) ?>" class="rounded border-gray-600">
                         <span class="font-mono text-gray-300"><?= e($code) ?></span>
                         <span class="text-gray-600 hidden sm:inline">— <?= e($label) ?></span>
                     </label>
@@ -423,8 +579,11 @@ require_once __DIR__ . '/header.php';
                 <input type="checkbox" name="allows_existing_merchant_link" class="rounded border-gray-600">
                 Allow already-live merchant link (merchant has their own account on this partner)
             </label>
-            <p class="text-xs text-gray-500">Outbound pause: use <a href="admin_circuit_breaker.php" class="text-sky-400 hover:underline">Circuit Breaker</a> — the register form does not fake an ON/OFF that does nothing.</p>
-            <input type="hidden" name="circuit_breaker_on" value="1">
+            <label class="flex items-center gap-2 text-xs text-gray-300">
+                <input type="checkbox" name="circuit_breaker_on" checked class="rounded border-gray-600">
+                Registry circuit-breaker metadata enabled (does not control outbound calls)
+            </label>
+            <p class="text-xs text-gray-500">Pause outbound calls using <a href="admin_circuit_breaker.php" class="text-sky-400 hover:underline">Circuit Breaker</a>.</p>
             <button type="submit" class="btn-primary px-6 py-2.5">Register partner</button>
         </form>
     </div>

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/page_ux.php';
+require_once __DIR__ . '/includes/partner_forward_queue.php';
 $merchant = requireMerchantAccount();
 if (!merchantProfileComplete($merchant)) {
     redirect('merchant_setup.php');
@@ -12,6 +13,7 @@ $viewTest = isDashboardTestMode($merchant);
 $stats = getMerchantStatsForMode($merchant['id'], $viewTest);
 $onboarding = getMerchantOnboardingSteps($merchant);
 $onboardingDone = count(array_filter($onboarding, fn($s) => $s['done']));
+$forwardStatus = getMerchantForwardStatus((int)$merchant['id']);
 $db = getDB();
 $recentTxns = $db->prepare('SELECT * FROM transactions WHERE merchant_id = ? AND is_test = ? ORDER BY created_at DESC LIMIT 8');
 $recentTxns->execute([$merchant['id'], $viewTest ? 1 : 0]);
@@ -23,10 +25,19 @@ if (isset($_GET['dismiss_mfa_prompt'])) {
 }
 ensureMerchant2FA();
 
-$pageTitle = __('dashboard');
+$pageTitle = 'One Merchant Console';
 require_once __DIR__ . '/header.php';
 echo renderMerchantMfaSetupPrompt($merchant, 'dashboard');
 ?>
+
+<div class="glass rounded-xl p-5 mb-6 border border-violet-500/20 bg-violet-500/5">
+    <p class="text-sm font-semibold text-violet-200">Your business network, in one console</p>
+    <p class="text-xs text-gray-400 mt-1">Manage your profile and document vault once. UniWeb coordinates partner onboarding, hosted checkout handoff, payment status, support and disputes. UniWeb does not hold customer or merchant settlement funds.</p>
+    <div class="flex flex-wrap gap-2 mt-3">
+        <a href="kyc.php" class="text-xs text-violet-200 border border-violet-400/30 rounded-lg px-3 py-1.5 hover:bg-violet-500/10">Open document vault</a>
+        <a href="merchant_launch.php" class="text-xs text-sky-200 border border-sky-400/30 rounded-lg px-3 py-1.5 hover:bg-sky-500/10">Partner launch status</a>
+    </div>
+</div>
 
 <?php if (isDashboardTestMode($merchant) && $onboardingDone < count($onboarding)):
     $onboardPct = (int)round($onboardingDone / max(1, count($onboarding)) * 100);
@@ -179,6 +190,41 @@ if ($balanceBreakdown):
         <p class="text-xs text-gray-500 mt-1"><?= (int)$stats['failed_count_7d'] ?> failed transaction(s) in the last 7 days</p>
     </div>
     <a href="transactions.php?status=failed" class="text-xs text-red-400 hover:underline">View failed transactions →</a>
+</div>
+<?php endif; ?>
+
+<?php if ($forwardStatus !== []): ?>
+<div class="glass rounded-xl p-5 mb-8 border border-violet-500/20">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+            <p class="text-sm font-semibold text-violet-300">Partner onboarding status</p>
+            <p class="text-xs text-gray-500 mt-1">Your document packs and network responses in one view</p>
+        </div>
+        <a href="kyc.php#partner-coverage" class="text-xs text-sky-400 hover:underline">Open document vault →</a>
+    </div>
+    <div class="space-y-2">
+        <?php foreach (array_slice($forwardStatus, 0, 5) as $forwardRow):
+            $inbound = strtolower(trim((string)($forwardRow['partner_inbound_status'] ?? '')));
+            $queueStatus = (string)($forwardRow['status'] ?? 'queued');
+            $statusText = $inbound !== ''
+                ? partnerInboundStatusLabel($inbound)
+                : forwardQueueAdminStatusLabel($queueStatus);
+            $statusTone = match ($inbound !== '' ? $inbound : $queueStatus) {
+                'approved', 'success' => 'text-emerald-300',
+                'reject', 'failed' => 'text-red-300',
+                'need_info', 'waiting_keys', 'retry' => 'text-amber-300',
+                default => 'text-sky-300',
+            };
+        ?>
+        <div class="flex flex-wrap items-center gap-3 rounded-lg border border-gray-800 px-3 py-2.5">
+            <span class="flex-1 min-w-[12rem] text-sm text-gray-200">Payment network onboarding</span>
+            <span class="text-xs <?= $statusTone ?>"><?= e($statusText) ?></span>
+            <?php if (!empty($forwardRow['partner_inbound_message'])): ?>
+                <span class="w-full text-xs text-gray-500"><?= e((string)$forwardRow['partner_inbound_message']) ?></span>
+            <?php endif; ?>
+        </div>
+        <?php endforeach; ?>
+    </div>
 </div>
 <?php endif; ?>
 

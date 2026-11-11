@@ -1,0 +1,251 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1260" viewBox="0 0 1800 1260" style="width:100%;height:auto;display:block" role="img" aria-labelledby="title description">
+  <title id="title">UniWeb project plan and target system map</title>
+  <desc id="description">A Hindi-English visual showing the one-track-at-a-time implementation approach and the intended One Merchant Console architecture. This is a target, not a claim about current live status.</desc>
+  <defs>
+    <linearGradient id="header" x1="0" x2="1">
+      <stop offset="0" stop-color="#123c80"/>
+      <stop offset="1" stop-color="#087f9c"/>
+    </linearGradient>
+    <linearGradient id="console" x1="0" x2="1">
+      <stop offset="0" stop-color="#eff6ff"/>
+      <stop offset="1" stop-color="#f0fdfa"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f2e56" flood-opacity=".10"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#52749a"/>
+    </marker>
+    <style>
+      text { font-family: "Segoe UI", "Nirmala UI", Arial, sans-serif; fill: #17365e; }
+      .title { font-size: 34px; font-weight: 750; fill: #fff; }
+      .subtitle { font-size: 17px; fill: #e0f2fe; }
+      .section { font-size: 18px; font-weight: 750; }
+      .card-title { font-size: 16px; font-weight: 750; }
+      .body { font-size: 13px; }
+      .small { font-size: 11.5px; }
+      .tiny { font-size: 10px; }
+      .white { fill: #fff; }
+      .muted { fill: #54708e; }
+      .green { fill: #087a54; }
+      .purple { fill: #633ab4; }
+      .orange { fill: #a95008; }
+      .red { fill: #b4233d; }
+      .line { stroke: #cbd9e8; stroke-width: 1.5; }
+      .arrow { stroke: #52749a; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .dash { stroke-dasharray: 7 5; }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1260" fill="#f3f7fc"/>
+  <rect x="0" y="0" width="1800" height="102" fill="url(#header)"/>
+  <text x="38" y="45" class="title">UNIWEB · PROJECT PLAN → TARGET SYSTEM</text>
+  <text x="40" y="76" class="subtitle">Aapke master blueprint ke hisaab se · ek track ek baar · har step verify karke</text>
+  <rect x="1392" y="24" width="370" height="48" rx="24" fill="#fff" fill-opacity=".14" stroke="#d7f4ff" stroke-opacity=".7"/>
+  <text x="1577" y="44" text-anchor="middle" class="small white" font-weight="700">TARGET ARCHITECTURE</text>
+  <text x="1577" y="61" text-anchor="middle" class="tiny white">Not a claim that every part is live today</text>
+
+  <rect x="34" y="118" width="1732" height="48" rx="12" fill="#fff8e8" stroke="#efc76c"/>
+  <text x="56" y="148" class="card-title orange">LOCKED RULES</text>
+  <text x="203" y="148" class="body">No customer-fund custody</text>
+  <circle cx="385" cy="143" r="3" fill="#bd7a14"/>
+  <text x="402" y="148" class="body">No PPI now</text>
+  <circle cx="498" cy="143" r="3" fill="#bd7a14"/>
+  <text x="515" y="148" class="body">Card / Net Banking → partner-hosted page</text>
+  <circle cx="812" cy="143" r="3" fill="#bd7a14"/>
+  <text x="829" y="148" class="body">Never guess the partner</text>
+  <circle cx="1000" cy="143" r="3" fill="#bd7a14"/>
+  <text x="1017" y="148" class="body">Automation OFF → queue; data stays</text>
+  <circle cx="1283" cy="143" r="3" fill="#bd7a14"/>
+  <text x="1300" y="148" class="body">One implementation track at a time</text>
+
+  <!-- How the work will proceed -->
+  <rect x="34" y="184" width="352" height="716" rx="16" fill="#fff" stroke="#d2deeb" filter="url(#shadow)"/>
+  <rect x="34" y="184" width="352" height="46" rx="16" fill="#174b91"/>
+  <path d="M34 214h352v16H34z" fill="#174b91"/>
+  <text x="54" y="213" class="section white">HOW I WILL WORK</text>
+  <text x="54" y="253" class="small muted">Project folder = source of truth</text>
+
+  <line x1="79" y1="289" x2="79" y2="619" stroke="#a9bfd8" stroke-width="3"/>
+  <g>
+    <circle cx="79" cy="294" r="21" fill="#e4efff" stroke="#2362a7" stroke-width="2"/>
+    <text x="79" y="299" text-anchor="middle" class="body" font-weight="750">1</text>
+    <text x="115" y="286" class="card-title">Read + verify</text>
+    <text x="115" y="307" class="small">Main PDF, newer flow, and the</text>
+    <text x="115" y="324" class="small">actual code—not assumptions.</text>
+
+    <circle cx="79" cy="378" r="21" fill="#e4efff" stroke="#2362a7" stroke-width="2"/>
+    <text x="79" y="383" text-anchor="middle" class="body" font-weight="750">2</text>
+    <text x="115" y="370" class="card-title">Make a gap map</text>
+    <text x="115" y="391" class="small">What exists · what is partial ·</text>
+    <text x="115" y="408" class="small">what is missing or conflicts.</text>
+
+    <circle cx="79" cy="462" r="21" fill="#e4efff" stroke="#2362a7" stroke-width="2"/>
+    <text x="79" y="467" text-anchor="middle" class="body" font-weight="750">3</text>
+    <text x="115" y="454" class="card-title">Build one track</text>
+    <text x="115" y="475" class="small">Small connected changes only;</text>
+    <text x="115" y="492" class="small">no unrelated feature pile-up.</text>
+
+    <circle cx="79" cy="546" r="21" fill="#e4efff" stroke="#2362a7" stroke-width="2"/>
+    <text x="79" y="551" text-anchor="middle" class="body" font-weight="750">4</text>
+    <text x="115" y="538" class="card-title">Test + show result</text>
+    <text x="115" y="559" class="small">Run relevant checks; label any</text>
+    <text x="115" y="576" class="small">stub / queued / not-wired honestly.</text>
+  </g>
+
+  <rect x="54" y="619" width="312" height="78" rx="10" fill="#eef8f3" stroke="#91c9ad"/>
+  <text x="72" y="645" class="card-title green">Aapka checkpoint</text>
+  <text x="72" y="666" class="small">Aap result dekhenge; phir next track.</text>
+  <text x="72" y="684" class="small" font-weight="700">No silent scope change.</text>
+
+  <rect x="54" y="715" width="312" height="159" rx="10" fill="#fff1f2" stroke="#efabb3"/>
+  <text x="72" y="742" class="card-title red">Hamesha alag rakhenge</text>
+  <text x="72" y="766" class="small">• Current code ka verified status</text>
+  <text x="72" y="787" class="small">• Blueprint ka expected target</text>
+  <text x="72" y="808" class="small">• Partner sandbox vs real LIVE</text>
+  <text x="72" y="839" class="tiny muted">Diagram target batata hai; implementation</text>
+  <text x="72" y="855" class="tiny muted">har phase ke baad alag verify hogi.</text>
+
+  <!-- Target architecture -->
+  <rect x="406" y="184" width="1360" height="716" rx="16" fill="#fff" stroke="#d2deeb" filter="url(#shadow)"/>
+  <rect x="406" y="184" width="1360" height="46" rx="16" fill="#e7f0fb"/>
+  <path d="M406 214h1360v16H406z" fill="#e7f0fb"/>
+  <text x="430" y="213" class="section">WHAT THE SYSTEM SHOULD BECOME</text>
+  <text x="1738" y="212" text-anchor="end" class="small muted">One Merchant Console · central records · partner-controlled payment</text>
+
+  <!-- Actors -->
+  <rect x="430" y="248" width="185" height="74" rx="12" fill="#edf5ff" stroke="#72a4df" stroke-width="1.5"/>
+  <text x="522" y="275" text-anchor="middle" class="card-title">CUSTOMER</text>
+  <text x="522" y="297" text-anchor="middle" class="small">Pay · track · raise a case</text>
+
+  <rect x="634" y="248" width="275" height="74" rx="12" fill="url(#console)" stroke="#43a791" stroke-width="2"/>
+  <text x="771" y="275" text-anchor="middle" class="card-title green">MERCHANT · ONE CONSOLE</text>
+  <text x="771" y="297" text-anchor="middle" class="small">Dashboard · docs · payments · cases</text>
+
+  <rect x="1412" y="248" width="326" height="74" rx="12" fill="#f2edff" stroke="#a28ad5" stroke-width="1.5"/>
+  <text x="1575" y="275" text-anchor="middle" class="card-title purple">ADMIN / STAFF · EXCEPTIONS</text>
+  <text x="1575" y="297" text-anchor="middle" class="small">Registry · review · audit · queue controls</text>
+
+  <!-- Main application surface -->
+  <rect x="430" y="346" width="836" height="433" rx="16" fill="#f8fbff" stroke="#3278b9" stroke-width="2"/>
+  <rect x="430" y="346" width="836" height="44" rx="14" fill="#dcecff"/>
+  <path d="M430 376h836v14H430z" fill="#dcecff"/>
+  <text x="454" y="375" class="card-title">UNIWEB CORE · CONSISTENT STATUS + AUDIT TRAIL</text>
+
+  <rect x="454" y="409" width="245" height="132" rx="12" fill="#e9f7ef" stroke="#64b88c"/>
+  <text x="473" y="435" class="card-title green">1 · DOC VAULT + KYC</text>
+  <text x="473" y="460" class="small">Upload once · version documents</text>
+  <text x="473" y="480" class="small">Check each partner’s doc pack</text>
+  <text x="473" y="500" class="small">Separate partner delivery records</text>
+  <text x="473" y="523" class="tiny muted">Incomplete → clear missing-items status</text>
+
+  <rect x="713" y="409" width="245" height="132" rx="12" fill="#fff4e7" stroke="#e5a85e"/>
+  <text x="732" y="435" class="card-title orange">2 · ELIGIBLE ROUTER</text>
+  <text x="732" y="460" class="small">Enabled partner + method + keys</text>
+  <text x="732" y="480" class="small">Single · weighted · backup</text>
+  <text x="732" y="500" class="small">Offer lock overrides normal route</text>
+  <text x="732" y="523" class="tiny muted">Intelligent scoring stays parked until proven</text>
+
+  <rect x="972" y="409" width="270" height="132" rx="12" fill="#edf4ff" stroke="#6b9bda"/>
+  <text x="991" y="435" class="card-title">3 · CHECKOUT + TRANSACTION</text>
+  <text x="991" y="460" class="small">Merchant-enabled methods only</text>
+  <text x="991" y="480" class="small">Create payment · partner hosted page</text>
+  <text x="991" y="500" class="small">Verified webhook · reconcile status</text>
+  <text x="991" y="523" class="tiny muted">Save attempt + original partner key</text>
+
+  <rect x="454" y="557" width="388" height="131" rx="12" fill="#f3edff" stroke="#a38bd7"/>
+  <text x="473" y="583" class="card-title purple">4 · CENTRAL CASE + COMMUNICATION HUB</text>
+  <text x="473" y="608" class="small">Refund · query · dispute · complaint · replies</text>
+  <text x="473" y="628" class="small">No-reference intake → safe match or quarantine</text>
+  <text x="473" y="648" class="small">Send ≠ Notify · internal note ≠ customer reply</text>
+  <text x="473" y="671" class="tiny muted">Matched payment cases stay with the original partner</text>
+
+  <rect x="858" y="557" width="384" height="131" rx="12" fill="#fff0f1" stroke="#df8995"/>
+  <text x="877" y="583" class="card-title red">5 · AUTOMATION + STATUS BUS</text>
+  <text x="877" y="608" class="small">Store event first · then apply workflow gate</text>
+  <text x="877" y="628" class="small">ON → eligible dispatch · OFF → review queue</text>
+  <text x="877" y="648" class="small">Retry safely · dedupe · alert on exceptions</text>
+  <text x="877" y="671" class="tiny muted">Every change and delivery has an audit trail</text>
+
+  <!-- Partners and reporting -->
+  <rect x="1300" y="346" width="438" height="433" rx="16" fill="#fbfaff" stroke="#8e77c5" stroke-width="2"/>
+  <rect x="1300" y="346" width="438" height="44" rx="14" fill="#eee8ff"/>
+  <path d="M1300 376h438v14h-438z" fill="#eee8ff"/>
+  <text x="1324" y="375" class="card-title purple">PARTNER REGISTRY + CONNECTORS</text>
+  <text x="1324" y="421" class="small">Per-partner: capabilities · methods · country · policies</text>
+  <text x="1324" y="443" class="small">DRAFT → SANDBOX → LIVE only after evidence</text>
+  <line x1="1324" y1="461" x2="1714" y2="461" class="line"/>
+  <rect x="1324" y="477" width="186" height="54" rx="10" fill="#fff" stroke="#c4b6e8"/>
+  <text x="1417" y="500" text-anchor="middle" class="small" font-weight="700">PLATFORM</text>
+  <text x="1417" y="518" text-anchor="middle" class="tiny">Contract-approved route</text>
+  <rect x="1524" y="477" width="190" height="54" rx="10" fill="#fff" stroke="#c4b6e8"/>
+  <text x="1619" y="500" text-anchor="middle" class="small" font-weight="700">LINKED_EXISTING</text>
+  <text x="1619" y="518" text-anchor="middle" class="tiny">Merchant’s verified account</text>
+  <text x="1324" y="562" class="small">Never recreate an existing account without permission.</text>
+  <text x="1324" y="584" class="small">No keys / adapter → waiting_keys / not_wired, not “sent”.</text>
+  <rect x="1324" y="609" width="390" height="79" rx="12" fill="#e9f7ef" stroke="#71bd95"/>
+  <text x="1343" y="635" class="card-title green">FEE REPORTING · NOT CUSTOMER-MONEY CUSTODY</text>
+  <text x="1343" y="658" class="small">Successful transaction snapshot → monthly report → invoice</text>
+  <text x="1343" y="677" class="tiny muted">Any payment of invoice happens outside the customer pay rail</text>
+
+  <!-- Flow connectors -->
+  <path d="M522 322v12h758v141h-38" class="arrow"/>
+  <path d="M699 475h12" class="arrow"/>
+  <path d="M958 475h12" class="arrow"/>
+  <path d="M1105 541v9h-55v7" class="arrow"/>
+  <path d="M842 622h16" class="arrow"/>
+  <path d="M1266 458h28" class="arrow"/>
+  <path d="M1300 622h-28" class="arrow"/>
+  <path d="M1412 285h-76v45h122v8" class="arrow dash"/>
+  <text x="1277" y="446" text-anchor="middle" class="tiny muted">adapter / webhook</text>
+
+  <!-- Persistent data layer -->
+  <rect x="430" y="800" width="1308" height="75" rx="14" fill="#eaf8f3" stroke="#4ba780" stroke-width="1.5"/>
+  <text x="452" y="825" class="card-title green">PERSISTENT, PROTECTED RECORDS</text>
+  <text x="452" y="850" class="small">Merchants · Customers · Versioned KYC · Transactions + attempts + partner · Cases + evidence · Queues · Notifications · Fee reports · Audit</text>
+  <text x="1713" y="825" text-anchor="end" class="tiny muted">Secrets server-side · PII protected · idempotent events</text>
+  <text x="1713" y="849" text-anchor="end" class="tiny muted">No silent discard · no blind resend</text>
+
+  <!-- Delivery and build sequence -->
+  <rect x="34" y="922" width="1732" height="294" rx="16" fill="#fff" stroke="#d2deeb" filter="url(#shadow)"/>
+  <text x="58" y="957" class="section">BUILD ORDER · ONE TRACK AT A TIME</text>
+  <text x="1740" y="956" text-anchor="end" class="small muted">Har phase: implement → targeted tests → show you → then next</text>
+
+  <g>
+    <rect x="58" y="982" width="318" height="70" rx="11" fill="#eef5ff" stroke="#91b7e3"/>
+    <text x="76" y="1007" class="card-title">01 · Foundation + Registry</text>
+    <text x="76" y="1030" class="small">Roles · one control plane · capabilities</text>
+
+    <rect x="394" y="982" width="318" height="70" rx="11" fill="#edf8f2" stroke="#91c9ad"/>
+    <text x="412" y="1007" class="card-title">02 · Existing Link + KYC</text>
+    <text x="412" y="1030" class="small">LINKED_EXISTING · doc packs · delivery</text>
+
+    <rect x="730" y="982" width="318" height="70" rx="11" fill="#fff5e9" stroke="#e8bd82"/>
+    <text x="748" y="1007" class="card-title">03 · Events + Automation</text>
+    <text x="748" y="1030" class="small">Queue · ON/OFF · retries · audit</text>
+
+    <rect x="1066" y="982" width="318" height="70" rx="11" fill="#edf4ff" stroke="#91b7e3"/>
+    <text x="1084" y="1007" class="card-title">04 · Checkout + Routing</text>
+    <text x="1084" y="1030" class="small">Eligibility · hosted page · reconcile</text>
+
+    <rect x="1402" y="982" width="338" height="70" rx="11" fill="#f4efff" stroke="#b5a5dd"/>
+    <text x="1420" y="1007" class="card-title">05 · Case Hub + Safe Match</text>
+    <text x="1420" y="1030" class="small">Original partner · no-ID intake · quarantine</text>
+  </g>
+  <path d="M376 1017h14" class="arrow"/>
+  <path d="M712 1017h14" class="arrow"/>
+  <path d="M1048 1017h14" class="arrow"/>
+  <path d="M1384 1017h14" class="arrow"/>
+
+  <rect x="58" y="1071" width="544" height="58" rx="11" fill="#eaf8f3" stroke="#91c9ad"/>
+  <text x="78" y="1095" class="card-title green">06 · Fee reporting + invoice lifecycle</text>
+  <text x="78" y="1116" class="small">Fee snapshots and B2B reports; never skim from customer payment.</text>
+  <path d="M602 1100h48" class="arrow"/>
+  <rect x="658" y="1071" width="1082" height="58" rx="11" fill="#f2f5f9" stroke="#b9c8d8"/>
+  <text x="678" y="1095" class="card-title">07 · Enable partners one by one</text>
+  <text x="678" y="1116" class="small">Only after contract, real connector, sandbox verification, secure keys, and honest LIVE evidence.</text>
+
+  <rect x="58" y="1150" width="1682" height="42" rx="10" fill="#123c80"/>
+  <text x="899" y="1177" text-anchor="middle" class="body white" font-weight="700">EXPECTED OUTCOME: ek simple merchant console · clear partner status · reliable checkout/cases · auditable automation · no-custody reporting</text>
+  <text x="900" y="1239" text-anchor="middle" class="tiny muted">UniWeb project map · based on the master blueprint and newer case-flow clarifications · target only, not legal advice or a live-readiness certification</text>
+</svg>

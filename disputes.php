@@ -1,7 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/cases_ops.php';
 requireLogin();
 ensureDisputesEngine();
+ensureCasesSpineSchema();
 $merchant = getMerchant();
 $db = getDB();
 $reasonOptions = getDisputeReasonOptions();
@@ -180,19 +182,8 @@ echo renderComplianceSupportPathPanel('dsp');
                     <p class="text-gray-300 mt-1"><?= formatMoney(capStatAmount((float)$view['amount'])) ?></p>
                 </div>
                 <div>
-                    <p class="text-[10px] text-gray-600 uppercase">Collect partner</p>
-                    <?php
-                    if (!function_exists('resolveDisputePartnerKey') && is_file(__DIR__ . '/includes/ops_partner.php')) {
-                        require_once __DIR__ . '/includes/ops_partner.php';
-                    }
-                    $dspPartner = function_exists('resolveDisputePartnerKey')
-                        ? resolveDisputePartnerKey($view, $view)
-                        : '';
-                    $dspPartnerLabel = $dspPartner !== '' && function_exists('transactionPartnerLabel')
-                        ? transactionPartnerLabel($dspPartner)
-                        : '—';
-                    ?>
-                    <p class="text-xs mt-1 text-sky-300"><?= e($dspPartnerLabel) ?></p>
+                    <p class="text-[10px] text-gray-600 uppercase">Payment network</p>
+                    <p class="text-xs mt-1 text-sky-300">UniWeb coordinates the network review</p>
                 </div>
                 <div>
                     <p class="text-[10px] text-gray-600 uppercase">SLA due</p>
@@ -229,6 +220,7 @@ echo renderComplianceSupportPathPanel('dsp');
             <?php else: ?>
             <p class="text-xs text-gray-500 mt-4">Waiting for Admin review. Status updates appear here when Admin resolves or forwards the case.</p>
             <?php endif; ?>
+            <?= renderMerchantCasesPartnerEvents('dispute', (int)$view['id']) ?>
         </div>
         <?php endif; ?>
 

@@ -162,8 +162,18 @@ function casesPartnerForwardWired(string $partnerKey, string $caseType): array
     if ($partnerKey === '') {
         return ['ok' => false, 'message' => 'Partner key required.', 'wired' => false];
     }
-    if ($caseType === 'dispute') {
-        return ['ok' => true, 'message' => 'Dispute forward recorded (manual V1 — live PG API may still be pending).', 'partner_key' => $partnerKey, 'wired' => false];
+    if (!function_exists('registryPartnerSupportsChannel') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    $channel = $caseType === 'dispute' ? 'dispute_forward' : 'support_forward';
+    if (function_exists('registryPartnerSupportsChannel')
+        && !registryPartnerSupportsChannel($partnerKey, $channel)) {
+        return [
+            'ok' => true,
+            'message' => 'Recorded in UniWeb — this partner channel is not enabled in the Partner Registry, so nothing was sent externally.',
+            'partner_key' => $partnerKey,
+            'wired' => false,
+        ];
     }
     if (!function_exists('partnerIsConfigured')) {
         if (is_file(__DIR__ . '/partner_control.php')) {
@@ -336,6 +346,12 @@ function casesForwardCase(string $caseType, int $caseDbId, string $partnerKey, s
     }
 
     $wired = casesPartnerForwardWired($partnerKey, $caseType);
+    if ($caseType === 'dispute' && empty($wired['wired'])) {
+        $ref = casesCaseRef($caseType, $caseDbId);
+        $mid = casesCaseMerchantId($caseType, $caseDbId);
+        casesLogPartnerEvent($caseType, $caseDbId, $ref, 'not_wired', $note . ' — ' . (string)$wired['message'], $partnerKey, 'admin', $mid);
+        return ['ok' => false, 'message' => (string)$wired['message']];
+    }
     $eventType = !empty($wired['wired']) ? 'forwarded' : 'not_wired';
     $ref = casesCaseRef($caseType, $caseDbId);
     $mid = casesCaseMerchantId($caseType, $caseDbId);
@@ -538,6 +554,12 @@ function casesUnifiedInbox(?string $typeFilter = null, ?string $statusFilter = n
     ensureSupportTicketTable();
     ensureCustomerPortalSchema();
     ensureDisputesEngine();
+    try {
+        $db = getDB();
+        $db->exec("ALTER TABLE support_tickets ADD COLUMN updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at");
+    } catch (Throwable $e) {
+        // Older local schemas may already have the column or lack ALTER privileges.
+    }
 
     $rows = [];
     $db = getDB();
@@ -872,9 +894,6 @@ function renderMerchantCasesPartnerEvents(string $caseType, int $caseDbId): stri
     $html .= '<p class="text-sm font-semibold text-amber-300 mb-2">Partner / bank messages</p><ul class="space-y-2 text-xs text-gray-300">';
     foreach ($events as $ev) {
         $html .= '<li><span class="text-gray-500">' . e((string)($ev['created_at'] ?? '')) . '</span> · ' . e(casesEventTypeLabel((string)$ev['event_type']));
-        if (!empty($ev['partner_key'])) {
-            $html .= ' (' . e((string)$ev['partner_key']) . ')';
-        }
         $html .= '<br>' . e((string)$ev['message']) . '</li>';
     }
     $html .= '</ul><p class="text-[10px] text-gray-500 mt-2">Reply on this case or upload docs if requested.</p></div>';

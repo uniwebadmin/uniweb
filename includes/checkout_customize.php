@@ -32,10 +32,21 @@ function ensureCheckoutCustomizeTable(): void
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        getDB()->exec("ALTER TABLE merchant_checkout_customize ADD COLUMN success_message VARCHAR(300) DEFAULT NULL AFTER checkout_subtitle");
-        getDB()->exec("ALTER TABLE merchant_checkout_customize ADD COLUMN failure_message VARCHAR(300) DEFAULT NULL AFTER success_message");
-        getDB()->exec("ALTER TABLE merchant_checkout_customize ADD COLUMN redirect_url VARCHAR(500) DEFAULT NULL AFTER failure_message");
-        getDB()->exec("ALTER TABLE merchant_checkout_customize ADD COLUMN hide_powered_by TINYINT(1) NOT NULL DEFAULT 0 AFTER is_active");
+        $db = getDB();
+        $columns = [];
+        foreach ($db->query('SHOW COLUMNS FROM merchant_checkout_customize')->fetchAll(PDO::FETCH_COLUMN) as $column) {
+            $columns[(string)$column] = true;
+        }
+        foreach ([
+            'success_message' => 'VARCHAR(300) DEFAULT NULL AFTER checkout_subtitle',
+            'failure_message' => 'VARCHAR(300) DEFAULT NULL AFTER success_message',
+            'redirect_url' => 'VARCHAR(500) DEFAULT NULL AFTER failure_message',
+            'hide_powered_by' => 'TINYINT(1) NOT NULL DEFAULT 0 AFTER is_active',
+        ] as $column => $definition) {
+            if (!isset($columns[$column])) {
+                $db->exec("ALTER TABLE merchant_checkout_customize ADD COLUMN {$column} {$definition}");
+            }
+        }
     } catch (Throwable $e) { error_log('ensureCheckoutCustomizeTable: ' . $e->getMessage()); }
 }
 

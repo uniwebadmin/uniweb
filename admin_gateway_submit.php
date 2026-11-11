@@ -1,6 +1,10 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireStaffAccess(['super', 'ceo', 'ops']);
+if (!function_exists('ensureMerchantAgreementSchema')) {
+    require_once __DIR__ . '/includes/schema_ensure.php';
+}
+ensureMerchantAgreementSchema();
 ensureGatewaySubmissionsTable();
 if (!function_exists('gatewaySubmissionsAdminEducation') && is_file(__DIR__ . '/includes/gateway_submissions_workflow.php')) {
     require_once __DIR__ . '/includes/gateway_submissions_workflow.php';

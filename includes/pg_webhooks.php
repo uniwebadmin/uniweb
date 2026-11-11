@@ -189,9 +189,45 @@ function verifyWebhookSignature(string $partnerKey, string $rawBody, array $head
     return !empty($result['ok']);
 }
 
+/**
+ * Keep legacy webhook rows working while honoring an explicit registry disable.
+ * A missing registry row is treated as legacy configuration, not as approval.
+ */
+function pgWebhookPartnerChannelEnabled(string $partnerKey): bool
+{
+    if (!function_exists('registryPartnerSupportsChannel')) {
+        $registryFile = __DIR__ . '/partner_registry_v2.php';
+        if (is_file($registryFile)) {
+            require_once $registryFile;
+        }
+    }
+    if (!function_exists('getRegisteredGateways')) {
+        return true;
+    }
+    foreach (getRegisteredGateways(false) as $row) {
+        if (strtolower(trim((string)($row['gateway_key'] ?? ''))) !== strtolower(trim($partnerKey))) {
+            continue;
+        }
+        $raw = json_decode((string)($row['channel_capabilities_json'] ?? ''), true);
+        if (is_array($raw) && array_key_exists('status_webhook', $raw)) {
+            return (bool)$raw['status_webhook'];
+        }
+        return registryPartnerSupportsChannel($partnerKey, 'status_webhook', $row);
+    }
+    return true;
+}
+
 function pgWebhookVerifyPartner(string $partner, string $rawBody, ?array $parsedForm = null, ?array $headers = null): array
 {
     $partner = strtolower(trim($partner));
+    if (!pgWebhookPartnerChannelEnabled($partner)) {
+        return [
+            'ok' => false,
+            'scheme' => 'registry_channel',
+            'http_code' => 403,
+            'reason' => 'status_webhook_disabled',
+        ];
+    }
     if (pgWebhookAbuseBlocked($partner)) {
         return [
             'ok' => false,

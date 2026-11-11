@@ -180,13 +180,48 @@ require_once __DIR__ . '/header.php';
     </div>
 
     <?php
-    $alreadyLivePartners = function_exists('listAlreadyLiveLinkablePartners') ? listAlreadyLiveLinkablePartners() : [];
+    $merchantRouteSummary = function_exists('merchantPartnerRouteSummary') ? merchantPartnerRouteSummary($merchantId) : ['platform' => 0, 'linked_existing' => 0, 'blocked' => 0, 'total' => 0, 'partners' => []];
+    $merchantRouteStatus = function_exists('merchantPartnerRouteOverview') ? merchantPartnerRouteOverview($merchantId) : [];
+    $alreadyLivePartners = function_exists('listAlreadyLiveLinkablePartners') ? listAlreadyLiveLinkablePartners($merchantId) : [];
+    $newAlreadyLivePartners = array_values(array_filter($alreadyLivePartners, static function (array $partner): bool {
+        return !function_exists('partnerAllowsAlreadyLiveLink') || partnerAllowsAlreadyLiveLink($partner);
+    }));
     $alreadyLiveLinks = function_exists('getMerchantPartnerLinks') ? getMerchantPartnerLinks($merchantId) : [];
     $alreadyLiveByKey = [];
     foreach ($alreadyLiveLinks as $lr) {
         $alreadyLiveByKey[strtolower((string)$lr['partner_key'])] = $lr;
     }
     ?>
+    <?php if ($merchantRouteSummary['total'] > 0 || $merchantRouteStatus !== []): ?>
+    <div class="glass rounded-xl p-5 border border-sky-500/20">
+        <h2 class="font-semibold text-lg mb-3">Route status</h2>
+        <div class="grid sm:grid-cols-3 gap-3 mb-4">
+            <div class="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                <p class="text-[10px] uppercase tracking-wide text-emerald-300/80">Platform</p>
+                <p class="text-2xl font-bold text-emerald-300 mt-1"><?= (int)$merchantRouteSummary['platform'] ?></p>
+            </div>
+            <div class="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
+                <p class="text-[10px] uppercase tracking-wide text-sky-300/80">Linked existing</p>
+                <p class="text-2xl font-bold text-sky-300 mt-1"><?= (int)$merchantRouteSummary['linked_existing'] ?></p>
+            </div>
+            <div class="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                <p class="text-[10px] uppercase tracking-wide text-amber-300/80">Blocked</p>
+                <p class="text-2xl font-bold text-amber-300 mt-1"><?= (int)$merchantRouteSummary['blocked'] ?></p>
+            </div>
+        </div>
+        <div class="space-y-2">
+            <?php foreach ($merchantRouteStatus as $route): ?>
+            <div class="rounded-lg border border-gray-800 bg-dark-900/50 p-3">
+                <div class="flex items-center justify-between gap-2">
+                    <p class="text-sm font-medium text-gray-200"><?= e($route['partner_name']) ?></p>
+                    <span class="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-300 border border-sky-500/20"><?= e($route['route_label']) ?></span>
+                </div>
+                <p class="text-[11px] text-gray-400 mt-1"><?= e($route['message']) ?></p>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
     <div class="glass rounded-xl p-6 border border-gray-800" id="already-live">
         <h2 class="font-semibold text-lg">Already-live partner account</h2>
         <p class="text-xs text-gray-500 mt-1 mb-4">Use this only if you already have a merchant account on the partner. After keys are Valid, tap Enable for checkout — that payment then uses your partner account, not a new UniWeb sub-account. Secrets are stored encrypted; last4 only is shown.</p>
@@ -199,6 +234,10 @@ require_once __DIR__ . '/header.php';
                 $link = $alreadyLiveByKey[$ak] ?? null;
                 $state = function_exists('merchantAlreadyLivePublicState') ? merchantAlreadyLivePublicState($link) : 'not_linked';
                 $canEnable = $link && (strtolower((string)($link['credential_status'] ?? '')) === 'valid' || (int)($link['owner_override'] ?? 0) === 1);
+                $partnerLifecycle = function_exists('partnerRegistryLifecycleStatus') ? partnerRegistryLifecycleStatus($ap) : 'legacy_unverified';
+                $partnerEnableAllowed = function_exists('partnerRegistryLifecycleAllowsMerchantEnablement')
+                    ? partnerRegistryLifecycleAllowsMerchantEnablement($partnerLifecycle)
+                    : in_array($partnerLifecycle, ['legacy_unverified', 'live'], true);
             ?>
             <div class="bg-dark-900/50 rounded-xl p-4 border border-gray-800">
                 <div class="flex flex-wrap items-center justify-between gap-2">
@@ -208,7 +247,7 @@ require_once __DIR__ . '/header.php';
                     </div>
                     <span class="text-[10px] px-2 py-0.5 rounded-full <?= $state === 'enabled_checkout' ? 'bg-emerald-500/20 text-emerald-400' : ($state === 'linked' ? 'bg-sky-500/20 text-sky-300' : ($state === 'keys_invalid' ? 'bg-red-500/15 text-red-300' : 'bg-gray-700/50 text-gray-400')) ?>"><?= e(function_exists('merchantAlreadyLiveStateLabel') ? merchantAlreadyLiveStateLabel($state) : $state) ?></span>
                 </div>
-                <?php if ($canEnable): ?>
+                <?php if ($canEnable && ($partnerEnableAllowed || (int)($link['checkout_enabled'] ?? 0) === 1)): ?>
                 <form method="POST" class="mt-2">
                     <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                     <input type="hidden" name="action" value="already_live_checkout">
@@ -221,12 +260,15 @@ require_once __DIR__ . '/header.php';
                     <button type="submit" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30">Enable for checkout</button>
                     <?php endif; ?>
                 </form>
+                <?php elseif (!$partnerEnableAllowed): ?>
+                <p class="text-[11px] text-amber-300/90 mt-2">Partner integration is not LIVE-ready. Existing checkout remains unchanged; new links and checkout activation are blocked.</p>
                 <?php elseif ($link && $state === 'keys_invalid'): ?>
                 <p class="text-[11px] text-amber-400/90 mt-2">Enable for checkout is not available until keys are Valid.</p>
                 <?php endif; ?>
             </div>
             <?php endforeach; ?>
         </div>
+        <?php if ($newAlreadyLivePartners !== []): ?>
         <form method="POST" class="space-y-3 border-t border-gray-800 pt-4">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <input type="hidden" name="action" value="already_live_link">
@@ -235,7 +277,7 @@ require_once __DIR__ . '/header.php';
                 <div>
                     <label class="text-xs text-gray-500">Partner</label>
                     <select name="partner_key" required class="input-field mt-1 text-sm">
-                        <?php foreach ($alreadyLivePartners as $ap): ?>
+                        <?php foreach ($newAlreadyLivePartners as $ap): ?>
                         <option value="<?= e($ap['gateway_key']) ?>"><?= e($ap['gateway_name']) ?> (<?= e($ap['gateway_key']) ?>)</option>
                         <?php endforeach; ?>
                     </select>
@@ -273,6 +315,9 @@ require_once __DIR__ . '/header.php';
                 <li>PayU: <?= e(rtrim((string)APP_URL, '/') . '/payu_webhook.php') ?></li>
             </ul>
         </form>
+        <?php else: ?>
+        <p class="text-xs text-gray-500 border-t border-gray-800 pt-4">No currently available partner accepts a new existing-account link. Paused integrations keep existing links visible, but cannot be linked again until resumed.</p>
+        <?php endif; ?>
         <?php endif; ?>
     </div>
 

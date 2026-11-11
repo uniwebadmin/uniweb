@@ -162,10 +162,7 @@ function canSkipMigrationDuplicateIndex(PDOException $exception): bool
 function canSkipMigrationDuplicateRow(PDOException $exception, string $statement): bool
 {
     return (bool)preg_match('/^\s*INSERT\s+/i', $statement)
-        && (
-            str_contains($exception->getMessage(), 'Duplicate entry')
-            || (string)$exception->getCode() === '23000'
-        );
+        && stripos($exception->getMessage(), 'Duplicate entry') !== false;
 }
 
 /** MySQL rejects MariaDB "IF NOT EXISTS" on ADD COLUMN/INDEX — retry without it, then duplicate-skip. */
@@ -303,14 +300,6 @@ function applyPendingMigrations(string $directory): array
                             }
                             if (canSkipMigrationDuplicateRow($e, $statement)) {
                                 error_log('UniWeb migration duplicate row skipped: ' . $version);
-                                continue;
-                            }
-                            if ((bool)preg_match('/^\s*ALTER\s+TABLE/i', $statement)) {
-                                error_log('Migration ALTER TABLE skipped: ' . $version . ' - ' . $e->getMessage());
-                                continue;
-                            }
-                            if ((string)$e->getCode() === '42S22' && str_contains($e->getMessage(), 'Unknown column') && (bool)preg_match('/^\s*UPDATE\s+/i', $statement)) {
-                                error_log('Migration UPDATE skipped (unknown column): ' . $version . ' - ' . $e->getMessage());
                                 continue;
                             }
                             throw $e;

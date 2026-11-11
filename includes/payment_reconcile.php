@@ -90,6 +90,54 @@ function persistPaymentReconcileMeta(int $transactionId, string $source, ?string
 }
 
 /**
+ * Publish the canonical payment outcome to the merchant inbox after reconciliation.
+ * The provider key stays internal; merchants see the platform payment status only.
+ *
+ * @param array<string,mixed> $result
+ * @param array<string,mixed> $payload
+ */
+function notifyMerchantPaymentReconcileStatus(array $result, array $payload, string $source): void
+{
+    $transactionId = (int)($result['transaction_id'] ?? 0);
+    if ($transactionId <= 0) {
+        return;
+    }
+    if (!function_exists('notifyMerchant') && is_file(__DIR__ . '/notifications.php')) {
+        require_once __DIR__ . '/notifications.php';
+    }
+    if (!function_exists('notifyMerchant')) {
+        return;
+    }
+    try {
+        $st = getDB()->prepare(
+            'SELECT merchant_id, status, txn_id, amount FROM transactions WHERE id=? LIMIT 1'
+        );
+        $st->execute([$transactionId]);
+        $transaction = $st->fetch();
+        if (!$transaction) {
+            return;
+        }
+        $merchantId = (int)($transaction['merchant_id'] ?? 0);
+        $status = strtolower(trim((string)($transaction['status'] ?? '')));
+        if ($merchantId <= 0 || $status === '') {
+            return;
+        }
+        $statusCopy = match ($status) {
+            'success', 'paid', 'captured' => ['Payment received', 'Your payment has been confirmed.'],
+            'failed' => ['Payment failed', 'Your payment could not be completed. Please try again or use another method.'],
+            'expired' => ['Payment expired', 'The payment session expired before it was completed.'],
+            'processing', 'initiated', 'pending' => ['Payment status updated', 'Your payment is being processed.'],
+            default => ['Payment status updated', 'Your payment status was updated in the console.'],
+        };
+        $eventRef = trim((string)($payload['provider_payment_id'] ?? $payload['reference'] ?? ''));
+        $eventKey = 'payment_status_' . $transactionId . '_' . $status . '_' . ($eventRef !== '' ? sha1($eventRef) : $source);
+        notifyMerchant($merchantId, $statusCopy[0], $statusCopy[1], $eventKey);
+    } catch (Throwable $e) {
+        // Notification delivery must not roll back an already reconciled payment.
+    }
+}
+
+/**
  * Flag partner vs UniWeb mismatch — no silent reverse.
  */
 function logPaymentPartnerStatusMismatch(int $transactionId, string $txnRef, string $provider, string $uniwebStatus, string $partnerStatus, string $source): void
@@ -179,6 +227,7 @@ function applyPartnerPaymentReconcile(array $payload): array
                 (string)($payload['provider_payment_id'] ?? $payload['reference'] ?? '')
             );
         }
+        notifyMerchantPaymentReconcileStatus($result, $payload, $source);
         return $result;
     }
 
@@ -190,6 +239,7 @@ function applyPartnerPaymentReconcile(array $payload): array
             (string)($payload['provider_payment_id'] ?? $payload['reference'] ?? '')
         );
     }
+    notifyMerchantPaymentReconcileStatus($result, $payload, $source);
     return $result;
 }
 
@@ -372,7 +422,7 @@ function partnerPollPayloadForPaymentOrder(array $order, ?string $hintPaymentId 
                 'provider' => 'cashfree',
                 'provider_order_id' => $providerOrderId,
                 'provider_payment_id' => $verifiedPaymentId,
-                'amount' => (float)($captured['payment_amount'] ?? 0),
+                'amount' => (float)($captured['payment_amount'] ?? $captured['order_amount'] ?? $providerOrder['order_amount'] ?? $order['expected_amount'] ?? 0),
                 'currency' => (string)($captured['payment_currency'] ?? $providerOrder['order_currency'] ?? 'INR'),
                 'captured' => true,
                 'signature_verified' => true,

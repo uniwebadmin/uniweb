@@ -428,7 +428,10 @@ $methodCatalog = getPaymentMethodCatalog();
             </form>
         </div>
         <?php
-        $alreadyLivePartners = function_exists('listAlreadyLiveLinkablePartners') ? listAlreadyLiveLinkablePartners() : [];
+        $alreadyLivePartners = function_exists('listAlreadyLiveLinkablePartners') ? listAlreadyLiveLinkablePartners($id) : [];
+        $newAlreadyLivePartners = array_values(array_filter($alreadyLivePartners, static function (array $partner): bool {
+            return !function_exists('partnerAllowsAlreadyLiveLink') || partnerAllowsAlreadyLiveLink($partner);
+        }));
         $alreadyLiveLinks = function_exists('getMerchantPartnerLinks') ? getMerchantPartnerLinks($id) : [];
         $alreadyLiveByKey = [];
         foreach ($alreadyLiveLinks as $lr) {
@@ -446,19 +449,25 @@ $methodCatalog = getPaymentMethodCatalog();
                     $ak = strtolower((string)$ap['gateway_key']);
                     $link = $alreadyLiveByKey[$ak] ?? null;
                     $state = function_exists('merchantAlreadyLivePublicState') ? merchantAlreadyLivePublicState($link) : 'not_linked';
+                    $partnerLifecycle = function_exists('partnerRegistryLifecycleStatus') ? partnerRegistryLifecycleStatus($ap) : 'legacy_unverified';
+                    $partnerEnableAllowed = function_exists('partnerRegistryLifecycleAllowsMerchantEnablement')
+                        ? partnerRegistryLifecycleAllowsMerchantEnablement($partnerLifecycle)
+                        : in_array($partnerLifecycle, ['legacy_unverified', 'live'], true);
                 ?>
                 <div class="flex flex-wrap items-center justify-between gap-2 bg-dark-900/50 rounded-lg p-2 border border-gray-800">
                     <span class="text-xs text-gray-300"><?= e($ap['gateway_name']) ?> <span class="font-mono text-gray-500"><?= e($ak) ?></span></span>
                     <span class="text-[10px] text-gray-400"><?= e(function_exists('merchantAlreadyLiveStateLabel') ? merchantAlreadyLiveStateLabel($state) : $state) ?><?= !empty($link['last4']) ? ' · ***' . e($link['last4']) : '' ?></span>
+                    <?php if (!$partnerEnableAllowed): ?><span class="text-[10px] text-amber-300">Partner not LIVE-ready; existing link retained.</span><?php endif; ?>
                     <?php
                     $canEnable = $link && (strtolower((string)($link['credential_status'] ?? '')) === 'valid' || (int)($link['owner_override'] ?? 0) === 1);
-                    if ($canEnable):
+                    $checkoutEnabled = (int)($link['checkout_enabled'] ?? 0) === 1;
+                    if ($canEnable && ($partnerEnableAllowed || $checkoutEnabled)):
                     ?>
                     <form method="POST" class="ml-auto">
                         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                         <input type="hidden" name="admin_action" value="already_live_checkout">
                         <input type="hidden" name="partner_key" value="<?= e($ak) ?>">
-                        <?php if ((int)($link['checkout_enabled'] ?? 0) === 1): ?>
+                        <?php if ($checkoutEnabled): ?>
                         <input type="hidden" name="checkout_on" value="0">
                         <button type="submit" class="text-[10px] px-2 py-1 rounded-lg border border-gray-600 text-gray-300">Turn OFF checkout</button>
                         <?php else: ?>
@@ -470,11 +479,12 @@ $methodCatalog = getPaymentMethodCatalog();
                 </div>
                 <?php endforeach; ?>
             </div>
+            <?php if ($newAlreadyLivePartners !== []): ?>
             <form method="POST" class="space-y-2">
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="admin_action" value="already_live_link">
                 <select name="partner_key" required class="input-field text-xs">
-                    <?php foreach ($alreadyLivePartners as $ap): ?>
+                    <?php foreach ($newAlreadyLivePartners as $ap): ?>
                     <option value="<?= e($ap['gateway_key']) ?>"><?= e($ap['gateway_name']) ?></option>
                     <?php endforeach; ?>
                 </select>
@@ -492,6 +502,9 @@ $methodCatalog = getPaymentMethodCatalog();
                 </label>
                 <button type="submit" class="btn-primary w-full text-xs py-2">Save encrypted keys and verify</button>
             </form>
+            <?php else: ?>
+            <p class="text-xs text-gray-500">No currently available partner accepts a new existing-account link.</p>
+            <?php endif; ?>
             <?php endif; ?>
         </div>
         <div class="glass rounded-xl p-4 sm:p-5 text-sm" id="website">
@@ -525,6 +538,27 @@ $methodCatalog = getPaymentMethodCatalog();
         <?php
         $adminCoverageRows = function_exists('partnerDocCoverageForMerchant') ? partnerDocCoverageForMerchant($id) : [];
         ?>
+        <?php $adminRouteRows = function_exists('merchantPartnerRouteOverview') ? merchantPartnerRouteOverview($id) : []; ?>
+        <?php if ($adminRouteRows !== []): ?>
+        <div class="glass rounded-xl p-4 sm:p-5 text-sm">
+            <h3 class="font-semibold mb-2">Route status</h3>
+            <ul class="space-y-2">
+                <?php foreach ($adminRouteRows as $route): ?>
+                <?php $decision = function_exists('merchantPartnerOnboardingDecision') ? merchantPartnerOnboardingDecision($id, (string)$route['partner_key']) : ['decision' => 'blocked', 'summary' => '', 'checks' => []]; ?>
+                <li class="border border-gray-800 rounded-lg p-2">
+                    <div class="flex justify-between gap-2">
+                        <span class="text-xs text-gray-200"><?= e($route['partner_name']) ?></span>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-300 border border-sky-500/20"><?= e($route['route_label']) ?></span>
+                    </div>
+                    <p class="text-[10px] text-gray-400 mt-1"><?= e($route['message']) ?></p>
+                    <?php if (!empty($decision['summary'])): ?>
+                    <p class="text-[10px] text-brand-300 mt-2"><?= e($decision['summary']) ?></p>
+                    <?php endif; ?>
+                </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+        <?php endif; ?>
         <div class="glass rounded-xl p-4 sm:p-5 text-sm" id="partner-coverage">
             <h3 class="font-semibold mb-1">Partner document coverage</h3>
             <p class="text-[11px] text-gray-500 mb-3">Same vault as merchant KYC. Not partner-approved. Pack codes come from Partner Registry.</p>
@@ -543,6 +577,9 @@ $methodCatalog = getPaymentMethodCatalog();
                     <?php endif; ?>
                     <?php if (!empty($cr['linked_valid'])): ?>
                     <p class="text-[10px] text-sky-300 mt-1">Linked keys Valid — pack not required to enable</p>
+                    <?php endif; ?>
+                    <?php if (!empty($cr['integration_not_ready'])): ?>
+                    <p class="text-[10px] text-amber-300 mt-1">Partner integration is not LIVE-ready — new merchant enablement blocked; existing checkout state unchanged.</p>
                     <?php endif; ?>
                 </li>
                 <?php endforeach; ?>

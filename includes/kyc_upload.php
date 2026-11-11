@@ -92,6 +92,23 @@ function saveMerchantKycUpload(
         require_once __DIR__ . '/aadhaar_mask.php';
     }
     $maskResult = processAadhaarMask($target, $docType, $ext);
+    if (isAadhaarDocType($docType) && !$maskResult['masked']) {
+        if (!@unlink($target) && is_file($target)) {
+            $context = [
+                'merchant_id' => $merchantId,
+                'file_name' => $fileName,
+                'mask_method' => $maskResult['method'],
+            ];
+            if (function_exists('logPlatformError')) {
+                logPlatformError('critical', 'Aadhaar upload cleanup failed after the masking safety gate rejected the file.', $context);
+            } else {
+                error_log('Aadhaar upload cleanup failed after the masking safety gate rejected the file. ' . json_encode($context));
+            }
+            return ['ok' => false, 'error' => 'The Aadhaar file could not be securely processed or removed. Please contact support before retrying.'];
+        }
+
+        return ['ok' => false, 'error' => 'Aadhaar files cannot be stored until verified digit-level masking is available. Use DigiLocker verification if available or contact support.'];
+    }
     if ($maskResult['masked']) {
         $size = (int)filesize($target);
     }

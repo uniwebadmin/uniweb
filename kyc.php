@@ -121,6 +121,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (function_exists('persistMerchantPartnerDocCoverage')) {
                 persistMerchantPartnerDocCoverage((int)$merchant['id']);
             }
+            if (function_exists('enqueueMerchantReadyDocumentPacks')) {
+                enqueueMerchantReadyDocumentPacks((int)$merchant['id'], 'document_upload');
+            }
         }
     }
     redirect($postAction === 'coverage_upload' ? 'kyc.php#partner-coverage' : 'kyc.php');
@@ -533,11 +536,10 @@ $docStatusMeta = static function (string $status): array {
             <div class="bg-dark-900/50 rounded-xl p-4 border border-gray-800">
                 <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
                     <div>
-                        <p class="text-sm font-medium text-gray-200"><?= e($cr['partner_name']) ?></p>
-                        <p class="text-[11px] font-mono text-gray-500"><?= e($cr['partner_key']) ?></p>
+                        <p class="text-sm font-medium text-gray-200">Payment network</p>
                     </div>
                     <div class="text-right">
-                        <span class="text-[10px] px-2 py-0.5 rounded-full <?= $cr['status'] === 'docs_ready' ? 'bg-emerald-500/20 text-emerald-400' : ($cr['status'] === 'docs_incomplete' ? 'bg-amber-500/15 text-amber-300' : 'bg-gray-700/50 text-gray-400') ?>"><?= e($cr['status_label']) ?></span>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full <?= $cr['status'] === 'docs_ready' ? 'bg-emerald-500/20 text-emerald-400' : (in_array($cr['status'], ['docs_incomplete', 'docs_in_review'], true) ? 'bg-amber-500/15 text-amber-300' : 'bg-gray-700/50 text-gray-400') ?>"><?= e($cr['status_label']) ?></span>
                         <?php
                         $covPartnerKey = strtolower((string)($cr['partner_key'] ?? ''));
                         $covFwdLive = false;
@@ -558,7 +560,9 @@ $docStatusMeta = static function (string $status): array {
                 <?php if (!empty($cr['linked_valid'])): ?>
                 <p class="text-[11px] text-sky-300 mb-2">Already-live keys Valid — enable does not need this pack complete.</p>
                 <?php endif; ?>
-                <?php if (!empty($cr['honest_note']) && empty($covFwdLive)): ?>
+                <?php if (!empty($cr['integration_not_ready'])): ?>
+                <p class="text-[11px] text-amber-300 mb-2">Partner integration is not LIVE-ready. Existing checkout state is unchanged; complete or resume the partner before enabling it here.</p>
+                <?php elseif (!empty($cr['honest_note']) && empty($covFwdLive)): ?>
                 <p class="text-[11px] text-gray-500 mb-2"><?= e((string)$cr['honest_note']) ?></p>
                 <?php endif; ?>
                 <ul class="text-xs space-y-1 mb-3">
@@ -589,7 +593,7 @@ $docStatusMeta = static function (string $status): array {
                 ?>
                 <p class="text-xs mb-2"><a href="video_kyc.php" class="text-sky-400 hover:underline">Record Video KYC →</a></p>
                 <?php endforeach; ?>
-                <?php if (!empty($cr['enable_allowed'])): ?>
+                <?php if (!empty($cr['enable_allowed']) || !empty($cr['checkout_enabled'])): ?>
                 <form method="POST" class="mt-2">
                     <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                     <input type="hidden" name="action" value="partner_coverage_enable">
@@ -597,12 +601,12 @@ $docStatusMeta = static function (string $status): array {
                     <?php if (!empty($cr['checkout_enabled'])): ?>
                     <input type="hidden" name="checkout_on" value="0">
                     <button type="submit" class="text-xs px-3 py-2 rounded-lg border border-gray-600 text-gray-300">Turn OFF</button>
-                    <?php else: ?>
+                    <?php elseif (!empty($cr['enable_allowed'])): ?>
                     <input type="hidden" name="checkout_on" value="1">
                     <button type="submit" class="text-xs px-3 py-2 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30">Enable for this partner</button>
                     <?php endif; ?>
                 </form>
-                <?php else: ?>
+                <?php elseif (empty($cr['integration_not_ready'])): ?>
                 <p class="text-[11px] text-gray-500 mt-1">Enable after documents are ready, or when already-live keys are Valid.</p>
                 <?php endif; ?>
             </div>
@@ -719,15 +723,15 @@ $docStatusMeta = static function (string $status): array {
                 'date' => $doc['created_at'],
                 'icon' => '⬆',
                 'tone' => 'sky',
-                'text' => e($label) . ' uploaded',
-                'sub' => e($doc['file_name'] ?? ''),
+                'text' => $label . ' uploaded',
+                'sub' => (string)($doc['file_name'] ?? ''),
             ];
             if ($status === 'approved' && !empty($doc['reviewed_at'])) {
                 $timelineEvents[] = [
                     'date' => $doc['reviewed_at'],
                     'icon' => '✓',
                     'tone' => 'emerald',
-                    'text' => e($label) . ' approved',
+                    'text' => $label . ' approved',
                     'sub' => '',
                 ];
             } elseif ($status === 'rejected' && !empty($doc['reviewed_at'])) {
@@ -735,13 +739,31 @@ $docStatusMeta = static function (string $status): array {
                     'date' => $doc['reviewed_at'],
                     'icon' => '!',
                     'tone' => 'red',
-                    'text' => e($label) . ' rejected',
-                    'sub' => e(kycRejectionDisplay((string)($doc['rejection_reason'] ?? ''))),
+                    'text' => $label . ' rejected',
+                    'sub' => kycRejectionDisplay((string)($doc['rejection_reason'] ?? '')),
+                ];
+            }
+        }
+        foreach (array_slice($forwardStatus, 0, 20) as $forwardRow) {
+            $inboundStatus = strtolower(trim((string)($forwardRow['partner_inbound_status'] ?? '')));
+            if ($inboundStatus !== '') {
+                $tone = match ($inboundStatus) {
+                    'approved' => 'emerald',
+                    'reject' => 'red',
+                    'need_info' => 'amber',
+                    default => 'violet',
+                };
+                $timelineEvents[] = [
+                    'date' => (string)($forwardRow['partner_inbound_at'] ?? $forwardRow['updated_at'] ?? ''),
+                    'icon' => $inboundStatus === 'approved' ? '✓' : ($inboundStatus === 'reject' ? '!' : '↗'),
+                    'tone' => $tone,
+                    'text' => 'Payment network update: ' . partnerInboundStatusLabel($inboundStatus),
+                    'sub' => (string)($forwardRow['partner_inbound_message'] ?? ''),
                 ];
             }
         }
         usort($timelineEvents, fn($a, $b) => strcmp((string)($b['date'] ?? ''), (string)($a['date'] ?? '')));
-        $timelineEvents = array_slice($timelineEvents, 0, 1);
+        $timelineEvents = array_slice($timelineEvents, 0, 20);
         ?>
         <?php if (empty($timelineEvents)): ?>
             <p class="text-sm text-gray-500">No KYC activity yet.</p>
@@ -784,13 +806,12 @@ $docStatusMeta = static function (string $status): array {
             <h3 class="font-semibold text-sm mb-3">Network activation status</h3>
             <div class="space-y-3">
                 <?php foreach ($forwardStatus as $fwd):
-                    $pk = (string)($fwd['partner_key'] ?? '');
                     $inbound = trim((string)($fwd['partner_inbound_message'] ?? ''));
                     $inboundType = (string)($fwd['partner_inbound_status'] ?? '');
                 ?>
                 <div class="rounded-lg border border-gray-800/80 p-3">
                     <div class="flex items-center justify-between text-xs gap-2">
-                        <span class="text-gray-300 font-medium"><?= e($pk !== '' ? ucfirst($pk) : 'Payment network') ?></span>
+                        <span class="text-gray-300 font-medium">Payment network</span>
                         <?php
                         $statusColors = [
                             'queued' => 'text-blue-400',
@@ -808,11 +829,14 @@ $docStatusMeta = static function (string $status): array {
                         <span class="font-medium <?= e($statusColors[$fwd['status'] ?? ''] ?? 'text-gray-400') ?>"><?= e($statusLabel) ?></span>
                     </div>
                     <?php if ($inbound !== ''): ?>
-                    <p class="text-xs text-amber-300 mt-2 border-t border-amber-500/20 pt-2">
-                        <strong><?= e(ucfirst(str_replace('_', ' ', $inboundType !== '' ? $inboundType : 'partner_query'))) ?>:</strong>
+                    <?php $inboundTone = ($inboundType === 'approved') ? 'text-emerald-300 border-emerald-500/20' : (($inboundType === 'reject') ? 'text-red-300 border-red-500/20' : 'text-amber-300 border-amber-500/20'); ?>
+                    <p class="text-xs <?= e($inboundTone) ?> mt-2 border-t pt-2">
+                        <strong><?= e(function_exists('partnerInboundStatusLabel') ? partnerInboundStatusLabel($inboundType) : ucfirst(str_replace('_', ' ', $inboundType !== '' ? $inboundType : 'partner_query'))) ?>:</strong>
                         <?= e($inbound) ?>
                     </p>
+                    <?php if ($inboundType === 'need_info'): ?>
                     <p class="text-[10px] text-gray-500 mt-1">Upload or fix documents on this page, then wait for Admin to re-forward.</p>
+                    <?php endif; ?>
                     <?php endif; ?>
                 </div>
                 <?php endforeach; ?>

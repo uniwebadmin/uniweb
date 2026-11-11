@@ -879,14 +879,24 @@ function getMerchantPartnerLinkRow(int $merchantId, string $partnerKey): ?array
  *
  * @return list<array<string,mixed>>
  */
-function listAlreadyLiveLinkablePartners(): array
+function listAlreadyLiveLinkablePartners(int $merchantId = 0): array
 {
+    ensurePartnerControlTables();
     if (!function_exists('getRegisteredGateways')) {
         require_once __DIR__ . '/payment_methods.php';
     }
+    $existingKeys = [];
+    if ($merchantId > 0) {
+        foreach (getMerchantPartnerLinks($merchantId) as $link) {
+            $existingKeys[strtolower(trim((string)($link['partner_key'] ?? '')))] = true;
+        }
+    }
     $out = [];
-    foreach (getRegisteredGateways(false) as $g) {
-        if (function_exists('partnerAllowsAlreadyLiveLink') && partnerAllowsAlreadyLiveLink($g)) {
+    foreach (getRegisteredGateways(true) as $g) {
+        $key = strtolower(trim((string)($g['gateway_key'] ?? '')));
+        $canLink = function_exists('partnerAllowsAlreadyLiveLink') && partnerAllowsAlreadyLiveLink($g);
+        $blockedExistingLink = isset($existingKeys[$key]) && !$canLink;
+        if ($canLink || $blockedExistingLink) {
             $out[] = $g;
         }
     }
@@ -1130,7 +1140,7 @@ function saveMerchantAlreadyLiveLink(int $merchantId, string $partnerKey, array 
         }
     }
     if (!$gw || (function_exists('partnerAllowsAlreadyLiveLink') && !partnerAllowsAlreadyLiveLink($gw))) {
-        return ['ok' => false, 'error' => 'Already-live link is not available for this partner.'];
+        return ['ok' => false, 'error' => 'Already-live link is unavailable until the partner integration is LIVE-ready.'];
     }
 
     $env = ((string)($input['env'] ?? 'test')) === 'live' ? 'live' : 'test';
@@ -1271,6 +1281,18 @@ function setMerchantAlreadyLiveCheckoutEnabled(int $merchantId, string $partnerK
     $row = getMerchantPartnerLinkRow($merchantId, $partnerKey);
     if (!$row) {
         return ['ok' => false, 'error' => 'Not linked.'];
+    }
+    if ($enabled) {
+        $gateway = null;
+        foreach (getRegisteredGateways(false) as $candidate) {
+            if (strtolower(trim((string)($candidate['gateway_key'] ?? ''))) === $partnerKey) {
+                $gateway = $candidate;
+                break;
+            }
+        }
+        if (!$gateway || (function_exists('partnerAllowsAlreadyLiveLink') && !partnerAllowsAlreadyLiveLink($gateway))) {
+            return ['ok' => false, 'error' => 'Cannot enable checkout: partner is unavailable or its integration is paused.'];
+        }
     }
     $status = strtolower((string)($row['credential_status'] ?? ''));
     $override = (int)($row['owner_override'] ?? 0) === 1;

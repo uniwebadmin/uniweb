@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+if (defined('UNIWEB_CRYPTO_LOADED')) {
+    return;
+}
+define('UNIWEB_CRYPTO_LOADED', true);
+
 /**
  * Sensitive data encryption helpers.
  *

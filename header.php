@@ -136,11 +136,11 @@ if (($isMerchant || $isAdmin) && !headers_sent()) {
         <div class="flex items-center justify-between h-16">
             <?php $logoHref = 'index.php'; $logoSize = 'md'; require __DIR__ . '/includes/brand_logo_safe.php'; ?>
             <div class="hidden md:flex items-center gap-8 text-sm text-gray-300">
-                <a href="tour_videos.php" class="hover:text-brand-400 transition">Tour</a>
-                <a href="merchant_register.php" class="hover:text-brand-400 transition">Demo</a>
-                <a href="solutions.php" class="hover:text-brand-400 transition">Solutions</a>
-                <a href="pricing.php" class="hover:text-brand-400 transition"><?= __('pricing') ?></a>
-                <a href="trust.php" class="hover:text-brand-400 transition">Trust</a>
+                <a href="merchant_register.php" class="hover:text-brand-400 transition">How it works</a>
+                <a href="solutions.php#documents" class="hover:text-brand-400 transition">Document vault</a>
+                <a href="solutions.php" class="hover:text-brand-400 transition">Console</a>
+                <a href="solutions.php#partners" class="hover:text-brand-400 transition">Partners</a>
+                <a href="trust.php" class="hover:text-brand-400 transition">No-custody model</a>
                 <a href="about.php" class="hover:text-brand-400 transition"><?= __('about') ?></a>
                 <a href="faq.php" class="hover:text-brand-400 transition"><?= __('faq') ?></a>
                 <a href="api_docs.php" class="hover:text-brand-400 transition"><?= __('api_docs') ?></a>

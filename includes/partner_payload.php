@@ -13,10 +13,15 @@ declare(strict_types=1);
  * Build a structured onboarding payload for partner submission.
  * Never includes raw Aadhaar full number — uses refs and masked values.
  *
+ * @param string|null $partnerKey When provided, include only that partner's document pack.
  * @return array Structured payload (safe to JSON-encode and store in queue)
  */
-function build_partner_onboarding_payload(int $merchantId): array
+function build_partner_onboarding_payload(int $merchantId, ?string $partnerKey = null): array
 {
+    require_once __DIR__ . '/schema_ensure.php';
+    ensureMerchantAgreementSchema();
+    require_once __DIR__ . '/esign.php';
+    ensureEsignTable();
     $db = getDB();
 
     // 1. Business profile snapshot
@@ -63,6 +68,36 @@ function build_partner_onboarding_payload(int $merchantId): array
                 'file_size' => (int)$doc['file_size'],
                 'sha256' => $doc['sha256'],
             ];
+        }
+    }
+
+    $partnerKey = strtolower(trim((string)$partnerKey));
+    if ($partnerKey !== '') {
+        $partnerRow = null;
+        if (!function_exists('getRegisteredGateways') && is_file(__DIR__ . '/payment_methods.php')) {
+            require_once __DIR__ . '/payment_methods.php';
+        }
+        foreach (function_exists('getRegisteredGateways') ? getRegisteredGateways(false) : [] as $row) {
+            if (strtolower(trim((string)($row['gateway_key'] ?? ''))) === $partnerKey) {
+                $partnerRow = $row;
+                break;
+            }
+        }
+        $pack = [];
+        if ($partnerRow !== null) {
+            if (!function_exists('partnerRegistryV2ProfileFromRow') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+                require_once __DIR__ . '/partner_registry_v2.php';
+            }
+            $profile = function_exists('partnerRegistryV2ProfileFromRow')
+                ? partnerRegistryV2ProfileFromRow($partnerRow)
+                : [];
+            $pack = is_array($profile['doc_pack'] ?? null) ? $profile['doc_pack'] : [];
+        }
+        if ($pack !== []) {
+            $docsByType = array_filter(
+                $docsByType,
+                static fn(array $doc): bool => in_array((string)($doc['doc_type'] ?? ''), $pack, true)
+            );
         }
     }
 
@@ -145,6 +180,7 @@ function build_partner_onboarding_payload(int $merchantId): array
             'created_at' => $merchant['created_at'],
         ],
         'payload_built_at' => date('Y-m-d H:i:s'),
+        'partner_key' => $partnerKey !== '' ? $partnerKey : null,
     ];
 }
 

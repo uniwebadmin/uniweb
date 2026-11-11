@@ -517,14 +517,14 @@ function watchdogExpectedHttpStatuses(string $relFile, string $auth): array
  * Hostinger shared hosting often 500s when the server curls its own public
  * HTTPS/IPv6 URL. Force IPv4; on 0/500 retry without SSL verify, then HTTP.
  */
-function watchdogCurlGet(string $url, bool $verifySsl): array
+function watchdogCurlGet(string $url, bool $verifySsl, int $timeout = 5): array
 {
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => false,
-        CURLOPT_TIMEOUT => 15,
-        CURLOPT_CONNECTTIMEOUT => 8,
+        CURLOPT_TIMEOUT => max(1, min(5, $timeout)),
+        CURLOPT_CONNECTTIMEOUT => max(1, min(3, $timeout)),
         CURLOPT_NOBODY => false,
         CURLOPT_HEADER => true,
         CURLOPT_USERAGENT => 'UniWeb-Watchdog/1.0',
@@ -539,7 +539,7 @@ function watchdogCurlGet(string $url, bool $verifySsl): array
     return ['status' => $status, 'err' => $err];
 }
 
-function watchdogHttpProbe(string $relFile, string $auth = 'none'): array
+function watchdogHttpProbe(string $relFile, string $auth = 'none', ?float $deadline = null): array
 {
     if (watchdogIsKeyGatedFile($relFile)) {
         return [
@@ -559,14 +559,17 @@ function watchdogHttpProbe(string $relFile, string $auth = 'none'): array
         $st = (int)($hit['status'] ?? 0);
         return ($hit['err'] ?? '') !== '' || $st === 0 || $st === 500 || $st === 503;
     };
-    $hit = watchdogCurlGet($url, true);
+    $remaining = $deadline === null ? 5 : max(1, (int)ceil($deadline - microtime(true)));
+    $hit = watchdogCurlGet($url, true, $remaining);
     if ($transient($hit)) {
-        $retry = watchdogCurlGet($url, false);
+        $remaining = $deadline === null ? 5 : max(1, (int)ceil($deadline - microtime(true)));
+        $retry = watchdogCurlGet($url, false, $remaining);
         if (!$transient($retry) && (int)$retry['status'] > 0) {
             $hit = $retry;
         } elseif (str_starts_with($url, 'https://')) {
             $httpUrl = 'http://' . substr($url, strlen('https://'));
-            $httpHit = watchdogCurlGet($httpUrl, false);
+            $remaining = $deadline === null ? 5 : max(1, (int)ceil($deadline - microtime(true)));
+            $httpHit = watchdogCurlGet($httpUrl, false, $remaining);
             if ($httpHit['err'] === '' && $httpHit['status'] >= 200 && $httpHit['status'] < 400) {
                 $hit = $httpHit;
             }
@@ -605,8 +608,9 @@ function watchdogHttpProbe(string $relFile, string $auth = 'none'): array
     ];
 }
 
-function runFullLinkWatchdog(bool $httpProbe = true): array
+function runFullLinkWatchdog(bool $httpProbe = true, int $maxSeconds = 20): array
 {
+    $deadline = microtime(true) + max(5, min(25, $maxSeconds));
     $root = watchdogRoot();
     $registry = getWatchdogPageRegistry();
     $registryByFile = [];
@@ -627,9 +631,14 @@ function runFullLinkWatchdog(bool $httpProbe = true): array
         'syntax_fail' => 0,
         'broken_links' => 0,
         'by_portal' => [],
+        'timed_out' => false,
     ];
 
     foreach ($allFiles as $file) {
+        if (microtime(true) >= $deadline) {
+            $summary['timed_out'] = true;
+            break;
+        }
         $abs = $root . '/' . $file;
         $meta = $registryByFile[$file] ?? [
             'file' => $file,
@@ -653,7 +662,11 @@ function runFullLinkWatchdog(bool $httpProbe = true): array
 
         $http = ['ok' => null, 'status' => null, 'detail' => 'skipped'];
         if ($httpProbe && $exists) {
-            $http = watchdogHttpProbe($file, $meta['auth'] ?? 'none');
+            if (microtime(true) >= $deadline) {
+                $summary['timed_out'] = true;
+                break;
+            }
+            $http = watchdogHttpProbe($file, $meta['auth'] ?? 'none', $deadline);
             if ($http['ok'] === false) {
                 $summary['http_fail']++;
             }
@@ -715,7 +728,7 @@ function runFullLinkWatchdog(bool $httpProbe = true): array
         'summary' => $summary,
         'platform_checks' => $platformChecks,
         'unresolved_errors' => $errorCount,
-        'ok' => $summary['missing_files'] === 0 && $summary['http_fail'] === 0 && $summary['syntax_fail'] === 0
+        'ok' => !$summary['timed_out'] && $summary['missing_files'] === 0 && $summary['http_fail'] === 0 && $summary['syntax_fail'] === 0
             && $summary['broken_links'] === 0 && $platformChecks['ok'] && $errorCount === 0,
     ];
 }

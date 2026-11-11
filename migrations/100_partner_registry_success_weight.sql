@@ -1,0 +1,2 @@
+ALTER TABLE gateway_registry
+    ADD COLUMN IF NOT EXISTS weight_success DECIMAL(8,4) NOT NULL DEFAULT 0;

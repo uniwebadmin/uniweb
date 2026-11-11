@@ -43,6 +43,17 @@ ALTER TABLE merchant_health_scores CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8
 ALTER TABLE merchant_method_requests CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ALTER TABLE merchant_payout_enable_requests CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ALTER TABLE merchant_split_config CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS merchant_hierarchy (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    parent_merchant_id INT NOT NULL,
+    child_merchant_id INT NOT NULL,
+    relationship VARCHAR(30) NOT NULL DEFAULT 'branch',
+    status ENUM('active','inactive') NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY idx_parent_child (parent_merchant_id, child_merchant_id),
+    INDEX idx_parent (parent_merchant_id, status),
+    INDEX idx_child (child_merchant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ALTER TABLE merchant_hierarchy CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ALTER TABLE merchant_beneficiaries CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ALTER TABLE merchant_webhook_logs CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

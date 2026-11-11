@@ -3,9 +3,9 @@ if (function_exists('opcache_invalidate')) { opcache_invalidate(__FILE__, true);
 if (function_exists('opcache_invalidate')) { opcache_invalidate(__DIR__ . '/config.php', true); }
 require_once __DIR__ . '/config.php';
 $publicStats = getPublicStats();
-$pageTitle = 'Digital Fintech Payment Solutions';
-$pageDescription = 'UniWeb — payment links, QR and UPI for Indian merchants. Cards and other rails appear only after partner keys and merchant activation. Start free in Test Mode.';
-$pageKeywords = 'payment gateway India, UPI payment gateway, QR payment India, payment links, merchant KYC India, fintech platform';
+$pageTitle = 'One Merchant Console';
+$pageDescription = 'UniWeb — one merchant console for onboarding, documents, partner approvals, checkout and support.';
+$pageKeywords = 'merchant onboarding, partner registry, document vault, hosted checkout, merchant console';
 $canonicalUrl = APP_URL . '/';
 if (!is_file(__DIR__ . '/header.php')) {
     http_response_code(503);
@@ -23,23 +23,23 @@ require_once __DIR__ . '/header.php';
     <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <div class="inline-flex items-center gap-2 bg-brand-500/10 border border-brand-500/20 rounded-full px-4 py-1.5 text-sm text-brand-400 mb-8 animate-in">
             <span class="w-2 h-2 bg-brand-400 rounded-full animate-pulse"></span>
-            Collect with UPI, QR &amp; links · Test free · Live after KYC
+            ONE MERCHANT CONSOLE · ONE DOCUMENT VAULT · ONE PARTNER NETWORK
         </div>
         <h1 class="text-4xl sm:text-5xl lg:text-7xl font-extrabold leading-tight mb-6 animate-in">
-            <?= __('hero_title') ?><br><span class="gradient-text"><?= __('hero_highlight') ?></span>
+            One place for your<br><span class="gradient-text">entire payment network</span>
         </h1>
         <p class="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            <?= __('hero_sub') ?>
+            Sign up once, upload your business documents once, and let UniWeb coordinate eligible partners, approvals, checkout handoff and support from one console.
         </p>
         <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-            <a href="merchant_register.php" class="w-full sm:w-auto bg-brand-600 hover:bg-brand-500 text-white px-10 py-4 rounded-xl font-semibold text-lg transition shadow-lg shadow-brand-600/25">Start Test Mode — free →</a>
-            <a href="contact.php" class="w-full sm:w-auto glass text-gray-200 hover:text-white px-8 py-4 rounded-xl font-semibold text-lg transition border border-gray-700">Talk to sales</a>
+            <a href="merchant_register.php" class="w-full sm:w-auto bg-brand-600 hover:bg-brand-500 text-white px-10 py-4 rounded-xl font-semibold text-lg transition shadow-lg shadow-brand-600/25">Create merchant account →</a>
+            <a href="#how-it-works" class="w-full sm:w-auto glass text-gray-200 hover:text-white px-8 py-4 rounded-xl font-semibold text-lg transition border border-gray-700">See how it works</a>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-3xl mx-auto">
-            <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= formatPublicVolume($publicStats['volume']) ?></div><div class="text-xs text-gray-500 mt-1">Verified Live Volume</div></div>
-            <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= number_format($publicStats['merchants']) ?></div><div class="text-xs text-gray-500 mt-1">Live Merchants</div></div>
-            <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= number_format($publicStats['partners'] ?? 0) ?></div><div class="text-xs text-gray-500 mt-1">Live Partners</div></div>
-            <div><div class="text-2xl sm:text-3xl font-bold text-brand-400"><?= number_format($publicStats['transactions']) ?></div><div class="text-xs text-gray-500 mt-1">Verified Live Payments</div></div>
+            <div><div class="text-2xl sm:text-3xl font-bold text-brand-400">01</div><div class="text-xs text-gray-500 mt-1">Merchant account</div></div>
+            <div><div class="text-2xl sm:text-3xl font-bold text-brand-400">01</div><div class="text-xs text-gray-500 mt-1">Document vault</div></div>
+            <div><div class="text-2xl sm:text-3xl font-bold text-brand-400">ALL</div><div class="text-xs text-gray-500 mt-1">Eligible partners</div></div>
+            <div><div class="text-2xl sm:text-3xl font-bold text-brand-400">24/7</div><div class="text-xs text-gray-500 mt-1">Status visibility</div></div>
         </div>
         <p class="text-center text-[11px] text-gray-600 mt-3">These counts stay 0 until the first verified Live payment. Test Mode is not counted.</p>
         <p class="text-center text-xs text-gray-600 mt-6"><a href="trust.php" class="text-sky-400 hover:underline">Trust centre</a> · <a href="status.php" class="text-sky-400 hover:underline">System status</a> · <a href="api_docs.php" class="text-sky-400 hover:underline">API docs</a></p>
@@ -60,25 +60,26 @@ require_once __DIR__ . '/header.php';
 <section id="pillars" class="py-20">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-12">
-            <p class="text-brand-400 text-sm font-semibold uppercase tracking-wider mb-2">What UniWeb is for</p>
-            <h2 class="text-3xl sm:text-4xl font-bold mb-4">Collect. Operate. Settle.</h2>
-            <p class="text-gray-400 max-w-2xl mx-auto">Built for Indian shops, websites and APIs — not a consumer wallet, not an NBFC loan product.</p>
+            <p class="text-brand-400 text-sm font-semibold uppercase tracking-wider mb-2">The One Merchant Console</p>
+            <h2 class="text-3xl sm:text-4xl font-bold mb-4">Onboard once. Coordinate everywhere.</h2>
+            <p class="text-gray-400 max-w-2xl mx-auto">UniWeb orchestrates onboarding and partner operations. Customer money stays with the selected payment partner; UniWeb does not hold merchant funds.</p>
         </div>
+        <p class="text-center text-brand-300 text-sm font-semibold mb-8">Collect. Operate. Settle.</p>
         <div class="grid md:grid-cols-3 gap-8">
             <div class="glass rounded-2xl p-8">
-                <h3 class="text-xl font-semibold mb-3">Collect</h3>
-                <p class="text-gray-400 text-sm leading-relaxed mb-4">Payment links, counter QR, hosted checkout and UPI journeys. Share on WhatsApp. Test with UniWeb Test Pay before Live rails are on.</p>
-                <a href="solutions.php#links" class="text-sm text-brand-400">See collection tools →</a>
+                <h3 class="text-xl font-semibold mb-3">Merchant onboarding</h3>
+                <p class="text-gray-400 text-sm leading-relaxed mb-4">Create one account, complete your business profile and upload documents into one secure vault.</p>
+                <a href="merchant_register.php" class="text-sm text-brand-400">Start onboarding →</a>
             </div>
             <div class="glass rounded-2xl p-8">
-                <h3 class="text-xl font-semibold mb-3">Operate</h3>
-                <p class="text-gray-400 text-sm leading-relaxed mb-4">KYC, video review, staff roles, refunds, disputes and a named grievance path. Test Mode and Live Mode stay separate.</p>
-                <a href="trust.php" class="text-sm text-brand-400">Trust &amp; security →</a>
+                <h3 class="text-xl font-semibold mb-3">Partner automation</h3>
+                <p class="text-gray-400 text-sm leading-relaxed mb-4">Eligible partners receive the right document pack, while approvals and additional requests return to your console.</p>
+                <a href="trust.php" class="text-sm text-brand-400">See the trust boundary →</a>
             </div>
             <div class="glass rounded-2xl p-8">
-                <h3 class="text-xl font-semibold mb-3">Settle</h3>
-                <p class="text-gray-400 text-sm leading-relaxed mb-4">Settlement balance, batch tracking and UTR on the commercial schedule you approve. Timing follows banks and partners — we do not invent instant settlement.</p>
-                <a href="pricing.php" class="text-sm text-brand-400">How fees work →</a>
+                <h3 class="text-xl font-semibold mb-3">Checkout and support</h3>
+                <p class="text-gray-400 text-sm leading-relaxed mb-4">Route the chosen method to a capable partner-hosted checkout and keep payment, support and dispute updates in one status view.</p>
+                <a href="solutions.php" class="text-sm text-brand-400">Explore the console →</a>
             </div>
         </div>
     </div>
@@ -97,7 +98,7 @@ require_once __DIR__ . '/header.php';
             <a href="tour_videos.php" class="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-6 py-3 rounded-xl font-semibold text-sm sm:text-base">
                 <span>▶</span> Play Full Tour
             </a>
-            <a href="merchant_register.php" class="inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white px-6 py-3 rounded-xl font-semibold text-sm sm:text-base">Get Started Free</a>
+            <a href="merchant_register.php" class="inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white px-6 py-3 rounded-xl font-semibold text-sm sm:text-base">Start Test Mode — free</a>
         </div>
     </div>
 </section>
@@ -106,7 +107,7 @@ require_once __DIR__ . '/header.php';
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-16">
             <h2 class="text-3xl sm:text-4xl font-bold mb-4">Why merchants pick <span class="gradient-text"><?= APP_NAME ?></span></h2>
-            <p class="text-gray-400 max-w-xl mx-auto">Practical payment operations — not a feature dump that hides partner and KYC gates.</p>
+            <p class="text-gray-400 max-w-xl mx-auto">Practical payment operations — not a feature dump that hides partner and KYC gates. Track your Settlement balance; this is not a consumer wallet.</p>
         </div>
         <div class="grid md:grid-cols-3 gap-8">
             <?php

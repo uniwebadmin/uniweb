@@ -76,6 +76,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (function_exists('syncMerchantKycSubmittedIfReady')) {
                     syncMerchantKycSubmittedIfReady((int)$d['merchant_id']);
                 }
+                $merchantStatus = $db->prepare('SELECT kyc_status FROM merchants WHERE id=? LIMIT 1');
+                $merchantStatus->execute([(int)$d['merchant_id']]);
+                if (strtolower(trim((string)$merchantStatus->fetchColumn())) === 'verified') {
+                    if (!function_exists('advanceMerchantForwardAfterVerify') && is_file(__DIR__ . '/includes/kyc_workflow.php')) {
+                        require_once __DIR__ . '/includes/kyc_workflow.php';
+                    }
+                    if (function_exists('advanceMerchantForwardAfterVerify')) {
+                        advanceMerchantForwardAfterVerify((int)$d['merchant_id']);
+                    }
+                }
                 if (function_exists('logStaffActivity')) {
                     logStaffActivity('kyc_document_approved', $reason, (int)$d['merchant_id'], 'kyc_document', (string)$id);
                 }
@@ -285,6 +295,20 @@ try {
     }
     $pendingDocs = [];
 }
+$reviewedDocs = [];
+try {
+    $reviewedDocs = $db->query(
+        "SELECT k.id, k.merchant_id, k.doc_type, k.file_name, k.status, k.scan_status, k.reviewed_at, k.created_at,
+                m.business_name, m.merchant_code
+         FROM kyc_documents k
+         JOIN merchants m ON m.id = k.merchant_id
+         WHERE k.status IN ('approved','rejected')
+         ORDER BY COALESCE(k.reviewed_at, k.created_at) DESC
+         LIMIT 60"
+    )->fetchAll();
+} catch (Throwable $e) {
+    $reviewedDocs = [];
+}
 $pendingMerchants = [];
 $recentSignups = [];
 try {
@@ -433,6 +457,36 @@ require __DIR__ . '/includes/admin_kyc_forward_panel.php';
             <h2 class="font-semibold text-gray-200">KYC Submissions (legacy)</h2>
             <p class="text-xs text-gray-500 mt-2">Manual multi-gateway forward / gateway_submissions matrix. Auto queue syncs after verify.</p>
         </a>
+    </div>
+
+    <div class="glass rounded-xl overflow-hidden mt-6">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-800">
+            <h2 class="font-semibold">Reviewed document history</h2>
+            <p class="text-xs text-gray-500 mt-1">Approved documents remain in the UniWeb vault; they leave the pending checker queue but are retained here for audit and merchant review.</p>
+        </div>
+        <?php if (empty($reviewedDocs)): ?>
+        <p class="text-gray-500 text-sm text-center py-8">No reviewed documents yet.</p>
+        <?php else: ?>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[680px]">
+                <thead class="text-xs text-gray-500 uppercase bg-dark-900/50"><tr>
+                    <th class="px-4 py-3 text-left">Merchant</th><th class="px-4 py-3 text-left">Document</th><th class="px-4 py-3 text-left">Status</th><th class="px-4 py-3 text-left">Scan</th><th class="px-4 py-3 text-left">Reviewed</th><th class="px-4 py-3 text-left">Open</th>
+                </tr></thead>
+                <tbody class="divide-y divide-gray-800">
+                <?php foreach ($reviewedDocs as $doc): ?>
+                    <tr>
+                        <td class="px-4 py-3"><?= adminMerchantLink((int)$doc['merchant_id'], (string)$doc['business_name'], 'text-sky-300 hover:text-sky-200') ?><div class="text-[10px] text-gray-600"><?= e((string)$doc['merchant_code']) ?></div></td>
+                        <td class="px-4 py-3"><?= e(str_replace('_', ' ', (string)$doc['doc_type'])) ?><div class="text-xs text-gray-500"><?= e((string)$doc['file_name']) ?></div></td>
+                        <td class="px-4 py-3"><?= statusBadge((string)$doc['status']) ?></td>
+                        <td class="px-4 py-3 text-xs text-gray-400"><?= e((string)($doc['scan_status'] ?? 'pending')) ?></td>
+                        <td class="px-4 py-3 text-xs text-gray-500"><?= e((string)($doc['reviewed_at'] ?? $doc['created_at'])) ?></td>
+                        <td class="px-4 py-3"><a href="admin_kyc_doc.php?id=<?= (int)$doc['id'] ?>&token=<?= csrfToken() ?>" target="_blank" class="text-xs text-sky-400 hover:text-sky-300">View Doc</a></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
     </div>
 </div>
 <?php else: ?>

@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+if (defined('UNIWEB_SCHEMA_ENSURE_LOADED')) {
+    return;
+}
+define('UNIWEB_SCHEMA_ENSURE_LOADED', true);
+
 /** Runtime schema ensures — avoid one-time update_v*.php dependency on live */
 
 function schemaEnsureSkipHeavy(): bool
@@ -9,7 +14,8 @@ function schemaEnsureSkipHeavy(): bool
         return true;
     }
     $script = strtolower(basename((string)($_SERVER['SCRIPT_FILENAME'] ?? $_SERVER['PHP_SELF'] ?? '')));
-    return $script === 'health.php';
+    // Keep read-only dashboard requests from applying schema DDL on page load.
+    return in_array($script, ['health.php', 'admin_dashboard.php'], true);
 }
 
 function schemaExecQuiet(string $sql): void
@@ -516,17 +522,48 @@ function ensurePricingSnapshotColumns(): void
 function ensureSensitivePiiColumnWidths(): void
 {
     static $ready = false;
-    if ($ready) {
+    if ($ready || !function_exists('getDB')) {
         return;
     }
     $ready = true;
-    schemaExecQuiet('ALTER TABLE merchants MODIFY COLUMN pan_number VARCHAR(255) DEFAULT NULL');
-    schemaExecQuiet('ALTER TABLE merchants MODIFY COLUMN gstin VARCHAR(255) DEFAULT NULL');
-    schemaExecQuiet('ALTER TABLE merchants MODIFY COLUMN cin_llpin VARCHAR(255) DEFAULT NULL');
-    schemaExecQuiet('ALTER TABLE merchants MODIFY COLUMN aadhaar_number VARCHAR(255) DEFAULT NULL');
-    schemaExecQuiet('ALTER TABLE merchants MODIFY COLUMN udyam_number VARCHAR(255) DEFAULT NULL');
-    schemaExecQuiet('ALTER TABLE merchants MODIFY COLUMN iec_number VARCHAR(255) DEFAULT NULL');
-    schemaExecQuiet('ALTER TABLE merchants MODIFY COLUMN address VARCHAR(1000) DEFAULT NULL');
+    $targetWidths = [
+        'pan_number' => 255,
+        'gstin' => 255,
+        'cin_llpin' => 255,
+        'aadhaar_number' => 255,
+        'udyam_number' => 255,
+        'iec_number' => 255,
+        'address' => 1000,
+    ];
+    $placeholders = implode(',', array_fill(0, count($targetWidths), '?'));
+    $stmt = getDB()->prepare(
+        "SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'merchants'
+           AND COLUMN_NAME IN ({$placeholders})"
+    );
+    $stmt->execute(array_keys($targetWidths));
+    $columns = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $column) {
+        $columns[(string)$column['COLUMN_NAME']] = $column;
+    }
+
+    foreach ($targetWidths as $name => $width) {
+        $column = $columns[$name] ?? null;
+        $default = $column['COLUMN_DEFAULT'] ?? null;
+        $hasNullDefault = $default === null || strtoupper((string)$default) === 'NULL';
+        if (
+            $column !== null
+            && strtolower((string)$column['COLUMN_TYPE']) === 'varchar(' . $width . ')'
+            && strtoupper((string)$column['IS_NULLABLE']) === 'YES'
+            && $hasNullDefault
+        ) {
+            continue;
+        }
+
+        schemaExecQuiet("ALTER TABLE merchants MODIFY COLUMN `{$name}` VARCHAR({$width}) DEFAULT NULL");
+    }
 }
 
 /**

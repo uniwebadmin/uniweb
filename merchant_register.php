@@ -269,6 +269,9 @@ require_once __DIR__ . '/header.php';
             </div>
             <p class="ap-title"><?= $showOtpStep ? __('signup_otp_title') : __('signup_title') ?></p>
             <p class="ap-sub"><?= $showOtpStep ? __('signup_otp_sub') : __('signup_sub') ?></p>
+            <?php if (!$showOtpStep): ?>
+            <p class="ap-hint" style="margin-top:-.5rem;margin-bottom:1.25rem;">One account for your business, one document vault, and one console for every eligible payment partner.</p>
+            <?php endif; ?>
 
             <?php if ($errors): ?>
             <div class="ap-alert ap-alert-error">

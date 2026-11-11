@@ -78,6 +78,7 @@ function ensureSupportTicketTable(): void
         try { $db->exec("ALTER TABLE support_tickets ADD COLUMN category VARCHAR(40) DEFAULT 'general' AFTER merchant_id"); } catch (Throwable $e) { /* ok */ }
         try { $db->exec("ALTER TABLE support_tickets ADD COLUMN txn_reference VARCHAR(60) DEFAULT NULL AFTER message"); } catch (Throwable $e) { /* ok */ }
         try { $db->exec("ALTER TABLE support_tickets ADD COLUMN partner_tag VARCHAR(40) DEFAULT NULL AFTER txn_reference"); } catch (Throwable $e) { /* ok */ }
+        try { $db->exec("ALTER TABLE support_tickets ADD COLUMN updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at"); } catch (Throwable $e) { /* ok */ }
         $db->exec("CREATE TABLE IF NOT EXISTS support_ticket_messages (
             id INT AUTO_INCREMENT PRIMARY KEY,
             ticket_id INT NOT NULL,
