@@ -2528,6 +2528,55 @@ $assert(!partnerRegistryV2ProfileIsComplete([
         'platform_fee_flat_default' => '10.00',
     ]),
     'prv2_registry_profile_completion_gate');
+require_once $root . '/includes/checkout_customize.php';
+$approvedPublicPartnerRow = [
+    'gateway_key' => 'approved_pg',
+    'gateway_name' => 'Approved Processor',
+    'integration_status' => 'live',
+    'is_active' => 1,
+    'retired_at' => null,
+    'partner_type' => 'pg',
+    'contract_mode' => 'platform',
+    'connector_id' => 'private_connector_01',
+    'webhook_url' => '/partner_webhook.php',
+    'countries_json' => '["IN"]',
+    'doc_pack_json' => '["pan"]',
+    'platform_fee_pct_default' => '2.5',
+    'platform_fee_flat_default' => '10.00',
+    'weight_success' => '90',
+    'routing_priority' => 1,
+    'api_base_url' => 'https://api.private.example',
+    'logo_url' => 'https://cdn.example/processor.png',
+    'currencies_json' => '["INR"]',
+    'policy_urls_json' => json_encode([
+        'terms' => 'https://processor.example/terms',
+        'privacy' => 'https://processor.example/privacy',
+        'refund' => 'https://processor.example/refunds',
+        'support' => 'https://processor.example/support',
+    ]),
+    'support_email' => 'help@processor.example',
+    'support_phone' => '+91 9876543210',
+    'settle_note' => 'internal settlement note',
+    'display_description' => 'Secure payment processing.',
+    'connector_notes' => 'internal connector note',
+];
+$publicPartnerProfile = checkoutCustomizePublicPartnerProfileFromRow($approvedPublicPartnerRow);
+$pausedPublicPartnerRow = $approvedPublicPartnerRow;
+$pausedPublicPartnerRow['integration_status'] = 'paused';
+$inactivePublicPartnerRow = $approvedPublicPartnerRow;
+$inactivePublicPartnerRow['is_active'] = 0;
+$assert($publicPartnerProfile['display_name'] === 'Approved Processor'
+    && $publicPartnerProfile['countries'] === ['IN']
+    && $publicPartnerProfile['currencies'] === ['INR']
+    && count($publicPartnerProfile['policies']) === 4
+    && !array_key_exists('partner_code', $publicPartnerProfile)
+    && !array_key_exists('connector_id', $publicPartnerProfile)
+    && !array_key_exists('api_base_url', $publicPartnerProfile)
+    && !array_key_exists('routing_priority', $publicPartnerProfile)
+    && !array_key_exists('platform_fee_pct_default', $publicPartnerProfile)
+    && checkoutCustomizePublicPartnerProfileFromRow($pausedPublicPartnerRow) === []
+    && checkoutCustomizePublicPartnerProfileFromRow($inactivePublicPartnerRow) === [],
+    'checkout_partner_public_profile_live_gate_and_allowlist');
 $assert(!partnerRegistryLifecycleTransitionGate('draft', 'sandbox', [
     'adapter_wired' => true,
     'test_credentials_valid' => true,

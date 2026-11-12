@@ -614,6 +614,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$checkoutPostBlocked && $selectedP
     }
 }
 
+$publicPartnerProfile = $pgCheckoutPartner !== null
+    ? checkoutCustomizePublicPartnerProfile($pgCheckoutPartner)
+    : [];
 $pageTitle = $wlBrand['active'] && !empty($wlBrand['checkout_title'])
     ? $wlBrand['checkout_title']
     : 'Secure Payment — ' . ($wlBrand['active'] ? $wlBrand['brand_name'] : APP_NAME);
@@ -721,16 +724,9 @@ endif;
                     <?php if ($pgKeysMissing): ?>
                     <p class="text-xs text-amber-300/90 mt-3">Card / Net Banking will appear when UniWeb activates your payment methods. UPI / QR works if a UPI ID is set.</p>
                     <?php endif; ?>
-                    <?php if (!$isTestCheckout && $split['platform_fee'] > 0): ?>
-                    <details class="mt-3">
-                        <summary class="text-xs text-gray-600 cursor-pointer hover:text-gray-400">Fee breakdown</summary>
-                        <div class="text-xs text-gray-500 mt-2 space-y-1 text-left max-w-[240px] mx-auto">
-                            <div class="flex justify-between"><span>Amount</span><span class="font-mono"><?= formatMoney($split['gross']) ?></span></div>
-                            <div class="flex justify-between"><span>Platform fee</span><span class="font-mono text-amber-400">-<?= formatMoney($split['platform_fee']) ?></span></div>
-                            <div class="flex justify-between border-t border-gray-800 pt-1"><span>Merchant receives</span><span class="font-mono text-emerald-400"><?= formatMoney($split['merchant_net']) ?></span></div>
-                        </div>
-                    </details>
-                    <?php endif; ?>
+                    <p class="text-xs text-gray-500 mt-3">
+                        Check the payment provider’s secure payment step for any applicable fees or taxes before confirming.
+                    </p>
                 </div>
 
                 <!-- Payment method tabs -->
@@ -759,6 +755,51 @@ endif;
                     <?php if ($currentMethod): ?>
                     <p class="text-sm font-medium text-gray-300 mb-1"><?= e((string)($currentMethod['label'] ?? '')) ?></p>
                     <p class="text-xs text-gray-500 mb-4"><?= e((string)($currentMethod['sub'] ?? '')) ?></p>
+                    <?php endif; ?>
+                    <?php if ($pgCheckoutPartner !== null): ?>
+                    <section class="rounded-xl border border-gray-800 bg-dark-900/60 p-4 mb-4" aria-label="Payment provider details">
+                        <?php if ($publicPartnerProfile !== []): ?>
+                        <div class="flex items-center gap-3 mb-2">
+                            <?php if ($publicPartnerProfile['logo_url'] !== ''): ?>
+                            <img src="<?= e($publicPartnerProfile['logo_url']) ?>" alt="" class="h-8 w-auto max-w-[120px] object-contain" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+                            <?php endif; ?>
+                            <p class="text-sm font-semibold text-gray-200">
+                                Payment processed by <?= e($publicPartnerProfile['display_name']) ?>
+                            </p>
+                        </div>
+                        <?php if ($publicPartnerProfile['description'] !== ''): ?>
+                        <p class="text-xs text-gray-400 mb-2"><?= e($publicPartnerProfile['description']) ?></p>
+                        <?php endif; ?>
+                        <?php if ($publicPartnerProfile['countries'] !== []): ?>
+                        <p class="text-xs text-gray-500">Supported countries: <?= e(implode(', ', $publicPartnerProfile['countries'])) ?></p>
+                        <?php endif; ?>
+                        <?php if ($publicPartnerProfile['currencies'] !== []): ?>
+                        <p class="text-xs text-gray-500">Supported currencies: <?= e(implode(', ', $publicPartnerProfile['currencies'])) ?></p>
+                        <?php endif; ?>
+                        <?php if ($publicPartnerProfile['support_email'] !== '' || $publicPartnerProfile['support_phone'] !== ''): ?>
+                        <p class="text-xs text-gray-500 mt-2">
+                            Provider support:
+                            <?php if ($publicPartnerProfile['support_email'] !== ''): ?>
+                            <a class="text-sky-400 hover:underline" href="mailto:<?= e($publicPartnerProfile['support_email']) ?>"><?= e($publicPartnerProfile['support_email']) ?></a>
+                            <?php endif; ?>
+                            <?php if ($publicPartnerProfile['support_email'] !== '' && $publicPartnerProfile['support_phone'] !== ''): ?> · <?php endif; ?>
+                            <?php if ($publicPartnerProfile['support_phone'] !== ''): ?>
+                            <a class="text-sky-400 hover:underline" href="tel:<?= e(preg_replace('/[^0-9+]/', '', $publicPartnerProfile['support_phone']) ?? '') ?>"><?= e($publicPartnerProfile['support_phone']) ?></a>
+                            <?php endif; ?>
+                        </p>
+                        <?php endif; ?>
+                        <?php if ($publicPartnerProfile['policies'] !== []): ?>
+                        <nav class="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs" aria-label="Payment provider policies">
+                            <?php foreach ($publicPartnerProfile['policies'] as $policy): ?>
+                            <a class="text-sky-400 hover:underline" href="<?= e($policy['url']) ?>" target="_blank" rel="noopener noreferrer"><?= e($policy['label']) ?></a>
+                            <?php endforeach; ?>
+                        </nav>
+                        <?php endif; ?>
+                        <?php else: ?>
+                        <p class="text-sm text-gray-300">Payment will be handled through the selected provider’s secure payment flow.</p>
+                        <?php endif; ?>
+                        <p class="text-xs text-gray-500 mt-2">A secure payment step from the provider may open or appear here. Review any displayed fees or taxes before confirming.</p>
+                    </section>
                     <?php endif; ?>
 
                     <?php if ($selectedPay === 'upi'): ?>

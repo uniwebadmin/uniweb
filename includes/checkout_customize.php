@@ -180,6 +180,95 @@ function checkoutHidePoweredBy(array $brand): bool
     return !empty($brand['hide_powered_by']);
 }
 
+/**
+ * Public checkout fields for a partner with an approved LIVE registry profile.
+ *
+ * Internal connector, routing, fee metadata, and registry identifiers are never
+ * included in the returned customer-facing shape.
+ *
+ * @return array<string,mixed>
+ */
+function checkoutCustomizePublicPartnerProfileFromRow(array $row): array
+{
+    if (!function_exists('partnerRegistryV2ProfileIsComplete')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+    if (!function_exists('partnerRegistryV2ProfileIsComplete')
+        || !function_exists('partnerRegistryV2ProfileFromRow')
+        || !function_exists('partnerRegistryLifecycleStatus')) {
+        return [];
+    }
+
+    $partnerKey = strtolower(trim((string)($row['gateway_key'] ?? '')));
+    if (!preg_match('/^[a-z0-9_]{2,40}$/', $partnerKey)
+        || trim((string)($row['gateway_name'] ?? '')) === ''
+        || (int)($row['is_active'] ?? 0) !== 1
+        || partnerRegistryLifecycleStatus($row) !== 'live'
+        || !partnerRegistryV2ProfileIsComplete($row)) {
+        return [];
+    }
+
+    $profile = partnerRegistryV2ProfileFromRow($row);
+    $policies = [];
+    foreach (['terms' => 'Terms', 'privacy' => 'Privacy', 'refund' => 'Refunds', 'support' => 'Support'] as $key => $label) {
+        $url = trim((string)($profile['policy_urls'][$key] ?? ''));
+        if ($url !== '') {
+            $policies[] = ['label' => $label, 'url' => $url];
+        }
+    }
+
+    return [
+        'display_name' => trim((string)$profile['display_name']),
+        'description' => trim((string)$profile['display_description']),
+        'logo_url' => trim((string)$profile['logo_url']),
+        'countries' => $profile['countries'],
+        'currencies' => $profile['currencies'],
+        'support_email' => trim((string)$profile['support_email']),
+        'support_phone' => trim((string)$profile['support_phone']),
+        'policies' => $policies,
+    ];
+}
+
+/**
+ * Load only the fields needed to validate and render an approved public profile.
+ *
+ * @return array<string,mixed>
+ */
+function checkoutCustomizePublicPartnerProfile(string $partnerKey): array
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    if (!preg_match('/^[a-z0-9_]{2,40}$/', $partnerKey)) {
+        return [];
+    }
+    if (!function_exists('partnerRegistryV2ProfileIsComplete')) {
+        require_once __DIR__ . '/partner_registry_v2.php';
+    }
+
+    try {
+        $stmt = getDB()->prepare(
+            "SELECT gateway_key, gateway_name, integration_status, retired_at, is_active,
+                    partner_type, contract_mode, connector_id, webhook_url, countries_json,
+                    doc_pack_json, platform_fee_pct_default, platform_fee_flat_default,
+                    weight_success, routing_priority, api_base_url, logo_url, currencies_json,
+                    policy_urls_json, support_email, support_phone, settle_note
+             FROM gateway_registry
+             WHERE gateway_key = ? AND registry_kind = 'partner'
+             LIMIT 1"
+        );
+        $stmt->execute([$partnerKey]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        if (function_exists('logPlatformError')) {
+            logPlatformError('warning', 'Checkout partner disclosure profile could not be loaded.', ['partner_key' => $partnerKey]);
+        } else {
+            error_log('Checkout partner disclosure profile could not be loaded for configured partner.');
+        }
+        return [];
+    }
+
+    return is_array($row) ? checkoutCustomizePublicPartnerProfileFromRow($row) : [];
+}
+
 function resolveCheckoutCustomize(array $merchant): array
 {
     $cc = getMerchantCheckoutCustomize((int)$merchant['id']);
