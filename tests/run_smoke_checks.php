@@ -2687,6 +2687,26 @@ $assert(partnerRegistrySupportsPlatformOnboarding(['contract_mode' => 'platform'
     && !partnerRegistrySupportsPlatformOnboarding(['contract_mode' => 'linked_existing'])
     && partnerRegistrySupportsPlatformOnboarding(['contract_mode' => 'hybrid']),
     'hybrid_contract_mode_platform_onboarding_matrix');
+$assert(partnerRegistryResolveCollectAccountRoute(['gateway_key' => 'route_pg', 'contract_mode' => 'platform'], false, false) === 'platform'
+    && partnerRegistryResolveCollectAccountRoute(['gateway_key' => 'route_pg', 'contract_mode' => 'hybrid'], false, false) === 'platform'
+    && partnerRegistryResolveCollectAccountRoute(['gateway_key' => 'route_pg', 'contract_mode' => 'linked_existing'], false, false) === 'blocked',
+    'checkout_account_route_platform_fallback_mode_matrix');
+$assert(partnerRegistryResolveCollectAccountRoute(['gateway_key' => 'route_pg', 'contract_mode' => 'linked_existing'], true, true) === 'linked_existing'
+    && partnerRegistryResolveCollectAccountRoute(['gateway_key' => 'route_pg', 'contract_mode' => 'hybrid'], true, false) === 'blocked'
+    && partnerRegistryResolveCollectAccountRoute(['gateway_key' => 'route_pg', 'contract_mode' => 'platform'], true, false) === 'blocked'
+    && partnerRegistryResolveCollectAccountRoute(['gateway_key' => 'route_pg', 'contract_mode' => 'platform', 'allows_existing_merchant_link' => 1], true, true) === 'linked_existing',
+    'checkout_account_route_explicit_link_and_readiness');
+$assert(partnerRegistryResolveCollectAccountRoute(['gateway_key' => 'route_pg', 'contract_mode' => 'hybrid', 'integration_status' => 'paused'], true, true) === 'blocked'
+    && partnerRegistryPlatformFallbackAllowed('platform', true)
+    && !partnerRegistryPlatformFallbackAllowed('platform', false)
+    && !partnerRegistryPlatformFallbackAllowed('blocked', true)
+    && !partnerRegistryPlatformFallbackAllowed('linked_existing', true),
+    'checkout_account_route_lifecycle_and_sandbox_fallback');
+$accountRouteSource = (string)file_get_contents($root . '/includes/partner_registry_v2.php');
+$assert(str_contains($accountRouteSource, 'partnerRegistryResolveCollectAccountRoute($gatewayRow, $hasMerchantLink, $merchantLinkReady)')
+    && str_contains($accountRouteSource, 'partnerRegistryPlatformFallbackAllowed($accountRoute, $sandbox)')
+    && str_contains($accountRouteSource, 'registryPartnerKeysReadyForMode($partnerKey, $sandbox, $merchantId, $gatewayRow)'),
+    'checkout_account_route_gates_keys_and_sandbox_fallback');
 $kycForwardSrc = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
 $assert(str_contains($kycForwardSrc, 'platform onboarding forward skipped')
     && str_contains($prV2, '!partnerRegistrySupportsPlatformOnboarding($row)')

@@ -1689,6 +1689,21 @@ function partnerRegistrySupportsPlatformOnboarding(array $gatewayRow): bool
     return in_array($mode, ['platform', 'hybrid'], true);
 }
 
+function partnerRegistryResolveCollectAccountRoute(array $gatewayRow, bool $hasMerchantLink, bool $merchantLinkReady): string
+{
+    if ($hasMerchantLink) {
+        return $merchantLinkReady && partnerAllowsAlreadyLiveLink($gatewayRow)
+            ? 'linked_existing'
+            : 'blocked';
+    }
+    return partnerRegistrySupportsPlatformOnboarding($gatewayRow) ? 'platform' : 'blocked';
+}
+
+function partnerRegistryPlatformFallbackAllowed(string $accountRoute, bool $sandbox): bool
+{
+    return $sandbox && $accountRoute === 'platform';
+}
+
 /**
  * @return array{platform_ready:bool,linked_ready:bool,blockers:list<string>,lifecycle:string,summary:string}
  */
@@ -1955,19 +1970,43 @@ function registryRowSupportsCollect(array $row): bool
     return (int)($row['supports_collection'] ?? 0) === 1;
 }
 
-/** Keys ready for checkout — merchant already-live LINK or platform vault. */
-function registryPartnerKeysReadyForMode(string $partnerKey, bool $sandbox, int $merchantId = 0): bool
+function registryPartnerGatewayRow(string $partnerKey, ?array $gatewayRow = null): ?array
+{
+    $partnerKey = strtolower(trim($partnerKey));
+    if ($gatewayRow !== null && strtolower(trim((string)($gatewayRow['gateway_key'] ?? ''))) === $partnerKey) {
+        return $gatewayRow;
+    }
+    if (!function_exists('getRegisteredGateways')) {
+        return null;
+    }
+    foreach (getRegisteredGateways(false) as $row) {
+        if (strtolower(trim((string)($row['gateway_key'] ?? ''))) === $partnerKey) {
+            return $row;
+        }
+    }
+    return null;
+}
+
+/** Keys ready for checkout — permitted merchant LINK or platform vault route. */
+function registryPartnerKeysReadyForMode(string $partnerKey, bool $sandbox, int $merchantId = 0, ?array $gatewayRow = null): bool
 {
     $partnerKey = strtolower(trim($partnerKey));
     if ($partnerKey === '') {
         return false;
     }
-    if ($merchantId > 0 && function_exists('merchantAlreadyLiveCollectReady')
-        && merchantAlreadyLiveCollectReady($merchantId, $partnerKey, $sandbox)) {
+    $gatewayRow = registryPartnerGatewayRow($partnerKey, $gatewayRow);
+    if ($gatewayRow === null) {
+        return false;
+    }
+    $hasMerchantLink = $merchantId > 0 && function_exists('merchantHasAlreadyLivePayload')
+        && merchantHasAlreadyLivePayload($merchantId, $partnerKey);
+    $merchantLinkReady = $merchantId > 0 && function_exists('merchantAlreadyLiveCollectReady')
+        && merchantAlreadyLiveCollectReady($merchantId, $partnerKey, $sandbox);
+    $accountRoute = partnerRegistryResolveCollectAccountRoute($gatewayRow, $hasMerchantLink, $merchantLinkReady);
+    if ($accountRoute === 'linked_existing') {
         return true;
     }
-    if ($merchantId > 0 && function_exists('merchantHasAlreadyLivePayload')
-        && merchantHasAlreadyLivePayload($merchantId, $partnerKey)) {
+    if ($accountRoute !== 'platform') {
         return false;
     }
     $env = $sandbox ? 'test' : 'live';
@@ -2264,15 +2303,34 @@ function registryPartnerSupportsCheckoutMethod(string $partnerKey, string $check
  */
 function registryPartnerCheckoutEligible(string $partnerKey, string $checkoutMethod, bool $sandbox, ?array $gatewayRow = null, int $merchantId = 0): bool
 {
+    $partnerKey = strtolower(trim($partnerKey));
+    $gatewayRow = registryPartnerGatewayRow($partnerKey, $gatewayRow);
+    if ($gatewayRow === null) {
+        return false;
+    }
     if (!registryPartnerSupportsCheckoutMethod($partnerKey, $checkoutMethod, $gatewayRow)) {
         return false;
     }
-    if (!registryPartnerKeysReadyForMode($partnerKey, $sandbox, $merchantId)) {
-        if (!($sandbox && function_exists('isCollectPartnerConfigured') && isCollectPartnerConfigured($partnerKey, $merchantId, $sandbox))) {
-            if (!($sandbox && function_exists('isGatewayConfigured') && isGatewayConfigured($partnerKey)
-                && !($merchantId > 0 && function_exists('merchantHasAlreadyLivePayload') && merchantHasAlreadyLivePayload($merchantId, $partnerKey)))) {
-                return false;
-            }
+    $hasMerchantLink = $merchantId > 0 && function_exists('merchantHasAlreadyLivePayload')
+        && merchantHasAlreadyLivePayload($merchantId, $partnerKey);
+    $merchantLinkReady = $merchantId > 0 && function_exists('merchantAlreadyLiveCollectReady')
+        && merchantAlreadyLiveCollectReady($merchantId, $partnerKey, $sandbox);
+    $accountRoute = partnerRegistryResolveCollectAccountRoute($gatewayRow, $hasMerchantLink, $merchantLinkReady);
+    if ($accountRoute === 'blocked') {
+        return false;
+    }
+    if (!registryPartnerKeysReadyForMode($partnerKey, $sandbox, $merchantId, $gatewayRow)) {
+        if (!partnerRegistryPlatformFallbackAllowed($accountRoute, $sandbox)) {
+            return false;
+        }
+        $collectConfigured = function_exists('isCollectPartnerConfigured')
+            && isCollectPartnerConfigured($partnerKey, $merchantId, $sandbox);
+        $platformConfigured = function_exists('isGatewayConfigured')
+            && isGatewayConfigured($partnerKey)
+            && !($merchantId > 0 && function_exists('merchantHasAlreadyLivePayload')
+                && merchantHasAlreadyLivePayload($merchantId, $partnerKey));
+        if (!$collectConfigured && !$platformConfigured) {
+            return false;
         }
     }
     return registryPartnerCheckoutUiWired($partnerKey, $checkoutMethod);
