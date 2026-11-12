@@ -67,9 +67,6 @@ function partnerWebhookPrimarySecret(string $partnerKey, ?array $creds = null): 
         if (empty($creds) && $env === 'live') {
             $creds = getPartnerCredentials($partnerKey, 'production');
         }
-        if (empty($creds)) {
-            $creds = getPartnerCredentials($partnerKey, 'test');
-        }
     }
     unset($creds['_last4']);
     $primary = trim((string)($creds[$primaryKey] ?? ''));
@@ -111,9 +108,6 @@ function partnerWebhookSecretCandidates(string $partnerKey, ?array $creds = null
         $creds = getPartnerCredentials($partnerKey, $env);
         if (empty($creds) && $env === 'live') {
             $creds = getPartnerCredentials($partnerKey, 'production');
-        }
-        if (empty($creds)) {
-            $creds = getPartnerCredentials($partnerKey, 'test');
         }
     }
     unset($creds['_last4']);

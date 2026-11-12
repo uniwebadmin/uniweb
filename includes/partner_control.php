@@ -209,6 +209,27 @@ function getPartnerCredentials(string $partnerKey, string $env = 'test'): array
     }
 }
 
+/** @return list<string> */
+function partnerCredentialBucketsForEnvironment(string $environment): array
+{
+    $environment = strtolower(trim($environment));
+    if (in_array($environment, ['live', 'production'], true)) {
+        return ['live', 'production'];
+    }
+    if (in_array($environment, ['test', 'sandbox', 'uat'], true)) {
+        return ['test'];
+    }
+    return [];
+}
+
+function partnerCredentialEnvironmentMatchesMode(string $environment, bool $sandbox): bool
+{
+    $environment = strtolower(trim($environment));
+    return $sandbox
+        ? in_array($environment, ['test', 'sandbox', 'uat'], true)
+        : in_array($environment, ['live', 'production'], true);
+}
+
 /**
  * Partner PG credential setting keys that must never live in gateway_settings.
  * Platform Settings (SMTP / cron / templates) cannot save these.
@@ -440,12 +461,12 @@ function getPartnerSetting(string $partnerKey, string $keyName, string $default 
 
     $env = partnerCredentialEnvBucket($partnerKey);
 
-    $creds = getPartnerCredentials($partnerKey, $env);
-    if (empty($creds) && $env === 'live') {
-        $creds = getPartnerCredentials($partnerKey, 'production');
-    }
-    if (empty($creds)) {
-        $creds = getPartnerCredentials($partnerKey, 'test');
+    $creds = [];
+    foreach (partnerCredentialBucketsForEnvironment($env) as $credentialEnv) {
+        $creds = getPartnerCredentials($partnerKey, $credentialEnv);
+        if ($creds !== []) {
+            break;
+        }
     }
 
     if (!empty($creds[$keyName])) {
@@ -1566,12 +1587,12 @@ function resolveCollectPartnerCredentials(int $merchantId, string $partnerKey, b
         return $creds;
     }
     $env = $sandbox ? 'test' : 'live';
-    $creds = getPartnerCredentials($partnerKey, $env);
-    if ($creds === [] && $env === 'live') {
-        $creds = getPartnerCredentials($partnerKey, 'production');
-    }
-    if ($creds === []) {
-        $creds = getPartnerCredentials($partnerKey, 'test');
+    $creds = [];
+    foreach (partnerCredentialBucketsForEnvironment($env) as $credentialEnv) {
+        $creds = getPartnerCredentials($partnerKey, $credentialEnv);
+        if ($creds !== []) {
+            break;
+        }
     }
     if ($creds === []) {
         return [];
@@ -1650,6 +1671,20 @@ function isCollectPartnerConfigured(string $partnerKey, int $merchantId = 0, ?bo
             $sandbox = collectCredentialContextSandbox();
         }
         return merchantAlreadyLiveCollectReady($merchantId, $partnerKey, (bool)$sandbox);
+    }
+    if ($merchantId > 0) {
+        if ($sandbox === null) {
+            $sandbox = collectCredentialContextSandbox();
+        }
+        $env = $sandbox ? 'test' : 'live';
+        if (function_exists('partnerCredentialVaultStatus')
+            && partnerCredentialVaultStatus($partnerKey, $env) === 'valid') {
+            return true;
+        }
+        if (!function_exists('partnerActiveEnvironment')
+            || !partnerCredentialEnvironmentMatchesMode(partnerActiveEnvironment($partnerKey, ''), (bool)$sandbox)) {
+            return false;
+        }
     }
     return function_exists('isGatewayConfigured') && isGatewayConfigured($partnerKey);
 }

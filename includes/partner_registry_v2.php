@@ -1699,11 +1699,6 @@ function partnerRegistryResolveCollectAccountRoute(array $gatewayRow, bool $hasM
     return partnerRegistrySupportsPlatformOnboarding($gatewayRow) ? 'platform' : 'blocked';
 }
 
-function partnerRegistryPlatformFallbackAllowed(string $accountRoute, bool $sandbox): bool
-{
-    return $sandbox && $accountRoute === 'platform';
-}
-
 /**
  * @return array{platform_ready:bool,linked_ready:bool,blockers:list<string>,lifecycle:string,summary:string}
  */
@@ -2015,7 +2010,11 @@ function registryPartnerKeysReadyForMode(string $partnerKey, bool $sandbox, int 
             return true;
         }
     }
-    if (function_exists('isGatewayConfigured') && isGatewayConfigured($partnerKey)) {
+    if (function_exists('isGatewayConfigured')
+        && function_exists('partnerActiveEnvironment')
+        && function_exists('partnerCredentialEnvironmentMatchesMode')
+        && partnerCredentialEnvironmentMatchesMode(partnerActiveEnvironment($partnerKey, ''), $sandbox)
+        && isGatewayConfigured($partnerKey)) {
         return true;
     }
     return false;
@@ -2320,18 +2319,7 @@ function registryPartnerCheckoutEligible(string $partnerKey, string $checkoutMet
         return false;
     }
     if (!registryPartnerKeysReadyForMode($partnerKey, $sandbox, $merchantId, $gatewayRow)) {
-        if (!partnerRegistryPlatformFallbackAllowed($accountRoute, $sandbox)) {
-            return false;
-        }
-        $collectConfigured = function_exists('isCollectPartnerConfigured')
-            && isCollectPartnerConfigured($partnerKey, $merchantId, $sandbox);
-        $platformConfigured = function_exists('isGatewayConfigured')
-            && isGatewayConfigured($partnerKey)
-            && !($merchantId > 0 && function_exists('merchantHasAlreadyLivePayload')
-                && merchantHasAlreadyLivePayload($merchantId, $partnerKey));
-        if (!$collectConfigured && !$platformConfigured) {
-            return false;
-        }
+        return false;
     }
     return registryPartnerCheckoutUiWired($partnerKey, $checkoutMethod);
 }

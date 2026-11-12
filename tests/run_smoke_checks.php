@@ -918,6 +918,22 @@ $assert(str_contains((string)file_get_contents($root . '/payment_methods.php'), 
     'hybrid_paused_existing_links_remain_visible');
 $assert(str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'already_live_link') && str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'owner_override'), 'admin_already_live_on_behalf');
 $assert(str_contains($pcLive, 'function resolveCollectPartnerCredentials') && str_contains($pcLive, 'function merchantAlreadyLiveCollectReady') && str_contains($pcLive, "merchant_link"), 'already_live_collect_credential_resolver');
+$assert(partnerCredentialBucketsForEnvironment('test') === ['test']
+    && partnerCredentialBucketsForEnvironment('sandbox') === ['test']
+    && partnerCredentialBucketsForEnvironment('live') === ['live', 'production']
+    && partnerCredentialBucketsForEnvironment('production') === ['live', 'production']
+    && partnerCredentialBucketsForEnvironment('unknown') === [],
+    'partner_credentials_do_not_cross_environment_buckets');
+$assert(partnerCredentialEnvironmentMatchesMode('test', true)
+    && partnerCredentialEnvironmentMatchesMode('uat', true)
+    && !partnerCredentialEnvironmentMatchesMode('live', true)
+    && partnerCredentialEnvironmentMatchesMode('production', false)
+    && !partnerCredentialEnvironmentMatchesMode('test', false),
+    'partner_credentials_active_environment_matches_checkout_mode');
+$webhookRotationSrc = (string)file_get_contents($root . '/includes/webhook_secret_rotation.php');
+$assert(substr_count($pcLive, 'foreach (partnerCredentialBucketsForEnvironment($env) as $credentialEnv)') >= 2
+    && !str_contains($webhookRotationSrc, "getPartnerCredentials(\$partnerKey, 'test')"),
+    'partner_collect_and_webhook_lookups_do_not_fall_back_to_test');
 $assert(str_contains((string)file_get_contents($root . '/includes/financial_integrity.php'), 'setCollectCredentialContext') && str_contains((string)file_get_contents($root . '/includes/gateways.php'), 'collectPartnerSetting'), 'already_live_order_uses_collect_keys');
 $assert(str_contains((string)file_get_contents($root . '/payment_verify.php'), 'setCollectCredentialContext'), 'already_live_razorpay_verify_merchant_keys');
 $assert(str_contains((string)file_get_contents($root . '/includes/pg_webhooks.php'), 'function pgWebhookBindCollectContext') && str_contains((string)file_get_contents($root . '/includes/pg_webhooks.php'), 'function pgWebhookLookupCollectOrder'), 'already_live_webhook_binds_collect_context');
@@ -2697,14 +2713,11 @@ $assert(partnerRegistryResolveCollectAccountRoute(['gateway_key' => 'route_pg', 
     && partnerRegistryResolveCollectAccountRoute(['gateway_key' => 'route_pg', 'contract_mode' => 'platform', 'allows_existing_merchant_link' => 1], true, true) === 'linked_existing',
     'checkout_account_route_explicit_link_and_readiness');
 $assert(partnerRegistryResolveCollectAccountRoute(['gateway_key' => 'route_pg', 'contract_mode' => 'hybrid', 'integration_status' => 'paused'], true, true) === 'blocked'
-    && partnerRegistryPlatformFallbackAllowed('platform', true)
-    && !partnerRegistryPlatformFallbackAllowed('platform', false)
-    && !partnerRegistryPlatformFallbackAllowed('blocked', true)
-    && !partnerRegistryPlatformFallbackAllowed('linked_existing', true),
-    'checkout_account_route_lifecycle_and_sandbox_fallback');
+    && partnerRegistryResolveCollectAccountRoute(['gateway_key' => 'route_pg', 'contract_mode' => 'linked_existing'], false, false) === 'blocked',
+    'checkout_account_route_lifecycle_and_no_platform_fallback');
 $accountRouteSource = (string)file_get_contents($root . '/includes/partner_registry_v2.php');
 $assert(str_contains($accountRouteSource, 'partnerRegistryResolveCollectAccountRoute($gatewayRow, $hasMerchantLink, $merchantLinkReady)')
-    && str_contains($accountRouteSource, 'partnerRegistryPlatformFallbackAllowed($accountRoute, $sandbox)')
+    && str_contains($accountRouteSource, 'partnerCredentialEnvironmentMatchesMode(partnerActiveEnvironment($partnerKey, \'\'), $sandbox)')
     && str_contains($accountRouteSource, 'registryPartnerKeysReadyForMode($partnerKey, $sandbox, $merchantId, $gatewayRow)'),
     'checkout_account_route_gates_keys_and_sandbox_fallback');
 $kycForwardSrc = (string)file_get_contents($root . '/includes/partner_forward_queue.php');
