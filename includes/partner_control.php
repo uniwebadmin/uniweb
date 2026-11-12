@@ -935,11 +935,32 @@ function merchantAlreadyLiveStateLabel(string $state): string
 }
 
 /**
- * Probe merchant-owned keys in memory. Never logs secrets. Honest VALID only on HTTP 2xx.
+ * Probe merchant-owned keys in memory. Never logs secrets. Valid requires authenticated success.
  *
  * @param array<string,string> $keys
  * @return array{status:string,message:string}
  */
+function cashfreeCredentialProbeResult(int $httpCode, string $responseBody): array
+{
+    if ($httpCode >= 200 && $httpCode < 300) {
+        return ['status' => 'valid', 'message' => 'Cashfree accepted the client credentials.'];
+    }
+    if ($httpCode === 404) {
+        $response = json_decode($responseBody, true);
+        if (is_array($response)) {
+            $type = strtolower(trim((string)($response['type'] ?? '')));
+            $code = strtolower(trim((string)($response['code'] ?? '')));
+            if ($type === 'invalid_request_error' && str_ends_with($code, '_not_found')) {
+                return ['status' => 'valid', 'message' => 'Cashfree authenticated the credentials; the read-only probe order was not found.'];
+            }
+        }
+    }
+    if ($httpCode === 401 || $httpCode === 403) {
+        return ['status' => 'invalid', 'message' => 'Partner rejected the keys.'];
+    }
+    return ['status' => 'invalid', 'message' => 'Could not verify Cashfree keys (HTTP ' . $httpCode . ').'];
+}
+
 function probeMerchantOwnedPartnerKeys(string $partnerKey, array $keys, string $env = 'test'): array
 {
     $partnerKey = strtolower(trim($partnerKey));
@@ -991,7 +1012,9 @@ function probeMerchantOwnedPartnerKeys(string $partnerKey, array $keys, string $
 
     if ($partnerKey === 'cashfree') {
         $base = $env === 'live' ? 'https://api.cashfree.com' : 'https://sandbox.cashfree.com';
-        $ch = curl_init($base . '/pg/orders');
+        $probeOrderId = 'UNIWEBPROBE' . strtoupper(bin2hex(random_bytes(8)));
+        // Fetch a random, never-created order; this is read-only and must not create a payment.
+        $ch = curl_init($base . '/pg/orders/' . rawurlencode($probeOrderId));
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HTTPHEADER => [
@@ -1001,20 +1024,14 @@ function probeMerchantOwnedPartnerKeys(string $partnerKey, array $keys, string $
             ],
             CURLOPT_TIMEOUT => 12,
         ]);
-        curl_exec($ch);
+        $body = curl_exec($ch);
         $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $err = (string)curl_error($ch);
         curl_close($ch);
         if ($err !== '') {
             return ['status' => 'invalid', 'message' => 'Partner did not accept the keys (connection failed).'];
         }
-        if ($http >= 200 && $http < 300) {
-            return ['status' => 'valid', 'message' => 'Cashfree accepted the client credentials.'];
-        }
-        if ($http === 401 || $http === 403) {
-            return ['status' => 'invalid', 'message' => 'Partner rejected the keys.'];
-        }
-        return ['status' => 'invalid', 'message' => 'Could not verify Cashfree keys (HTTP ' . $http . ').'];
+        return cashfreeCredentialProbeResult($http, is_string($body) ? $body : '');
     }
 
     if ($partnerKey === 'payu') {

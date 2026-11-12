@@ -885,11 +885,26 @@ $assert(str_contains($pcLive, 'function revokeMerchantAlreadyLiveLink')
     && str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'name="merchant_consent"')
     && str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'name="confirm_revoke"'),
     'already_live_merchant_and_admin_consent_rotation_revoke_ui');
+require_once $root . '/includes/partner_control.php';
 $cashfreeStart = (int)strpos($pcLive, "if (\$partnerKey === 'cashfree')");
 $cashfreeSlice = substr($pcLive, $cashfreeStart, 1900);
-$assert(str_contains($cashfreeSlice, '$http >= 200 && $http < 300')
-    && !str_contains($cashfreeSlice, '[200, 400, 404, 422]'),
-    'already_live_cashfree_requires_success_response');
+$cashfreeResultStart = (int)strpos($pcLive, 'function cashfreeCredentialProbeResult');
+$cashfreeResultSlice = substr($pcLive, $cashfreeResultStart, 1300);
+$assert(str_contains($cashfreeSlice, '$base . \'/pg/orders/\'')
+    && str_contains($cashfreeSlice, 'rawurlencode($probeOrderId)')
+    && str_contains($cashfreeSlice, 'cashfreeCredentialProbeResult($http'),
+    'already_live_cashfree_uses_read_only_order_probe');
+$assert(str_contains($cashfreeResultSlice, '$httpCode >= 200 && $httpCode < 300')
+    && str_contains($cashfreeResultSlice, 'invalid_request_error')
+    && str_contains($cashfreeResultSlice, 'str_ends_with($code, \'_not_found\')'),
+    'already_live_cashfree_requires_success_or_typed_not_found');
+$cashfreeNotFound = cashfreeCredentialProbeResult(404, '{"type":"invalid_request_error","code":"something_not_found"}');
+$cashfreeUnauthorized = cashfreeCredentialProbeResult(401, '{"type":"authentication_error","code":"request_failed"}');
+$cashfreeUnclassified = cashfreeCredentialProbeResult(404, '{"type":"authentication_error","code":"request_failed"}');
+$assert(($cashfreeNotFound['status'] ?? '') === 'valid'
+    && ($cashfreeUnauthorized['status'] ?? '') === 'invalid'
+    && ($cashfreeUnclassified['status'] ?? '') === 'invalid',
+    'already_live_cashfree_probe_response_classification');
 $assert(str_contains($pcLive, "strtolower(trim((string)(\$link['account_source'] ?? ''))) === 'linked'"),
     'already_live_revoked_link_blocks_platform_key_fallback');
 $assert(str_contains($pcLive, 'function listAlreadyLiveLinkablePartners(int $merchantId = 0)')
