@@ -2565,10 +2565,13 @@ $pausedPublicPartnerRow = $approvedPublicPartnerRow;
 $pausedPublicPartnerRow['integration_status'] = 'paused';
 $inactivePublicPartnerRow = $approvedPublicPartnerRow;
 $inactivePublicPartnerRow['is_active'] = 0;
+$checkoutCustomizeSrc = (string)file_get_contents($root . '/includes/checkout_customize.php');
 $assert($publicPartnerProfile['display_name'] === 'Approved Processor'
+    && $publicPartnerProfile['description'] === 'Secure payment processing.'
     && $publicPartnerProfile['countries'] === ['IN']
     && $publicPartnerProfile['currencies'] === ['INR']
     && count($publicPartnerProfile['policies']) === 4
+    && str_contains($checkoutCustomizeSrc, 'logo_url, display_description, currencies_json')
     && !array_key_exists('partner_code', $publicPartnerProfile)
     && !array_key_exists('connector_id', $publicPartnerProfile)
     && !array_key_exists('api_base_url', $publicPartnerProfile)

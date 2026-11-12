@@ -249,7 +249,7 @@ function checkoutCustomizePublicPartnerProfile(string $partnerKey): array
             "SELECT gateway_key, gateway_name, integration_status, retired_at, is_active,
                     partner_type, contract_mode, connector_id, webhook_url, countries_json,
                     doc_pack_json, platform_fee_pct_default, platform_fee_flat_default,
-                    weight_success, routing_priority, api_base_url, logo_url, currencies_json,
+                    weight_success, routing_priority, api_base_url, logo_url, display_description, currencies_json,
                     policy_urls_json, support_email, support_phone, settle_note
              FROM gateway_registry
              WHERE gateway_key = ? AND registry_kind = 'partner'
