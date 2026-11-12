@@ -1008,7 +1008,7 @@ function probeMerchantOwnedPartnerKeys(string $partnerKey, array $keys, string $
         if ($err !== '') {
             return ['status' => 'invalid', 'message' => 'Partner did not accept the keys (connection failed).'];
         }
-        if (in_array($http, [200, 400, 404, 422], true)) {
+        if ($http >= 200 && $http < 300) {
             return ['status' => 'valid', 'message' => 'Cashfree accepted the client credentials.'];
         }
         if ($http === 401 || $http === 403) {
@@ -1113,7 +1113,7 @@ function merchantAlreadyLivePostedKeys(string $partnerKey, array $post): array
 /**
  * Already-live LINK: store merchant-owned keys in partner_merchant_links. Does not create a sub-merchant.
  *
- * @param array{partner_mid?:string,env?:string,keys?:array,owner_override?:bool,actor_role?:string,actor_id?:int,actor_email?:string} $input
+ * @param array{partner_mid?:string,env?:string,keys?:array,owner_override?:bool,actor_role?:string,actor_id?:int,actor_email?:string,merchant_consent?:bool} $input
  * @return array{ok:bool,error?:string,credential_status?:string,last4?:string,message?:string}
  */
 function saveMerchantAlreadyLiveLink(int $merchantId, string $partnerKey, array $input): array
@@ -1122,6 +1122,9 @@ function saveMerchantAlreadyLiveLink(int $merchantId, string $partnerKey, array 
     $partnerKey = strtolower(trim($partnerKey));
     if ($merchantId < 1 || $partnerKey === '') {
         return ['ok' => false, 'error' => 'Invalid merchant or partner.'];
+    }
+    if (empty($input['merchant_consent'])) {
+        return ['ok' => false, 'error' => "Confirm that this is the merchant's existing account and they authorize UniWeb to use these credentials."];
     }
     if (!function_exists('checkRateLimit') && is_file(__DIR__ . '/rate_limiter.php')) {
         require_once __DIR__ . '/rate_limiter.php';
@@ -1139,28 +1142,53 @@ function saveMerchantAlreadyLiveLink(int $merchantId, string $partnerKey, array 
             }
         }
     }
-    if (!$gw || (function_exists('partnerAllowsAlreadyLiveLink') && !partnerAllowsAlreadyLiveLink($gw))) {
+    if (!$gw || !function_exists('partnerAllowsAlreadyLiveLink') || !partnerAllowsAlreadyLiveLink($gw)) {
         return ['ok' => false, 'error' => 'Already-live link is unavailable until the partner integration is LIVE-ready.'];
     }
 
-    $env = ((string)($input['env'] ?? 'test')) === 'live' ? 'live' : 'test';
+    $env = strtolower(trim((string)($input['env'] ?? 'test')));
+    if (!in_array($env, ['test', 'live'], true)) {
+        return ['ok' => false, 'error' => 'Invalid credential environment.'];
+    }
     $submitted = [];
     foreach ((array)($input['keys'] ?? []) as $k => $v) {
+        if (!is_string($v) && !is_numeric($v)) {
+            return ['ok' => false, 'error' => 'Invalid credential value.'];
+        }
         $val = trim((string)$v);
         if ($val === '') {
             continue;
         }
+        if (strlen($val) > 4096) {
+            return ['ok' => false, 'error' => 'A credential exceeds the maximum supported length.'];
+        }
         $submitted[(string)$k] = $val;
+    }
+    $requiredKeys = match ($partnerKey) {
+        'razorpay' => ['razorpay_key_id', 'razorpay_key_secret'],
+        'cashfree' => ['cashfree_app_id', 'cashfree_secret_key'],
+        'payu' => ['payu_merchant_key', 'payu_merchant_salt'],
+        default => [$partnerKey . '_api_key', $partnerKey . '_api_secret'],
+    };
+    $allowedKeys = $partnerKey === 'razorpay'
+        ? array_merge($requiredKeys, ['razorpay_webhook_secret'])
+        : $requiredKeys;
+    if (array_diff(array_keys($submitted), $allowedKeys) !== []) {
+        return ['ok' => false, 'error' => 'Unsupported credential fields for this partner.'];
     }
     $existing = getMerchantPartnerLinkRow($merchantId, $partnerKey);
     $payload = [];
-    if ($existing && !empty($existing['encrypted_payload'])) {
-        $raw = function_exists('sensitiveDecrypt')
-            ? (string)sensitiveDecrypt((string)$existing['encrypted_payload'])
-            : (string)base64_decode((string)$existing['encrypted_payload']);
-        $decoded = json_decode($raw, true);
-        if (is_array($decoded)) {
-            $payload = $decoded;
+    $existingEnv = strtolower(trim((string)($existing['env'] ?? '')));
+    if ($existing && $existingEnv === $env && !empty($existing['encrypted_payload'])) {
+        $payload = decryptMerchantPartnerLinkCredentials($existing);
+        if ($payload === [] && count($submitted) < count($requiredKeys)) {
+            return ['ok' => false, 'error' => 'Stored credentials cannot be decrypted. Re-enter both credentials to replace them securely.'];
+        }
+    }
+    foreach ($requiredKeys as $requiredKey) {
+        $credentialValue = $submitted[$requiredKey] ?? $payload[$requiredKey] ?? '';
+        if (!is_string($credentialValue) || trim($credentialValue) === '') {
+            return ['ok' => false, 'error' => 'Both partner key and secret are required for this environment.'];
         }
     }
     foreach ($submitted as $k => $v) {
@@ -1173,10 +1201,8 @@ function saveMerchantAlreadyLiveLink(int $merchantId, string $partnerKey, array 
     }
     $probe = probeMerchantOwnedPartnerKeys($partnerKey, $probeKeys, $env);
     $status = $probe['status'];
-    $actorRole = strtolower(trim((string)($input['actor_role'] ?? 'merchant')));
-    if ($actorRole !== 'admin') {
-        $actorRole = 'merchant';
-    }
+    $requestedActorRole = strtolower(trim((string)($input['actor_role'] ?? 'merchant')));
+    $actorRole = $requestedActorRole === 'admin' && (int)($_SESSION['admin_id'] ?? 0) > 0 ? 'admin' : 'merchant';
     $ownerOverride = $actorRole === 'admin' && !empty($input['owner_override']);
     if ($ownerOverride && $status !== 'valid') {
         $status = 'valid';
@@ -1200,17 +1226,32 @@ function saveMerchantAlreadyLiveLink(int $merchantId, string $partnerKey, array 
     }
 
     $mid = mb_substr(trim((string)($input['partner_mid'] ?? '')), 0, 120);
-    $encrypted = function_exists('sensitiveEncrypt')
-        ? sensitiveEncrypt(json_encode($payload, JSON_UNESCAPED_UNICODE))
-        : base64_encode(json_encode($payload, JSON_UNESCAPED_UNICODE));
+    try {
+        if (!function_exists('sensitiveEncrypt') || !function_exists('sensitiveDecrypt') || !function_exists('isSensitiveEncrypted')) {
+            require_once __DIR__ . '/crypto.php';
+        }
+        if (!function_exists('sensitiveEncrypt') || !function_exists('sensitiveDecrypt') || !function_exists('isSensitiveEncrypted')) {
+            throw new RuntimeException('Secure credential encryption is unavailable.');
+        }
+        $encrypted = sensitiveEncrypt(json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        if (!is_string($encrypted) || !isSensitiveEncrypted($encrypted)) {
+            throw new RuntimeException('Credential encryption did not produce an encrypted payload.');
+        }
+    } catch (Throwable $e) {
+        logPlatformError('error', 'Merchant-owned partner credential encryption failed.', [
+            'merchant_id' => $merchantId,
+            'partner_key' => $partnerKey,
+            'error_type' => get_class($e),
+        ]);
+        return ['ok' => false, 'error' => 'Secure credential encryption is unavailable; no credentials were saved.'];
+    }
     $actorId = (int)($input['actor_id'] ?? 0);
     $checkout = 0;
-    if ($existing && (int)($existing['checkout_enabled'] ?? 0) === 1 && ($status === 'valid' || $ownerOverride)) {
-        $checkout = 1;
-    }
 
+    $db = getDB();
     try {
-        getDB()->prepare(
+        $db->beginTransaction();
+        $db->prepare(
             "INSERT INTO partner_merchant_links
                 (merchant_id, partner_key, external_id, kyc_status, account_source, partner_mid, credential_status, env, encrypted_payload, last4, checkout_enabled, linked_by, linked_by_id, owner_override)
              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
@@ -1243,22 +1284,33 @@ function saveMerchantAlreadyLiveLink(int $merchantId, string $partnerKey, array 
             $actorId > 0 ? $actorId : null,
             $ownerOverride ? 1 : 0,
         ]);
-    } catch (Throwable $e) {
-        return ['ok' => false, 'error' => 'Could not save link.'];
-    }
-
-    $who = mb_substr(trim((string)($input['actor_email'] ?? $actorRole)), 0, 120);
-    if (function_exists('recordImmutableAudit')) {
+        if (!function_exists('recordImmutableAudit')) {
+            require_once __DIR__ . '/ops_security.php';
+        }
+        if (!function_exists('recordImmutableAudit')) {
+            throw new RuntimeException('Immutable audit logging is unavailable.');
+        }
         recordImmutableAudit(
             'merchant_already_live_linked',
             $merchantId,
             'partner',
             $partnerKey,
-            'account_source=linked status=' . $status . ' by ' . ($who !== '' ? $who : $actorRole) . ($ownerOverride ? ' override=1' : '')
+            'account_source=linked status=' . $status . ' env=' . $env . ' consent=merchant-owned-v1' . ($ownerOverride ? ' override=1' : ''),
+            $existing && !empty($existing['encrypted_payload']) ? hash('sha256', (string)$existing['encrypted_payload']) : null,
+            hash('sha256', $encrypted),
+            true
         );
-    }
-    if (function_exists('logStaffActivity') && $actorRole === 'admin') {
-        logStaffActivity('merchant_already_live_linked', 'Linked existing ' . $partnerKey . ' for merchant #' . $merchantId . ' status=' . $status, $merchantId, 'partner', $partnerKey);
+        $db->commit();
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        logPlatformError('error', 'Merchant-owned partner link save failed.', [
+            'merchant_id' => $merchantId,
+            'partner_key' => $partnerKey,
+            'error_type' => get_class($e),
+        ]);
+        return ['ok' => false, 'error' => 'Could not save link.'];
     }
 
     return [
@@ -1282,6 +1334,9 @@ function setMerchantAlreadyLiveCheckoutEnabled(int $merchantId, string $partnerK
     if (!$row) {
         return ['ok' => false, 'error' => 'Not linked.'];
     }
+    if (strtolower(trim((string)($row['account_source'] ?? 'platform'))) !== 'linked') {
+        return ['ok' => false, 'error' => 'This is not a merchant-owned partner link.'];
+    }
     if ($enabled) {
         $gateway = null;
         foreach (getRegisteredGateways(false) as $candidate) {
@@ -1290,8 +1345,11 @@ function setMerchantAlreadyLiveCheckoutEnabled(int $merchantId, string $partnerK
                 break;
             }
         }
-        if (!$gateway || (function_exists('partnerAllowsAlreadyLiveLink') && !partnerAllowsAlreadyLiveLink($gateway))) {
+        if (!$gateway || !function_exists('partnerAllowsAlreadyLiveLink') || !partnerAllowsAlreadyLiveLink($gateway)) {
             return ['ok' => false, 'error' => 'Cannot enable checkout: partner is unavailable or its integration is paused.'];
+        }
+        if (decryptMerchantPartnerLinkCredentials($row) === []) {
+            return ['ok' => false, 'error' => 'Cannot enable checkout: stored credentials are unavailable or cannot be decrypted.'];
         }
     }
     $status = strtolower((string)($row['credential_status'] ?? ''));
@@ -1299,20 +1357,108 @@ function setMerchantAlreadyLiveCheckoutEnabled(int $merchantId, string $partnerK
     if ($enabled && $status !== 'valid' && !$override) {
         return ['ok' => false, 'error' => 'Enable is not available until keys are Valid (or Admin override).'];
     }
+    $db = getDB();
     try {
-        getDB()->prepare('UPDATE partner_merchant_links SET checkout_enabled=? WHERE merchant_id=? AND partner_key=?')
+        $db->beginTransaction();
+        $db->prepare('UPDATE partner_merchant_links SET checkout_enabled=? WHERE merchant_id=? AND partner_key=?')
             ->execute([$enabled ? 1 : 0, $merchantId, $partnerKey]);
-    } catch (Throwable $e) {
-        return ['ok' => false, 'error' => 'Could not update checkout flag.'];
-    }
-    if (function_exists('recordImmutableAudit')) {
+        if (!function_exists('recordImmutableAudit')) {
+            require_once __DIR__ . '/ops_security.php';
+        }
+        if (!function_exists('recordImmutableAudit')) {
+            throw new RuntimeException('Immutable audit logging is unavailable.');
+        }
         recordImmutableAudit(
             $enabled ? 'merchant_already_live_checkout_on' : 'merchant_already_live_checkout_off',
             $merchantId,
             'partner',
             $partnerKey,
-            'checkout_enabled=' . ($enabled ? '1' : '0')
+            'checkout_enabled=' . ($enabled ? '1' : '0') . ' env=' . strtolower((string)($row['env'] ?? 'test')),
+            null,
+            null,
+            true
         );
+        $db->commit();
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        logPlatformError('error', 'Merchant-owned partner checkout update failed.', [
+            'merchant_id' => $merchantId,
+            'partner_key' => $partnerKey,
+            'error_type' => get_class($e),
+        ]);
+        return ['ok' => false, 'error' => 'Could not update checkout flag.'];
+    }
+    return ['ok' => true];
+}
+
+/**
+ * Remove stored merchant-owned credentials and disable checkout without enabling platform-key fallback.
+ *
+ * @param array{actor_role?:string,actor_id?:int,confirm_revoke?:bool} $actor
+ */
+function revokeMerchantAlreadyLiveLink(int $merchantId, string $partnerKey, array $actor = []): array
+{
+    ensurePartnerControlTables();
+    $partnerKey = strtolower(trim($partnerKey));
+    if ($merchantId < 1 || $partnerKey === '') {
+        return ['ok' => false, 'error' => 'Invalid merchant or partner.'];
+    }
+    if (empty($actor['confirm_revoke'])) {
+        return ['ok' => false, 'error' => 'Confirm that the saved credentials should be removed and checkout disabled.'];
+    }
+    $requestedActorRole = strtolower(trim((string)($actor['actor_role'] ?? 'merchant')));
+    $actorRole = $requestedActorRole === 'admin' && (int)($_SESSION['admin_id'] ?? 0) > 0 ? 'admin' : 'merchant';
+    $actorId = (int)($actor['actor_id'] ?? 0);
+    $db = getDB();
+    try {
+        $db->beginTransaction();
+        $st = $db->prepare('SELECT * FROM partner_merchant_links WHERE merchant_id=? AND partner_key=? FOR UPDATE');
+        $st->execute([$merchantId, $partnerKey]);
+        $row = $st->fetch();
+        if (!$row) {
+            $db->rollBack();
+            return ['ok' => false, 'error' => 'Not linked.'];
+        }
+        if (strtolower(trim((string)($row['account_source'] ?? 'platform'))) !== 'linked') {
+            $db->rollBack();
+            return ['ok' => false, 'error' => 'This is not a merchant-owned partner link.'];
+        }
+        $db->prepare(
+            "UPDATE partner_merchant_links
+             SET account_source='linked', partner_mid=NULL, external_id=NULL,
+                 credential_status='missing', encrypted_payload=NULL, last4='',
+                 checkout_enabled=0, owner_override=0, linked_by=?, linked_by_id=?
+             WHERE merchant_id=? AND partner_key=?"
+        )->execute([$actorRole, $actorId > 0 ? $actorId : null, $merchantId, $partnerKey]);
+        if (!function_exists('recordImmutableAudit')) {
+            require_once __DIR__ . '/ops_security.php';
+        }
+        if (!function_exists('recordImmutableAudit')) {
+            throw new RuntimeException('Immutable audit logging is unavailable.');
+        }
+        recordImmutableAudit(
+            'merchant_already_live_credentials_revoked',
+            $merchantId,
+            'partner',
+            $partnerKey,
+            'credentials_removed=1 checkout_enabled=0 account_source=linked',
+            !empty($row['encrypted_payload']) ? hash('sha256', (string)$row['encrypted_payload']) : null,
+            null,
+            true
+        );
+        $db->commit();
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        logPlatformError('error', 'Merchant-owned partner credential revocation failed.', [
+            'merchant_id' => $merchantId,
+            'partner_key' => $partnerKey,
+            'error_type' => get_class($e),
+        ]);
+        return ['ok' => false, 'error' => 'Could not revoke saved credentials.'];
     }
     return ['ok' => true];
 }
@@ -1327,9 +1473,17 @@ function decryptMerchantPartnerLinkCredentials(?array $link): array
     if (!$link || trim((string)($link['encrypted_payload'] ?? '')) === '') {
         return [];
     }
-    $raw = function_exists('sensitiveDecrypt')
-        ? (string)sensitiveDecrypt((string)$link['encrypted_payload'])
-        : (string)base64_decode((string)$link['encrypted_payload']);
+    if (!function_exists('sensitiveDecrypt') || !function_exists('isSensitiveEncrypted')) {
+        require_once __DIR__ . '/crypto.php';
+    }
+    $stored = (string)$link['encrypted_payload'];
+    if (!function_exists('sensitiveDecrypt') || !function_exists('isSensitiveEncrypted') || !isSensitiveEncrypted($stored)) {
+        return [];
+    }
+    $raw = sensitiveDecrypt($stored);
+    if (!is_string($raw) || $raw === '') {
+        return [];
+    }
     $decoded = json_decode($raw, true);
     return is_array($decoded) ? $decoded : [];
 }
@@ -1337,7 +1491,10 @@ function decryptMerchantPartnerLinkCredentials(?array $link): array
 function merchantHasAlreadyLivePayload(int $merchantId, string $partnerKey): bool
 {
     $link = getMerchantPartnerLinkRow($merchantId, $partnerKey);
-    return $link !== null && trim((string)($link['encrypted_payload'] ?? '')) !== '';
+    // Keep an explicitly linked (including revoked) merchant account from silently switching to platform keys.
+    return $link !== null
+        && (strtolower(trim((string)($link['account_source'] ?? ''))) === 'linked'
+            || trim((string)($link['encrypted_payload'] ?? '')) !== '');
 }
 
 /**
@@ -1370,7 +1527,7 @@ function merchantAlreadyLiveCollectReady(int $merchantId, string $partnerKey, bo
 
 /**
  * Collect credentials: merchant LINK when they enabled checkout, else platform vault.
- * If the merchant has a LINK payload for this partner, never fall back to UniWeb platform keys.
+ * An explicit merchant link, including a revoked link, never silently falls back to platform keys.
  *
  * @return array<string,mixed>
  */

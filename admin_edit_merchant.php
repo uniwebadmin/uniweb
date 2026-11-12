@@ -106,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             'actor_id' => (int)($_SESSION['admin_id'] ?? 0),
             'actor_email' => (string)($_SESSION['staff_email'] ?? $_SESSION['admin_email'] ?? 'admin'),
             'owner_override' => isset($_POST['owner_override']),
+            'merchant_consent' => isset($_POST['merchant_consent']),
         ]);
         $msg = !empty($result['ok'])
             ? ('Already-live link saved. Status: ' . strtoupper((string)($result['credential_status'] ?? '')) . (!empty($result['last4']) ? ' · last4 ***' . $result['last4'] : ''))
@@ -114,6 +115,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             $msg .= ' — ' . $result['message'];
         }
         flash(!empty($result['ok']) ? 'success' : 'error', $msg);
+        redirect('admin_edit_merchant.php?id=' . $id . '#already-live');
+    }
+
+    if ($adminAction === 'already_live_revoke' && function_exists('revokeMerchantAlreadyLiveLink')) {
+        $pk = strtolower(trim((string)($_POST['partner_key'] ?? '')));
+        $result = revokeMerchantAlreadyLiveLink($id, $pk, [
+            'actor_role' => 'admin',
+            'actor_id' => (int)($_SESSION['admin_id'] ?? 0),
+            'confirm_revoke' => isset($_POST['confirm_revoke']),
+        ]);
+        flash(!empty($result['ok']) ? 'success' : 'error', !empty($result['ok'])
+            ? 'Saved credentials removed and checkout disabled. Revoke these keys in the partner dashboard too.'
+            : ($result['error'] ?? 'Could not revoke saved credentials.'));
         redirect('admin_edit_merchant.php?id=' . $id . '#already-live');
     }
 
@@ -476,6 +490,18 @@ $methodCatalog = getPaymentMethodCatalog();
                         <?php endif; ?>
                     </form>
                     <?php endif; ?>
+                    <?php if ($link && (!empty($link['encrypted_payload']) || strtolower((string)($link['credential_status'] ?? 'missing')) !== 'missing' || $checkoutEnabled)): ?>
+                    <form method="POST" class="ml-auto flex items-center gap-2">
+                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                        <input type="hidden" name="admin_action" value="already_live_revoke">
+                        <input type="hidden" name="partner_key" value="<?= e($ak) ?>">
+                        <label class="text-[10px] text-amber-300/90">
+                            <input type="checkbox" name="confirm_revoke" value="1" required class="rounded border-gray-600">
+                            Confirm revoke
+                        </label>
+                        <button type="submit" class="text-[10px] px-2 py-1 rounded-lg border border-red-500/30 text-red-300">Remove credentials</button>
+                    </form>
+                    <?php endif; ?>
                 </div>
                 <?php endforeach; ?>
             </div>
@@ -499,6 +525,10 @@ $methodCatalog = getPaymentMethodCatalog();
                 <label class="flex items-center gap-2 text-[11px] text-amber-200/90">
                     <input type="checkbox" name="owner_override" class="rounded border-gray-600">
                     Owner override (mark Linked if Test Connection cannot pass)
+                </label>
+                <label class="flex items-start gap-2 text-[11px] text-amber-200/90">
+                    <input type="checkbox" name="merchant_consent" value="1" required class="mt-0.5 rounded border-gray-600">
+                    I confirmed this is the merchant&rsquo;s existing account and they authorize UniWeb to store and use these credentials for payment processing.
                 </label>
                 <button type="submit" class="btn-primary w-full text-xs py-2">Save encrypted keys and verify</button>
             </form>

@@ -30,6 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             'actor_id' => $merchantId,
             'actor_email' => (string)($merchant['email'] ?? ''),
             'owner_override' => false,
+            'merchant_consent' => isset($_POST['merchant_consent']),
         ]);
         $msg = !empty($result['ok'])
             ? ('Link saved. Status: ' . strtoupper((string)($result['credential_status'] ?? '')) . (!empty($result['last4']) ? ' · last4 ***' . $result['last4'] : ''))
@@ -38,6 +39,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verifyCsrf($_POST['csrf_token'] ?? 
             $msg .= ' — ' . $result['message'];
         }
         flash(!empty($result['ok']) ? (($result['credential_status'] ?? '') === 'valid' ? 'success' : 'warning') : 'error', $msg);
+        redirect('payment_methods.php#already-live');
+    }
+
+    if ($action === 'already_live_revoke' && function_exists('revokeMerchantAlreadyLiveLink')) {
+        $pk = strtolower(trim((string)($_POST['partner_key'] ?? '')));
+        $result = revokeMerchantAlreadyLiveLink($merchantId, $pk, [
+            'actor_role' => 'merchant',
+            'actor_id' => $merchantId,
+            'confirm_revoke' => isset($_POST['confirm_revoke']),
+        ]);
+        flash(!empty($result['ok']) ? 'success' : 'error', !empty($result['ok'])
+            ? 'Saved credentials removed and checkout disabled. Revoke these keys in the partner dashboard too.'
+            : ($result['error'] ?? 'Could not revoke saved credentials.'));
         redirect('payment_methods.php#already-live');
     }
 
@@ -265,6 +279,19 @@ require_once __DIR__ . '/header.php';
                 <?php elseif ($link && $state === 'keys_invalid'): ?>
                 <p class="text-[11px] text-amber-400/90 mt-2">Enable for checkout is not available until keys are Valid.</p>
                 <?php endif; ?>
+                <?php if ($link && (!empty($link['encrypted_payload']) || strtolower((string)($link['credential_status'] ?? 'missing')) !== 'missing' || (int)($link['checkout_enabled'] ?? 0) === 1)): ?>
+                <form method="POST" class="mt-3 border-t border-gray-800 pt-3">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="action" value="already_live_revoke">
+                    <input type="hidden" name="partner_key" value="<?= e($ak) ?>">
+                    <label class="flex items-start gap-2 text-[11px] text-amber-300/90">
+                        <input type="checkbox" name="confirm_revoke" value="1" required class="mt-0.5 rounded border-gray-600">
+                        Remove saved credentials and disable this partner for checkout
+                    </label>
+                    <button type="submit" class="mt-2 text-xs px-3 py-1.5 rounded-lg border border-red-500/30 text-red-300">Revoke saved link</button>
+                    <p class="text-[10px] text-gray-500 mt-1">This removes UniWeb&rsquo;s stored copy only. Revoke the API keys in the partner dashboard as well.</p>
+                </form>
+                <?php endif; ?>
             </div>
             <?php endforeach; ?>
         </div>
@@ -306,6 +333,10 @@ require_once __DIR__ . '/header.php';
                     </select>
                 </div>
             </div>
+            <label class="flex items-start gap-2 text-[11px] text-amber-200/90">
+                <input type="checkbox" name="merchant_consent" value="1" required class="mt-0.5 rounded border-gray-600">
+                I confirm this is my business&rsquo;s existing partner account and authorize UniWeb to store these credentials encrypted and use them for payment processing.
+            </label>
             <button type="submit" class="btn-primary px-6 py-2.5">Save encrypted keys and verify</button>
             <p class="text-[11px] text-gray-600">Where a live Test Connection exists, status becomes Valid or Invalid from the partner. Other partners store keys encrypted and stay Invalid until a probe exists or Admin override.</p>
             <p class="text-[11px] text-gray-500 mt-2">After Enable for checkout, paste this webhook URL in <strong class="text-gray-400">your</strong> partner dashboard so payment confirmation reaches UniWeb (not UniWeb&rsquo;s keys):</p>

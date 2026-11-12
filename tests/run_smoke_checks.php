@@ -843,11 +843,58 @@ $v2Retire = (string)file_get_contents($root . '/includes/partner_registry_v2.php
 $assert(str_contains($v2Retire, 'function retirePartnerRegistryRow') && str_contains($v2Retire, 'Built-in partners cannot be retired') && str_contains($v2Retire, 'function partnerRegistryIsProtectedFromRetire'), 'partner_retire_helper');
 $pcLive = (string)file_get_contents($root . '/includes/partner_control.php');
 $assert(str_contains($pcLive, 'function saveMerchantAlreadyLiveLink') && str_contains($pcLive, 'account_source'), 'already_live_link_helper');
-$alSlice = substr($pcLive, (int)strpos($pcLive, 'function saveMerchantAlreadyLiveLink'), 8000);
+$saveStart = (int)strpos($pcLive, 'function saveMerchantAlreadyLiveLink');
+$saveEnd = (int)strpos($pcLive, 'function setMerchantAlreadyLiveCheckoutEnabled');
+$alSlice = substr($pcLive, $saveStart, $saveEnd - $saveStart);
+$saveSlice = $alSlice;
 $assert(str_contains($alSlice, "'linked'") && !str_contains($alSlice, 'createSubMerchant') && !str_contains($alSlice, 'create_submerchant'), 'already_live_no_submerchant');
+$assert(str_contains($saveSlice, 'merchant_consent')
+    && str_contains($saveSlice, 'JSON_THROW_ON_ERROR')
+    && str_contains($saveSlice, 'isSensitiveEncrypted')
+    && !str_contains($saveSlice, 'base64_encode')
+    && !str_contains($saveSlice, 'base64_decode'),
+    'already_live_encryption_and_consent_fail_closed');
+$assert(str_contains($saveSlice, '$db->beginTransaction()')
+    && str_contains($saveSlice, 'recordImmutableAudit(')
+    && str_contains($saveSlice, 'hash(\'sha256\', $encrypted)')
+    && str_contains($saveSlice, '            true'),
+    'already_live_save_audit_is_atomic');
+$assert(str_contains($saveSlice, '$checkout = 0;')
+    && !str_contains($saveSlice, '$checkout = 1'),
+    'already_live_credential_changes_require_explicit_checkout_enable');
+$revokeStart = (int)strpos($pcLive, 'function revokeMerchantAlreadyLiveLink');
+$revokeEnd = (int)strpos($pcLive, 'function decryptMerchantPartnerLinkCredentials', $revokeStart);
+$revokeSlice = substr($pcLive, $revokeStart, $revokeEnd - $revokeStart);
+$assert(str_contains($revokeSlice, 'encrypted_payload=NULL')
+    && str_contains($revokeSlice, 'checkout_enabled=0')
+    && str_contains($revokeSlice, '$db->beginTransaction()')
+    && str_contains($revokeSlice, 'recordImmutableAudit(')
+    && str_contains($revokeSlice, '            true')
+    && str_contains($revokeSlice, 'account_source=\'linked\''),
+    'already_live_revoke_disables_and_audits');
+$toggleStart = (int)strpos($pcLive, 'function setMerchantAlreadyLiveCheckoutEnabled');
+$toggleEnd = (int)strpos($pcLive, 'function revokeMerchantAlreadyLiveLink', $toggleStart);
+$toggleSlice = substr($pcLive, $toggleStart, $toggleEnd - $toggleStart);
+$assert(str_contains($toggleSlice, '$db->beginTransaction()')
+    && str_contains($toggleSlice, 'recordImmutableAudit(')
+    && str_contains($toggleSlice, '            true'),
+    'already_live_checkout_toggle_audit_is_atomic');
+$assert(str_contains($pcLive, 'function revokeMerchantAlreadyLiveLink')
+    && str_contains((string)file_get_contents($root . '/payment_methods.php'), 'name="merchant_consent"')
+    && str_contains((string)file_get_contents($root . '/payment_methods.php'), 'name="confirm_revoke"')
+    && str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'name="merchant_consent"')
+    && str_contains((string)file_get_contents($root . '/admin_edit_merchant.php'), 'name="confirm_revoke"'),
+    'already_live_merchant_and_admin_consent_rotation_revoke_ui');
+$cashfreeStart = (int)strpos($pcLive, "if (\$partnerKey === 'cashfree')");
+$cashfreeSlice = substr($pcLive, $cashfreeStart, 1900);
+$assert(str_contains($cashfreeSlice, '$http >= 200 && $http < 300')
+    && !str_contains($cashfreeSlice, '[200, 400, 404, 422]'),
+    'already_live_cashfree_requires_success_response');
+$assert(str_contains($pcLive, "strtolower(trim((string)(\$link['account_source'] ?? ''))) === 'linked'"),
+    'already_live_revoked_link_blocks_platform_key_fallback');
 $assert(str_contains($pcLive, 'function listAlreadyLiveLinkablePartners(int $merchantId = 0)')
     && str_contains($pcLive, 'Cannot enable checkout: partner is unavailable or its integration is paused.')
-    && str_contains($alSlice, 'or its integration is paused'),
+    && str_contains($pcLive, 'or its integration is paused'),
     'hybrid_pause_blocks_new_link_and_checkout_activation');
 $assert(str_contains((string)file_get_contents($root . '/payment_methods.php'), 'already_live_link') && str_contains((string)file_get_contents($root . '/payment_methods.php'), 'I already have an account'), 'merchant_already_live_ui');
 $assert(str_contains((string)file_get_contents($root . '/payment_methods.php'), 'listAlreadyLiveLinkablePartners($merchantId)')
