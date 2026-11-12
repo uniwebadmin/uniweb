@@ -582,8 +582,16 @@ require_once __DIR__ . '/header.php';
                 <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
                 <input type="hidden" name="action" value="advance_partner_lifecycle">
                 <input type="hidden" name="target_status" value="resume">
+                <?php if (($gateway['lifecycle_resume_status'] ?? '') === 'live'): ?>
+                <div class="my-3 space-y-2">
+                    <p class="text-[11px] text-amber-200/90">Reconfirm each approval before restoring LIVE readiness. Ensure the supporting evidence is recorded in the approved system.</p>
+                    <label class="flex items-start gap-2 text-xs text-gray-300"><input type="checkbox" name="sandbox_certified" required class="mt-0.5 rounded border-gray-600"> Sandbox certification remains valid.</label>
+                    <label class="flex items-start gap-2 text-xs text-gray-300"><input type="checkbox" name="contract_approved" required class="mt-0.5 rounded border-gray-600"> Commercial and legal production approval remains valid.</label>
+                    <label class="flex items-start gap-2 text-xs text-gray-300"><input type="checkbox" name="live_keys_validated" required class="mt-0.5 rounded border-gray-600"> Production credentials have been revalidated.</label>
+                </div>
+                <?php endif; ?>
                 <button type="submit" class="text-xs px-3 py-2 rounded-lg bg-sky-500/15 text-sky-300 border border-sky-500/30">Resume to <?= e(strtoupper((string)($gateway['lifecycle_resume_status'] ?? 'previous status'))) ?></button>
-                <span class="ml-2 text-[11px] text-gray-500">Super Admin/CEO only. Returns to the prior lifecycle status; credentials are rechecked before resuming LIVE readiness.</span>
+                <span class="ml-2 text-[11px] text-gray-500">Super Admin/CEO only. Returns to the prior lifecycle status; credentials and required approvals are rechecked before resuming LIVE readiness.</span>
             </form>
             <?php elseif ($integrationStatus === 'retired'): ?>
             <p class="text-xs text-slate-300">This partner is retired. Lifecycle changes and routing activation are disabled.</p>

@@ -2625,18 +2625,31 @@ $assert(empty(partnerRegistryLifecycleTransitionGate('paused', 'live', [
     'test_credentials_valid' => true,
     'live_credentials_valid' => true,
 ])['allowed']), 'prv2_lifecycle_pause_restores_prior_status_only');
-$assert(!empty(partnerRegistryLifecycleTransitionGate('paused', 'live', [
+$pausedLiveChecks = [
     'resume_status' => 'live',
     'adapter_wired' => true,
     'test_credentials_valid' => true,
     'live_credentials_valid' => true,
-])['allowed']), 'prv2_lifecycle_resume_live_requires_current_credentials');
+];
+$assert(empty(partnerRegistryLifecycleTransitionGate('paused', 'live', $pausedLiveChecks)['allowed']), 'prv2_lifecycle_resume_live_requires_fresh_approvals');
+$pausedLiveChecks += [
+    'sandbox_certified' => true,
+    'contract_approved' => true,
+    'live_keys_validated' => true,
+];
+$assert(!empty(partnerRegistryLifecycleTransitionGate('paused', 'live', $pausedLiveChecks)['allowed']), 'prv2_lifecycle_resume_live_requires_current_credentials_and_approvals');
+$pausedLiveChecks['contract_approved'] = false;
+$assert(empty(partnerRegistryLifecycleTransitionGate('paused', 'live', $pausedLiveChecks)['allowed']), 'prv2_lifecycle_resume_live_blocks_missing_contract_approval');
 $assert(empty(partnerRegistryLifecycleTransitionGate('paused', 'live', [
     'resume_status' => 'live',
     'adapter_wired' => true,
     'test_credentials_valid' => true,
     'live_credentials_valid' => false,
 ])['allowed']), 'prv2_lifecycle_resume_live_blocks_invalid_credentials');
+$detailSource = (string)file_get_contents($root . '/admin_gateway_detail.php');
+$assert(str_contains($detailSource, "name=\"sandbox_certified\" required")
+    && str_contains($detailSource, 'Reconfirm each approval before restoring LIVE readiness'),
+    'admin_gateway_detail_resume_live_requires_fresh_approval');
 $assert(empty(partnerRegistryLifecycleTransitionGate('retired', 'paused', [])['allowed']), 'prv2_lifecycle_retired_terminal');
 $assert(empty(partnerRegistryLifecycleTransitionGate('live', 'retired', [])['allowed']), 'prv2_lifecycle_retirement_uses_guarded_action');
 $assert(partnerRegistryV2NormalizeCountries('in, AE;in') === ['IN', 'AE'], 'prv2_country_codes_normalized');

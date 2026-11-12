@@ -637,6 +637,11 @@ function partnerRegistryLifecycleTransitionGate(string $current, string $target,
             || empty($checks['live_credentials_valid']))) {
             return ['allowed' => false, 'reason' => 'Wired connector and currently verified Test and Live credentials are required to resume LIVE readiness.'];
         }
+        if ($target === 'live' && (empty($checks['sandbox_certified'])
+            || empty($checks['contract_approved'])
+            || empty($checks['live_keys_validated']))) {
+            return ['allowed' => false, 'reason' => 'Reconfirm sandbox certification, commercial/legal approval, and live-key validation before resuming LIVE readiness.'];
+        }
         return ['allowed' => true, 'reason' => ''];
     }
     if ($target === 'sandbox' && in_array($current, ['draft', 'legacy_unverified'], true)) {
@@ -723,12 +728,6 @@ function advancePartnerRegistryLifecycle(int $gatewayId, string $target, array $
     }
 
     $resumeStatus = $target === 'paused' ? $current : null;
-    $update = getDB()->prepare('UPDATE gateway_registry SET integration_status=?, lifecycle_resume_status=?, lifecycle_updated_at=NOW(), lifecycle_updated_by=? WHERE id=? AND integration_status=?');
-    $update->execute([$target, $resumeStatus, $adminId, $gatewayId, $current]);
-    if ($update->rowCount() !== 1) {
-        return ['ok' => false, 'message' => 'Partner lifecycle changed during this request. Reload and try again.'];
-    }
-
     $detail = json_encode([
         'from' => $current,
         'to' => $target,
@@ -738,12 +737,58 @@ function advancePartnerRegistryLifecycle(int $gatewayId, string $target, array $
             'live_keys_validated' => $checks['live_keys_validated'],
         ],
     ], JSON_UNESCAPED_UNICODE);
-    if (function_exists('recordImmutableAudit')) {
-        recordImmutableAudit('partner_lifecycle_advanced', null, 'gateway', $key, (string)$detail);
+    if (!function_exists('recordImmutableAudit')) {
+        return ['ok' => false, 'message' => 'Required immutable audit logging is unavailable. No lifecycle change was made.'];
     }
-    if (function_exists('logStaffActivity')) {
-        logStaffActivity('partner_lifecycle_advanced', 'Partner lifecycle ' . $current . ' → ' . $target . ' for ' . $key, null, 'partner', $key);
+
+    $db = getDB();
+    $ownsTransaction = !$db->inTransaction();
+    $savepointCreated = false;
+    $concurrentChange = false;
+    try {
+        if ($ownsTransaction) {
+            $db->beginTransaction();
+        } else {
+            $db->exec('SAVEPOINT partner_lifecycle_advance');
+            $savepointCreated = true;
+        }
+
+        $update = $db->prepare('UPDATE gateway_registry SET integration_status=?, lifecycle_resume_status=?, lifecycle_updated_at=NOW(), lifecycle_updated_by=? WHERE id=? AND integration_status=?');
+        $update->execute([$target, $resumeStatus, $adminId, $gatewayId, $current]);
+        if ($update->rowCount() !== 1) {
+            $concurrentChange = true;
+            throw new RuntimeException('Partner lifecycle changed during this request.');
+        }
+
+        recordImmutableAudit('partner_lifecycle_advanced', null, 'gateway', $key, (string)$detail, null, null, true);
+        if ($ownsTransaction) {
+            $db->commit();
+        } else {
+            $db->exec('RELEASE SAVEPOINT partner_lifecycle_advance');
+            $savepointCreated = false;
+        }
+    } catch (Throwable $e) {
+        try {
+            if ($ownsTransaction && $db->inTransaction()) {
+                $db->rollBack();
+            } elseif ($savepointCreated && $db->inTransaction()) {
+                $db->exec('ROLLBACK TO SAVEPOINT partner_lifecycle_advance');
+                $db->exec('RELEASE SAVEPOINT partner_lifecycle_advance');
+            }
+        } catch (Throwable $rollbackError) {
+            error_log('Partner lifecycle rollback failed for ' . $key . ': ' . $rollbackError->getMessage());
+        }
+        if (!$concurrentChange) {
+            error_log('Partner lifecycle update/audit failed for ' . $key . ': ' . $e->getMessage());
+        }
+        return [
+            'ok' => false,
+            'message' => $concurrentChange
+                ? 'Partner lifecycle changed during this request. Reload and try again.'
+                : 'Could not safely save the lifecycle change and its audit record. No change was confirmed.',
+        ];
     }
+
     $message = $target === 'paused'
         ? 'Partner paused. Existing routing was left unchanged.'
         : 'Partner integration lifecycle resumed at ' . strtoupper($target) . '.';

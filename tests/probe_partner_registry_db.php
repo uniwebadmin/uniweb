@@ -47,6 +47,7 @@ foreach ($requiredMigrations as $version) {
 }
 
 $partnerCode = 'p1a_probe_' . bin2hex(random_bytes(6));
+$originalAdminId = $_SESSION['admin_id'] ?? null;
 $input = [
     'partner_code' => $partnerCode,
     'display_name' => 'Point 1A Database Probe',
@@ -95,6 +96,7 @@ $input = [
 
 $db->beginTransaction();
 try {
+    $_SESSION['admin_id'] = 4242;
     $created = registerPartnerRegistryV2($input, 4242);
     if (empty($created['ok'])) {
         throw new RuntimeException('Registry create failed: ' . (string)($created['message'] ?? 'unknown error'));
@@ -139,6 +141,19 @@ try {
         'profile_passes_completeness_gate' => partnerRegistryV2ProfileIsComplete($row),
     ];
 
+    $pauseResult = advancePartnerRegistryLifecycle($gatewayId, 'paused', [], 4242);
+    $resumeResult = advancePartnerRegistryLifecycle($gatewayId, 'resume', [], 4242);
+    $lifecycleRowQuery = $db->prepare('SELECT integration_status, lifecycle_updated_by FROM gateway_registry WHERE id=? LIMIT 1');
+    $lifecycleRowQuery->execute([$gatewayId]);
+    $lifecycleRow = $lifecycleRowQuery->fetch(PDO::FETCH_ASSOC);
+    $auditQuery = $db->prepare("SELECT COUNT(*) FROM immutable_audit_log WHERE action='partner_lifecycle_advanced' AND resource_type='gateway' AND resource_id=?");
+    $auditQuery->execute([$partnerCode]);
+    $checks['lifecycle_pause_resume_is_audited'] = !empty($pauseResult['ok'])
+        && !empty($resumeResult['ok'])
+        && (string)$lifecycleRow['integration_status'] === 'draft'
+        && (int)$lifecycleRow['lifecycle_updated_by'] === 4242
+        && (int)$auditQuery->fetchColumn() === 2;
+
     $failed = array_keys(array_filter($checks, static fn(bool $passed): bool => !$passed));
     if ($failed !== []) {
         throw new RuntimeException('Registry DB probe failed checks: ' . implode(', ', $failed));
@@ -147,5 +162,10 @@ try {
 } finally {
     if ($db->inTransaction()) {
         $db->rollBack();
+    }
+    if ($originalAdminId === null) {
+        unset($_SESSION['admin_id']);
+    } else {
+        $_SESSION['admin_id'] = $originalAdminId;
     }
 }

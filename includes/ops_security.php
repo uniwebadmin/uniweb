@@ -38,7 +38,8 @@ function recordImmutableAudit(
     ?string $resourceId = null,
     ?string $reason = null,
     ?string $beforeHash = null,
-    ?string $afterHash = null
+    ?string $afterHash = null,
+    bool $throwOnFailure = false
 ): string {
     $eventId = 'AUD-' . strtoupper(bin2hex(random_bytes(10)));
     $adminId = (int)($_SESSION['admin_id'] ?? 0);
@@ -66,6 +67,9 @@ function recordImmutableAudit(
         ]);
     } catch (Throwable $e) {
         logPlatformError('warning', 'Immutable audit write failed: ' . $e->getMessage(), ['action' => $action]);
+        if ($throwOnFailure) {
+            throw $e;
+        }
     }
     if ($adminId > 0 && function_exists('logStaffActivity')) {
         logStaffActivity($action, (string)($reason ?? ''), $merchantId, $resourceType, $resourceId);
