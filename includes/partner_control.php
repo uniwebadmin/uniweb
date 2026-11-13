@@ -1666,11 +1666,31 @@ function collectCredentialContextSandbox(): bool
 function isCollectPartnerConfigured(string $partnerKey, int $merchantId = 0, ?bool $sandbox = null): bool
 {
     $partnerKey = strtolower(trim($partnerKey));
-    if ($merchantId > 0 && merchantHasAlreadyLivePayload($merchantId, $partnerKey)) {
+    if ($merchantId > 0) {
         if ($sandbox === null) {
             $sandbox = collectCredentialContextSandbox();
         }
-        return merchantAlreadyLiveCollectReady($merchantId, $partnerKey, (bool)$sandbox);
+        if (!function_exists('registryPartnerGatewayRow') && is_file(__DIR__ . '/partner_registry_v2.php')) {
+            require_once __DIR__ . '/partner_registry_v2.php';
+        }
+        if (function_exists('registryPartnerGatewayRow') && function_exists('partnerRegistryResolveCollectAccountRoute')) {
+            $gatewayRow = registryPartnerGatewayRow($partnerKey);
+            if ($gatewayRow !== null) {
+                $hasMerchantLink = merchantHasAlreadyLivePayload($merchantId, $partnerKey);
+                $merchantLinkReady = $hasMerchantLink
+                    && merchantAlreadyLiveCollectReady($merchantId, $partnerKey, (bool)$sandbox);
+                $accountRoute = partnerRegistryResolveCollectAccountRoute($gatewayRow, $hasMerchantLink, $merchantLinkReady);
+                if ($accountRoute === 'linked_existing') {
+                    return true;
+                }
+                if ($accountRoute !== 'platform') {
+                    return false;
+                }
+            }
+        }
+        if (merchantHasAlreadyLivePayload($merchantId, $partnerKey)) {
+            return merchantAlreadyLiveCollectReady($merchantId, $partnerKey, (bool)$sandbox);
+        }
     }
     if ($merchantId > 0) {
         if ($sandbox === null) {

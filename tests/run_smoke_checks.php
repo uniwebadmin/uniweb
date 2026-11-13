@@ -2715,6 +2715,15 @@ $assert(partnerRegistryResolveCollectAccountRoute(['gateway_key' => 'route_pg', 
 $assert(partnerRegistryResolveCollectAccountRoute(['gateway_key' => 'route_pg', 'contract_mode' => 'hybrid', 'integration_status' => 'paused'], true, true) === 'blocked'
     && partnerRegistryResolveCollectAccountRoute(['gateway_key' => 'route_pg', 'contract_mode' => 'linked_existing'], false, false) === 'blocked',
     'checkout_account_route_lifecycle_and_no_platform_fallback');
+$partnerControlSource = (string)file_get_contents($root . '/includes/partner_control.php');
+$collectConfiguredStart = strpos($partnerControlSource, 'function isCollectPartnerConfigured');
+$collectConfiguredEnd = strpos($partnerControlSource, 'function merchantHasCollectPgReady', $collectConfiguredStart === false ? 0 : $collectConfiguredStart);
+$collectConfiguredSource = $collectConfiguredStart !== false && $collectConfiguredEnd !== false
+    ? substr($partnerControlSource, $collectConfiguredStart, $collectConfiguredEnd - $collectConfiguredStart)
+    : '';
+$assert(str_contains($collectConfiguredSource, 'partnerRegistryResolveCollectAccountRoute')
+    && str_contains($collectConfiguredSource, "if (\$accountRoute !== 'platform')"),
+    'collect_credentials_respect_registry_account_route');
 $accountRouteSource = (string)file_get_contents($root . '/includes/partner_registry_v2.php');
 $assert(str_contains($accountRouteSource, 'partnerRegistryResolveCollectAccountRoute($gatewayRow, $hasMerchantLink, $merchantLinkReady)')
     && str_contains($accountRouteSource, 'partnerCredentialEnvironmentMatchesMode(partnerActiveEnvironment($partnerKey, \'\'), $sandbox)')
